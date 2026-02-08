@@ -1,0 +1,9 @@
+earthengine-api
+geopandas
+fiona
+pyproj
+shapely
+pandas
+numpy
+tqdm
+rasterio

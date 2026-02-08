@@ -1,0 +1,2 @@
+roi_shapefile_path,start_date,end_date,cloud_threshold,valid_pixel_threshold,output_epsg,lst_method,gee_project_id
+data\GISData\ROI\osaka\N03-19_27_190101.shp,2023-07-01,2023-08-31,30,50,4326,smw,master-research-465403

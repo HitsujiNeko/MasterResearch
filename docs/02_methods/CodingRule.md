@@ -1,5 +1,15 @@
 # Pythonコーディング規約（研究プロジェクト用）
 
+**最終更新**: 2026-02-26  
+**関連ドキュメント**:  
+- AI指示書 → [.github/copilot-instructions.md](../../.github/copilot-instructions.md)  
+- 実装例 → [src/gee_calc_LST.py](../../src/gee_calc_LST.py)  
+- ドキュメント全体 → [docs/README.md](../README.md)
+
+**適用範囲**: プロジェクト内のすべてのPythonスクリプト
+
+---
+
 本ドキュメントは、研究プロジェクトにおけるPythonコードの品質と一貫性を確保するためのコーディング規約です。PEP 8に準拠し、プロジェクトの特性に合わせた追加ルールも定めます。
 
 ---

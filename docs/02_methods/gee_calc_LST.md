@@ -1,5 +1,17 @@
 # gee_calc_LST.py 仕様（Landsat 8 LST）
 
+**最終更新**: 2026-02-26  
+**関連ドキュメント**:  
+- 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
+- コーディング規約 → [CodingRule.md](CodingRule.md)  
+- 実装コード → [src/gee_calc_LST.py](../../src/gee_calc_LST.py)  
+- SMWモジュール → [src/module/lst_smw.py](../../src/module/lst_smw.py)  
+- ドキュメント全体 → [docs/README.md](../README.md)
+
+**前提知識**: GEE Python API、Landsat 8データ構造
+
+---
+
 ## 1. 概要
 Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出する。  
 `lst_method` により **Simple法** または **SMW法** を選択できるが、  

@@ -1,5 +1,17 @@
 # Landsat 8 LST算出レポート（GEE + Python）
 
+**最終更新**: 2026-02-26  
+**関連ドキュメント**:  
+- 研究計画 → [research_guide.md](../01_planning/research_guide.md)  
+- 実装仕様 → [gee_calc_LST.md](gee_calc_LST.md)  
+- SMW法の原典 → [previous_studies_report.md S1](../04_archive/previous_studies_report.md)  
+- 実装コード → [src/gee_calc_LST.py](../../src/gee_calc_LST.py)  
+- ドキュメント全体 → [docs/README.md](../README.md)
+
+**前提知識**: RQ1-RQ3の理解、GEEの基礎知識
+
+---
+
 ## 1. 目的
 Landsat 8の地表面温度（LST: Land Surface Temperature）を、Google Earth Engine（GEE）とPythonで算出する。  
 本レポートはErmida et al. (2020) のSMW（Statistical Mono-Window）法に準拠した実装内容と結果の記録を目的とする。

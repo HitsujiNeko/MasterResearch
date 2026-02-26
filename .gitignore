@@ -14,6 +14,7 @@ SSD/
 *.pyc
 *.pyo
 *.class
+*.pdf
 ## プロジェクト固有の無視設定
 *.qgz
 *.tif

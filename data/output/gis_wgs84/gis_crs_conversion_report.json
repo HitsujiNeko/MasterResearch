@@ -1,0 +1,8 @@
+[
+  {
+    "file": "merge_CS.gpkg",
+    "status": "success",
+    "error": null,
+    "feature_count_input": 20110,
+    "geometry_fix": {
+      "invalid_before": 

@@ -12,10 +12,6 @@ agent: agent
 - ドキュメントの体系化とアクセス性の向上
 
 
-## 🔗 関連ファイル
-- **元のマージスクリプト**: `src/merge_vector.py`
-- **DGNデータ内容確認結果**: `DGNファイル内容確定結果.md`
-
 ---
 
 <!-- 共通ルール（コーディング規約等）は .github/copilot-instructions.md に記載済み -->

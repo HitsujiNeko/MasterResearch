@@ -18,12 +18,15 @@ docs/
 │   └── research_guide.md                  # 研究計画書（RQ定義）
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
+│   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
+│   ├── calc_urban_params_guide.md         # calc_urban_params.py 詳細解説（Phase 2実装読解）
+│   ├── data_management_guide.md           # データ管理方針（Git/LFS/DVC運用）
 │   ├── calc_LST_report.md                 # LST算出レポート
 │   ├── gee_calc_LST.md                    # LST算出仕様書
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
-│   └── (今後追加予定)                      # 分析結果・図表
+│   └── data_preparation_status.md         # データ整備状況レポート
 │
 └── 04_archive/                            # 📦 アーカイブ
     ├── README.md                          # 文献管理システムガイド
@@ -49,11 +52,18 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 実装ファイル |
 |-----------|------|-----------|------------|
-| [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee_calc_LST.py` |
-| [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee_calc_LST.py` |
+| [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計 | `src/` 全スクリプト |
+| [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `calc_urban_params.py` 詳細解説 | 解析範囲設計、UTMグリッド化、被覆率/密度算出、近似と制約、改良方針 | `src/analysis/calc_urban_params.py` |
+| [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
+| [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
+| [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
 ### 📊 03_results - 研究結果
+
+| ファイル名 | 概要 | 主要な内容 | 自動生成元 |
+|-----------|------|-----------|-----------|
+| [data_preparation_status.md](03_results/data_preparation_status.md) | データ整備状況レポート | GIS/LSTデータのCRS・解像度・空間範囲、次ステップ | `src/analyze_data_status.py` |
 
 **今後追加予定**:
 - RQ1分析結果: 変数重要度ランキング、モデル性能
@@ -97,14 +107,19 @@ graph TB
     C --> G[literature_management_guide.md<br/>文献管理ガイド]
     
     E --> H[CodingRule.md<br/>コーディング規約]
+    E --> J[src/analyze_data_status.py<br/>データ分析]
+    
+    J --> K[data_preparation_status.md<br/>データ整備状況]
     
     A -.RQ1-3定義.-> I[03_results/<br/>分析結果]
-    B -.LSTデータ.-> I
+    B -.LSTデータ.-> K
+    K --> I
     
     style A fill:#e1f5ff,stroke:#0066cc
     style B fill:#fff4e1,stroke:#cc8800
     style C fill:#f0f0f0,stroke:#666
     style I fill:#e1ffe1,stroke:#00cc00
+    style K fill:#e1ffe1,stroke:#00cc00
 ```
 
 **凡例**:
@@ -212,7 +227,37 @@ graph TB
 ### 🎯 目的
 分析結果を体系的に整理し、論文執筆の基盤を構築する
 
-### 📝 今後追加予定のドキュメント
+### � ドキュメント詳細
+
+#### [data_preparation_status.md](03_results/data_preparation_status.md)
+**データ整備状況レポート** - データ分析フェーズへの準備状況の全体把握（464行）
+
+**主要セクション**:
+- データ整備の全体概況（完了・未完了・優先対応事項）
+- **GISデータ詳細**: 7種類のgpkgファイル（CS/DC/DH/GT/RG/TH/TV）
+  - CRS情報: LOCAL_CS → EPSG:3405 (VN-2000)推定
+  - 空間範囲: 投影座標（m）とWGS84（度）
+  - ジオメトリタイプ・地物数（合計180,417地物）
+- **LSTデータ詳細**: 
+  - SMW法による2023年7-8月データ（有効データ4件）
+  - 出力CRS: EPSG:4326、解像度30m
+  - ROI情報（Hanoi、範囲要確認）
+- **ディレクトリ構造**: データファイルの位置と役割
+- **次ステップ**: タスク1-6（CRS設定、ROI修正、ジオメトリ修復等）
+
+**自動生成元**: [src/analyze_data_status.py](../src/analyze_data_status.py)（GIS/LSTデータを自動分析）
+
+**活用場面**:
+- データ分析スクリプト作成時の入力データ仕様確認
+- AI支援時のデータ構造把握
+- 論文の「データと方法」セクション執筆
+
+**関連ドキュメント**:
+- 研究計画 → [research_guide.md](01_planning/research_guide.md)（RQ1-3の定義）
+- LST詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)（SMW法の選定理由）
+- コード規約 → [CodingRule.md](02_methods/CodingRule.md)（自動分析スクリプトの設計思想）
+
+### �📝 今後追加予定のドキュメント
 
 #### RQ別の分析結果
 - `rq1_variable_importance.md`: RQ1結果 - 説明変数の重要度ランキング

@@ -1,0 +1,5 @@
+dataset_id,city,period,variable,crs,resolution_m,created_at,created_by_script,drive_path,notes
+lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc_LST.py,MasterResearch_Data_LST_hanoi_2023,exported=True; cloud_cover=15.6
+lst_hanoi_20230801,hanoi,2023-08-01,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc_LST.py,MasterResearch_Data_LST_hanoi_2023,exported=True; cloud_cover=27.55
+lst_hanoi_20230810,hanoi,2023-08-10,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc_LST.py,MasterResearch_Data_LST_hanoi_2023,exported=True; cloud_cover=42.22
+lst_hanoi_20230826,hanoi,2023-08-26,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc_LST.py,MasterResearch_Data_LST_hanoi_2023,exported=True; cloud_cover=27.3

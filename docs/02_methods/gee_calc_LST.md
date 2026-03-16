@@ -1,6 +1,6 @@
 # gee_calc_LST.py 仕様（Landsat 8 LST）
 
-**最終更新**: 2026-02-26  
+**最終更新**: 2026-03-16  
 **関連ドキュメント**:  
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
 - コーディング規約 → [CodingRule.md](CodingRule.md)  
@@ -33,6 +33,9 @@ Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出す
 | `output_epsg` | 出力EPSG | `4326` |
 | `lst_method` | `simple` or `smw` | `smw` |
 | `gee_project_id` | GCPプロジェクトID | `YOUR_GCP_PROJECT_ID` |
+| `city_name` | 都市名（Driveフォルダ命名に使用） | `hanoi` |
+| `drive_root_folder` | Driveルート名（未指定時はMasterResearch_Data） | `MasterResearch_Data` |
+| `drive_export_folder` | エクスポート先フォルダ名の明示指定（任意） | `MasterResearch_Data_LST_hanoi_2023` |
 
 ### 2.2 ROI Shapefile
 現行コードは `load_roi_from_shapefile_jp()` を使用し、  
@@ -124,6 +127,12 @@ bit 3（影）、bit 4（雲）、bit 2（巻雲）が0の画素を残す。
 **ファイル名**: `LST_Landsat8_YYYYMMDD.tif`  
 **内容**: LST（摂氏）1バンド  
 **CRS**: CSVの `output_epsg` を使用
+
+**Google Drive出力先フォルダ**:
+- `drive_export_folder` が設定されている場合は、そのフォルダへ出力
+- 未設定の場合は以下の規則で自動生成
+  - `{drive_root_folder}_LST_{city_name}_{YYYY}`
+  - 例: `MasterResearch_Data_LST_hanoi_2023`
 
 ---
 

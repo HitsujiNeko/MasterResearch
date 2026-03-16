@@ -1,0 +1,51 @@
+{
+  "CS": {
+    "file": "merge_CS.gpkg",
+    "file_size_mb": 3.921875,
+    "layers": {},
+    "layer_count": 1,
+    "error": "'utf-8' codec can't decode byte 0xb6 in position 3: invalid start byte"
+  },
+  "DC": {
+    "file": "merge_DC.gpkg",
+    "file_size_mb": 158.4375,
+    "layers": {},
+    "layer_count": 1,
+    "error": "'utf-8' codec can't decode byte 0xe6 in position 1: invalid continuation byte"
+  },
+  "DH": {
+    "file": "merge_DH.gpkg",
+    "file_size_mb": 121.53515625,
+    "layers": {},
+    "layer_count": 1,
+    "error": "Error creating Transformer from CRS."
+  },
+  "GT": {
+    "file": "merge_GT.gpkg",
+    "file_size_mb": 92.296875,
+    "layers": {},
+    "layer_count": 1,
+    "error": "'utf-8' codec can't decode byte 0xae in position 0: invalid start byte"
+  },
+  "RG": {
+    "file": "merge_RG.gpkg",
+    "file_size_mb": 0.84765625,
+    "layers": {},
+    "layer_count": 1,
+    "error": "Error creating Transformer from CRS."
+  },
+  "TH": {
+    "file": "merge_TH.gpkg",
+    "file_size_mb": 103.984375,
+    "layers": {},
+    "layer_count": 1,
+    "error": "'utf-8' codec can't decode byte 0xae in position 0: invalid start byte"
+  },
+  "TV": {
+    "file": "merge_TV.gpkg",
+    "file_size_mb": 61.02734375,
+    "layers": {},
+    "layer_count": 1,
+    "error": "'utf-8' codec can't decode byte 0xb9 in position 1: invalid start byte"
+  }
+}

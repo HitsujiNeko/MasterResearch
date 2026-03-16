@@ -1,0 +1,5 @@
+﻿file,output_file,feature_count,crs,bounds_wgs84
+merge_CS.gpkg,merge_CS_wgs84.gpkg,20110,EPSG:4326,"{'lon_min': 105.783105, 'lat_min': 20.993929, 'lon_max': 105.867121, 'lat_max': 21.099977}"
+merge_DH.gpkg,merge_DH_wgs84.gpkg,104317,EPSG:4326,"{'lon_min': 105.001772, 'lat_min': 9.045544, 'lon_max': 105.866763, 'lat_max': 21.099089}"
+merge_RG.gpkg,merge_RG_wgs84.gpkg,721,EPSG:4326,"{'lon_min': 105.7834, 'lat_min': 20.99489, 'lon_max': 105.866763, 'lat_max': 21.099089}"
+merge_TH.gpkg,merge_TH_wgs84.gpkg,55269,EPSG:4326,"{'lon_min': 105.001772, 'lat_min': 9.045544, 'lon_max': 105.866763, 'lat_max': 21.099089}"

@@ -1,0 +1,145 @@
+{
+  "gis_data": {
+    "CS": {
+      "file": "merge_CS.gpkg",
+      "file_size_mb": 3.92,
+      "crs": "LOCAL_CS[\"Undefined SRS\",LOCAL_DATUM[\"unknown\",32767],UNIT[\"unknown\",0],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+      "crs_epsg": null,
+      "crs_assumed": "EPSG:3405",
+      "feature_count": 20110,
+      "geometry_types": {
+        "LineString": 11201,
+        "Point": 8407,
+        "Polygon": 502
+      },
+      "bounds": {
+        "minx": 581143.806,
+        "miny": 2321788.282,
+        "maxx": 589920.919,
+        "maxy": 2333565.233
+      },
+      "bounds_wgs84": {
+        "lon_min": 105.78310536206963,
+        "lat_min": 20.993929448363662,
+        "lon_max": 105.8671211378474,
+        "lat_max": 21.099977143490445
+      }
+    },
+    "DC": {
+      "error": "A linearring requires at least 4 coordinates."
+    },
+    "DH": {
+      "file": "merge_DH.gpkg",
+      "file_size_mb": 121.54,
+      "crs": "LOCAL_CS[\"Undefined SRS\",LOCAL_DATUM[\"unknown\",32767],UNIT[\"unknown\",0],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+      "crs_epsg": null,
+      "crs_assumed": null,
+      "feature_count": 104317,
+      "geometry_types": {
+        "LineString": 58048,
+        "Point": 46254,
+        "MultiLineString": 8,
+        "Polygon": 7
+      },
+      "bounds": {
+        "minx": 499999.10021244636,
+        "miny": 999999.1004966443,
+        "maxx": 589882.9700000001,
+        "maxy": 2333460.019
+      }
+    },
+    "GT": {
+      "error": "A linearring requires at least 4 coordinates."
+    },
+    "RG": {
+      "file": "merge_RG.gpkg",
+      "file_size_mb": 0.85,
+      "crs": "LOCAL_CS[\"Undefined SRS\",LOCAL_DATUM[\"unknown\",32767],UNIT[\"unknown\",0],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+      "crs_epsg": null,
+      "crs_assumed": "EPSG:3405",
+      "feature_count": 721,
+      "geometry_types": {
+        "LineString": 512,
+        "MultiLineString": 82,
+        "Polygon": 68,
+        "Point": 59
+      },
+      "bounds": {
+        "minx": 581174.924,
+        "miny": 2321890.4299999997,
+        "maxx": 589888.185,
+        "maxy": 2333462.569
+      },
+      "bounds_wgs84": {
+        "lon_min": 105.78339968779567,
+        "lat_min": 20.9948897467877,
+        "lon_max": 105.86676250178878,
+        "lat_max": 21.09908905013299
+      }
+    },
+    "TH": {
+      "file": "merge_TH.gpkg",
+      "file_size_mb": 103.98,
+      "crs": "LOCAL_CS[\"Undefined SRS\",LOCAL_DATUM[\"unknown\",32767],UNIT[\"unknown\",0],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+      "crs_epsg": null,
+      "crs_assumed": null,
+      "feature_count": 55269,
+      "geometry_types": {
+        "LineString": 53283,
+        "Polygon": 1502,
+        "Point": 442,
+        "MultiLineString": 42
+      },
+      "bounds": {
+        "minx": 499999.10021244636,
+        "miny": 999999.1004966443,
+        "maxx": 589882.098,
+        "maxy": 2333467.232
+      }
+    },
+    "TV": {
+      "error": "A linearring requires at least 4 coordinates."
+    }
+  },
+  "lst_data": {
+    "config": [
+      {
+        "roi_shapefile_path": "data\\GISData\\ROI\\hanoi\\hanoi_roi.shp",
+        "start_date": "2023-07-01",
+        "end_date": "2023-08-31",
+        "cloud_threshold": 30,
+        "valid_pixel_threshold": 50,
+        "output_epsg": 4326,
+        "lst_method": "smw",
+        "gee_project_id": "master-research-465403"
+      }
+    ],
+    "results_summary": {
+      "record_count": 6,
+      "exported_count": 4,
+      "valid_count": 4
+    },
+    "roi": {
+      "hanoi_roi": {
+        "file": "hanoi_roi.shp",
+        "crs_epsg": 4326,
+        "bounds_wgs84": {
+          "lon_min": 105.22566222885315,
+          "lat_min": 9.244904868405726,
+          "lon_max": 112.74212953499998,
+          "lat_max": 21.385222290909635
+        }
+      },
+      "N03-19_27_190101": {
+        "file": "N03-19_27_190101.shp",
+        "crs_epsg": 6668,
+        "bounds_wgs84": {
+          "lon_min": 135.09129805366229,
+          "lat_min": 34.271820829068076,
+          "lon_max": 135.7466030613822,
+          "lat_max": 35.051292774741796
+        }
+      }
+    }
+  }
+}

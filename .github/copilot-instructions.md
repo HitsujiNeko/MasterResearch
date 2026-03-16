@@ -54,15 +54,35 @@ MasterResearch/
 │   ├── merge/*.gpkg        # 統合GeoPackage
 │   └── Vector_*/           # 元データ（DGN）
 │
-├── src/                    # Pythonスクリプト
-│   ├── gee_calc_LST.py
-│   ├── module/lst_smw.py
-│   └── analysis_*.py
+├── src/                    # Pythonスクリプト（タイプ別フォルダ分類済み）
+│   ├── preprocessing/      # データ前処理
+│   │   ├── merge_vector.py / merge_vector_fixed.py
+│   │   ├── append_remaining_dgn.py
+│   │   ├── convert_gis_to_wgs84.py / convert_to_wgs84_ogr.py
+│   │   └── organize_dgn.py / merge_map.py
+│   ├── analysis/           # データ分析・EDA
+│   │   ├── analyze_data_status.py
+│   │   ├── analyze_gpkg.py / analyze_merged_gpkg.py
+│   │   └── analyze_lst_data_detail.py
+│   ├── gee/                # Google Earth Engine
+│   │   └── gee_calc_LST.py
+│   ├── module/             # 共有モジュール
+│   │   └── lst_smw.py
+│   └── js/                 # GEE用JavaScriptモジュール
 │
-└── docs/                   # ドキュメント
-    ├── research_guide.md
-    ├── calc_LST_report.md
-    └── CodingRule.md
+└── docs/                   # ドキュメント（研究フェーズ別）
+    ├── README.md           # ドキュメント管理の中心
+    ├── 01_planning/
+    │   └── research_guide.md
+    ├── 02_methods/
+    │   ├── calc_LST_report.md
+    │   ├── gee_calc_LST.md
+    │   └── CodingRule.md
+    ├── 03_results/
+    │   └── data_preparation_status.md
+    └── 04_archive/
+        ├── README.md
+        └── previous_studies_report.md
 ```
 
 ### データパス規則
@@ -212,6 +232,7 @@ MasterResearch/
 - **研究計画**: `docs/01_planning/research_guide.md`
 
 ### 02_methods - 研究手法
+- **分析ワークフロー仕様書**: `docs/02_methods/analysis_workflow.md`（前処理→パラメータ算出→モデル→評価の全工程）
 - **LST算出レポート**: `docs/02_methods/calc_LST_report.md`
 - **LST算出仕様**: `docs/02_methods/gee_calc_LST.md`
 - **コーディング規約**: `docs/02_methods/CodingRule.md`

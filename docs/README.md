@@ -19,6 +19,7 @@ docs/
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
 │   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
+│   ├── agency_agents_minimal_set.md       # 研究専用エージェント最小セット運用ガイド
 │   ├── calc_urban_params_guide.md         # calc_urban_params.py 詳細解説（Phase 2実装読解）
 │   ├── data_management_guide.md           # データ管理方針（Git/LFS/DVC運用）
 │   ├── calc_LST_report.md                 # LST算出レポート
@@ -53,6 +54,7 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 実装ファイル |
 |-----------|------|-----------|------------|
 | [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計 | `src/` 全スクリプト |
+| [agency_agents_minimal_set.md](02_methods/agency_agents_minimal_set.md) | 研究専用エージェント最小セット運用ガイド | 選抜6エージェント、固有文脈テンプレート、工程別呼び出し順、品質チェック表 | `agency-agents/`, `docs/` |
 | [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `calc_urban_params.py` 詳細解説 | 解析範囲設計、UTMグリッド化、被覆率/密度算出、近似と制約、改良方針 | `src/analysis/calc_urban_params.py` |
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |

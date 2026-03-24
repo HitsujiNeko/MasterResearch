@@ -28,7 +28,7 @@ from tqdm import tqdm
 import logging
 
 # SMW手法モジュールをインポート
-from module.lst_smw import calculate_lst_smw
+from src.module.lst_smw import calculate_lst_smw
 
 # ログ設定
 logging.basicConfig(

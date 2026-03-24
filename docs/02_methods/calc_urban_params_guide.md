@@ -258,7 +258,7 @@
 実行コマンド:
 
 ```bash
-C:/Users/takum/miniconda3/envs/gis-env/python.exe src/analysis/calc_urban_params.py --city hanoi
+python -m src.analysis.calc_urban_params --city hanoi
 ```
 
 成功時チェック:

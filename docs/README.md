@@ -103,7 +103,7 @@ graph TB
     A --> C[previous_studies_report.md<br/>先行研究整理]
     
     B --> D[gee_calc_LST.md<br/>LST算出仕様]
-    D --> E[src/gee_calc_LST.py<br/>実装コード]
+    D --> E[src/gee/gee_calc_LST.py<br/>実装コード]
     
     C --> F[papers_database.csv<br/>論文DB]
     C --> G[literature_management_guide.md<br/>文献管理ガイド]
@@ -180,7 +180,7 @@ graph TB
 - 品質評価: RMSE、欠損率、雲被覆率
 - 次のステップ: 都市構造パラメータとの統合分析
 
-**実装コード**: [src/gee_calc_LST.py](../src/gee_calc_LST.py)
+**実装コード**: [src/gee/gee_calc_LST.py](../src/gee/gee_calc_LST.py)
 
 **関連ドキュメント**:
 - 手法の理論的背景 → [previous_studies_report.md S1](04_archive/previous_studies_report.md)
@@ -196,7 +196,7 @@ graph TB
 - 関数仕様: `lst_smw.apply_smw_lst()`
 - エラーハンドリング: タイムアウト、雲被覆対応
 
-**実装コード**: [src/gee_calc_LST.py](../src/gee_calc_LST.py)
+**実装コード**: [src/gee/gee_calc_LST.py](../src/gee/gee_calc_LST.py)
 
 **関連ドキュメント**:
 - コーディング規約 → [CodingRule.md](02_methods/CodingRule.md)
@@ -528,7 +528,7 @@ VS Code（GitHub Copilot）に依頼：
 3. 手法選定  → calc_LST_report.md（LST算出）
 4. 実装仕様  → gee_calc_LST.md
 5. コード規約 → CodingRule.md
-6. 実装      → src/gee_calc_LST.py
+6. 実装      → src/gee/gee_calc_LST.py
 7. 結果整理  → 03_results/（今後）
 ```
 

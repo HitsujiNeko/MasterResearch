@@ -257,7 +257,7 @@ EPSG:3405を仮定してWGS84へ変換した結果：
 - **経度**: 105.2257° ～ 112.7421°E
 - **緯度**: 9.2449° ～ 21.3852°N
 
-**📌 補足**: このShapefileはベトナム主要5都市の行政区画を含むファイルです。[src/gee_calc_LST.py](../../src/gee_calc_LST.py)の`load_roi_from_shapefile()`関数内で、`'TinhThanh'`カラムにより**'Hà Nội'のみをフィルタリング**しています（120行目）。そのため、LST算出は実際にはハノイ市域のみが対象となります。
+**📌 補足**: このShapefileはベトナム主要5都市の行政区画を含むファイルです。[src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)の`load_roi_from_shapefile()`関数内で、`'TinhThanh'`カラムにより**'Hà Nội'のみをフィルタリング**しています（120行目）。そのため、LST算出は実際にはハノイ市域のみが対象となります。
 
 ### 3.4 その他ROI
 

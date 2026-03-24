@@ -5,7 +5,7 @@
 - 研究計画 → [research_guide.md](../01_planning/research_guide.md)  
 - 実装仕様 → [gee_calc_LST.md](gee_calc_LST.md)  
 - SMW法の原典 → [previous_studies_report.md S1](../04_archive/previous_studies_report.md)  
-- 実装コード → [src/gee_calc_LST.py](../../src/gee_calc_LST.py)  
+- 実装コード → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
 - ドキュメント全体 → [docs/README.md](../README.md)
 
 **前提知識**: RQ1-RQ3の理解、GEEの基礎知識

@@ -1,0 +1,17 @@
+name: masterresearch
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - earthengine-api
+  - geopandas=1.0
+  - fiona=1.10
+  - gdal=3.10
+  - pyproj=3.7
+  - shapely=2.0
+  - pandas=2.2
+  - numpy=1.26
+  - tqdm=4.67
+  - rasterio=1.4
+  - requests=2.32
+  - pip

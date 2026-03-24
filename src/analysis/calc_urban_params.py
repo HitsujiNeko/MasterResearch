@@ -28,7 +28,7 @@
     data/csv/analysis/urban_params_<city_id>.csv
 
 実行例:
-    C:/Users/takum/miniconda3/envs/gis-env/python.exe src/analysis/calc_urban_params.py --city hanoi
+    python -m src.analysis.calc_urban_params --city hanoi
 
 最終更新: 2026-03-03
 """

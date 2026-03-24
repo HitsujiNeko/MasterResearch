@@ -9,7 +9,7 @@
     - まずは「最初の外れ値1件」を見つける用途。
 
 実行例:
-    C:/Users/takum/miniconda3/envs/gis-env/python.exe src/analysis/find_gpkg_outliers.py \
+    python -m src.analysis.find_gpkg_outliers \
       --gpkg data/output/gis_wgs84/merge_DC_wgs84.gpkg --layer elements
 
 最終更新: 2026-03-03

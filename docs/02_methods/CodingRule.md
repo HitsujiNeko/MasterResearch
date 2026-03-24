@@ -3,7 +3,7 @@
 **最終更新**: 2026-02-26  
 **関連ドキュメント**:  
 - AI指示書 → [.github/copilot-instructions.md](../../.github/copilot-instructions.md)  
-- 実装例 → [src/gee_calc_LST.py](../../src/gee_calc_LST.py)  
+- 実装例 → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
 - ドキュメント全体 → [docs/README.md](../README.md)
 
 **適用範囲**: プロジェクト内のすべてのPythonスクリプト

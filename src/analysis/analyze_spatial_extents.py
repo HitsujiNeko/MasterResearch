@@ -13,7 +13,7 @@
     - data/output/spatial_extent_report.json
 
 実行:
-    C:/Users/takum/miniconda3/envs/gis-env/python.exe src/analysis/analyze_spatial_extents.py
+    python -m src.analysis.analyze_spatial_extents
 
 最終更新: 2026-03-03
 """

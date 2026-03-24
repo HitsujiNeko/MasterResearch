@@ -4,8 +4,9 @@
 **関連ドキュメント**:  
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
 - コーディング規約 → [CodingRule.md](CodingRule.md)  
-- 実装コード → [src/gee_calc_LST.py](../../src/gee_calc_LST.py)  
+- 実装コード → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
 - SMWモジュール → [src/module/lst_smw.py](../../src/module/lst_smw.py)  
+- セットアップ → [setup.md](../setup.md)  
 - ドキュメント全体 → [docs/README.md](../README.md)
 
 **前提知識**: GEE Python API、Landsat 8データ構造

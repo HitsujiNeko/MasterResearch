@@ -1,13 +1,20 @@
-$projectRoot = Split-Path -Parent $PSScriptRoot
-$venvScripts = Join-Path $projectRoot ".venv\Scripts"
+$envName = "masterresearch"
+$conda = Get-Command conda -ErrorAction SilentlyContinue
 
-if (-not (Test-Path (Join-Path $venvScripts "python.exe"))) {
-    throw "Project Python not found: $venvScripts\\python.exe"
+if (-not $conda) {
+    throw "Conda not found in PATH. Run this after installing Miniconda/Conda and opening a configured shell."
 }
 
-$env:PATH = "$venvScripts;$env:PATH"
-Set-Alias -Name python -Value (Join-Path $venvScripts "python.exe") -Scope Global
-Set-Alias -Name pip -Value (Join-Path $venvScripts "pip.exe") -Scope Global
+$hook = (& conda shell.powershell hook) | Out-String
+Invoke-Expression $hook
+conda activate $envName
 
-Write-Host "Project Python activated for this PowerShell session."
-Write-Host "python -> $(Join-Path $venvScripts 'python.exe')"
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to activate conda environment: $envName"
+}
+
+$python = Get-Command python -ErrorAction SilentlyContinue
+Write-Host "Conda environment activated for this PowerShell session."
+if ($python) {
+    Write-Host "python -> $($python.Source)"
+}

@@ -1,10 +1,10 @@
 @echo off
-set "PROJECT_ROOT=%~dp0.."
-set "PYTHON_EXE=%PROJECT_ROOT%\.venv\Scripts\python.exe"
+set "ENV_NAME=masterresearch"
 
-if not exist "%PYTHON_EXE%" (
-  echo Project Python not found: %PYTHON_EXE%
+where conda >nul 2>nul
+if errorlevel 1 (
+  echo Conda not found in PATH. Run this after installing Miniconda/Conda.
   exit /b 1
 )
 
-"%PYTHON_EXE%" %*
+conda run --no-capture-output -n %ENV_NAME% python %*

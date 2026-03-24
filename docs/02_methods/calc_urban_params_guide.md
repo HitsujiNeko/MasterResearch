@@ -252,7 +252,7 @@
 ## 8. 実行・再現手順
 
 前提環境:
-- conda `gis-env`
+- conda `masterresearch`
 - `fiona`, `shapely`, `rasterio`, `pyproj`, `numpy`, `pandas`
 
 実行コマンド:
@@ -272,7 +272,7 @@ python -m src.analysis.calc_urban_params --city hanoi
 ### 9.1 `ModuleNotFoundError: fiona`
 
 原因:
-- 実行Pythonが `gis-env` ではない
+- 実行Pythonが `masterresearch` ではない
 
 対処:
 - フルパス Python で実行

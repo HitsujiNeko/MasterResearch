@@ -2,28 +2,28 @@
 
 **最終更新**: 2026-03-24  
 **関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)  
-**対象**: このリポジトリを新しい環境で再現する人
+**対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
 ---
 
 ## 1. 方針
 
 このリポジトリの環境構築は、**`environment.yml` を正本**として進める。  
-GeoPandas / Fiona / Rasterio / GDAL を含むため、`pip install -r requirements.txt` 単独ではなく、
-**Conda 環境の作成を標準手順**とする。
+GeoPandas / Fiona / Rasterio / GDAL を含むため、`pip install -r requirements.txt` を環境構築の起点にはしない。  
+**Conda 環境を唯一の実行環境**とする。
 
 ---
 
 ## 2. 前提
 
 - OS: Windows
-- Conda または Miniconda が利用可能
-- リポジトリのルートで作業する
-- Google Earth Engine を使う場合は Google アカウントと GCP プロジェクトがある
+- Conda または Miniconda を利用可能であること
+- リポジトリのルートで作業すること
+- Google Earth Engine を使う場合は、Google アカウントと GCP プロジェクトを用意していること
 
 ---
 
-## 3. 環境作成
+## 3. 環境構築
 
 リポジトリのルートで実行する。
 
@@ -39,14 +39,16 @@ conda env update -f environment.yml --prune
 conda activate masterresearch
 ```
 
+Conda が未初期化で `conda activate` が通らない場合は、Miniconda の案内に従ってシェル初期化を行う。
+
 ---
 
 ## 4. Python 依存の確認
 
-最低限、次が import できれば GIS 系の基本依存は揃っている。
+最小限、次の import が通れば GIS 系の主要依存は読み込めている。
 
 ```powershell
-python -c "import ee, geopandas, fiona, rasterio, pyproj, shapely, pandas, numpy, requests"
+python -c "import ee, geopandas, fiona, rasterio, pyproj, shapely, pandas, numpy, requests, tqdm"
 ```
 
 `ogr2ogr` は `environment.yml` の `gdal` に含まれる想定。次で確認する。
@@ -67,27 +69,30 @@ ogr2ogr --version
 earthengine authenticate
 ```
 
-または、LST 算出時に `src.gee.gee_calc_LST` から対話認証を行ってもよい。
+または LST 計算時に `src.gee.gee_calc_LST` から対話認証を行ってもよい。
 
 ### 5.2 設定 CSV
 
-[`data/input/gee_calc_LST_info.csv`](../data/input/gee_calc_LST_info.csv) の `gee_project_id` を確認する。
-
-必須列:
+[`data/input/gee_calc_LST_info.csv`](../data/input/gee_calc_LST_info.csv) を確認し、少なくとも以下を設定する。
 
 - `roi_shapefile_path`
 - `start_date`
 - `end_date`
+- `cloud_threshold`
 - `valid_pixel_threshold`
 - `output_epsg`
 - `lst_method`
 - `gee_project_id`
+- `city_name`
+- `drive_root_folder`
+- `drive_export_folder`
 
 ---
 
 ## 6. 実行ルール
 
-`src` はパッケージとして扱い、**`python -m ...` 形式で実行**する。
+`src` はパッケージとして扱っているため、**`python -m ...` 形式で実行**する。  
+基本は `conda activate masterresearch` 後に実行し、単発実行だけなら `conda run -n masterresearch ...` でもよい。
 
 例:
 
@@ -97,22 +102,21 @@ python -m src.analysis.calc_urban_params --city hanoi
 python -m src.gee.gee_calc_LST
 ```
 
-`python src/...` ではなく `python -m ...` を使うことで、パッケージ import を安定させる。
+`python src/...` ではなく `python -m ...` を使うことで、パッケージ import を壊さない。
 
-この端末で repo ローカル環境を使う場合は、次のどちらかを使う。
-
-```powershell
-.\.venv\Scripts\python.exe -m src.analysis.analyze_spatial_extents
-```
-
-または PowerShell セッション内で:
+単発で repo ルートから実行したい場合:
 
 ```powershell
-. .\scripts\activate_project_python.ps1
-python -m src.analysis.analyze_spatial_extents
+conda run -n masterresearch python -m src.analysis.analyze_spatial_extents
 ```
 
-PowerShell の実行ポリシーで `.ps1` が使えない場合は、`.cmd` ラッパーを使う。
+補助スクリプトを使う場合:
+
+```powershell
+.\scripts\project_python.ps1 -m src.analysis.analyze_spatial_extents
+```
+
+PowerShell の実行ポリシーで `.ps1` が使えない場合:
 
 ```powershell
 .\scripts\project_python.cmd -m src.analysis.analyze_spatial_extents
@@ -120,9 +124,9 @@ PowerShell の実行ポリシーで `.ps1` が使えない場合は、`.cmd` ラ
 
 ---
 
-## 7. 動作確認
+## 7. セットアップ確認
 
-初回セットアップ後は、まず軽い確認として次を実行する。
+初回セットアップ後に、以下を順に実行する。
 
 ### 7.1 空間範囲レポート
 
@@ -144,7 +148,7 @@ python -m src.analysis.calc_urban_params --city hanoi
 
 - `data/csv/analysis/urban_params_hanoi.csv` が生成または更新される
 
-### 7.3 LST 算出
+### 7.3 LST 計算
 
 ```powershell
 python -m src.gee.gee_calc_LST
@@ -153,15 +157,27 @@ python -m src.gee.gee_calc_LST
 期待結果:
 
 - `data/output/gee_calc_LST_results.csv` が更新される
-- 条件を満たした画像は Google Drive に export される
+- 条件を満たした画像が Google Drive に export される
 
 ---
 
 ## 8. トラブルシュート
 
+### `conda` が見つからない
+
+- Miniconda / Conda をインストールする
+- 新しいシェルを開き直す
+- `conda --version` が通ることを確認する
+
+### `conda activate masterresearch` が通らない
+
+- Conda のシェル初期化を行う
+- 代替として `conda run -n masterresearch ...` を使う
+
 ### `ModuleNotFoundError`
 
-`python -m ...` 形式で起動しているか確認する。
+- `conda activate masterresearch` 後に再実行する
+- `python -m ...` 形式で起動しているか確認する
 
 ### `ogr2ogr` が見つからない
 
@@ -170,17 +186,17 @@ python -m src.gee.gee_calc_LST
 
 ### GEE 認証エラー
 
-- `earthengine authenticate` を実行する
-- `gee_project_id` が有効か確認する
+- `earthengine authenticate` を再実行する
+- `gee_project_id` が正しいか確認する
 
 ### GDAL / Fiona / Rasterio の import エラー
 
-- `pip` ではなく `environment.yml` から環境を作り直す
+- `pip` で個別追加せず、`environment.yml` から環境を作り直す
 - `conda env update -f environment.yml --prune` を試す
 
 ---
 
 ## 9. 補足
 
-- [`requirements.txt`](../requirements.txt) は補助的な依存一覧であり、環境再現の正本ではない
-- セットアップ手順を変更した場合は、この `setup.md` を優先して更新する
+- [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
+- セットアップ手順を変更した場合は、この `setup.md` も更新する

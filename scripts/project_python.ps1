@@ -1,8 +1,8 @@
-$projectRoot = Split-Path -Parent $PSScriptRoot
-$pythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$envName = "masterresearch"
+$conda = Get-Command conda -ErrorAction SilentlyContinue
 
-if (-not (Test-Path $pythonExe)) {
-    throw "Project Python not found: $pythonExe"
+if (-not $conda) {
+    throw "Conda not found in PATH. Run this after installing Miniconda/Conda and opening a configured shell."
 }
 
-& $pythonExe @args
+& conda run --no-capture-output -n $envName python @args

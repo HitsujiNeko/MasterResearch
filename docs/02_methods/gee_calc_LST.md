@@ -1,11 +1,12 @@
 # gee_calc_LST.py 仕様（Landsat 8 LST）
 
-**最終更新**: 2026-03-16  
+**最終更新**: 2026-03-24  
 **関連ドキュメント**:  
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
 - コーディング規約 → [CodingRule.md](CodingRule.md)  
 - 実装コード → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
 - SMWモジュール → [src/module/lst_smw.py](../../src/module/lst_smw.py)  
+- 採用先行研究 → [previous_studies_report.md S1](../04_archive/previous_studies_report.md)  
 - セットアップ → [setup.md](../setup.md)  
 - ドキュメント全体 → [docs/README.md](../README.md)
 
@@ -17,6 +18,21 @@
 Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出する。  
 `lst_method` により **Simple法** または **SMW法** を選択できるが、  
 本研究では **SMW法** を使用する。
+
+### 1.1 実装の由来
+本研究で採用している LST 算出手法は、先行研究整理で **S1** として位置づけている  
+**Ermida et al. (2020)** の SMW（Statistical Mono-Window）法である。  
+本プログラムは、その先行研究で公開されている GEE JavaScript 実装を、研究用に Python へ書き直したものである。  
+移植元は主に [`src/js/modules/Landsat_LST.js`](../../src/js/modules/Landsat_LST.js) を起点とする一連のモジュールであり、  
+Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と [`src/module/lst_smw.py`](../../src/module/lst_smw.py) に再構成している。
+
+特に SMW 手法は、以下の JavaScript モジュールを Python 関数へ対応づけて移植している。
+
+- `compute_NDVI.js` → `compute_ndvi()`
+- `compute_FVC.js` → `compute_fvc()`
+- `compute_emissivity.js` / `ASTER_bare_emiss.js` → `get_aster_emissivity()`, `compute_emissivity()`
+- `NCEP_TPW.js` → `get_atmospheric_water_vapor()`
+- `SMWalgorithm.js` / `SMW_coefficients.js` → `apply_smw_algorithm()`
 
 ---
 
@@ -39,9 +55,10 @@ Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出す
 | `drive_export_folder` | エクスポート先フォルダ名の明示指定（任意） | `MasterResearch_Data_LST_hanoi_2023` |
 
 ### 2.2 ROI Shapefile
-現行コードは `load_roi_from_shapefile_jp()` を使用し、  
-`N03_001 == '大阪府'` のジオメトリを抽出する前提。  
-別の地域や属性を使う場合は関数内条件の変更が必要。
+現行の `main()` は `load_roi_from_shapefile()` を使用し、  
+`TinhThanh == 'Hà Nội'` のジオメトリを抽出する前提で実装されている。  
+一方で、`load_roi_from_shapefile_jp()` もソース内に残っており、こちらは `N03_001 == '大阪府'` を前提としている。  
+別の地域や属性を使う場合は、使用する関数とフィルタ条件の見直しが必要。
 
 ---
 
@@ -58,10 +75,11 @@ Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出す
 2. CSV読込
 3. ROI読込（Shapefile → ee.Geometry）
 4. Landsat 8 SR/TOAコレクション取得
-5. 雲・影・巻雲マスク（QA_PIXEL）
-6. LST計算（`simple` または `smw`）
-7. ROI内の統計量算出
-8. CSV保存、必要に応じてGeoTIFFエクスポート
+5. SR と TOA を同一シーンの `system:index` で対応付け
+6. 雲・影マスク（QA_PIXEL）
+7. LST計算（`simple` または `smw`）
+8. ROI内の統計量算出
+9. CSV保存、必要に応じてGeoTIFFエクスポート
 
 ---
 
@@ -110,7 +128,9 @@ Ermida et al. (2020) に準拠。
 
 ## 6. 雲マスク（SRのみ）
 `QA_PIXEL` を使用し、  
-bit 3（影）、bit 4（雲）、bit 2（巻雲）が0の画素を残す。
+bit 3（影）と bit 4（雲）が0の画素を残す。
+
+この設定は、原典 JavaScript 実装の SR マスク方針に合わせている。
 
 ---
 
@@ -142,3 +162,12 @@ bit 3（影）、bit 4（雲）、bit 2（巻雲）が0の画素を残す。
 - LSTは **摂氏（°C）出力**。
 - `cloud_threshold` は現行コードで未使用。
 - `use_ndvi` を変更したい場合は `calculate_lst_smw()` 呼び出しに引数を追加する。
+
+### 8.1 原典実装からの意図的な差分
+- 原典 JavaScript 実装の `LST` バンドはケルビンだが、本研究では **摂氏（°C）へ変換して出力**する。
+
+### 8.2 原典実装に合わせて維持している点
+- SMW の係数テーブル（A, B, C）は Landsat 8 用の原典値をそのまま用いる。
+- `TPW` は **当日 UTC の NCEP データ**のみを対象にし、最も近い2時刻で線形補間する。
+- SR と TOA の対応付けは、**同一シーンの `system:index`** を基準に行う。
+- 雲マスクは、SR に対して **QA_PIXEL の bit 3（影）と bit 4（雲）** を用いる。

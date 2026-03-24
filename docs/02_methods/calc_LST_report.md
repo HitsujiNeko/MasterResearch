@@ -50,7 +50,7 @@ Landsat 8の地表面温度（LST: Land Surface Temperature）を、Google Earth
 1. GEE認証
 2. ROI読み込み（Shapefile → ee.Geometry）
 3. Landsat 8 SR/TOAコレクション取得
-4. 雲・影・巻雲マスク（QA_PIXEL）
+4. 雲・影マスク（QA_PIXEL）
 5. LST計算（`simple` または `smw`）→　研究では SMW法を使用
 6. ROI内の統計量算出
 7. CSV保存、必要に応じてGeoTIFFエクスポート

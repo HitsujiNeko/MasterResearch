@@ -152,9 +152,12 @@ def get_atmospheric_water_vapor(
     """
     date = ee.Date(image.get('system:time_start'))
     
-    # 前後1日のNCEPデータを取得
-    date_start = date.advance(-1, 'day')
-    date_end = date.advance(1, 'day')
+    # 元の JavaScript 実装と同じく、当日 UTC のみを対象にする
+    year = ee.Number.parse(date.format('yyyy'))
+    month = ee.Number.parse(date.format('MM'))
+    day = ee.Number.parse(date.format('dd'))
+    date_start = ee.Date.fromYMD(year, month, day)
+    date_end = date_start.advance(1, 'day')
     
     # DateDistを計算する関数
     def compute_date_dist(ncep_image):

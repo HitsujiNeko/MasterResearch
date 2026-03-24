@@ -174,7 +174,7 @@ def load_roi_from_shapefile_jp(shapefile_path: str) -> ee.Geometry:
 
 
 def cloud_mask(image: ee.Image) -> ee.Image:
-    """雲、影、巻雲をマスクする
+    """雲と影をマスクする
     
     Args:
         image: Landsat 8 Collection 2 Level-2画像
@@ -187,10 +187,8 @@ def cloud_mask(image: ee.Image) -> ee.Image:
     shadow = qa.bitwiseAnd(1 << 3).eq(0)
     # ビット4: 雲 (0=雲なし)
     cloud = qa.bitwiseAnd(1 << 4).eq(0)
-    # ビット2: 巻雲 (0=巻雲なし)
-    cirrus = qa.bitwiseAnd(1 << 2).eq(0)
     
-    return image.updateMask(cloud.And(shadow).And(cirrus))
+    return image.updateMask(cloud.And(shadow))
 
 
 def get_landsat8_collection(
@@ -223,6 +221,45 @@ def get_landsat8_collection(
     logger.info(f"指定期間内に {count} 個のLandsat 8画像が見つかりました")
     
     return collection_toa, collection_sr
+
+
+def get_matching_toa_image(
+    image_sr: ee.Image,
+    collection_toa: ee.ImageCollection
+) -> ee.Image:
+    """SR画像に対応する同一シーンのTOA画像を取得する
+
+    元の JavaScript 実装では `combine(..., true)` により、
+    同一シーン ID を持つ SR/TOA のみを結合している。
+    Python 版でも同じ前提を明示し、`system:index` で対応付ける。
+
+    Args:
+        image_sr: Surface Reflectance 画像
+        collection_toa: TOA 画像コレクション
+
+    Returns:
+        対応する TOA 画像
+
+    Raises:
+        ValueError: 対応する TOA 画像が見つからない場合
+    """
+    scene_index = image_sr.get('system:index')
+    matched_toa = collection_toa.filter(ee.Filter.eq('system:index', scene_index))
+    match_count = matched_toa.size().getInfo()
+    scene_index_text = ee.String(scene_index).getInfo()
+
+    if match_count == 0:
+        raise ValueError(
+            f"SR画像に対応するTOA画像が見つかりません: system:index={scene_index_text}"
+        )
+
+    if match_count > 1:
+        logger.warning(
+            "同一system:indexに対して複数のTOA画像が見つかりました。"
+            f"先頭を採用します: system:index={scene_index_text}, matches={match_count}"
+        )
+
+    return ee.Image(matched_toa.first())
 
 
 def calculate_lst_simple(image: ee.Image) -> ee.Image:
@@ -519,7 +556,6 @@ def main():
         
         # 画像リストを取得
         image_list_sr = collection_sr.toList(collection_sr.size())
-        image_list_toa = collection_toa.toList(collection_toa.size())
         count = collection_sr.size().getInfo()
         
         if count == 0:
@@ -533,7 +569,7 @@ def main():
         for i in tqdm(range(count), desc="画像を処理中"):
             try:
                 image_sr = ee.Image(image_list_sr.get(i))
-                image_toa = ee.Image(image_list_toa.get(i))
+                image_toa = get_matching_toa_image(image_sr, collection_toa)
                 _, result = process_image(image_sr, image_toa, config, roi)
                 results.append(result)
                 

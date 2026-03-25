@@ -17,12 +17,19 @@ data\GISData\ROI\hanoi\hanoi_roi.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_G
 
 """
 
+import sys
+from pathlib import Path
+
+if __package__ in (None, ""):
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
 import ee
 import geopandas as gpd
 import pandas as pd
 import numpy as np
 import re
-from pathlib import Path
 from typing import Dict, List, Tuple
 from tqdm import tqdm
 import logging

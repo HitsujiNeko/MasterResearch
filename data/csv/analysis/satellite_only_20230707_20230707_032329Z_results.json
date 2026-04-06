@@ -1,0 +1,102 @@
+{
+  "scenario": "Satellite Only",
+  "dataset_path": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_dataset.csv",
+  "sample_path": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_sample_100000.csv",
+  "sample_size": 100000,
+  "train_size": 80000,
+  "test_size": 20000,
+  "features": [
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "random_split": {
+    "linear_regression": {
+      "metrics": {
+        "r2": 0.531028859381524,
+        "rmse": 1.441741777744273,
+        "mae": 1.0620900292676183
+      },
+      "standardized_coefficients": {
+        "NDVI": -1.1839335608155357,
+        "NDBI": 0.5313591787511825,
+        "NDWI": -1.15878505179047
+      }
+    },
+    "random_forest": {
+      "metrics": {
+        "r2": 0.7009205655006391,
+        "rmse": 1.1513508864545827,
+        "mae": 0.8555235202029078
+      },
+      "feature_importance": {
+        "NDVI": 0.18169477384002622,
+        "NDBI": 0.6490335074833906,
+        "NDWI": 0.16927171867658325
+      },
+      "permutation_importance": {
+        "NDVI": 0.305194745480495,
+        "NDBI": 0.7333982305253215,
+        "NDWI": 0.2918618235025583
+      }
+    }
+  },
+  "spatial_cv": {
+    "group_definition": "quantile lon/lat blocks",
+    "cv_splits": 5,
+    "group_info": {
+      "lon_bins": 8,
+      "lat_bins": 8,
+      "n_groups": 54
+    },
+    "linear_regression": {
+      "r2_mean": 0.49292549613743547,
+      "r2_std": 0.0649043140132984,
+      "rmse_mean": 1.4808625217242486,
+      "rmse_std": 0.1602986592829353,
+      "mae_mean": 1.0949285603938739,
+      "mae_std": 0.12488433706421845
+    },
+    "random_forest": {
+      "r2_mean": 0.6758976741050212,
+      "r2_std": 0.01472311379080901,
+      "rmse_mean": 1.1837999928482659,
+      "rmse_std": 0.0722652877550808,
+      "mae_mean": 0.8845532969751628,
+      "mae_std": 0.05189378825321506
+    },
+    "outputs": {
+      "fold_metrics_csv": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_spatial_cv_folds.csv",
+      "spatial_cv_png": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_spatial_cv.png"
+    }
+  },
+  "vif": {
+    "NDVI": 20.207313447691263,
+    "NDBI": 1.3345871665480777,
+    "NDWI": 19.17945853287418
+  },
+  "shap": {
+    "sample_size": 2000,
+    "background_size": 500,
+    "mean_abs_shap": {
+      "NDBI": 0.8327350364915839,
+      "NDVI": 0.5441106233187104,
+      "NDWI": 0.4261124469449093
+    },
+    "outputs": {
+      "shap_importance_csv": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_shap_importance.csv",
+      "shap_summary_png": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_shap_summary.png",
+      "shap_bar_png": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_shap_bar.png",
+      "shap_dependence_png": {
+        "NDVI": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_shap_dependence_NDVI.png",
+        "NDBI": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_shap_dependence_NDBI.png",
+        "NDWI": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_shap_dependence_NDWI.png"
+      }
+    }
+  },
+  "outputs": {
+    "feature_importance_csv": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_feature_importance.csv",
+    "model_comparison_png": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_model_comparison.png",
+    "feature_importance_png": "data\\csv\\analysis\\satellite_only_20230707_20230707_032329Z_feature_importance.png"
+  }
+}

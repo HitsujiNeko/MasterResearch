@@ -29,6 +29,7 @@ SSD/
 # =========================
 data/output/LST/**/*.aux.xml
 data/output/maps/**/*.aux.xml
+data/csv/analysis/*_dataset.csv
 
 # 入力の大容量ラスタを追跡しない
 data/input/**/*.tif

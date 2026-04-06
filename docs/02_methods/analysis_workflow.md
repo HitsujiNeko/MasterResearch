@@ -14,6 +14,20 @@
 実装を始める前に各工程の入出力・手法選定の根拠を明確にし、  
 再現性のある研究プロセスを確立することを目的とする。
 
+### 現在の優先実行範囲（2026-04-06）
+
+現時点では、GIS データ整備と Full / Limited シナリオの仕様確定が未完了である。  
+そのため、本ドキュメント上の実装優先度は **RQ3 の Satellite Only シナリオを先に成立させること** とする。
+
+1. 2023-07-07 のうち、LST・衛星指標の両方で有効画素率が最も高い観測を選定する。
+2. 選定観測の LST / NDVI / NDBI / NDWI を同一グリッド上で結合し、ピクセル単位の分析用 CSV を構築する。
+3. Satellite Only 条件で MLR と Random Forest を実行し、R² / RMSE / MAE と変数重要度を確認する。
+4. Full / Limited シナリオは、GIS データ整備および OSM 処理仕様の確定後に再開する。
+
+今回追加した実装:
+- `src/analysis/build_satellite_only_dataset.py`
+- `src/analysis/analysis_rq3_satellite_only.py`
+
 ---
 
 ## フロー全体像
@@ -30,7 +44,7 @@
   │   ※ROIより狭い矩形範囲（ハノイ中心部の測量図幅範囲）       │
   │                                                           │
   └─ 衛星指標 (GEE算出)                                      │
-      NDVI / NDBI / NDWI / FVC                               │
+      NDVI / NDBI / NDWI                                    │
                                                              ▼
                                                        [Step 2]
                                                    空間範囲の整理
@@ -176,7 +190,6 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 | NDVI | `NDVI` | (NIR−R)/(NIR+R) | Landsat 8 Band 4,5 | S2, S4 |
 | NDBI | `NDBI` | (SWIR−NIR)/(SWIR+NIR) | Landsat 8 Band 5,6 | S2 |
 | NDWI | `NDWI` | (G−NIR)/(G+NIR) | Landsat 8 Band 3,5 | S6 |
-| 植生被覆率 | `FVC` | NDVIスケーリング（Garzón法） | Landsat 8 | S6 |
 | 緑被率 | `GREEN_RATIO` | NDVI > 閾値（0.2）のピクセル割合 | Landsat 8 | S4 |
 | 水域率 | `WATER_RATIO` | NDWI > 閾値のピクセル割合 | Landsat 8 | S6 |
 
@@ -248,7 +261,6 @@ Osborne & Alvares (2019)[S5]の近傍リング設計を参考に、
 | `NDVI` | float | 衛星由来NDVI |
 | `NDBI` | float | 衛星由来NDBI |
 | `NDWI` | float | 衛星由来NDWI |
-| `FVC` | float | 植生被覆率 |
 | `BUILD_COV_0` | float | 建物被覆率（即時効果） |
 | `BUILD_COV_30_60` | float | 建物被覆率（近傍30-60m） |
 | `BUILD_COV_60_90` | float | 建物被覆率（近傍60-90m） |
@@ -259,6 +271,19 @@ Osborne & Alvares (2019)[S5]の近傍リング設計を参考に、
 | `data_source` | str | `"survey"` または `"osm"`（RQ3用） |
 
 **出力ファイル**: `data/csv/analysis/analysis_dataset.csv`
+
+### 4.1.1 Satellite Only の暫定出力（2026-04-06）
+
+今回の実行では、GIS 由来列を含む統合版 `analysis_dataset.csv` ではなく、  
+衛星指標のみを対象とした暫定データセットを先に構築する。
+
+| 出力 | 内容 |
+|------|------|
+| `data/csv/analysis/satellite_only_20230707_<obs_key>_dataset.csv` | 2023-07-07 の選定観測に対するピクセル単位データセット |
+| `data/csv/analysis/satellite_only_20230707_<obs_key>_summary.json` | 行数、採用観測、品質フィルタ条件の記録 |
+
+列構成は `lon`, `lat`, `LST`, `NDVI`, `NDBI`, `NDWI` を基本とし、  
+GIS 列は Full / Limited シナリオの実装時に追加する。
 
 ### 4.2 品質管理
 
@@ -350,6 +375,28 @@ LST分布をどの程度説明できるかを評価する。
 
 **評価指標**: 各シナリオのR², RMSE, 変数重要度の変化・類似度
 
+### 5.3.1 現時点の実行順序
+
+RQ3 のうち、今回実行対象とするのは Satellite Only のみである。
+
+1. `build_satellite_only_dataset.py` で 2023-07-07 の最良観測を選定する。
+2. LST / NDVI / NDBI / NDWI を結合し、品質管理済み CSV を作成する。
+3. `analysis_rq3_satellite_only.py` で MLR と Random Forest を実行する。
+4. Full / Limited は別タスクとして保留する。
+
+### 5.3.2 Satellite Only の最小評価仕様
+
+| 項目 | 内容 |
+|------|------|
+| 説明変数 | `NDVI`, `NDBI`, `NDWI` |
+| 目的変数 | `LST` |
+| 品質管理 | NaN 除外、LST を 15–65°C に制限、指標値を -1.1〜1.1 に制限 |
+| ベースラインモデル | MLR, Random Forest |
+| 出力 | モデル指標 JSON、特徴量重要度 CSV、比較図 |
+
+初期段階では SHAP や Spatial CV までは実施せず、  
+まず「衛星指標だけでどの程度説明できるか」を定量化する。
+
 ---
 
 ## Step 6: 評価・可視化
@@ -388,6 +435,8 @@ LST分布をどの程度説明できるかを評価する。
 | フェーズ | 作業内容 | スクリプト | 優先度 |
 |---------|---------|----------|--------|
 | **Phase 1** | GISデータ空間範囲の把握（BBox比較） | `src/analysis/analyze_spatial_extents.py` | ✅ 完了（2026-03-03） |
+| **Phase 1.5** | Satellite Only データセット構築 | `src/analysis/build_satellite_only_dataset.py` | 🔴 最優先 |
+| **Phase 1.6** | Satellite Only ベースライン分析（RQ3） | `src/analysis/analysis_rq3_satellite_only.py` | 🔴 最優先 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
 | **Phase 2** | 衛星指標算出（GEE） | `calc_satellite_indices.py` | 🔴 高 |
 | **Phase 3** | 近傍変数算出 | `calc_neighborhood_vars.py` | 🟡 中 |

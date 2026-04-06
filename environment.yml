@@ -11,6 +11,10 @@ dependencies:
   - shapely=2.0
   - pandas=2.2
   - numpy=1.26
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - shap
   - tqdm=4.67
   - rasterio=1.4
   - requests=2.32

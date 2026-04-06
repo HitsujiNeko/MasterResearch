@@ -30,6 +30,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 import re
+import warnings
 from typing import Dict, List, Tuple
 from tqdm import tqdm
 import logging
@@ -43,6 +44,16 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# NCEP_RE/surface_wv はGEE側で廃止予告済みだが、
+# SMW法の既存再現性確保のため現時点では継続利用する。
+# 実行時ログを過度に汚さないよう、当該警告のみ抑制する。
+warnings.filterwarnings(
+    "ignore",
+    message=r"[\s\S]*Attention required for NCEP_RE/surface_wv![\s\S]*",
+    category=DeprecationWarning,
+    module=r"ee\.deprecation",
+)
 
 
 def authenticate_gee(project_id: str = None) -> None:
@@ -439,7 +450,8 @@ def export_to_drive(
     folder: str,
     roi: ee.Geometry,
     scale: int,
-    crs: str
+    crs: str,
+    observation_datetime_utc: str
 ) -> None:
     """GeoTIFFをGoogle Driveにエクスポート
     
@@ -451,8 +463,12 @@ def export_to_drive(
         scale: 解像度（メートル）
         crs: 座標参照系（例: 'EPSG:32648'）
     """
+    image_with_metadata = image.select('LST').set({
+        'observation_datetime_utc': observation_datetime_utc
+    })
+
     task = ee.batch.Export.image.toDrive(
-        image=image.select('LST'),
+        image=image_with_metadata,
         description=description,
         folder=folder,
         fileNamePrefix=description,
@@ -494,8 +510,11 @@ def process_image(
     else:
         raise ValueError(f"Unknown LST method: {lst_method}")
     
-    # 日付と雲量を取得（SRから）
-    date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd').getInfo()
+    # 日付と観測日時（UTC）と雲量を取得（SRから）
+    observation_datetime_utc = ee.Date(image.get('system:time_start')).format(
+        "YYYY-MM-dd'T'HH:mm:ss"
+    ).getInfo()
+    date = observation_datetime_utc[:10]
     cloud_cover = image.get('CLOUD_COVER').getInfo()
     
     # ピクセル統計を計算
@@ -510,6 +529,7 @@ def process_image(
     # 結果を統合
     result = {
         'date': date,
+        'observation_datetime_utc': observation_datetime_utc,
         'satellite': 'Landsat8',
         'mean_temp_c': temp_stats['mean'],
         'min_temp_c': temp_stats['min'],
@@ -527,11 +547,20 @@ def process_image(
     if should_export(valid_pixel_ratio, config['valid_pixel_threshold']):
         result['exported'] = True
         # エクスポート
-        description = f"LST_Landsat8_{date.replace('-', '')}"
+        date_time_token = observation_datetime_utc.replace('-', '').replace(':', '').replace('T', '_')
+        description = f"LST_Landsat8_{date_time_token}Z"
         crs = f"EPSG:{int(config['output_epsg'])}"
         drive_folder = build_drive_export_folder(config, date)
         result['drive_folder'] = drive_folder
-        export_to_drive(image, description, drive_folder, roi, 30, crs)
+        export_to_drive(
+            image,
+            description,
+            drive_folder,
+            roi,
+            30,
+            crs,
+            observation_datetime_utc
+        )
     
     return image, result
 
@@ -573,23 +602,27 @@ def main():
         results = []
         logger.info(f"{count} 個の画像を {config['lst_method']} 手法で処理します...")
         
-        for i in tqdm(range(count), desc="画像を処理中"):
-            try:
-                image_sr = ee.Image(image_list_sr.get(i))
-                image_toa = get_matching_toa_image(image_sr, collection_toa)
-                _, result = process_image(image_sr, image_toa, config, roi)
-                results.append(result)
-                
-                # 統計値がNoneの場合の処理
-                mean_str = f"{result['mean_temp_c']:.2f}°C" if result['mean_temp_c'] is not None else "N/A"
-                logger.info(
-                    f"{result['date']} を処理しました: "
-                    f"平均={mean_str}, "
-                    f"有効ピクセル={result['valid_pixel_ratio']:.1f}%"
-                )
-            except Exception as e:
-                logger.error(f"画像 {i} の処理中にエラーが発生しました: {e}")
-                continue
+        with warnings.catch_warnings():
+            # NCEP_RE/surface_wv に由来する既知の deprecation 警告を
+            # 画像処理中のみ抑制し、他のRuntimeWarning等は維持する。
+            warnings.simplefilter("ignore", DeprecationWarning)
+            for i in tqdm(range(count), desc="画像を処理中"):
+                try:
+                    image_sr = ee.Image(image_list_sr.get(i))
+                    image_toa = get_matching_toa_image(image_sr, collection_toa)
+                    _, result = process_image(image_sr, image_toa, config, roi)
+                    results.append(result)
+
+                    # 統計値がNoneの場合の処理
+                    mean_str = f"{result['mean_temp_c']:.2f}°C" if result['mean_temp_c'] is not None else "N/A"
+                    logger.info(
+                        f"{result['date']} を処理しました: "
+                        f"平均={mean_str}, "
+                        f"有効ピクセル={result['valid_pixel_ratio']:.1f}%"
+                    )
+                except Exception as e:
+                    logger.error(f"画像 {i} の処理中にエラーが発生しました: {e}")
+                    continue
         
         # 結果をCSVに保存
         output_path = r"data\output\gee_calc_LST_results.csv"

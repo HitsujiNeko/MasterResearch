@@ -68,6 +68,10 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 - **ASTER GED v3**: `NASA/ASTER_GED/AG100_003`
 - **NCEP/NCAR Reanalysis**: `NCEP_RE/surface_wv`
 
+> 注記: `NCEP_RE/surface_wv` は Earth Engine カタログ上で deprecated 扱い。  
+> 本研究の SMW 再現性を優先し、現時点では同データセットを継続利用する。  
+> 実装では、既知の deprecation 警告のみを限定的に抑制している。
+
 ---
 
 ## 4. 処理フロー

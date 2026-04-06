@@ -306,6 +306,7 @@ def export_indices_to_drive(
     output_epsg: int,
     folder_name: str,
     description: str,
+    observation_datetime_utc: str,
     band_names: list[str],
     scale_m: int = 30,
 ) -> None:
@@ -323,8 +324,12 @@ def export_indices_to_drive(
     Returns:
         None: GEEの非同期エクスポートタスクを起動する。
     """
+    image_with_metadata = image.select(band_names).set({
+        "observation_datetime_utc": observation_datetime_utc
+    })
+
     task = ee.batch.Export.image.toDrive(
-        image=image.select(band_names),
+        image=image_with_metadata,
         description=description,
         folder=folder_name,
         fileNamePrefix=description,
@@ -355,8 +360,10 @@ def process_image(
     Returns:
         dict[str, Any]: 日付、雲量、有効率、統計量、エクスポート可否を含む結果辞書。
     """
-    date_text = ee.Date(image.get("system:time_start")).format("YYYY-MM-dd").getInfo()
-    date_stamp = date_text.replace("-", "")
+    observation_datetime_utc = ee.Date(image.get("system:time_start")).format(
+        "YYYY-MM-dd'T'HH:mm:ss"
+    ).getInfo()
+    date_text = observation_datetime_utc[:10]
 
     cloud_cover = image.get("CLOUD_COVER")
     cloud_cover_info = cloud_cover.getInfo() if cloud_cover is not None else None
@@ -371,13 +378,15 @@ def process_image(
 
     exported = False
     if valid_ratio >= valid_threshold:
-        description = f"INDICES_Landsat8_{date_stamp}"
+        date_time_token = observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
+        description = f"INDICES_Landsat8_{date_time_token}Z"
         export_indices_to_drive(
             image=image,
             roi=roi,
             output_epsg=output_epsg,
             folder_name=drive_folder,
             description=description,
+            observation_datetime_utc=observation_datetime_utc,
             band_names=band_names,
             scale_m=30,
         )
@@ -385,6 +394,7 @@ def process_image(
 
     result = {
         "date": date_text,
+        "observation_datetime_utc": observation_datetime_utc,
         "cloud_cover": cloud_cover_value,
         "valid_pixel_ratio": valid_ratio,
         "exported": exported,

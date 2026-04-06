@@ -10,6 +10,7 @@ https://doi.org/10.3390/rs12091471
 """
 
 import ee
+import warnings
 
 
 def compute_ndvi(image: ee.Image) -> ee.Image:
@@ -165,9 +166,17 @@ def get_atmospheric_water_vapor(
             ee.Number(ncep_image.get('system:time_start'))
             .subtract(date.millis()).abs())
     
-    ncep_collection = ee.ImageCollection('NCEP_RE/surface_wv') \
-        .filterDate(date_start, date_end) \
-        .map(compute_date_dist)
+    # `NCEP_RE/surface_wv` は deprecated だが、SMW法の再現性維持のため継続利用する。
+    # 他の警告は維持しつつ、この既知警告のみ局所的に抑制する。
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*Attention required for NCEP_RE/surface_wv.*",
+            category=DeprecationWarning,
+        )
+        ncep_collection = ee.ImageCollection('NCEP_RE/surface_wv') \
+            .filterDate(date_start, date_end) \
+            .map(compute_date_dist)
     
     # 最も近い2つのNCEP画像を取得
     closest = ncep_collection.sort('DateDist').toList(2)

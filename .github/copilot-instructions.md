@@ -128,7 +128,7 @@ MasterResearch/
 - **機械学習**: scikit-learn (RandomForest, LinearRegression等)
 - **可視化**: Matplotlib, Seaborn
 
-依存関係の詳細: `requirements.txt`
+依存関係の詳細: `environment.yml` / `docs/setup.md`（`requirements.txt` は参照用）
 
 ---
 

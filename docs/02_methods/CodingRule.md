@@ -1,6 +1,6 @@
 # Pythonコーディング規約（研究プロジェクト用）
 
-**最終更新**: 2026-04-02  
+**最終更新**: 2026-04-07  
 **関連ドキュメント**:  
 - AI指示書 → [.github/copilot-instructions.md](../../.github/copilot-instructions.md)  
 - 実装例 → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
@@ -69,9 +69,8 @@ def calculate_mean(values):
 - **地理空間データ処理**：Geopandas、Shapely、Folium
 - **衛星画像解析**：Google Earth Engine API
 - **機械学習**：Scikit-learn、TensorFlow、PyTorch
-使用するライブラリは以下のtxtファイルに明記し、必要に応じて追加、更新すること。
-
-requirements.txt
+使用するライブラリは `environment.yml` を正本とし、環境構築手順は [../setup.md](../setup.md) に記載する。  
+`requirements.txt` は参照用であり、環境構築の起点にはしない。
 
 
 ## 8. その他
@@ -101,6 +100,9 @@ requirements.txt
 - [ ] 変更ファイルを自分で読み返し、規約違反がないことを確認した
 - [ ] 主要ファイルの静的エラー（LSP/構文エラー）を確認した
 - [ ] 変更内容を説明する際、根拠となるファイルを明示できる状態にした
+- [ ] ドキュメントを追加・改名した場合は `docs/README.md` を更新した
+- [ ] `environment.yml` を更新した場合は `docs/setup.md` も確認した
+- [ ] `.gitignore` や生成物方針を更新した場合は `docs/02_methods/data_management_guide.md` も確認した
 
 ---
 

@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-03-16  
+**最終更新**: 2026-04-07  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -102,11 +102,15 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
   - data/output/maps/**/*.tif
   - data/output/maps/**/*.aux.xml
   - data/output/gis_wgs84/*.gpkg
+  - data/csv/analysis/*_dataset.csv
 - 入力の大容量ラスタは除外
   - data/input/**/*.tif
 - サンプル共有用フォルダは例外で追跡許可
   - !data/samples/
   - !data/samples/**
+
+補足:
+- `data/csv/analysis/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 
 ### 6.2 既追跡の大容量出力の扱い
 
@@ -185,6 +189,7 @@ lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc
 - [ ] 生成物は data/output/ に分離し、必要最小限のみ追跡
 - [ ] 実験再現に必要なサンプルを data/samples/ に保持
 - [ ] どのデータから結果を作成したかを docs/ と data_catalog.csv に記録
+- [ ] `.gitignore` の更新時は `docs/README.md` と本ガイドの記述も確認した
 
 ---
 

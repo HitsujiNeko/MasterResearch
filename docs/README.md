@@ -13,6 +13,7 @@
 ```
 docs/
 ├── README.md                              # 📌 このファイル（全体ガイド）
+├── setup.md                               # 🛠️ 環境構築ガイド
 │
 ├── 01_planning/                           # 📋 研究計画フェーズ
 │   └── research_guide.md                  # 研究計画書（RQ定義）
@@ -28,7 +29,8 @@ docs/
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
-│   └── data_preparation_status.md         # データ整備状況レポート
+│   ├── data_preparation_status.md         # データ整備状況レポート
+│   └── satellite_only_20230707_initial_run.md # Satellite Only 初期実行結果
 │
 └── 04_archive/                            # 📦 アーカイブ
     ├── README.md                          # 文献管理システムガイド
@@ -43,6 +45,13 @@ docs/
 ---
 
 ## 📊 全ドキュメントカタログ
+
+### 🛠️ ルート
+
+| ファイル名 | 概要 | 主要な内容 | 更新契機 |
+|-----------|------|-----------|--------|
+| [README.md](README.md) | docs全体の索引 | ドキュメント構造、管理ルール、関連リンク | docs配下の重要ファイル追加・改名時 |
+| [setup.md](setup.md) | 環境構築ガイド | `environment.yml` を正本としたセットアップ手順、依存確認、実行例 | 依存関係や実行手順の変更時 |
 
 ### 📋 01_planning - 研究計画
 
@@ -68,11 +77,11 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 自動生成元 |
 |-----------|------|-----------|-----------|
 | [data_preparation_status.md](03_results/data_preparation_status.md) | データ整備状況レポート | GIS/LSTデータのCRS・解像度・空間範囲、次ステップ | `src/analyze_data_status.py` |
+| [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md) | Satellite Only 初期実行結果 | RQ3の初期ベースライン、Spatial CV、SHAP、結果解釈 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
 
 **今後追加予定**:
 - RQ1分析結果: 変数重要度ランキング、モデル性能
 - RQ2分析結果: 空間スケール別の比較
-- RQ3分析結果: データ制約下でのモデル評価
 - 図表集: 論文用図表の一覧
 
 ### 📦 04_archive - アーカイブ・先行研究
@@ -261,12 +270,23 @@ graph TB
 - LST詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)（SMW法の選定理由）
 - コード規約 → [CodingRule.md](02_methods/CodingRule.md)（自動分析スクリプトの設計思想）
 
+#### [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md)
+**Satellite Only 初期実行結果** - RQ3の初期ベースライン整理
+
+**主要セクション**:
+- 2023-07-07 観測を用いた初期分析条件
+- MLR / Random Forest の性能比較
+- Spatial CV による過大評価確認
+- SHAP による変数重要度と寄与方向の解釈
+- 今後の研究の方向性
+
+**自動生成元**: `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py`
+
 ### �📝 今後追加予定のドキュメント
 
 #### RQ別の分析結果
 - `rq1_variable_importance.md`: RQ1結果 - 説明変数の重要度ランキング
 - `rq2_spatial_scale.md`: RQ2結果 - 空間集計単位ごとの比較分析
-- `rq3_data_constraints.md`: RQ3結果 - データ制約下でのモデル性能
 
 #### 統合結果
 - `analysis_summary.md`: 全分析結果の統合まとめ
@@ -631,12 +651,13 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-04-07 | `setup.md` と `satellite_only_20230707_initial_run.md` を索引に追加 | AI支援 |
 | 2026-02-26 | 案1（Single Source of Truth）実装：サブREADME削除、docs/README.md充実化 | AI支援 |
 | 2026-02-26 | 提案5実装：フェーズ別ディレクトリ構造に再編 | AI支援 |
 | 2026-02-XX | 初版作成 | 研究者 |
 
 ---
 
-**最終更新**: 2026-02-26  
+**最終更新**: 2026-04-07  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

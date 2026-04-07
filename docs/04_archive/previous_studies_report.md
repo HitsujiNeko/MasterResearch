@@ -1,6 +1,6 @@
 # 先行研究整理（LSTと都市構造：事実整理版）
 
-**最終更新**: 2026-02-26  
+**最終更新**: 2026-04-07  
 **関連ドキュメント**:  
 - 研究計画 → [research_guide.md](../01_planning/research_guide.md)  
 - 論文メタデータ → [01_metadata/papers_database.csv](01_metadata/papers_database.csv)  
@@ -30,6 +30,11 @@
 | S1 | Ermida et al. (2020)              | グローバル     | LST算出手法の確立 | 衛星・再解析 |
 | S2 | Le Ngoc Hanh & Tran Thi An (2025) | ベトナム（ダナン） | 都市化とLST変化  | 衛星     |
 | S3 | Onačillová et al. (2022)          | 欧州都市      | 高解像度LST生成  | 衛星     |
+| S4 | Sun et al. (2019)                 | 香港         | 都市形態とLST評価 | 衛星・都市構造 |
+| S5 | Osborne & Alvares-Sanches (2019)  | Southampton | 景観構成・配置とLST評価 | 衛星・土地利用 |
+| S6 | Garzón et al. (2021)              | Cartago     | SUHIモデリングとLST予測 | 衛星・機械学習 |
+| S7 | Zhong et al. (2024)               | 都市域一般     | AutoMLによるLSTダウンスケーリング | 衛星・AutoML |
+| S8 | Tanoori et al. (2024)             | 都市域一般     | UHI/LSTに対する機械学習レビュー | レビュー |
 
 ---
 

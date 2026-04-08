@@ -1,4 +1,7 @@
-"""Evaluate the RQ3 Satellite Only scenario with random split, Spatial CV, and SHAP."""
+# 作成者: GitHub Copilot
+# 作成日: 2026-04-08
+# 概要: RQ3の衛星データのみシナリオを対象に、ランダム分割・Spatial CV・SHAPで評価する。
+"""RQ3の衛星データのみシナリオを評価するスクリプト。"""
 
 from __future__ import annotations
 
@@ -39,7 +42,13 @@ ALL_COLUMNS = [*COORD_COLUMNS, TARGET_COLUMN, *FEATURE_COLUMNS]
 
 
 def parse_arguments() -> argparse.Namespace:
-    """Parse CLI arguments."""
+    """コマンドライン引数を解析する。
+
+    Args:
+        なし
+    Returns:
+        argparse.Namespace: 解析済みの引数オブジェクト
+    """
     parser = argparse.ArgumentParser(
         description="Run Satellite Only analysis with random split, Spatial CV, and SHAP."
     )
@@ -61,7 +70,13 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def infer_dataset_read_kwargs(dataset_path: Path) -> dict:
-    """Infer whether the dataset CSV contains a header row."""
+    """CSVヘッダー有無を判定し、読み込み引数を返す。
+
+    Args:
+        dataset_path (Path): 入力CSVのパス
+    Returns:
+        dict: pandas.read_csvに渡す追加引数
+    """
     with dataset_path.open("r", encoding="utf-8") as file:
         first_line = file.readline().strip()
 
@@ -78,11 +93,22 @@ def build_priority_sample(
     chunksize: int,
     random_state: int,
 ) -> pd.DataFrame:
-    """Create a uniform random sample from a large CSV using priority sampling."""
+    """大規模CSVから優先度サンプリングで一様サンプルを作成する。
+
+    Args:
+        dataset_path (Path): 入力CSVのパス
+        sample_size (int): 最終的に抽出するサンプル数
+        chunksize (int): 1回あたりの読み込み行数
+        random_state (int): 乱数シード
+    Returns:
+        pd.DataFrame: サンプリング後のデータフレーム
+    """
     rng = np.random.default_rng(random_state)
     sampled: pd.DataFrame | None = None
     csv_kwargs = infer_dataset_read_kwargs(dataset_path)
 
+    # 全チャンクに乱数優先度を付与し、優先度上位のみ保持することで
+    # メモリ使用量を抑えながら全体からの一様抽出を近似する。
     for chunk in pd.read_csv(dataset_path, usecols=ALL_COLUMNS, chunksize=chunksize, **csv_kwargs):
         chunk = chunk.copy()
         chunk["priority"] = rng.random(len(chunk))
@@ -100,7 +126,14 @@ def build_priority_sample(
 
 
 def compute_metrics(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, float]:
-    """Compute regression metrics."""
+    """回帰評価指標を計算する。
+
+    Args:
+        y_true (pd.Series): 正解値
+        y_pred (np.ndarray): 予測値
+    Returns:
+        dict[str, float]: R2, RMSE, MAEを格納した辞書
+    """
     return {
         "r2": float(r2_score(y_true, y_pred)),
         "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
@@ -109,7 +142,13 @@ def compute_metrics(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, float]:
 
 
 def summarize_metric_dicts(metric_dicts: list[dict[str, float]]) -> dict[str, float]:
-    """Aggregate mean and standard deviation for a list of metric dicts."""
+    """評価指標辞書の平均と標準偏差を集計する。
+
+    Args:
+        metric_dicts (list[dict[str, float]]): foldごとの評価指標辞書
+    Returns:
+        dict[str, float]: 各指標の平均・標準偏差を含む辞書
+    """
     summary: dict[str, float] = {}
     for metric_name in metric_dicts[0]:
         values = np.array([metrics[metric_name] for metrics in metric_dicts], dtype=np.float64)
@@ -119,7 +158,13 @@ def summarize_metric_dicts(metric_dicts: list[dict[str, float]]) -> dict[str, fl
 
 
 def compute_vif(dataframe: pd.DataFrame) -> dict[str, float]:
-    """Compute VIF values for the feature set."""
+    """説明変数ごとのVIFを計算する。
+
+    Args:
+        dataframe (pd.DataFrame): 説明変数のみを含むデータフレーム
+    Returns:
+        dict[str, float]: 変数名をキー、VIFを値とする辞書
+    """
     vif_values: dict[str, float] = {}
     for column in dataframe.columns:
         y = dataframe[column]
@@ -140,7 +185,17 @@ def fit_linear_regression(
     y_train: pd.Series,
     y_test: pd.Series,
 ) -> tuple[dict[str, object], dict[str, float], np.ndarray]:
-    """Fit a standardized linear regression model and return metrics and coefficients."""
+    """標準化した線形回帰モデルを学習し、評価結果を返す。
+
+    Args:
+        x_train (pd.DataFrame): 学習用説明変数
+        x_test (pd.DataFrame): 評価用説明変数
+        y_train (pd.Series): 学習用目的変数
+        y_test (pd.Series): 評価用目的変数
+    Returns:
+        tuple[dict[str, object], dict[str, float], np.ndarray]:
+            評価結果辞書、標準化係数、予測値
+    """
     x_scaler = StandardScaler()
     y_scaler = StandardScaler()
 
@@ -173,7 +228,19 @@ def fit_random_forest(
     random_state: int,
     n_estimators: int,
 ) -> tuple[RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray]:
-    """Fit a random forest model and return metrics and importances."""
+    """ランダムフォレスト回帰を学習し、評価と重要度を返す。
+
+    Args:
+        x_train (pd.DataFrame): 学習用説明変数
+        x_test (pd.DataFrame): 評価用説明変数
+        y_train (pd.Series): 学習用目的変数
+        y_test (pd.Series): 評価用目的変数
+        random_state (int): 乱数シード
+        n_estimators (int): 決定木本数
+    Returns:
+        tuple[RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray]:
+            学習済みモデル、評価結果、不純度ベース重要度、Permutation重要度、予測値
+    """
     model = RandomForestRegressor(
         n_estimators=n_estimators,
         min_samples_leaf=5,
@@ -210,7 +277,16 @@ def fit_random_forest(
 
 
 def build_spatial_groups(dataframe: pd.DataFrame, spatial_bins: int) -> tuple[pd.Series, dict[str, int]]:
-    """Create spatial block ids from lon/lat quantile bins."""
+    """経度・緯度の分位ビンから空間グループIDを作成する。
+
+    Args:
+        dataframe (pd.DataFrame): 座標列を含むデータフレーム
+        spatial_bins (int): 経度・緯度それぞれの分割数
+    Returns:
+        tuple[pd.Series, dict[str, int]]: グループID列とグループ情報
+    """
+    # 経度・緯度を分位で離散化して格子ブロックを作る。
+    # 同一ブロック内を同じgroupとしてSpatial CVでリークを抑える。
     lon_bins = pd.qcut(dataframe["lon"], q=spatial_bins, labels=False, duplicates="drop")
     lat_bins = pd.qcut(dataframe["lat"], q=spatial_bins, labels=False, duplicates="drop")
 
@@ -234,7 +310,17 @@ def run_spatial_cv(
     random_state: int,
     n_estimators: int,
 ) -> tuple[dict[str, object], pd.DataFrame]:
-    """Run spatial block cross-validation for linear regression and random forest."""
+    """Spatial block CVで線形回帰とRFの汎化性能を比較する。
+
+    Args:
+        sampled (pd.DataFrame): サンプリング済みデータ
+        cv_splits (int): CV分割数
+        spatial_bins (int): 空間ブロック分割数
+        random_state (int): 乱数シード
+        n_estimators (int): RFの決定木本数
+    Returns:
+        tuple[dict[str, object], pd.DataFrame]: 集計結果とfold別結果
+    """
     groups, group_info = build_spatial_groups(sampled, spatial_bins=spatial_bins)
     x = sampled[FEATURE_COLUMNS]
     y = sampled[TARGET_COLUMN]
@@ -293,7 +379,17 @@ def save_model_comparison_plot(
     spatial_linear_metrics: dict[str, float],
     spatial_rf_metrics: dict[str, float],
 ) -> None:
-    """Save a model comparison chart for random split and Spatial CV."""
+    """ランダム分割とSpatial CVのモデル比較図を保存する。
+
+    Args:
+        output_path (Path): 出力画像パス
+        random_linear_metrics (dict[str, float]): ランダム分割の線形回帰指標
+        random_rf_metrics (dict[str, float]): ランダム分割のRF指標
+        spatial_linear_metrics (dict[str, float]): Spatial CVの線形回帰指標
+        spatial_rf_metrics (dict[str, float]): Spatial CVのRF指標
+    Returns:
+        None
+    """
     metric_names = ["r2", "rmse", "mae"]
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
@@ -323,7 +419,15 @@ def save_feature_importance_plot(
     standardized_coefficients: dict[str, float],
     rf_importance: dict[str, float],
 ) -> None:
-    """Save a feature importance comparison chart."""
+    """線形回帰とRFの特徴量重要度比較図を保存する。
+
+    Args:
+        output_path (Path): 出力画像パス
+        standardized_coefficients (dict[str, float]): 線形回帰の標準化係数
+        rf_importance (dict[str, float]): RFの特徴量重要度
+    Returns:
+        None
+    """
     linear_values = [abs(standardized_coefficients[feature]) for feature in FEATURE_COLUMNS]
     rf_values = [rf_importance[feature] for feature in FEATURE_COLUMNS]
     x_positions = np.arange(len(FEATURE_COLUMNS))
@@ -342,7 +446,14 @@ def save_feature_importance_plot(
 
 
 def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> None:
-    """Save fold-wise Spatial CV performance."""
+    """Spatial CVのfold別性能推移を可視化して保存する。
+
+    Args:
+        output_path (Path): 出力画像パス
+        fold_metrics_df (pd.DataFrame): fold別評価指標データ
+    Returns:
+        None
+    """
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     metrics = [("r2", "R²"), ("rmse", "RMSE"), ("mae", "MAE")]
 
@@ -378,10 +489,21 @@ def compute_shap_outputs(
     output_dir: Path,
     output_stem: str,
 ) -> tuple[dict[str, object], pd.DataFrame]:
-    """Compute SHAP values and save summary and dependence plots."""
+    """SHAP値を計算し、重要度表と可視化画像を保存する。
+
+    Args:
+        model (RandomForestRegressor): 学習済みRFモデル
+        shap_features (pd.DataFrame): SHAP計算対象データ
+        background_features (pd.DataFrame): SHAP背景データ
+        output_dir (Path): 出力先ディレクトリ
+        output_stem (str): 出力ファイル名の接頭辞
+    Returns:
+        tuple[dict[str, object], pd.DataFrame]: SHAP集計結果辞書と重要度データ
+    """
     explainer = shap.TreeExplainer(model, data=background_features, feature_names=FEATURE_COLUMNS)
     shap_values = explainer(shap_features)
 
+    # 各特徴量の寄与の大きさを比較するため、絶対SHAP値の平均を算出する。
     mean_abs_values = np.abs(shap_values.values).mean(axis=0)
     shap_importance_df = pd.DataFrame(
         {
@@ -440,7 +562,13 @@ def compute_shap_outputs(
 
 
 def main() -> None:
-    """Run the full Satellite Only analysis."""
+    """衛星データのみシナリオの分析を実行して結果を保存する。
+
+    Args:
+        なし
+    Returns:
+        None
+    """
     args = parse_arguments()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output_stem = args.dataset_path.stem.removesuffix("_dataset")

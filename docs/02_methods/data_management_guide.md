@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-04-07  
+**最終更新**: 2026-04-09  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -105,6 +105,8 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
   - data/csv/analysis/*_dataset.csv
 - 入力の大容量ラスタは除外
   - data/input/**/*.tif
+- 入力GISデータ（大容量）は除外
+  - data/GISData/
 - サンプル共有用フォルダは例外で追跡許可
   - !data/samples/
   - !data/samples/**

@@ -324,7 +324,7 @@ def export_indices_to_drive(
     Returns:
         None: GEEの非同期エクスポートタスクを起動する。
     """
-    image_with_metadata = image.select(band_names).set({
+    image_with_metadata = image.clip(roi).select(band_names).set({
         "observation_datetime_utc": observation_datetime_utc
     })
 

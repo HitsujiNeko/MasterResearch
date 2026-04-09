@@ -425,7 +425,7 @@ def run(config_path: Path = DEFAULT_CONFIG_PATH, output_csv_path: Path = DEFAULT
 
     authenticate_gee(project_id=gee_project_id)
 
-    roi_path_text = config.get("roi_shapefile_path")
+    roi_path_text = str(config.get("roi_shapefile_path") or "").strip()
     if not roi_path_text:
         raise ValueError("設定CSVに roi_shapefile_path がありません。")
 

@@ -13,7 +13,7 @@ config_path = r"data\input\gee_calc_LST_info.csv"
 
 CSVファイルの例は以下の通り：
 roi_shapefile_path,start_date,end_date,cloud_threshold,valid_pixel_threshold,output_epsg,lst_method,gee_project_id,city_name,drive_root_folder,drive_export_folder
-data\GISData\ROI\hanoi\hanoi_roi.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_GCP_PROJECT_ID,hanoi,MasterResearch_Data,
+data\GISData\ROI\hanoi\hanoi_ROI_EPSG4326.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_GCP_PROJECT_ID,hanoi,MasterResearch_Data,
 
 """
 
@@ -109,15 +109,16 @@ def load_config(csv_path: str) -> Dict:
 
 
 def load_roi_from_shapefile(shapefile_path: str) -> ee.Geometry:
-    """ShapefileからROIを読み込み、GEE用のGeometryに変換
-    この関数は、再利用性が低いです（特定の形式のShapefileに依存しているため）。
-    ベトナムハノイ市のROIを抽出するように設計されています。
+    """ShapefileからROIを読み込み、GEE用Geometryに変換する。
+
+    本関数は特定列（例: TinhThanh）への依存を持たず、
+    単一ポリゴンROI・複数ポリゴンROIのどちらも扱えるようにする。
     
     Args:
         shapefile_path: Shapefileのパス
         
     Returns:
-        ee.Geometry.Polygon
+        ee.Geometry: GEEで利用可能なROIジオメトリ。
         
     Raises:
         FileNotFoundError: Shapefileが存在しない場合
@@ -127,21 +128,26 @@ def load_roi_from_shapefile(shapefile_path: str) -> ee.Geometry:
         raise FileNotFoundError(f"Shapefileが存在しません: {shapefile_path}")
     
     try:
-        # Shapefileを読み込み
         boundary_df = gpd.read_file(shapefile_path)
+        if boundary_df.empty:
+            raise ValueError("Shapefileに有効な地物がありません。")
         
-        # WGS84（EPSG:4326）に変換（Google Earth Engineは内部的にWGS84（EPSG:4326）の経度・緯度を使用するため）
+        # GEEで扱いやすいよう、必要時のみWGS84へ変換する。
+        if boundary_df.crs is None:
+            raise ValueError("ShapefileのCRSが未定義です。")
         if boundary_df.crs.to_epsg() != 4326:
             boundary_df = boundary_df.to_crs(epsg=4326)
             logger.info(f"ROIをEPSG:4326に再投影しました")
-        
-        # 'TinhThanh'カラムで'Hà Nội'をフィルタリング
-        hanoi_geom = boundary_df[boundary_df['TinhThanh'] == 'Hà Nội'].iloc[0].geometry
-        
-        # GEE用のGeometryに変換（__geo_interface__を使用）
-        ee_geom = ee.Geometry(hanoi_geom.__geo_interface__)
-        
-        logger.info(f"ROIの読み込み完了（Hà Nội）")
+
+        if len(boundary_df) == 1:
+            roi_geom = boundary_df.geometry.iloc[0]
+            logger.info("ROIの読み込み完了（単一地物）")
+        else:
+            # 複数地物は1つのROIとして扱うため統合する。
+            roi_geom = boundary_df.geometry.unary_union
+            logger.info("ROIの読み込み完了（複数地物を統合, 件数: %s）", len(boundary_df))
+
+        ee_geom = ee.Geometry(roi_geom.__geo_interface__)
         return ee_geom
     except Exception as e:
         logger.error(f" ROIの読み込みに失敗しました: {e}")
@@ -581,7 +587,10 @@ def main():
         authenticate_gee(gee_project_id)
         
         # ROI読み込み
-        roi = load_roi_from_shapefile(config['roi_shapefile_path'])
+        roi_path_text = str(config.get('roi_shapefile_path') or '').strip()
+        if not roi_path_text:
+            raise ValueError("設定CSVに roi_shapefile_path がありません。")
+        roi = load_roi_from_shapefile(roi_path_text)
         
         # Landsat 8データセット取得（TOAとSR）
         collection_toa, collection_sr = get_landsat8_collection(

@@ -1,15 +1,15 @@
-# 学会用アブストラクト下書き（RQ3: Satellite Only）
+# 学会用アブストラクト下書き（衛星指標のみ条件の初期分析）
 
-**最終更新**: 2026-04-09  
+**最終更新**: 2026-04-10  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [satellite_only_20230707_initial_run.md](satellite_only_20230707_initial_run.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)  
-**前提知識**: RQ3 の目的、Satellite Only 初期実行結果、LST 算出フロー
+**前提知識**: データ制約下での有効性評価の目的、Satellite Only 初期実行結果、LST 算出フロー
 
 ---
 
 ## 1. この下書きの位置づけ
 
 本ファイルは、国際学会向けアブストラクトの下書きである。  
-現時点で事実として記述できる研究成果は、RQ3 の Satellite Only シナリオに限られるため、本文はその範囲に限定して作成する。  
+
 日本語文と英語文は、比較しやすいように各段落ごとに交互に配置する。
 
 ---
@@ -41,66 +41,67 @@
 
 ### 3.1 タイトル案 A
 
-日本語: データ制約下の都市熱環境分析に向けた Satellite Only ベースラインの評価: ベトナム・ハノイを対象とした初期結果  
-English: Evaluating a Satellite-Only Baseline for Urban Thermal Analysis under Data Constraints: Initial Results from Hanoi, Vietnam
+日本語: データ制約下の都市熱環境分析に向けた衛星由来指標ベースラインの評価: ベトナム・ハノイを対象とした複数観測日の初期結果  
+English: Evaluating a Satellite-Derived Baseline for Urban Thermal Analysis under Data Constraints: Initial Multi-Date Results from Hanoi, Vietnam
 
 ### 3.2 タイトル案 B
 
-日本語: 衛星由来指標のみで都市地表面温度をどこまで説明できるか: ハノイを対象とした RQ3 の初期評価  
-English: How Far Can Satellite-Derived Indicators Explain Urban Land Surface Temperature? An Initial RQ3 Assessment in Hanoi
+日本語: 衛星由来指標のみで都市地表面温度をどこまで説明できるか: ベトナム・ハノイを対象とした複数観測日の初期評価  
+English: How Far Can Satellite-Derived Indicators Alone Explain Urban Land Surface Temperature? An Initial Multi-Date Assessment in Hanoi, Vietnam
 
 ---
 
 ## 4. Abstract
-
-日本語: 途上国都市では、建物や道路に関する詳細 GIS データが十分に整備されていないことが多く、都市熱環境の定量分析に制約がある。本研究は、ベトナム・ハノイを対象として、衛星由来指標のみで地表面温度（LST）をどこまで説明できるかを検証し、データ制約下での分析可能性を評価する。  
-English: In many cities of the Global South, detailed GIS data on buildings and roads are not sufficiently available, which constrains quantitative analysis of urban thermal environments. This study examines how far land surface temperature (LST) can be explained using satellite-derived indicators alone in Hanoi, Vietnam, and evaluates the feasibility of urban thermal analysis under data-constrained conditions.
-
-日本語: Google Earth Engine を用いて Landsat 8 から LST、NDVI、NDBI、NDWI を算出し、2023 年 7 月 7 日の観測のうち有効画素率が最も高いシーンを選定した。LST と指標ラスタを同一観測時刻で対応付け、品質管理後の 2,104,665 ピクセルを対象に、重回帰分析と Random Forest を random split および Spatial CV で評価した。  
-English: Using Google Earth Engine, LST, NDVI, NDBI, and NDWI were derived from Landsat 8 imagery, and the scene with the highest valid-pixel ratio on 7 July 2023 was selected. The LST raster and spectral index rasters were matched by observation time, and 2,104,665 quality-controlled pixels were used to evaluate Multiple Linear Regression and Random Forest under both random split and spatial cross-validation.
-
-日本語: Random Forest は random split で `R² = 0.7009`、Spatial CV でも `R² mean = 0.6759` を示し、Linear Regression より高い説明力を維持した。SHAP による解釈では、NDBI が最も強い昇温側要因であり、NDVI と NDWI は冷却側要因として機能した。  
-English: Random Forest achieved `R² = 0.7009` under random split and retained `R² mean = 0.6759` under spatial cross-validation, outperforming Multiple Linear Regression in both settings. SHAP-based interpretation indicated that NDBI was the strongest warming-related factor, whereas NDVI and NDWI acted as cooling-related factors.
-
-日本語: 以上より、Satellite Only 条件でも LST 分布のかなりの部分を説明できることが示された。今後は公開 GIS データを導入して Limited シナリオを構築し、さらに測量 GIS を含む Full シナリオへ拡張することで、データ可用性の違いが説明力に与える影響を比較する予定である。  
-English: These results suggest that a Satellite Only setting can explain a substantial portion of LST variability even without detailed GIS layers. Future work will introduce open GIS data to build a Limited scenario and then extend the analysis to a Full scenario with survey-based GIS, enabling direct comparison of explanatory performance under different levels of data availability.
+日本語: 途上国都市では、建物や道路、人口など都市形態に関する詳細な地理情報システムデータが未整備であることが多く、都市熱環境の定量分析には大きな制約がある。本研究は、ベトナム・ハノイを対象として、衛星由来指標のみで地表面温度（LST）をどこまで説明できるかを検証し、データ制約下での分析可能性を評価した。Google Earth Engine を用いて Landsat 8 から LST、正規化植生指数（NDVI）、正規化市街地指数（NDBI）、正規化水指数（NDWI）を算出し、2023年7月と2024年11月の3観測を分析対象とした。各観測について品質管理後のピクセルから無作為に 100,000 ピクセルを抽出し、重回帰分析と Random Forest を random split および空間交差検証で比較した。Random Forest はすべての観測で重回帰分析を上回り、空間交差検証後も R² は 0.60 以上を維持した。また、NDBI は一貫して最も強い昇温側要因であり、NDVI と NDWI は冷却側要因として機能した。以上より、詳細な地理情報システムデータが利用できない段階でも、衛星由来指標のみで LST 分布のかなりの部分を説明できることが示された。本研究は、公開地理情報や測量データを段階的に導入する今後の比較分析に向けた実用的なベースラインを提示する。
+English: In many cities in the Global South, detailed geographic information system data on urban forms such as buildings, roads, and population remain incomplete or unavailable, which constrains quantitative analysis of urban thermal environments. This study examines how far land surface temperature (LST) can be explained using satellite-derived indicators alone in Hanoi, Vietnam, and evaluates the feasibility of analysis under data-constrained conditions. Using Google Earth Engine, LST, the Normalized Difference Vegetation Index (NDVI), the Normalized Difference Built-up Index (NDBI), and the Normalized Difference Water Index (NDWI) were derived from Landsat 8 imagery, and three observations from July 2023 and November 2024 were analyzed. For each observation, 100,000 pixels were randomly sampled after quality control, and Multiple Linear Regression and Random Forest were compared under both random split and spatial cross-validation. Random Forest outperformed Multiple Linear Regression in all observations and retained R² values above 0.60 after spatial cross-validation. NDBI consistently emerged as the strongest warming-related factor, whereas NDVI and NDWI acted as cooling-related factors. These results suggest that a substantial share of LST variability can be explained using satellite-derived indicators alone, even before detailed geographic information system data become available. The study provides a practical baseline for subsequent comparisons that incorporate open geographic information and survey-based data in a staged manner.
 
 ---
 
 ## 5. Introduction
 
-日本語: 都市のヒートアイランド現象を理解し、緩和策を設計するためには、LST と都市構造の関係を空間的に評価することが重要である。しかし、ベトナムを含む多くの途上国都市では、建物形状や道路ネットワークを網羅的に記述した高品質 GIS データを入手することが難しい。  
-English: Spatial evaluation of the relationship between LST and urban structure is essential for understanding urban heat islands and designing mitigation strategies. However, in many cities in developing countries, including Vietnam, it is difficult to obtain high-quality GIS data that comprehensively describe building geometry and road networks.
+日本語: 都市のヒートアイランド現象を理解し、緩和策を設計するためには、LST と都市構造の関係を空間的に評価することが重要である。既往研究では、Random Forest を用いた都市構造要因の重要度評価 (Sun et al., 2019; Ref. 3) や、熱帯都市における回帰分析と機械学習の併用 (Garzon et al., 2021; Ref. 5) が報告されている。一方で、ベトナムを含む多くの途上国都市では、建物形状や道路ネットワークを網羅的に記述した高品質 GIS データを入手することが難しい。  
+English: Spatial evaluation of the relationship between LST and urban structure is essential for understanding urban heat islands and designing mitigation strategies. Previous studies have reported the use of Random Forest to assess the importance of urban-form variables (Sun et al., 2019; Ref. 3) and the combination of regression analysis with machine-learning algorithms in tropical cities (Garzon et al., 2021; Ref. 5). However, in many cities in developing countries, including Vietnam, it remains difficult to obtain high-quality GIS data that comprehensively describe building geometry and road networks.
 
-日本語: 本研究では、この制約を前提として、データ可用性の異なる複数シナリオを段階的に比較する枠組みを採用している。本稿で報告するのは、その第一段階にあたる RQ3 の Satellite Only シナリオであり、衛星由来指標のみで LST をどこまで説明できるかを初期的に検証する。  
-English: This study adopts a staged framework that compares multiple scenarios with different levels of data availability. The present abstract reports the first stage, namely the Satellite Only scenario of Research Question 3, which provides an initial assessment of how far LST can be explained using satellite-derived indicators alone.
+日本語: さらに、ベトナムの Da Nang を対象とした研究では、NDVI や NDBI のみでは建物高さや人口密度を十分に表現できないことが指摘されており (Le Ngoc Hanh and Tran Thi An, 2025; Ref. 2)、近傍効果や配置効果を含む都市構造の重要性も議論されている (Osborne and Alvares-Sanches, 2019; Ref. 4)。本研究では、こうした制約と課題を踏まえ、データ可用性の異なる複数条件を段階的に比較する枠組みを採用している。本稿で報告するのは、その第一段階にあたる衛星指標のみ条件の初期分析であり、3 つの観測日時を用いて、衛星由来指標のみで LST をどこまで説明できるかを検証する。  
+English: In addition, a study of Da Nang, Vietnam, noted that NDVI and NDBI alone are insufficient to represent building height and population density (Le Ngoc Hanh and Tran Thi An, 2025; Ref. 2), while the importance of neighborhood and configuration effects has also been discussed in the literature (Osborne and Alvares-Sanches, 2019; Ref. 4). Against these constraints and research gaps, this study adopts a staged framework that compares multiple analytical conditions with different levels of data availability. The present abstract reports the first-stage satellite-only baseline, which examines how far LST can be explained using satellite-derived indicators alone across three observation dates.
 
-日本語: 本シナリオの位置づけは、最終結論を与えることではなく、詳細 GIS データが不足している都市でも成立する再現可能な分析ベースラインを示すことである。そのため、本稿では RQ1 や RQ2 の結論には踏み込まず、現時点で得られている事実ベースの結果と今後の拡張方針に焦点を当てる。  
-English: The purpose of this scenario is not to provide the final conclusion of the entire study, but to establish a reproducible analytical baseline that remains feasible even when detailed GIS data are unavailable. Therefore, this abstract does not claim conclusions for RQ1 or RQ2 and instead focuses on the fact-based findings currently available and on the directions for future extension.
+日本語: したがって、本稿の位置づけは、既往研究のように多様な都市構造変数を直ちに導入する段階ではなく、詳細 GIS データが不足している都市でも成立する再現可能な分析ベースラインを提示する点にある。そのため、本稿では追加データを含む後続条件の結論には踏み込まず、現時点で確認できた事実ベースの結果と今後の拡張方針に焦点を当てる。  
+English: Accordingly, the contribution of this abstract is not to introduce the full range of urban-structure variables used in previous studies from the outset, but to establish a reproducible analytical baseline that remains feasible even when detailed GIS data are unavailable. It therefore does not claim conclusions for later-stage conditions with additional data sources and instead focuses on the fact-based findings currently available and on directions for future extension.
 
 ### 5.1 図表案
 
 - 図1案: 研究全体の 3 シナリオ構成図
-- 図2案: Hanoi ROI と対象観測日の概略図
+
 
 ---
 
 ## 6. Methodology
 
-日本語: LST は Landsat 8 データを用いて Google Earth Engine 上で算出し、Ermida et al. (2020) に基づく SMW 法を採用した。衛星指標としては、同じ Landsat 8 シーンから NDVI、NDBI、NDWI を算出し、LST と同一の ROI 範囲で出力した。  
-English: LST was derived from Landsat 8 imagery in Google Earth Engine using the SMW approach based on Ermida et al. (2020). As satellite-derived explanatory variables, NDVI, NDBI, and NDWI were computed from the same Landsat 8 scenes and exported over the same ROI as the LST data.
+日本語: LST は Google Earth Engine 上で Landsat 8 データから算出し、Ermida et al. (2020; Ref. 1) の手法を用いた。算出フローは以下のとおりである。  
+- Landsat 8 の熱赤外 TOA データを用いて輝度温度を算出する。  
+- 同じシーンから計算した NDVI を用いて、植生被覆率と地表面放射率を推定する。  
+- 水蒸気量に応じた補正係数を適用し、地表面温度へ変換する。  
+衛星指標としては、同じ Landsat 8 シーンから NDVI、NDBI、NDWI を別途算出し、LST と同一の解析範囲で出力した。  
+English: LST was derived from Landsat 8 imagery in Google Earth Engine using the method of Ermida et al. (2020; Ref. 1). The calculation flow was as follows.  
+- Brightness temperature was derived from the Landsat 8 thermal TOA data.  
+- Vegetation cover and surface emissivity were estimated from NDVI computed from the same scene.  
+- Water-vapor-dependent correction coefficients were applied to derive land surface temperature.  
+As satellite-derived explanatory variables, NDVI, NDBI, and NDWI were computed separately from the same Landsat 8 scene and exported over the same analysis domain as the LST data.
 
-日本語: 2023 年 7 月 7 日の観測候補の中から、LST と指標の両方で有効画素率が最も高く、雲量も小さい `2023-07-07T03:23:29Z` のシーンを選定した。その後、LST ラスタと指標ラスタを同一グリッド上で対応付け、`LST = 15-65°C`、各指標 = `-1.1 to 1.1` の品質条件を満たすピクセルのみを分析対象とした。  
-English: From the candidate observations on 7 July 2023, the scene acquired at `2023-07-07T03:23:29Z` was selected because it provided the highest valid-pixel ratios for both LST and the spectral indices while maintaining low cloud cover. The LST and index rasters were then matched on the same grid, and only pixels satisfying the quality conditions of `LST = 15-65°C` and each index = `-1.1 to 1.1` were retained for analysis.
+日本語: 研究対象領域は、ベトナム・ハノイ市の行政区画ポリゴンを用いて定義した ROI 全体である。  
+English: The study area was the full ROI defined by the administrative boundary polygon of Hanoi, Vietnam.
 
-日本語: モデル比較では、説明変数を NDVI、NDBI、NDWI、目的変数を LST とし、Multiple Linear Regression と Random Forest を適用した。評価は random split と Spatial CV の両方で行い、後者では経度・緯度を分位で区切った空間ブロックを用いて、空間自己相関による過大評価を抑えた。  
-English: For model comparison, NDVI, NDBI, and NDWI were used as explanatory variables and LST as the target variable, and both Multiple Linear Regression and Random Forest were applied. Performance was evaluated under both random split and spatial cross-validation, with the latter using quantile-based spatial blocks defined by longitude and latitude in order to reduce overestimation caused by spatial autocorrelation.
+日本語: 観測日時の選定では、2023-2024 年の候補シーンを比較したうえで、`2023-07-07T03:23:29Z`、`2023-07-23T03:23:09Z`、`2024-11-30T03:23:36Z` を採用した。各観測について LST ラスタと指標ラスタを同一グリッド上で対応付け、`LST = 15-65°C`、各指標 = `-1.1 to 1.1` の品質条件を満たすピクセルのみを分析対象とした。  
+English: Observation times were selected by comparing candidate scenes from 2023-2024, and `2023-07-07T03:23:29Z`, `2023-07-23T03:23:09Z`, and `2024-11-30T03:23:36Z` were adopted for analysis. For each observation, the LST and index rasters were matched on the same grid, and only pixels satisfying the quality conditions of `LST = 15-65°C` and each index = `-1.1 to 1.1` were retained for analysis.
 
-日本語: さらに、Random Forest の解釈のために SHAP を用い、各指標が予測値をどの方向にどの程度変化させるかを確認した。現段階では 1 都市 1 観測による初期結果であり、建物密度や道路密度などの GIS 由来都市構造パラメータはまだ導入していない。  
-English: In addition, SHAP was used to interpret the Random Forest model and to examine the direction and magnitude of each indicator's contribution to the predictions. At the current stage, the analysis remains an initial result based on one city and one observation, and GIS-derived urban-structure parameters such as building density and road density have not yet been incorporated.
+日本語: モデル比較では、説明変数を NDVI、NDBI、NDWI、目的変数を LST とし、Multiple Linear Regression と Random Forest を適用した。この構成は、都市熱環境研究における Random Forest の変数重要度評価 (Sun et al., 2019; Ref. 3) と、回帰分析および機械学習の併用 (Garzon et al., 2021; Ref. 5) を参考にした。評価は random split と Spatial CV の両方で行い、後者では経度・緯度を分位で区切った空間ブロックを用いた 5-fold 検証により、空間自己相関による過大評価を抑えた。  
+English: For model comparison, NDVI, NDBI, and NDWI were used as explanatory variables and LST as the target variable, and both Multiple Linear Regression and Random Forest were applied. This setup was informed by prior urban thermal studies that used Random Forest to assess variable importance (Sun et al., 2019; Ref. 3) and that combined regression analysis with machine-learning algorithms in tropical cities (Garzon et al., 2021; Ref. 5). Performance was evaluated under both random split and spatial cross-validation, with the latter using 5-fold validation based on quantile-defined spatial blocks of longitude and latitude in order to reduce overestimation caused by spatial autocorrelation.
+
+日本語: さらに、Random Forest の解釈のために SHAP を用い、各指標が予測値をどの方向にどの程度変化させるかを確認した。  
+English: In addition, SHAP was used to interpret the Random Forest model and to examine the direction and magnitude of each indicator's contribution to the predictions.
 
 ### 6.1 図表案
-
+- 図2案: Hanoi ROI と対象観測日の概略図
 - 図3案: LST 算出からデータセット作成、モデル評価までの処理フロー
 - 表1案: 使用データ、観測日時、画素数、評価条件の一覧
 
@@ -108,17 +109,17 @@ English: In addition, SHAP was used to interpret the Random Forest model and to 
 
 ## 7. Results
 
-日本語: 品質管理後に残った分析対象は 2,104,665 ピクセルであり、LST の平均値は `35.7646°C` であった。random split において、Linear Regression は `R² = 0.5310`、`RMSE = 1.4417`、`MAE = 1.0621` を示し、Random Forest は `R² = 0.7009`、`RMSE = 1.1514`、`MAE = 0.8555` を示した。  
-English: After quality control, the analysis dataset contained 2,104,665 pixels, with a mean LST of `35.7646°C`. Under random split, Linear Regression produced `R² = 0.5310`, `RMSE = 1.4417`, and `MAE = 1.0621`, whereas Random Forest achieved `R² = 0.7009`, `RMSE = 1.1514`, and `MAE = 0.8555`.
+日本語: 品質管理後に残った分析対象は、`2023-07-07` が `2,104,665` ピクセル、`2023-07-23` が `3,213,377` ピクセル、`2024-11-30` が `3,779,821` ピクセルであった。LST の平均値はそれぞれ `35.7646°C`、`36.0930°C`、`24.9937°C` であり、季節差を反映していた。random split において、Random Forest の `R²` は各日で `0.7009`、`0.6445`、`0.7180` を示し、Linear Regression の `0.5310`、`0.5401`、`0.5946` を一貫して上回った。  
+English: After quality control, the analysis datasets contained `2,104,665` pixels for `2023-07-07`, `3,213,377` pixels for `2023-07-23`, and `3,779,821` pixels for `2024-11-30`. The mean LST values were `35.7646°C`, `36.0930°C`, and `24.9937°C`, respectively, reflecting seasonal differences. Under random split, the Random Forest `R²` values were `0.7009`, `0.6445`, and `0.7180`, consistently exceeding the Linear Regression values of `0.5310`, `0.5401`, and `0.5946`.
 
-日本語: Spatial CV では、Linear Regression が `R² mean = 0.4929`、Random Forest が `R² mean = 0.6759` を示した。random split からの低下は存在するものの、その幅は極端ではなく、Satellite Only 条件で得られた説明力が単なる近接画素間のリークだけで説明されるものではないことを示唆する。  
-English: Under spatial cross-validation, Linear Regression yielded `R² mean = 0.4929`, while Random Forest retained `R² mean = 0.6759`. Although performance decreased relative to random split, the decline was not extreme, suggesting that the explanatory power observed in the Satellite Only setting cannot be attributed solely to leakage among neighboring pixels.
+日本語: Spatial CV では、Random Forest の `R² mean` は `0.6759`、`0.6032`、`0.6965` であり、Linear Regression の `0.4929`、`0.4902`、`0.5744` を各観測で上回った。random split からの低下は存在するものの、その幅は極端ではなく、衛星由来指標のみの条件で得られた説明力が単なる近接画素間のリークだけで説明されるものではないことを示唆する。  
+English: Under spatial cross-validation, the Random Forest `R² mean` values were `0.6759`, `0.6032`, and `0.6965`, again exceeding the Linear Regression values of `0.4929`, `0.4902`, and `0.5744` for each observation. Although performance decreased relative to random split, the decline was not extreme, suggesting that the explanatory power observed using satellite-derived indicators alone cannot be attributed solely to leakage among neighboring pixels.
 
-日本語: 変数重要度と SHAP の結果を総合すると、NDBI が最も支配的な昇温側要因であり、NDVI と NDWI は冷却側要因として働いた。具体的には、mean absolute SHAP は `NDBI = 0.8327`、`NDVI = 0.5441`、`NDWI = 0.4261` であった。  
-English: Integrating the feature-importance and SHAP results, NDBI emerged as the dominant warming-related factor, while NDVI and NDWI acted as cooling-related factors. Specifically, the mean absolute SHAP values were `0.8327` for NDBI, `0.5441` for NDVI, and `0.4261` for NDWI.
+日本語: 変数重要度と SHAP の結果を総合すると、3 観測すべてで NDBI が最も支配的な昇温側要因であり、NDVI と NDWI は冷却側要因として働いた。mean absolute SHAP における NDBI は `0.8327`、`1.2505`、`0.8035` で、各観測において NDVI と NDWI を上回った。  
+English: Integrating the feature-importance and SHAP results, NDBI emerged as the dominant warming-related factor in all three observations, while NDVI and NDWI acted as cooling-related factors. The mean absolute SHAP values for NDBI were `0.8327`, `1.2505`, and `0.8035`, exceeding those of NDVI and NDWI in each observation.
 
-日本語: 一方で、NDVI と NDWI の VIF はそれぞれ `20.2073`、`19.1795` と高く、線形回帰係数の厳密な順位解釈には注意が必要である。したがって、本稿では線形係数の大きさよりも、Random Forest と SHAP に基づく解釈を優先する。  
-English: At the same time, the VIF values for NDVI and NDWI were high, at `20.2073` and `19.1795`, respectively, indicating that strict ranking of the linear coefficients should be interpreted with caution. Therefore, this draft prioritizes interpretation based on Random Forest and SHAP rather than on the absolute magnitudes of the linear coefficients.
+日本語: 一方で、NDVI と NDWI の VIF は 3 観測を通じて一貫して高く、線形回帰係数の厳密な順位解釈には注意が必要である。したがって、本稿では線形係数の大きさよりも、Random Forest と SHAP に基づく解釈を優先する。  
+English: At the same time, the VIF values for NDVI and NDWI remained high across the three observations, indicating that strict ranking of the linear coefficients should be interpreted with caution. Therefore, this draft prioritizes interpretation based on Random Forest and SHAP rather than on the absolute magnitudes of the linear coefficients.
 
 ### 7.1 図表案
 
@@ -130,14 +131,14 @@ English: At the same time, the VIF values for NDVI and NDWI were high, at `20.20
 
 ## 8. Conclusion
 
-日本語: 本稿で得られた初期結果は、詳細 GIS データを用いなくても、衛星由来指標のみでハノイの LST 分布のかなりの部分を説明できることを示している。特に Random Forest は Spatial CV でも高い説明力を維持しており、Satellite Only シナリオが実用的なベースラインとして成立する可能性が高い。  
-English: The initial results presented here indicate that a substantial share of LST variability in Hanoi can be explained even without detailed GIS data, using satellite-derived indicators alone. In particular, Random Forest maintained strong explanatory performance under spatial cross-validation, suggesting that the Satellite Only scenario can serve as a practical analytical baseline.
+日本語: 本稿で得られた初期結果は、詳細 GIS データを用いなくても、衛星由来指標のみでハノイの LST 分布のかなりの部分を複数観測日にわたって説明できることを示している。特に Random Forest は 3 観測すべてで Spatial CV 後も `R² mean > 0.60` を概ね維持しており、この条件が実用的なベースラインとして成立する可能性が高い。  
+English: The initial results presented here indicate that a substantial share of LST variability in Hanoi can be explained across multiple observation dates even without detailed GIS data, using satellite-derived indicators alone. In particular, Random Forest retained approximately `R² mean > 0.60` after spatial cross-validation in all three observations, suggesting that this condition can serve as a practical analytical baseline.
 
-日本語: 現段階での貢献は、研究全体の最終結論を提示することではなく、データ制約下でも再現可能な分析手順を先に成立させた点にある。これは、今後の Limited シナリオおよび Full シナリオの比較に向けた基礎として重要である。  
-English: At this stage, the main contribution is not the final conclusion of the entire project, but rather the establishment of a reproducible analytical workflow that remains feasible under data constraints. This provides an important foundation for later comparison with the Limited and Full scenarios.
+日本語: 現段階での貢献は、研究全体の最終結論を提示することではなく、データ制約下でも再現可能な分析手順を複数観測日に対して先に成立させた点にある。これは、今後の公開 GIS データ併用条件や測量 GIS を含む条件との比較に向けた基礎として重要である。  
+English: At this stage, the main contribution is not the final conclusion of the entire project, but rather the establishment of a reproducible analytical workflow across multiple observation dates that remains feasible under data constraints. This provides an important foundation for later comparison with conditions that incorporate open GIS data and survey-based GIS.
 
-日本語: 今後は、OpenStreetMap や Microsoft GlobalMLBuildingFootprints などの公開 GIS データを導入して Limited シナリオを構築し、さらに測量 GIS を含む Full シナリオと比較する予定である。また、複数日・複数季節への拡張を通じて、今回確認された関係の安定性も検証する。  
-English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints to build the Limited scenario and then compare it with the Full scenario that includes survey-based GIS. The analysis will also be extended to multiple dates and seasons in order to test the stability of the relationships identified in this initial result.
+日本語: 今後は、OpenStreetMap や Microsoft GlobalMLBuildingFootprints などの公開 GIS データを導入し、さらに測量 GIS を含む条件と比較する予定である。また、今回の 3 観測で確認された関係が他の日付や季節でも維持されるかを検証する。  
+English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints and then compare the results with a condition that also includes survey-based GIS. The analysis will also test whether the relationships identified in these three observations are maintained across additional dates and seasons.
 
 ### 8.1 図表案
 
@@ -167,7 +168,5 @@ English: Future work will introduce open GIS data sources such as OpenStreetMap 
 
 ## 11. 仕上げ時の注意
 
-- RQ1 と RQ2 の結果が既に得られているかのような表現は避ける。
-- Limited / Full シナリオの性能値は書かない。
-- 今回の結果は 2023-07-07 の単観測に基づく初期結果であることを維持する。
+- 他の分析条件の結果が既に得られているかのような表現は避ける。
 - SHAP の解釈は寄与方向の説明に留め、因果関係として断定しない。

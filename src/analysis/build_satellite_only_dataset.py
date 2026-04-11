@@ -1,6 +1,6 @@
 """Satellite Only 分析用データセットを GeoTIFF から構築する。
 
-2023-07-07 の検証日に対し、LST と衛星指標（NDVI/NDBI/NDWI）の
+指定日の観測に対し、LST と衛星指標（NDVI/NDBI/NDWI）の
 観測ペアを選定し、GDAL の XYZ 出力を経由して 1 行 1 ピクセルの
 分析用 CSV を作成する。
 """
@@ -28,10 +28,9 @@ import pandas as pd
 
 
 OUTPUT_DIR = PROJECT_ROOT / "data" / "csv" / "analysis"
-LST_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "gee_calc_LST_results.csv"
-INDICES_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "gee_calc_indices_results.csv"
-LST_RASTER_DIR = PROJECT_ROOT / "data" / "output" / "LST" / "2023"
-INDICES_RASTER_DIR = PROJECT_ROOT / "data" / "output" / "indices" / "2023"
+SEARCH_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "gee_search_satellite_data_results.csv"
+LST_RASTER_DIR = PROJECT_ROOT / "data" / "output" / "LST"
+INDICES_RASTER_DIR = PROJECT_ROOT / "data" / "output" / "indices"
 GDALINFO_EXE = PROJECT_ROOT / ".conda" / "Library" / "bin" / "gdalinfo.exe"
 GDAL_TRANSLATE_EXE = PROJECT_ROOT / ".conda" / "Library" / "bin" / "gdal_translate.exe"
 GDAL_DATA_DIR = PROJECT_ROOT / ".conda" / "Library" / "share" / "gdal"
@@ -47,10 +46,12 @@ def parse_arguments() -> argparse.Namespace:
         description="Satellite Only 分析用のピクセル単位 CSV を構築する。"
     )
     parser.add_argument("--date", default="2023-07-07")
+    parser.add_argument("--observation-datetime", default=None)
     parser.add_argument("--chunksize", type=int, default=200_000)
     parser.add_argument("--min-lst", type=float, default=15.0)
     parser.add_argument("--max-lst", type=float, default=65.0)
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("--search-results-path", type=Path, default=SEARCH_RESULTS_PATH)
     return parser.parse_args()
 
 
@@ -76,31 +77,31 @@ def run_command(command: list[str]) -> str:
     return result.stdout
 
 
-def load_and_pair_results(target_date: str) -> pd.DataFrame:
-    """LST と衛星指標の結果 CSV を日付で突き合わせる。"""
-    lst_df = pd.read_csv(LST_RESULTS_PATH)
-    idx_df = pd.read_csv(INDICES_RESULTS_PATH)
+def load_candidate_results(
+    search_results_path: Path,
+    target_date: str,
+    observation_datetime: str | None,
+) -> pd.DataFrame:
+    """探索結果 CSV から対象日の候補観測を読み込む。"""
+    results_df = pd.read_csv(search_results_path)
+    target_rows = results_df.loc[results_df["date"] == target_date].copy()
 
-    lst_target = lst_df.loc[lst_df["date"] == target_date].copy()
-    idx_target = idx_df.loc[idx_df["date"] == target_date].copy()
+    if target_rows.empty:
+        raise ValueError(f"指定日の探索結果が見つかりません: {target_date}")
 
-    if lst_target.empty or idx_target.empty:
-        raise ValueError(f"指定日の結果が見つかりません: {target_date}")
+    if observation_datetime:
+        target_rows = target_rows.loc[
+            target_rows["observation_datetime_utc"] == observation_datetime
+        ].copy()
+        if target_rows.empty:
+            raise ValueError(f"指定観測日時の探索結果が見つかりません: {observation_datetime}")
 
-    paired = lst_target.merge(
-        idx_target,
-        on=["date", "observation_datetime_utc"],
-        suffixes=("_lst", "_idx"),
-    )
-    if paired.empty:
-        raise ValueError(f"LST と indices の観測時刻が一致する行がありません: {target_date}")
-
-    paired["pair_valid_pixel_ratio"] = (
-        paired["valid_pixel_ratio_lst"] + paired["valid_pixel_ratio_idx"]
+    target_rows["pair_valid_pixel_ratio"] = (
+        target_rows["lst_valid_pixel_ratio"] + target_rows["indices_valid_pixel_ratio"]
     ) / 2.0
-    paired["pair_cloud_cover"] = paired["cloud_cover_lst"]
+    target_rows["pair_cloud_cover"] = target_rows["cloud_cover"]
 
-    return paired.sort_values(
+    return target_rows.sort_values(
         by=["pair_valid_pixel_ratio", "pair_cloud_cover"],
         ascending=[False, True],
     ).reset_index(drop=True)
@@ -115,7 +116,7 @@ def build_observation_key(observation_datetime_utc: str) -> str:
 def resolve_raster_path(directory: Path, prefix: str, observation_key: str) -> Path:
     """観測キーに対応する GeoTIFF を取得する。"""
     pattern = f"{prefix}_Landsat8_{observation_key}.tif"
-    matches = list(directory.glob(pattern))
+    matches = list(directory.rglob(pattern))
     if len(matches) != 1:
         raise FileNotFoundError(f"GeoTIFF を一意に特定できません: {pattern}")
     return matches[0]
@@ -275,8 +276,12 @@ def main() -> None:
     args = parse_arguments()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    paired_results = load_and_pair_results(args.date)
-    best_row = paired_results.iloc[0]
+    candidate_results = load_candidate_results(
+        search_results_path=args.search_results_path,
+        target_date=args.date,
+        observation_datetime=args.observation_datetime,
+    )
+    best_row = candidate_results.iloc[0]
     observation_key = build_observation_key(str(best_row["observation_datetime_utc"]))
 
     lst_raster_path = resolve_raster_path(LST_RASTER_DIR, "LST", observation_key)
@@ -286,7 +291,7 @@ def main() -> None:
     indices_info = read_gdalinfo_json(indices_raster_path)
     validate_raster_pair(lst_info, indices_info)
 
-    output_stem = f"satellite_only_20230707_{observation_key}"
+    output_stem = f"satellite_only_{args.date.replace('-', '')}_{observation_key}"
     lst_xyz_path = args.output_dir / f"{output_stem}_lst.xyz"
     ndvi_xyz_path = args.output_dir / f"{output_stem}_ndvi.xyz"
     ndbi_xyz_path = args.output_dir / f"{output_stem}_ndbi.xyz"
@@ -317,8 +322,9 @@ def main() -> None:
         "selection_reason": {
             "pair_valid_pixel_ratio": float(best_row["pair_valid_pixel_ratio"]),
             "cloud_cover": float(best_row["pair_cloud_cover"]),
-            "lst_valid_pixel_ratio": float(best_row["valid_pixel_ratio_lst"]),
-            "indices_valid_pixel_ratio": float(best_row["valid_pixel_ratio_idx"]),
+            "lst_valid_pixel_ratio": float(best_row["lst_valid_pixel_ratio"]),
+            "indices_valid_pixel_ratio": float(best_row["indices_valid_pixel_ratio"]),
+            "scene_coverage_ratio": float(best_row["scene_coverage_ratio"]),
         },
         "inputs": {
             "lst_raster": str(lst_raster_path.relative_to(PROJECT_ROOT)),

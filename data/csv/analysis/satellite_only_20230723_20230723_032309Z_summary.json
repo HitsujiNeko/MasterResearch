@@ -1,0 +1,54 @@
+{
+  "date": "2023-07-23",
+  "observation_datetime_utc": "2023-07-23T03:23:09",
+  "observation_key": "20230723_032309Z",
+  "selection_reason": {
+    "pair_valid_pixel_ratio": 87.01550973276241,
+    "cloud_cover": 20.97,
+    "lst_valid_pixel_ratio": 88.30140119197594,
+    "indices_valid_pixel_ratio": 85.7296182735489,
+    "scene_coverage_ratio": 0.9320082636456406
+  },
+  "inputs": {
+    "lst_raster": "data\\output\\LST\\2023\\LST_Landsat8_20230723_032309Z.tif",
+    "indices_raster": "data\\output\\indices\\2023\\INDICES_Landsat8_20230723_032309Z.tif"
+  },
+  "outputs": {
+    "dataset_csv": "data\\csv\\analysis\\satellite_only_20230723_20230723_032309Z_dataset.csv",
+    "summary_json": "data\\csv\\analysis\\satellite_only_20230723_20230723_032309Z_summary.json"
+  },
+  "quality_filter": {
+    "lst_range_c": [
+      15.0,
+      65.0
+    ],
+    "index_range": [
+      -1.1,
+      1.1
+    ]
+  },
+  "rows_before_quality_filter": 8278699,
+  "rows_after_quality_filter": 3213377,
+  "stats": {
+    "LST": {
+      "min": 27.114591598510746,
+      "max": 56.40997695922852,
+      "mean": 36.09302794525039
+    },
+    "NDVI": {
+      "min": -0.999640107154846,
+      "max": 0.9994194507598876,
+      "mean": 0.5536282917309088
+    },
+    "NDBI": {
+      "min": -0.9935781359672546,
+      "max": 0.9969955086708068,
+      "mean": -0.23791063336799897
+    },
+    "NDWI": {
+      "min": -0.9804485440254213,
+      "max": 0.9997571110725402,
+      "mean": -0.5171404391929395
+    }
+  }
+}

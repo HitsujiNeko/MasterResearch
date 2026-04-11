@@ -1,2 +1,2 @@
 roi_shapefile_path,start_date,end_date,cloud_threshold,valid_pixel_threshold,output_epsg,lst_method,gee_project_id,city_name,drive_root_folder,drive_export_folder
-data\GISData\ROI\hanoi\hanoi_ROI_EPSG4326.shp,2023-07-06,2023-07-08,30,50,4326,smw,master-research-465403,hanoi,MasterResearch_Data,LST_hanoi_2023
+data\GISData\ROI\hanoi\hanoi_ROI_EPSG4326.shp,2023-01-01,2024-12-31,30,50,4326,smw,master-research-465403,hanoi,MasterResearch_Data,LST_hanoi_2023to2024

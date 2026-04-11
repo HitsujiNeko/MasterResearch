@@ -570,6 +570,8 @@ def main() -> None:
         None
     """
     args = parse_arguments()
+    args.dataset_path = args.dataset_path.resolve()
+    args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output_stem = args.dataset_path.stem.removesuffix("_dataset")
 

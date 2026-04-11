@@ -1,0 +1,9 @@
+{
+  "input_pbf": "data\\GISData\\geofabrik\\vietnam-260408.osm.pbf",
+  "roi_path": "data\\GISData\\ROI\\hanoi\\hanoi_ROI_EPSG4326.shp",
+  "output_path": "data\\output\\open_gis\\hanoi_osm_roads.gpkg",
+  "summary_path": "data\\output\\open_gis\\hanoi_osm_roads_summary.json",
+  "layer_name": "roads",
+  "feature_count": 194485,
+  "file_size_mb": 54.4
+}

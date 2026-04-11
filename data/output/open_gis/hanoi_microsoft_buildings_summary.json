@@ -1,0 +1,46 @@
+{
+  "roi_path": "data\\GISData\\ROI\\hanoi\\hanoi_ROI_EPSG4326.shp",
+  "output_path": "data\\output\\open_gis\\hanoi_microsoft_buildings.gpkg",
+  "summary_path": "data\\output\\open_gis\\hanoi_microsoft_buildings_summary.json",
+  "location": "Vietnam",
+  "candidate_tile_count": 6,
+  "written_feature_count": 1065629,
+  "tile_summaries": [
+    {
+      "quadkey": "132210101",
+      "source_url": "https://minedbuildings.z5.web.core.windows.net/global-buildings/2026-02-03/global-buildings.geojsonl/RegionName=Vietnam/quadkey=132210101/part-00155-4feead82-d499-422b-94cb-c036c212127a.c000.csv.gz",
+      "source_feature_count": 260104,
+      "matched_feature_count": 0
+    },
+    {
+      "quadkey": "132210103",
+      "source_url": "https://minedbuildings.z5.web.core.windows.net/global-buildings/2026-02-03/global-buildings.geojsonl/RegionName=Vietnam/quadkey=132210103/part-00095-4feead82-d499-422b-94cb-c036c212127a.c000.csv.gz",
+      "source_feature_count": 137996,
+      "matched_feature_count": 0
+    },
+    {
+      "quadkey": "132210110",
+      "source_url": "https://minedbuildings.z5.web.core.windows.net/global-buildings/2026-02-03/global-buildings.geojsonl/RegionName=Vietnam/quadkey=132210110/part-00143-4feead82-d499-422b-94cb-c036c212127a.c000.csv.gz",
+      "source_feature_count": 367722,
+      "matched_feature_count": 4186
+    },
+    {
+      "quadkey": "132210112",
+      "source_url": "https://minedbuildings.z5.web.core.windows.net/global-buildings/2026-02-03/global-buildings.geojsonl/RegionName=Vietnam/quadkey=132210112/part-00139-4feead82-d499-422b-94cb-c036c212127a.c000.csv.gz",
+      "source_feature_count": 1560615,
+      "matched_feature_count": 1052478
+    },
+    {
+      "quadkey": "132210121",
+      "source_url": "https://minedbuildings.z5.web.core.windows.net/global-buildings/2026-02-03/global-buildings.geojsonl/RegionName=Vietnam/quadkey=132210121/part-00132-4feead82-d499-422b-94cb-c036c212127a.c000.csv.gz",
+      "source_feature_count": 131111,
+      "matched_feature_count": 0
+    },
+    {
+      "quadkey": "132210130",
+      "source_url": "https://minedbuildings.z5.web.core.windows.net/global-buildings/2026-02-03/global-buildings.geojsonl/RegionName=Vietnam/quadkey=132210130/part-00177-4feead82-d499-422b-94cb-c036c212127a.c000.csv.gz",
+      "source_feature_count": 1280184,
+      "matched_feature_count": 8965
+    }
+  ]
+}

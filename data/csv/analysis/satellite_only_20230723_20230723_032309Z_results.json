@@ -51,9 +51,9 @@
     },
     "linear_regression": {
       "r2_mean": 0.49021490178490457,
-      "r2_std": 0.09744941739144661,
+      "r2_std": 0.0974494173914466,
       "rmse_mean": 1.916143231159301,
-      "rmse_std": 0.06548355190759686,
+      "rmse_std": 0.06548355190759689,
       "mae_mean": 1.4438428507917938,
       "mae_std": 0.06218832170535935
     },
@@ -61,9 +61,9 @@
       "r2_mean": 0.6032126280656904,
       "r2_std": 0.058281639698741235,
       "rmse_mean": 1.6956838349294885,
-      "rmse_std": 0.05328696014824565,
-      "mae_mean": 1.2775855740788933,
-      "mae_std": 0.03485451654199195
+      "rmse_std": 0.053286960148245736,
+      "mae_mean": 1.277585574078893,
+      "mae_std": 0.03485451654199194
     },
     "outputs": {
       "fold_metrics_csv": "data\\csv\\analysis\\satellite_only_20230723_20230723_032309Z_spatial_cv_folds.csv",
@@ -80,8 +80,8 @@
     "background_size": 500,
     "mean_abs_shap": {
       "NDBI": 1.2504529623859468,
-      "NDVI": 0.4976723641871471,
-      "NDWI": 0.4147085501142121
+      "NDVI": 0.49767236418714716,
+      "NDWI": 0.41470855011421215
     },
     "outputs": {
       "shap_importance_csv": "data\\csv\\analysis\\satellite_only_20230723_20230723_032309Z_shap_importance.csv",

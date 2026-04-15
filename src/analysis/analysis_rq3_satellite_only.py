@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +40,24 @@ COORD_COLUMNS = ["lon", "lat"]
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 TARGET_COLUMN = "LST"
 ALL_COLUMNS = [*COORD_COLUMNS, TARGET_COLUMN, *FEATURE_COLUMNS]
+
+
+def build_observation_label(output_stem: str) -> str:
+    """出力接頭辞から観測日時ラベルを生成する。"""
+
+    date_match = re.search(r"(\d{8})", output_stem)
+    time_match = re.search(r"(\d{6}Z)", output_stem)
+    if date_match is None:
+        return output_stem
+
+    raw_date = date_match.group(1)
+    date_label = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
+    if time_match is None:
+        return date_label
+
+    raw_time = time_match.group(1)
+    time_label = f"{raw_time[:2]}:{raw_time[2:4]}:{raw_time[4:6]}Z"
+    return f"{date_label} {time_label}"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -378,6 +397,7 @@ def save_model_comparison_plot(
     random_rf_metrics: dict[str, float],
     spatial_linear_metrics: dict[str, float],
     spatial_rf_metrics: dict[str, float],
+    observation_label: str,
 ) -> None:
     """ランダム分割とSpatial CVのモデル比較図を保存する。
 
@@ -408,7 +428,7 @@ def save_model_comparison_plot(
         axes[index].set_title(metric_name.upper())
         axes[index].grid(axis="y", alpha=0.3)
 
-    fig.suptitle("Satellite Only Model Comparison")
+    fig.suptitle(f"Model Performance Comparison {observation_label}")
     fig.tight_layout()
     fig.savefig(output_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -418,6 +438,7 @@ def save_feature_importance_plot(
     output_path: Path,
     standardized_coefficients: dict[str, float],
     rf_importance: dict[str, float],
+    observation_label: str,
 ) -> None:
     """線形回帰とRFの特徴量重要度比較図を保存する。
 
@@ -437,7 +458,7 @@ def save_feature_importance_plot(
     ax.bar(x_positions - width / 2, linear_values, width=width, label="|Linear coef|", color="#54a24b")
     ax.bar(x_positions + width / 2, rf_values, width=width, label="RF importance", color="#e45756")
     ax.set_xticks(x_positions, FEATURE_COLUMNS)
-    ax.set_title("Satellite Only Feature Importance")
+    ax.set_title(f"Feature Importance {observation_label}")
     ax.grid(axis="y", alpha=0.3)
     ax.legend()
     fig.tight_layout()
@@ -488,6 +509,7 @@ def compute_shap_outputs(
     background_features: pd.DataFrame,
     output_dir: Path,
     output_stem: str,
+    observation_label: str,
 ) -> tuple[dict[str, object], pd.DataFrame]:
     """SHAP値を計算し、重要度表と可視化画像を保存する。
 
@@ -518,6 +540,7 @@ def compute_shap_outputs(
     summary_path = output_dir / f"{output_stem}_shap_summary.png"
     plt.figure(figsize=(8, 5))
     shap.summary_plot(shap_values.values, shap_features, show=False)
+    plt.title(f"SHAP value distribution {observation_label}")
     plt.tight_layout()
     plt.savefig(summary_path, dpi=180, bbox_inches="tight")
     plt.close()
@@ -525,6 +548,7 @@ def compute_shap_outputs(
     bar_path = output_dir / f"{output_stem}_shap_bar.png"
     plt.figure(figsize=(8, 5))
     shap.summary_plot(shap_values.values, shap_features, plot_type="bar", show=False)
+    plt.title(f"SHAP value distribution {observation_label}")
     plt.tight_layout()
     plt.savefig(bar_path, dpi=180, bbox_inches="tight")
     plt.close()
@@ -539,6 +563,7 @@ def compute_shap_outputs(
             show=False,
             interaction_index="auto",
         )
+        plt.title(f"SHAP value distribution {observation_label}: {feature}")
         plt.tight_layout()
         plt.savefig(dependence_path, dpi=180, bbox_inches="tight")
         plt.close()
@@ -574,6 +599,7 @@ def main() -> None:
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output_stem = args.dataset_path.stem.removesuffix("_dataset")
+    observation_label = build_observation_label(output_stem)
 
     sampled = build_priority_sample(
         dataset_path=args.dataset_path,
@@ -639,8 +665,14 @@ def main() -> None:
         rf_result["metrics"],
         spatial_cv_summary["linear_regression"],
         spatial_cv_summary["random_forest"],
+        observation_label,
     )
-    save_feature_importance_plot(importance_plot_path, standardized_coefficients, rf_importance)
+    save_feature_importance_plot(
+        importance_plot_path,
+        standardized_coefficients,
+        rf_importance,
+        observation_label,
+    )
     save_spatial_cv_plot(spatial_cv_plot_path, spatial_cv_folds)
 
     shap_source = x_test.reset_index(drop=True)
@@ -654,6 +686,7 @@ def main() -> None:
         background_features=background_features,
         output_dir=args.output_dir,
         output_stem=output_stem,
+        observation_label=observation_label,
     )
 
     result = {

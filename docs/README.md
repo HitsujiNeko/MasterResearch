@@ -16,6 +16,7 @@ docs/
 ├── setup.md                               # 🛠️ 環境構築ガイド
 │
 ├── 01_planning/                           # 📋 研究計画フェーズ
+│   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理
 │   └── research_guide.md                  # 研究計画書（RQ定義）
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
@@ -30,6 +31,7 @@ docs/
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
+│   ├── conference_abstract_rq3_satellite_only_draft.md # 学会用アブストラクト下書き
 │   ├── data_preparation_status.md         # データ整備状況レポート
 │   └── satellite_only_20230707_initial_run.md # Satellite Only 初期実行結果
 │
@@ -58,6 +60,7 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 関連RQ |
 |-----------|------|-----------|--------|
+| [available_gis_data.md](01_planning/available_gis_data.md) | 公開GISデータ候補の整理 | 道路・建物・粗い built-up データの候補、更新性、適合性 | 全RQ |
 | [research_guide.md](01_planning/research_guide.md) | 研究計画書 | 研究題目、背景、RQ1-3、手法概要、期待される成果 | 全RQ |
 
 ### 🔬 02_methods - 研究手法
@@ -78,6 +81,7 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 自動生成元 |
 |-----------|------|-----------|-----------|
+| [conference_abstract_rq3_satellite_only_draft.md](03_results/conference_abstract_rq3_satellite_only_draft.md) | 学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/csv/analysis/`, `src/analysis/` |
 | [data_preparation_status.md](03_results/data_preparation_status.md) | データ整備状況レポート | GIS/LSTデータのCRS・解像度・空間範囲、次ステップ | `src/analyze_data_status.py` |
 | [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md) | Satellite Only 初期実行結果 | RQ3の初期ベースライン、Spatial CV、SHAP、結果解釈 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
 
@@ -152,6 +156,18 @@ graph TB
 研究の方向性を定め、RQ（Research Questions）を明確化する
 
 ### 📄 ドキュメント詳細
+
+#### [available_gis_data.md](01_planning/available_gis_data.md)
+**公開GISデータ候補の整理** - 道路・建物・built-up データの候補を、更新性と研究適合性つきで比較
+
+**主要セクション**:
+- 道路・建物・粗い built-up 指標の候補整理
+- ベトナムと全球のカバレッジ比較
+- 研究への適合性と注意点
+
+**関連ドキュメント**:
+- 研究計画 → [research_guide.md](01_planning/research_guide.md)
+- 手法仕様 → [analysis_workflow.md](02_methods/analysis_workflow.md)
 
 #### [research_guide.md](01_planning/research_guide.md)
 **研究計画書** - 本研究の全体像を定義
@@ -243,6 +259,18 @@ graph TB
 分析結果を体系的に整理し、論文執筆の基盤を構築する
 
 ### � ドキュメント詳細
+
+#### [conference_abstract_rq3_satellite_only_draft.md](03_results/conference_abstract_rq3_satellite_only_draft.md)
+**学会用アブストラクト下書き** - RQ3 の Satellite Only 初期結果に基づく本文案と図表案
+
+**主要セクション**:
+- Introduction / Methodology / Results / Conclusion の文案
+- 掲載候補の図表セット
+- 断定を避けるべき事項とタイトル案
+
+**関連ドキュメント**:
+- 初期結果 → [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md)
+- 研究計画 → [research_guide.md](01_planning/research_guide.md)
 
 #### [data_preparation_status.md](03_results/data_preparation_status.md)
 **データ整備状況レポート** - データ分析フェーズへの準備状況の全体把握（464行）
@@ -653,6 +681,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-04-09 | `available_gis_data.md` と `conference_abstract_rq3_satellite_only_draft.md` を索引に追加 | AI支援 |
 | 2026-04-07 | `setup.md` と `satellite_only_20230707_initial_run.md` を索引に追加 | AI支援 |
 | 2026-02-26 | 案1（Single Source of Truth）実装：サブREADME削除、docs/README.md充実化 | AI支援 |
 | 2026-02-26 | 提案5実装：フェーズ別ディレクトリ構造に再編 | AI支援 |
@@ -660,6 +689,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-04-07  
+**最終更新**: 2026-04-09  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

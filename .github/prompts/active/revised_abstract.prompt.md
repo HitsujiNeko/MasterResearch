@@ -79,6 +79,17 @@ The temperature trends in Da Nang City, as presented in Table 2 and Figure 4, re
 
 Figure 6 indicates that built-up and bare land consistently exhibit the highest temperatures compared to water bodies and vegetated areas.
 
+✅　図のタイトルについて（matplotlibで作成した図のタイトルを変更し、出力する）
+どの観測日時の結果なのかわからない問題や、Satelite Onlyという、論文中で使用しない用語がタイトルに入っている問題があるため、matplotlibで作成した図のタイトルを変更し、出力することを検討している。
+- モデル性能比較図
+旧； Satellite Only Model Performance Comparison
+新： Model Performance Comparison {観測日時}
+- 特徴量重要度図
+旧； Satellite Only Feature Importance
+新； Feature Importance {観測日時}
+- SHAP値の分布図
+旧； SHAP value (impact on model output) 
+新； SHAP value distribution {観測日時}
 
 ### Abstract
 ✅　提出用ルールに沿った構成にする
@@ -122,8 +133,11 @@ Methodologyのどこかに、研究対象領域の説明文を一文いれる。
 
 ### Results
 
-☐ 文章のブラッシュアップ
+✅ 文章のブラッシュアップ
  Resultsの内容は、分析結果をわかりやすく説明することが重要である。現状の内容はやや簡略すぎるため、分析結果の内容をわかりやすくなるように、ブラッシュアップが必要である。分析結果を確認し、事実に基づいて、分析結果の内容をわかりやすく説明する文章に修正する必要がある。
+
+✅　LSTの算出結果は、平均値の記載だけでいいのか？
+LSTの算出結果は、平均値だけでなく、分布や、他の条件との比較なども記載することが望ましい。平均値だけでは、分析結果の内容を十分に説明できない可能性があるため、分布や、他の条件との比較なども記載することを検討する必要がある。
 
 ## 関連ファイル
 - docs\01_planning\research_guide.md

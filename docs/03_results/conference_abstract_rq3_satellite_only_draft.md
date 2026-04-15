@@ -113,24 +113,26 @@ English: In addition, SHAP was used to interpret the Random Forest model and to 
 
 ## 7. Results
 
-日本語: LST の平均値は `2023-07-07`、`2023-07-23`、`2024-11-30` でそれぞれ `35.7646°C`、`36.0930°C`、`24.9937°C` であり、対応する NDVI、NDBI、NDWI の平均値とあわせて Table 1 に整理した。`2023-07-07` と `2023-07-23` はいずれも約 `36°C` の近い水準を示した一方、`2024-11-30` は明確に低く、観測日の季節差が基礎統計にも表れた。random split においては、Random Forest の `R²` は各日で `0.7009`、`0.6445`、`0.7180` を示し、Linear Regression の `0.5310`、`0.5401`、`0.5946` を一貫して上回った。この random split と Spatial CV の性能比較は Table 2 に整理し、モデル間の性能差は Fig. 3 に示す。  
-English: The mean LST values for `2023-07-07`, `2023-07-23`, and `2024-11-30` were `35.7646°C`, `36.0930°C`, and `24.9937°C`, respectively, and together with the mean NDVI, NDBI, and NDWI values they are summarized in Table 1. While `2023-07-07` and `2023-07-23` showed similarly high mean temperatures of around `36°C`, `2024-11-30` was clearly cooler, indicating that seasonal differences were already visible in the descriptive statistics. Under random split, the Random Forest `R²` values were `0.7009`, `0.6445`, and `0.7180`, consistently exceeding the Linear Regression values of `0.5310`, `0.5401`, and `0.5946`. The comparison between random split and spatial cross-validation is summarized in Table 2, and the performance gap between models is shown in Fig. 3.
+日本語: LST の平均値は `2023-07-07`、`2023-07-23`、`2024-11-30` でそれぞれ `35.7646°C`、`36.0930°C`、`24.9937°C` であり、対応する NDVI、NDBI、NDWI の平均値とあわせて Table 1 に整理した。`2023-07-07` と `2023-07-23` はいずれも約 `36°C` の近い水準を示した一方、`2024-11-30` は明確に低く、観測日の季節差が基礎統計にも表れた。3 観測日の LST 分布の違いは、バイオリンプロットとして Fig. 3 に示す。random split においては、Random Forest の `R²` は各日で `0.7009`、`0.6445`、`0.7180` を示し、Linear Regression の `0.5310`、`0.5401`、`0.5946` を一貫して上回った。この random split と Spatial CV の性能比較は Table 2 に整理し、モデル間の性能差は Fig. 4 に示す。  
+English: The mean LST values for `2023-07-07`, `2023-07-23`, and `2024-11-30` were `35.7646°C`, `36.0930°C`, and `24.9937°C`, respectively, and together with the mean NDVI, NDBI, and NDWI values they are summarized in Table 1. While `2023-07-07` and `2023-07-23` showed similarly high mean temperatures of around `36°C`, `2024-11-30` was clearly cooler, indicating that seasonal differences were already visible in the descriptive statistics. These differences in LST distribution across the three observations are shown as a violin plot in Fig. 3. Under random split, the Random Forest `R²` values were `0.7009`, `0.6445`, and `0.7180`, consistently exceeding the Linear Regression values of `0.5310`, `0.5401`, and `0.5946`. The comparison between random split and spatial cross-validation is summarized in Table 2, and the performance gap between models is shown in Fig. 4.
 
 日本語: Spatial CV では、Random Forest の `R² mean` は `0.6759`、`0.6032`、`0.6965` であり、Linear Regression の `0.4929`、`0.4902`、`0.5744` を各観測で上回った。random split からの低下は存在するものの、その幅は極端ではなく、空間的に独立した条件でも一定の説明力が保たれた。したがって、衛星由来指標のみの条件で得られた説明力は、単なる近接画素間のリークだけで説明されるものではないことが示唆される。  
 English: Under spatial cross-validation, the Random Forest `R² mean` values were `0.6759`, `0.6032`, and `0.6965`, again exceeding the Linear Regression values of `0.4929`, `0.4902`, and `0.5744` for each observation. Although performance decreased relative to random split, the decline was not extreme, and a meaningful level of explanatory power was retained under spatially independent evaluation. This suggests that the explanatory performance obtained using satellite-derived indicators alone cannot be attributed solely to leakage among neighboring pixels.
 
-日本語: 線形回帰係数と Random Forest 重要度を比較すると、3 観測すべてで NDBI が支配的な昇温側要因として位置づけられ、NDVI と NDWI がそれに続いた。これらの重要度比較は Fig. 4 に示す。さらに SHAP の結果でも、NDBI の寄与は全観測で一貫して大きく、mean absolute SHAP は `0.8327`、`1.2505`、`0.8035` を示し、各観測において NDVI と NDWI を上回った。SHAP による寄与の大きさと方向は Fig. 5 に示す。  
-English: Comparing the linear coefficients and Random Forest importance, NDBI was positioned as the dominant warming-related factor in all three observations, followed by NDVI and NDWI. These comparisons of feature importance are shown in Fig. 4. The SHAP results likewise indicated that the contribution of NDBI remained consistently large across all observations, with mean absolute SHAP values of `0.8327`, `1.2505`, and `0.8035`, exceeding those of NDVI and NDWI in each case. The magnitude and direction of the SHAP-based contributions are shown in Fig. 5.
+日本語: 線形回帰係数と Random Forest 重要度を比較すると、3 観測すべてで NDBI が支配的な昇温側要因として位置づけられ、NDVI と NDWI がそれに続いた。これらの重要度比較は Fig. 5 に示す。さらに SHAP の結果でも、NDBI の寄与は全観測で一貫して大きく、mean absolute SHAP は `0.8327`、`1.2505`、`0.8035` を示し、各観測において NDVI と NDWI を上回った。SHAP による寄与の大きさと方向は Fig. 6 に示す。  
+English: Comparing the linear coefficients and Random Forest importance, NDBI was positioned as the dominant warming-related factor in all three observations, followed by NDVI and NDWI. These comparisons of feature importance are shown in Fig. 5. The SHAP results likewise indicated that the contribution of NDBI remained consistently large across all observations, with mean absolute SHAP values of `0.8327`, `1.2505`, and `0.8035`, exceeding those of NDVI and NDWI in each case. The magnitude and direction of the SHAP-based contributions are shown in Fig. 6.
 
-日本語: ただし、Fig. 4 に含まれる線形回帰係数の解釈については、NDVI と NDWI の VIF が 3 観測を通じて一貫して高かったため、多重共線性の影響に注意が必要である。そのため、本稿では線形係数の厳密な順位づけは補助的に扱い、主な解釈は Random Forest と SHAP に基づいて行う。  
-English: However, the linear coefficients included in Fig. 4 should be interpreted with caution because the VIF values for NDVI and NDWI remained consistently high across the three observations, indicating possible multicollinearity. For this reason, the strict ranking of the linear coefficients is treated as supplementary, and the main interpretation is based on Random Forest and SHAP.
+日本語: ただし、Fig. 5 に含まれる線形回帰係数の解釈については、NDVI と NDWI の VIF が 3 観測を通じて一貫して高かったため、多重共線性の影響に注意が必要である。そのため、本稿では線形係数の厳密な順位づけは補助的に扱い、主な解釈は Random Forest と SHAP に基づいて行う。  
+English: However, the linear coefficients included in Fig. 5 should be interpreted with caution because the VIF values for NDVI and NDWI remained consistently high across the three observations, indicating possible multicollinearity. For this reason, the strict ranking of the linear coefficients is treated as supplementary, and the main interpretation is based on Random Forest and SHAP.
 
 ### 7.1 図表案
 
 - Table 2. 日本語: random split と空間交差検証におけるモデル性能比較 / English: Model performance under random split and spatial cross-validation.
-- Fig. 3. 日本語: 重回帰分析と Random Forest の性能比較 / English: Performance comparison between Multiple Linear Regression and Random Forest.
-- Fig. 4. 日本語: 線形回帰係数と Random Forest 重要度の比較 / English: Comparison of linear coefficients and Random Forest importance across observations.
-- Fig. 5. 日本語: SHAP による指標寄与の比較 / English: Comparison of SHAP-based feature contributions across observations.
+- Fig. 3. 日本語: 3観測日におけるLST分布の比較 / English: Comparison of LST distributions across the three observations.
+  メモ候補: `data/csv/analysis/satellite_only_multidate_lst_violin.png`, `data/csv/analysis/satellite_only_20230707_20230707_032329Z_sample_100000.csv`, `data/csv/analysis/satellite_only_20230723_20230723_032309Z_sample_100000.csv`, `data/csv/analysis/satellite_only_20241130_20241130_032336Z_sample_100000.csv`, `data/csv/analysis/satellite_only_multidate_summary.csv`, `src/analysis/visualize_lst_multidate.py`
+- Fig. 4. 日本語: 重回帰分析と Random Forest の性能比較 / English: Performance comparison between Multiple Linear Regression and Random Forest.
+- Fig. 5. 日本語: 線形回帰係数と Random Forest 重要度の比較 / English: Comparison of linear coefficients and Random Forest importance across observations.
+- Fig. 6. 日本語: SHAP による指標寄与の比較 / English: Comparison of SHAP-based feature contributions across observations.
 
 ---
 
@@ -142,12 +144,8 @@ English: The results presented here indicate that a substantial share of LST var
 日本語: 本稿の主な貢献は、研究全体の最終結論を提示することではなく、データ制約下でも再現可能な分析手順を複数観測日に適用し、その説明力を示した点にある。これは、今後の研究方針であるオープンソースで公開されるGIS データや測量データ由来の GISデータ を都市構造に関する指標として導入する条件との比較に向けて重要である。  
 English: The main contribution of this paper is not to present the final conclusion of the overall project, but to demonstrate a reproducible analytical workflow and its explanatory performance across multiple observation dates under data-constrained conditions. This is important for comparing with the conditions for introducing open-source GIS data and GIS data derived from survey data as indicators of urban structure, which is a future research direction.
 
-日本語: 今後は、OpenStreetMap や Microsoft GlobalMLBuildingFootprints などの公開 GIS データを導入し、さらに測量 GIS を含む条件と比較する予定である。また、今回の 3 観測で確認された関係が他の日付や季節でも維持されるかを検証する。これらの比較の位置づけと今後の拡張方向は Fig. 6 に示す。  
-English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints and then compare the results with a condition that also includes survey-based GIS. The analysis will also test whether the relationships identified in these three observations are maintained across additional dates and seasons, and the positioning of these comparisons and the direction of future extensions are shown in Fig. 6.
-
-### 8.1 図表案
-
-- Fig. 6. 日本語: データ可用性条件の比較に向けた研究拡張ロードマップ / English: Roadmap for comparison across data-availability conditions.
+日本語: 今後は、OpenStreetMap や Microsoft GlobalMLBuildingFootprints などの公開 GIS データを導入し、さらに測量 GIS を含む条件と比較する予定である。また、今回の 3 観測で確認された関係が他の日付や季節でも維持されるかを検証する。  
+English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints and then compare the results with a condition that also includes survey-based GIS. The analysis will also test whether the relationships identified in these three observations are maintained across additional dates and seasons.
 ---
 
 ## 9. Keywords

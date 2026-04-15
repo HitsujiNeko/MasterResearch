@@ -1,0 +1,29 @@
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    I2["ROI boundary: Hanoi"] --> S1["Filtering Landsat data collections<br>cloud mask + ROI coverage"]
+    I3["Candidate scenes: 2023-2024"] --> S1
+    S1 --> S2["LST calculation"] & S3["NDVI / NDBI / NDWI calculation"]
+    S2 --> D1["LST map"]
+    S3 --> D2["NDVI / NDBI / NDWI maps"]
+    D1 --> S4["Pixel-wise dataset construction<br>grid alignment + quality control + sampling"]
+    D2 --> S4
+    S4 --> S5["Model evaluation and interpretation<br>MLR vs RF: random split + Spatial CV + SHAP"]
+    I1["Landsat 8 imagery"] --> S1
+
+     I2:::input
+     S1:::process
+     I3:::input
+     S2:::process
+     S3:::process
+     D1:::data
+     D2:::data
+     S4:::data
+     S5:::result
+     I1:::input
+    classDef input fill:#f3ecc9,stroke:#4b5563,stroke-width:1.2px,color:#111827
+    classDef process fill:#d9eadf,stroke:#4b5563,stroke-width:1.2px,color:#111827
+    classDef data fill:#d8e6f2,stroke:#4b5563,stroke-width:1.2px,color:#111827
+    classDef result fill:#f2ddcf,stroke:#4b5563,stroke-width:1.2px,color:#111827

@@ -1,7 +1,7 @@
 # GIS-IDEAS 学会用アブストラクト下書き（衛星指標のみ条件の初期分析）
 
 **最終更新**: 2026-04-21  
-**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [satellite_only_20230707_initial_run.md](satellite_only_20230707_initial_run.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)  
+**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)  
 **前提知識**: データ制約下での有効性評価の目的、Satellite Only 初期実行結果、LST 算出フロー
 
 このドキュメントは2026年9月の学会 GIS-IDEAS 用に作成した研究のアブストラクトであり、

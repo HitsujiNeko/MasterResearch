@@ -32,9 +32,9 @@ docs/
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
 │   ├── GIS_IDEAS_abstract.md            # GIS-IDEAS学会用アブストラクト下書き
-│   ├── data_preparation_status.md         # データ整備状況レポート
+│   ├── survey_gis_data_preparation_status.md # 測量由来GISデータ整備状況レポート
 │   ├── fig2_satellite_only_workflow.mmd   # RQ3図表用Mermaid図
-│   └── satellite_only_20230707_initial_run.md # Satellite Only 初期実行結果
+│   └── satellite_only_analysis_results.md # Satellite Only 分析結果
 │
 └── 04_archive/                            # 📦 アーカイブ
     ├── README.md                          # 文献管理システムガイド
@@ -87,9 +87,9 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 自動生成元 |
 |-----------|------|-----------|-----------|
 | [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md) | GIS-IDEAS学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/csv/analysis/`, `src/analysis/` |
-| [data_preparation_status.md](03_results/data_preparation_status.md) | データ整備状況レポート | GIS/LSTデータのCRS・解像度・空間範囲、次ステップ | `src/analysis/analyze_data_status.py` |
+| [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認、Full シナリオ接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
-| [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md) | Satellite Only 初期実行結果 | RQ3の初期ベースライン、Spatial CV、SHAP、結果解釈 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
+| [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果 | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
 
 **今後追加予定**:
 - RQ1分析結果: 変数重要度ランキング、モデル性能
@@ -143,7 +143,7 @@ graph TB
     E --> H[CodingRule.md<br/>コーディング規約]
     E --> J[src/analysis/analyze_data_status.py<br/>データ分析]
     
-    J --> K[data_preparation_status.md<br/>データ整備状況]
+    J --> K[survey_gis_data_preparation_status.md<br/>測量由来GIS整備状況]
     
     A -.RQ1-3定義.-> I[03_results/<br/>分析結果]
     B -.LSTデータ.-> K
@@ -284,46 +284,39 @@ graph TB
 - 断定を避けるべき事項とタイトル案
 
 **関連ドキュメント**:
-- 初期結果 → [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md)
+- 初期結果 → [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)
 
-#### [data_preparation_status.md](03_results/data_preparation_status.md)
-**データ整備状況レポート** - データ分析フェーズへの準備状況の全体把握（464行）
+#### [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md)
+**測量由来GISデータ整備状況レポート** - 測量由来 GIS の整備、内容確認、Full シナリオ接続条件の整理
 
 **主要セクション**:
-- データ整備の全体概況（完了・未完了・優先対応事項）
-- **GISデータ詳細**: 7種類のgpkgファイル（CS/DC/DH/GT/RG/TH/TV）
-  - CRS情報: LOCAL_CS → EPSG:3405 (VN-2000)推定
-  - 空間範囲: 投影座標（m）とWGS84（度）
-  - ジオメトリタイプ・地物数（合計180,417地物）
-- **LSTデータ詳細**: 
-  - SMW法による2023年7-8月データ（有効データ4件）
-  - 出力CRS: EPSG:4326、解像度30m
-  - ROI情報（Hanoi、範囲要確認）
-- **ディレクトリ構造**: データファイルの位置と役割
-- **次ステップ**: タスク1-6（CRS設定、ROI修正、ジオメトリ修復等）
+- 測量由来 GIS データ整備の全体概況
+- 7種類の GPKG（CS/DC/DH/GT/RG/TH/TV）の処理結果
+- レイヤ意味の確認結果と想定用途
+- Full シナリオへ接続するための残課題
 
 **自動生成元**: [src/analysis/analyze_data_status.py](../src/analysis/analyze_data_status.py)（GIS/LSTデータを自動分析）
 
 **活用場面**:
-- データ分析スクリプト作成時の入力データ仕様確認
-- AI支援時のデータ構造把握
-- 論文の「データと方法」セクション執筆
+- 測量由来 GIS の入力仕様確認
+- Full シナリオの前提整理
+- 都市構造パラメータ設計時の根拠確認
 
 **関連ドキュメント**:
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)（RQ1-3の定義）
-- LST詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)（SMW法の選定理由）
-- コード規約 → [CodingRule.md](02_methods/CodingRule.md)（自動分析スクリプトの設計思想）
+- 手法フロー → [analysis_workflow.md](02_methods/analysis_workflow.md)
+- パラメータ設計 → [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)
 
-#### [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md)
-**Satellite Only 初期実行結果** - RQ3の初期ベースライン整理
+#### [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
+**Satellite Only 分析結果** - RQ3 の 3 観測日ベースライン整理
 
 **主要セクション**:
-- 2023-07-07 観測を用いた初期分析条件
-- MLR / Random Forest の性能比較
+- 2023-07-07、2023-07-23、2024-11-30 の分析条件
+- MLR / Random Forest の複数日性能比較
 - Spatial CV による過大評価確認
 - SHAP による変数重要度と寄与方向の解釈
-- 今後の研究の方向性
+- Limited / Full 比較に向けた次段階整理
 
 **自動生成元**: `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py`
 
@@ -336,7 +329,7 @@ graph TB
 - 図表化を前提にした簡潔なノード構成
 
 **関連ドキュメント**:
-- 初期結果 → [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md)
+- 分析結果 → [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
 - 解析ガイド → [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md)
 
 ### �📝 今後追加予定のドキュメント
@@ -711,6 +704,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-04-21 | `satellite_only_20230707_initial_run.md` を `satellite_only_analysis_results.md` に改名し、3観測日版へ更新。`data_preparation_status.md` も `survey_gis_data_preparation_status.md` に改名し、測量由来GIS向けに再整理 | AI支援 |
 | 2026-04-21 | `conference_abstract_rq3_satellite_only_draft.md` を `GIS_IDEAS_abstract.md` に改名し、索引参照を更新 | AI支援 |
 | 2026-04-21 | `fig2_satellite_only_workflow.mmd`、`04_archive`配下の既存構造化要約、テンプレートを索引へ反映。古い実装パス表記も修正 | AI支援 |
 | 2026-04-09 | `available_gis_data.md` と `conference_abstract_rq3_satellite_only_draft.md` を索引に追加 | AI支援 |

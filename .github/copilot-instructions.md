@@ -79,7 +79,8 @@ MasterResearch/
     │   ├── gee_calc_LST.md
     │   └── CodingRule.md
     ├── 03_results/
-    │   └── data_preparation_status.md
+    │   ├── survey_gis_data_preparation_status.md
+    │   └── satellite_only_analysis_results.md
     └── 04_archive/
         ├── README.md
         └── previous_studies_report.md

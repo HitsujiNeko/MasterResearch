@@ -23,7 +23,7 @@ docs/
 │   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
 │   ├── agency_agents_minimal_set.md       # 研究専用エージェント最小セット運用ガイド
 │   ├── analysis_rq3_satellite_only_guide.md # analysis_rq3_satellite_only.py 初心者向け解説
-│   ├── calc_urban_params_guide.md         # calc_urban_params.py 詳細解説（Phase 2実装読解）
+│   ├── calc_urban_params_guide.md         # calc_urban_params.py 設計再定義ガイド
 │   ├── gee_calc_satellite_indices.md      # 衛星指標算出仕様書（NDVI/NDBI/NDWI）
 │   ├── data_management_guide.md           # データ管理方針（Git/LFS/DVC運用）
 │   ├── calc_LST_report.md                 # LST算出レポート
@@ -31,8 +31,9 @@ docs/
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
-│   ├── conference_abstract_rq3_satellite_only_draft.md # 学会用アブストラクト下書き
+│   ├── GIS_IDEAS_abstract.md            # GIS-IDEAS学会用アブストラクト下書き
 │   ├── data_preparation_status.md         # データ整備状況レポート
+│   ├── fig2_satellite_only_workflow.mmd   # RQ3図表用Mermaid図
 │   └── satellite_only_20230707_initial_run.md # Satellite Only 初期実行結果
 │
 └── 04_archive/                            # 📦 アーカイブ
@@ -41,7 +42,11 @@ docs/
     ├── previous_studies_report.md         # 先行研究整理（S1-S8）
     ├── 01_metadata/
     │   └── papers_database.csv            # 論文メタデータ（CSV）
+    ├── 02_structured_summaries/
+    │   ├── S1_Ermida_2020.md              # SMW法の構造化要約
+    │   └── S2-S6_*.md                     # 既存構造化要約
     └── templates/
+        ├── chatgpt_instruction_paper_analysis.md # ChatGPT論文分析指示書
         └── structured_summary_template.md # 論文要約テンプレート
 ```
 
@@ -70,7 +75,7 @@ docs/
 | [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計 | `src/` 全スクリプト |
 | [agency_agents_minimal_set.md](02_methods/agency_agents_minimal_set.md) | 研究専用エージェント最小セット運用ガイド | 選抜6エージェント、固有文脈テンプレート、工程別呼び出し順、品質チェック表 | `agency-agents/`, `docs/` |
 | [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md) | RQ3衛星のみ分析コード解説 | 初心者向けに処理フロー、評価指標、Spatial CV、SHAPの読み方を整理 | `src/analysis/analysis_rq3_satellite_only.py` |
-| [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `calc_urban_params.py` 詳細解説 | 解析範囲設計、UTMグリッド化、被覆率/密度算出、近似と制約、改良方針 | `src/analysis/calc_urban_params.py` |
+| [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `calc_urban_params.py` 設計再定義ガイド | 解析範囲設計、UTMグリッド化、GIS/衛星指標統合、品質管理列の仕様 | `src/analysis/calc_urban_params.py` |
 | [gee_calc_satellite_indices.md](02_methods/gee_calc_satellite_indices.md) | 衛星指標算出仕様書 | NDVI/NDBI/NDWI算出式、QAマスク、スケーリング、統計出力の仕様と根拠 | `src/gee/gee_calc_satellite_indices.py` |
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
@@ -81,8 +86,9 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 自動生成元 |
 |-----------|------|-----------|-----------|
-| [conference_abstract_rq3_satellite_only_draft.md](03_results/conference_abstract_rq3_satellite_only_draft.md) | 学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/csv/analysis/`, `src/analysis/` |
-| [data_preparation_status.md](03_results/data_preparation_status.md) | データ整備状況レポート | GIS/LSTデータのCRS・解像度・空間範囲、次ステップ | `src/analyze_data_status.py` |
+| [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md) | GIS-IDEAS学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/csv/analysis/`, `src/analysis/` |
+| [data_preparation_status.md](03_results/data_preparation_status.md) | データ整備状況レポート | GIS/LSTデータのCRS・解像度・空間範囲、次ステップ | `src/analysis/analyze_data_status.py` |
+| [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md) | Satellite Only 初期実行結果 | RQ3の初期ベースライン、Spatial CV、SHAP、結果解釈 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
 
 **今後追加予定**:
@@ -98,6 +104,7 @@ docs/
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理詳細ガイド | PDFのMarkdown変換戦略、ベストプラクティス | 論文要約作成時 |
 | [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S8の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 8論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
+| [templates/chatgpt_instruction_paper_analysis.md](04_archive/templates/chatgpt_instruction_paper_analysis.md) | ChatGPT用論文分析指示書 | PDFや書誌情報から構造化要約を作る標準プロンプト | 論文要約作成前 |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
 **先行研究一覧（S1-S8）**:
@@ -109,6 +116,14 @@ docs/
 - **S6**: Garzón (2021) - 熱帯都市SUHI
 - **S7**: Zhong (2024) - AutoMLダウンスケーリング
 - **S8**: Tanoori (2024) - ML手法比較
+
+**構造化要約（現存ファイル）**:
+- [S1_Ermida_2020.md](04_archive/02_structured_summaries/S1_Ermida_2020.md)
+- [S2_LeNgocHanh_2025.md](04_archive/02_structured_summaries/S2_LeNgocHanh_2025.md)
+- [S3_Onacillova_2022.md](04_archive/02_structured_summaries/S3_Onacillova_2022.md)
+- [S4_Sun_2019.md](04_archive/02_structured_summaries/S4_Sun_2019.md)
+- [S5_Osborne_2019.md](04_archive/02_structured_summaries/S5_Osborne_2019.md)
+- [S6_Garzon_2021.md](04_archive/02_structured_summaries/S6_Garzon_2021.md)
 
 ---
 
@@ -126,7 +141,7 @@ graph TB
     C --> G[literature_management_guide.md<br/>文献管理ガイド]
     
     E --> H[CodingRule.md<br/>コーディング規約]
-    E --> J[src/analyze_data_status.py<br/>データ分析]
+    E --> J[src/analysis/analyze_data_status.py<br/>データ分析]
     
     J --> K[data_preparation_status.md<br/>データ整備状況]
     
@@ -260,8 +275,8 @@ graph TB
 
 ### � ドキュメント詳細
 
-#### [conference_abstract_rq3_satellite_only_draft.md](03_results/conference_abstract_rq3_satellite_only_draft.md)
-**学会用アブストラクト下書き** - RQ3 の Satellite Only 初期結果に基づく本文案と図表案
+#### [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md)
+**GIS-IDEAS学会用アブストラクト下書き** - RQ3 の Satellite Only 初期結果に基づく本文案と図表案
 
 **主要セクション**:
 - Introduction / Methodology / Results / Conclusion の文案
@@ -288,7 +303,7 @@ graph TB
 - **ディレクトリ構造**: データファイルの位置と役割
 - **次ステップ**: タスク1-6（CRS設定、ROI修正、ジオメトリ修復等）
 
-**自動生成元**: [src/analyze_data_status.py](../src/analyze_data_status.py)（GIS/LSTデータを自動分析）
+**自動生成元**: [src/analysis/analyze_data_status.py](../src/analysis/analyze_data_status.py)（GIS/LSTデータを自動分析）
 
 **活用場面**:
 - データ分析スクリプト作成時の入力データ仕様確認
@@ -311,6 +326,18 @@ graph TB
 - 今後の研究の方向性
 
 **自動生成元**: `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py`
+
+#### [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd)
+**RQ3図表用Mermaid図** - Satellite Only 分析フローを論文図表向けに整理した図
+
+**主要セクション**:
+- データ準備からモデル評価までの処理順
+- Satellite Only 条件で使う説明変数群
+- 図表化を前提にした簡潔なノード構成
+
+**関連ドキュメント**:
+- 初期結果 → [satellite_only_20230707_initial_run.md](03_results/satellite_only_20230707_initial_run.md)
+- 解析ガイド → [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md)
 
 ### �📝 今後追加予定のドキュメント
 
@@ -421,13 +448,15 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 04_archive/
 ├── 01_metadata/              # 論文メタデータ
 │   └── papers_database.csv
-├── 02_structured_summaries/  # 構造化要約（今後追加）
+├── 02_structured_summaries/  # 構造化要約（S1-S6登録済み）
 │   └── S1_Ermida_2020.md 等
 ├── 03_key_findings/          # テーマ別知見（今後追加）
 │   ├── urban_parameters_catalog.md
 │   └── lst_methods_comparison.md
 ├── 04_pdfs/                  # PDF原本（移動予定）
 └── templates/                # テンプレート
+    ├── chatgpt_instruction_paper_analysis.md
+    └── structured_summary_template.md
 ```
 
 ### 🔗 関連ドキュメント
@@ -624,9 +653,10 @@ MasterResearch/
 │   └── README.md               # 📌 このファイル
 │
 ├── src/                        # Pythonスクリプト
-│   ├── gee_calc_LST.py         # LST算出メイン
+│   ├── gee/gee_calc_LST.py     # LST算出メイン
 │   ├── module/lst_smw.py       # SMW法モジュール
-│   └── analysis_*.py           # 分析スクリプト
+│   ├── analysis/*.py           # 分析スクリプト
+│   └── preprocessing/*.py      # GIS前処理スクリプト
 │
 ├── data/                       # データ
 │   ├── input/                  # 入力データ
@@ -681,6 +711,8 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-04-21 | `conference_abstract_rq3_satellite_only_draft.md` を `GIS_IDEAS_abstract.md` に改名し、索引参照を更新 | AI支援 |
+| 2026-04-21 | `fig2_satellite_only_workflow.mmd`、`04_archive`配下の既存構造化要約、テンプレートを索引へ反映。古い実装パス表記も修正 | AI支援 |
 | 2026-04-09 | `available_gis_data.md` と `conference_abstract_rq3_satellite_only_draft.md` を索引に追加 | AI支援 |
 | 2026-04-07 | `setup.md` と `satellite_only_20230707_initial_run.md` を索引に追加 | AI支援 |
 | 2026-02-26 | 案1（Single Source of Truth）実装：サブREADME削除、docs/README.md充実化 | AI支援 |
@@ -689,6 +721,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-04-09  
+**最終更新**: 2026-04-21  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

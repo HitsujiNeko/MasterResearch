@@ -19,7 +19,7 @@
 - **RQ2**: 都市構造パラメータとLSTの関係性は、空間集計単位や解析スケールの違いによってどのように変化するか？
 - **RQ3**: 測量データが限定的な条件下でも、衛星データおよび公開データによりLST分布の説明はどの程度可能か？
 
-**詳細**: [research_guide.md](docs/01_planning/research_guide.md)
+**詳細**: [research_guide.md](../docs/01_planning/research_guide.md)
 
 ---
 
@@ -32,104 +32,19 @@
 - **1関数1責務**: 処理を適切に分割
 - **再現性**: パスは相対パス・`pathlib.Path`、乱数シードを設定
 
-**詳細**: [CodingRule.md](docs/02_methods/CodingRule.md)を必ず参照
+**詳細**: [CodingRule.md](../docs/02_methods/CodingRule.md)を必ず参照
 
 ---
 
-## 📁 ディレクトリ構造とデータパス
+## 🌍 最小用語集
 
-### プロジェクト構造
-```
-MasterResearch/
-├── data/
-│   ├── input/              # 入力データ
-│   │   ├── gee_calc_LST_info.csv
-│   │   └── GISData/ROI/
-│   ├── output/             # 出力データ
-│   │   ├── gee_calc_LST_results.csv
-│   │   └── LST/*.tif
-│   └── csv/analysis/       # 分析用CSV
-│
-├── 整備データ/              # ベトナム測量データ
-│   ├── merge/*.gpkg        # 統合GeoPackage
-│   └── Vector_*/           # 元データ（DGN）
-│
-├── src/                    # Pythonスクリプト（タイプ別フォルダ分類済み）
-│   ├── preprocessing/      # データ前処理
-│   │   ├── merge_vector.py / merge_vector_fixed.py
-│   │   ├── append_remaining_dgn.py
-│   │   ├── convert_gis_to_wgs84.py / convert_to_wgs84_ogr.py
-│   │   └── organize_dgn.py / merge_map.py
-│   ├── analysis/           # データ分析・EDA
-│   │   ├── analyze_data_status.py
-│   │   ├── analyze_gpkg.py / analyze_merged_gpkg.py
-│   │   └── analyze_lst_data_detail.py
-│   ├── gee/                # Google Earth Engine
-│   │   └── gee_calc_LST.py
-│   ├── module/             # 共有モジュール
-│   │   └── lst_smw.py
-│   └── js/                 # GEE用JavaScriptモジュール
-│
-└── docs/                   # ドキュメント（研究フェーズ別）
-    ├── README.md           # ドキュメント管理の中心
-    ├── 01_planning/
-    │   └── research_guide.md
-    ├── 02_methods/
-    │   ├── calc_LST_report.md
-    │   ├── gee_calc_LST.md
-    │   └── CodingRule.md
-    ├── 03_results/
-    │   ├── survey_gis_data_preparation_status.md
-    │   └── satellite_only_analysis_results.md
-    └── 04_archive/
-        ├── README.md
-        └── previous_studies_report.md
-```
-
-### データパス規則
-- 入力: `data/input/` または `整備データ/`
-- 出力: `data/output/` 配下の適切なフォルダ
-- 一時ファイル: `data/temp/`（必要に応じて作成）
-- パスは `pathlib.Path` を使用
-
----
-
-## 🌍 プロジェクト固有の用語集
-
-### 地表面温度関連
-- **LST** (Land Surface Temperature): 地表面温度。**本研究では必ず摂氏（°C）で出力**
-- **SMW法**: Statistical Mono-Window法（Ermida et al. 2020）。本研究の標準手法
-- **SUHI**: Surface Urban Heat Island（表面都市ヒートアイランド）
-
-### 衛星由来指標
-- **NDVI** (Normalized Difference Vegetation Index): 正規化植生指数。緑地の指標
-- **NDBI** (Normalized Difference Built-up Index): 正規化建物指数。市街化の指標
-- **NDWI** (Normalized Difference Water Index): 正規化水指数。水域の指標
-- **FVC** (Fractional Vegetation Cover): 植生被覆率
-
-### 都市構造パラメータ
-本研究における**都市構造パラメータ**とは、地表面エネルギー収支および熱輸送に影響を与える要素（土地被覆・建物・道路・水域・人口集積など）の空間配置と密度を空間統計量として定量化した説明変数群を指す。
-
-例：建物被覆率、道路密度、緑被率、水域率、主要道路距離、人口密度など
-
-### GISデータ
-- **ROI** (Region of Interest): 研究対象地域
-- **GPKG**: GeoPackage形式（`.gpkg`）
-- **DGN**: MicroStation形式のCADファイル（ベトナム測量データの元形式）
-- **座標系**: 原則として**WGS84（EPSG:4326）**。ベトナム測量データは**VN-2000**
-
----
-
-## 🔧 使用技術スタック
-
-### 主要ライブラリ
-- **データ分析**: NumPy, Pandas
-- **地理空間データ**: GeoPandas, Shapely, Folium
-- **衛星画像解析**: Google Earth Engine (ee)
-- **機械学習**: scikit-learn (RandomForest, LinearRegression等)
-- **可視化**: Matplotlib, Seaborn
-
-依存関係の詳細: `environment.yml` / `docs/setup.md`（`requirements.txt` は参照用）
+- **LST**: 地表面温度。**本研究では必ず摂氏（°C）で扱う**
+- **ROI**: 研究対象地域。分析対象域の基準となる空間範囲
+- **CRS**: 原則として入出力は **WGS84（EPSG:4326）** を基準とする。面積・距離計算時は投影座標系を使用する。ベトナム測量データは **VN-2000** を含む
+- **Satellite Only**: 衛星由来指標のみを用いる分析シナリオ
+- **Limited**: 衛星データと公開GISのみを用いる分析シナリオ
+- **Full**: 衛星データ・公開GIS・測量GISを用いる分析シナリオ
+- **有効カバレッジ / 有効域**: 実際に信頼して使えるデータ範囲。**ROI全体と同一視しない**
 
 ---
 
@@ -140,7 +55,7 @@ MasterResearch/
 2. **コーディング規約を遵守**: 上記Pythonコーディング規約に準拠
 3. **ドキュメント参照**: `docs/` 配下の関連ドキュメントを確認
 4. **再現性の確保**: 乱数シード設定、パスの相対化など
-5. **実装前後チェックリストを実施**: `docs/02_methods/CodingRule.md` の「9. 実装前後チェックリスト（必須）」を完了してから最終出力する
+5. **実装前後チェックリストを実施**: コード変更や文書更新を伴うタスクでは、`docs/02_methods/CodingRule.md` の「9. 実装前後チェックリスト（必須）」を完了してから最終出力する
 
 ### 推奨事項
 - 処理の各段階で中間結果を保存（デバッグ用）
@@ -152,6 +67,34 @@ MasterResearch/
 - ❌ タブ文字の使用
 - ❌ 日本語変数名の使用
 - ❌ コメント・docstringなしのコード
+
+---
+
+## 🗂️ タスクプロンプト運用（要約）
+
+- 進行中タスクは `.github/prompts/active/` 配下の prompt ファイルで管理する
+- Codex は、会話で指定された active prompt を起点に、関連ファイル・成果物・関連文書を確認して作業する
+- active prompt を completed に移す前に、**必ず** prompt 本文へ `完了記録` を追記し、実施内容・成果物パス・確認内容を残す
+- completed に移す prompt は、**必ず** `.github/prompts/completed/YYYYMMDD_<task>.prompt.md` 形式で命名する
+- タスク完了時は、成果物の作成または更新、必要な関連文書更新、prompt への完了記録追記、コミット対象の確認までを完了条件として扱う
+- 明示的な指示がない限り、Codex は active / completed 間の移動や完了確定を勝手に行わない
+- 詳細運用は [task-prompt-workflow.md](./task-prompt-workflow.md) を参照する
+
+---
+
+## 🎯 AI支援の最小方針
+
+### AIに期待すること
+- コード補助: Python / GIS処理の実装、修正、整理
+- 分析補助: 手順整理、検証観点の明確化、関連ドキュメントに基づく提案
+- 文書補助: 結果整理、要約、構成改善
+
+### AI出力の条件
+- 推測で埋めず、関連ファイル・関連ドキュメント・実行結果を根拠にする
+- 未確認事項は断定せず、仮定または要確認事項として明示する
+
+### 研究者の責任範囲
+- 学術的判断、結論、研究倫理に関わる最終判断は研究者自身が負う
 
 ---
 
@@ -191,75 +134,10 @@ MasterResearch/
 
 ---
 
-## 🎯 AI支援における指針
-
-### AIに期待すること
-
-#### 開発支援
-- コード補助（Python / GIS処理）
-- デバッグ・リファクタリング
-- テストコード作成
-
-#### 研究支援
-- **文献調査**: 先行研究の要約、比較表作成
-  - **推奨**: ChatGPTで論文分析 → GitHub Copilotで統合
-  - **詳細**: `docs/04_archive/templates/chatgpt_instruction_paper_analysis.md`
-- **データ分析**: EDA、統計解析、可視化
-- **手法比較**: 複数手法の長所・短所の整理
-- **結果解釈**: 分析結果の壁打ち、考察のブラッシュアップ
-- **文章作成**: 論文・レポートの構成案、表現の改善
-
-#### アイデア出し
-- 分析手法の提案
-- RQに対するアプローチの検討
-- データ制約下での代替手法の提示
-
-#### agency-agents活用方針
-- `agency-agents` は必須ではなく、必要時に活用する（通常タスクは従来どおり実行可能）。
-- エージェント指定がない場合は、`docs/02_methods/agency_agents_minimal_set.md` の省力運用プロトコルに従って最小セットを自動適用する。
-- 研究ルールの正本は本ファイルと `docs/` 配下に置き、`agency-agents` 側へ重複記述しない。
-
-### AIに期待しないこと（研究者の責任範囲）
-- 学術的判断の最終決定
-- 結果の恣意的解釈
-- 結論の責任所在
-- 研究倫理に関わる判断
-
-**原則**: AIは研究補助として利用し、研究の最終的な判断・責任は研究者自身が負う。
-
----
-
-## 📚 主要ドキュメントリンク
-
-プロジェクトルートからの相対パス（研究フェーズ別に整理）：
-### 研究のドキュメントの構成及び概要
-- `docs\README.md`
-
-### 01_planning - 研究計画
-- **研究計画**: `docs/01_planning/research_guide.md`
-
-### 02_methods - 研究手法
-- **分析ワークフロー仕様書**: `docs/02_methods/analysis_workflow.md`（前処理→パラメータ算出→モデル→評価の全工程）
-- **LST算出レポート**: `docs/02_methods/calc_LST_report.md`
-- **LST算出仕様**: `docs/02_methods/gee_calc_LST.md`
-- **コーディング規約**: `docs/02_methods/CodingRule.md`
-
-### 03_results - 研究結果
-- ※今後、分析結果を追加予定
-
-### 04_archive - アーカイブ
-- **先行研究整理**: `docs/04_archive/previous_studies_report.md`
-
-### その他
-- **DGNデータ確認結果**: `DGNファイル内容確定結果.md`
-
-
----
-
 ## 🔄 このファイルの更新方針
 
 - 研究の進行に応じて随時更新
 - 新しい用語や規約は追記
 - 変更時は日付を記録
 
-**最終更新**: 2026-04-02
+**最終更新**: 2026-05-13

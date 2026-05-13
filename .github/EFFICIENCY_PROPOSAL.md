@@ -20,7 +20,7 @@
 - 方針: Git（コード・軽量メタ情報） + Google Drive（大容量実データ）。
 
 4. 大容量出力のGit追跡見直し
-- `data/output/gis_wgs84/*.gpkg` を index 追跡から除外済み（ローカル実体は保持）。
+- 旧 WGS84 変換 GPKG は本流外とし、生成物の Git 追跡対象から外した。
 
 5. LSTエクスポート先の設定化
 - `src/gee/gee_calc_LST.py` を更新し、Driveフォルダ名を設定CSVから制御可能に変更済み。

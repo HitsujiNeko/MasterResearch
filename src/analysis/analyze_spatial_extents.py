@@ -1,7 +1,7 @@
 """空間範囲（BBox）比較レポート生成
 
 目的:
-    - ROI（行政区画）と、測量GISデータ（merge_*_wgs84.gpkg）の空間範囲の不一致を
+    - ROI（行政区画）と、測量GISデータ（merge_*.gpkg）の空間範囲の不一致を
       数値として把握し、後続の分析（LST×都市構造パラメータ）でのマスク方針を確定する。
 
 ポイント:
@@ -28,6 +28,7 @@ from typing import Any
 
 import fiona
 import rasterio
+from pyproj import CRS, Transformer
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -59,12 +60,32 @@ def bbox_from_fiona_bounds(bounds: tuple[float, float, float, float]) -> BBox:
     return BBox(float(minx), float(miny), float(maxx), float(maxy))
 
 
-def read_vector_bbox_any_layer(vector_path: Path) -> dict[str, Any]:
+def transform_bbox(bbox: BBox, transformer: Transformer) -> BBox:
+    """BBoxを別CRSへ変換する。"""
+    corners = [
+        (bbox.minx, bbox.miny),
+        (bbox.minx, bbox.maxy),
+        (bbox.maxx, bbox.miny),
+        (bbox.maxx, bbox.maxy),
+    ]
+    x_coords, y_coords = zip(*[transformer.transform(x, y) for x, y in corners])
+    return BBox(min(x_coords), min(y_coords), max(x_coords), max(y_coords))
+
+
+def read_vector_bbox_any_layer(
+    vector_path: Path,
+    source_crs: CRS | None = None,
+    output_crs: CRS | None = None,
+) -> dict[str, Any]:
     """GPKG/SHP等のベクタから、レイヤごとのboundsと統合boundsを取得する。"""
     layers = fiona.listlayers(vector_path)
     layer_info: list[dict[str, Any]] = []
     union_bbox: BBox | None = None
     crs_wkt: str | None = None
+    transformer: Transformer | None = None
+
+    if source_crs is not None and output_crs is not None and source_crs != output_crs:
+        transformer = Transformer.from_crs(source_crs, output_crs, always_xy=True)
 
     for layer in layers:
         with fiona.open(vector_path, layer=layer) as src:
@@ -73,6 +94,8 @@ def read_vector_bbox_any_layer(vector_path: Path) -> dict[str, Any]:
 
             # Fionaが提供するbounds（レイヤ全体）
             layer_bbox = bbox_from_fiona_bounds(src.bounds)
+            if transformer is not None:
+                layer_bbox = transform_bbox(layer_bbox, transformer)
             layer_info.append(
                 {
                     "layer": layer,
@@ -93,23 +116,14 @@ def read_vector_bbox_any_layer(vector_path: Path) -> dict[str, Any]:
 
 
 def read_roi_hanoi_bbox() -> dict[str, Any]:
-    """ROI（hanoi_roi.shp）から 'Hà Nội' のBBoxを取得する。
-
-    注意:
-        - ROIは複数都市が同一SHPに入っている。
-        - ここでは属性 `TinhThanh == 'Hà Nội'` を抽出してboundsを計算する。
-    """
-    roi_path = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_roi.shp"
+    """ROI（hanoi_ROI_EPSG4326.shp）からBBoxを取得する。"""
+    roi_path = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
     if not roi_path.exists():
         raise FileNotFoundError(f"ROIが見つかりません: {roi_path}")
 
     selected_bounds: BBox | None = None
     with fiona.open(roi_path) as src:
         for feat in src:
-            props = feat.get("properties") or {}
-            if props.get("TinhThanh") != "Hà Nội":
-                continue
-
             geom = feat.get("geometry")
             if geom is None:
                 continue
@@ -127,7 +141,7 @@ def read_roi_hanoi_bbox() -> dict[str, Any]:
 
     return {
         "path": str(roi_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
-        "filter": {"TinhThanh": "Hà Nội"},
+        "filter": {"all_features": True},
         "bbox": selected_bounds.to_list(),
     }
 
@@ -173,26 +187,29 @@ def read_lst_bbox_osaka_any() -> dict[str, Any] | None:
 
 
 def main() -> None:
-    gis_dir = PROJECT_ROOT / "data" / "output" / "gis_wgs84"
-    gpkg_paths = sorted(gis_dir.glob("merge_*_wgs84.gpkg"))
+    gis_dir = PROJECT_ROOT / "整備データ" / "merge"
+    gpkg_paths = sorted(gis_dir.glob("merge_*.gpkg"))
+    source_crs = CRS.from_epsg(3405)
+    output_crs = CRS.from_epsg(4326)
 
     report: dict[str, Any] = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "project_root": str(PROJECT_ROOT),
         "roi_hanoi": read_roi_hanoi_bbox(),
-        "gis_merge_wgs84": [],
+        "gis_merge_from_3405": [],
         "lst_osaka_example": read_lst_bbox_osaka_any(),
         "notes": [
             "LSTはGEE算出時点でROI（行政区画）でクリップ済み。",
-            "測量GIS（merge_*_wgs84.gpkg）はROIより狭い矩形範囲。",
+            "測量GISの正本は merge_*.gpkg（EPSG:3405）として扱う。",
+            "BBox比較では merge_*.gpkg をその場でWGS84へ変換して使用する。",
             "分析対象域はGISの有効範囲内（BBoxや凸包）でLSTピクセルをマスクして定義する。",
         ],
     }
 
     union_bbox: BBox | None = None
     for gpkg_path in gpkg_paths:
-        info = read_vector_bbox_any_layer(gpkg_path)
-        report["gis_merge_wgs84"].append(info)
+        info = read_vector_bbox_any_layer(gpkg_path, source_crs=source_crs, output_crs=output_crs)
+        report["gis_merge_from_3405"].append(info)
 
         bb = bbox_from_fiona_bounds(tuple(info["bbox_union"]))
         union_bbox = bb if union_bbox is None else union_bbox.union(bb)

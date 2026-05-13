@@ -29,7 +29,7 @@
 ### Layer 2: Google Driveで管理するもの
 
 - 大容量ラスタ: data/output/LST/ 配下で生成される GeoTIFF
-- 大容量ベクタ: data/output/gis_wgs84/*.gpkg
+- merge_XX.gpkg などの大容量GISデータ
 - GEEからExportされる配布前データ一式
 - 原則として「成果物の実体」はDrive、「参照情報」はGitに保存
 
@@ -101,7 +101,6 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
   - data/output/LST/**/*.aux.xml
   - data/output/maps/**/*.tif
   - data/output/maps/**/*.aux.xml
-  - data/output/gis_wgs84/*.gpkg
   - data/csv/analysis/*_dataset.csv
 - 入力の大容量ラスタは除外
   - data/input/**/*.tif
@@ -119,8 +118,8 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
 以下コマンドで、ローカルファイルは残したまま index から除外する。
 
 ```powershell
-git rm --cached data/output/gis_wgs84/*.gpkg
-git commit -m "Stop tracking large generated gpkg outputs"
+git rm --cached <tracked-generated-file>
+git commit -m "Stop tracking generated outputs"
 ```
 
 必要に応じて、将来的に履歴クリーンアップ（git filter-repo 等）を検討する。
@@ -207,7 +206,7 @@ git ls-files | ForEach-Object {
 }
 
 # 既追跡の大容量出力を index から除外（ローカルは残る）
-git rm --cached data/output/gis_wgs84/*.gpkg
+git rm --cached <tracked-generated-file>
 
 # 変更確認
 git status --short

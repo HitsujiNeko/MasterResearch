@@ -44,11 +44,9 @@ LST や公開 GIS を含む研究全体の進捗ではなく、あくまで `Ful
 
 - **元データ**: `整備データ/Vector_*/` 配下の DGN ファイル
 - **統合データ**: `整備データ/merge/` 配下の GeoPackage
-- **変換データ**: `data/output/gis_wgs84/merge_*_wgs84.gpkg`
 - **統合スクリプト**:
   - `src/preprocessing/merge_vector_fixed.py`
   - `src/preprocessing/append_remaining_dgn.py`
-  - `src/preprocessing/convert_to_wgs84_ogr.py`
 
 ### 2.2 処理結果サマリー
 
@@ -106,7 +104,7 @@ EPSG:3405を仮定してWGS84へ変換した結果：
 **重要**:
 
 - 測量由来 GIS はハノイ全域ではなく、**中心部の矩形範囲**を主にカバーする
-- `merge_DC_wgs84.gpkg` など一部レイヤには外れ値ジオメトリが含まれる可能性がある
+- `merge_DC.gpkg` など一部レイヤには外れ値ジオメトリが含まれる可能性がある
 - そのため、`Full` シナリオでは RG / CS を基準に分析対象域を定義する方針が有力である
 
 ### 2.5 レイヤ意味の確認結果
@@ -145,23 +143,10 @@ EPSG:3405を仮定してWGS84へ変換した結果：
 **総地物数（DC/GT/TV）**: 796,953地物  
 **全体完全性（7種類合計）**: 977,370地物（99.79%、238/240ファイル処理）
 
-#### WGS84変換結果
 
-| データ種類 | WGS84ファイル | サイズ(MB) | 地物数 | 変換時間 |
-|---------|-------------|-----------|--------|---------|
-| **DC** | merge_DC_wgs84.gpkg | 159.39 | 460,085 | ~8秒 |
-| **GT** | merge_GT_wgs84.gpkg | 93.11 | 209,077 | ~3秒 |
-| **TV** | merge_TV_wgs84.gpkg | 61.74 | 127,791 | ~2秒 |
-
-**処理ログ**:
-- merge処理: `data/output/merge_vector_fixed.log`
-- append処理: `data/output/append_remaining.log`
-- WGS84変換: `data/output/convert_to_wgs84_ogr.log`
-
-**使用スクリプト（移動後のパス）**:
+**現行の使用スクリプト**:
 - `src/preprocessing/merge_vector_fixed.py`
 - `src/preprocessing/append_remaining_dgn.py`
-- `src/preprocessing/convert_to_wgs84_ogr.py`
 
 #### 欠落データの影響評価
 
@@ -216,13 +201,10 @@ MasterResearch/
 │   └── Vector_*/
 ├── data/
 │   └── output/
-│       └── gis_wgs84/
-│           └── merge_*_wgs84.gpkg
 └── src/
     └── preprocessing/
         ├── merge_vector_fixed.py
-        ├── append_remaining_dgn.py
-        └── convert_to_wgs84_ogr.py
+        └── append_remaining_dgn.py
 ```
 
 ---

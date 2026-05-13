@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-03-03 21:07:22",
+  "generated_at": "2026-05-13 09:24:19",
   "project_root": "C:\\MasterResearch",
   "roi_hanoi": {
-    "path": "data/GISData/ROI/hanoi/hanoi_roi.shp",
+    "path": "data/GISData/ROI/hanoi/hanoi_ROI_EPSG4326.shp",
     "filter": {
-      "TinhThanh": "Hà Nội"
+      "all_features": true
     },
     "bbox": [
       105.28812456270636,
@@ -13,174 +13,166 @@
       21.385222290909635
     ]
   },
-  "gis_merge_wgs84": [
+  "gis_merge_from_3405": [
     {
-      "path": "data/output/gis_wgs84/merge_CS_wgs84.gpkg",
-      "layers": [
-        {
-          "layer": "merge_CS_wgs84",
-          "bbox": [
-            105.78310536207,
-            20.9939294483637,
-            105.867121137847,
-            21.0999771434904
-          ]
-        }
-      ],
-      "bbox_union": [
-        105.78310536207,
-        20.9939294483637,
-        105.867121137847,
-        21.0999771434904
-      ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
-    },
-    {
-      "path": "data/output/gis_wgs84/merge_DC_wgs84.gpkg",
+      "path": "整備データ/merge/merge_CS.gpkg",
       "layers": [
         {
           "layer": "elements",
           "bbox": [
-            105.001772464178,
-            5.07449944559081,
-            121.267304750673,
-            21.0990971725124
+            105.78260145603238,
+            20.99356879201368,
+            105.86765892770057,
+            21.100380140574433
           ]
         }
       ],
       "bbox_union": [
-        105.001772464178,
-        5.07449944559081,
-        121.267304750673,
-        21.0990971725124
+        105.78260145603238,
+        20.99356879201368,
+        105.86765892770057,
+        21.100380140574433
       ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
+      "crs_wkt": ""
     },
     {
-      "path": "data/output/gis_wgs84/merge_DH_wgs84.gpkg",
-      "layers": [
-        {
-          "layer": "merge_DH_wgs84",
-          "bbox": [
-            105.001772464178,
-            9.04554360850634,
-            105.86676253457,
-            21.0990885741448
-          ]
-        }
-      ],
-      "bbox_union": [
-        105.001772464178,
-        9.04554360850634,
-        105.86676253457,
-        21.0990885741448
-      ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
-    },
-    {
-      "path": "data/output/gis_wgs84/merge_GT_wgs84.gpkg",
+      "path": "整備データ/merge/merge_DC.gpkg",
       "layers": [
         {
           "layer": "elements",
           "bbox": [
-            105.001772464178,
-            9.04554360850634,
-            105.866762933061,
-            21.1199280053939
+            105.00175761424607,
+            5.07452643955244,
+            122.29234813664014,
+            21.101300281189776
           ]
         }
       ],
       "bbox_union": [
-        105.001772464178,
-        9.04554360850634,
-        105.866762933061,
-        21.1199280053939
+        105.00175761424607,
+        5.07452643955244,
+        122.29234813664014,
+        21.101300281189776
       ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
+      "crs_wkt": ""
     },
     {
-      "path": "data/output/gis_wgs84/merge_RG_wgs84.gpkg",
-      "layers": [
-        {
-          "layer": "merge_RG_wgs84",
-          "bbox": [
-            105.783399687796,
-            20.9948897467877,
-            105.866762501789,
-            21.099089050133
-          ]
-        }
-      ],
-      "bbox_union": [
-        105.783399687796,
-        20.9948897467877,
-        105.866762501789,
-        21.099089050133
-      ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
-    },
-    {
-      "path": "data/output/gis_wgs84/merge_TH_wgs84.gpkg",
-      "layers": [
-        {
-          "layer": "merge_TH_wgs84",
-          "bbox": [
-            105.001772464178,
-            9.04554360850634,
-            105.866762934873,
-            21.0990891855213
-          ]
-        }
-      ],
-      "bbox_union": [
-        105.001772464178,
-        9.04554360850634,
-        105.866762934873,
-        21.0990891855213
-      ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
-    },
-    {
-      "path": "data/output/gis_wgs84/merge_TV_wgs84.gpkg",
+      "path": "整備データ/merge/merge_DH.gpkg",
       "layers": [
         {
           "layer": "elements",
           "bbox": [
-            105.001772464178,
-            9.04554360850634,
-            105.866762934873,
-            21.0990971725124
+            105.00177246413735,
+            9.044627262601637,
+            105.86728805972139,
+            21.101237944705222
           ]
         }
       ],
       "bbox_union": [
-        105.001772464178,
-        9.04554360850634,
-        105.866762934873,
-        21.0990971725124
+        105.00177246413735,
+        9.044627262601637,
+        105.86728805972139,
+        21.101237944705222
       ],
-      "crs_wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
+      "crs_wkt": ""
+    },
+    {
+      "path": "整備データ/merge/merge_GT.gpkg",
+      "layers": [
+        {
+          "layer": "elements",
+          "bbox": [
+            105.00177246413735,
+            9.044627110328374,
+            105.86748094718254,
+            21.122031885158645
+          ]
+        }
+      ],
+      "bbox_union": [
+        105.00177246413735,
+        9.044627110328374,
+        105.86748094718254,
+        21.122031885158645
+      ],
+      "crs_wkt": ""
+    },
+    {
+      "path": "整備データ/merge/merge_RG.gpkg",
+      "layers": [
+        {
+          "layer": "elements",
+          "bbox": [
+            105.78290564548765,
+            20.994493267463685,
+            105.86733839973532,
+            21.099451214657652
+          ]
+        }
+      ],
+      "bbox_union": [
+        105.78290564548765,
+        20.994493267463685,
+        105.86733839973532,
+        21.099451214657652
+      ],
+      "crs_wkt": ""
+    },
+    {
+      "path": "整備データ/merge/merge_TH.gpkg",
+      "layers": [
+        {
+          "layer": "elements",
+          "bbox": [
+            105.00177246413735,
+            9.0446272803406,
+            105.86728004318039,
+            21.10130311836272
+          ]
+        }
+      ],
+      "bbox_union": [
+        105.00177246413735,
+        9.0446272803406,
+        105.86728004318039,
+        21.10130311836272
+      ],
+      "crs_wkt": ""
+    },
+    {
+      "path": "整備データ/merge/merge_TV.gpkg",
+      "layers": [
+        {
+          "layer": "elements",
+          "bbox": [
+            105.00177246413735,
+            9.044627101783611,
+            105.867364541771,
+            21.10130311836272
+          ]
+        }
+      ],
+      "bbox_union": [
+        105.00177246413735,
+        9.044627101783611,
+        105.867364541771,
+        21.10130311836272
+      ],
+      "crs_wkt": ""
     }
   ],
-  "lst_osaka_example": {
-    "path": "data/output/LST/osaka/LST_Landsat8_20230716.tif",
-    "bbox": [
-      135.0911677086892,
-      34.271626404443865,
-      135.74684803456805,
-      35.051543734116436
-    ],
-    "crs": "EPSG:4326"
-  },
+  "lst_osaka_example": null,
   "notes": [
     "LSTはGEE算出時点でROI（行政区画）でクリップ済み。",
-    "測量GIS（merge_*_wgs84.gpkg）はROIより狭い矩形範囲。",
+    "測量GISの正本は merge_*.gpkg（EPSG:3405）として扱う。",
+    "BBox比較では merge_*.gpkg をその場でWGS84へ変換して使用する。",
     "分析対象域はGISの有効範囲内（BBoxや凸包）でLSTピクセルをマスクして定義する。"
   ],
   "gis_bbox_union_all_layers": [
-    105.001772464178,
-    5.07449944559081,
-    121.267304750673,
-    21.1199280053939
+    105.00175761424607,
+    5.07452643955244,
+    122.29234813664014,
+    21.122031885158645
   ]
 }

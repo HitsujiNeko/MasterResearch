@@ -9,6 +9,8 @@ agent: agent
 
 CRS は `EPSG:3405` を正とし、GEE 由来ラスタや公開 GIS と連携する場面だけ、その場で必要最小限の再投影を行う運用へ切り替える。
 
+> 2026-05-13 追記: この完了時点では正本 CRS を `EPSG:3405` と認識していたが、その後の QGIS 再確認により `merge_XX.gpkg` は `EPSG:5897` として扱うのが妥当と判明した。正本 CRS の是正は別タスク `revise_analysis_crs_to_epsg5897` で実施する。
+
 ## 目的
 1. `merge_*_wgs84.gpkg` を分析本流から外す。
 2. `merge_XX.gpkg (EPSG:3405)` を正本として扱う。

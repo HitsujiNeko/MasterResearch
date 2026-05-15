@@ -89,17 +89,17 @@ def analyze_gis_data():
                     except:
                         pass
             else:
-                # CRS未定義の場合、座標範囲からVN-2000 (EPSG:3405)と推定して変換
+                # CRS未定義の場合、座標範囲からVN-2000 (EPSG:5897)と推定して変換
                 if 400000 < bounds[0] < 800000 and 1500000 < bounds[1] <2500000:
                     try:
-                        print(f"  → 座標範囲からEPSG:3405 (VN-2000)と推定")
-                        gdf_assumed = gdf.set_crs(epsg=3405, allow_override=True)
+                        print(f"  → 座標範囲からEPSG:5897 (VN-2000)と推定")
+                        gdf_assumed = gdf.set_crs(epsg=5897, allow_override=True)
                         gdf_wgs84 = gdf_assumed.to_crs(epsg=4326)
                         bounds_wgs84 = gdf_wgs84.total_bounds
                         print(f"  空間範囲（WGS84・推定）:")
                         print(f"    経度: {bounds_wgs84[0]:.6f} ～ {bounds_wgs84[2]:.6f}")
                         print(f"    緯度: {bounds_wgs84[1]:.6f} ～ {bounds_wgs84[3]:.6f}")
-                        crs_assumed = "EPSG:3405"
+                        crs_assumed = "EPSG:5897"
                     except Exception as e:
                         print(f"  WGS84変換失敗: {e}")
             

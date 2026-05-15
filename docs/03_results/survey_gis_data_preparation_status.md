@@ -52,13 +52,13 @@ LST や公開 GIS を含む研究全体の進捗ではなく、あくまで `Ful
 
 | 種類 | ファイル名 | サイズ(MB) | 地物数 | 処理率 | CRS | WGS84変換 | 状態 |
 |------|------------|-----------|--------|--------|-----|----------|------|
-| **CS** | merge_CS.gpkg | 3.92 | 20,110 | 100% | LOCAL_CS → EPSG:3405 | ✅ | ✅ 完全 |
-| **DC** | merge_DC.gpkg | 157.05 | 460,085 | 98.75% | LOCAL_CS → EPSG:3405 | ✅ | ⚠️ 79/80ファイル |
-| **DH** | merge_DH.gpkg | 121.54 | 104,317 | 100% | LOCAL_CS → EPSG:3405 | ✅ | ✅ 完全 |
-| **GT** | merge_GT.gpkg | 92.28 | 209,077 | 100% | LOCAL_CS → EPSG:3405 | ✅ | ✅ 完全 |
-| **RG** | merge_RG.gpkg | 0.85 | 721 | 100% | LOCAL_CS → EPSG:3405 | ✅ | ✅ 完全 |
-| **TH** | merge_TH.gpkg | 103.98 | 55,269 | 100% | LOCAL_CS → EPSG:3405 | ✅ | ✅ 完全 |
-| **TV** | merge_TV.gpkg | 61.10 | 127,791 | 98.75% | LOCAL_CS → EPSG:3405 | ✅ | ⚠️ 79/80ファイル |
+| **CS** | merge_CS.gpkg | 3.92 | 20,110 | 100% | LOCAL_CS → EPSG:5897 | ✅ | ✅ 完全 |
+| **DC** | merge_DC.gpkg | 157.05 | 460,085 | 98.75% | LOCAL_CS → EPSG:5897 | ✅ | ⚠️ 79/80ファイル |
+| **DH** | merge_DH.gpkg | 121.54 | 104,317 | 100% | LOCAL_CS → EPSG:5897 | ✅ | ✅ 完全 |
+| **GT** | merge_GT.gpkg | 92.28 | 209,077 | 100% | LOCAL_CS → EPSG:5897 | ✅ | ✅ 完全 |
+| **RG** | merge_RG.gpkg | 0.85 | 721 | 100% | LOCAL_CS → EPSG:5897 | ✅ | ✅ 完全 |
+| **TH** | merge_TH.gpkg | 103.98 | 55,269 | 100% | LOCAL_CS → EPSG:5897 | ✅ | ✅ 完全 |
+| **TV** | merge_TV.gpkg | 61.10 | 127,791 | 98.75% | LOCAL_CS → EPSG:5897 | ✅ | ⚠️ 79/80ファイル |
 
 **全体地物数**: 977,370  
 **完全性**: 238 / 240 ファイル処理（99.79%）
@@ -71,14 +71,14 @@ LST や公開 GIS を含む研究全体の進捗ではなく、あくまで `Ful
 LOCAL_CS["Undefined SRS",LOCAL_DATUM["unknown",32767],UNIT["unknown",0],AXIS["Easting",EAST],AXIS["Northing",NORTH]]
 ```
 
-#### EPSG:3405 (VN-2000) 推定根拠
-座標範囲から**VN-2000 / Hanoi zone (EPSG:3405)** と推定される：
+#### EPSG:5897 (VN-2000 / TM-3 zone 482) 推定根拠
+QGIS 上での重ね合わせ確認から、`merge_XX.gpkg` は **VN-2000 / TM-3 zone 482 (EPSG:5897)** として扱うのが妥当である：
 
 | データ | X座標範囲（m） | Y座標範囲（m） | 推定結果 |
 |--------|---------------|---------------|----------|
-| CS | 581,144 ～ 589,921 | 2,321,788 ～ 2,333,565 | ✅ EPSG:3405 |
+| CS | 581,144 ～ 589,921 | 2,321,788 ～ 2,333,565 | ✅ EPSG:5897 |
 | DH | 499,999 ～ 589,883 | 999,999 ～ 2,333,460 | ⚠️ Y座標下限が低い |
-| RG | 581,175 ～ 589,888 | 2,321,890 ～ 2,333,463 | ✅ EPSG:3405 |
+| RG | 581,175 ～ 589,888 | 2,321,890 ～ 2,333,463 | ✅ EPSG:5897 |
 | TH | 499,999 ～ 589,882 | 999,999 ～ 2,333,467 | ⚠️ Y座標下限が低い |
 
 **参考**: VN-2000 Hanoi zoneの典型的範囲は X: 40-80万m、Y: 150-250万m（投影座標）
@@ -86,13 +86,13 @@ LOCAL_CS["Undefined SRS",LOCAL_DATUM["unknown",32767],UNIT["unknown",0],AXIS["Ea
 **推奨対応**: GeoPandasで手動設定
 ```python
 gdf = gpd.read_file("整備データ/merge/merge_CS.gpkg")
-gdf = gdf.set_crs(epsg=3405, allow_override=True)  # VN-2000手動設定
+gdf = gdf.set_crs(epsg=5897, allow_override=True)  # VN-2000手動設定
 gdf_wgs84 = gdf.to_crs(epsg=4326)  # WGS84へ変換
 ```
 
 ### 2.4 WGS84空間範囲（分析成功データ）
 
-EPSG:3405を仮定してWGS84へ変換した結果：
+EPSG:5897を仮定してWGS84へ変換した結果：
 
 | データ | 経度範囲 | 緯度範囲 | 備考 |
 |------|------|------|------|

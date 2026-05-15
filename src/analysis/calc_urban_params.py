@@ -86,7 +86,7 @@ class LayerResource:
 
 CITY_CONFIG: dict[str, dict[str, Any]] = {
     "hanoi": {
-        "analysis_epsg": 3405,
+        "analysis_epsg": 5897,
         "layers": {
             "roi": {
                 "path": "data/GISData/ROI/hanoi/hanoi_ROI_EPSG4326.shp",
@@ -106,37 +106,37 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
             "rg": {
                 "path": "整備データ/merge/merge_RG.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
             "cs": {
                 "path": "整備データ/merge/merge_CS.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
             "dc": {
                 "path": "整備データ/merge/merge_DC.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
             "gt": {
                 "path": "整備データ/merge/merge_GT.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
             "th": {
                 "path": "整備データ/merge/merge_TH.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
             "tv": {
                 "path": "整備データ/merge/merge_TV.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
             "dh": {
                 "path": "整備データ/merge/merge_DH.gpkg",
                 "layer": "elements",
-                "crs_epsg": 3405,
+                "crs_epsg": 5897,
             },
         },
     }
@@ -699,7 +699,7 @@ def main() -> None:
 
     print("シナリオ:", args.scenario)
     print("解析範囲レイヤ:", mask_layer_key, "->", mask_resource.path.name, mask_resource.layer_name)
-    print("解析BBox(EPSG:3405):", analysis_bbox)
+    print("解析BBox(EPSG:5897):", analysis_bbox)
     print("coarse shape:", grid_spec.coarse_shape, "resolution:", grid_spec.coarse_res_m, "m")
 
     building_resource = get_optional_layer_resource(city_cfg, scenario_cfg["buildings"])

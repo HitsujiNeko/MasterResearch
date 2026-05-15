@@ -189,18 +189,18 @@ def read_lst_bbox_osaka_any() -> dict[str, Any] | None:
 def main() -> None:
     gis_dir = PROJECT_ROOT / "整備データ" / "merge"
     gpkg_paths = sorted(gis_dir.glob("merge_*.gpkg"))
-    source_crs = CRS.from_epsg(3405)
+    source_crs = CRS.from_epsg(5897)
     output_crs = CRS.from_epsg(4326)
 
     report: dict[str, Any] = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "project_root": str(PROJECT_ROOT),
         "roi_hanoi": read_roi_hanoi_bbox(),
-        "gis_merge_from_3405": [],
+        "gis_merge_from_5897": [],
         "lst_osaka_example": read_lst_bbox_osaka_any(),
         "notes": [
             "LSTはGEE算出時点でROI（行政区画）でクリップ済み。",
-            "測量GISの正本は merge_*.gpkg（EPSG:3405）として扱う。",
+            "測量GISの正本は merge_*.gpkg（EPSG:5897）として扱う。",
             "BBox比較では merge_*.gpkg をその場でWGS84へ変換して使用する。",
             "分析対象域はGISの有効範囲内（BBoxや凸包）でLSTピクセルをマスクして定義する。",
         ],
@@ -209,7 +209,7 @@ def main() -> None:
     union_bbox: BBox | None = None
     for gpkg_path in gpkg_paths:
         info = read_vector_bbox_any_layer(gpkg_path, source_crs=source_crs, output_crs=output_crs)
-        report["gis_merge_from_3405"].append(info)
+        report["gis_merge_from_5897"].append(info)
 
         bb = bbox_from_fiona_bounds(tuple(info["bbox_union"]))
         union_bbox = bb if union_bbox is None else union_bbox.union(bb)

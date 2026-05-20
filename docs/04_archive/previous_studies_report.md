@@ -1,6 +1,6 @@
 # 先行研究整理（LSTと都市構造：事実整理版）
 
-**最終更新**: 2026-04-07  
+**最終更新**: 2026-05-20  
 **関連ドキュメント**:  
 - 研究計画 → [research_guide.md](../01_planning/research_guide.md)  
 - 論文メタデータ → [01_metadata/papers_database.csv](01_metadata/papers_database.csv)  
@@ -33,8 +33,8 @@
 | S4 | Sun et al. (2019)                 | 香港         | 都市形態とLST評価 | 衛星・都市構造 |
 | S5 | Osborne & Alvares-Sanches (2019)  | Southampton | 景観構成・配置とLST評価 | 衛星・土地利用 |
 | S6 | Garzón et al. (2021)              | Cartago     | SUHIモデリングとLST予測 | 衛星・機械学習 |
-| S7 | Zhong et al. (2024)               | 都市域一般     | AutoMLによるLSTダウンスケーリング | 衛星・AutoML |
-| S8 | Tanoori et al. (2024)             | 都市域一般     | UHI/LSTに対する機械学習レビュー | レビュー |
+| S7 | Derdouri et al. (2021)            | グローバル（133都市） | LULC変化とSUHI研究の体系的レビュー | レビュー |
+| S8 | Lin et al. (2024)                 | 武漢（中国） | UFZ別の2D/3D都市形態とUHI要因分析 | 衛星・GIS・機械学習 |
 
 ---
 
@@ -647,134 +647,188 @@ NDVI・NDBIに限定せず、都市形態を直接表す指標を複数導入し
 
 ---
 
-## S7. Zhong et al. (2024)
+## S7. Derdouri et al. (2021)
 
-### Zhong et al. (2024)
+### Derdouri et al. (2021)
 
-**Downscaled high spatial resolution images from automated machine learning for assessment of urban structure effects on land surface temperatures**
-
-> **⚠️ PDF未入手**: 本論文はアクセスが困難なため、詳細な構造化要約は作成していません。以下はアブストラクトベースの基本情報です。
+**Understanding the Links between LULC Changes and SUHI in Cities: Insights from Two-Decadal Studies (2001–2020)**
 
 ### S7.1 研究目的
 
-都市構造がLSTに与える影響を高解像度で評価するため、AutoMLを用いたLSTダウンスケーリング手法を構築することを目的とする。
+2001–2020年に発表されたSUHI研究を体系的にレビューし、LULC変化とSUHIの関係、LST推定、SUHI算出、関連分析、緩和策、研究限界を整理する。
 
 ### S7.2 使用データ
 
-* Landsat LST
-* Sentinel 系衛星データ
-* 都市関連補助データ
+* **対象論文**: 113本（初期1300件から選定）
+* **対象都市**: 133都市、27か国
+* **地域分布**: アジア83.2%、アフリカ6.6%、南米3.6%、北米2.9%、欧州2.2%、オセアニア1.5%
+* **発展途上国都市**: 92.7%
+* **主な衛星データ**: Landsat 95.5%、MODIS 10.9%、ASTER 4.5%、HJ-1B 0.9%
 
 ### S7.3 都市構造の定義・パラメータ
 
-* 建物被覆
-* 植生指標
-* 不透水面関連指標
+レビュー対象研究で共通して扱われる主なLULCは、Urban Area、Vegetation、Water、Bare landである。都市構造は主にLULC分類、植生・市街化・水域・裸地指数として表現される。
+
+* **植生系**: NDVI 58.2%、FVC 9.1%、SAVI 2.7%
+* **市街地・不透水面系**: NDBI 32.9%、EBBI 3.7%、IBI 1.2%
+* **水域系**: NDWI 9.8%、MNDWI 8.5%
+* **裸地系**: NDBaI 7.3%、DBSI 2.4%
 
 ### S7.4 分析手法
 
-* Automated Machine Learning（AutoML）
-* ダウンスケーリングモデル
+* **LULC分類**: MLCが多く、近年はSVM・RFの利用が増加
+* **精度評価**: Overall Accuracy >85%、近年研究では >90%、Kappa >0.85 が推奨水準
+* **LST/SUHI算出**: LSTそのものを用いる方法、または SUHI intensity = LSTurban - LSTrural
+* **LULC-SUHI関連分析**: 回帰分析20.9%、グラフ解析19.8%、相関分析8%、Contribution Index 8%
+* **空間回帰**: GWRは多くの研究でOLSより高性能
 
 ### S7.5 主な結論
 
-* AutoMLにより高解像度LST推定が可能である。
+**定量的・横断的知見**:
+* Impervious Surfaceは多くの研究で最高温カテゴリとなり、LSTと強い正相関を示す。
+* ハノイ事例では、市街地が1%増加するとLSTが0.075–0.108℃上昇する。
+* Vegetationは負相関を示し、蒸発散による冷却効果を持つ。
+* Waterは最低LSTを示し、水域比率が高い都市ではSUHI分布を大きく制御する。
+* 季節性が大きく、済南では夏季SUHI 0.98–1.75℃、冬季 -0.05〜-0.03℃と差がある。
+
+**研究動向**:
+* SUHI研究はLandsat中心で、長期・都市スケール分析に強い。
+* 2D LULC・スペクトル指数中心の研究が多く、3D都市形態や社会経済変数の導入は今後の課題。
+* アフリカ・南米の研究蓄積は相対的に少ない。
 
 ### S7.6 本研究との関連性
 
-**RQ1**: △ 限定的（AutoML手法の動向把握）  
-**RQ2**: △ 限定的（高解像度化が主題）  
-**RQ3**: - 関連情報不足
+**RQ1（説明変数の支配性）**: ◎ 極めて高い
+- NDVI/NDBI/NDWI/ISなど、LST説明変数として頻出する指標を体系的に整理している。
+- 不透水面の昇温効果、植生・水域の冷却効果を本研究の説明変数設計に反映できる。
 
-**重要度**: C（最新ML手法の参考程度）
+**RQ2（空間スケールの影響）**: ◎ 高い
+- SUHIと都市構造の関係が季節・都市・空間スケールに依存することを示す。
+- GWRなど局所的な空間変動を扱う手法が、スケール依存性の確認に参考になる。
 
-### S7.7 備考
+**RQ3（データ制約下での適用）**: ◎ 高い
+- Landsat/GEE中心の研究が多数であることから、公開衛星データ中心の研究設計の妥当性を補強する。
+- 途上国都市の研究割合が高く、ベトナム都市への適用性を議論しやすい。
 
-* **重要度C**のため、PDF未入手でも研究の核心には影響が限定的
-* 必要に応じて将来的にアクセス検討
-* 都市構造とLSTの関係が詳細に可視化された。
+### S7.7 当該研究における課題・制約
 
-### S7.6 当該研究における課題・制約
+* レビュー論文であり、個別都市の新規実証分析ではない。
+* 対象研究はLULC・2D指標中心で、3D建物形態・道路密度・社会経済変数の統合は限定的。
+* 衛星LSTと地上実測の検証不足、雲、時点数不足が多くの研究で課題として残る。
 
-* 処理フローが複雑で計算コストが高い。
-* 都市構造要因の解釈性は限定的である。
+### S7.8 本研究への示唆
 
-*Zhong, X. et al. (2024). Building and Environment.*
-[https://www.sciencedirect.com/science/article/pii/S0360132324007765](https://www.sciencedirect.com/science/article/pii/S0360132324007765)
+* 本研究では、NDVI/NDBI/NDWIだけでなく、建物密度・道路密度・緑被率などの物理的都市構造指標を加えることで差別化できる。
+* 長期・季節性・スケール依存性を明示的に扱う必要がある。
+* 3D都市形態と社会経済変数は、既存研究の不足部分として位置づけられる。
+
+### S7.9 URL
+
+*Derdouri, A. et al. (2021). Remote Sensing, 13(18), 3654.*
+[https://doi.org/10.3390/rs13183654](https://doi.org/10.3390/rs13183654)
+
+**構造化要約**: [S7_Derdouri_2021.md](02_structured_summaries/S7_Derdouri_2021.md) 参照
 
 ---
 
-## S8. Tanoori et al. (2024)
+## S8. Lin et al. (2024)
 
-**⚠️ 注記**: 本論文はPDF全文取得不可（有料購入必要）。以下はIntroduction前文と各セクション要約のみに基づく限定的情報。
+### Lin et al. (2024)
 
-### Tanoori et al. (2024)
-
-**Machine learning for urban heat island (UHI) analysis: Predicting land surface temperature (LST) in urban environments**
+**How does urban heat island differ across urban functional zones? Insights from 2D/3D urban morphology using geospatial big data**
 
 ### S8.1 研究目的
 
-都市環境において、複数の機械学習手法を用いてLSTを推定し、都市ヒートアイランド現象の要因を分析することを目的とする。
+都市機能ゾーン（UFZ）ごとにUHI形成メカニズムがどのように異なるかを、2D/3D都市形態、建物配置、生態環境、人間活動の観点から解明する。
 
 ### S8.2 使用データ
 
-* リモートセンシング由来LST
-* 土地利用・都市化指標
-
-**注**: 詳細なデータソース・空間解像度等は全文未確認
+* **対象都市**: 武漢市第三環状道路内（約511.96 km²）
+* **LST**: Landsat 8（2020年8月、30m）
+* **夜間光**: Luojia 1-01（30m）
+* **土地利用**: GlobeLand30（30m）
+* **建物データ**: Tianditu建物フットプリント・高さ（136,542棟）
+* **ストリートビュー**: Baidu Street View（50m間隔、PSPNetでGVF/SVF算出）
+* **POI**: Amap POI 438,700件
+* **道路ネットワーク**: OSM道路から1599街区を生成
 
 ### S8.3 都市構造の定義・パラメータ
 
-* 土地利用区分
-* 都市化指標（不透水面等）
+18の都市形態指標を、街区単位で算出している。
 
-**注**: 具体的なパラメータリストは全文未確認
+* **3D建物指標**: AHB、HVB、TVB、VRB、SIB、MST
+* **2D建物指標**: AAB、NOB、PDB、OVB、PBA
+* **3D生態指標**: GVF、SVF
+* **2D生態指標**: DFW、PFA、PUA
+* **人間活動指標**: KDP、ANL
+
+特に、MST（Minimum Spanning Tree）は建物群の3D配置が密集・分散している程度を表す新規性の高い指標である。
 
 ### S8.4 分析手法
 
-* 複数機械学習モデルの比較
-* モデル性能評価
-
-**注**: 使用したML手法の詳細（Random Forest, SVM, Neural Network等の具体的手法）は全文未確認
+* **UFZ分類**: POI系列をWord2Vecで特徴量化し、Random ForestでAdministration、Business、Manufacturing、Residential、Transportationに分類
+* **UFZ分類精度**: Overall Accuracy >91%
+* **LST算出**: Landsat 8を用いた大気補正法
+* **モデル比較**: OLS、GWR、RF、XGBoost
+* **解釈手法**: SHAPによりグローバル重要度、ローカル重要度、正負影響、空間的不均一性を評価
 
 ### S8.5 主な結論
 
-* 都市構造要因を用いたLST推定が可能である。
-* 手法ごとに予測精度が異なる。
+**定量的結果**:
+* LST範囲は27.40–53.29℃。
+* モデル性能は OLS R²=0.49、GWR R²=0.75、RF R²=0.77、XGBoost R²=0.83。
+* Transportation zoneではOLS R²=0.14に対し、XGBoost R²=0.90と大きく改善。
+* SHAPではPBAが最重要の正影響（0.53）、PFAが最重要の負影響（0.40）。
 
-**注**: 定量的結果（R², RMSE等）は全文未確認
+**主要な発見**:
+* UHI形成メカニズムはUFZごとに異なる。
+* Manufacturingは最も高温で、ResidentialはLST変動幅が大きい。
+* Transportation zoneは他UFZと異なり、建物指標が負影響、SVFが正影響を示す。
+* 3D建物体積・容積・MSTはUHI増幅に重要である。
+* PFAとGVFは一貫して冷却効果を示す。
+* 正の影響は中心部ほど強く、負の影響は郊外側で強くなる傾向がある。
 
-### S8.6 当該研究における課題・制約
+### S8.6 本研究との関連性
 
-* 都市構造パラメータの定義は比較的抽象的である。
-* 寄与度の厳密な因果解釈は行われていない。
+**RQ1（説明変数の支配性）**: ◎ 極めて高い
+- XGBoost + SHAPにより、都市形態指標の正負影響と重要度を解釈している。
+- 2D/3D建物指標、生態指標、人間活動指標を同時に扱う設計は、本研究の説明変数設計に直接関係する。
 
-**注**: 著者による限界の詳細記述は全文未確認
+**RQ2（空間スケールの影響）**: ◎ 高い
+- 街区単位・UFZ単位で空間的不均一性を扱っており、グリッドだけではない空間単位設計の参考になる。
+- SHAPの空間分布から、中心部と郊外で影響方向・強度が変わることを示している。
 
-### S8.7 本研究との関連性
+**RQ3（データ制約下での適用）**: ○ 中〜高
+- 衛星、OSM、POI、夜間光、街路画像など公開・準公開地理空間データを統合している。
+- 一方で、建物高さやStreet View APIなど、ベトナム都市で同等品質を確保できるかは検討が必要。
 
-**RQ1（説明変数の支配性）**: ◎ （推定）
-- ML手法比較という点ではRQ1に関連する可能性が高いが、詳細不明
+### S8.7 当該研究における課題・制約
 
-**RQ2（空間スケールの影響）**: - （不明）
-- 全文未確認のため判断不可
+* POI・夜間光だけでは実際の人間活動強度を完全には表現できない。
+* 単時点解析であり、季節変動・年次変動は扱っていない。
+* さらなる3D・時系列都市形態指標の導入余地がある。
 
-**RQ3（データ制約下での適用）**: - （不明）
-- 全文未確認のため判断不可
+### S8.8 本研究への示唆
 
-### S8.8 URL
+* RF/GBDT/XGBoost + SHAPは、都市構造パラメータの支配性を説明する主要手法候補となる。
+* 建物密度だけでなく、建物体積、容積率、配置指標、緑の見え方、街区機能を扱うことで、LST説明力と解釈性を高められる。
+* データ制約が大きい地域では、Lin et al.の全指標を再現するのではなく、入手可能な2D建物・道路・緑被指標へ落とし込む必要がある。
 
-*Tanoori, G. et al. (2024). Urban Climate.*
-[https://www.sciencedirect.com/science/article/pii/S2212095524001585](https://www.sciencedirect.com/science/article/pii/S2212095524001585)
+### S8.9 URL
 
-**構造化要約**: 未作成（PDF全文取得不可のため）
+*Lin, A. et al. (2024). Urban Climate, 53, 101787.*
+[https://doi.org/10.1016/j.uclim.2023.101787](https://doi.org/10.1016/j.uclim.2023.101787)
+
+**構造化要約**: [S8_Lin_2024.md](02_structured_summaries/S8_Lin_2024.md) 参照
 
 ---
 
 ## 追記後の整理上のポイント（事実整理）
 
-* S4以降では、**都市構造を複数の物理指標として導入**する研究が確認される
-* 機械学習を用いた研究では、**寄与度評価や変数重要度算出**が行われる例がある
-* 一方で、途上国都市やデータ制約下での体系的整理は限定的である
+* S4以降では、**都市構造を複数の物理指標として導入**する研究が確認される。
+* S7により、Landsat・NDVI/NDBI・LULC分類を中心としたSUHI研究の主流と限界が整理できる。
+* S8により、2D/3D都市形態、UFZ、XGBoost、SHAPを統合した近年の詳細分析手法を参照できる。
+* 機械学習を用いた研究では、**寄与度評価や変数重要度算出**が行われる例がある。
+* 一方で、途上国都市やデータ制約下での3D都市形態・人間活動指標の再現性は引き続き検討が必要である。
 
 ---

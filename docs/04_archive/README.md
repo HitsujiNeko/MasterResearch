@@ -15,13 +15,15 @@
 ├── 01_metadata/                        # 論文メタデータ
 │   └── papers_database.csv             # 全論文の基本情報（CSV）
 │
-├── 02_structured_summaries/            # 構造化要約（S1-S6作成済み）
+├── 02_structured_summaries/            # 構造化要約（S1-S8作成済み）
 │   ├── S1_Ermida_2020.md
 │   ├── S2_LeNgocHanh_2025.md
 │   ├── S3_Onacillova_2022.md
 │   ├── S4_Sun_2019.md
 │   ├── S5_Osborne_2019.md
-│   └── S6_Garzon_2021.md
+│   ├── S6_Garzon_2021.md
+│   ├── S7_Derdouri_2021.md
+│   └── S8_Lin_2024.md
 │
 ├── 03_key_findings/                    # 重要知見の抽出（今後追加）
 │   └── (テーマ別知見の統合)
@@ -56,14 +58,12 @@
   - 構造化要約を自動生成
 
 - **[02_structured_summaries/](02_structured_summaries/)**: 既存の構造化要約
-  - `S1_Ermida_2020.md` から `S6_Garzon_2021.md` までを保存
+  - `S1_Ermida_2020.md` から `S8_Lin_2024.md` までを保存
   - `previous_studies_report.md` の根拠資料として利用
   - 詳細比較、引用候補抽出、RQ別整理に使用
 
 ### 今後追加予定のファイル
 - `02_structured_summaries/`: 未作成論文の詳細要約
-  - `S7_Zhong_2024.md`
-  - `S8_Tanoori_2024.md`
   - 新規追加論文（S9以降）
 - `03_key_findings/`: テーマ別知見の統合
   - `urban_parameters_catalog.md`（都市構造パラメータ一覧）
@@ -296,4 +296,4 @@ VS Codeで以下を依頼：
 
 ---
 
-**最終更新**: 2026-04-21
+**最終更新**: 2026-05-20

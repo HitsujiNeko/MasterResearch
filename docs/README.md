@@ -114,8 +114,8 @@ docs/
 - **S4**: Sun et al. (2019) - 機械学習による都市構造評価 [RQ1参考]
 - **S5**: Osborne (2019) - 景観構成・配置
 - **S6**: Garzón (2021) - 熱帯都市SUHI
-- **S7**: Zhong (2024) - AutoMLダウンスケーリング
-- **S8**: Tanoori (2024) - ML手法比較
+- **S7**: Derdouri et al. (2021) - LULC変化とSUHI研究レビュー
+- **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
 
 **構造化要約（現存ファイル）**:
 - [S1_Ermida_2020.md](04_archive/02_structured_summaries/S1_Ermida_2020.md)
@@ -124,6 +124,8 @@ docs/
 - [S4_Sun_2019.md](04_archive/02_structured_summaries/S4_Sun_2019.md)
 - [S5_Osborne_2019.md](04_archive/02_structured_summaries/S5_Osborne_2019.md)
 - [S6_Garzon_2021.md](04_archive/02_structured_summaries/S6_Garzon_2021.md)
+- [S7_Derdouri_2021.md](04_archive/02_structured_summaries/S7_Derdouri_2021.md)
+- [S8_Lin_2024.md](04_archive/02_structured_summaries/S8_Lin_2024.md)
 
 ---
 
@@ -395,8 +397,8 @@ graph TB
 - **S4**: Sun et al. (2019) - 機械学習による都市構造評価 [RQ1参考]
 - **S5**: Osborne (2019) - 景観構成・配置 [RQ2参考]
 - **S6**: Garzón (2021) - 熱帯都市SUHI [途上国事例]
-- **S7**: Zhong (2024) - AutoML
-- **S8**: Tanoori (2024) - ML手法比較
+- **S7**: Derdouri et al. (2021) - LULC変化とSUHI研究レビュー
+- **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
 
 **活用場面**: 論文執筆、手法比較、関連研究の参照
 
@@ -704,6 +706,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-05-20 | 先行研究S7/S8をDerdouri et al. (2021)・Lin et al. (2024)へ更新し、構造化要約参照を追加 | AI支援 |
 | 2026-04-21 | `satellite_only_20230707_initial_run.md` を `satellite_only_analysis_results.md` に改名し、3観測日版へ更新。`data_preparation_status.md` も `survey_gis_data_preparation_status.md` に改名し、測量由来GIS向けに再整理 | AI支援 |
 | 2026-04-21 | `conference_abstract_rq3_satellite_only_draft.md` を `GIS_IDEAS_abstract.md` に改名し、索引参照を更新 | AI支援 |
 | 2026-04-21 | `fig2_satellite_only_workflow.mmd`、`04_archive`配下の既存構造化要約、テンプレートを索引へ反映。古い実装パス表記も修正 | AI支援 |
@@ -715,6 +718,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-04-21  
+**最終更新**: 2026-05-20  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

@@ -37,6 +37,10 @@ agent: agent
 - [守るべき制約]
 - [レビュー時に確認したい点]
 
+## 関連タスク
+- `[path/to/related_task.prompt.md]`: [前提・派生・後続・依存などの関係]
+- `[path/to/related_task.prompt.md]`: [参照理由や、このタスクとの違い]
+
 ## 関連ファイル
 - `[path/to/file_1]`: [役割や参照理由]
 - `[path/to/file_2]`: [役割や参照理由]

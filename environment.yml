@@ -18,4 +18,5 @@ dependencies:
   - tqdm=4.67
   - rasterio=1.4
   - requests=2.32
+  - pyyaml
   - pip

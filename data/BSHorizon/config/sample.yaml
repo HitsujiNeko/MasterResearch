@@ -1,0 +1,42 @@
+# bs_horizon.py パラメータ設定ファイルのサンプル
+# このファイルをコピーして実際の解析条件に合わせて編集する。
+#
+# 実行例:
+#   python -m src.preprocessing.bs_horizon --config data/BSHorizon/config/sample.yaml
+#
+# CLIとの組み合わせも可能（CLIの値が優先される）:
+#   python -m src.preprocessing.bs_horizon --config data/BSHorizon/config/sample.yaml --mx 10
+
+# --- 入力ファイル ---
+elevation_file: data/BSHorizon/input/merge_DH_elevation_points.csv
+# dip_file: data/BSHorizon/input/strike_dip.csv  # 走向傾斜データ（省略可）
+
+# --- 計算領域（省略時はデータの範囲を自動使用）---
+# xmin: 0.0
+# xmax: 100.0
+# ymin: 0.0
+# ymax: 100.0
+
+# --- B-スプライン分割数 ---
+mx: 5
+my: 5
+
+# --- ペナルティパラメータ ---
+alpha_min: 1000.0
+# alpha_max: 10000.0   # 反復計算あり時に指定
+# iterations: 5        # 省略時は 1（等式制約のみなら 1 を推奨）
+# gamma: 1.0           # 走向傾斜データへの重み（dip_file 指定時）
+
+# --- 平滑化重み ---
+m1: 1.0
+m2: 1.0
+
+# --- 出力ファイル ---
+surface_output: data/BSHorizon/output/surface.txt
+# dem_output: data/BSHorizon/output/dem.txt
+# dem_xmin: 0.0
+# dem_xmax: 100.0
+# dem_ymin: 0.0
+# dem_ymax: 100.0
+# nxg: 50
+# nyg: 50

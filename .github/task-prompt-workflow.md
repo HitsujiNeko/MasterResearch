@@ -1,7 +1,7 @@
 # タスクプロンプト運用ルール
 
-**最終更新**: 2026-05-13  
-**関連ファイル**: [copilot-instructions.md](./copilot-instructions.md), [.github/prompts/templates/task_prompt_template.prompt.md](./prompts/templates/task_prompt_template.prompt.md)
+**最終更新**: 2026-06-01  
+**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [.github/prompts/templates/task_prompt_template.prompt.md](./prompts/templates/task_prompt_template.prompt.md)
 
 ## 目的
 
@@ -20,7 +20,7 @@
 - タスクの指示内容、成果物、関連文書は task prompt を起点に追跡できる状態にする
 - active にある prompt は、未完了タスクとして扱う
 - completed にある prompt は、完了済みタスクとして扱う
-- Codex は task prompt を参照して作業するが、完了確定や prompt の移動はユーザ判断を優先する
+- Claude は task prompt を参照して作業するが、完了確定や prompt の移動はユーザ判断を優先する
 
 ## 正式ルール
 
@@ -45,7 +45,7 @@
 
 ### 2. タスク着手
 
-- Codex は、会話で指定された task prompt を起点に作業する
+- Claude は、会話で指定された task prompt を起点に作業する
 - prompt に明示された関連ファイル、入力データ、出力先、関連文書を先に確認する
 - prompt に `関連タスク` がある場合は、作業範囲や完了済み前提を確認する
 - active に複数 prompt があっても、会話で対象が特定されていない他タスクを完了扱いしない
@@ -89,9 +89,9 @@ YYYYMMDD_<task_name>.prompt.md
 - タスク完了時は、成果物と完了済み prompt を同じ変更単位でコミットする
 - prompt だけ、または成果物だけが先にコミットされる状態は避ける
 
-## Codex とユーザの役割分担
+## Claude とユーザの役割分担
 
-### Codex が行うこと
+### Claude が行うこと
 
 - active prompt を読み、要件に沿って作業する
 - 関連ファイル、成果物、関連文書の整合を確認する
@@ -144,7 +144,7 @@ convert_elevation_to_csv.prompt.md
 
 - 既存の completed prompt には旧命名規則のファイルが含まれていてもよい
 - 過去ファイルを一括リネームするかどうかは別判断とする
-- 明示的な依頼がない限り、Codex は prompt ファイルの移動や完了処理を自動実施しない
+- 明示的な依頼がない限り、Claude は prompt ファイルの移動や完了処理を自動実施しない
 - prompt の内容と実際の成果物がずれた場合は、成果物だけでなく prompt 側も見直す
 
 ## 将来の拡張候補

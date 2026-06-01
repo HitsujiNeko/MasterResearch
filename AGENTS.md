@@ -1,6 +1,6 @@
 # AGENTS
 
-Codex運用時は、まず `.github/copilot-instructions.md` を参照する。
+まず `CLAUDE.md` を参照する。
 
 研究固有ルールの正本は `docs/` 配下にあり、特に以下を優先参照する。
 

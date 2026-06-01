@@ -52,7 +52,7 @@ agent: agent
 ---
 
 共通ルールは以下のファイルを参照すること  
-.github\copilot-instructions.md
+CLAUDE.md
 
 ---
 

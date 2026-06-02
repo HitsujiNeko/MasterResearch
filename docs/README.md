@@ -17,6 +17,7 @@ docs/
 │
 ├── 01_planning/                           # 📋 研究計画フェーズ
 │   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理
+│   ├── dem_selection_guide.md             # DEM候補の調査・選定ガイド
 │   └── research_guide.md                  # 研究計画書（RQ定義）
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
@@ -66,6 +67,7 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 関連RQ |
 |-----------|------|-----------|--------|
 | [available_gis_data.md](01_planning/available_gis_data.md) | 公開GISデータ候補の整理 | 道路・建物・粗い built-up データの候補、更新性、適合性 | 全RQ |
+| [dem_selection_guide.md](01_planning/dem_selection_guide.md) | DEM候補の調査・選定ガイド | DSM/DTM特性、センサー種別、BSHorizon比較結果、Limitedシナリオ採用判断 | RQ1, RQ3 |
 | [research_guide.md](01_planning/research_guide.md) | 研究計画書 | 研究題目、背景、RQ1-3、手法概要、期待される成果 | 全RQ |
 
 ### 🔬 02_methods - 研究手法
@@ -185,6 +187,19 @@ graph TB
 **関連ドキュメント**:
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)
 - 手法仕様 → [analysis_workflow.md](02_methods/analysis_workflow.md)
+
+#### [dem_selection_guide.md](01_planning/dem_selection_guide.md)
+**DEM候補の調査・選定ガイド** - Limitedシナリオで利用するDEMの選定根拠をまとめた文書
+
+**主要セクション**:
+- DSM/DTM分類とセンサー種別（Copernicus / NASADEM / SRTMGL1 / TanDEM-X / ASTER / FABDEM）
+- BSHorizon DEM（測量由来、10m）との比較結果（RMSE・MAE・相関係数）
+- TanDEM-X・ASTERの採用可否判断
+- Limitedシナリオ採用DEMの選定結果（NASADEM暫定採用）と今後の課題
+
+**関連ドキュメント**:
+- 公開GISデータ全体 → [available_gis_data.md](01_planning/available_gis_data.md)
+- パラメータ設計 → [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)
 
 #### [research_guide.md](01_planning/research_guide.md)
 **研究計画書** - 本研究の全体像を定義
@@ -706,6 +721,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-06-02 | `dem_selection_guide.md` を01_planningに追加。DEM候補調査・BSHorizon比較結果・Limited選定根拠を収録 | AI支援 |
 | 2026-05-20 | 先行研究S7/S8をDerdouri et al. (2021)・Lin et al. (2024)へ更新し、構造化要約参照を追加 | AI支援 |
 | 2026-04-21 | `satellite_only_20230707_initial_run.md` を `satellite_only_analysis_results.md` に改名し、3観測日版へ更新。`data_preparation_status.md` も `survey_gis_data_preparation_status.md` に改名し、測量由来GIS向けに再整理 | AI支援 |
 | 2026-04-21 | `conference_abstract_rq3_satellite_only_draft.md` を `GIS_IDEAS_abstract.md` に改名し、索引参照を更新 | AI支援 |
@@ -718,6 +734,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-05-20  
+**最終更新**: 2026-06-02  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

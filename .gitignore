@@ -51,3 +51,6 @@ data/GISData/
 # =========================
 !data/samples/
 !data/samples/**
+
+# BSHorizon出力テキスト（大容量）
+data/BSHorizon/output/*.txt

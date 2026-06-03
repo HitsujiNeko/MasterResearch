@@ -1,154 +1,241 @@
 # タスクプロンプト運用ルール
 
-**最終更新**: 2026-06-01  
-**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [.github/prompts/templates/task_prompt_template.prompt.md](./prompts/templates/task_prompt_template.prompt.md)
+**最終更新**: 2026-06-03  
+**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [task_intake_template.md](./prompts/templates/task_intake_template.md)
 
 ## 目的
 
-`.github/prompts/` 配下のタスク prompt を、着手中・完了済みの状態と対応づけて管理するための運用ルールを定義する。  
-このファイルは、タスクの開始から完了後の保管までの流れを明文化し、タスク完了条件と成果物の追跡を明確にすることを目的とする。
+GitHub Issues をタスク管理の正本とし、`.github/prompts/active/` 配下の prompt ファイルを Claude へのセッション briefing として使う運用を定義する。
 
-## 管理対象
+- **GitHub Issue** = タスクの定義・進捗コメント・完了記録（永続）
+- **prompt ファイル** = Claude へのセッション briefing（完了後に削除）
 
-- `active`: 現在進行中のタスク prompt
-- `completed`: 完了済みのタスク prompt
-- `templates`: 新規 task prompt 作成時の雛形
+prompt ファイルは completed フォルダに蓄積せず、active に少数のファイルのみが存在する状態を維持する。
+
+---
 
 ## 基本方針
 
-- 1つの task prompt は、1つの作業単位として扱う
-- タスクの指示内容、成果物、関連文書は task prompt を起点に追跡できる状態にする
-- active にある prompt は、未完了タスクとして扱う
-- completed にある prompt は、完了済みタスクとして扱う
-- Claude は task prompt を参照して作業するが、完了確定や prompt の移動はユーザ判断を優先する
+- タスクの定義・背景・成果物・完了記録はすべて GitHub Issue に記載する
+- prompt ファイルは Issue へのポインタと、セッション固有の一時補足のみを記載する
+- タスクが完了したら、コミット後に Issue を close して prompt ファイルを削除する
+- `completed/` フォルダには新規ファイルを追加しない（過去の資産はそのまま残す）
 
-## 正式ルール
-
-- active prompt を completed に移す前に、**必ず** prompt 本文へ `完了記録` を追記する
-- `完了記録` には、少なくとも `実施内容` `成果物` `確認内容` を含める
-- completed に移す prompt は、**必ず** `YYYYMMDD_<task_name>.prompt.md` 形式で命名する
-- 上記2点を満たしていない prompt は completed に移さない
+---
 
 ## 標準ワークフロー
 
 ### 1. タスク作成
 
-- 新規タスクは `.github/prompts/active/` 配下に `.prompt.md` として作成する
-- 新規作成時は、可能な限り `.github/prompts/templates/` 配下のテンプレートをベースにする
-- prompt には、少なくとも次を記載する
-  - タスク名
-  - 背景または目的
-  - 入力データまたは参照ファイル
-  - 期待する出力
-  - 制約や注意事項
-- 前提・派生・後続・依存関係のある task prompt がある場合は、`関連タスク` に記載する
+**① intake ファイルを記入する**
 
-### 2. タスク着手
+`.github/prompts/templates/task_intake_template.md` の内容を `active/_intake_{slug}.md` にコピーし、VSCode で記入する。`{slug}` はタスク内容を表す短い英語スネークケース。
 
-- Claude は、会話で指定された task prompt を起点に作業する
-- prompt に明示された関連ファイル、入力データ、出力先、関連文書を先に確認する
-- prompt に `関連タスク` がある場合は、作業範囲や完了済み前提を確認する
-- active に複数 prompt があっても、会話で対象が特定されていない他タスクを完了扱いしない
+```
+例: .github/prompts/active/_intake_building_gis.md
+```
+
+並行して複数タスクを起票する場合も slug が異なるためファイル名が衝突しない。
+
+**② Claude に渡す**
+
+`_intake_{slug}.md` を開いた状態で Claude に「このタスクを Issue にして」と伝える。
+
+Claude がプロジェクト文脈からラベルとマイルストーンを推測し、Issue 本文を下書きする。内容を確認して承認すると、以下を Claude が自動実行する。
+
+```powershell
+# Issue 作成
+gh issue create --title "タスク名" --label "data-prep" --milestone "Phase1: データ準備" --body "..."
+
+# プロジェクトに追加・ステータス（未着手）・優先度を設定
+gh project item-add 1 --owner HitsujiNeko --url https://github.com/HitsujiNeko/MasterResearch/issues/{番号}
+# ステータス: 未着手、優先度: intake の指定値 を GraphQL で設定
+```
+
+**③ 開始日を設定する**（ユーザが行う）
+
+実際に着手するタイミングで [修士研究タスク管理](https://github.com/users/HitsujiNeko/projects/1) の UI から開始日を設定する。
+
+**④ `_intake_{slug}.md` を削除する**（ユーザが行う）
+
+Issue 作成後、intake ファイルは不要なので削除する。
+
+### 2. prompt ファイル作成
+
+Issue 作成直後に Claude が `active/` に自動生成する。
+
+**命名規則**: `{Issue番号}_{task_name}.prompt.md`（`task_name` は英語スネークケース）
+
+```
+例: 1_consider_building_gisdata.prompt.md
+```
+
+**中身**:
+
+```markdown
+---
+agent: agent
+---
+# #{Issue番号} {タスク名}
+
+> Issue: https://github.com/HitsujiNeko/MasterResearch/issues/{番号}
+> （詳細・完了記録はすべて Issue に記載する）
+
+## このセッション固有の追加指示
+（Issue に書けない一時的な補足。不要なら削除）
+
+---
+共通ルールは CLAUDE.md を参照
+```
 
 ### 3. タスク実行
 
-- 実装、分析、文書修正は task prompt の要件に沿って行う
-- 必要に応じて成果物、関連スクリプト、関連文書を更新する
-- 仕様未確定事項がある場合は、推測で埋めずに仮定または要確認事項として扱う
+**セッション開始時**に Claude は `gh issue view {番号}` で Issue を確認し、現在のステータスに応じて以下のように対応する。
 
-### 4. 完了確認
+| 現在のステータス | Claude の対応 |
+|---|---|
+| 未着手 | 「進行中」に自動更新して作業開始 |
+| 保留 | 「再開しますか？」と確認してから「進行中」に更新 |
+| 進行中 | 変更なし（複数セッション対応） |
 
-タスク完了は、少なくとも次を満たしたときに判断する。
+**保留にする場合**は、Claude が以下を実行する。
 
-- prompt が要求する成果物が作成または更新されている
-- 必要な関連文書更新が完了している
-- 変更対象と変更理由を説明できる
-- active prompt に `完了記録` が追記されている
-- コミット対象に、成果物と対応する prompt を含められる状態になっている
-
-### 5. 完了後の保管
-
-- active prompt を completed に移す前に、prompt 末尾の `完了記録` を更新する
-- `完了記録` には、実施内容、成果物パス、確認内容、必要なら未完了事項を記載する
-- task 完了後、**ユーザが** active prompt を `.github/prompts/completed/` に移動する
-- completed へ移す際は、ファイル名の先頭に完了日を `YYYYMMDD_` 形式で付与する
-- completed の命名規則は以下で固定する
-
-```text
-YYYYMMDD_<task_name>.prompt.md
+```powershell
+gh issue comment {番号} --body "保留理由: ...\n再開条件: ..."
 ```
 
-例:
+ステータスを「保留」に更新し、理由と再開条件を必ずコメントに残す。
 
-```text
-20260421_revise_doc_analyze_method.prompt.md
+**キャンセルにする場合**は、Claude が以下を実行する。
+
+```powershell
+gh issue close {番号} --reason "not planned" --comment "キャンセル理由: ..."
+# プロジェクトのステータスを「キャンセル」に GraphQL で更新
+
+# prompt ファイルを削除（active/ は git 未追跡のため rm で削除、コミット不要）
+Remove-Item .github/prompts/active/{ファイル名}
 ```
 
-### 6. コミット
+### 4. タスク完了
 
-- タスク完了時は、成果物と完了済み prompt を同じ変更単位でコミットする
-- prompt だけ、または成果物だけが先にコミットされる状態は避ける
+**① 完了条件を確認する**（Claude が行う）
+
+以下の共通完了条件と Issue 本文の `## 完了条件` をすべて満たしているか確認する。
+
+**共通完了条件**:
+- Issue で要求された成果物が作成・更新されている
+- 関連ドキュメントの更新が完了している
+- コードを含む場合は `docs/02_methods/CodingRule.md` の実装前後チェックリストを完了している
+- コミット対象が整理されている
+
+**② コミットする**（ユーザが行う）
+
+コミットメッセージに `#{番号}` を含めると GitHub で Issue に自動リンクされる。
+
+```powershell
+git add {成果物}
+git commit -m "feat: {変更内容} (#{Issue番号})"
+```
+
+**③ 「コミットしました」と Claude に伝える**
+
+コミット完了後、Claude に伝える。コミット前に close は行わない（成果物と完了状態の乖離を防ぐため）。
+
+**④ Issue close・prompt 削除・完了日設定**（Claude が行う）
+
+```powershell
+# Issue を close
+gh issue close {番号} --comment "完了。成果物: ..."
+
+# プロジェクトのステータスを「完了」・完了日（当日）を GraphQL で更新
+
+# prompt ファイルを削除（active/ は git 未追跡のため rm で削除）
+Remove-Item .github/prompts/active/{ファイル名}
+```
+
+---
 
 ## Claude とユーザの役割分担
 
-### Claude が行うこと
+| 工程 | Claude | ユーザ |
+|---|---|---|
+| intake 記入 | — | `_intake_{slug}.md` を記入 |
+| Issue 作成 | 下書き・`gh issue create` | 内容を確認して承認 |
+| プロジェクト追加・ステータス（未着手）・優先度設定 | `gh project item-add` + GraphQL | — |
+| 開始日設定 | — | GitHub UI で設定 |
+| `_intake_{slug}.md` 削除 | — | 削除 |
+| prompt ファイル生成 | `active/` に自動生成 | — |
+| ステータス「進行中」に変更 | セッション開始時（条件付き）に GraphQL で更新 | — |
+| タスク実行 | Issue を読んで作業 | — |
+| 保留時のコメント記録 | `gh issue comment` + ステータス「保留」 | — |
+| 完了条件の確認 | 共通条件 + Issue 固有条件を確認 | — |
+| コミット | — | `git commit` → 「コミットしました」と伝える |
+| Issue close・prompt 削除・完了日設定 | コミット確認後に `gh issue close` + `Remove-Item` + GraphQL | — |
 
-- active prompt を読み、要件に沿って作業する
-- 関連ファイル、成果物、関連文書の整合を確認する
-- タスクが完了状態に近いかをユーザに説明する
-- 完了に不足している項目があれば明示する
+---
 
-### ユーザが行うこと
+## ラベル一覧
 
-- task prompt の作成
-- active / completed の最終的な状態管理
-- completed への移動時の命名
-- タスク完了の最終判断
-- 成果物と prompt のコミット
+| ラベル | 用途 |
+|---|---|
+| `analysis` | 統計解析・可視化 |
+| `data-prep` | データ取得・前処理・変換 |
+| `docs` | ドキュメント・論文執筆 |
+| `refactoring` | スクリプトの整理・改善 |
+| `workflow` | 運用改善・ツール導入 |
+| `literature` | 文献調査 |
+| `bug` | スクリプトのバグ修正 |
+
+## マイルストーン一覧
+
+| マイルストーン | 内容 |
+|---|---|
+| Phase1: データ準備 | データ収集・前処理・評価 |
+| Phase2: RQ1 分析 | LST と説明変数の関係分析 |
+| Phase3: RQ2-3 分析 | スケール・シナリオ別分析 |
+| Phase4: 論文執筆 | 論文・発表資料作成 |
+| その他 | フェーズに属さないタスク |
+
+## プロジェクトステータス一覧
+
+| ステータス | 意味 |
+|---|---|
+| 未着手 | 作業未開始 |
+| 進行中 | 作業中 |
+| 保留 | 外部要因等で一時停止中（理由を Issue にコメント必須） |
+| 完了 | 成果物コミット済み・Issue close 済み |
+| キャンセル | 中止（理由を Issue にコメント必須） |
+
+---
 
 ## 命名規則
 
-### active
+### intake ファイル（一時）
 
-- 必須規則は `.prompt.md` 拡張子のみとする
-- 日付は必須にしない
-- タスク内容がわかる英小文字スネークケースを推奨する
-
-例:
-
-```text
-convert_elevation_to_csv.prompt.md
+```
+.github/prompts/active/_intake_{slug}.md
 ```
 
-### completed
+Issue 作成後に削除する。`_` 始まりで active prompt と区別する。`{slug}` は英語スネークケース。
 
-- `YYYYMMDD_<task_name>.prompt.md` を必須とする
-- `<task_name>` は active 時の内容が分かる名前を維持する
+### active prompt
 
-例:
-
-```text
-20260512_convert_elevation_to_csv.prompt.md
+```
+{Issue番号}_{task_name}.prompt.md
 ```
 
-## 完了条件チェック
+例:
+```
+1_consider_building_gisdata.prompt.md
+```
 
-- 成果物が task prompt の要件を満たしている
-- 追加・更新した関連文書に矛盾がない
-- 変更ファイルを説明できる
-- prompt に `完了記録` を追記済みである
-- prompt が completed に移せる状態になっている
-- 成果物と prompt をまとめてコミットできる
+### completed（新規追加なし）
 
-## 運用上の注意
+`completed/` フォルダには今後ファイルを追加しない。過去の資産はそのまま保持する。
 
-- 既存の completed prompt には旧命名規則のファイルが含まれていてもよい
-- 過去ファイルを一括リネームするかどうかは別判断とする
-- 明示的な依頼がない限り、Claude は prompt ファイルの移動や完了処理を自動実施しない
-- prompt の内容と実際の成果物がずれた場合は、成果物だけでなく prompt 側も見直す
+---
 
-## 将来の拡張候補
+## 移行について
 
-- `blocked/` ディレクトリの導入
-- task prompt への完了日、関連コミット、成果物一覧の明記
-- prompt テンプレートの統一強化
+2026-06-02 以前に作成された `completed/` 配下のファイルは旧運用のアーカイブとして残す。  
+新規タスクはすべて本ルールに従い GitHub Issues で管理する。

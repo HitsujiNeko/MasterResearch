@@ -72,12 +72,15 @@
 
 ## タスクプロンプト運用（要約）
 
-- 進行中タスクは `.github/prompts/active/` 配下の prompt ファイルで管理する
-- Claude は、会話で指定された active prompt を起点に、関連ファイル・成果物・関連文書を確認して作業する
-- active prompt を completed に移す前に、**必ず** prompt 本文へ `完了記録` を追記し、実施内容・成果物パス・確認内容を残す
-- completed に移す prompt は、**必ず** `.github/prompts/completed/YYYYMMDD_<task>.prompt.md` 形式で命名する
-- タスク完了時は、成果物の作成または更新、必要な関連文書更新、prompt への完了記録追記、コミット対象の確認までを完了条件として扱う
-- 明示的な指示がない限り、Claude は active / completed 間の移動や完了確定を勝手に行わない
+- **GitHub Issues がタスク管理の正本**: タスクの定義・完了記録はすべて Issue に記載する
+- **prompt ファイルは使い捨て briefing**: Issue へのポインタとセッション固有の補足のみを記載し、完了後に削除する
+- 新規タスクは `active/_intake_{slug}.md`（intake テンプレートをコピー）に記入し、「このタスクを Issue にして」と Claude に渡す
+- Claude はラベル・マイルストーンを推測して Issue を作成し、プロジェクト追加・優先度設定まで自動実行する
+- 進行中タスクは `.github/prompts/active/` 配下に `{Issue番号}_{task_name}.prompt.md` として置く
+- セッション開始時に Claude が現在のステータスを確認し、未着手なら「進行中」に更新、保留中なら確認してから更新する
+- 保留時は Claude が理由と再開条件を Issue にコメントし、ステータスを「保留」に更新する
+- タスク完了時はユーザがコミット後に「コミットしました」と伝える → Claude が prompt 削除・`gh issue close`・完了日設定を実行する（コミット前の close・削除はしない）
+- `completed/` フォルダには新規ファイルを追加しない（過去の資産はそのまま残す）
 - 詳細運用は [task-prompt-workflow.md](.github/task-prompt-workflow.md) を参照する
 
 ---
@@ -140,4 +143,4 @@
 - 新しい用語や規約は追記
 - 変更時は日付を記録
 
-**最終更新**: 2026-06-01
+**最終更新**: 2026-06-03

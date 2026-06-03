@@ -247,7 +247,23 @@ gh auth status
 
 `Logged in to github.com account takumid0419` のように表示されれば完了。
 
-### 9.3 リポジトリの確認
+### 9.3 追加スコープの付与
+
+タスク管理ワークフローで GitHub Projects v2 を操作するため、`read:project` スコープが必要。ログイン直後は付与されていない場合があるため、以下を実行する。
+
+```powershell
+gh auth refresh -s read:project --hostname github.com
+```
+
+ブラウザで承認後、次のコマンドでスコープを確認する。
+
+```powershell
+gh auth status
+```
+
+`Token scopes` に `read:project` が含まれていれば完了。
+
+### 9.4 リポジトリの確認
 
 ```powershell
 gh repo view

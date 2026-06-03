@@ -1,6 +1,6 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-04-21  
+**最終更新**: 2026-05-09  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1-RQ3、CRS（WGS84/UTM）、ラスタ/ベクタ処理の基礎
 
@@ -42,13 +42,13 @@
 ### 3.1 重要な前提
 
 - LSTはGEE算出時点でROI（行政区画）にクリップ済み
-- 公開 GIS は ROI 全体を覆える場合がある
+- 公開 GIS は ROI 全体を覆える場合があるが、データセットごとに有効カバレッジが異なる
 - 測量GISはROI内の一部（中心部の矩形領域）である
 
 ### 3.2 分析時の空間整合
 
 1. LSTはROIクリップ済みデータを入力する  
-2. `Limited` では公開 GIS の取得範囲、`Full` では測量 GIS 有効域で分析対象を限定する  
+2. `Limited` では公開 GIS の有効カバレッジ、`Full` では測量 GIS 有効域で分析対象を限定する  
 3. その結果、LSTとの結合時には「ROI内かつシナリオごとのGIS有効域内」のセルが対象になる
 
 > これは不整合ではなく、処理段階の違いである。
@@ -85,16 +85,19 @@
 ### 5.2.1 Limited
 
 - OpenStreetMap / Geofabrik 由来の道路ライン
-- Microsoft GlobalMLBuildingFootprints 等の建物ポリゴン
+- Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` / GlobalBuildingAtlas 等の建物ポリゴン
 - 必要に応じて OSM 土地利用・水域ポリゴン
+
+> Hanoi ROI では、現行の Microsoft 建物データが西側行政区画を十分に覆っていない。  
+> そのため、Microsoft 由来の `BUILD_COV_0` / `BUILD_DEN_0` は、建物データの有効カバレッジ外では建物不存在を意味しない。
 
 ### 5.2.2 Full
 
-- `data/output/gis_wgs84/merge_RG_wgs84.gpkg`（分析範囲定義）
-- `data/output/gis_wgs84/merge_DC_wgs84.gpkg`（建物）
-- `data/output/gis_wgs84/merge_GT_wgs84.gpkg`（道路）
-- `data/output/gis_wgs84/merge_TH_wgs84.gpkg` または `merge_DH_wgs84.gpkg`（水系・標高関連、利用方法は要確認）
-- `data/output/gis_wgs84/merge_TV_wgs84.gpkg`（植生・土地利用）
+- `整備データ/merge/merge_RG.gpkg`（分析範囲定義）
+- `整備データ/merge/merge_DC.gpkg`（建物）
+- `整備データ/merge/merge_GT.gpkg`（道路）
+- `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連、利用方法は要確認）
+- `整備データ/merge/merge_TV.gpkg`（植生・土地利用）
 
 > DH / TH / TV のどれを水域率・標高・植生率に使うかは、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて最終確定する。  
 > 現時点では完全確定ではなく、実装と並行して調整中である。
@@ -144,12 +147,12 @@
 ### 7.1 Step A: 解析範囲・グリッド準備
 
 - シナリオに応じて公開 GIS 範囲または RG レイヤのBBoxを取得
-- WGS84からUTMへ投影
+- ROI / 公開GIS は必要時のみ解析用投影座標（既定: EPSG:5897）へ投影
 - 30mグリッドを作成（必要時10m補助グリッドを生成）
 
 ### 7.2 Step B: GIS由来指標
 
-- 建物（Microsoft / OSM / DC）
+- 建物（Microsoft / Google Open Buildings / OSM / GlobalBuildingAtlas / DC）
   - `BUILD_COV_0`: ポリゴン被覆率（10m→30m平均）
   - `BUILD_DEN_0`: 重心のセル内カウント
 - 道路（OSM / GT）
@@ -181,7 +184,7 @@
 
 ## 8. CRS・単位ルール
 
-- ファイル入出力座標: WGS84（EPSG:4326）
+- 測量GISの正本座標: EPSG:5897
 - 距離・面積・長さ計算: UTM（都市別の適切なEPSG）
 - 温度: 摂氏（LST側の仕様に従う）
 - 被覆率: 0-1
@@ -205,7 +208,7 @@
 python -m src.analysis.calc_urban_params --city hanoi \
   --scenario limited \
   --coarse-res 30 --fine-res 10 \
-  --satellite-dir data/output/indices/hanoi
+  --satellite-dir data/output/indices/2023/INDICES_Landsat8_20230707_032329Z.tif
 ```
 
 主要引数:
@@ -214,17 +217,28 @@ python -m src.analysis.calc_urban_params --city hanoi \
 - `--scenario`: `limited` または `full`
 - `--coarse-res`: 出力グリッド解像度（既定30m）
 - `--fine-res`: 被覆率計算の補助解像度（既定10m）
-- `--satellite-dir`: 任意。衛星指標ラスタの格納ディレクトリ
-- `--mask-layer-key`: 解析範囲の基準レイヤ（既定 `rg`）
+- `--satellite-dir`: 任意。衛星指標ラスタの単一ファイルまたは格納ディレクトリ
+- `--mask-layer-key`: 解析範囲の基準レイヤ。未指定時は `limited` で `roi`、`full` で `rg`
+
+### 10.1 現在の実装状況（2026-05-09）
+
+- `limited` は `data/output/open_gis/hanoi_microsoft_buildings.gpkg` の `buildings` と `data/output/open_gis/hanoi_osm_roads.gpkg` の `roads` を使用する。
+- ただし、`hanoi_microsoft_buildings.gpkg` は Hanoi ROI 西側で明確なカバレッジ欠落が確認されている。現行出力は処理検証用として扱い、ROI 全域の最終 `Limited` 分析入力としては Google Open Buildings / OSM / GlobalBuildingAtlas などとの比較後に採用可否を判断する。
+- `limited` の `WATER_COV_0`, `GREEN_COV_0`, `ELEV_MEAN_0`, `ELEV_COUNT_0` は、公開 GIS 入力が未確定のため現段階では出力しない。
+- 解析範囲の外接 bbox でグリッドを作成した後、基準レイヤのポリゴン内セルのみを CSV に出力する。
+- 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。複数観測ファイルを含むディレクトリではなく、単一観測ファイルを指定する。
+- 出力先は `data/csv/analysis/urban_params_<scenario>_<city_id>.csv` とする。
+- 実行には `fiona`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
 
 ---
 
 ## 11. 検証項目（最低限）
 
 - 出力CSVの必須列存在
-- `BUILD_COV_0`, `WATER_COV_0`, `GREEN_COV_0` が 0-1 範囲
+- 出力された被覆率列（例: `BUILD_COV_0`, `WATER_COV_0`, `GREEN_COV_0`）が 0-1 範囲
 - `ROAD_DEN_0` が負値を持たない
 - 座標列 `lon`, `lat` がハノイ近傍範囲に入る
+- 建物指標について、各セルが建物データの有効カバレッジ内かを確認する
 - 欠損率サマリをログで確認
 - `DATA_SOURCE` が想定シナリオと一致する
 

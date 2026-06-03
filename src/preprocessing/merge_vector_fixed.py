@@ -31,7 +31,37 @@ logger = logging.getLogger(__name__)
 SUFFIXES = ["CS", "DC", "DH", "GT", "RG", "TH", "TV"]
 
 
-def get_ogr2ogr_path() -> str:
+def get_ogrinfo_path(ogr2ogr_path: str) -> str:
+    """Resolve the matching ogrinfo executable for the selected ogr2ogr."""
+    ogr2ogr_file = Path(ogr2ogr_path)
+    if ogr2ogr_file.name.lower() == "ogr2ogr.exe":
+        ogrinfo_file = ogr2ogr_file.with_name("ogrinfo.exe")
+        if ogrinfo_file.exists():
+            return str(ogrinfo_file)
+
+    if ogr2ogr_file.name.lower() == "ogr2ogr":
+        return "ogrinfo"
+
+    return ogr2ogr_path.replace("ogr2ogr", "ogrinfo")
+
+
+def has_dgnv8_support(ogrinfo_path: str) -> bool:
+    """Check whether the GDAL build exposes a DGNv8-capable driver."""
+    try:
+        result = subprocess.run(
+            [ogrinfo_path, "--formats"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+    except Exception:
+        return False
+
+    formats_text = f"{result.stdout}\n{result.stderr}".lower()
+    return "dgnv8" in formats_text
+
+
+def get_ogr2ogr_path(require_dgnv8: bool = True) -> str:
     """ogr2ogrの実行ファイルパスを取得
     
     Returns:
@@ -60,11 +90,27 @@ def get_ogr2ogr_path() -> str:
                 check=True
             )
             version = result.stdout.strip()
+            ogrinfo_path = get_ogrinfo_path(path)
+            dgnv8_supported = has_dgnv8_support(ogrinfo_path)
+
+            if require_dgnv8 and not dgnv8_supported:
+                logger.warning(
+                    "ogr2ogr candidate skipped because DGNv8 is unavailable: %s",
+                    path
+                )
+                continue
             logger.info(f"ogr2ogr検出: {path}")
             logger.info(f"バージョン: {version}")
+            logger.info(f"DGNv8 support: {dgnv8_supported}")
             return path
         except Exception:
             pass
+
+    if require_dgnv8:
+        raise SystemExit(
+            "DGNv8 対応の ogr2ogr/ogrinfo が見つかりません。"
+            " DGNv8 ドライバ対応の GDAL 環境を用意してから再実行してください。"
+        )
     
     raise SystemExit("ogr2ogrが見つかりません。GDALのインストール確認が必要です。")
 
@@ -81,7 +127,7 @@ def check_file_validity(dgn_file: Path, ogr2ogr_path: str) -> dict:
     """
     try:
         # ogrinfo で情報取得を試みる
-        ogrinfo_path = ogr2ogr_path.replace("ogr2ogr", "ogrinfo")
+        ogrinfo_path = get_ogrinfo_path(ogr2ogr_path)
         result = subprocess.run(
             [ogrinfo_path, str(dgn_file)],
             capture_output=True,
@@ -240,7 +286,7 @@ def merge_to_geopackage(
     # 最終結果
     if out_gpkg.exists():
         file_size_mb = out_gpkg.stat().st_size / (1024 * 1024)
-        stats['status'] = 'success'
+        stats['status'] = 'success' if stats['failed_files'] == 0 else 'partial_success'
         stats['output_file'] = out_gpkg.name
         stats['output_size_mb'] = round(file_size_mb, 2)
         
@@ -296,7 +342,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     
     # ogr2ogrパス取得
-    ogr2ogr_path = get_ogr2ogr_path()
+    ogr2ogr_path = get_ogr2ogr_path(require_dgnv8=("TV" in ([args.suffix] if args.suffix else SUFFIXES)))
 
     # 処理対象決定
     targets = [args.suffix] if args.suffix else SUFFIXES
@@ -332,6 +378,13 @@ def main():
             logger.info(f"✅ {suffix}: {stat['processed_files']}/{stat['total_files']} 成功")
             logger.info(f"   出力: {stat.get('output_file', 'N/A')}")
             logger.info(f"   サイズ: {stat.get('output_size_mb', 0)} MB")
+        elif status == 'partial_success':
+            logger.warning(
+                f"Partial success {suffix}: {stat['processed_files']}/{stat['total_files']} processed, "
+                f"{stat['failed_files']} failed"
+            )
+            logger.warning(f"   Output: {stat.get('output_file', 'N/A')}")
+            logger.warning(f"   Size: {stat.get('output_size_mb', 0)} MB")
         elif status == 'skipped':
             logger.info(f"⏭️  {suffix}: スキップ済み")
         elif status == 'no_files':

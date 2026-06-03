@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-05-09  
+**最終更新**: 2026-06-03  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -126,10 +126,10 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 | データ | 主用途 | 現状 | 備考 |
 |------|------|------|------|
 | OpenStreetMap / Geofabrik | 道路、補助的な建物 | 候補確定 | 道路の主ソース。建物利用時は QA が必要 |
-| Microsoft GlobalMLBuildingFootprints | 建物フットプリント | 要再評価 | Hanoi ROI 西側欠落を確認済み。カバレッジ制限付き候補 |
-| Google Open Buildings | 建物フットプリント、建物存在、高さ補助 | 比較候補 | Microsoft 欠落域を補えるか最優先で QA |
+| Microsoft GlobalMLBuildingFootprints | 建物フットプリント | 保留 | Hanoi ROI 西側欠落（105.47°E境界）を確認済み。単独主ソースとして採用しない |
+| GlobalBuildingAtlas | 建物フットプリント＋高さ（ML推定） | **主候補（WFS確認済み）** | WFS（`lod1_global`）でHanoi ROI BBOX取得可。Microsoft欠落域でのカバレッジ確認済み。CC BY-NC 4.0（学術可）。取得スクリプト要作成 |
+| Google Open Buildings V3 | 建物フットプリント | 第2候補 | Vietnam明記。CC BY 4.0。建物高さなし（V3）。GBA代替として利用 |
 | GHSL / WSF | 粗い built-up 補助指標 | 補助候補 | 精密な建物輪郭の代替ではない |
-| GlobalBuildingAtlas | 建物高さ・LoD1 の将来拡張 | 比較候補 | 導入負荷とライセンス確認が必要 |
 
 > 根拠は [available_gis_data.md](../01_planning/available_gis_data.md) に整理している。  
 > Microsoft 建物データは、Hanoi ROI 西側で `105.46875E` 付近を境に欠落が確認された。  
@@ -495,7 +495,7 @@ RQ3 は、現在次の順で進める。
 |------|------|---------|
 | 対象都市のROI確定 | ハノイROIは確認済み | 複数都市への拡張可否を検討 |
 | LSTの日付選定 | 3観測日は確定済み | 追加観測日の拡張条件を整理する |
-| 公開建物データ | Microsoft 西側欠落を確認。Google Open Buildings / OSM / GlobalBuildingAtlas を比較候補に追加 | ROI 全域カバレッジ、建物数、面積率、ライセンス、再現性を QA して最終採用を判断 |
+| 公開建物データ | GlobalBuildingAtlas を主候補に選定（WFS動作・Hanoi ROI西側カバレッジ確認済み）。Microsoft は保留確定 | WFSページング取得スクリプトを作成し、ROI全域の建物数・面積率を確認してから正式採用 |
 | 公開道路データ | OSM を主候補 | 道路種別と欠測率の QA を続ける |
 | 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TH / TV の利用方法を確定する |
 | 人口密度データ | WorldPop検討中 | 解像度（100m）のミスマッチをどう扱うか検討 |

@@ -60,7 +60,7 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 更新契機 |
 |-----------|------|-----------|--------|
 | [README.md](README.md) | docs全体の索引 | ドキュメント構造、管理ルール、関連リンク | docs配下の重要ファイル追加・改名時 |
-| [setup.md](setup.md) | 環境構築ガイド | `environment.yml` を正本としたセットアップ手順、依存確認、実行例 | 依存関係や実行手順の変更時 |
+| [setup.md](setup.md) | 環境構築ガイド | `environment.yml` を正本としたセットアップ手順、依存確認、GitHub CLI セットアップ、実行例 | 依存関係・実行手順・ツール要件の変更時 |
 
 ### 📋 01_planning - 研究計画
 
@@ -652,12 +652,13 @@ ml_papers = df[df['キーワード'].str.contains('機械学習|ランダムフ�
 
 ```
 MasterResearch/
-├── .github/                    # AI環境設定
-│   ├── copilot-instructions.md # Copilot自動読込（最重要）
-│   ├── EFFICIENCY_PROPOSAL.md  # 効率化提案
+├── .github/                    # AI環境設定・タスク管理
+│   ├── copilot-instructions.md # Copilot自動読込（CLAUDE.mdに移譲）
+│   ├── task-prompt-workflow.md # タスク管理ワークフロー定義
 │   └── prompts/                # タスクプロンプト
-│       ├── task.prompt.md      # 現在のタスク
-│       └── templates/          # タスクテンプレート
+│       ├── active/             # 進行中タスク（{Issue番号}_{task_name}.prompt.md）
+│       ├── completed/          # 旧運用アーカイブ（新規追加なし）
+│       └── templates/          # intake テンプレート
 │
 ├── docs/                       # 📌 このディレクトリ
 │   └── README.md               # 📌 このファイル
@@ -721,6 +722,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-06-03 | `setup.md` に GitHub CLI セットアップ手順（セクション9）とトラブルシュートを追加。`.github/` ディレクトリツリーをGitHub Issues運用移行後の実態に更新 | AI支援 |
 | 2026-06-02 | `dem_selection_guide.md` を01_planningに追加。DEM候補調査・BSHorizon比較結果・Limited選定根拠を収録 | AI支援 |
 | 2026-05-20 | 先行研究S7/S8をDerdouri et al. (2021)・Lin et al. (2024)へ更新し、構造化要約参照を追加 | AI支援 |
 | 2026-04-21 | `satellite_only_20230707_initial_run.md` を `satellite_only_analysis_results.md` に改名し、3観測日版へ更新。`data_preparation_status.md` も `survey_gis_data_preparation_status.md` に改名し、測量由来GIS向けに再整理 | AI支援 |
@@ -734,6 +736,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-06-02  
+**最終更新**: 2026-06-03  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

@@ -1,7 +1,7 @@
 # Setup
 
-**最終更新**: 2026-03-24  
-**関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)  
+**最終更新**: 2026-06-03  
+**関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md), [../.github/task-prompt-workflow.md](../.github/task-prompt-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
 ---
@@ -184,6 +184,17 @@ python -m src.gee.gee_calc_LST
 - `conda activate masterresearch` を実行してから再試行する
 - `ogr2ogr --version` が通るか確認する
 
+### `gh` コマンドが見つからない
+
+- GitHub CLI をインストールする（セクション 9.1 参照）
+- 新しいシェルを開き直す
+- `gh --version` が通ることを確認する
+
+### `gh auth status` で未認証と表示される
+
+- `gh auth login` を再実行する
+- 認証後に `gh auth status` で `takumid0419` のアカウントが表示されることを確認する
+
 ### GEE 認証エラー
 
 - `earthengine authenticate` を再実行する
@@ -196,7 +207,57 @@ python -m src.gee.gee_calc_LST
 
 ---
 
-## 9. 補足
+## 9. GitHub CLI のセットアップ
+
+タスク管理ワークフロー（[task-prompt-workflow.md](../.github/task-prompt-workflow.md)）で `gh` コマンドを使用するため、GitHub CLI のインストールと認証が必要。
+
+### 9.1 インストール
+
+[GitHub CLI 公式サイト](https://cli.github.com/) からインストーラーを取得するか、winget で導入する。
+
+```powershell
+winget install --id GitHub.cli
+```
+
+インストール後、新しいシェルを開いて確認する。
+
+```powershell
+gh --version
+```
+
+### 9.2 認証
+
+初回のみ実行する。ブラウザが開き、GitHub アカウントへの認証を求められる。
+
+```powershell
+gh auth login
+```
+
+対話形式で以下を選択する。
+
+- `GitHub.com`
+- `HTTPS`
+- `Login with a web browser`（推奨）
+
+認証後、状態を確認する。
+
+```powershell
+gh auth status
+```
+
+`Logged in to github.com account takumid0419` のように表示されれば完了。
+
+### 9.3 リポジトリの確認
+
+```powershell
+gh repo view
+```
+
+リポジトリ情報が表示されれば、Issue・プロジェクト操作の準備が整っている。
+
+---
+
+## 10. 補足
 
 - [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

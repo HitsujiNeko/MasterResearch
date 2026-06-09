@@ -1,0 +1,3256 @@
+{
+  "fetch_start_utc": "2026-06-09T09:05:58.950792+00:00",
+  "fetch_end_utc": "2026-06-09T09:11:48.535813+00:00",
+  "roi_path": "data\\GISData\\ROI\\hanoi\\hanoi_ROI_EPSG4326.shp",
+  "output_path": "data\\output\\open_gis\\hanoi_gba_buildings.gpkg",
+  "summary_path": "data\\output\\open_gis\\hanoi_gba_buildings_summary.json",
+  "roi_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "building_bbox": [
+    105.29536418,
+    20.56609363,
+    106.01990243,
+    21.38481626
+  ],
+  "total_building_count": 3071511,
+  "session_building_count": 95709,
+  "start_tile_index": 1322,
+  "tile_size_deg": 0.02,
+  "tile_count": 1554,
+  "limit_tiles_applied": null,
+  "wfs_endpoint": "https://tubvsig-so2sat-vm1.srv.mwn.de/geoserver/ows",
+  "wfs_layer": "global3D:lod1_global",
+  "wfs_native_crs": "EPSG:3857",
+  "max_count_per_tile": 50000,
+  "tile_summaries": [
+    {
+      "tile_index": 1322,
+      "bbox_4326": [
+        105.80812456270625,
+        21.26446916172436,
+        105.82812456270625,
+        21.28446916172436
+      ],
+      "server_number_matched": 169,
+      "number_returned": 169,
+      "record_count": 169,
+      "truncated": false
+    },
+    {
+      "tile_index": 1323,
+      "bbox_4326": [
+        105.82812456270625,
+        21.26446916172436,
+        105.84812456270625,
+        21.28446916172436
+      ],
+      "server_number_matched": 2012,
+      "number_returned": 2012,
+      "record_count": 2012,
+      "truncated": false
+    },
+    {
+      "tile_index": 1324,
+      "bbox_4326": [
+        105.84812456270625,
+        21.26446916172436,
+        105.86812456270624,
+        21.28446916172436
+      ],
+      "server_number_matched": 5334,
+      "number_returned": 5334,
+      "record_count": 5334,
+      "truncated": false
+    },
+    {
+      "tile_index": 1325,
+      "bbox_4326": [
+        105.86812456270624,
+        21.26446916172436,
+        105.88812456270624,
+        21.28446916172436
+      ],
+      "server_number_matched": 5280,
+      "number_returned": 5280,
+      "record_count": 5280,
+      "truncated": false
+    },
+    {
+      "tile_index": 1326,
+      "bbox_4326": [
+        105.88812456270624,
+        21.26446916172436,
+        105.90812456270623,
+        21.28446916172436
+      ],
+      "server_number_matched": 4950,
+      "number_returned": 4950,
+      "record_count": 4950,
+      "truncated": false
+    },
+    {
+      "tile_index": 1327,
+      "bbox_4326": [
+        105.90812456270623,
+        21.26446916172436,
+        105.92812456270623,
+        21.28446916172436
+      ],
+      "server_number_matched": 2991,
+      "number_returned": 2991,
+      "record_count": 1269,
+      "truncated": false
+    },
+    {
+      "tile_index": 1328,
+      "bbox_4326": [
+        105.92812456270623,
+        21.26446916172436,
+        105.94812456270623,
+        21.28446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1329,
+      "bbox_4326": [
+        105.94812456270623,
+        21.26446916172436,
+        105.96812456270622,
+        21.28446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1330,
+      "bbox_4326": [
+        105.96812456270622,
+        21.26446916172436,
+        105.98812456270622,
+        21.28446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1331,
+      "bbox_4326": [
+        105.98812456270622,
+        21.26446916172436,
+        106.00812456270621,
+        21.28446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1332,
+      "bbox_4326": [
+        106.00812456270621,
+        21.26446916172436,
+        106.02005052860555,
+        21.28446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1333,
+      "bbox_4326": [
+        105.28812456270636,
+        21.28446916172436,
+        105.30812456270635,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1334,
+      "bbox_4326": [
+        105.30812456270635,
+        21.28446916172436,
+        105.32812456270635,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1335,
+      "bbox_4326": [
+        105.32812456270635,
+        21.28446916172436,
+        105.34812456270635,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1336,
+      "bbox_4326": [
+        105.34812456270635,
+        21.28446916172436,
+        105.36812456270634,
+        21.30446916172436
+      ],
+      "server_number_matched": 296,
+      "number_returned": 296,
+      "record_count": 24,
+      "truncated": false
+    },
+    {
+      "tile_index": 1337,
+      "bbox_4326": [
+        105.36812456270634,
+        21.28446916172436,
+        105.38812456270634,
+        21.30446916172436
+      ],
+      "server_number_matched": 2618,
+      "number_returned": 2618,
+      "record_count": 2618,
+      "truncated": false
+    },
+    {
+      "tile_index": 1338,
+      "bbox_4326": [
+        105.38812456270634,
+        21.28446916172436,
+        105.40812456270633,
+        21.30446916172436
+      ],
+      "server_number_matched": 3457,
+      "number_returned": 3457,
+      "record_count": 2990,
+      "truncated": false
+    },
+    {
+      "tile_index": 1339,
+      "bbox_4326": [
+        105.40812456270633,
+        21.28446916172436,
+        105.42812456270633,
+        21.30446916172436
+      ],
+      "server_number_matched": 3609,
+      "number_returned": 3609,
+      "record_count": 811,
+      "truncated": false
+    },
+    {
+      "tile_index": 1340,
+      "bbox_4326": [
+        105.42812456270633,
+        21.28446916172436,
+        105.44812456270633,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1341,
+      "bbox_4326": [
+        105.44812456270633,
+        21.28446916172436,
+        105.46812456270632,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1342,
+      "bbox_4326": [
+        105.46812456270632,
+        21.28446916172436,
+        105.48812456270632,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1343,
+      "bbox_4326": [
+        105.48812456270632,
+        21.28446916172436,
+        105.50812456270631,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1344,
+      "bbox_4326": [
+        105.50812456270631,
+        21.28446916172436,
+        105.52812456270631,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1345,
+      "bbox_4326": [
+        105.52812456270631,
+        21.28446916172436,
+        105.5481245627063,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1346,
+      "bbox_4326": [
+        105.5481245627063,
+        21.28446916172436,
+        105.5681245627063,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1347,
+      "bbox_4326": [
+        105.5681245627063,
+        21.28446916172436,
+        105.5881245627063,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1348,
+      "bbox_4326": [
+        105.5881245627063,
+        21.28446916172436,
+        105.6081245627063,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1349,
+      "bbox_4326": [
+        105.6081245627063,
+        21.28446916172436,
+        105.62812456270629,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1350,
+      "bbox_4326": [
+        105.62812456270629,
+        21.28446916172436,
+        105.64812456270629,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1351,
+      "bbox_4326": [
+        105.64812456270629,
+        21.28446916172436,
+        105.66812456270628,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1352,
+      "bbox_4326": [
+        105.66812456270628,
+        21.28446916172436,
+        105.68812456270628,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1353,
+      "bbox_4326": [
+        105.68812456270628,
+        21.28446916172436,
+        105.70812456270627,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1354,
+      "bbox_4326": [
+        105.70812456270627,
+        21.28446916172436,
+        105.72812456270627,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1355,
+      "bbox_4326": [
+        105.72812456270627,
+        21.28446916172436,
+        105.74812456270627,
+        21.30446916172436
+      ],
+      "server_number_matched": 3165,
+      "number_returned": 3165,
+      "record_count": 388,
+      "truncated": false
+    },
+    {
+      "tile_index": 1356,
+      "bbox_4326": [
+        105.74812456270627,
+        21.28446916172436,
+        105.76812456270626,
+        21.30446916172436
+      ],
+      "server_number_matched": 3165,
+      "number_returned": 3165,
+      "record_count": 2654,
+      "truncated": false
+    },
+    {
+      "tile_index": 1357,
+      "bbox_4326": [
+        105.76812456270626,
+        21.28446916172436,
+        105.78812456270626,
+        21.30446916172436
+      ],
+      "server_number_matched": 1634,
+      "number_returned": 1634,
+      "record_count": 1634,
+      "truncated": false
+    },
+    {
+      "tile_index": 1358,
+      "bbox_4326": [
+        105.78812456270626,
+        21.28446916172436,
+        105.80812456270625,
+        21.30446916172436
+      ],
+      "server_number_matched": 594,
+      "number_returned": 594,
+      "record_count": 594,
+      "truncated": false
+    },
+    {
+      "tile_index": 1359,
+      "bbox_4326": [
+        105.80812456270625,
+        21.28446916172436,
+        105.82812456270625,
+        21.30446916172436
+      ],
+      "server_number_matched": 2063,
+      "number_returned": 2063,
+      "record_count": 2063,
+      "truncated": false
+    },
+    {
+      "tile_index": 1360,
+      "bbox_4326": [
+        105.82812456270625,
+        21.28446916172436,
+        105.84812456270625,
+        21.30446916172436
+      ],
+      "server_number_matched": 1004,
+      "number_returned": 1004,
+      "record_count": 1004,
+      "truncated": false
+    },
+    {
+      "tile_index": 1361,
+      "bbox_4326": [
+        105.84812456270625,
+        21.28446916172436,
+        105.86812456270624,
+        21.30446916172436
+      ],
+      "server_number_matched": 5320,
+      "number_returned": 5320,
+      "record_count": 5320,
+      "truncated": false
+    },
+    {
+      "tile_index": 1362,
+      "bbox_4326": [
+        105.86812456270624,
+        21.28446916172436,
+        105.88812456270624,
+        21.30446916172436
+      ],
+      "server_number_matched": 3974,
+      "number_returned": 3974,
+      "record_count": 3974,
+      "truncated": false
+    },
+    {
+      "tile_index": 1363,
+      "bbox_4326": [
+        105.88812456270624,
+        21.28446916172436,
+        105.90812456270623,
+        21.30446916172436
+      ],
+      "server_number_matched": 3625,
+      "number_returned": 3625,
+      "record_count": 3572,
+      "truncated": false
+    },
+    {
+      "tile_index": 1364,
+      "bbox_4326": [
+        105.90812456270623,
+        21.28446916172436,
+        105.92812456270623,
+        21.30446916172436
+      ],
+      "server_number_matched": 5185,
+      "number_returned": 5185,
+      "record_count": 3174,
+      "truncated": false
+    },
+    {
+      "tile_index": 1365,
+      "bbox_4326": [
+        105.92812456270623,
+        21.28446916172436,
+        105.94812456270623,
+        21.30446916172436
+      ],
+      "server_number_matched": 4612,
+      "number_returned": 4612,
+      "record_count": 0,
+      "truncated": false
+    },
+    {
+      "tile_index": 1366,
+      "bbox_4326": [
+        105.94812456270623,
+        21.28446916172436,
+        105.96812456270622,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1367,
+      "bbox_4326": [
+        105.96812456270622,
+        21.28446916172436,
+        105.98812456270622,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1368,
+      "bbox_4326": [
+        105.98812456270622,
+        21.28446916172436,
+        106.00812456270621,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1369,
+      "bbox_4326": [
+        106.00812456270621,
+        21.28446916172436,
+        106.02005052860555,
+        21.30446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1370,
+      "bbox_4326": [
+        105.28812456270636,
+        21.30446916172436,
+        105.30812456270635,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1371,
+      "bbox_4326": [
+        105.30812456270635,
+        21.30446916172436,
+        105.32812456270635,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1372,
+      "bbox_4326": [
+        105.32812456270635,
+        21.30446916172436,
+        105.34812456270635,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1373,
+      "bbox_4326": [
+        105.34812456270635,
+        21.30446916172436,
+        105.36812456270634,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1374,
+      "bbox_4326": [
+        105.36812456270634,
+        21.30446916172436,
+        105.38812456270634,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1375,
+      "bbox_4326": [
+        105.38812456270634,
+        21.30446916172436,
+        105.40812456270633,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1376,
+      "bbox_4326": [
+        105.40812456270633,
+        21.30446916172436,
+        105.42812456270633,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1377,
+      "bbox_4326": [
+        105.42812456270633,
+        21.30446916172436,
+        105.44812456270633,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1378,
+      "bbox_4326": [
+        105.44812456270633,
+        21.30446916172436,
+        105.46812456270632,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1379,
+      "bbox_4326": [
+        105.46812456270632,
+        21.30446916172436,
+        105.48812456270632,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1380,
+      "bbox_4326": [
+        105.48812456270632,
+        21.30446916172436,
+        105.50812456270631,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1381,
+      "bbox_4326": [
+        105.50812456270631,
+        21.30446916172436,
+        105.52812456270631,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1382,
+      "bbox_4326": [
+        105.52812456270631,
+        21.30446916172436,
+        105.5481245627063,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1383,
+      "bbox_4326": [
+        105.5481245627063,
+        21.30446916172436,
+        105.5681245627063,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1384,
+      "bbox_4326": [
+        105.5681245627063,
+        21.30446916172436,
+        105.5881245627063,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1385,
+      "bbox_4326": [
+        105.5881245627063,
+        21.30446916172436,
+        105.6081245627063,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1386,
+      "bbox_4326": [
+        105.6081245627063,
+        21.30446916172436,
+        105.62812456270629,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1387,
+      "bbox_4326": [
+        105.62812456270629,
+        21.30446916172436,
+        105.64812456270629,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1388,
+      "bbox_4326": [
+        105.64812456270629,
+        21.30446916172436,
+        105.66812456270628,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1389,
+      "bbox_4326": [
+        105.66812456270628,
+        21.30446916172436,
+        105.68812456270628,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1390,
+      "bbox_4326": [
+        105.68812456270628,
+        21.30446916172436,
+        105.70812456270627,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1391,
+      "bbox_4326": [
+        105.70812456270627,
+        21.30446916172436,
+        105.72812456270627,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1392,
+      "bbox_4326": [
+        105.72812456270627,
+        21.30446916172436,
+        105.74812456270627,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1393,
+      "bbox_4326": [
+        105.74812456270627,
+        21.30446916172436,
+        105.76812456270626,
+        21.32446916172436
+      ],
+      "server_number_matched": 1576,
+      "number_returned": 1576,
+      "record_count": 221,
+      "truncated": false
+    },
+    {
+      "tile_index": 1394,
+      "bbox_4326": [
+        105.76812456270626,
+        21.30446916172436,
+        105.78812456270626,
+        21.32446916172436
+      ],
+      "server_number_matched": 389,
+      "number_returned": 389,
+      "record_count": 389,
+      "truncated": false
+    },
+    {
+      "tile_index": 1395,
+      "bbox_4326": [
+        105.78812456270626,
+        21.30446916172436,
+        105.80812456270625,
+        21.32446916172436
+      ],
+      "server_number_matched": 61,
+      "number_returned": 61,
+      "record_count": 61,
+      "truncated": false
+    },
+    {
+      "tile_index": 1396,
+      "bbox_4326": [
+        105.80812456270625,
+        21.30446916172436,
+        105.82812456270625,
+        21.32446916172436
+      ],
+      "server_number_matched": 2745,
+      "number_returned": 2745,
+      "record_count": 2745,
+      "truncated": false
+    },
+    {
+      "tile_index": 1397,
+      "bbox_4326": [
+        105.82812456270625,
+        21.30446916172436,
+        105.84812456270625,
+        21.32446916172436
+      ],
+      "server_number_matched": 3811,
+      "number_returned": 3811,
+      "record_count": 3811,
+      "truncated": false
+    },
+    {
+      "tile_index": 1398,
+      "bbox_4326": [
+        105.84812456270625,
+        21.30446916172436,
+        105.86812456270624,
+        21.32446916172436
+      ],
+      "server_number_matched": 6101,
+      "number_returned": 6101,
+      "record_count": 6101,
+      "truncated": false
+    },
+    {
+      "tile_index": 1399,
+      "bbox_4326": [
+        105.86812456270624,
+        21.30446916172436,
+        105.88812456270624,
+        21.32446916172436
+      ],
+      "server_number_matched": 4519,
+      "number_returned": 4519,
+      "record_count": 4519,
+      "truncated": false
+    },
+    {
+      "tile_index": 1400,
+      "bbox_4326": [
+        105.88812456270624,
+        21.30446916172436,
+        105.90812456270623,
+        21.32446916172436
+      ],
+      "server_number_matched": 2843,
+      "number_returned": 2843,
+      "record_count": 2582,
+      "truncated": false
+    },
+    {
+      "tile_index": 1401,
+      "bbox_4326": [
+        105.90812456270623,
+        21.30446916172436,
+        105.92812456270623,
+        21.32446916172436
+      ],
+      "server_number_matched": 4494,
+      "number_returned": 4494,
+      "record_count": 0,
+      "truncated": false
+    },
+    {
+      "tile_index": 1402,
+      "bbox_4326": [
+        105.92812456270623,
+        21.30446916172436,
+        105.94812456270623,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1403,
+      "bbox_4326": [
+        105.94812456270623,
+        21.30446916172436,
+        105.96812456270622,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1404,
+      "bbox_4326": [
+        105.96812456270622,
+        21.30446916172436,
+        105.98812456270622,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1405,
+      "bbox_4326": [
+        105.98812456270622,
+        21.30446916172436,
+        106.00812456270621,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1406,
+      "bbox_4326": [
+        106.00812456270621,
+        21.30446916172436,
+        106.02005052860555,
+        21.32446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1407,
+      "bbox_4326": [
+        105.28812456270636,
+        21.32446916172436,
+        105.30812456270635,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1408,
+      "bbox_4326": [
+        105.30812456270635,
+        21.32446916172436,
+        105.32812456270635,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1409,
+      "bbox_4326": [
+        105.32812456270635,
+        21.32446916172436,
+        105.34812456270635,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1410,
+      "bbox_4326": [
+        105.34812456270635,
+        21.32446916172436,
+        105.36812456270634,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1411,
+      "bbox_4326": [
+        105.36812456270634,
+        21.32446916172436,
+        105.38812456270634,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1412,
+      "bbox_4326": [
+        105.38812456270634,
+        21.32446916172436,
+        105.40812456270633,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1413,
+      "bbox_4326": [
+        105.40812456270633,
+        21.32446916172436,
+        105.42812456270633,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1414,
+      "bbox_4326": [
+        105.42812456270633,
+        21.32446916172436,
+        105.44812456270633,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1415,
+      "bbox_4326": [
+        105.44812456270633,
+        21.32446916172436,
+        105.46812456270632,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1416,
+      "bbox_4326": [
+        105.46812456270632,
+        21.32446916172436,
+        105.48812456270632,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1417,
+      "bbox_4326": [
+        105.48812456270632,
+        21.32446916172436,
+        105.50812456270631,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1418,
+      "bbox_4326": [
+        105.50812456270631,
+        21.32446916172436,
+        105.52812456270631,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1419,
+      "bbox_4326": [
+        105.52812456270631,
+        21.32446916172436,
+        105.5481245627063,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1420,
+      "bbox_4326": [
+        105.5481245627063,
+        21.32446916172436,
+        105.5681245627063,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1421,
+      "bbox_4326": [
+        105.5681245627063,
+        21.32446916172436,
+        105.5881245627063,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1422,
+      "bbox_4326": [
+        105.5881245627063,
+        21.32446916172436,
+        105.6081245627063,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1423,
+      "bbox_4326": [
+        105.6081245627063,
+        21.32446916172436,
+        105.62812456270629,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1424,
+      "bbox_4326": [
+        105.62812456270629,
+        21.32446916172436,
+        105.64812456270629,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1425,
+      "bbox_4326": [
+        105.64812456270629,
+        21.32446916172436,
+        105.66812456270628,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1426,
+      "bbox_4326": [
+        105.66812456270628,
+        21.32446916172436,
+        105.68812456270628,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1427,
+      "bbox_4326": [
+        105.68812456270628,
+        21.32446916172436,
+        105.70812456270627,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1428,
+      "bbox_4326": [
+        105.70812456270627,
+        21.32446916172436,
+        105.72812456270627,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1429,
+      "bbox_4326": [
+        105.72812456270627,
+        21.32446916172436,
+        105.74812456270627,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1430,
+      "bbox_4326": [
+        105.74812456270627,
+        21.32446916172436,
+        105.76812456270626,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1431,
+      "bbox_4326": [
+        105.76812456270626,
+        21.32446916172436,
+        105.78812456270626,
+        21.34446916172436
+      ],
+      "server_number_matched": 536,
+      "number_returned": 536,
+      "record_count": 507,
+      "truncated": false
+    },
+    {
+      "tile_index": 1432,
+      "bbox_4326": [
+        105.78812456270626,
+        21.32446916172436,
+        105.80812456270625,
+        21.34446916172436
+      ],
+      "server_number_matched": 207,
+      "number_returned": 207,
+      "record_count": 207,
+      "truncated": false
+    },
+    {
+      "tile_index": 1433,
+      "bbox_4326": [
+        105.80812456270625,
+        21.32446916172436,
+        105.82812456270625,
+        21.34446916172436
+      ],
+      "server_number_matched": 2320,
+      "number_returned": 2320,
+      "record_count": 2320,
+      "truncated": false
+    },
+    {
+      "tile_index": 1434,
+      "bbox_4326": [
+        105.82812456270625,
+        21.32446916172436,
+        105.84812456270625,
+        21.34446916172436
+      ],
+      "server_number_matched": 2094,
+      "number_returned": 2094,
+      "record_count": 2094,
+      "truncated": false
+    },
+    {
+      "tile_index": 1435,
+      "bbox_4326": [
+        105.84812456270625,
+        21.32446916172436,
+        105.86812456270624,
+        21.34446916172436
+      ],
+      "server_number_matched": 2595,
+      "number_returned": 2595,
+      "record_count": 1492,
+      "truncated": false
+    },
+    {
+      "tile_index": 1436,
+      "bbox_4326": [
+        105.86812456270624,
+        21.32446916172436,
+        105.88812456270624,
+        21.34446916172436
+      ],
+      "server_number_matched": 3755,
+      "number_returned": 3755,
+      "record_count": 1094,
+      "truncated": false
+    },
+    {
+      "tile_index": 1437,
+      "bbox_4326": [
+        105.88812456270624,
+        21.32446916172436,
+        105.90812456270623,
+        21.34446916172436
+      ],
+      "server_number_matched": 552,
+      "number_returned": 552,
+      "record_count": 124,
+      "truncated": false
+    },
+    {
+      "tile_index": 1438,
+      "bbox_4326": [
+        105.90812456270623,
+        21.32446916172436,
+        105.92812456270623,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1439,
+      "bbox_4326": [
+        105.92812456270623,
+        21.32446916172436,
+        105.94812456270623,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1440,
+      "bbox_4326": [
+        105.94812456270623,
+        21.32446916172436,
+        105.96812456270622,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1441,
+      "bbox_4326": [
+        105.96812456270622,
+        21.32446916172436,
+        105.98812456270622,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1442,
+      "bbox_4326": [
+        105.98812456270622,
+        21.32446916172436,
+        106.00812456270621,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1443,
+      "bbox_4326": [
+        106.00812456270621,
+        21.32446916172436,
+        106.02005052860555,
+        21.34446916172436
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1444,
+      "bbox_4326": [
+        105.28812456270636,
+        21.34446916172436,
+        105.30812456270635,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1445,
+      "bbox_4326": [
+        105.30812456270635,
+        21.34446916172436,
+        105.32812456270635,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1446,
+      "bbox_4326": [
+        105.32812456270635,
+        21.34446916172436,
+        105.34812456270635,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1447,
+      "bbox_4326": [
+        105.34812456270635,
+        21.34446916172436,
+        105.36812456270634,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1448,
+      "bbox_4326": [
+        105.36812456270634,
+        21.34446916172436,
+        105.38812456270634,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1449,
+      "bbox_4326": [
+        105.38812456270634,
+        21.34446916172436,
+        105.40812456270633,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1450,
+      "bbox_4326": [
+        105.40812456270633,
+        21.34446916172436,
+        105.42812456270633,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1451,
+      "bbox_4326": [
+        105.42812456270633,
+        21.34446916172436,
+        105.44812456270633,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1452,
+      "bbox_4326": [
+        105.44812456270633,
+        21.34446916172436,
+        105.46812456270632,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1453,
+      "bbox_4326": [
+        105.46812456270632,
+        21.34446916172436,
+        105.48812456270632,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1454,
+      "bbox_4326": [
+        105.48812456270632,
+        21.34446916172436,
+        105.50812456270631,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1455,
+      "bbox_4326": [
+        105.50812456270631,
+        21.34446916172436,
+        105.52812456270631,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1456,
+      "bbox_4326": [
+        105.52812456270631,
+        21.34446916172436,
+        105.5481245627063,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1457,
+      "bbox_4326": [
+        105.5481245627063,
+        21.34446916172436,
+        105.5681245627063,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1458,
+      "bbox_4326": [
+        105.5681245627063,
+        21.34446916172436,
+        105.5881245627063,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1459,
+      "bbox_4326": [
+        105.5881245627063,
+        21.34446916172436,
+        105.6081245627063,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1460,
+      "bbox_4326": [
+        105.6081245627063,
+        21.34446916172436,
+        105.62812456270629,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1461,
+      "bbox_4326": [
+        105.62812456270629,
+        21.34446916172436,
+        105.64812456270629,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1462,
+      "bbox_4326": [
+        105.64812456270629,
+        21.34446916172436,
+        105.66812456270628,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1463,
+      "bbox_4326": [
+        105.66812456270628,
+        21.34446916172436,
+        105.68812456270628,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1464,
+      "bbox_4326": [
+        105.68812456270628,
+        21.34446916172436,
+        105.70812456270627,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1465,
+      "bbox_4326": [
+        105.70812456270627,
+        21.34446916172436,
+        105.72812456270627,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1466,
+      "bbox_4326": [
+        105.72812456270627,
+        21.34446916172436,
+        105.74812456270627,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1467,
+      "bbox_4326": [
+        105.74812456270627,
+        21.34446916172436,
+        105.76812456270626,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1468,
+      "bbox_4326": [
+        105.76812456270626,
+        21.34446916172436,
+        105.78812456270626,
+        21.364469161724358
+      ],
+      "server_number_matched": 35,
+      "number_returned": 35,
+      "record_count": 8,
+      "truncated": false
+    },
+    {
+      "tile_index": 1469,
+      "bbox_4326": [
+        105.78812456270626,
+        21.34446916172436,
+        105.80812456270625,
+        21.364469161724358
+      ],
+      "server_number_matched": 1415,
+      "number_returned": 1415,
+      "record_count": 1415,
+      "truncated": false
+    },
+    {
+      "tile_index": 1470,
+      "bbox_4326": [
+        105.80812456270625,
+        21.34446916172436,
+        105.82812456270625,
+        21.364469161724358
+      ],
+      "server_number_matched": 4244,
+      "number_returned": 4244,
+      "record_count": 4244,
+      "truncated": false
+    },
+    {
+      "tile_index": 1471,
+      "bbox_4326": [
+        105.82812456270625,
+        21.34446916172436,
+        105.84812456270625,
+        21.364469161724358
+      ],
+      "server_number_matched": 4022,
+      "number_returned": 4022,
+      "record_count": 4022,
+      "truncated": false
+    },
+    {
+      "tile_index": 1472,
+      "bbox_4326": [
+        105.84812456270625,
+        21.34446916172436,
+        105.86812456270624,
+        21.364469161724358
+      ],
+      "server_number_matched": 3817,
+      "number_returned": 3817,
+      "record_count": 788,
+      "truncated": false
+    },
+    {
+      "tile_index": 1473,
+      "bbox_4326": [
+        105.86812456270624,
+        21.34446916172436,
+        105.88812456270624,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1474,
+      "bbox_4326": [
+        105.88812456270624,
+        21.34446916172436,
+        105.90812456270623,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1475,
+      "bbox_4326": [
+        105.90812456270623,
+        21.34446916172436,
+        105.92812456270623,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1476,
+      "bbox_4326": [
+        105.92812456270623,
+        21.34446916172436,
+        105.94812456270623,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1477,
+      "bbox_4326": [
+        105.94812456270623,
+        21.34446916172436,
+        105.96812456270622,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1478,
+      "bbox_4326": [
+        105.96812456270622,
+        21.34446916172436,
+        105.98812456270622,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1479,
+      "bbox_4326": [
+        105.98812456270622,
+        21.34446916172436,
+        106.00812456270621,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1480,
+      "bbox_4326": [
+        106.00812456270621,
+        21.34446916172436,
+        106.02005052860555,
+        21.364469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1481,
+      "bbox_4326": [
+        105.28812456270636,
+        21.364469161724358,
+        105.30812456270635,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1482,
+      "bbox_4326": [
+        105.30812456270635,
+        21.364469161724358,
+        105.32812456270635,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1483,
+      "bbox_4326": [
+        105.32812456270635,
+        21.364469161724358,
+        105.34812456270635,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1484,
+      "bbox_4326": [
+        105.34812456270635,
+        21.364469161724358,
+        105.36812456270634,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1485,
+      "bbox_4326": [
+        105.36812456270634,
+        21.364469161724358,
+        105.38812456270634,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1486,
+      "bbox_4326": [
+        105.38812456270634,
+        21.364469161724358,
+        105.40812456270633,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1487,
+      "bbox_4326": [
+        105.40812456270633,
+        21.364469161724358,
+        105.42812456270633,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1488,
+      "bbox_4326": [
+        105.42812456270633,
+        21.364469161724358,
+        105.44812456270633,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1489,
+      "bbox_4326": [
+        105.44812456270633,
+        21.364469161724358,
+        105.46812456270632,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1490,
+      "bbox_4326": [
+        105.46812456270632,
+        21.364469161724358,
+        105.48812456270632,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1491,
+      "bbox_4326": [
+        105.48812456270632,
+        21.364469161724358,
+        105.50812456270631,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1492,
+      "bbox_4326": [
+        105.50812456270631,
+        21.364469161724358,
+        105.52812456270631,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1493,
+      "bbox_4326": [
+        105.52812456270631,
+        21.364469161724358,
+        105.5481245627063,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1494,
+      "bbox_4326": [
+        105.5481245627063,
+        21.364469161724358,
+        105.5681245627063,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1495,
+      "bbox_4326": [
+        105.5681245627063,
+        21.364469161724358,
+        105.5881245627063,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1496,
+      "bbox_4326": [
+        105.5881245627063,
+        21.364469161724358,
+        105.6081245627063,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1497,
+      "bbox_4326": [
+        105.6081245627063,
+        21.364469161724358,
+        105.62812456270629,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1498,
+      "bbox_4326": [
+        105.62812456270629,
+        21.364469161724358,
+        105.64812456270629,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1499,
+      "bbox_4326": [
+        105.64812456270629,
+        21.364469161724358,
+        105.66812456270628,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1500,
+      "bbox_4326": [
+        105.66812456270628,
+        21.364469161724358,
+        105.68812456270628,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1501,
+      "bbox_4326": [
+        105.68812456270628,
+        21.364469161724358,
+        105.70812456270627,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1502,
+      "bbox_4326": [
+        105.70812456270627,
+        21.364469161724358,
+        105.72812456270627,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1503,
+      "bbox_4326": [
+        105.72812456270627,
+        21.364469161724358,
+        105.74812456270627,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1504,
+      "bbox_4326": [
+        105.74812456270627,
+        21.364469161724358,
+        105.76812456270626,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1505,
+      "bbox_4326": [
+        105.76812456270626,
+        21.364469161724358,
+        105.78812456270626,
+        21.384469161724358
+      ],
+      "server_number_matched": 566,
+      "number_returned": 566,
+      "record_count": 23,
+      "truncated": false
+    },
+    {
+      "tile_index": 1506,
+      "bbox_4326": [
+        105.78812456270626,
+        21.364469161724358,
+        105.80812456270625,
+        21.384469161724358
+      ],
+      "server_number_matched": 2354,
+      "number_returned": 2354,
+      "record_count": 2243,
+      "truncated": false
+    },
+    {
+      "tile_index": 1507,
+      "bbox_4326": [
+        105.80812456270625,
+        21.364469161724358,
+        105.82812456270625,
+        21.384469161724358
+      ],
+      "server_number_matched": 2893,
+      "number_returned": 2893,
+      "record_count": 2349,
+      "truncated": false
+    },
+    {
+      "tile_index": 1508,
+      "bbox_4326": [
+        105.82812456270625,
+        21.364469161724358,
+        105.84812456270625,
+        21.384469161724358
+      ],
+      "server_number_matched": 3087,
+      "number_returned": 3087,
+      "record_count": 1713,
+      "truncated": false
+    },
+    {
+      "tile_index": 1509,
+      "bbox_4326": [
+        105.84812456270625,
+        21.364469161724358,
+        105.86812456270624,
+        21.384469161724358
+      ],
+      "server_number_matched": 3467,
+      "number_returned": 3467,
+      "record_count": 794,
+      "truncated": false
+    },
+    {
+      "tile_index": 1510,
+      "bbox_4326": [
+        105.86812456270624,
+        21.364469161724358,
+        105.88812456270624,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1511,
+      "bbox_4326": [
+        105.88812456270624,
+        21.364469161724358,
+        105.90812456270623,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1512,
+      "bbox_4326": [
+        105.90812456270623,
+        21.364469161724358,
+        105.92812456270623,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1513,
+      "bbox_4326": [
+        105.92812456270623,
+        21.364469161724358,
+        105.94812456270623,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1514,
+      "bbox_4326": [
+        105.94812456270623,
+        21.364469161724358,
+        105.96812456270622,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1515,
+      "bbox_4326": [
+        105.96812456270622,
+        21.364469161724358,
+        105.98812456270622,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1516,
+      "bbox_4326": [
+        105.98812456270622,
+        21.364469161724358,
+        106.00812456270621,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1517,
+      "bbox_4326": [
+        106.00812456270621,
+        21.364469161724358,
+        106.02005052860555,
+        21.384469161724358
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1518,
+      "bbox_4326": [
+        105.28812456270636,
+        21.384469161724358,
+        105.30812456270635,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1519,
+      "bbox_4326": [
+        105.30812456270635,
+        21.384469161724358,
+        105.32812456270635,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1520,
+      "bbox_4326": [
+        105.32812456270635,
+        21.384469161724358,
+        105.34812456270635,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1521,
+      "bbox_4326": [
+        105.34812456270635,
+        21.384469161724358,
+        105.36812456270634,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1522,
+      "bbox_4326": [
+        105.36812456270634,
+        21.384469161724358,
+        105.38812456270634,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1523,
+      "bbox_4326": [
+        105.38812456270634,
+        21.384469161724358,
+        105.40812456270633,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1524,
+      "bbox_4326": [
+        105.40812456270633,
+        21.384469161724358,
+        105.42812456270633,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1525,
+      "bbox_4326": [
+        105.42812456270633,
+        21.384469161724358,
+        105.44812456270633,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1526,
+      "bbox_4326": [
+        105.44812456270633,
+        21.384469161724358,
+        105.46812456270632,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1527,
+      "bbox_4326": [
+        105.46812456270632,
+        21.384469161724358,
+        105.48812456270632,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1528,
+      "bbox_4326": [
+        105.48812456270632,
+        21.384469161724358,
+        105.50812456270631,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1529,
+      "bbox_4326": [
+        105.50812456270631,
+        21.384469161724358,
+        105.52812456270631,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1530,
+      "bbox_4326": [
+        105.52812456270631,
+        21.384469161724358,
+        105.5481245627063,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1531,
+      "bbox_4326": [
+        105.5481245627063,
+        21.384469161724358,
+        105.5681245627063,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1532,
+      "bbox_4326": [
+        105.5681245627063,
+        21.384469161724358,
+        105.5881245627063,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1533,
+      "bbox_4326": [
+        105.5881245627063,
+        21.384469161724358,
+        105.6081245627063,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1534,
+      "bbox_4326": [
+        105.6081245627063,
+        21.384469161724358,
+        105.62812456270629,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1535,
+      "bbox_4326": [
+        105.62812456270629,
+        21.384469161724358,
+        105.64812456270629,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1536,
+      "bbox_4326": [
+        105.64812456270629,
+        21.384469161724358,
+        105.66812456270628,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1537,
+      "bbox_4326": [
+        105.66812456270628,
+        21.384469161724358,
+        105.68812456270628,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1538,
+      "bbox_4326": [
+        105.68812456270628,
+        21.384469161724358,
+        105.70812456270627,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1539,
+      "bbox_4326": [
+        105.70812456270627,
+        21.384469161724358,
+        105.72812456270627,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1540,
+      "bbox_4326": [
+        105.72812456270627,
+        21.384469161724358,
+        105.74812456270627,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1541,
+      "bbox_4326": [
+        105.74812456270627,
+        21.384469161724358,
+        105.76812456270626,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1542,
+      "bbox_4326": [
+        105.76812456270626,
+        21.384469161724358,
+        105.78812456270626,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1543,
+      "bbox_4326": [
+        105.78812456270626,
+        21.384469161724358,
+        105.80812456270625,
+        21.385222290909635
+      ],
+      "server_number_matched": 40,
+      "number_returned": 40,
+      "record_count": 9,
+      "truncated": false
+    },
+    {
+      "tile_index": 1544,
+      "bbox_4326": [
+        105.80812456270625,
+        21.384469161724358,
+        105.82812456270625,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1545,
+      "bbox_4326": [
+        105.82812456270625,
+        21.384469161724358,
+        105.84812456270625,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1546,
+      "bbox_4326": [
+        105.84812456270625,
+        21.384469161724358,
+        105.86812456270624,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1547,
+      "bbox_4326": [
+        105.86812456270624,
+        21.384469161724358,
+        105.88812456270624,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1548,
+      "bbox_4326": [
+        105.88812456270624,
+        21.384469161724358,
+        105.90812456270623,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1549,
+      "bbox_4326": [
+        105.90812456270623,
+        21.384469161724358,
+        105.92812456270623,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1550,
+      "bbox_4326": [
+        105.92812456270623,
+        21.384469161724358,
+        105.94812456270623,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1551,
+      "bbox_4326": [
+        105.94812456270623,
+        21.384469161724358,
+        105.96812456270622,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1552,
+      "bbox_4326": [
+        105.96812456270622,
+        21.384469161724358,
+        105.98812456270622,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1553,
+      "bbox_4326": [
+        105.98812456270622,
+        21.384469161724358,
+        106.00812456270621,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    },
+    {
+      "tile_index": 1554,
+      "bbox_4326": [
+        106.00812456270621,
+        21.384469161724358,
+        106.02005052860555,
+        21.385222290909635
+      ],
+      "server_number_matched": 0,
+      "number_returned": 0,
+      "record_count": 0,
+      "truncated": false,
+      "skipped_roi_no_overlap": true
+    }
+  ],
+  "microsoft_missing_area_coverage": {
+    "lon_range_description": "Microsoft データ欠落域（西側）",
+    "lon_range": [
+      105.29,
+      105.47
+    ],
+    "building_count": 273742,
+    "building_area_m2": 21225959.900975626,
+    "domain_area_m2": 1699571176.935547,
+    "building_area_ratio": 0.012489009103606714
+  }
+}

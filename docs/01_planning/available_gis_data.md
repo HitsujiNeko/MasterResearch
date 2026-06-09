@@ -1,6 +1,6 @@
 # 利用可能な公開GISデータ候補
 
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-06-09  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [CodingRule.md](../02_methods/CodingRule.md)  
 **前提知識**: RQ1-RQ3、都市構造パラメータの定義、GISデータのCRS・解像度・ライセンス差
 
@@ -23,7 +23,7 @@
 
 - 道路データは `OpenStreetMap` / Geofabrik が現時点の主ソースである。
 - `Microsoft GlobalMLBuildingFootprints` は建物フットプリント候補だが、Hanoi ROI 西側で明確なカバレッジ欠落が確認されたため、ROI 全域の建物主ソースとして単独採用しない。
-- 建物データは `Google Open Buildings`, `OSM building=*`, `GlobalBuildingAtlas` を比較候補に追加し、ROI 全域カバレッジ、建物数、面積率、ライセンス、取得再現性を QA してから採用する。
+- 建物データの主ソースとして `GlobalBuildingAtlas`（GBA）を WFS 経由で Hanoi ROI 全域から取得済み（2026-06-09）。行政区画ポリゴンクリップ済みで 3,071,511 件。Microsoft 欠落域（105.29–105.47°E）で 273,742 件（面積率 1.25%）を確認し、カバレッジ欠落問題を解消した。GBA を `Limited` シナリオの建物主ソースとして確定した。`Google Open Buildings`, `OSM building=*` は比較・妥当性確認候補として残す。
 - `GHSL` と `World Settlement Footprint` は建物フットプリントの代替ではなく、粗い built-up / settlement extent の補助・妥当性確認用として扱う。
 - 現在の `Limited` シナリオでは、Microsoft 由来の `BUILD_COV_0` / `BUILD_DEN_0` を「建物が存在しない」ではなく「Microsoft データの有効範囲外の可能性がある」と区別する必要がある。
 
@@ -37,7 +37,7 @@
 | Microsoft GlobalMLBuildingFootprints | 建物フットプリント、建物密度 | 線形 GeoJSON を含む `.csv.gz`、国別・quadkey 分割 | 全球 | 1.4B 棟規模の全球データで、2014-2024 の衛星画像から抽出。2026-02-03 まで更新履歴あり。機械生成なので誤検出・地域差がある。 | https://github.com/microsoft/GlobalMLBuildingFootprints | Hanoi ROI 西側の欠落を確認済み。カバレッジ制限付き候補であり、単独の ROI 全域主ソースにはしない。 |
 | Google Open Buildings V3 Polygons | 建物フットプリント、建物密度 | Earth Engine FeatureCollection、ダウンロードデータ | Africa, South Asia, South-East Asia, Latin America, Caribbean | 1.8B building detections、58M km2、V3。建物ポリゴン、confidence、Plus Code を含む。 | https://sites.research.google/open-buildings | 東南アジアを含むため、Microsoft 欠落域の第一比較候補。Hanoi ROI で取得可否と confidence 閾値の QA が必要。 |
 | Google Open Buildings 2.5D Temporal | 建物存在、fractional count、高さの時系列 | Earth Engine ImageCollection、ラスタ | Africa, South Asia, South-East Asia, Latin America, Caribbean | 2016-2023 年の年次データ。4m effective spatial resolution。 | https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings-temporal_v1 | 個別ポリゴンの代替ではなく、建物存在・高さ・時系列の補助候補。`BUILD_DEN_0` との定義差に注意。 |
-| GlobalBuildingAtlas | 建物ポリゴン、高さ、LoD1 3D の候補 | ポリゴン、派生 GeoJSON、WFS、HuggingFace 配布 | 全球 | v1.0.0（2025年11月）。2.75億棟規模。WFS（`lod1_global`）はBBOX指定でHanoi ROIから直接取得可能。高さ属性あり（ML推定）。下地はGoogle Open Buildings由来。ライセンス: ODbLポリゴン＋CC BY-NC 4.0（LoD1・高さ）。学術研究用途はCC BY-NC 4.0で可。 | https://github.com/zhu-xlab/GlobalBuildingAtlas | **WFS動作確認済み（2026-06-03）**。Hanoi ROI西側（Microsoft欠落域: 105.30-105.40°E）でも建物データを確認。`height`・`region:VNM`・`source:google`を含む。建物高さが必要な場合の第一候補。 |
+| GlobalBuildingAtlas | 建物ポリゴン、高さ、LoD1 3D | ポリゴン、派生 GeoJSON、WFS、HuggingFace 配布 | 全球 | v1.0.0（2025年11月）。2.75億棟規模。WFS（`lod1_global`）はBBOX指定でHanoi ROIから直接取得可能。高さ属性あり（ML推定）。下地はGoogle Open Buildings由来。ライセンス: ODbLポリゴン＋CC BY-NC 4.0（LoD1・高さ）。学術研究用途はCC BY-NC 4.0で可。 | https://github.com/zhu-xlab/GlobalBuildingAtlas | **✅ 取得完了（2026-06-09）**。行政区画ポリゴンクリップ済みで3,071,511件取得。Microsoft欠落域（105.29–105.47°E）で273,742件（面積率1.25%）を確認。`height`（ML推定）・`region:VNM`・`source:google`属性含む。`Limited`シナリオの建物主ソースとして採用。出力: `data/output/open_gis/hanoi_gba_buildings.gpkg`。**WFS注意**: 1,554タイル取得でIPレート制限（48h+ブロック）が発生。再取得時はHuggingFace（`zhu-xlab/GBA.LoD1`、タイル`e105_n25_e110_n20`、約1.78GB GeoJSON）によるバルクDLを推奨。 |
 | GHSL Data Package 2023 / GHS-BUILT | 粗い建て込み、都市化の補助指標 | ラスタ `TIF`（ZIP 配布） | 全球 | GHSL は公開・無料データで、built-up / population / settlement model を提供する。更新頻度は irregular。建物の輪郭ではなく、粗い built-up 基盤として使うのが適切。 | https://data.jrc.ec.europa.eu/collection/ghsl/ | 建物数の代替ではないが、都市化度や built-up 比率の補助変数に有効。 |
 | World Settlement Footprint 2015 / 2019 / Evolution | 住宅地・市街地の extent | ラスタ `TIF` | 全球 | WSF2015 v2 は 10m 解像度の全球 settlement mask。DLR の公式ページで 2015, 2019, Evolution, 3D が公開されている。建物や道路そのものではなく、settlement extent の指標。 | https://geoservice.dlr.de/web/maps/eoc%3Awsf | 都市化の広がりや市街地マスクの補助に有用。道路・建物の代替にはならない。 |
 
@@ -74,38 +74,39 @@ Hanoi ROI で `Microsoft GlobalMLBuildingFootprints` を取得した結果、次
 
 このため、Microsoft は「Hanoi 中心部から東側に強い建物データ」としては利用できる可能性があるが、ROI 全域の `BUILD_COV_0` / `BUILD_DEN_0` を代表するデータとしては不十分である。
 
-### 4.2.2 代替建物データの優先順位（2026-06-03 更新）
+### 4.2.2 建物データの優先順位・取得状況（2026-06-09 更新）
 
-WFS動作確認・カバレッジ検証の結果、比較優先順位を次のとおり更新する。
+GBA の WFS 取得完了・Microsoft 欠落域の定量確認を経て、比較優先順位と取得状況を次のとおり更新する。
 
 #### 候補比較表
 
 | 項目 | GlobalBuildingAtlas (GBA) | Google Open Buildings V3 | OSM building=* |
 |---|---|---|---|
-| Hanoi ROI全域カバレッジ | ✅ WFSで確認済み | ✅ Vietnam明記 | 要QA |
-| Microsoft欠落域（西側）対応 | ✅ 105.30-105.40°Eで確認済み | ✅ 東南アジア対応 | 要QA |
+| Hanoi ROI全域カバレッジ | ✅ 取得完了（3,071,511件） | ✅ Vietnam明記 | 要QA |
+| Microsoft欠落域（西側）対応 | ✅ 273,742件（面積率1.25%）確認済み | ✅ 東南アジア対応 | 要QA |
 | 建物高さ情報 | ✅ あり（ML推定、RMSE未確認） | ❌ なし（V3 polygon） | △ 一部のみ |
 | ライセンス | CC BY-NC 4.0（学術OK） | CC BY 4.0（最も寛容） | ODbL |
-| アクセス方法 | WFS・BBOX指定で直接取得可 | gsutil / Colab ノートブック | Geofabrik（取得済み） |
+| アクセス方法 | **✅ 取得済み**（GPKG出力済み）。再取得はHuggingFaceを推奨 | gsutil / Colab ノートブック | Geofabrik（取得済み） |
+| 取得状況 | ✅ 採用済み（`Limited`シナリオ主ソース） | 未取得・比較候補 | 未取得・比較候補 |
 | 下地データ | Google Open Buildings 由来 | — | コミュニティ編集 |
-| 備考 | WFSが大域クエリでタイムアウトする可能性あり。ページング取得が必要 | 建物高さはV3ではなく2.5D Temporalで別途取得 | 品質は地域差が大きい |
+| 備考 | **WFSレート制限注意**: 1,554タイルでIPブロック（48h+）が発生。再取得はHuggingFace（タイル`e105_n25_e110_n20`、~1.78GB）推奨 | 建物高さはV3ではなく2.5D Temporalで別途取得 | 品質は地域差が大きい |
 
-#### 優先順位
+#### 優先順位・取得状況
 
-1. `GlobalBuildingAtlas` via WFS: **建物高さが必要な場合の第一候補**。WFSでHanoi ROIをBBOX指定して直接取得可能。Microsoft欠落域でのカバレッジを確認済み。CC BY-NC 4.0（学術研究用途は可）。取得スクリプトを新規作成する。
-2. `Google Open Buildings V3 Polygons`: ライセンスがより寛容（CC BY 4.0）。建物高さは不要で面積・密度のみ算出する場合の代替候補。confidence閾値の感度分析が必要。
-3. `OSM building=*`: Geofabrik Vietnam extract から追加取得でき、道路と同一ソースで再現性が高い。コミュニティ整備状況に依存するため、建物密度の空間偏りを QA する。
+1. `GlobalBuildingAtlas` via WFS / HuggingFace: **✅ 採用済み（`Limited`シナリオ建物主ソース）**。2026-06-09 に ROI クリップ済みで 3,071,511 件取得完了。`data/output/open_gis/hanoi_gba_buildings.gpkg` に出力済み。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS でなく HuggingFace バルクDL推奨**（WFS は大量リクエスト時に IP ブロックが発生するため）。
+2. `Google Open Buildings V3 Polygons`: 未取得。ライセンスがより寛容（CC BY 4.0）。建物高さ不要で面積・密度のみ算出する場合の比較候補。confidence閾値の感度分析が必要。GBA との重複率・差分を確認してから採用判断する。
+3. `OSM building=*`: 未取得。Geofabrik Vietnam extract から追加取得でき、道路と同一ソースで再現性が高い。コミュニティ整備状況に依存するため、建物密度の空間偏りを QA する。
 4. `Google Open Buildings 2.5D Temporal`, `GHSL`, `WSF`: 個別フットプリントではなく、built-up / building presence / height の補助変数または妥当性確認に使う。
 
-### 4.2.3 当面の Limited シナリオ方針
+### 4.2.3 Limited シナリオの建物データ方針（2026-06-09 更新）
 
-Limited では、建物データが確定するまで次のいずれかを選ぶ。
+**GBA の取得完了により、`Limited` シナリオの建物主ソースを `GlobalBuildingAtlas` に確定した。**
 
-- Microsoft の有効範囲に分析対象を限定し、`DATA_SOURCE` とカバレッジマスクで範囲制限を明示する。
-- Google Open Buildings または OSM 建物を取得し、Microsoft と比較した上で ROI 全域の建物主ソースを差し替える。
-- Microsoft / Google / OSM のいずれも単独で不十分な場合は、重複除去ルールを定義したハイブリッド建物データを作る。
-
-どの場合も、`BUILD_COV_0 = 0` と `BUILD_DEN_0 = 0` を「建物なし」と解釈する前に、そのセルが建物データの有効カバレッジ内かを確認する。
+- `data/output/open_gis/hanoi_gba_buildings.gpkg`（3,071,511 件、ROI クリップ済み）を建物フットプリントの正本として使う。
+- Microsoft 欠落域（105.29–105.47°E）では GBA に 273,742 件の実データが存在することを確認済み。GBA を使うことで Microsoft のカバレッジ欠落問題は解消される。
+- `BUILD_COV_0`, `BUILD_DEN_0` などの建物系パラメータは GBA を主ソースとして再算出する。
+- Microsoft は「Hanoi 中心部から東側の補助的な比較データ」として保持するが、主ソースとしては使わない。
+- `BUILD_COV_0 = 0`, `BUILD_DEN_0 = 0` を「建物なし」と解釈する前に、そのセルが GBA の有効カバレッジ内かを確認する（GBA は ROI 行政区画クリップ済みのため境界付近には注意）。
 
 ### 4.3 粗い都市化指標
 
@@ -121,7 +122,7 @@ Limited では、建物データが確定するまで次のいずれかを選ぶ
 - `Microsoft GlobalMLBuildingFootprints` はカバレッジ制限付き建物候補。Hanoi ROI 全域の単独主ソースにはしない。
 - `Google Open Buildings V3 Polygons` は Microsoft 欠落域を補えるか確認する第一候補。
 - `OSM building=*` は再現性の高い比較候補。
-- `GlobalBuildingAtlas` は建物高さや LoD1 を含む将来拡張・比較候補。
+- `GlobalBuildingAtlas` は建物高さや LoD1 を含む建物主ソースとして採用済み（`Limited` シナリオ、2026-06-09 取得完了）。
 - `GHSL`, `WSF`, `Google Open Buildings 2.5D Temporal` は補助変数・妥当性確認用の採用候補。
 
 ### 5.2 注意点
@@ -131,18 +132,18 @@ Limited では、建物データが確定するまで次のいずれかを選ぶ
 - `Microsoft` は全球対応だが、Hanoi ROI では西側欠落が確認されたため、ROI 全域の建物ゼロ値をそのまま解釈してはならない。
 - `Microsoft` の `height_m` と `confidence` は地域や更新時期によって未提供の場合があり、Hanoi ROI の今回取得結果では `-1` が入っていたため、属性値の直接利用は避ける。
 - `Google Open Buildings` は confidence 閾値により建物数と面積率が変わるため、閾値感度分析を行う。
-- `GlobalBuildingAtlas` は高さ・3D を扱える可能性がある一方、ライセンス条件とデータ取得経路の整理を先に行う必要がある。
+- `GlobalBuildingAtlas` の WFS は大量リクエスト（~1,554 タイル）時に IP レート制限（48 時間以上のブロック）が発生する場合がある。再取得が必要な場合は HuggingFace（`zhu-xlab/GBA.LoD1`、タイル `e105_n25_e110_n20`、約 1.78GB GeoJSON）によるバルクDL を使うこと。スクリプト `src/preprocessing/fetch_gba_buildings_hanoi.py` には `--start-tile-index` で途中再開機能を実装済み。
 - `GHSL`, `WSF`, `Google Open Buildings 2.5D Temporal` は建物ポリゴンそのものではなく、`BUILD_DEN_0` と同じ定義ではない。
 - いずれの候補も、測量データの代替真値ではなく、測量データの不足を補う補助ソースとして扱うのが安全である。
 
 ---
 
-## 6. 推奨ワークフロー（2026-06-03 更新）
+## 6. 推奨ワークフロー（2026-06-09 更新）
 
 1. `OpenStreetMap` で道路ネットワークを整備する。
 2. Microsoft 建物データのカバレッジ欠落を QA 結果として固定し、現行 `hanoi_microsoft_buildings.gpkg` の有効範囲を明示する（保留扱い確定）。
-3. **`GlobalBuildingAtlas` を WFS で Hanoi ROI（BBOX: 105.288, 20.564, 106.020, 21.385）から取得する**。取得スクリプトを `src/preprocessing/fetch_gba_buildings_hanoi.py` として作成し、ページング処理で全件取得する。
-4. GBA 取得後、Microsoft 欠落域（105.29–105.47°E）での建物数・面積率を比較し、カバレッジ改善を定量確認する。
+3. ~~`GlobalBuildingAtlas` を WFS で Hanoi ROI から取得する。~~ **✅ 完了（2026-06-09）**。行政区画ポリゴンクリップ済みで 3,071,511 件取得。出力: `data/output/open_gis/hanoi_gba_buildings.gpkg`。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS ではなく HuggingFace バルクDL を推奨**（WFS は IP ブロックが発生したため）。
+4. ~~GBA 取得後、Microsoft 欠落域（105.29–105.47°E）での建物数・面積率を比較し、カバレッジ改善を定量確認する。~~ **✅ 完了（2026-06-09）**。Microsoft 欠落域で 273,742 件・面積率 1.25% を確認（ゼロでなく実データあり）。GBA を `Limited` シナリオ建物主ソースとして確定。
 5. 必要に応じて `Google Open Buildings V3 Polygons` を Geofabrik の代替または補完データとして取得し、GBA と比較する。
 6. Geofabrik Vietnam extract から `building=*` を抽出し、GBA / Google と密度・面積率を比較する。
 7. `GHSL`, `WSF`, `Google Open Buildings 2.5D Temporal` で built-up / building presence の補助指標を作る。
@@ -151,7 +152,109 @@ Limited では、建物データが確定するまで次のいずれかを選ぶ
 
 ---
 
-## 7. 参考ソース
+## 7. GlobalBuildingAtlas 詳細仕様
+
+本研究の `Limited` シナリオで建物主ソースとして採用した GlobalBuildingAtlas（GBA）について、データの特性・制限・引用方法を記録する。
+
+### 7.1 データセット概要
+
+| 項目 | 内容 |
+|---|---|
+| 正式名称 | GlobalBuildingAtlas (GBA) |
+| バージョン | v1.0.0（2025年11月公開） |
+| 規模 | 約 2.75 億棟（全球） |
+| 提供機関 | Chair of Remote Sensing Technology, Technical University of Munich (TUM) / zhu-xlab グループ |
+| 配布形式 | WFS（GeoServer）、HuggingFace（5°×5° GeoJSON タイル）、GitHub |
+| ライセンス | CC BY-NC 4.0（非商用・帰属表示必須） |
+| GitHub | https://github.com/zhu-xlab/GlobalBuildingAtlas |
+| 論文 DOI | https://doi.org/10.5194/essd-17-6647-2025 |
+
+### 7.2 データの構成とフットプリントのソース
+
+GBA は **建物フットプリント（ポリゴン）** と **ML 推定建物高さ** を組み合わせた全球 LoD1 建物モデルである。
+
+**フットプリントのソース**:
+- 地域によって複数ソースを統合している。東南アジア（ベトナム含む）は **Google Open Buildings V3** が主ソースである。WFS レスポンスの `source` 属性に `google` と格納されていることで確認できる。
+- フットプリントの検出精度は元ソース（Google Open Buildings 等）の機械学習モデルに依存する。
+
+**建物高さ（`height` 属性）**:
+- 衛星画像から機械学習で推定した値であり、現地測量値ではない。
+- 推定アルゴリズムの詳細は論文（Zhu et al., 2025）を参照。
+- ハノイ ROI での高さ推定精度（RMSE 等）は本研究では未検証。
+
+**LoD1 モデルとは**:
+- Level of Detail 1（LoD1）= フットプリントポリゴンを**単一の代表高さで押し出した箱型 3D モデル**。
+- 屋根の形状（切妻・寄棟等）や階別の形状変化は表現しない。
+- 本研究では建物フットプリント面積・建物密度・建物高さ（`height`）の算出に利用する。
+
+### 7.3 WFS エンドポイント情報
+
+| 項目 | 値 |
+|---|---|
+| エンドポイント URL | `https://tubvsig-so2sat-vm1.srv.mwn.de/geoserver/ows` |
+| レイヤー名 | `global3D:lod1_global` |
+| プロトコル | WFS 2.0.0 (OGC) |
+| Native CRS | EPSG:3857（Web メルカトル） |
+| BBOX 指定 | EPSG:3857 に変換して指定する必要がある（EPSG:4326 のまま渡すと座標系ずれが生じる） |
+| 最大取得件数 / リクエスト | 50,000 件（`count` パラメータ上限） |
+
+### 7.4 今回の取得処理の内容（Hanoi ROI）
+
+スクリプト `src/preprocessing/fetch_gba_buildings_hanoi.py` で実施した主な処理：
+
+1. **タイル分割**: ROI BBOX を 0.02° × 0.02° グリッドに分割（全 1,554 タイル）し、WFS を 1 タイルずつ取得。50,000 件 / リクエスト上限によるデータ欠落を回避するため。
+2. **ROI 事前フィルタ**: タイルと行政区画ポリゴンが交差しない場合はリクエスト自体をスキップ（不要リクエストを削減）。
+3. **CRS 変換**: WFS レスポンス（EPSG:3857）を EPSG:4326 に変換。
+4. **ROI クリップ**: 各建物ポリゴンを Hanoi 行政区画ポリゴン（`data/GISData/ROI/hanoi/hanoi_ROI_EPSG4326.shp`）でクリップ。境界を跨ぐ建物は切断して境界内の部分のみ保持。
+5. **出力**: `data/output/open_gis/hanoi_gba_buildings.gpkg`（GeoPackage 形式、EPSG:4326）
+
+**取得結果**: 3,071,511 件（2026-06-09 完了）
+
+### 7.5 精度・制限事項
+
+- **高さ精度未検証**: `height` 属性は ML 推定値。ハノイでのローカル精度（RMSE・バイアス）は未検証。高さを定量指標として使う場合は別途現地データとの検証が必要。
+- **フットプリントの過検出・未検出**: 元ソースが機械学習検出のため、仮設構造物・農業用建屋の誤検出や小規模建物の未検出がある可能性がある。
+- **GBA と Google Open Buildings の独立性**: ベトナムでは GBA フットプリントが Google Open Buildings V3 と概ね重複する。両者を独立した検証データとして扱うことはできない。
+- **ROI 境界付近の部分ポリゴン**: 行政区画境界を跨ぐ建物はクリップして保持しているため、境界付近には部分的なポリゴンが含まれる。建物面積・高さ指標の算出時は境界付近の扱いに注意。
+- **WFS レート制限**: 今回の 1,554 タイル取得で IP レベルのレート制限（48 時間以上のブロック）が発生した。再取得が必要な場合は WFS ではなく HuggingFace のバルクダウンロード（タイル `e105_n25_e110_n20`、約 1.78GB GeoJSON）を推奨。
+
+### 7.6 論文への引用
+
+論文・学位論文で本データを使用する場合は、以下の論文を引用する。
+
+```
+Zhu, X. X. et al.: GlobalBuildingAtlas: A global LoD1 building model,
+Earth Syst. Sci. Data, 17, 6647–6670,
+https://doi.org/10.5194/essd-17-6647-2025, 2025.
+```
+
+> **注意**: 著者リストの正式表記は論文ページ（https://essd.copernicus.org/articles/17/6647/2025/）で確認すること。上記の `Zhu, X. X. et al.` は略記であり、投稿規程に合わせて正確な著者リストを使うこと。
+
+CC BY-NC 4.0 ライセンスの帰属表示要件として、論文本文またはデータセクションに以下のような記述を含めること：
+
+> Building footprint and height data are from the GlobalBuildingAtlas (GBA) v1.0.0 (Zhu et al., 2025), available at https://github.com/zhu-xlab/GlobalBuildingAtlas, licensed under CC BY-NC 4.0.
+
+### 7.7 フットプリント元ソース：Google Open Buildings V3 について
+
+GBA のフットプリントはベトナムでは Google Open Buildings V3 由来（WFS の `source:google` 属性で確認済み）であるため、補足として概要を記録する。
+
+Google Open Buildings V3 は Google が衛星画像から機械学習で検出した建物フットプリントデータセットである。東南アジア・アフリカ等を対象に約 18 億件を収録し、各検出に **信頼スコア（confidence: 0〜1）** を付与している点が Microsoft との主な違いである。ライセンスは CC BY 4.0（商用利用可）。
+
+**Microsoft との主な違い**:
+
+| 項目 | Google Open Buildings V3 | Microsoft GlobalMLBuildingFootprints |
+|---|---|---|
+| 学習用画像ソース | Google 衛星画像 | Bing Maps 衛星画像 |
+| 信頼スコア | あり（confidence: 0〜1） | なし |
+| Hanoi ROI カバレッジ | 全域 | 西側（〜105.47°E）欠落 |
+| ライセンス | CC BY 4.0 | ODbL |
+
+**本研究での注意点**:  
+GBA（ベトナム）のフットプリントは Google Open Buildings V3 と概ね同一であるため、両者を**独立した検証データとして相互利用することはできない**。Microsoft は異なる衛星画像・異なるモデルで検出しているため、カバレッジが重なる ROI 東側（約 105.47°E 以東）に限り独立した比較が可能である。
+
+---
+
+## 8. 参考ソース
 
 - OpenStreetMap Wiki, Downloading data: https://wiki.openstreetmap.org/wiki/Downloading_data
 - OpenStreetMap Wiki, Overpass API: https://wiki.openstreetmap.org/wiki/Overpass_API

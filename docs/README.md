@@ -654,7 +654,7 @@ ml_papers = df[df['キーワード'].str.contains('機械学習|ランダムフ�
 MasterResearch/
 ├── .github/                    # AI環境設定・タスク管理
 │   ├── copilot-instructions.md # Copilot自動読込（CLAUDE.mdに移譲）
-│   ├── task-prompt-workflow.md # タスク管理ワークフロー定義
+│   ├── task-workflow.md        # タスク管理ワークフロー定義
 │   └── prompts/                # タスクプロンプト
 │       ├── active/             # 進行中タスク（{Issue番号}_{task_name}.prompt.md）
 │       ├── completed/          # 旧運用アーカイブ（新規追加なし）

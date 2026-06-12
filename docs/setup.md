@@ -1,7 +1,7 @@
 # Setup
 
 **最終更新**: 2026-06-03  
-**関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md), [../.github/task-prompt-workflow.md](../.github/task-prompt-workflow.md)  
+**関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
 ---
@@ -209,7 +209,7 @@ python -m src.gee.gee_calc_LST
 
 ## 9. GitHub CLI のセットアップ
 
-タスク管理ワークフロー（[task-prompt-workflow.md](../.github/task-prompt-workflow.md)）で `gh` コマンドを使用するため、GitHub CLI のインストールと認証が必要。
+タスク管理ワークフロー（[task-workflow.md](../.github/task-workflow.md)）で `gh` コマンドを使用するため、GitHub CLI のインストールと認証が必要。
 
 ### 9.1 インストール
 

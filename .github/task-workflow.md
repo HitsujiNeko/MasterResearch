@@ -1,7 +1,7 @@
 # タスクプロンプト運用ルール
 
-**最終更新**: 2026-06-03  
-**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [task_intake_template.md](./prompts/templates/task_intake_template.md)
+**最終更新**: 2026-06-11  
+**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [task_intake_template.md](./prompts/templates/task_intake_template.md), [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md)
 
 ## 目的
 
@@ -18,7 +18,10 @@ prompt ファイルは completed フォルダに蓄積せず、active に少数�
 
 - タスクの定義・背景・成果物・完了記録はすべて GitHub Issue に記載する
 - prompt ファイルは Issue へのポインタと、セッション固有の一時補足のみを記載する
-- タスクが完了したら、コミット後に Issue を close して prompt ファイルを削除する
+- タスクごとに作業ブランチを作成し、PRレビュー・squash mergeを経て `main` に統合する
+  - ブランチ作成・コミット・push・PR作成: Claude
+  - レビュー・動作確認・squash mergeの実行: ユーザー
+- PRがsquash mergeされたら、Claudeがmainへの復帰・ローカルブランチ削除・prompt削除・完了処理を行う（Issueは `Closes #{Issue番号}` によりGitHub側で自動closeされる）
 - `completed/` フォルダには新規ファイルを追加しない（過去の資産はそのまま残す）
 
 ---
@@ -52,11 +55,7 @@ gh project item-add 1 --owner HitsujiNeko --url https://github.com/HitsujiNeko/M
 # ステータス: 未着手、優先度: intake の指定値 を GraphQL で設定
 ```
 
-**③ 開始日を設定する**（ユーザが行う）
-
-実際に着手するタイミングで [修士研究タスク管理](https://github.com/users/HitsujiNeko/projects/1) の UI から開始日を設定する。
-
-**④ `_intake_{slug}.md` を削除する**（ユーザが行う）
+**③ `_intake_{slug}.md` を削除する**（ユーザが行う）
 
 Issue 作成後、intake ファイルは不要なので削除する。
 
@@ -90,13 +89,28 @@ agent: agent
 
 ### 3. タスク実行
 
-**セッション開始時**に Claude は `gh issue view {番号}` で Issue を確認し、現在のステータスに応じて以下のように対応する。
+**セッション開始時の状態確認**
+
+Claude は作業開始前に以下を実行し、作業ディレクトリ・ブランチの状態をユーザーに提示する（前回セッションが中断された場合などに、未コミットの変更や既存PRを見落とさないため）。
+
+```powershell
+git status --short
+git diff --stat
+git log origin/main..HEAD --oneline
+gh pr list --head {Issue番号}/{タスク要約英文} --json number,url,state
+```
+
+未コミットの変更や未push のコミット、既存PRがある場合は内容を提示し、どこから作業を再開するかをユーザーに確認する。状態を推測して自動的にスキップしない。
+
+Claude は `gh issue view {番号}` で Issue を確認し、現在のステータスに応じて以下のように対応する。
 
 | 現在のステータス | Claude の対応 |
 |---|---|
-| 未着手 | 「進行中」に自動更新して作業開始 |
-| 保留 | 「再開しますか？」と確認してから「進行中」に更新 |
+| 未着手 | 「進行中」に自動更新し、開始日（当日）を設定したうえで、`main` から作業ブランチ `{Issue番号}/{タスク要約英文}` を作成・チェックアウトして作業開始 |
+| 保留 | 「再開しますか？」と確認してから「進行中」に更新し、既存の作業ブランチをチェックアウトして再開 |
 | 進行中 | 変更なし（複数セッション対応） |
+
+ブランチ命名規則は[作業ブランチ](#作業ブランチ)を参照。
 
 **保留にする場合**は、Claude が以下を実行する。
 
@@ -104,7 +118,7 @@ agent: agent
 gh issue comment {番号} --body "保留理由: ...\n再開条件: ..."
 ```
 
-ステータスを「保留」に更新し、理由と再開条件を必ずコメントに残す。
+ステータスを「保留」に更新し、理由と再開条件を必ずコメントに残す。作業ブランチはそのまま保持し、再開時に同じブランチで作業を継続する。
 
 **キャンセルにする場合**は、Claude が以下を実行する。
 
@@ -114,14 +128,21 @@ gh issue close {番号} --reason "not planned" --comment "キャンセル理由:
 
 # prompt ファイルを削除（active/ は git 未追跡のため rm で削除、コミット不要）
 Remove-Item .github/prompts/active/{ファイル名}
+
+# 作業ブランチを削除する
+# PRが作成済みの場合は、ブランチ削除前に PR を close する
+gh pr close {PR番号}  # PRが作成済みの場合のみ
+git checkout main
+git branch -D {Issue番号}/{タスク要約英文}
+git push origin --delete {Issue番号}/{タスク要約英文}  # リモートにpush済みの場合のみ
 ```
 
 ### 4. タスク完了
 
-**① 完了条件を確認し、コミットメッセージを生成する**（Claude が行う）
+**① 完了条件を確認し、レビューを依頼する**（Claude が行う）
 
-以下の共通完了条件と Issue 本文の `## 完了条件` をすべて満たしているか確認する。  
-確認後、**コミットメッセージをユーザーに提示する**（ユーザーが別途依頼しなくてよいようにする）。
+以下の共通完了条件と Issue 本文の `## 完了条件` をすべて満たしているか確認する。
+確認後、確認項目をユーザーに提示し、レビュー・動作確認を依頼する。
 
 **共通完了条件**:
 - Issue で要求された成果物が作成・更新されている
@@ -129,38 +150,51 @@ Remove-Item .github/prompts/active/{ファイル名}
 - コードを含む場合は `docs/02_methods/CodingRule.md` の実装前後チェックリストを完了している
 - コミット対象が整理されている
 
-**コミットメッセージの形式**（Claude が生成して提示）:
+**② レビュー・動作確認**（ユーザが行う）
 
-```
-{type}: {変更内容の要約} (#{Issue番号})
+レビュー・動作確認を行う。未承認の場合は改善事項を Claude に伝え、①に戻る。
 
-{変更の詳細・背景（必要な場合）}
-```
+**③ コミット・push・PR作成**（Claude が行う）
 
-**② コミットする**（ユーザが行う）
+承認後、Claude は以下の手順で行う。
 
-提示されたコミットメッセージを使い、`#{番号}` が含まれていることを確認してからコミットする。
+1. `git status` でステージ対象ファイルを確認し、`.env` 等の機密情報を含むファイルが含まれていないか確認する
+2. [`.github/PULL_REQUEST_TEMPLATE.md`](./PULL_REQUEST_TEMPLATE.md) を読み込み、その構成に従ってPR本文を作成する（`Closes #{Issue番号}` を含める）
+3. コミットメッセージ・PR本文をユーザーに提示し、確認を得る
+4. 確認後、以下を実行する
 
 ```powershell
 git add {成果物}
-git commit -m "{Claudeが生成したメッセージ}"
+git commit -m "{type}: {変更内容の要約} (#{Issue番号})"
+git push -u origin {Issue番号}/{タスク要約英文}
+gh pr create --title "{type}: {変更内容の要約} (#{Issue番号})" --head {Issue番号}/{タスク要約英文} --body-file {PR本文ファイル}
 ```
 
-**③ 「コミットしました」と Claude に伝える**
+- コミットメッセージ・PRタイトルは `{type}: {変更内容の要約} (#{Issue番号})` の形式に統一する（[commitタイプ一覧](#commitタイプ一覧)参照）
+- `gh pr create` には `--head` を必ず明示する（ツール呼び出し間で作業ディレクトリがリセットされ、意図しないブランチがheadになることを防ぐため）
 
-コミット完了後、Claude に伝える。コミット前に close は行わない（成果物と完了状態の乖離を防ぐため）。
+**④ PRレビュー・squash merge**（ユーザが行う）
 
-**④ Issue close・prompt 削除・完了日設定**（Claude が行う）
+PR をレビューし、問題なければ GitHub 上で squash merge する。
+
+> リポジトリの「Auto delete head branches」設定が有効な場合、squash merge後にリモートの作業ブランチは自動削除される。
+
+**⑤ 「マージしました」と Claude に伝える**
+
+**⑥ マージ後処理**（Claude が行う）
 
 ```powershell
-# Issue を close
-gh issue close {番号} --comment "完了。成果物: ..."
-
-# プロジェクトのステータスを「完了」・完了日（当日）を GraphQL で更新
+git checkout main
+git pull
+git branch -D {Issue番号}/{タスク要約英文}
 
 # prompt ファイルを削除（active/ は git 未追跡のため rm で削除）
 Remove-Item .github/prompts/active/{ファイル名}
+
+# プロジェクトのステータスを「完了」・完了日（当日）を GraphQL で更新
 ```
+
+Issue自体は `Closes #{Issue番号}` により GitHub 側で自動close済みのため、`gh issue close` は不要。
 
 ---
 
@@ -171,15 +205,31 @@ Remove-Item .github/prompts/active/{ファイル名}
 | intake 記入 | — | `_intake_{slug}.md` を記入 |
 | Issue 作成 | 下書き・`gh issue create` | 内容を確認して承認 |
 | プロジェクト追加・ステータス（未着手）・優先度設定 | `gh project item-add` + GraphQL | — |
-| 開始日設定 | — | GitHub UI で設定 |
 | `_intake_{slug}.md` 削除 | — | 削除 |
 | prompt ファイル生成 | `active/` に自動生成 | — |
-| ステータス「進行中」に変更 | セッション開始時（条件付き）に GraphQL で更新 | — |
+| ステータス「進行中」に変更・開始日設定・作業ブランチ作成 | セッション開始時（条件付き）に GraphQL更新 + `git checkout -b` | — |
 | タスク実行 | Issue を読んで作業 | — |
 | 保留時のコメント記録 | `gh issue comment` + ステータス「保留」 | — |
-| 完了条件の確認 | 共通条件 + Issue 固有条件を確認 | — |
-| コミット | — | `git commit` → 「コミットしました」と伝える |
-| Issue close・prompt 削除・完了日設定 | コミット確認後に `gh issue close` + `Remove-Item` + GraphQL | — |
+| 完了条件の確認・レビュー依頼 | 共通条件 + Issue 固有条件を確認し提示 | — |
+| レビュー・動作確認・承認 | — | レビュー・動作確認 |
+| コミット・push・PR作成 | `git commit` + `git push` + `gh pr create` | — |
+| PRレビュー・squash merge | — | レビュー・squash merge |
+| マージ後処理（main復帰・ブランチ削除・prompt削除・完了日設定） | 「マージしました」連絡後に実行 | 「マージしました」と連絡 |
+
+---
+
+## commitタイプ一覧
+
+コミットメッセージ・PRタイトルの両方で `{type}: {変更内容の要約} (#{Issue番号})` の形式に統一する。
+
+| type | 用途 |
+|---|---|
+| `feat` | 新機能の追加 |
+| `fix` | バグ修正 |
+| `docs` | ドキュメントのみの変更 |
+| `refactor` | 機能を変更しないコードの整理・改善 |
+| `test` | テストの追加・修正 |
+| `chore` | 上記に分類されないその他の変更（設定変更など） |
 
 ---
 
@@ -212,12 +262,25 @@ Remove-Item .github/prompts/active/{ファイル名}
 | 未着手 | 作業未開始 |
 | 進行中 | 作業中 |
 | 保留 | 外部要因等で一時停止中（理由を Issue にコメント必須） |
-| 完了 | 成果物コミット済み・Issue close 済み |
+| 完了 | PRがsquash merge済み・Issue close 済み |
 | キャンセル | 中止（理由を Issue にコメント必須） |
 
 ---
 
 ## 命名規則
+
+### 作業ブランチ
+
+```
+{Issue番号}/{タスク要約英文}
+```
+
+`{タスク要約英文}` は英語の kebab-case。`main` から作成する。
+
+例:
+```
+6/coding-rule-improvement
+```
 
 ### intake ファイル（一時）
 

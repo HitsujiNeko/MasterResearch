@@ -45,7 +45,7 @@ docs/
     │   └── papers_database.csv            # 論文メタデータ（CSV）
     ├── 02_structured_summaries/
     │   ├── S1_Ermida_2020.md              # SMW法の構造化要約
-    │   └── S2-S6_*.md                     # 既存構造化要約
+    │   └── S2-S8_*.md                     # 既存構造化要約
     └── templates/
         ├── chatgpt_instruction_paper_analysis.md # ChatGPT論文分析指示書
         └── structured_summary_template.md # 論文要約テンプレート
@@ -652,6 +652,9 @@ ml_papers = df[df['キーワード'].str.contains('機械学習|ランダムフ�
 
 ```
 MasterResearch/
+├── .claude/                     # Claude Code設定
+│   └── skills/                  # カスタムskill（check-docs-consistency等）
+│
 ├── .github/                    # AI環境設定・タスク管理
 │   ├── copilot-instructions.md # Copilot自動読込（CLAUDE.mdに移譲）
 │   ├── task-workflow.md        # タスク管理ワークフロー定義
@@ -712,7 +715,7 @@ MasterResearch/
 
 ### 定期メンテナンス
 
-- [ ] 月1回: 全ドキュメントのリンク切れチェック
+- [ ] 月1回: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
 - [ ] 研究フェーズ移行時: ドキュメント構成の見直し
 - [ ] 論文投稿前: 全ドキュメントの整合性確認
 
@@ -722,6 +725,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-06-13 | `check-docs-consistency` skill導入に伴い定期メンテナンス項目を更新。ディレクトリ構造図に`.claude/skills/`を追加し、`02_structured_summaries`の注記をS2-S8に修正 | AI支援 |
 | 2026-06-03 | `setup.md` に GitHub CLI セットアップ手順（セクション9）とトラブルシュートを追加。`.github/` ディレクトリツリーをGitHub Issues運用移行後の実態に更新 | AI支援 |
 | 2026-06-02 | `dem_selection_guide.md` を01_planningに追加。DEM候補調査・BSHorizon比較結果・Limited選定根拠を収録 | AI支援 |
 | 2026-05-20 | 先行研究S7/S8をDerdouri et al. (2021)・Lin et al. (2024)へ更新し、構造化要約参照を追加 | AI支援 |
@@ -736,6 +740,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-06-13  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

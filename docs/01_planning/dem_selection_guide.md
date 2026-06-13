@@ -202,7 +202,7 @@
 | 項目 | 値 |
 |---|---|
 | ファイルパス | `data/GISData/DEM/BSHorizon/DEM_10m_m05_a100_M200.tif` |
-| CRS | EPSG:5897（VN-2000 / TM-3 zone N20） |
+| CRS | EPSG:5897（VN-2000 / TM-3 zone 482） |
 | 解像度 | 10m × 10m |
 | 範囲 | X: 581495–589505、Y: 2321995–2333005（単位: m） |
 | nodata | -9999.0 |

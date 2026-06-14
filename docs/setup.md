@@ -275,8 +275,7 @@ gh repo view
 
 ## 10. コード品質チェック（ruff / pre-commit）
 
-`ruff`（lint + format）と `pre-commit` は `environment.yml` に含まれる。設定は [`pyproject.toml`](../pyproject.toml)、フックは [`.pre-commit-config.yaml`](../.pre-commit-config.yaml) を参照。
-
+`ruff`（lint + format）と `pre-commit` は `environment.yml` に含まれる。設定は [`pyproject.toml`](../pyproject.toml)、フックは [`.pre-commit-config.yaml`](../.pre-commit-config.yaml) を参照。なお、pre-commit は独自に ruff を取得するため、`ruff` コマンド（conda 側）とバージョンが異なる場合がある。結果を揃えたい場合はバージョンを固定するか、`pre-commit run -a` を利用する。
 初回のみ、リポジトリのルートで pre-commit フックを有効化する。
 
 ```powershell

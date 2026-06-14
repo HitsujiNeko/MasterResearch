@@ -23,8 +23,9 @@ CONDA_PATH_PREFIX = [
 ]
 os.environ["PATH"] = os.pathsep.join([*CONDA_PATH_PREFIX, os.environ.get("PATH", "")])
 
-import numpy as np
-import pandas as pd
+# GDAL関連のPATH設定後にimportする必要があるため、E402を許容する
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
 OUTPUT_DIR = PROJECT_ROOT / "data" / "csv" / "analysis"
 SEARCH_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "gee_search_satellite_data_results.csv"

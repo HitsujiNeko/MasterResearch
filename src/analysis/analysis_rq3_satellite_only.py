@@ -20,19 +20,20 @@ CONDA_PATH_PREFIX = [
 ]
 os.environ["PATH"] = os.pathsep.join([*CONDA_PATH_PREFIX, os.environ.get("PATH", "")])
 
-import matplotlib
-import numpy as np
-import pandas as pd
-import shap
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.inspection import permutation_importance
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import GroupKFold, train_test_split
-from sklearn.preprocessing import StandardScaler
+# GDAL関連のPATH設定後にimportする必要があるため、E402を許容する
+import matplotlib  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import shap  # noqa: E402
+from sklearn.ensemble import RandomForestRegressor  # noqa: E402
+from sklearn.inspection import permutation_importance  # noqa: E402
+from sklearn.linear_model import LinearRegression  # noqa: E402
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score  # noqa: E402
+from sklearn.model_selection import GroupKFold, train_test_split  # noqa: E402
+from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "csv" / "analysis"
 COORD_COLUMNS = ["lon", "lat"]

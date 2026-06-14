@@ -17,6 +17,9 @@ import subprocess
 from pathlib import Path
 from typing import Set
 
+# ログ出力先ディレクトリを作成（存在しない場合にFileHandlerがエラーになるのを防ぐ）
+Path("data/output").mkdir(parents=True, exist_ok=True)
+
 # ログ設定
 logging.basicConfig(
     level=logging.INFO,

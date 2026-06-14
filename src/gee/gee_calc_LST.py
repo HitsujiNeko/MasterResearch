@@ -176,7 +176,8 @@ def load_roi_from_shapefile_jp(shapefile_path: str) -> ee.Geometry:
         # Shapefileを読み込み
         boundary_df = gpd.read_file(shapefile_path)
 
-        # WGS84（EPSG:4326）に変換（Google Earth Engineは内部的にWGS84（EPSG:4326）の経度・緯度を使用するため）
+        # WGS84（EPSG:4326）に変換
+        # （Google Earth Engineは内部的にWGS84（EPSG:4326）の経度・緯度を使用するため）
         if boundary_df.crs.to_epsg() != 4326:
             boundary_df = boundary_df.to_crs(epsg=4326)
             logger.info("ROIをEPSG:4326に再投影しました")

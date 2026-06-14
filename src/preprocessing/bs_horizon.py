@@ -1011,7 +1011,8 @@ def solve_bs_horizon(
     if inequality_count == 0:
         if parameters.iterations != 1:
             raise ValueError(
-                "Equality-only constraints must use exactly one iteration, as in the Fortran program."
+                "Equality-only constraints must use exactly one iteration, "
+                "as in the Fortran program."
             )
         if parameters.alpha_max != parameters.alpha_min:
             raise ValueError("Equality-only constraints must not vary alpha across iterations.")

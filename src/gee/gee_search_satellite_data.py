@@ -573,7 +573,8 @@ def run(
             )
             results.append(result)
             logger.info(
-                "%s processed: coverage=%.6f, lst_valid=%.2f, indices_valid=%.2f, eligible=%s, forced=%s",
+                "%s processed: coverage=%.6f, lst_valid=%.2f, indices_valid=%.2f, "
+                "eligible=%s, forced=%s",
                 result["observation_datetime_utc"],
                 result["scene_coverage_ratio"],
                 result["lst_valid_pixel_ratio"],

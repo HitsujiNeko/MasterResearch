@@ -332,7 +332,8 @@ def main():
             logger.info(f"   サイズ: {stat.get('output_size_mb', 0)} MB")
         elif status == "partial_success":
             logger.warning(
-                f"Partial success {suffix}: {stat['processed_files']}/{stat['total_files']} processed, "
+                f"Partial success {suffix}: "
+                f"{stat['processed_files']}/{stat['total_files']} processed, "
                 f"{stat['failed_files']} failed"
             )
             logger.warning(f"   Output: {stat.get('output_file', 'N/A')}")

@@ -21,4 +21,5 @@ dependencies:
   - pyyaml
   - ruff
   - pre-commit
+  - pytest
   - pip

@@ -43,7 +43,8 @@ def analyze_gis_data():
                 # エンコーディングエラー時は、latin1で試行
                 try:
                     gdf = gpd.read_file(str(gpkg_file), encoding="latin1")
-                except:
+                except Exception as e:
+                    print(f"  latin1での読込にも失敗（{e}）。fionaで直接読込を試行します。")
                     # 最終手段：fionaで直接読み込み、geometryのみ取得
                     import fiona
 
@@ -89,8 +90,8 @@ def analyze_gis_data():
                         print("  空間範囲（WGS84）:")
                         print(f"    経度: {bounds_wgs84[0]:.6f} ～ {bounds_wgs84[2]:.6f}")
                         print(f"    緯度: {bounds_wgs84[1]:.6f} ～ {bounds_wgs84[3]:.6f}")
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"  WGS84変換失敗: {e}")
             else:
                 # CRS未定義の場合、座標範囲からVN-2000 (EPSG:5897)と推定して変換
                 if 400000 < bounds[0] < 800000 and 1500000 < bounds[1] < 2500000:

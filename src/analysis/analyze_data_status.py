@@ -68,7 +68,7 @@ def analyze_gis_data():
 
             # ジオメトリタイプ
             geom_types = gdf.geometry.geom_type.value_counts()
-            print("  ジオメト リタイプ:")
+            print("  ジオメトリタイプ:")
             for gt, count in geom_types.items():
                 print(f"    - {gt}: {count:,}")
 

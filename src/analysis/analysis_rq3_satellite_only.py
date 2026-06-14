@@ -258,7 +258,9 @@ def fit_random_forest(
         random_state (int): 乱数シード
         n_estimators (int): 決定木本数
     Returns:
-        tuple[RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray]:
+        tuple[
+            RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray
+        ]:
             学習済みモデル、評価結果、不純度ベース重要度、Permutation重要度、予測値
     """
     model = RandomForestRegressor(

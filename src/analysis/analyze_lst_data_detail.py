@@ -69,7 +69,8 @@ def analyze_lst_results():
         # エクスポート済みデータ
         exported = df[df["exported"]]
         print(
-            f"\n  エクスポート済み: {len(exported)}/{len(df)} ({len(exported) / len(df) * 100:.1f}%)"
+            f"\n  エクスポート済み: {len(exported)}/{len(df)} "
+            f"({len(exported) / len(df) * 100:.1f}%)"
         )
 
         # 有効ピクセル率の統計

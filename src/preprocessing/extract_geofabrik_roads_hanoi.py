@@ -116,7 +116,8 @@ def remove_existing_output(output_path: Path, overwrite: bool) -> None:
         return
     if not overwrite:
         raise FileExistsError(
-            f"出力ファイルは既に存在します: {output_path}。上書きする場合は --overwrite を指定してください。"
+            f"出力ファイルは既に存在します: {output_path}。"
+            "上書きする場合は --overwrite を指定してください。"
         )
     output_path.unlink()
 

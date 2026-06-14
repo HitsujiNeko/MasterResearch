@@ -123,7 +123,9 @@ DATASET_CONFIGS: dict[str, DemDatasetConfig] = {
             "約30m、全球。広く使われる基礎DEMだが取得時期が2000年で、"
             "比較的新しい都市開発は反映しない。"
         ),
-        dataset_created_date="Version 3 product release date is not explicitly exposed in GEE metadata",
+        dataset_created_date=(
+            "Version 3 product release date is not explicitly exposed in GEE metadata"
+        ),
         source_observation_period="2000-02-11 to 2000-02-22",
         date_note=(
             "GEEカタログでは取得期間は明示されるが、単一の公開日までは明示されない。"
@@ -263,7 +265,8 @@ def ensure_output_paths(
         if path.exists():
             if not overwrite:
                 raise FileExistsError(
-                    f"出力ファイルが既に存在します: {path}。上書きする場合は --overwrite を指定してください。"
+                    f"出力ファイルが既に存在します: {path}。"
+                    "上書きする場合は --overwrite を指定してください。"
                 )
             path.unlink()
 
@@ -286,7 +289,8 @@ def load_gee_project_id(config_path: Path, explicit_project_id: str) -> str:
     project_id = str(config_df.iloc[0].get("gee_project_id", "")).strip()
     if not project_id or project_id == "YOUR_GCP_PROJECT_ID":
         raise ValueError(
-            "GEEプロジェクトIDが取得できませんでした。--gee-project-id を指定するか設定CSVを確認してください。"
+            "GEEプロジェクトIDが取得できませんでした。"
+            "--gee-project-id を指定するか設定CSVを確認してください。"
         )
     return project_id
 

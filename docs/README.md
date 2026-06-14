@@ -276,7 +276,7 @@ graph TB
 **適用範囲**: `src/`配下のすべてのPythonスクリプト
 
 **関連ドキュメント**:
-- AI指示書 → [.github/copilot-instructions.md](../.github/copilot-instructions.md)
+- AI指示書 → [CLAUDE.md](../CLAUDE.md)
 
 ### 📝 今後追加予定
 - `urban_parameters.md`: 都市構造パラメータの定義と算出方法

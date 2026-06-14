@@ -41,7 +41,8 @@ def configure_gdal_environment() -> None:
 
 configure_gdal_environment()
 
-import fiona
+# GDAL関連の環境変数設定後にimportする必要があるため、E402を許容する
+import fiona  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

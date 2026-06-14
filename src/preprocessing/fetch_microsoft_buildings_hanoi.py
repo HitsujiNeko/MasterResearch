@@ -25,11 +25,14 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_microsoft_buildings.gpkg"
-DEFAULT_SUMMARY_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_microsoft_buildings_summary.json"
+DEFAULT_OUTPUT_PATH = (
+    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_microsoft_buildings.gpkg"
+)
+DEFAULT_SUMMARY_PATH = (
+    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_microsoft_buildings_summary.json"
+)
 DATASET_LINKS_URL = (
     "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv"
 )
@@ -180,7 +183,10 @@ def normalize_polygon_geometry(geometry: Any) -> Any | None:
     if not normalized_geometry.is_valid:
         normalized_geometry = make_valid(normalized_geometry)
 
-    if normalized_geometry.is_empty or normalized_geometry.geom_type not in {"Polygon", "MultiPolygon"}:
+    if normalized_geometry.is_empty or normalized_geometry.geom_type not in {
+        "Polygon",
+        "MultiPolygon",
+    }:
         return None
 
     return normalized_geometry

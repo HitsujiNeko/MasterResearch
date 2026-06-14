@@ -195,7 +195,9 @@ def get_layer_resource(
     source_crs = CRS.from_epsg(int(layer_cfg["crs_epsg"]))
     to_analysis = Transformer.from_crs(source_crs, analysis_crs, always_xy=True)
     from_analysis = Transformer.from_crs(analysis_crs, source_crs, always_xy=True)
-    return LayerResource(gpkg_path, layer_name, source_crs, analysis_crs, to_analysis, from_analysis)
+    return LayerResource(
+        gpkg_path, layer_name, source_crs, analysis_crs, to_analysis, from_analysis
+    )
 
 
 def transform_bbox(bbox: BBox, transformer: Transformer) -> BBox:
@@ -617,7 +619,9 @@ def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:
     return detected
 
 
-def aggregate_raster_to_grid(raster_path: Path, grid_spec: GridSpec, band_index: int = 1) -> np.ndarray:
+def aggregate_raster_to_grid(
+    raster_path: Path, grid_spec: GridSpec, band_index: int = 1
+) -> np.ndarray:
     """ラスタを30mグリッドへ平均再投影し、セル平均値を返す。"""
     import rasterio
 
@@ -641,7 +645,9 @@ def aggregate_raster_to_grid(raster_path: Path, grid_spec: GridSpec, band_index:
     return dst_array.astype(np.float32)
 
 
-def build_quality_columns(indicator_arrays: Iterable[np.ndarray], grid_spec: GridSpec) -> tuple[np.ndarray, np.ndarray]:
+def build_quality_columns(
+    indicator_arrays: Iterable[np.ndarray], grid_spec: GridSpec
+) -> tuple[np.ndarray, np.ndarray]:
     """品質管理列を作成する。"""
     valid_gis_mask = np.zeros(grid_spec.coarse_shape, dtype=bool)
     for indicator_array in indicator_arrays:
@@ -698,7 +704,9 @@ def main() -> None:
     grid_spec = build_grid(analysis_bbox, analysis_crs, args.coarse_res, args.fine_res)
 
     print("シナリオ:", args.scenario)
-    print("解析範囲レイヤ:", mask_layer_key, "->", mask_resource.path.name, mask_resource.layer_name)
+    print(
+        "解析範囲レイヤ:", mask_layer_key, "->", mask_resource.path.name, mask_resource.layer_name
+    )
     print("解析BBox(EPSG:5897):", analysis_bbox)
     print("coarse shape:", grid_spec.coarse_shape, "resolution:", grid_spec.coarse_res_m, "m")
 
@@ -752,7 +760,9 @@ def main() -> None:
 
     print("[6/6] ELEV_MEAN_0 / ELEV_COUNT_0 を算出中...")
     if elevation_resource is not None:
-        elev_mean, elev_count = compute_elevation_from_points(elevation_resource, analysis_bbox, grid_spec)
+        elev_mean, elev_count = compute_elevation_from_points(
+            elevation_resource, analysis_bbox, grid_spec
+        )
         output_columns["ELEV_MEAN_0"] = elev_mean
         output_columns["ELEV_COUNT_0"] = elev_count
         quality_arrays.append(elev_count)
@@ -792,7 +802,9 @@ def main() -> None:
                     continue
                 raster_path, band_index = raster_resource
                 print(f"衛星指標 {key}_0 を集約中: {raster_path.name} band={band_index}")
-                output_df[f"{key}_0"] = aggregate_raster_to_grid(raster_path, grid_spec, band_index).ravel()
+                output_df[f"{key}_0"] = aggregate_raster_to_grid(
+                    raster_path, grid_spec, band_index
+                ).ravel()
         else:
             print("衛星ラスタは検出されませんでした。GIS由来列のみを出力します。")
 

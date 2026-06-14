@@ -26,7 +26,6 @@ os.environ["PATH"] = os.pathsep.join([*CONDA_PATH_PREFIX, os.environ.get("PATH",
 import numpy as np
 import pandas as pd
 
-
 OUTPUT_DIR = PROJECT_ROOT / "data" / "csv" / "analysis"
 SEARCH_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "gee_search_satellite_data_results.csv"
 LST_RASTER_DIR = PROJECT_ROOT / "data" / "output" / "LST"

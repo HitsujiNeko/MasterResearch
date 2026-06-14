@@ -9,11 +9,10 @@ DGNファイルを種類別ディレクトリへ振り分ける前処理スク�
 入力として使用する。
 """
 
-from collections.abc import Iterator
-from pathlib import Path
 import argparse
 import shutil
-
+from collections.abc import Iterator
+from pathlib import Path
 
 SUFFIXES = ["CS", "DC", "DH", "GT", "RG", "TH", "TV"]
 
@@ -37,7 +36,9 @@ def ensure_targets(target_root: Path) -> dict[str, Path]:
     return targets
 
 
-def copy_files(source_root: Path, target_root: Path, dry_run: bool, overwrite: bool, only_suffix: str | None) -> None:
+def copy_files(
+    source_root: Path, target_root: Path, dry_run: bool, overwrite: bool, only_suffix: str | None
+) -> None:
     targets = ensure_targets(target_root)
     total = 0
     copied = 0

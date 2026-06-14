@@ -24,7 +24,6 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DIFF_NODATA = -9999.0
 

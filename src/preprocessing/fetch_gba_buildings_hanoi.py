@@ -26,14 +26,9 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ROI_PATH = (
-    PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
-)
-DEFAULT_OUTPUT_PATH = (
-    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_gba_buildings.gpkg"
-)
+DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_gba_buildings.gpkg"
 DEFAULT_SUMMARY_PATH = (
     PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_gba_buildings_summary.json"
 )
@@ -45,8 +40,8 @@ WFS_LAYER = "global3D:lod1_global"
 #   - propertyName + srsName の組み合わせも 400 になるため propertyName は省略する
 #   - srsName=EPSG:4326 のみ指定すると全プロパティ + WGS84 座標で返ってくる
 #   - 1 タイルあたりの建物数が count 以下になるようタイルサイズを調整する
-DEFAULT_TILE_SIZE_DEG = 0.1   # タイル 1 辺のサイズ（度）。0.1° ≈ 11km
-DEFAULT_MAX_COUNT = 50000     # タイルあたりの最大取得件数（超過時に警告を出す）
+DEFAULT_TILE_SIZE_DEG = 0.1  # タイル 1 辺のサイズ（度）。0.1° ≈ 11km
+DEFAULT_MAX_COUNT = 50000  # タイルあたりの最大取得件数（超過時に警告を出す）
 DEFAULT_LAYER_NAME = "buildings"
 REQUEST_TIMEOUT_SECONDS = 120
 MAX_RETRY_COUNT = 3
@@ -69,9 +64,7 @@ HANOI_UTM_CRS = "EPSG:32648"  # UTM Zone 48N
 WFS_NATIVE_CRS = "EPSG:3857"
 
 # EPSG:4326 → EPSG:3857 変換器（モジュールロード時に初期化）
-_TRANSFORMER_4326_TO_3857 = pyproj.Transformer.from_crs(
-    "EPSG:4326", "EPSG:3857", always_xy=True
-)
+_TRANSFORMER_4326_TO_3857 = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -374,7 +367,8 @@ def _clip_to_roi(geom: Any, roi_union: Any) -> Any | None:
     # GeometryCollection の場合はポリゴン部分だけを取り出す
     if clipped.geom_type == "GeometryCollection":
         polygons = [
-            p for p in clipped.geoms
+            p
+            for p in clipped.geoms
             if p.geom_type in ("Polygon", "MultiPolygon") and not p.is_empty
         ]
         if not polygons:
@@ -553,15 +547,11 @@ def compute_missing_area_stats(
 
     # 面積計算のため UTM 投影に変換
     gdf_utm = gdf_in_missing.to_crs(HANOI_UTM_CRS)
-    missing_box_utm = (
-        gpd.GeoSeries([missing_box], crs="EPSG:4326").to_crs(HANOI_UTM_CRS).iloc[0]
-    )
+    missing_box_utm = gpd.GeoSeries([missing_box], crs="EPSG:4326").to_crs(HANOI_UTM_CRS).iloc[0]
 
     total_building_area_m2 = float(gdf_utm.geometry.area.sum())
     domain_area_m2 = float(missing_box_utm.area)
-    area_ratio = (
-        total_building_area_m2 / domain_area_m2 if domain_area_m2 > 0 else 0.0
-    )
+    area_ratio = total_building_area_m2 / domain_area_m2 if domain_area_m2 > 0 else 0.0
 
     return {
         "lon_range_description": "Microsoft データ欠落域（西側）",
@@ -624,9 +614,7 @@ def run(
 
     if resuming:
         if not output_path.exists():
-            raise FileNotFoundError(
-                f"再開対象の出力ファイルが見つかりません: {output_path}"
-            )
+            raise FileNotFoundError(f"再開対象の出力ファイルが見つかりません: {output_path}")
         logger.info(
             "タイル %d から再開します（既存ファイルに追記）: %s",
             start_tile_index,
@@ -645,9 +633,7 @@ def run(
     logger.info("ROI BBOX (min_lon, min_lat, max_lon, max_lat): %s", roi_bounds)
 
     tiles = generate_tiles(roi_bounds, tile_size_deg)
-    logger.info(
-        "タイル数: %d（タイルサイズ: %.2f°）", len(tiles), tile_size_deg
-    )
+    logger.info("タイル数: %d（タイルサイズ: %.2f°）", len(tiles), tile_size_deg)
 
     if limit_tiles is not None:
         tiles = tiles[:limit_tiles]

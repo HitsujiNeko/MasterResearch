@@ -8,13 +8,11 @@
 コーディング規約: .github/prompts/CodingRule.md 準拠
 """
 
-import argparse
 from pathlib import Path
-import pandas as pd
-import geopandas as gpd
-import requests  # オンライン翻訳API利用時に有効化
-import fiona
 
+import fiona
+import geopandas as gpd
+import pandas as pd
 
 # ====== 設定ここから ======
 # 入力ファイルが含まれるディレクトリ（gpkg）
@@ -63,24 +61,21 @@ def extract_attributes(gpkg_path: Path) -> pd.DataFrame:
                         sval = str(val)
                     except Exception:
                         sval = repr(val)
-                    records.append({
-                        'original_field': col,
-                        'original_value': sval
-                    })
+                    records.append({"original_field": col, "original_value": sval})
         if records:
             df = pd.DataFrame(records)
             # drop_duplicatesでunhashableを回避
-            df['original_value'] = df['original_value'].astype(str)
+            df["original_value"] = df["original_value"].astype(str)
             df = df.drop_duplicates()
         else:
-            df = pd.DataFrame(columns=['original_field', 'original_value'])
+            df = pd.DataFrame(columns=["original_field", "original_value"])
         return df
     except Exception as e:
         print(f"属性抽出時にエラーが発生しました: {e}")
-        return pd.DataFrame(columns=['original_field', 'original_value'])
+        return pd.DataFrame(columns=["original_field", "original_value"])
 
 
-def translate_text(text: str, src: str = 'vi', dest: str = 'ja') -> str:
+def translate_text(text: str, src: str = "vi", dest: str = "ja") -> str:
     """
     テキストをベトナム語から日本語に翻訳する関数（ダミー実装）
     ※実運用時はGoogle Translate API等に置き換え
@@ -106,16 +101,16 @@ def translate_attributes(df: pd.DataFrame, use_api: bool = False) -> pd.DataFram
     Returns:
         pd.DataFrame: 翻訳後の属性名・値を含むDataFrame
     """
-    if 'original_field' not in df.columns:
-        df['original_field'] = ''
-    if 'original_value' not in df.columns:
-        df['original_value'] = ''
+    if "original_field" not in df.columns:
+        df["original_field"] = ""
+    if "original_value" not in df.columns:
+        df["original_value"] = ""
     if use_api:
-        df['translated_field'] = df['original_field'].apply(lambda x: translate_text(x))
-        df['translated_value'] = df['original_value'].apply(lambda x: translate_text(str(x)))
+        df["translated_field"] = df["original_field"].apply(lambda x: translate_text(x))
+        df["translated_value"] = df["original_value"].apply(lambda x: translate_text(str(x)))
     else:
-        df['translated_field'] = ''
-        df['translated_value'] = ''
+        df["translated_field"] = ""
+        df["translated_value"] = ""
     return df
 
 
@@ -141,10 +136,15 @@ def main():
             # 翻訳（API利用 or 空欄）
             df = translate_attributes(df, use_api=USE_API)
             # 必要なカラムが揃っているかチェック
-            required_cols = ['original_field', 'original_value', 'translated_field', 'translated_value']
+            required_cols = [
+                "original_field",
+                "original_value",
+                "translated_field",
+                "translated_value",
+            ]
             for col in required_cols:
                 if col not in df.columns:
-                    df[col] = ''
+                    df[col] = ""
             output_csv_path = OUTPUT_CSV_DIR / f"{base_name}_translated.csv"
             try:
                 df[required_cols].to_csv(output_csv_path, index=False)

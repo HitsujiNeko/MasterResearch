@@ -19,4 +19,6 @@ dependencies:
   - rasterio=1.4
   - requests=2.32
   - pyyaml
+  - ruff
+  - pre-commit
   - pip

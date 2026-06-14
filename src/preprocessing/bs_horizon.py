@@ -22,7 +22,6 @@ from typing import Iterable
 
 import numpy as np
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SENTINEL_LIMIT = 1.0e9
 SPLIT_PATTERN = re.compile(r"[\s,]+")
@@ -220,7 +219,9 @@ def read_elevation_data(file_path: Path) -> ElevationData:
     )
 
 
-def read_dip_data(file_path: Path | None, elevation_extents: DataExtents) -> tuple[DipData, DataExtents]:
+def read_dip_data(
+    file_path: Path | None, elevation_extents: DataExtents
+) -> tuple[DipData, DataExtents]:
     """Read optional strike/dip records and expand the data extents."""
     if file_path is None:
         empty = np.asarray([], dtype=np.float64)
@@ -265,8 +266,12 @@ def read_dip_data(file_path: Path | None, elevation_extents: DataExtents) -> tup
         y_values.append(y_coord)
         trend_values.append(trend)
         dip_values.append(dip)
-        dfdx_values.append(-math.sin(radians_per_degree * trend) * math.tan(radians_per_degree * dip))
-        dfdy_values.append(-math.cos(radians_per_degree * trend) * math.tan(radians_per_degree * dip))
+        dfdx_values.append(
+            -math.sin(radians_per_degree * trend) * math.tan(radians_per_degree * dip)
+        )
+        dfdy_values.append(
+            -math.cos(radians_per_degree * trend) * math.tan(radians_per_degree * dip)
+        )
 
         xmin = min(xmin, x_coord)
         xmax = max(xmax, x_coord)
@@ -300,18 +305,18 @@ def _basis_values(r_value: float, interval: float, derivative_order: int) -> np.
     basis = np.zeros(5, dtype=np.float64)
     if derivative_order == 0:
         coeff = 1.0 / 6.0
-        basis[1] = (r_value ** 3) * coeff
-        basis[2] = (3.0 * (-r_value ** 3 + r_value ** 2 + r_value) + 1.0) * coeff
-        basis[3] = (3.0 * r_value ** 3 - 6.0 * r_value ** 2 + 4.0) * coeff
-        basis[4] = (-r_value ** 3 + 3.0 * (r_value ** 2 - r_value) + 1.0) * coeff
+        basis[1] = (r_value**3) * coeff
+        basis[2] = (3.0 * (-(r_value**3) + r_value**2 + r_value) + 1.0) * coeff
+        basis[3] = (3.0 * r_value**3 - 6.0 * r_value**2 + 4.0) * coeff
+        basis[4] = (-(r_value**3) + 3.0 * (r_value**2 - r_value) + 1.0) * coeff
     elif derivative_order == 1:
         coeff = 0.5 / interval
-        basis[1] = (r_value ** 2) * coeff
-        basis[2] = (-3.0 * r_value ** 2 + 2.0 * r_value + 1.0) * coeff
-        basis[3] = (3.0 * r_value ** 2 - 4.0 * r_value) * coeff
-        basis[4] = (-r_value ** 2 + 2.0 * r_value - 1.0) * coeff
+        basis[1] = (r_value**2) * coeff
+        basis[2] = (-3.0 * r_value**2 + 2.0 * r_value + 1.0) * coeff
+        basis[3] = (3.0 * r_value**2 - 4.0 * r_value) * coeff
+        basis[4] = (-(r_value**2) + 2.0 * r_value - 1.0) * coeff
     elif derivative_order == 2:
-        coeff = 1.0 / (interval ** 2)
+        coeff = 1.0 / (interval**2)
         basis[1] = r_value * coeff
         basis[2] = (-3.0 * r_value + 1.0) * coeff
         basis[3] = (3.0 * r_value - 2.0) * coeff
@@ -525,7 +530,9 @@ def _set_b_ah(
         elevation.relation,
         strict=True,
     ):
-        if not _point_in_region(x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax):
+        if not _point_in_region(
+            x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax
+        ):
             continue
 
         ipx, ipy, rx, ry = _knot_indices_and_offsets(
@@ -599,7 +606,9 @@ def _set_b_ad(
         dip_data.dfdy,
         strict=True,
     ):
-        if not _point_in_region(x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax):
+        if not _point_in_region(
+            x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax
+        ):
             continue
 
         ipx, ipy, rx, ry = _knot_indices_and_offsets(
@@ -647,9 +656,9 @@ def _set_j(
     """Set the smoothness penalty terms into the banded matrix."""
     wx = parameters.m1 * (hy / hx) / float(region.mx * region.my)
     wy = parameters.m1 * (hx / hy) / float(region.mx * region.my)
-    wxx = parameters.m2 * hy / (hx ** 3)
+    wxx = parameters.m2 * hy / (hx**3)
     wxy = 2.0 * parameters.m2 / (hx * hy)
-    wyy = parameters.m2 * hx / (hy ** 3)
+    wyy = parameters.m2 * hx / (hy**3)
 
     for j1 in range(1, region.my + 4):
         ffiy0 = _integral_values(region.my, 0, j1)
@@ -734,7 +743,9 @@ def _choles_solve(a_mat: np.ndarray, b_vec: np.ndarray, neq: int, nbs: int) -> n
                     for source_row in range(start_row, row_minus_1 + 1):
                         offset = row - source_row + 1
                         shifted_offset = offset + jt - 1
-                        off_diagonal_sum += a_work[source_row, offset] * a_work[source_row, shifted_offset]
+                        off_diagonal_sum += (
+                            a_work[source_row, offset] * a_work[source_row, shifted_offset]
+                        )
                 a_work[row, jt] = (a_work[row, jt] - off_diagonal_sum) / a_work[row, 1]
 
         rhs_sum = 0.0
@@ -817,7 +828,9 @@ def _rh_value(
         elevation.relation,
         strict=True,
     ):
-        if not _point_in_region(x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax):
+        if not _point_in_region(
+            x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax
+        ):
             continue
 
         ipx, ipy, rx, ry = _knot_indices_and_offsets(
@@ -841,7 +854,7 @@ def _rh_value(
         if relation != 0 and residual * float(relation) > 0.0:
             continue
 
-        residual_sum += residual ** 2
+        residual_sum += residual**2
         nhdt += 1
 
     qrh = residual_sum / float(nhdt)
@@ -870,7 +883,9 @@ def _rd_value(
         dip_data.dfdy,
         strict=True,
     ):
-        if not _point_in_region(x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax):
+        if not _point_in_region(
+            x_coord, y_coord, region.xmin, region.xmax, region.ymin, region.ymax
+        ):
             continue
 
         ipx, ipy, rx, ry = _knot_indices_and_offsets(
@@ -911,9 +926,9 @@ def _j_value(
     """Evaluate the smoothness terms of the final solution."""
     wx = hy / hx / float(region.mx * region.my)
     wy = hx / hy / float(region.mx * region.my)
-    wxx = hy / (hx ** 3)
+    wxx = hy / (hx**3)
     wxy = 1.0 / (hx * hy)
-    wyy = hx / (hy ** 3)
+    wyy = hx / (hy**3)
 
     qjx = qjy = qjxx = qjxy = qjyy = 0.0
     for j1 in range(1, region.my + 4):
@@ -995,12 +1010,16 @@ def solve_bs_horizon(
     inequality_count = int(np.count_nonzero(elevation.relation))
     if inequality_count == 0:
         if parameters.iterations != 1:
-            raise ValueError("Equality-only constraints must use exactly one iteration, as in the Fortran program.")
+            raise ValueError(
+                "Equality-only constraints must use exactly one iteration, as in the Fortran program."
+            )
         if parameters.alpha_max != parameters.alpha_min:
             raise ValueError("Equality-only constraints must not vary alpha across iterations.")
     else:
         if parameters.iterations <= 1:
-            raise ValueError("Inequality constraints require more than one iteration, as in the Fortran program.")
+            raise ValueError(
+                "Inequality constraints require more than one iteration, as in the Fortran program."
+            )
 
     hx = (region.xmax - region.xmin) / float(region.mx)
     hy = (region.ymax - region.ymin) / float(region.my)
@@ -1011,7 +1030,9 @@ def solve_bs_horizon(
     if parameters.iterations == 1:
         ratio = 1.0
     else:
-        ratio = (parameters.alpha_max / parameters.alpha_min) ** (1.0 / float(parameters.iterations - 1))
+        ratio = (parameters.alpha_max / parameters.alpha_min) ** (
+            1.0 / float(parameters.iterations - 1)
+        )
 
     summaries: list[IterationSummary] = []
     for iteration in range(1, parameters.iterations + 1):
@@ -1026,7 +1047,9 @@ def solve_bs_horizon(
 
         nh_value, qrh, qrh_error = _rh_value(elevation, region, hx, hy, coeffs)
         if nh_value != nhdt:
-            raise RuntimeError("Elevation constraint counting diverged from the translated algorithm.")
+            raise RuntimeError(
+                "Elevation constraint counting diverged from the translated algorithm."
+            )
 
         qrd, qrd_error = _rd_value(dip_data, region, hx, hy, nddt, coeffs)
         qjx, qjy, qjxx, qjxy, qjyy, qj1, qj2, qj = _j_value(region, parameters, hx, hy, coeffs)
@@ -1173,8 +1196,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gamma", type=float, help="走向傾斜データへの相対ペナルティ重み。")
     parser.add_argument("--m1", type=float, help="1次平滑化重み。")
     parser.add_argument("--m2", type=float, help="2次平滑化重み。")
-    parser.add_argument("--dem-output", type=Path, help="DEM グリッドテキスト出力ファイル（省略可）。")
-    parser.add_argument("--surface-output", type=Path, help="スプライン係数出力ファイル（省略可）。")
+    parser.add_argument(
+        "--dem-output", type=Path, help="DEM グリッドテキスト出力ファイル（省略可）。"
+    )
+    parser.add_argument(
+        "--surface-output", type=Path, help="スプライン係数出力ファイル（省略可）。"
+    )
     parser.add_argument("--dem-xmin", type=float, help="DEM出力のX最小値。")
     parser.add_argument("--dem-xmax", type=float, help="DEM出力のX最大値。")
     parser.add_argument("--dem-ymin", type=float, help="DEM出力のY最小値。")
@@ -1253,10 +1280,7 @@ def main() -> None:
         )
         print("------------------------------------------------------")
         print(f"Jx ={summary.jx:12.5E}  Jy ={summary.jy:12.5E}")
-        print(
-            f"Jxx={summary.jxx:12.5E}  Jxy={summary.jxy:12.5E}  "
-            f"Jyy={summary.jyy:12.5E}"
-        )
+        print(f"Jxx={summary.jxx:12.5E}  Jxy={summary.jxy:12.5E}  Jyy={summary.jyy:12.5E}")
         print(f"J1 ={summary.j1:12.5E}  J2 ={summary.j2:12.5E}")
         print("------------------------------------------------------")
         print(f"Q  ={summary.q:12.5E}  J  ={summary.j:12.5E}  aR ={summary.ar:12.5E}")

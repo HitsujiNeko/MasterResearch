@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = PROJECT_ROOT / "data/csv/analysis/satellite_only_multidate_lst_violin.png"
 DEFAULT_SAMPLE_PATHS = [
@@ -83,9 +82,34 @@ def annotate_summary_stats(
     min_value = float(np.min(values))
     max_value = float(np.max(values))
 
-    ax.text(x_position, max_value + 0.35, f"{max_value:.2f}", ha="center", va="bottom", fontsize=8, color="black")
-    ax.text(x_position, min_value - 0.35, f"{min_value:.2f}", ha="center", va="top", fontsize=8, color="black")
-    ax.text(x_position, mean_value, f"{mean_value:.2f}", ha="center", va="center", fontsize=8, color="red", fontweight="bold")
+    ax.text(
+        x_position,
+        max_value + 0.35,
+        f"{max_value:.2f}",
+        ha="center",
+        va="bottom",
+        fontsize=8,
+        color="black",
+    )
+    ax.text(
+        x_position,
+        min_value - 0.35,
+        f"{min_value:.2f}",
+        ha="center",
+        va="top",
+        fontsize=8,
+        color="black",
+    )
+    ax.text(
+        x_position,
+        mean_value,
+        f"{mean_value:.2f}",
+        ha="center",
+        va="center",
+        fontsize=8,
+        color="red",
+        fontweight="bold",
+    )
 
 
 def create_violin_plot(
@@ -143,9 +167,15 @@ def main() -> None:
     """スクリプトのエントリーポイント。"""
 
     args = parse_args()
-    sample_paths = [path if path.is_absolute() else PROJECT_ROOT / path for path in args.sample_paths]
-    summary_path = args.summary_path if args.summary_path.is_absolute() else PROJECT_ROOT / args.summary_path
-    output_path = args.output_path if args.output_path.is_absolute() else PROJECT_ROOT / args.output_path
+    sample_paths = [
+        path if path.is_absolute() else PROJECT_ROOT / path for path in args.sample_paths
+    ]
+    summary_path = (
+        args.summary_path if args.summary_path.is_absolute() else PROJECT_ROOT / args.summary_path
+    )
+    output_path = (
+        args.output_path if args.output_path.is_absolute() else PROJECT_ROOT / args.output_path
+    )
 
     mean_lsts = load_mean_lsts(summary_path)
     create_violin_plot(sample_paths=sample_paths, mean_lsts=mean_lsts, output_path=output_path)

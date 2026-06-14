@@ -15,12 +15,13 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "GISData" / "geofabrik" / "vietnam-260408.osm.pbf"
 DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads.gpkg"
-DEFAULT_SUMMARY_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads_summary.json"
+DEFAULT_SUMMARY_PATH = (
+    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads_summary.json"
+)
 DEFAULT_LAYER_NAME = "roads"
 REQUEST_TIMEOUT_SECONDS = 3600
 OGR2OGR_CANDIDATES = (
@@ -164,7 +165,9 @@ def run_extract_command(command: list[str], environment: dict[str, str]) -> None
     )
 
 
-def extract_feature_count(ogrinfo_path: Path, output_path: Path, layer_name: str, environment: dict[str, str]) -> int:
+def extract_feature_count(
+    ogrinfo_path: Path, output_path: Path, layer_name: str, environment: dict[str, str]
+) -> int:
     """出力 GeoPackage の件数を取得する。"""
     command = [str(ogrinfo_path), "-so", "-al", str(output_path), layer_name]
     result = subprocess.run(

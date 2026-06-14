@@ -22,11 +22,11 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import logging
 import sys
 from pathlib import Path
 from typing import Any
-import datetime as dt
 
 if __package__ in (None, ""):
     project_root = Path(__file__).resolve().parents[2]
@@ -57,7 +57,6 @@ from src.gee.gee_calc_satellite_indices import (
     to_float_or_nan,
 )
 from src.module.lst_smw import calculate_lst_smw
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
@@ -152,7 +151,9 @@ def filter_collection_by_target_dates(
     if not target_observation_datetimes:
         return collection
 
-    target_dates = sorted({observation_datetime[:10] for observation_datetime in target_observation_datetimes})
+    target_dates = sorted(
+        {observation_datetime[:10] for observation_datetime in target_observation_datetimes}
+    )
     filtered_collection: ee.ImageCollection | None = None
 
     for date_text in target_dates:
@@ -203,7 +204,9 @@ def scene_covers_roi(image: ee.Image, roi: ee.Geometry) -> tuple[bool, float]:
     return coverage_ratio >= ROI_COVERAGE_TOLERANCE, coverage_ratio
 
 
-def build_lst_image(raw_sr_image: ee.Image, collection_toa: ee.ImageCollection, roi: ee.Geometry) -> ee.Image:
+def build_lst_image(
+    raw_sr_image: ee.Image, collection_toa: ee.ImageCollection, roi: ee.Geometry
+) -> ee.Image:
     """既存 LST ロジックと同一条件で LST 画像を作成する。
 
     Args:
@@ -258,7 +261,9 @@ def build_lst_result(image: ee.Image, roi: ee.Geometry) -> dict[str, float]:
     }
 
 
-def build_indices_result(image: ee.Image, roi: ee.Geometry, band_names: list[str]) -> dict[str, float]:
+def build_indices_result(
+    image: ee.Image, roi: ee.Geometry, band_names: list[str]
+) -> dict[str, float]:
     """衛星指標側の統計量と有効ピクセル率をまとめる。
 
     Args:
@@ -327,9 +332,9 @@ def export_lst_to_drive(
         description (str): ファイル接頭辞。
         observation_datetime_utc (str): 観測日時。
     """
-    export_image = image.clip(roi).select("LST").set({
-        "observation_datetime_utc": observation_datetime_utc
-    })
+    export_image = (
+        image.clip(roi).select("LST").set({"observation_datetime_utc": observation_datetime_utc})
+    )
 
     task = ee.batch.Export.image.toDrive(
         image=export_image,
@@ -365,9 +370,11 @@ def export_indices_to_drive(
         observation_datetime_utc (str): 観測日時。
         band_names (list[str]): 出力バンド名。
     """
-    export_image = image.clip(roi).select(band_names).set({
-        "observation_datetime_utc": observation_datetime_utc
-    })
+    export_image = (
+        image.clip(roi)
+        .select(band_names)
+        .set({"observation_datetime_utc": observation_datetime_utc})
+    )
 
     task = ee.batch.Export.image.toDrive(
         image=export_image,
@@ -421,9 +428,9 @@ def process_scene(
     Returns:
         dict[str, Any]: 探索結果。
     """
-    observation_datetime_utc = ee.Date(raw_sr_image.get("system:time_start")).format(
-        "YYYY-MM-dd'T'HH:mm:ss"
-    ).getInfo()
+    observation_datetime_utc = (
+        ee.Date(raw_sr_image.get("system:time_start")).format("YYYY-MM-dd'T'HH:mm:ss").getInfo()
+    )
     date_text = observation_datetime_utc[:10]
     scene_index = ee.String(raw_sr_image.get("system:index")).getInfo()
     cloud_cover_info = raw_sr_image.get("CLOUD_COVER").getInfo()
@@ -532,7 +539,9 @@ def run(
     roi = load_roi_from_shapefile(roi_path_text)
     collection_toa, collection_sr_raw = get_raw_landsat_collections(start_date, end_date, roi)
     collection_toa = filter_collection_by_target_dates(collection_toa, target_observation_datetimes)
-    collection_sr_raw = filter_collection_by_target_dates(collection_sr_raw, target_observation_datetimes)
+    collection_sr_raw = filter_collection_by_target_dates(
+        collection_sr_raw, target_observation_datetimes
+    )
     image_count = int(collection_sr_raw.size().getInfo())
     if image_count == 0:
         logger.warning("対象画像が0件のため処理を終了します。")

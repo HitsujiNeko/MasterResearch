@@ -35,11 +35,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+import requests
 from rasterio.enums import Resampling
 from rasterio.mask import mask
 from rasterio.warp import calculate_default_transform, reproject
-import requests
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
@@ -328,7 +327,9 @@ def get_dem_image(dataset_config: DemDatasetConfig) -> ee.Image:
             .rename("elevation")
         )
 
-    return ee.Image(dataset_config.gee_asset_id).select(dataset_config.band_name).rename("elevation")
+    return (
+        ee.Image(dataset_config.gee_asset_id).select(dataset_config.band_name).rename("elevation")
+    )
 
 
 def build_gee_download_url(
@@ -363,7 +364,9 @@ def save_downloaded_raster(response_content: bytes, output_path: Path) -> None:
     if zipfile.is_zipfile(buffer):
         with zipfile.ZipFile(buffer) as zip_file:
             tif_members = [
-                member for member in zip_file.namelist() if member.lower().endswith((".tif", ".tiff"))
+                member
+                for member in zip_file.namelist()
+                if member.lower().endswith((".tif", ".tiff"))
             ]
             if not tif_members:
                 raise ValueError("ZIP内にGeoTIFFが見つかりませんでした。")
@@ -400,7 +403,9 @@ def clip_raster_to_roi(
             count=1,
         )
 
-        clipped_crs_text = clipped_profile["crs"].to_string() if clipped_profile["crs"] is not None else None
+        clipped_crs_text = (
+            clipped_profile["crs"].to_string() if clipped_profile["crs"] is not None else None
+        )
         if clipped_crs_text == output_crs:
             with rasterio.open(output_path, "w", **clipped_profile) as dst:
                 dst.write(clipped_array)
@@ -438,7 +443,6 @@ def clip_raster_to_roi(
         )
         with rasterio.open(output_path, "w", **clipped_profile) as dst:
             dst.write(reprojected_array)
-
 
 
 def read_raster_summary(output_path: Path) -> dict[str, Any]:
@@ -532,7 +536,9 @@ def run(
     source_details: dict[str, Any] | None = None
 
     if dataset_config.source_type == "gee":
-        project_id = load_gee_project_id(config_path=config_path, explicit_project_id=gee_project_id)
+        project_id = load_gee_project_id(
+            config_path=config_path, explicit_project_id=gee_project_id
+        )
         initialize_gee(project_id=project_id)
         roi_geometry, roi_geojson = build_roi_geometry(roi_gdf)
         dem_image = get_dem_image(dataset_config)

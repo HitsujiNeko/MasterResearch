@@ -34,7 +34,6 @@ from sklearn.preprocessing import StandardScaler
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "csv" / "analysis"
 COORD_COLUMNS = ["lon", "lat"]
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
@@ -229,8 +228,7 @@ def fit_linear_regression(
     y_pred = y_scaler.inverse_transform(y_pred_scaled.reshape(-1, 1)).ravel()
 
     standardized_coefficients = {
-        feature: float(coef)
-        for feature, coef in zip(FEATURE_COLUMNS, model.coef_, strict=True)
+        feature: float(coef) for feature, coef in zip(FEATURE_COLUMNS, model.coef_, strict=True)
     }
     result = {
         "metrics": compute_metrics(y_test, y_pred),
@@ -246,7 +244,9 @@ def fit_random_forest(
     y_test: pd.Series,
     random_state: int,
     n_estimators: int,
-) -> tuple[RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray]:
+) -> tuple[
+    RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray
+]:
     """ランダムフォレスト回帰を学習し、評価と重要度を返す。
 
     Args:
@@ -295,7 +295,9 @@ def fit_random_forest(
     return model, result, impurity_importance, permutation_scores, y_pred
 
 
-def build_spatial_groups(dataframe: pd.DataFrame, spatial_bins: int) -> tuple[pd.Series, dict[str, int]]:
+def build_spatial_groups(
+    dataframe: pd.DataFrame, spatial_bins: int
+) -> tuple[pd.Series, dict[str, int]]:
     """経度・緯度の分位ビンから空間グループIDを作成する。
 
     Args:
@@ -349,7 +351,9 @@ def run_spatial_cv(
     linear_metrics: list[dict[str, float]] = []
     rf_metrics: list[dict[str, float]] = []
 
-    for fold_index, (train_idx, test_idx) in enumerate(splitter.split(x, y, groups=groups), start=1):
+    for fold_index, (train_idx, test_idx) in enumerate(
+        splitter.split(x, y, groups=groups), start=1
+    ):
         x_train = x.iloc[train_idx]
         x_test = x.iloc[test_idx]
         y_train = y.iloc[train_idx]
@@ -455,7 +459,9 @@ def save_feature_importance_plot(
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar(x_positions - width / 2, linear_values, width=width, label="|Linear coef|", color="#54a24b")
+    ax.bar(
+        x_positions - width / 2, linear_values, width=width, label="|Linear coef|", color="#54a24b"
+    )
     ax.bar(x_positions + width / 2, rf_values, width=width, label="RF importance", color="#e45756")
     ax.set_xticks(x_positions, FEATURE_COLUMNS)
     ax.set_title(f"Feature Importance {observation_label}")
@@ -573,8 +579,7 @@ def compute_shap_outputs(
         "sample_size": int(len(shap_features)),
         "background_size": int(len(background_features)),
         "mean_abs_shap": {
-            row["feature"]: float(row["mean_abs_shap"])
-            for _, row in shap_importance_df.iterrows()
+            row["feature"]: float(row["mean_abs_shap"]) for _, row in shap_importance_df.iterrows()
         },
         "outputs": {
             "shap_importance_csv": str(shap_importance_path.relative_to(PROJECT_ROOT)),
@@ -621,7 +626,9 @@ def main() -> None:
     )
 
     vif = compute_vif(x)
-    linear_result, standardized_coefficients, _ = fit_linear_regression(x_train, x_test, y_train, y_test)
+    linear_result, standardized_coefficients, _ = fit_linear_regression(
+        x_train, x_test, y_train, y_test
+    )
     rf_model, rf_result, rf_importance, permutation_scores, _ = fit_random_forest(
         x_train,
         x_test,

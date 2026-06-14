@@ -57,22 +57,21 @@ id,BJC_code,grid,x1,y1,x2,y2,x3,y3,x4,y4
 # 必要なライブラリのインポート
 import os
 import tempfile
+
 import pandas as pd
-import numpy as np
 import rasterio
-from rasterio.merge import merge
 from rasterio.mask import mask
+from rasterio.merge import merge
 from shapely.geometry import Polygon, mapping
-from rasterio.warp import calculate_default_transform, reproject, Resampling
 
 # パス設定
-MAP_INFO_PATH = "data\input\maps\map_info.csv"
-MAPS_DIR = "data\input\maps"
-OUTPUT_PATH = "data\output\maps/merged_map.tif"
+MAP_INFO_PATH = r"data\input\maps\map_info.csv"
+MAPS_DIR = r"data\input\maps"
+OUTPUT_PATH = r"data\output\maps/merged_map.tif"
 CRS = "EPSG:5897"
 
 # パラメータ設定
-MERGE_METHOD = 'first'  # 'first', 'last', 'min', 'max', 'mean', 'median', 'mode' など
+MERGE_METHOD = "first"  # 'first', 'last', 'min', 'max', 'mean', 'median', 'mode' など
 MERGE_NODATA = None  # Noneの場合、入力データのNoData値を使用
 MERGE_RES = None  # Noneの場合、入力データの解像度を使用
 MERGE_DST_CRS = None  # Noneの場合、入力データのCRSを使用
@@ -83,14 +82,15 @@ def read_map_info(csv_path):
     df = pd.read_csv(csv_path)
     return df
 
+
 def get_polygon(row):
     # 4隅の座標からポリゴン作成
     coords = [
-        (row['x1'], row['y1']),
-        (row['x2'], row['y2']),
-        (row['x3'], row['y3']),
-        (row['x4'], row['y4']),
-        (row['x1'], row['y1']) # 閉じる
+        (row["x1"], row["y1"]),
+        (row["x2"], row["y2"]),
+        (row["x3"], row["y3"]),
+        (row["x4"], row["y4"]),
+        (row["x1"], row["y1"]),  # 閉じる
     ]
     return Polygon(coords)
 
@@ -110,32 +110,36 @@ def validate_raster(raster_path, reference_crs=None, reference_res=None):
         if reference_crs and crs != reference_crs:
             print(f"CRS不一致: {raster_path} (CRS: {crs}) → {reference_crs} である必要あり")
             return False, crs, res
-        if reference_res and (abs(res[0] - reference_res[0]) > 1e-3 or abs(res[1] - reference_res[1]) > 1e-3):
+        if reference_res and (
+            abs(res[0] - reference_res[0]) > 1e-3 or abs(res[1] - reference_res[1]) > 1e-3
+        ):
             print(f"解像度不一致: {raster_path} (res: {res}) → {reference_res} である必要あり")
             return False, crs, res
     return True, crs, res
-    
-    
+
 
 def clip_raster(raster_path, polygon):
     with rasterio.open(raster_path) as src:
         out_image, out_transform = mask(src, [mapping(polygon)], crop=True)
         out_meta = src.meta.copy()
-        out_meta.update({
-            "driver": "GTiff",
-            "height": out_image.shape[1],
-            "width": out_image.shape[2],
-            "transform": out_transform,
-            "crs": CRS
-        })
+        out_meta.update(
+            {
+                "driver": "GTiff",
+                "height": out_image.shape[1],
+                "width": out_image.shape[2],
+                "transform": out_transform,
+                "crs": CRS,
+            }
+        )
     return out_image, out_meta
+
 
 def main(
     merge_method=MERGE_METHOD,
     merge_nodata=MERGE_NODATA,
     merge_res=MERGE_RES,
     merge_dst_crs=MERGE_DST_CRS,
-    merge_bounds=MERGE_BOUNDS
+    merge_bounds=MERGE_BOUNDS,
 ):
     # 1. map_info.csv 読み込み
     map_info = read_map_info(MAP_INFO_PATH)
@@ -149,31 +153,35 @@ def main(
     reference_crs = CRS
     reference_res = None
     for idx, row in map_info.iterrows():
-        grid = row['grid']
+        grid = row["grid"]
         tiff_name = f"{grid}_modified.tif"
         tiff_path = os.path.join(MAPS_DIR, tiff_name)
         polygon = get_polygon(row)
-        print(f"[{idx+1}/{len(map_info)}] クリップ前バリデーション: {tiff_name}")
+        print(f"[{idx + 1}/{len(map_info)}] クリップ前バリデーション: {tiff_name}")
         valid, crs, res = validate_raster(tiff_path, reference_crs, reference_res)
         # バリデーション結果を記録
-        validation_results.append({
-            "filename": tiff_name,
-            "crs": crs,
-            "res_x": res[0] if res else None,
-            "res_y": res[1] if res else None,
-            "valid": valid
-        })
+        validation_results.append(
+            {
+                "filename": tiff_name,
+                "crs": crs,
+                "res_x": res[0] if res else None,
+                "res_y": res[1] if res else None,
+                "valid": valid,
+            }
+        )
         if not valid:
             print(f"バリデーション失敗: {tiff_name}。処理を中断します。")
             # CSV出力してから中断
-            pd.DataFrame(validation_results).to_csv("workspace/data/maps/validation_results.csv", index=False)
+            pd.DataFrame(validation_results).to_csv(
+                "workspace/data/maps/validation_results.csv", index=False
+            )
             return
         if reference_res is None:
             reference_res = res  # 最初の画像の解像度を基準に
-        print(f"[{idx+1}/{len(map_info)}] クリップ中: {tiff_name}")
+        print(f"[{idx + 1}/{len(map_info)}] クリップ中: {tiff_name}")
         clipped_img, clipped_meta = clip_raster(tiff_path, polygon)
         if clipped_img is not None:
-            tmpfile = tempfile.NamedTemporaryFile(suffix='.tif', delete=False)
+            tmpfile = tempfile.NamedTemporaryFile(suffix=".tif", delete=False)
             with rasterio.open(tmpfile.name, "w", **clipped_meta) as dst:
                 dst.write(clipped_img)
             clipped_files.append(tmpfile.name)
@@ -188,27 +196,27 @@ def main(
     print("地図データ結合中...")
     srcs = [rasterio.open(f) for f in clipped_files]
     # merge関数のパラメータをdictでまとめる
-    merge_kwargs = {
-        'method': merge_method
-    }
+    merge_kwargs = {"method": merge_method}
     if merge_nodata is not None:
-        merge_kwargs['nodata'] = merge_nodata
+        merge_kwargs["nodata"] = merge_nodata
     if merge_res is not None:
-        merge_kwargs['res'] = merge_res
+        merge_kwargs["res"] = merge_res
     if merge_dst_crs is not None:
-        merge_kwargs['dst_crs'] = merge_dst_crs
+        merge_kwargs["dst_crs"] = merge_dst_crs
     if merge_bounds is not None:
-        merge_kwargs['bounds'] = merge_bounds
+        merge_kwargs["bounds"] = merge_bounds
 
     merged_img, merged_transform = merge(srcs, **merge_kwargs)
     merged_meta = clipped_metas[0].copy()
-    merged_meta.update({
-        "height": merged_img.shape[1],
-        "width": merged_img.shape[2],
-        "transform": merged_transform,
-        "crs": CRS,
-        "count": merged_img.shape[0]
-    })
+    merged_meta.update(
+        {
+            "height": merged_img.shape[1],
+            "width": merged_img.shape[2],
+            "transform": merged_transform,
+            "crs": CRS,
+            "count": merged_img.shape[0],
+        }
+    )
 
     # 4. 保存（バンドごとに書き込み）
     print(f"保存: {OUTPUT_PATH}")
@@ -216,6 +224,7 @@ def main(
         for i in range(merged_img.shape[0]):
             dest.write(merged_img[i], i + 1)
     print("完了")
+
 
 if __name__ == "__main__":
     main()

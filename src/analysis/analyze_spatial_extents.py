@@ -30,7 +30,6 @@ import fiona
 import rasterio
 from pyproj import CRS, Transformer
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -134,7 +133,9 @@ def read_roi_hanoi_bbox() -> dict[str, Any]:
             xs = [c[0] for c in coords]
             ys = [c[1] for c in coords]
             feat_bbox = BBox(min(xs), min(ys), max(xs), max(ys))
-            selected_bounds = feat_bbox if selected_bounds is None else selected_bounds.union(feat_bbox)
+            selected_bounds = (
+                feat_bbox if selected_bounds is None else selected_bounds.union(feat_bbox)
+            )
 
     if selected_bounds is None:
         raise ValueError("ROI内に Hà Nội が見つかりませんでした")

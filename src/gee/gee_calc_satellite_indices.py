@@ -41,7 +41,6 @@ from src.gee.gee_calc_LST import (
     load_roi_from_shapefile,
 )
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "output" / "gee_calc_indices_results.csv"
@@ -165,9 +164,13 @@ def add_indices(image: ee.Image) -> ee.Image:
     # NDVI = (NIR - RED) / (NIR + RED)
     ndvi = nir.subtract(red).divide(ndvi_denom).updateMask(ndvi_denom.abs().gt(eps)).rename("NDVI")
     # NDBI = (SWIR1 - NIR) / (SWIR1 + NIR)
-    ndbi = swir1.subtract(nir).divide(ndbi_denom).updateMask(ndbi_denom.abs().gt(eps)).rename("NDBI")
+    ndbi = (
+        swir1.subtract(nir).divide(ndbi_denom).updateMask(ndbi_denom.abs().gt(eps)).rename("NDBI")
+    )
     # NDWI = (GREEN - NIR) / (GREEN + NIR)
-    ndwi = green.subtract(nir).divide(ndwi_denom).updateMask(ndwi_denom.abs().gt(eps)).rename("NDWI")
+    ndwi = (
+        green.subtract(nir).divide(ndwi_denom).updateMask(ndwi_denom.abs().gt(eps)).rename("NDWI")
+    )
 
     return image.addBands([ndvi, ndbi, ndwi])
 
@@ -204,7 +207,9 @@ def get_landsat_sr_collection(
     return collection
 
 
-def calculate_valid_pixel_ratio(image: ee.Image, roi: ee.Geometry, band_name: str = "NDVI") -> float:
+def calculate_valid_pixel_ratio(
+    image: ee.Image, roi: ee.Geometry, band_name: str = "NDVI"
+) -> float:
     """対象バンドの有効ピクセル比（%）を算出する。
 
     Args:
@@ -218,12 +223,14 @@ def calculate_valid_pixel_ratio(image: ee.Image, roi: ee.Geometry, band_name: st
     band = image.select(band_name)
 
     total_pixels = ee.Number(
-        band.unmask().reduceRegion(
+        band.unmask()
+        .reduceRegion(
             reducer=ee.Reducer.count(),
             geometry=roi,
             scale=30,
             maxPixels=1e9,
-        ).get(band_name)
+        )
+        .get(band_name)
     )
     valid_pixels = ee.Number(
         band.reduceRegion(
@@ -242,7 +249,9 @@ def calculate_valid_pixel_ratio(image: ee.Image, roi: ee.Geometry, band_name: st
     return (valid / total) * 100.0
 
 
-def calculate_index_stats(image: ee.Image, roi: ee.Geometry, band_names: list[str]) -> dict[str, float]:
+def calculate_index_stats(
+    image: ee.Image, roi: ee.Geometry, band_names: list[str]
+) -> dict[str, float]:
     """指定した指標の平均・最小・最大・標準偏差を取得する。
 
     Args:
@@ -324,9 +333,11 @@ def export_indices_to_drive(
     Returns:
         None: GEEの非同期エクスポートタスクを起動する。
     """
-    image_with_metadata = image.clip(roi).select(band_names).set({
-        "observation_datetime_utc": observation_datetime_utc
-    })
+    image_with_metadata = (
+        image.clip(roi)
+        .select(band_names)
+        .set({"observation_datetime_utc": observation_datetime_utc})
+    )
 
     task = ee.batch.Export.image.toDrive(
         image=image_with_metadata,
@@ -360,9 +371,9 @@ def process_image(
     Returns:
         dict[str, Any]: 日付、雲量、有効率、統計量、エクスポート可否を含む結果辞書。
     """
-    observation_datetime_utc = ee.Date(image.get("system:time_start")).format(
-        "YYYY-MM-dd'T'HH:mm:ss"
-    ).getInfo()
+    observation_datetime_utc = (
+        ee.Date(image.get("system:time_start")).format("YYYY-MM-dd'T'HH:mm:ss").getInfo()
+    )
     date_text = observation_datetime_utc[:10]
 
     cloud_cover = image.get("CLOUD_COVER")
@@ -378,7 +389,9 @@ def process_image(
 
     exported = False
     if valid_ratio >= valid_threshold:
-        date_time_token = observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
+        date_time_token = (
+            observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
+        )
         description = f"INDICES_Landsat8_{date_time_token}Z"
         export_indices_to_drive(
             image=image,
@@ -404,7 +417,9 @@ def process_image(
     return result
 
 
-def run(config_path: Path = DEFAULT_CONFIG_PATH, output_csv_path: Path = DEFAULT_OUTPUT_CSV) -> None:
+def run(
+    config_path: Path = DEFAULT_CONFIG_PATH, output_csv_path: Path = DEFAULT_OUTPUT_CSV
+) -> None:
     """衛星指標算出処理を実行する。
 
     Args:

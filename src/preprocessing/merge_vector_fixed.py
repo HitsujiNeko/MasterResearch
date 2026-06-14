@@ -1,16 +1,15 @@
 """
-DGNファイルをGeoPackageに統合（ジオメトリ修復版）
+DGNファイルをGeoPackageに統合（ジオメトリ修復版）。
 
-元のmerge_vector.pyに以下の改善を追加：
-1. ogr2ogrに-makevalidオプションを追加（ジオメトリ自動修復）
+organize_dgn.py が作成した Vector_* ディレクトリ内のDGNファイルを、
+種類別に1つのGeoPackageへ統合する。以下の機能を持つ：
+1. ogr2ogrの-makevalidオプションによるジオメトリ自動修復
 2. -skipfailuresオプション（修復不可能なフィーチャをスキップ）
 3. 処理ログの詳細化
 4. エラーハンドリングの強化
 
 依存関係：
   - GDAL/ogr2ogr（3.0以降推奨、-makevalidサポート）
-
-作成日：2026-02-26
 """
 import argparse
 import subprocess

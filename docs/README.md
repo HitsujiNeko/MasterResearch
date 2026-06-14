@@ -82,7 +82,7 @@ docs/
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
-| [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
+| [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
 ### 📊 03_results - 研究結果
 
@@ -266,7 +266,8 @@ graph TB
 **Pythonコーディング規約** - プロジェクト全体で遵守すべき規約
 
 **主要ルール**:
-- PEP 8準拠（スペース4つ、タブ禁止）
+- PEP 8準拠（スペース4つ、タブ禁止、`ruff check`/`ruff format`で自動チェック）
+- 型ヒントを関数の引数・戻り値に付与
 - 日本語docstring必須（初心者にも理解できる説明）
 - 命名規則: スネークケース（変数・関数）、キャメルケース（クラス）
 - 1関数1責務
@@ -275,7 +276,7 @@ graph TB
 **適用範囲**: `src/`配下のすべてのPythonスクリプト
 
 **関連ドキュメント**:
-- AI指示書 → [.github/copilot-instructions.md](../.github/copilot-instructions.md)
+- AI指示書 → [CLAUDE.md](../CLAUDE.md)
 
 ### 📝 今後追加予定
 - `urban_parameters.md`: 都市構造パラメータの定義と算出方法

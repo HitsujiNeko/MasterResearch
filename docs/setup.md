@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-06-13  
 **関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
@@ -273,7 +273,33 @@ gh repo view
 
 ---
 
-## 10. 補足
+## 10. コード品質チェック（ruff / pre-commit）
+
+`ruff`（lint + format）と `pre-commit` は `environment.yml` に含まれる。設定は [`pyproject.toml`](../pyproject.toml)、フックは [`.pre-commit-config.yaml`](../.pre-commit-config.yaml) を参照。なお、pre-commit は独自に ruff を取得するため、`ruff` コマンド（conda 側）とバージョンが異なる場合がある。結果を揃えたい場合はバージョンを固定するか、`pre-commit run -a` を利用する。
+初回のみ、リポジトリのルートで pre-commit フックを有効化する。
+
+```powershell
+conda activate masterresearch
+pre-commit install
+```
+
+手動で確認したい場合:
+
+```powershell
+ruff check .
+ruff format --check .
+```
+
+差分を自動修正する場合:
+
+```powershell
+ruff check --fix .
+ruff format .
+```
+
+---
+
+## 11. 補足
 
 - [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

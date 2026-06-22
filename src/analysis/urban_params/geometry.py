@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Any, Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import numpy as np
 from pyproj import Transformer
@@ -321,6 +322,7 @@ def compute_line_length(
     resource: LayerResource,
     bbox_analysis: BBox,
     grid_spec: GridSpec,
+    feature_filter: Callable[[dict[str, Any]], bool] | None = None,
 ) -> np.ndarray:
     """ライン系地物のセル内総延長（m/cell）を算出する。
 
@@ -331,6 +333,8 @@ def compute_line_length(
         resource: ラインレイヤ。
         bbox_analysis: 解析用CRS上の検索範囲。
         grid_spec: fine/coarseグリッドの仕様。
+        feature_filter: フィーチャ辞書を受け取り、処理対象なら ``True`` を
+            返す関数。``None`` の場合はすべてのライン地物を処理する。
 
     Returns:
         coarseグリッド (``grid_spec.coarse_shape``) のセル内ライン総延長（m）。
@@ -340,6 +344,8 @@ def compute_line_length(
     inverse_transform = ~grid_spec.coarse_transform
 
     for feature in iter_feature_records(resource, bbox_analysis):
+        if feature_filter is not None and not feature_filter(feature):
+            continue
         projected = project_geometry_safe(feature["geometry"], resource.to_analysis)
         if projected is None:
             continue

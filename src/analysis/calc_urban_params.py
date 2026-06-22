@@ -1,6 +1,9 @@
 # 作成者: GitHub Copilot
 # 作成日: 2026-03-31
 # 概要: 都市構造パラメータを30mグリッドで算出し、必要に応じて衛星指標を統合してCSV出力する。
+#
+# 注意: 本ファイルはレガシー実装であり、新規実装は src/analysis/urban_params/ を使用すること。
+#       （`python -m src.analysis.urban_params` で実行する）
 
 """都市構造パラメータ算出スクリプト。
 
@@ -556,7 +559,7 @@ def get_optional_layer_resource(
     city_cfg: dict[str, Any],
     layer_key: str | None,
 ) -> LayerResource | None:
-    """繧ｷ繝翫Μ繧ｪ縺ｧ譛ｪ謖・ｮ壹・繝ｬ繧､繝､縺ｯNone縺ｨ縺励※謇ｱ縺・・"""
+    """シナリオで未指定のレイヤはNoneとして扱う。"""
     if layer_key is None:
         return None
     analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))

@@ -24,7 +24,7 @@ docs/
 │   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
 │   ├── agency_agents_minimal_set.md       # 研究専用エージェント最小セット運用ガイド
 │   ├── analysis_rq3_satellite_only_guide.md # analysis_rq3_satellite_only.py 初心者向け解説
-│   ├── calc_urban_params_guide.md         # calc_urban_params.py 設計再定義ガイド
+│   ├── calc_urban_params_guide.md         # urban_paramsパッケージ 設計ガイド
 │   ├── gee_calc_satellite_indices.md      # 衛星指標算出仕様書（NDVI/NDBI/NDWI）
 │   ├── data_management_guide.md           # データ管理方針（Git/LFS/DVC運用）
 │   ├── calc_LST_report.md                 # LST算出レポート
@@ -77,7 +77,7 @@ docs/
 | [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計 | `src/` 全スクリプト |
 | [agency_agents_minimal_set.md](02_methods/agency_agents_minimal_set.md) | 研究専用エージェント最小セット運用ガイド | 選抜6エージェント、固有文脈テンプレート、工程別呼び出し順、品質チェック表 | `agency-agents/`, `docs/` |
 | [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md) | RQ3衛星のみ分析コード解説 | 初心者向けに処理フロー、評価指標、Spatial CV、SHAPの読み方を整理 | `src/analysis/analysis_rq3_satellite_only.py` |
-| [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `calc_urban_params.py` 設計再定義ガイド | 解析範囲設計、UTMグリッド化、GIS/衛星指標統合、品質管理列の仕様 | `src/analysis/calc_urban_params.py` |
+| [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `urban_params` パッケージ 設計ガイド | 解析範囲設計、マルチスケールUTMグリッド化、3シナリオ・GIS/衛星指標統合、品質管理列の仕様 | `src/analysis/urban_params/` |
 | [gee_calc_satellite_indices.md](02_methods/gee_calc_satellite_indices.md) | 衛星指標算出仕様書 | NDVI/NDBI/NDWI算出式、QAマスク、スケーリング、統計出力の仕様と根拠 | `src/gee/gee_calc_satellite_indices.py` |
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
@@ -670,8 +670,13 @@ MasterResearch/
 ├── src/                        # Pythonスクリプト
 │   ├── gee/gee_calc_LST.py     # LST算出メイン
 │   ├── module/lst_smw.py       # SMW法モジュール
-│   ├── analysis/*.py           # 分析スクリプト
+│   ├── analysis/               # 分析スクリプト
+│   │   ├── urban_params/       # 都市構造パラメータ算出パッケージ（python -m src.analysis.urban_params）
+│   │   └── *.py                # その他分析スクリプト
 │   └── preprocessing/*.py      # GIS前処理スクリプト
+│
+├── tests/                      # テスト（pytest）
+│   └── analysis/urban_params/  # urban_paramsパッケージのユニットテスト
 │
 ├── data/                       # データ
 │   ├── input/                  # 入力データ

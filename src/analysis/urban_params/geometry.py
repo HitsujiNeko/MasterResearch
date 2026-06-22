@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Any, Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import numpy as np
 from pyproj import Transformer
@@ -321,7 +322,7 @@ def compute_line_length(
     resource: LayerResource,
     bbox_analysis: BBox,
     grid_spec: GridSpec,
-    feature_filter: Any | None = None,
+    feature_filter: Callable[[dict[str, Any]], bool] | None = None,
 ) -> np.ndarray:
     """ライン系地物のセル内総延長（m/cell）を算出する。
 

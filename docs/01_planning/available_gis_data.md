@@ -101,7 +101,7 @@ Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT
 | parking_aisle（駐車場通路） | 731 | 1.3% |
 | その他 | 390 | 0.7% |
 
-**z_order の仕組み**: Geofabrik の `z_order` は OSM の `highway` タグの基本優先度に `layer`・`bridge`・`tunnel` タグを加味した描画順序値である。具体的な算出式は `base_highway_order + (layer × 10) + (bridge ? +10 : 0) - (tunnel ? -10 : 0)` に近い。
+**z_order の仕組み**: Geofabrik の `z_order` は OSM の `highway` タグの基本優先度に `layer`・`bridge`・`tunnel` タグを加味した描画順序値である。具体的な算出式は `base_highway_order + (layer × 10) + (bridge ? +10 : 0) + (tunnel ? -10 : 0)` に近い。
 
 | z_order の範囲 | 意味 | 件数 | 割合 |
 |---|---|---|---|

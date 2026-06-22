@@ -107,6 +107,19 @@ class TestIsVehicleRoad:
 class TestCompute:
     """compute() 関数のテスト。"""
 
+    def test_written_layer_schema_and_crs_smoke(self, tmp_path: Path) -> None:
+        """書き込みレイヤーの CRS・カラム・レイヤー名を確認する。"""
+        gpkg_path = tmp_path / "roads.gpkg"
+        _write_road_gpkg(
+            gpkg_path,
+            [_make_feature([(0, 70), (20, 70)], highway="residential", z_order=0)],
+        )
+        with fiona.open(gpkg_path, layer="roads") as src:
+            assert src.crs == ANALYSIS_CRS
+            assert src.schema["geometry"] == "LineString"
+            assert "highway" in src.schema["properties"]
+            assert "z_order" in src.schema["properties"]
+
     def test_returns_empty_when_resource_is_none(self) -> None:
         """resource が None の場合は空辞書を返す。"""
         grid_spec = build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, 20.0, 10.0)

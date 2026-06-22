@@ -106,8 +106,14 @@ def build_grid(
         構築されたfine/coarseグリッドの仕様。
 
     Raises:
-        ValueError: ``coarse_res_m`` が ``fine_res_m`` の整数倍でない場合。
+        ValueError: 解像度が正でない場合、BBoxの幅・高さが正でない場合、
+            または ``coarse_res_m`` が ``fine_res_m`` の整数倍でない場合。
     """
+    if coarse_res_m <= 0 or fine_res_m <= 0:
+        raise ValueError("coarse_res_m と fine_res_m は正の値で指定してください。")
+    if bbox_analysis.maxx <= bbox_analysis.minx or bbox_analysis.maxy <= bbox_analysis.miny:
+        raise ValueError("bbox_analysis は正の幅・高さを持つ必要があります。")
+
     factor = int(round(coarse_res_m / fine_res_m))
     if factor <= 0 or abs(coarse_res_m - (factor * fine_res_m)) > 1e-6:
         raise ValueError("coarse_res_m は fine_res_m の整数倍で指定してください。")

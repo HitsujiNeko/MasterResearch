@@ -182,7 +182,11 @@ def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:
     if satellite_path.is_file():
         tif_files = [satellite_path]
     else:
-        tif_files = sorted(list(satellite_path.glob("*.tif")) + list(satellite_path.glob("*.tiff")))
+        tif_files = sorted(
+            p
+            for p in satellite_path.iterdir()
+            if p.is_file() and p.suffix.lower() in {".tif", ".tiff"}
+        )
 
     for tif_path in tif_files:
         upper_name = tif_path.name.upper()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Any, Iterable
 
 import numpy as np
@@ -361,7 +362,11 @@ def compute_line_length(
                     isect = projected.intersection(cell_box)
                     if not isect.is_empty:
                         length_array[r, c] += isect.length
-                except Exception:
+                except Exception as exc:
+                    warnings.warn(
+                        f"ライン intersection 失敗 (row={r}, col={c}): {exc}",
+                        stacklevel=2,
+                    )
                     continue
 
     return length_array.astype(np.float32)

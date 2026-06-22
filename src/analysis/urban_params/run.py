@@ -49,7 +49,11 @@ def parse_arguments() -> argparse.Namespace:
         default="",
         help="衛星指標ラスタのファイルまたは格納ディレクトリ（任意）。複数観測がある場合はファイルを指定する。",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if any(scale <= 0 for scale in args.scales):
+        parser.error("--scales には正の整数のみ指定してください。")
+    args.scales = list(dict.fromkeys(args.scales))
+    return args
 
 
 def build_quality_columns(

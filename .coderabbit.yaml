@@ -1,0 +1,73 @@
+# CodeRabbit 設定ファイル
+# リファレンス: https://docs.coderabbit.ai/reference/configuration
+
+# レビューコメントの言語
+language: "ja"
+
+# レビューのトーン（250文字以内）
+tone_instructions: |
+  指摘には必ず理由と改善例を添え、教育的かつ建設的なトーンでレビューしてください。
+
+# レビュー設定
+reviews:
+  # assertive: 改善提案・ベストプラクティス違反も積極的に指摘
+  profile: "assertive"
+
+  # ファイルごとの変更説明（walkthrough）を折りたたみ表示
+  collapse_walkthrough: true
+
+  # レビューコメントに詩を生成しない（ノイズ削減）
+  poem: false
+
+  # レビュー中の fortune メッセージを無効化
+  in_progress_fortune: false
+
+  # PR 作成時に自動でレビューを実行
+  auto_review:
+    enabled: true
+    # ドラフト PR もレビュー対象（ソロ開発のため早期フィードバック重視）
+    drafts: true
+
+  # レビュー対象外のパス
+  path_filters:
+    - "!data/**"
+    - "!.conda/**"
+    - "!docs/04_archive/04_pdfs/**"
+
+  # パスごとのレビュー指示
+  path_instructions:
+    - path: "src/**/*.py"
+      instructions: |
+        このプロジェクトの Python コーディング規約（docs/02_methods/CodingRule.md）に基づいてレビューしてください。
+        重点チェック項目:
+        - 関数・クラスに日本語 docstring（Google スタイル）が付与されているか
+        - 引数・戻り値に型ヒントがあるか
+        - 変数名・関数名がスネークケース、クラス名がキャメルケースか
+        - パスに pathlib.Path と相対パスを使用しているか（研究データの絶対パスのハードコード禁止）
+        - 1関数1責務の原則に従っているか
+    - path: "docs/**/*.md"
+      instructions: |
+        ドキュメントのレビュー観点:
+        - 冒頭にメタ情報（最終更新日、関連ドキュメント）があるか
+        - 他ドキュメントへのリンクが正しい相対パスか
+        - docs/README.md のカタログと整合しているか
+    - path: "tests/**/*.py"
+      instructions: |
+        テストコードのレビュー観点:
+        - pytest を使用しているか
+        - テスト関数名が検証内容を明確に表しているか
+        - GIS 処理のスモークテスト（出力の CRS・カラム・レイヤー確認）を含んでいるか
+
+  # ruff を有効化（プロジェクトで使用中）
+  tools:
+    ruff:
+      enabled: true
+
+# ナレッジベース設定
+knowledge_base:
+  # コーディングガイドラインを自動適用
+  code_guidelines:
+    enabled: true
+  # レビュー経験を蓄積（デフォルト: auto）
+  learnings:
+    scope: "auto"

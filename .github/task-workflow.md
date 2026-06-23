@@ -1,6 +1,6 @@
 # タスクプロンプト運用ルール
 
-**最終更新**: 2026-06-11  
+**最終更新**: 2026-06-23  
 **関連ファイル**: [CLAUDE.md](../CLAUDE.md), [task_intake_template.md](./prompts/templates/task_intake_template.md), [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md)
 
 ## 目的
@@ -18,6 +18,7 @@ prompt ファイルは completed フォルダに蓄積せず、active に少数�
 
 - タスクの定義・背景・成果物・完了記録はすべて GitHub Issue に記載する
 - prompt ファイルは Issue へのポインタと、セッション固有の一時補足のみを記載する
+- Issue 起案時、優先度は Claude が推測せず必ずユーザーに確認する（intake に明記されている場合を除く）
 - タスクごとに作業ブランチを作成し、PRレビュー・squash mergeを経て `main` に統合する
   - ブランチ作成・コミット・push・PR作成: Claude
   - レビュー・動作確認・squash mergeの実行: ユーザー
@@ -44,7 +45,7 @@ prompt ファイルは completed フォルダに蓄積せず、active に少数�
 
 `_intake_{slug}.md` を開いた状態で Claude に「このタスクを Issue にして」と伝える。
 
-Claude がプロジェクト文脈からラベルとマイルストーンを推測し、Issue 本文を下書きする。内容を確認して承認すると、以下を Claude が自動実行する。
+Claude がプロジェクト文脈からラベルとマイルストーンを推測し、Issue 本文を下書きする。**優先度は Claude が推測せず、必ずユーザーに確認する**（intake に明記されている場合はそのまま採用する）。内容を確認して承認すると、以下を Claude が自動実行する。
 
 ```powershell
 # Issue 作成
@@ -175,15 +176,25 @@ gh pr create --title "{type}: {変更内容の要約} (#{Issue番号})" --head {
 - コミットメッセージ・PRタイトルは `{type}: {変更内容の要約} (#{Issue番号})` の形式に統一する（[commitタイプ一覧](#commitタイプ一覧)参照）
 - `gh pr create` には `--head` を必ず明示する（ツール呼び出し間で作業ディレクトリがリセットされ、意図しないブランチがheadになることを防ぐため）
 
-**④ PRレビュー・squash merge**（ユーザが行う）
+**④ CodeRabbit 自動レビューの確認・対応**（Claude が行う）
+
+PR 作成後、CodeRabbit が自動でレビューコメントを付ける（`.coderabbit.yaml` の `auto_review.enabled: true`）。Claude は以下を行う。
+
+1. CodeRabbit のレビューコメントを確認する
+2. 指摘内容を分類し、対応が必要なものをユーザーに提示する
+3. ユーザーの判断に基づき、必要な修正をコミット・push する
+
+> CodeRabbit のレビューは補助的なものであり、指摘への対応要否はユーザーが判断する。
+
+**⑤ PRレビュー・squash merge**（ユーザが行う）
 
 PR をレビューし、問題なければ GitHub 上で squash merge する。
 
 > リポジトリの「Auto delete head branches」設定が有効な場合、squash merge後にリモートの作業ブランチは自動削除される。
 
-**⑤ 「マージしました」と Claude に伝える**
+**⑥ 「マージしました」と Claude に伝える**
 
-**⑥ マージ後処理**（Claude が行う）
+**⑦ マージ後処理**（Claude が行う）
 
 ```powershell
 git checkout main
@@ -215,6 +226,7 @@ Issue自体は `Closes #{Issue番号}` により GitHub 側で自動close済み�
 | 完了条件の確認・レビュー依頼 | 共通条件 + Issue 固有条件を確認し提示 | — |
 | レビュー・動作確認・承認 | — | レビュー・動作確認 |
 | コミット・push・PR作成 | `git commit` + `git push` + `gh pr create` | — |
+| CodeRabbit 自動レビューの確認・対応 | レビューコメント確認・分類・修正提案 | 対応要否を判断 |
 | PRレビュー・squash merge | — | レビュー・squash merge |
 | マージ後処理（main復帰・ブランチ削除・prompt削除・完了日設定） | 「マージしました」連絡後に実行 | 「マージしました」と連絡 |
 

@@ -1,7 +1,7 @@
 # 標高データ（DEM）候補の調査・選定ガイド
 
 **最終更新**: 2026-06-02  
-**関連ドキュメント**: [available_gis_data.md](available_gis_data.md), [research_guide.md](research_guide.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md)  
+**関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、分析シナリオ（Satellite Only / Limited / Full）の定義
 
 ---
@@ -295,4 +295,4 @@ data/GISData/DEM/srtmgl1_hanoi_dem.tif                   # 参考保存（比較
 - [Copernicus DEM Product Handbook](https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model)
 - `src/gee/download_open_dem.py`: DEM取得スクリプト
 - `src/analysis/compare_dem_rasters.py`: 比較スクリプト
-- `.github/prompts/active/Import_DEM.prompt.md`: タスクプロンプト（完了記録含む）
+- `.github/prompts/completed/20260602_Import_DEM.prompt.md`: タスクプロンプト（完了記録含む）

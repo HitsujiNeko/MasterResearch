@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*/ruff* check *)",
+      "Bash(tasklist *)",
+      "PowerShell(Get-Date *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Test-Path *)"
+    ]
+  }
+}

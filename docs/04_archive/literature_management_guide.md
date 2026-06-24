@@ -1,6 +1,7 @@
 # 先行研究管理・活用ガイド（AI活用最適化版）
 
-**最終更新**: 2026-02-26
+**最終更新**: 2026-02-26  
+**関連ドキュメント**: [structured_summary_template.md](templates/structured_summary_template.md), [previous_studies_report.md](previous_studies_report.md)
 
 ## 📋 現状分析
 

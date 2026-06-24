@@ -1,5 +1,8 @@
 # ChatGPT用指示書：論文分析・構造化要約生成
 
+**最終更新**: 2026-02-26  
+**関連ドキュメント**: [structured_summary_template.md](structured_summary_template.md), [literature_management_guide.md](../literature_management_guide.md)
+
 > **このファイルの役割**  
 > ChatGPTに論文PDFや論文情報を渡し、GitHub Copilotが読み取り可能な構造化要約Markdownを生成させるための指示書です。
 

@@ -1,7 +1,7 @@
 # 研究計画書
 
 **最終更新**: 2026-02-26  
-**関連ドキュメント**: [CodingRule.md](../02_methods/CodingRule.md), [analysis_workflow.md](../02_methods/analysis_workflow.md)
+**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)
 
 ## 1. 研究題目（仮）
 

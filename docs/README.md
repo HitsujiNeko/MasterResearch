@@ -16,9 +16,12 @@ docs/
 ├── setup.md                               # 🛠️ 環境構築ガイド
 │
 ├── 01_planning/                           # 📋 研究計画フェーズ
-│   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理
-│   ├── dem_selection_guide.md             # DEM候補の調査・選定ガイド
-│   └── research_guide.md                  # 研究計画書（RQ定義）
+│   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理（インデックス）
+│   ├── research_guide.md                  # 研究計画書（RQ定義）
+│   └── gis_data/                          # カテゴリ別GISデータ詳細
+│       ├── gis_data_roads.md              # 道路データの調査・評価
+│       ├── gis_data_buildings.md          # 建物データの調査・評価
+│       └── gis_data_dem.md                # DEMデータの調査・評価
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
 │   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
@@ -66,8 +69,10 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 関連RQ |
 |-----------|------|-----------|--------|
-| [available_gis_data.md](01_planning/available_gis_data.md) | 公開GISデータ候補の整理 | 道路・建物・粗い built-up データの候補、更新性、適合性 | 全RQ |
-| [dem_selection_guide.md](01_planning/dem_selection_guide.md) | DEM候補の調査・選定ガイド | DSM/DTM特性、センサー種別、BSHorizon比較結果、Limitedシナリオ採用判断 | RQ1, RQ3 |
+| [available_gis_data.md](01_planning/available_gis_data.md) | 公開GISデータ候補の整理（インデックス） | 評価観点、採用データ一覧、結論の要点、カテゴリ別ドキュメントへのリンク | 全RQ |
+| [gis_data_roads.md](01_planning/gis_data/gis_data_roads.md) | 道路データの調査・評価 | OSM道路データの採用根拠、Hanoi ROI取得結果、highway分布、注意点 | RQ1, RQ2 |
+| [gis_data_buildings.md](01_planning/gis_data/gis_data_buildings.md) | 建物データの調査・評価 | GBA採用根拠、候補比較表、GBA詳細仕様、Limitedシナリオ方針 | RQ1, RQ2, RQ3 |
+| [gis_data_dem.md](01_planning/gis_data/gis_data_dem.md) | DEM候補の調査・選定ガイド | DSM/DTM特性、センサー種別、BSHorizon比較結果、Limitedシナリオ採用判断 | RQ1, RQ3 |
 | [research_guide.md](01_planning/research_guide.md) | 研究計画書 | 研究題目、背景、RQ1-3、手法概要、期待される成果 | 全RQ |
 
 ### 🔬 02_methods - 研究手法
@@ -177,29 +182,22 @@ graph TB
 ### 📄 ドキュメント詳細
 
 #### [available_gis_data.md](01_planning/available_gis_data.md)
-**公開GISデータ候補の整理** - 道路・建物・built-up データの候補を、更新性と研究適合性つきで比較
+**公開GISデータ候補の整理（インデックス）** - 採用データの一覧と評価観点を集約し、カテゴリ別詳細ドキュメントへのリンクを提供する
 
 **主要セクション**:
-- 道路・建物・粗い built-up 指標の候補整理
-- ベトナムと全球のカバレッジ比較
-- 研究への適合性と注意点
+- 評価観点（都市構造指標適格性、カバレッジ、データ時期、解像度、ライセンス）
+- 結論の要点（各カテゴリの採用判断サマリ）
+- 採用データ一覧（OSM、GBA、FABDEM）
+- カテゴリ別詳細ドキュメントへのリンク
 
 **関連ドキュメント**:
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)
 - 手法仕様 → [analysis_workflow.md](02_methods/analysis_workflow.md)
 
-#### [dem_selection_guide.md](01_planning/dem_selection_guide.md)
-**DEM候補の調査・選定ガイド** - Limitedシナリオで利用するDEMの選定根拠をまとめた文書
+#### [gis_data/](01_planning/gis_data/)
+**カテゴリ別GISデータ詳細** - 各データカテゴリの調査結果・データ仕様・取得結果・注意点を格納するサブフォルダ
 
-**主要セクション**:
-- DSM/DTM分類とセンサー種別（Copernicus / NASADEM / SRTMGL1 / TanDEM-X / ASTER / FABDEM）
-- BSHorizon DEM（測量由来、10m）との比較結果（RMSE・MAE・相関係数）
-- TanDEM-X・ASTERの採用可否判断
-- Limitedシナリオ採用DEMの選定結果（NASADEM暫定採用）と今後の課題
-
-**関連ドキュメント**:
-- 公開GISデータ全体 → [available_gis_data.md](01_planning/available_gis_data.md)
-- パラメータ設計 → [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)
+各ファイルの一覧と詳細は [available_gis_data.md](01_planning/available_gis_data.md) の Section 4（カテゴリ別詳細ドキュメント）を参照。
 
 #### [research_guide.md](01_planning/research_guide.md)
 **研究計画書** - 本研究の全体像を定義
@@ -731,6 +729,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-06-24 | `available_gis_data.md` をカテゴリ別ファイルに分割。`gis_data/` サブフォルダを新設し、`gis_data_roads.md`・`gis_data_buildings.md` を新規作成。`dem_selection_guide.md` を `gis_data/gis_data_dem.md` に移動・リネーム（#29） | AI支援 |
 | 2026-06-13 | `check-docs-consistency` skill導入に伴い定期メンテナンス項目を更新。ディレクトリ構造図に`.claude/skills/`を追加し、`02_structured_summaries`の注記をS2-S8に修正 | AI支援 |
 | 2026-06-03 | `setup.md` に GitHub CLI セットアップ手順（セクション9）とトラブルシュートを追加。`.github/` ディレクトリツリーをGitHub Issues運用移行後の実態に更新 | AI支援 |
 | 2026-06-02 | `dem_selection_guide.md` を01_planningに追加。DEM候補調査・BSHorizon比較結果・Limited選定根拠を収録 | AI支援 |

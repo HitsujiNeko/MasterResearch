@@ -157,7 +157,7 @@
   - **入力**: `data/output/open_gis/hanoi_osm_roads.gpkg`（OSM Geofabrik 由来）
   - **フィルタリング**: ホワイトリスト方式。motorway〜living_street + service を含め、非車道（footway, steps, path 等）・track・construction・proposed・特殊用途を除外。z_order < 0（トンネル・地下道）も除外
   - **算出方法**: `compute_line_length()` でセル内ライン総延長（m/cell）を算出し、`cell_area_ha()` で面積正規化
-  - **詳細**: `docs/01_planning/available_gis_data.md` セクション 4.1.1
+  - **詳細**: `docs/01_planning/gis_data/gis_data_roads.md` セクション 2
 
 #### 検討中のパラメータ（別Issueで設計確定）
 

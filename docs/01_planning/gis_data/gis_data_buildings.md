@@ -129,7 +129,7 @@ GBA は **建物フットプリント（ポリゴン）** と **ML 推定建物�
 
 論文・学位論文で本データを使用する場合は、以下の論文を引用する。
 
-```
+```bibtex
 Zhu, X. X. et al.: GlobalBuildingAtlas: A global LoD1 building model,
 Earth Syst. Sci. Data, 17, 6647–6670,
 https://doi.org/10.5194/essd-17-6647-2025, 2025.

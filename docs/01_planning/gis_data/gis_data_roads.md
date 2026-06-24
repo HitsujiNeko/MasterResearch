@@ -1,6 +1,6 @@
 # 道路データの調査・評価
 
-**最終更新**: 2026-06-23  
+**最終更新**: 2026-06-24  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -20,7 +20,68 @@ Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT
 
 ---
 
-## 2. OSM 道路データの詳細特性（2026-06-22 調査）
+## 2. OpenStreetMap 道路データの詳細仕様
+
+本研究で道路データの主ソースとして採用した OpenStreetMap（OSM）について、データの特性・制限・引用方法を記録する。
+
+### 2.1 データセット概要
+
+| 項目 | 内容 |
+|---|---|
+| 正式名称 | OpenStreetMap |
+| データ提供元 | OpenStreetMap コミュニティ（ボランティアによる編集） |
+| 本研究での配布元 | Geofabrik GmbH（Vietnam extract） |
+| データ作成時期 | 2004年プロジェクト開始、継続的に編集中。本研究で使用した extract は 2026-04-08 時点のスナップショット（`vietnam-260408.osm.pbf`） |
+| 配布形式 | `.osm.pbf`（Protobuf Binary Format）、`.shp.zip`（Shapefile）、`.gpkg`（ogr2ogr 変換後） |
+| ライセンス | Open Data Commons Open Database License (ODbL 1.0) |
+| 引用要件 | "© OpenStreetMap contributors" の帰属表示が必要。学術利用可 |
+| 配布 URL | https://download.geofabrik.de/asia/vietnam.html |
+
+### 2.2 タグ体系（`highway=*`）
+
+OSM の道路データは `highway` キーで分類される。本研究に関連する主要な値を以下に示す。
+
+| 分類 | `highway` タグ | 意味 |
+|---|---|---|
+| **幹線道路** | `motorway` / `motorway_link` | 高速道路・ランプ |
+| | `trunk` / `trunk_link` | 国道級幹線 |
+| | `primary` / `primary_link` | 主要地方道 |
+| | `secondary` / `secondary_link` | 一般県道級 |
+| **一般車道** | `tertiary` / `tertiary_link` | 地区幹線 |
+| | `residential` | 住宅地内道路 |
+| | `unclassified` | 分類未定の車道 |
+| | `living_street` | 生活道路 |
+| **サービス道路** | `service` | 敷地内通路・路地等（`service=alley/driveway/parking_aisle` で細分化） |
+| **非車道** | `footway`, `path`, `pedestrian`, `cycleway`, `steps`, `corridor` | 歩行者・自転車用 |
+| **特殊・未確定** | `track`, `construction`, `proposed` | 農道・工事中・計画中 |
+
+本研究の ROAD_DEN 算出では、車道（幹線道路＋一般車道＋サービス道路）のみをホワイトリスト方式で対象とし、非車道・特殊道路は除外する（`src/analysis/urban_params/params/roads.py` の `VEHICLE_ROAD_TAGS` を参照）。
+
+### 2.3 カバレッジ特性
+
+- OSM はコミュニティ編集型であるため、**データの完全性・精度に地域差がある**。都市中心部は整備が進んでいるが、郊外・農村部では道路の欠測や属性の未入力が多い傾向がある。
+- ベトナム主要都市（Hanoi, Ho Chi Minh City）については比較的整備が進んでおり、道路密度指標の算出には利用可能な水準である。ただし、道路種別の分類精度や属性（車線数・路面材質等）の入力率は低いため、これらに依存する指標の算出には適さない。
+- カバレッジの定量的な評価は、対象都市ごとに Hanoi ROI と同様の抽出・集計を行い判断する。
+
+### 2.4 更新頻度
+
+- OSM 本体は**リアルタイムに編集**が行われる。
+- Geofabrik の country extract は**日次更新**（daily snapshot）で提供される。
+- 本研究では特定日付の extract を使用し、取得日を記録することで再現性を確保する（取得ファイル名に日付を含める: 例 `vietnam-260408.osm.pbf`）。
+
+### 2.5 本研究での取得方法
+
+Geofabrik Vietnam extract（`.osm.pbf`）を `ogr2ogr` で `lines` レイヤから `highway IS NOT NULL` の道路ラインを ROI でクリップして抽出する。出力形式は GeoPackage（`.gpkg`）。
+
+```bash
+ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
+  -where "highway IS NOT NULL" \
+  -spat <xmin> <ymin> <xmax> <ymax>
+```
+
+---
+
+## 3. Hanoi ROI での取得結果（2026-06-22 調査）
 
 **データソース**: Geofabrik Vietnam extract（`vietnam-260408.osm.pbf`）から `ogr2ogr` で `lines` レイヤのうち `highway IS NOT NULL` を Hanoi ROI でクリップして抽出。出力: `data/output/open_gis/hanoi_osm_roads.gpkg`（レイヤ名: `roads`）。
 
@@ -94,7 +155,7 @@ Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT
 
 ---
 
-## 3. 注意点
+## 4. 注意点
 
 - `OSM` は地域差が大きく、Hanoi 周辺でも道路の完全性を保証しない。
 - `OSM` の Hanoi ROI 道路抽出結果は道路密度指標には利用可能だが、道路種別や詳細属性の完全性は別途 QA が必要である。
@@ -102,13 +163,20 @@ Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT
 
 ---
 
-## 4. ワークフロー
+## 5. ワークフロー
 
-1. `OpenStreetMap` で道路ネットワークを整備する。
+| # | 工程 | ステータス | 備考 |
+|---|---|---|---|
+| 1 | Geofabrik Vietnam extract の取得 | ✅ 完了 | `vietnam-260408.osm.pbf` を取得済み |
+| 2 | Hanoi ROI での道路ライン抽出 | ✅ 完了 | `ogr2ogr` で `highway IS NOT NULL` を ROI クリップ。194,485 件を `data/output/open_gis/hanoi_osm_roads.gpkg` に出力 |
+| 3 | 道路データの探索的分析 | ✅ 完了 | highway タグ分布・z_order・other_tags の入力率を集計（Section 3 参照） |
+| 4 | ROAD_DEN（道路延長密度）算出ロジックの実装 | ✅ 完了 | `src/analysis/urban_params/params/roads.py` に実装（[PR #26](https://github.com/HitsujiNeko/MasterResearch/pull/26)、コミット `da0384a`）。車道タグのホワイトリスト方式 + z_order < 0 除外 |
+| 5 | ROAD_DEN のスモークテスト | ✅ 完了 | `tests/analysis/urban_params/test_roads.py` に GIS 契約テストを追加済み |
+| 6 | 他都市（Ho Chi Minh City 等）への道路データ取得・適用 | 未着手 | RQ2 のスケール比較時に対象都市を拡大する際に実施 |
 
 ---
 
-## 5. 参考ソース
+## 6. 参考ソース
 
 - OpenStreetMap Wiki, Downloading data: https://wiki.openstreetmap.org/wiki/Downloading_data
 - OpenStreetMap Wiki, Overpass API: https://wiki.openstreetmap.org/wiki/Overpass_API

@@ -73,7 +73,7 @@ OSM の道路データは `highway` キーで分類される。本研究に関�
 
 Geofabrik Vietnam extract（`.osm.pbf`）を `ogr2ogr` で `lines` レイヤから `highway IS NOT NULL` の道路ラインを ROI でクリップして抽出する。出力形式は GeoPackage（`.gpkg`）。
 
-```
+```bash
 ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
   -where "highway IS NOT NULL" \
   -spat <xmin> <ymin> <xmax> <ymax>

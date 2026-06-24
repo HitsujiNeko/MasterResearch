@@ -3,11 +3,26 @@
     "allow": [
       "Bash(*/ruff* check *)",
       "Bash(tasklist *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh project view *)",
+      "Bash(gh project item-list *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Bash(git branch *)",
       "PowerShell(Get-Date *)",
       "PowerShell(Get-ChildItem *)",
       "PowerShell(Get-Command *)",
       "PowerShell(Get-Content *)",
-      "PowerShell(Test-Path *)"
+      "PowerShell(Test-Path *)",
+      "PowerShell(git log *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git status *)",
+      "PowerShell(git branch *)"
     ]
   }
 }

@@ -25,7 +25,6 @@ docs/
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
 │   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
-│   ├── agency_agents_minimal_set.md       # 研究専用エージェント最小セット運用ガイド
 │   ├── analysis_rq3_satellite_only_guide.md # analysis_rq3_satellite_only.py 初心者向け解説
 │   ├── calc_urban_params_guide.md         # urban_paramsパッケージ 設計ガイド
 │   ├── gee_calc_satellite_indices.md      # 衛星指標算出仕様書（NDVI/NDBI/NDWI）
@@ -80,7 +79,6 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 実装ファイル |
 |-----------|------|-----------|------------|
 | [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計 | `src/` 全スクリプト |
-| [agency_agents_minimal_set.md](02_methods/agency_agents_minimal_set.md) | 研究専用エージェント最小セット運用ガイド | 選抜6エージェント、固有文脈テンプレート、工程別呼び出し順、品質チェック表 | `agency-agents/`, `docs/` |
 | [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md) | RQ3衛星のみ分析コード解説 | 初心者向けに処理フロー、評価指標、Spatial CV、SHAPの読み方を整理 | `src/analysis/analysis_rq3_satellite_only.py` |
 | [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `urban_params` パッケージ 設計ガイド | 解析範囲設計、マルチスケールUTMグリッド化、3シナリオ・GIS/衛星指標統合、品質管理列の仕様 | `src/analysis/urban_params/` |
 | [gee_calc_satellite_indices.md](02_methods/gee_calc_satellite_indices.md) | 衛星指標算出仕様書 | NDVI/NDBI/NDWI算出式、QAマスク、スケーリング、統計出力の仕様と根拠 | `src/gee/gee_calc_satellite_indices.py` |

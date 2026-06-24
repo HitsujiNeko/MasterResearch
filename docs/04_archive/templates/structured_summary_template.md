@@ -1,8 +1,5 @@
 # 論文構造化要約テンプレート
 
-**最終更新**: 2026-02-26  
-**関連ドキュメント**: [chatgpt_instruction_paper_analysis.md](chatgpt_instruction_paper_analysis.md), [literature_management_guide.md](../literature_management_guide.md)
-
 > このテンプレートをコピーして、各論文の要約を作成してください。  
 > AIが効果的に参照できる形式に設計されています。
 

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "qgis": {
+      "command": "uvx",
+      "args": [
+        "--python", "3.12",
+        "--from",
+        "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip",
+        "qgis-mcp-server"
+      ],
+      "env": {
+        "QGIS_MCP_HOST": "127.0.0.1",
+        "QGIS_MCP_PORT": "9876"
+      }
+    }
+  }
+}

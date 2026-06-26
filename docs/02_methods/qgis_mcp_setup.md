@@ -17,7 +17,7 @@
 
 **アーキテクチャ**:
 
-```
+```text
 Claude Code <-- stdio (MCP) --> MCP Server (uvx) <-- TCP socket --> QGIS Plugin
 ```
 
@@ -85,7 +85,7 @@ VSCode の場合、以下のいずれかで MCP サーバーを認識させる�
 
 Claude Code のチャットで以下のように指示する：
 
-```
+```text
 QGIS に ping して
 ```
 

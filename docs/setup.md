@@ -1,7 +1,7 @@
 # Setup
 
 **最終更新**: 2026-06-13  
-**関連ドキュメント**: [README.md](README.md), [02_methods/gee_calc_LST.md](02_methods/gee_calc_LST.md), [02_methods/calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
+**関連ドキュメント**: [README.md](README.md), [02_methods/qgis_mcp_setup.md](02_methods/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
 ---
@@ -299,7 +299,14 @@ ruff format .
 
 ---
 
-## 11. 補足
+## 11. QGIS MCP（Claude Code 連携）
+
+Claude Code から QGIS を直接操作するための MCP サーバーが `.mcp.json` に設定済み。
+QGIS プラグインのインストールや接続設定の詳細は [02_methods/qgis_mcp_setup.md](02_methods/qgis_mcp_setup.md) を参照。
+
+---
+
+## 12. 補足
 
 - [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

@@ -4,6 +4,7 @@ node_modules/
 SSD/
 .github/prompts/completed/
 .github/PULL_REQUEST_TEMPLATE.md
+.github/ISSUE_TEMPLATE/
 AGENTS.md
 DGNファイル内容確定結果.md
 gpkgの確認結果.md

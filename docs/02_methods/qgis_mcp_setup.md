@@ -11,6 +11,7 @@
 [nkarasiak/qgis-mcp](https://github.com/nkarasiak/qgis-mcp) を使用して、Claude Code から QGIS を直接操作できる環境を構築する。
 
 **主な用途**:
+
 - データ収集・加工スクリプトの出力を QGIS で目視確認
 - レイヤー操作・Processing アルゴリズムの会話ベース実行
 - 地図データの視覚的な品質チェック
@@ -78,6 +79,7 @@ Claude Code <-- stdio (MCP) --> MCP Server (uvx) <-- TCP socket --> QGIS Plugin
 ### 4. Claude Code の再起動
 
 VSCode の場合、以下のいずれかで MCP サーバーを認識させる：
+
 - コマンドパレット（`Ctrl+Shift+P`）→「Claude Code: Restart Extension」
 - VSCode 自体を再起動
 

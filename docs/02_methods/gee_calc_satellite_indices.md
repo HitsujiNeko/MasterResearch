@@ -2,6 +2,7 @@
 
 **最終更新**: 2026-04-09  
 **関連ドキュメント**:  
+
 - [analysis_workflow.md](analysis_workflow.md)  
 - [calc_urban_params_guide.md](calc_urban_params_guide.md)  
 - [gee_calc_LST.md](gee_calc_LST.md)  
@@ -151,10 +152,10 @@ python src/gee/gee_calc_satellite_indices.py
 ## 9. 参考資料（公式）
 
 1. GEE Data Catalog: Landsat 8 C2 L2  
-   https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2
+   <https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2>
 2. USGS FAQ: Landsat Level-2 scale factor/offset  
-   https://www.usgs.gov/faqs/how-do-i-use-a-scale-factor-landsat-level-2-science-products
+   <https://www.usgs.gov/faqs/how-do-i-use-a-scale-factor-landsat-level-2-science-products>
 3. USGS: Landsat Collection 2 QA bands  
-   https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands
+   <https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands>
 4. USGS: Landsat 8-9 Collection 2 Level-2 Science Product Guide  
-   https://www.usgs.gov/media/files/landsat-8-9-collection-2-level-2-science-product-guide
+   <https://www.usgs.gov/media/files/landsat-8-9-collection-2-level-2-science-product-guide>

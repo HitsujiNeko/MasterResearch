@@ -2,6 +2,7 @@
 
 **最終更新**: 2026-03-24  
 **関連ドキュメント**:  
+
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
 - コーディング規約 → [CodingRule.md](CodingRule.md)  
 - 実装コード → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
@@ -15,11 +16,13 @@
 ---
 
 ## 1. 概要
+
 Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出する。  
 `lst_method` により **Simple法** または **SMW法** を選択できるが、  
 本研究では **SMW法** を使用する。
 
 ### 1.1 実装の由来
+
 本研究で採用している LST 算出手法は、先行研究整理で **S1** として位置づけている  
 **Ermida et al. (2020)** の SMW（Statistical Mono-Window）法である。  
 本プログラムは、その先行研究で公開されている GEE JavaScript 実装を、研究用に Python へ書き直したものである。  
@@ -37,7 +40,9 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 ---
 
 ## 2. 入力
+
 ### 2.1 設定CSV
+
 **ファイル**: `data/input/gee_calc_LST_info.csv`
 
 | キー | 説明 | 例 |
@@ -55,6 +60,7 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 | `drive_export_folder` | エクスポート先フォルダ名の明示指定（任意） | `MasterResearch_Data_LST_hanoi_2023` |
 
 ### 2.2 ROI Shapefile
+
 現行の `main()` は `load_roi_from_shapefile()` を使用し、  
 `TinhThanh == 'Hà Nội'` のジオメトリを抽出する前提で実装されている。  
 一方で、`load_roi_from_shapefile_jp()` もソース内に残っており、こちらは `N03_001 == '大阪府'` を前提としている。  
@@ -63,6 +69,7 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 ---
 
 ## 3. 使用データ
+
 - **Landsat 8 C02 T1_L2（SR）**: `LANDSAT/LC08/C02/T1_L2`
 - **Landsat 8 C02 T1_TOA（B10）**: `LANDSAT/LC08/C02/T1_TOA`
 - **ASTER GED v3**: `NASA/ASTER_GED/AG100_003`
@@ -75,6 +82,7 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 ---
 
 ## 4. 処理フロー
+
 1. GEE認証
 2. CSV読込
 3. ROI読込（Shapefile → ee.Geometry）
@@ -90,6 +98,7 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 ## 5. LST計算
 
 ### 5.1 Simple法（`lst_method="simple"`）
+
 `ST_B10` を使用し、温度変換のみ。
 
 $$
@@ -100,6 +109,7 @@ T_{\text{C}} = T_{\text{K}} - 273.15
 $$
 
 ### 5.2 SMW法（`lst_method="smw"`）
+
 Ermida et al. (2020) に準拠。
 
 - **NDVI**: `SR_B5`/`SR_B4` を反射率スケールに変換して計算  
@@ -131,6 +141,7 @@ Ermida et al. (2020) に準拠。
 ---
 
 ## 6. 雲マスク（SRのみ）
+
 `QA_PIXEL` を使用し、  
 bit 3（影）と bit 4（雲）が0の画素を残す。
 
@@ -139,21 +150,26 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 ---
 
 ## 7. 出力
+
 ### 7.1 CSV
+
 **ファイル**: `data/output/gee_calc_LST_results.csv`
 
 主要列:
+
 - `mean_temp_c`, `min_temp_c`, `max_temp_c`, `std_temp_c`（摂氏）
 - `valid_pixel_ratio`（%）
 - `cloud_cover`（Landsatメタデータ）
 - `exported`（GeoTIFF出力有無）
 
 ### 7.2 GeoTIFF
+
 **ファイル名**: `LST_Landsat8_YYYYMMDD.tif`  
 **内容**: LST（摂氏）1バンド  
 **CRS**: CSVの `output_epsg` を使用
 
 **Google Drive出力先フォルダ**:
+
 - `drive_export_folder` が設定されている場合は、そのフォルダへ出力
 - 未設定の場合は以下の規則で自動生成
   - `{drive_root_folder}_LST_{city_name}_{YYYY}`
@@ -162,15 +178,18 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 ---
 
 ## 8. 実装上の注意
+
 - 現行実装は **Landsat 8専用**。
 - LSTは **摂氏（°C）出力**。
 - `cloud_threshold` は現行コードで未使用。
 - `use_ndvi` を変更したい場合は `calculate_lst_smw()` 呼び出しに引数を追加する。
 
 ### 8.1 原典実装からの意図的な差分
+
 - 原典 JavaScript 実装の `LST` バンドはケルビンだが、本研究では **摂氏（°C）へ変換して出力**する。
 
 ### 8.2 原典実装に合わせて維持している点
+
 - SMW の係数テーブル（A, B, C）は Landsat 8 用の原典値をそのまま用いる。
 - `TPW` は **当日 UTC の NCEP データ**のみを対象にし、最も近い2時刻で線形補間する。
 - SR と TOA の対応付けは、**同一シーンの `system:index`** を基準に行う。

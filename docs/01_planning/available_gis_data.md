@@ -37,9 +37,9 @@
 
 | データセット | カテゴリ | 主な用途 | 形式 | 空間解像度 | ライセンス | URL |
 |---|---|---|---|---|---|---|
-| OpenStreetMap / Geofabrik Vietnam extract | 道路 | 道路密度指標の算出 | `.osm.pbf`, `.gpkg` | 道路中心線（ベクタ） | ODbL | https://download.geofabrik.de/asia/vietnam.html |
-| GlobalBuildingAtlas (GBA) v1.0.0 | 建物 | 建物面積率・建物密度・建物高さの算出 | ポリゴン（WFS / GeoJSON） | 建物ポリゴン（ベクタ） | CC BY-NC 4.0 | https://github.com/zhu-xlab/GlobalBuildingAtlas |
-| FABDEM v1.2 | 標高（DEM） | 地形高度の算出（準DTM） | ラスタ `TIF` | 約30m（1 arc-second） | CC BY-NC-SA 4.0 | https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn |
+| OpenStreetMap / Geofabrik Vietnam extract | 道路 | 道路密度指標の算出 | `.osm.pbf`, `.gpkg` | 道路中心線（ベクタ） | ODbL | <https://download.geofabrik.de/asia/vietnam.html> |
+| GlobalBuildingAtlas (GBA) v1.0.0 | 建物 | 建物面積率・建物密度・建物高さの算出 | ポリゴン（WFS / GeoJSON） | 建物ポリゴン（ベクタ） | CC BY-NC 4.0 | <https://github.com/zhu-xlab/GlobalBuildingAtlas> |
+| FABDEM v1.2 | 標高（DEM） | 地形高度の算出（準DTM） | ラスタ `TIF` | 約30m（1 arc-second） | CC BY-NC-SA 4.0 | <https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn> |
 
 ---
 

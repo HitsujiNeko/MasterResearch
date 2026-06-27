@@ -1,7 +1,7 @@
 # タスクワークフロー
 
 **最終更新**: 2026-06-27
-**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md), [Issue テンプレート](./ISSUE_TEMPLATE/task.md)
+**関連ファイル**: [CLAUDE.md](../CLAUDE.md), [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md), [Issue テンプレート](./ISSUE_TEMPLATE/task.md), [parallel-workflow.md](./parallel-workflow.md)
 
 ## 目的
 
@@ -49,6 +49,18 @@ gh pr list --head {Issue番号}/{タスク要約英文} --json number,url,state
 ```
 
 未コミットの変更や未push のコミット、既存PRがある場合は内容を提示し、どこから作業を再開するかをユーザーに確認する。状態を推測して自動的にスキップしない。
+
+Claude は現在のブランチとユーザーの指示から、単一実行か並列実行かを判定する。
+
+| 現在のブランチ | ユーザーの指示 | 判定 |
+|---|---|---|
+| `main` | 「#XX に取り掛かります」 | 単一実行 → 以降の標準ワークフローに従う |
+| `XX/...`（指示と同じ Issue） | 「#XX に取り掛かります」 | 単一実行（継続） → 以降の標準ワークフローに従う |
+| `YY/...`（指示と別の Issue） | 「#XX に取り掛かります」 | 並列実行 → [parallel-workflow.md](./parallel-workflow.md) に従う |
+
+セッション中にユーザーから「#XX を並行で進めたい」と指示を受けた場合も、[parallel-workflow.md](./parallel-workflow.md) に従う。
+
+**以下は単一実行の場合の標準ワークフロー。**
 
 Claude は `gh issue view {番号}` で Issue を確認し、現在のステータスに応じて以下のように対応する。
 

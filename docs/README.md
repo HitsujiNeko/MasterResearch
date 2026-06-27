@@ -720,6 +720,7 @@ MasterResearch/
 ├── .github/                    # AI環境設定・タスク管理
 │   ├── copilot-instructions.md # Copilot自動読込（CLAUDE.mdに移譲）
 │   ├── task-workflow.md        # タスク管理ワークフロー定義
+│   ├── parallel-workflow.md    # 並列タスク実行ワークフロー
 │   ├── ISSUE_TEMPLATE/         # Issue テンプレート
 │   └── prompts/                # タスク関連ファイル
 │       ├── active/             # 計画書（{Issue番号}_{task_name}.plan.md）

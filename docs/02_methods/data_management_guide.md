@@ -111,6 +111,7 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
   - !data/samples/**
 
 補足:
+
 - `data/csv/analysis/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 
 ### 6.2 既追跡の大容量出力の扱い

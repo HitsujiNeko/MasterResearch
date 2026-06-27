@@ -73,23 +73,26 @@ GBA の WFS 取得完了・Microsoft 欠落域の定量確認を経て、比較�
 | 提供機関 | Chair of Remote Sensing Technology, Technical University of Munich (TUM) / zhu-xlab グループ |
 | 配布形式 | WFS（GeoServer）、HuggingFace（5°×5° GeoJSON タイル）、GitHub |
 | ライセンス | CC BY-NC 4.0（非商用・帰属表示必須） |
-| GitHub | https://github.com/zhu-xlab/GlobalBuildingAtlas |
-| 論文 DOI | https://doi.org/10.5194/essd-17-6647-2025 |
+| GitHub | <https://github.com/zhu-xlab/GlobalBuildingAtlas> |
+| 論文 DOI | <https://doi.org/10.5194/essd-17-6647-2025> |
 
 ### 2.2 データの構成とフットプリントのソース
 
 GBA は **建物フットプリント（ポリゴン）** と **ML 推定建物高さ** を組み合わせた全球 LoD1 建物モデルである。
 
 **フットプリントのソース**:
+
 - 地域によって複数ソースを統合している。東南アジア（ベトナム含む）は **Google Open Buildings V3** が主ソースである。WFS レスポンスの `source` 属性に `google` と格納されていることで確認できる。
 - フットプリントの検出精度は元ソース（Google Open Buildings 等）の機械学習モデルに依存する。
 
 **建物高さ（`height` 属性）**:
+
 - 衛星画像から機械学習で推定した値であり、現地測量値ではない。
 - 推定アルゴリズムの詳細は論文（Zhu et al., 2025）を参照。
 - ハノイ ROI での高さ推定精度（RMSE 等）は本研究では未検証。
 
 **LoD1 モデルとは**:
+
 - Level of Detail 1（LoD1）= フットプリントポリゴンを**単一の代表高さで押し出した箱型 3D モデル**。
 - 屋根の形状（切妻・寄棟等）や階別の形状変化は表現しない。
 - 本研究では建物フットプリント面積・建物密度・建物高さ（`height`）の算出に利用する。
@@ -104,6 +107,7 @@ GBA はフットプリントと建物高さで**元データの年代が異な�
 | 建物高さ（`height`） | PlanetScope 衛星画像（約3m解像度） | GBA v1.0.0（2025年11月公開） | 論文中に **2019年** の画像取得への言及あり |
 
 **フットプリントの画像年代について**:
+
 - Google Open Buildings V3 は 2023年5月に推論を実施し、「特に人口密集地ではできるだけ最新の画像を優先した」と公式に述べている（[Google Open Buildings](https://sites.research.google/gr/open-buildings/)）。
 - 一方で「場所によっては最新の画像が数年前（several years old）の場合がある」とも注記されている。
 - ハノイは首都かつ大都市であり、商用高解像度画像の入手性が高いため、2021〜2023年の画像が使用されている可能性が高い。ただし ROI 郊外部では画像年代が異なる可能性がある。
@@ -111,6 +115,7 @@ GBA はフットプリントと建物高さで**元データの年代が異な�
 - 特定エリアの画像年代を確認するには Google Earth Pro の「過去のイメージ」機能で高解像度画像の日付を参照する方法が推奨されている。
 
 **研究上の注意**:
+
 - フットプリントと高さで参照時期が異なる可能性があるため、論文では両コンポーネントの年代を区別して記述する。
 - LST（Landsat 8）の撮影年と建物データの年代の整合性は、分析結果の解釈時に考慮が必要。
 
@@ -155,11 +160,11 @@ Earth Syst. Sci. Data, 17, 6647–6670,
 https://doi.org/10.5194/essd-17-6647-2025, 2025.
 ```
 
-> **注意**: 著者リストの正式表記は論文ページ（https://essd.copernicus.org/articles/17/6647/2025/）で確認すること。上記の `Zhu, X. X. et al.` は略記であり、投稿規程に合わせて正確な著者リストを使うこと。
+> **注意**: 著者リストの正式表記は論文ページ（<https://essd.copernicus.org/articles/17/6647/2025/>）で確認すること。上記の `Zhu, X. X. et al.` は略記であり、投稿規程に合わせて正確な著者リストを使うこと。
 
 CC BY-NC 4.0 ライセンスの帰属表示要件として、論文本文またはデータセクションに以下のような記述を含めること：
 
-> Building footprint and height data are from the GlobalBuildingAtlas (GBA) v1.0.0 (Zhu et al., 2025), available at https://github.com/zhu-xlab/GlobalBuildingAtlas, licensed under CC BY-NC 4.0.
+> Building footprint and height data are from the GlobalBuildingAtlas (GBA) v1.0.0 (Zhu et al., 2025), available at <https://github.com/zhu-xlab/GlobalBuildingAtlas>, licensed under CC BY-NC 4.0.
 
 ### 2.8 フットプリント元ソース：Google Open Buildings V3 について
 
@@ -208,12 +213,12 @@ GBA（ベトナム）のフットプリントは Google Open Buildings V3 と概
 
 ## 5. 参考ソース
 
-- Microsoft GlobalMLBuildingFootprints: https://github.com/microsoft/GlobalMLBuildingFootprints
-- Google Open Buildings: https://sites.research.google/open-buildings
-- Google Open Buildings V3 Polygons: https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings_v3_polygons
-- Google Open Buildings 2.5D Temporal: https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings-temporal_v1
-- GlobalBuildingAtlas: https://github.com/zhu-xlab/GlobalBuildingAtlas
-- GlobalBuildingAtlas paper: https://essd.copernicus.org/articles/17/6647/2025/
-- GHSL Data Package 2023 / GHS-BUILT: https://ghsl.jrc.ec.europa.eu/documents/GHSL_data_access.pdf
-- GHSL collection landing page: https://data.jrc.ec.europa.eu/collection/ghsl/
-- World Settlement Footprint 2015: https://geoservice.dlr.de/web/maps/eoc%3Awsf
+- Microsoft GlobalMLBuildingFootprints: <https://github.com/microsoft/GlobalMLBuildingFootprints>
+- Google Open Buildings: <https://sites.research.google/open-buildings>
+- Google Open Buildings V3 Polygons: <https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings_v3_polygons>
+- Google Open Buildings 2.5D Temporal: <https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings-temporal_v1>
+- GlobalBuildingAtlas: <https://github.com/zhu-xlab/GlobalBuildingAtlas>
+- GlobalBuildingAtlas paper: <https://essd.copernicus.org/articles/17/6647/2025/>
+- GHSL Data Package 2023 / GHS-BUILT: <https://ghsl.jrc.ec.europa.eu/documents/GHSL_data_access.pdf>
+- GHSL collection landing page: <https://data.jrc.ec.europa.eu/collection/ghsl/>
+- World Settlement Footprint 2015: <https://geoservice.dlr.de/web/maps/eoc%3Awsf>

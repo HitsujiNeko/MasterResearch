@@ -35,7 +35,7 @@ Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT
 | 配布形式 | `.osm.pbf`（Protobuf Binary Format）、`.shp.zip`（Shapefile）、`.gpkg`（ogr2ogr 変換後） |
 | ライセンス | Open Data Commons Open Database License (ODbL 1.0) |
 | 引用要件 | "© OpenStreetMap contributors" の帰属表示が必要。学術利用可 |
-| 配布 URL | https://download.geofabrik.de/asia/vietnam.html |
+| 配布 URL | <https://download.geofabrik.de/asia/vietnam.html> |
 
 ### 2.2 タグ体系（`highway=*`）
 
@@ -86,6 +86,7 @@ ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
 **データソース**: Geofabrik Vietnam extract（`vietnam-260408.osm.pbf`）から `ogr2ogr` で `lines` レイヤのうち `highway IS NOT NULL` を Hanoi ROI でクリップして抽出。出力: `data/output/open_gis/hanoi_osm_roads.gpkg`（レイヤ名: `roads`）。
 
 **ジオメトリ特性**:
+
 - 全 194,485 件が **MultiLineString**（道路中心線）
 - 道路幅の情報は含まれない（面積ベースの被覆率は直接算出不可）
 - Hanoi ROI（行政区画）でクリップ済み
@@ -178,6 +179,6 @@ ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
 
 ## 6. 参考ソース
 
-- OpenStreetMap Wiki, Downloading data: https://wiki.openstreetmap.org/wiki/Downloading_data
-- OpenStreetMap Wiki, Overpass API: https://wiki.openstreetmap.org/wiki/Overpass_API
-- Geofabrik Vietnam extract: https://download.geofabrik.de/asia/vietnam.html
+- OpenStreetMap Wiki, Downloading data: <https://wiki.openstreetmap.org/wiki/Downloading_data>
+- OpenStreetMap Wiki, Overpass API: <https://wiki.openstreetmap.org/wiki/Overpass_API>
+- Geofabrik Vietnam extract: <https://download.geofabrik.de/asia/vietnam.html>

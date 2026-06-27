@@ -14,7 +14,7 @@
 | **発表年** | 2020 |
 | **タイトル** | Google Earth Engine Open-Source Code for Land Surface Temperature Estimation from the Landsat Series |
 | **掲載誌** | Remote Sensing, 12(9), 1471 |
-| **DOI/URL** | https://doi.org/10.3390/rs12091471 |
+| **DOI/URL** | <https://doi.org/10.3390/rs12091471> |
 | **引用数** | 取得不可（PDF精読環境の制約） |
 
 ---

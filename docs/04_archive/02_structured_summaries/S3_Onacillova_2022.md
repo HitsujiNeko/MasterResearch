@@ -14,7 +14,7 @@
 | **発表年** | 2022 |
 | **タイトル** | Combining Landsat 8 and Sentinel-2 Data in Google Earth Engine to Derive Higher Resolution Land Surface Temperature Maps in Urban Environment |
 | **掲載誌** | Remote Sensing, 14, 4076 |
-| **DOI/URL** | https://www.mdpi.com/2072-4292/14/16/4076 |
+| **DOI/URL** | <https://www.mdpi.com/2072-4292/14/16/4076> |
 | **引用数** | 取得不可（Google Scholarにアクセスできないため） |
 
 ---
@@ -77,6 +77,7 @@ $$
 $$
 
 **モデル評価**:
+
 - 3変数モデルの**R²=0.642**（p<0.0001）
 - LSTobsと（30mへ再集計した）推定の整合：**R²=0.829**、相関0.91
 
@@ -90,7 +91,7 @@ $$
 
 ### 7.1 定量的結果
 
-- **指標とLSTの単回帰関係**: 
+- **指標とLSTの単回帰関係**:
   - NDVIは負、NDBI/NDWIは正
   - R²は0.63, 0.503, 0.564（Košice）
 

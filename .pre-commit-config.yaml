@@ -9,3 +9,4 @@ repos:
     rev: v0.22.1
     hooks:
       - id: markdownlint-cli2
+        exclude: '^\.github/(PULL_REQUEST_TEMPLATE\.md|ISSUE_TEMPLATE/)'

@@ -167,7 +167,7 @@ Cartago（コロンビア）の2001–2020年を対象に、Landsat/Sentinel-2�
 ### 引用したい箇所
 
 > "the factors with the highest impact are the Normalized Difference Water Index (NDWI) and the Normalized Difference Build-up Index (NDBI)."
->
+
 > "the fractional vegetation cover model using Sentinel-2 data provides the best results with R² = 0.78 …"
 
 ### キーファインディング

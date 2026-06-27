@@ -617,7 +617,7 @@ SUHI_i = LST_{urban} - LST_{rural}
 # 📎 重要引用候補
 
 > “LULC changes are one of the major drivers of SUHI intensification.”
->
+
 > “The relationship between urban structure and SUHI is highly scale dependent.”
 
 ---

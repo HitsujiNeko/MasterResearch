@@ -176,9 +176,9 @@
 ### 引用すべき記述
 
 > "The model achieved a correlation … 0.956 … In contrast to other studies, we found adjacency effects to be stronger … at 30 m resolution."（Abstract）
->
+
 > "When we manipulated landscape configuration, the average city temperature remained the same but the local minima varied by 0.9 °C and the maxima by 4.2 °C."（Abstract）
->
+
 > "In our city, maximum cooling was achieved when ~60% of land was left natural and distributed in 7–8 patches km⁻²…"（Abstract）
 
 ### 参考にすべき図表

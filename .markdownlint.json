@@ -5,6 +5,7 @@
     "siblings_only": true
   },
   "MD025": false,
+  "MD028": false,
   "MD033": {
     "allowed_elements": ["br", "sup", "sub", "details", "summary"]
   },

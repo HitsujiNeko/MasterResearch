@@ -186,7 +186,7 @@
   - 建物・植生バイアスを統計的に除去しており、候補の中で最も地形面に近い値を提供する。
   - ただし、沿岸部・急峻地形では建物アーティファクトが残存する場合がある。
   - 熱帯の高密度キャノピー（カバー率50%超）では補正精度が低下する可能性がある。
-- **取得方法**: GEE経由で取得可能。`download_open_dem.py --dataset fabdem` で他のDEMと同じ手順で取得できる（タイルの手動選択不要）。Bristol大学リポジトリ（<https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn）からの直接ダウンロードも可能だが、GEE経由の方が簡便。>
+- **取得方法**: GEE経由で取得可能。`download_open_dem.py --dataset fabdem` で他のDEMと同じ手順で取得できる（タイルの手動選択不要）。Bristol大学リポジトリ（<https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn>）からの直接ダウンロードも可能だが、GEE経由の方が簡便。
 - **判断**: 技術的には最も望ましい準DTM候補。GEE経由で取得可能なため実行コストは低い。将来の比較候補として保留。
 
 ---

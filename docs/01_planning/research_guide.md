@@ -10,6 +10,7 @@
 ## 2. 研究背景・問題意識
 
 ### 2.1 社会的背景
+
 近年ハノイでは急速な都市化と人口集中に伴い都市ヒートアイランド現象が顕在化しており都市環境の悪化や住民の健康リスクが懸念されている。
 
 ### 2.2 学術的背景
@@ -22,11 +23,11 @@
 
 さらに、多くの既往研究は先進国都市やデータ整備が進んだ地域を対象としており、測量データや詳細な都市データが制約される途上国大都市を対象とした研究は相対的に少ない。熱帯・亜熱帯途上国都市（コロンビア<sup>[6]</sup>、ベトナム<sup>[2]</sup>等）を対象とした研究も散見されるが、データ制約下における分析手法の体系的な検証や、公開データのみを用いた場合の有効性評価は不十分である。このような背景から、データ制約下においても適用可能な分析手法を検討し、都市構造とLSTの関係を定量的に把握することが学術的課題として残されている。
 
-
 ### 2.3 問題意識
 
 * 既往研究・既存手法の限界を調査する必要がある
 * タスクで、この研究で解決すべき課題を明確にする（タスク２）
+
 ## 3. 研究目的・研究課題
 
 ### 3.1 研究目的
@@ -35,17 +36,14 @@
 
 ### 3.2 研究課題（Research Questions）
 
-
 RQ1：Landsat 8（30m）LSTと都市構造データを組み合わせた場合、どの説明変数がLSTに対して支配的か？
 RQ2：都市構造パラメータとLSTの関係性は、空間集計単位や解析スケールの違いによってどのように変化するか？
 RQ3：詳細な測量データが限定的な条件下においても、衛星データおよび公開データを用いた都市構造パラメータにより、LST分布の説明はどの程度可能か？
 
-
-
 ※ AIは **RQが明示されていると推論・提案精度が大きく向上** します。
 
-
 ### 3.3 期待される成果
+
 本研究により都市構造と熱環境の関係が定量的に示されることでハノイにおける持続可能な都市計画や環境改善施策の立案に資する科学的知見を提供できると期待される。また人工衛星データと数理最適化統計解析機械学習を組み合わせた分析枠組みは他都市への応用可能性が高く急速に都市化が進むアジア諸都市における熱環境評価手法として汎用的に活用できると考えられる。さらにデータ制約下でも実施可能な分析手法を提示することで国際的な都市環境研究の発展にも寄与することが期待される。
 
 ---
@@ -66,6 +64,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 | **S6** | Garzón et al. (2021) | 熱帯コロンビア都市のSUHI、**MLR寄与率定量化**<sup>[6]</sup> | 熱帯途上国都市の参考（RQ3◎）<br>**NDWI最大寄与51.46%**、Fcover放射率R²=0.78 |
 
 **主要な知見の統合**：
+
 * **LST算出**：SMW法が標準的だが、熱帯都市ではTCWV粗さとFcover放射率が重要
 * **支配的変数**：NDVI/NDWIが重要だが、「建物密度・道路密度等の物理量が不足」との指摘あり
 * **空間スケール**：近傍効果（30-60m等のリング）が即時効果より強い場合がある
@@ -97,7 +96,6 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 | **データ制約対応** | 高品質データ依存（S5:OS MasterMap） | **測量データ vs 公開データの比較検証** |
 | **手法** | GBM（S5）、MLR+NBML（S6） | **RF/GBDT+SHAP（解釈性重視）** |
 | **新規性** | 配置効果の分離（S5）<br>放射率モデル比較（S6） | **途上国・複数都市でのスケール依存性評価** |
-
 
 ### 4.3 先行研究から得られた重要知見（RQ別整理）
 
@@ -158,19 +156,22 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 
 本研究では、Ermida et al. (2020)<sup>[1]</sup>で確立されたSMW（Statistical Mono-Window）法を基にLST（地表面温度）を算出する。具体的な手順は以下のmarkdownファイルにまとめているので、そちらを参照のこと。
 
-- [calc_LST_report.md](../02_methods/calc_LST_report.md)
-- [gee_calc_LST.md](../02_methods/gee_calc_LST.md)
+* [calc_LST_report.md](../02_methods/calc_LST_report.md)
+* [gee_calc_LST.md](../02_methods/gee_calc_LST.md)
 
 また、算出には以下のPythonスクリプトを使用する：
-- `gee_calc_LST.py`
-- `module/lst_smw.py`
+
+* `gee_calc_LST.py`
+* `module/lst_smw.py`
 
 **LSTデータの仕様と注意点**：
+
 * 空間解像度は30m（Landsat 8 TIRS基準）
 * 雲マスク処理を実施しているため、欠損値が存在
 * **ベトナムハノイ市は雨季に雲が多いため、1年を通した安定的なLSTデータ取得が困難**
 
 **熱帯都市特有の制約と対策**：
+
 1. **TCWV（Total Column Water Vapor）の粗さ**  
    SMW法で使用するNCEP/NCAR TCWV再解析データは**空間解像度2.5°（約275km）**と粗く<sup>[1]</sup>、熱帯・沿岸都市では局所的な大気水蒸気量の変動を捉えきれない可能性がある。ベトナム都市では海岸線の影響を受けるため、この制約に留意する。
 
@@ -191,7 +192,6 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 また、雲被覆等によりLSTが取得できない画素についてはマスク処理を行い、十分な有効画素数が確保されている期間・領域を解析対象とする。これにより、データ欠損が解析結果に与える影響を低減する。
 
 以上の前処理により、異種データを統一的に扱うことが可能な解析基盤を構築する。
-
 
 #### 5.2.3 特徴量・指標算出
 
@@ -255,9 +255,9 @@ Osborne & Alvares (2019)<sup>[5]</sup>の近傍リング設計を参考に、各
 **SHAP（SHapley Additive exPlanations）値**を用いて、機械学習モデルのブラックボックス性を緩和し、各変数の寄与を個別に解釈する。
 
 * **SHAP値の利点**：
-  - 各変数の「正の寄与」「負の寄与」を定量化
-  - 変数間の相互作用効果を可視化
-  - MLRの寄与率との比較により、線形・非線形効果を分離
+  * 各変数の「正の寄与」「負の寄与」を定量化
+  * 変数間の相互作用効果を可視化
+  * MLRの寄与率との比較により、線形・非線形効果を分離
 * **本研究での活用**：SHAP summary plotにより、建物密度・NDVI・NDWI等の寄与方向と大きさを可視化し、RQ1（支配的説明変数）に対応する。
 
 **【段階4：RQ別の分析設計】**
@@ -269,7 +269,6 @@ Osborne & Alvares (2019)<sup>[5]</sup>の近傍リング設計を参考に、各
 | **RQ3：データ制約下適用** | 測量データ vs 公開データ（OSM等）の性能比較 | R²、RMSE、変数重要度の変化 |
 
 これにより、単一手法に依存しない多角的な分析を実現し、研究結果の頑健性を高める。
-
 
 ## 6. 使用データ
 
@@ -285,24 +284,20 @@ Osborne & Alvares (2019)<sup>[5]</sup>の近傍リング設計を参考に、各
 | Global Building Atlas（検討中） | ベクタ | 都市構造パラメータ（建物） | 約10–30 m | 静的 | WGS84 | 公開年次依存 | 建物高さ等の精度にばらつき |
 | 人口データ（検討中） | ラスタ/表 | 都市構造パラメータ（人口） | 100 m–1 km | 年次 | WGS84 | データセット依存 | 解像度が粗い |
 
-
-
-
 ### 6.2 各データの説明
 
-
-- 都市構造パラメータ（衛星由来）
+* 都市構造パラメータ（衛星由来）
 
 NDVI、NDBI、NDWIなどの衛星由来指標は、都市構造を表す代理指標として使用する。これらの指標は広域・時系列で一貫して取得可能である一方、都市構造を直接的に表現するものではなく、土地被覆や表面特性を通じた間接的な指標である点に留意する。
 
-- 測量データ（DGN）
+* 測量データ（DGN）
 
 測量由来のDGNデータは、建物や道路など都市構造を詳細に表現する高精度データとして利用する。本研究ではこれらのデータを「理想的な都市構造情報」と位置づけ、衛星由来データのみを用いた場合との比較を通じて、データ制約下における分析結果の違いを検証する。
 
-
 ### 6.3 その他　使用を検討しているデータ
+
 建物データ３D
-https://github.com/zhu-xlab/GlobalBuildingAtlas　
+<https://github.com/zhu-xlab/GlobalBuildingAtlas>
 
 ---
 
@@ -345,7 +340,6 @@ AIは研究補助として利用し、研究の最終的な判断・責任は研
 
 未完了項目
 
-
 ## 10. 現時点での課題・未確定事項
 
 ```text
@@ -353,7 +347,7 @@ AIは研究補助として利用し、研究の最終的な判断・責任は研
 ・評価方法は今後調整予定
 ```
 
-- 測量データDGNファイルを研究データとして用いる場合、データ制約下での有効性を評価しづらい。（測量データが存在しない地域での適用可能性をどう評価するか？）
+* 測量データDGNファイルを研究データとして用いる場合、データ制約下での有効性を評価しづらい。（測量データが存在しない地域での適用可能性をどう評価するか？）
 
 ※ **未確定事項を明示するのはマイナスではありません**。
 
@@ -366,7 +360,7 @@ AIは研究補助として利用し、研究の最終的な判断・責任は研
 [1] **Ermida, S.L., Soares, P., Mantas, V., Göttsche, F.-M., Trigo, I.F.** (2020).  
 Google Earth Engine open-source code for Land Surface Temperature estimation from the Landsat series.  
 *Remote Sensing*, 12 (9), 1471.  
-https://www.mdpi.com/2072-4292/12/9/1471  
+<https://www.mdpi.com/2072-4292/12/9/1471>  
 → **SMW法によるLST算出の標準手法**（本研究で採用）
 
 [2] **Le Ngoc Hanh, Tran Thi An** (年不明).  
@@ -377,25 +371,25 @@ Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing 
 [3] **Onačillová, K., Gallay, M., Paluba, D., Péliová, A., Tokarčík, O., Laubertová, D.** (2022).  
 Combining Landsat 8 and Sentinel-2 Data in Google Earth Engine to Derive Higher Resolution Land Surface Temperature Maps in Urban Environment.  
 *Remote Sensing*, 14 (16), 4076.  
-https://www.mdpi.com/2072-4292/14/16/4076  
+<https://www.mdpi.com/2072-4292/14/16/4076>  
 → **ダウンスケーリング手法**（R²=0.642→0.829）、RQ2参考
 
 [4] **Sun, R., Lü, Y., Yang, X., Chen, L.** (2019).  
 Quantifying the effects of urban form on land surface temperature in subtropical high-density urban areas using machine learning.  
 *Remote Sensing*, 11 (8), 959.  
-https://www.mdpi.com/2072-4292/11/8/959  
+<https://www.mdpi.com/2072-4292/11/8/959>  
 → **Random Forest変数重要度**（緑地 > 建物密度 > 道路密度）、RQ1参考
 
 [5] **Osborne, P.E., Alvares-Sanches, T.** (2019).  
 Quantifying how landscape composition and configuration affect urban land surface temperatures using machine learning and neutral landscapes.  
 *Computers, Environment and Urban Systems*, 76, 80–90.  
-https://doi.org/10.1016/j.compenvurbsys.2019.04.003  
+<https://doi.org/10.1016/j.compenvurbsys.2019.04.003>  
 → **近傍リング設計**（30-60m/60-90m/90-120m）、**RQ2の核心文献**
 
 [6] **Garzón, J., Molina, I., Velasco, J., Calabia, A.** (2021).  
 A Remote Sensing Approach for Surface Urban Heat Island Modeling in a Tropical Colombian City Using Regression Analysis and Machine Learning Algorithms.  
 *Remote Sensing*, 13 (21), 4256.  
-https://doi.org/10.3390/rs13214256  
+<https://doi.org/10.3390/rs13214256>  
 → **熱帯途上国都市**でのMLR寄与率定量化（NDWI 51.46%）、**Fcover放射率**（R²=0.78）
 
 **その他の参考文献**
@@ -404,24 +398,30 @@ https://doi.org/10.3390/rs13214256
 * PDF精読済み文献の構造化要約は `docs/04_archive/02_structured_summaries/` に格納
 
 ---
+
 ## 12. 別ドキュメントの参照一覧
 
 **プロジェクト全体の構成**：
+
 * [docs/README.md](../README.md) - ドキュメント構造の全体像（Single Source of Truth）
 
 **データ関連**：
+
 * [DGNファイル内容確定結果.md](../../DGNファイル内容確定結果.md) - 研究に使用可能なベクタデータの内容確認結果
 
 **手法・仕様書**：
+
 * [gee_calc_LST.md](../02_methods/gee_calc_LST.md) - LST算出スクリプトの仕様書
 * [calc_LST_report.md](../02_methods/calc_LST_report.md) - Landsat 8 LST算出の処理手順とレポート
 * [CodingRule.md](../02_methods/CodingRule.md) - Pythonコーディング規約（PEP 8準拠）
 
 **文献レビュー**：
+
 * [previous_studies_report.md](../04_archive/previous_studies_report.md) - 先行研究の整理・要約（S1-S6の詳細分析）
 * [papers_database.csv](../04_archive/01_metadata/papers_database.csv) - 文献メタデータ管理（RQ関連度評価含む）
 * [02_structured_summaries/](../04_archive/02_structured_summaries/) - PDF精読済み文献の構造化要約（S1-S6）
 * [chatgpt_instruction_paper_analysis.md](../04_archive/templates/chatgpt_instruction_paper_analysis.md) - ChatGPTに論文分析を依頼する際の標準プロンプト
+
 ---
 
 ## 補足：この計画書の使い方（AI向け）

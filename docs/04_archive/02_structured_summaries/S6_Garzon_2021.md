@@ -100,22 +100,23 @@ Cartago（コロンビア）の2001–2020年を対象に、Landsat/Sentinel-2�
 ### 定量的結果（LST推定の比較）
 
 * 放射率モデルの性能（地上LSTとの回帰）：
-  - **Fcoverモデル**: R² = 0.78、SD = 0.73°C（最良）
-  - **ASTER-GEDv3**: R² = 0.27
-  - **LSE（LULC別固定）**: R² = 0.26
+  * **Fcoverモデル**: R² = 0.78、SD = 0.73°C（最良）
+  * **ASTER-GEDv3**: R² = 0.27
+  * **LSE（LULC別固定）**: R² = 0.26
 * 9月2019の平均誤差：Fcover 1.14°C、ASTER-GEDv3 3.67°C、LSE 3.85°C
 
 ### 定量的結果（MLR：支配要因と係数）
 
 * 変数選択の経緯：NDVIとGreennessが高冗長（R²=0.99）でGreenness除外、Brightnessは空間相関が低く除外、PWは有意でなく除外
 * 最終MLR（トレンド同士の回帰）：
-  - **LSTtrend = 0.29 + 0.48·NDBItrend + 0.21·NDVItrend − 0.61·NDWItrend − 0.51·PUC**
-  - 係数の有意性：全て **p < 0.001**
-  - モデル **R² = 0.82**
+  * **LSTtrend = 0.29 + 0.48·NDBItrend + 0.21·NDVItrend − 0.61·NDWItrend − 0.51·PUC**
+  * 係数の有意性：全て **p < 0.001**
+  * モデル **R² = 0.82**
 
 ### 変数重要度（重み：標準化係数→寄与率）
 
 **寄与率（標準化係数から算出）**：
+
 1. **NDWI: 51.46%**（最大）
 2. **NDBI: 21.38%**
 3. **PUC: 14.32%**（都市中心距離）
@@ -166,7 +167,7 @@ Cartago（コロンビア）の2001–2020年を対象に、Landsat/Sentinel-2�
 ### 引用したい箇所
 
 > "the factors with the highest impact are the Normalized Difference Water Index (NDWI) and the Normalized Difference Build-up Index (NDBI)."
-
+>
 > "the fractional vegetation cover model using Sentinel-2 data provides the best results with R² = 0.78 …"
 
 ### キーファインディング

@@ -33,6 +33,7 @@
 4. `calc_urban_params.py` の入出力仕様を、公開 GIS / 測量 GIS のどちらにも適用できる形へ更新する。
 
 現在の主要実装:
+
 - `src/analysis/build_satellite_only_dataset.py`
 - `src/analysis/analysis_rq3_satellite_only.py`
 - `src/preprocessing/extract_geofabrik_roads_hanoi.py`
@@ -42,7 +43,7 @@
 
 ## フロー全体像
 
-```
+```text
 [RawData]
   │
   ├─ LSTラスタ (GeoTIFF)  ────────────────────────────────────┐
@@ -171,11 +172,12 @@ LST と GIS データでは空間範囲が異なる。この非対称性を理�
 | GIS（CS: merge_CS.gpkg をその場でWGS84換算） | [105.7831, 20.9939, 105.8671, 21.1000] | 上と整合（中心部範囲） |
 
 **注意（重要）**:
+
 - 旧 `merge_DC_wgs84.gpkg` や `merge_GT_wgs84.gpkg` 等の一部レイヤでは、BBoxが不自然に広くなる（外れ値ジオメトリを含む可能性）。
 - そのため、**DC/GT/TV等の「ファイル全体BBox」を分析範囲の定義に使わず**、RG/CSなど整合が取れているデータの範囲、またはROI内でのフィルタ後の範囲を用いる。
 - 旧変換成果物での外れ値実例: `merge_DC_wgs84.gpkg`（elements）に **緯度9度台**の地物が混入（`feature_index: 59545`, bbox: (105.00177, 9.04560, 105.00179, 9.04561)）。
 
-```
+```text
 行政区画ROI（全体）
 ┌────────────────────────────────┐
 │  ～外縁部（農地・山岳）～        │
@@ -194,12 +196,14 @@ LST と GIS データでは空間範囲が異なる。この非対称性を理�
 **分析用データセット（Step 4）構築時に、シナリオごとに空間マスク方針を切り替える。**
 
 具体的には：
+
 - `Satellite Only`: ROI 全体を対象にする
 - `Limited`: 公開 GIS の有効カバレッジと ROI の共通部分を対象にする。建物データが ROI 全域を覆わない場合は、カバレッジマスクまたは対象範囲制限を明示する
 - `Full`: RG/CS 等で定義した測量 GIS 有効域を対象にする
 - 測量 GIS では、DC/GT/TV 等の外れ値ジオメトリが全体BBoxを歪める可能性があるため、「分析対象域内に限定して集計」する
 
 **ピクセル値の区別**（GEE算出時に既に設定済み）:
+
 | 値 | 意味 |
 |----|------|
 | NaN | 雲マスク（GEEのcloud_mask関数による） |
@@ -242,7 +246,7 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 > どのデータソースを採用するかはシナリオに依存する。  
 > `Limited` では公開 GIS のみ、`Full` では公開 GIS と測量 GIS の両方を扱う。  
 > ただし、DH / TH / TV の意味と利用方法はまだ整理途中であり、確定していない算出方法は今後の確認結果に応じて更新する。
-
+>
 > **根拠**: S4[Sun et al. 2019]ではRandom Forestにより「緑地 > 建物密度 > 道路密度」の順位を示した（R²≈0.78）。
 
 ### 3.2 グリッド設計
@@ -258,7 +262,7 @@ LSTの空間解像度に合わせ、**30m × 30m グリッド**を基本単位�
 
 ### 3.3 近傍変数の設計（RQ2対応）
 
-Osborne & Alvares (2019)[S5]の近傍リング設計を参考に、  
+Osborne & Alvares [2019](S5)の近傍リング設計を参考に、  
 各パラメータを**複数の空間スケール**で算出し、空間スケール依存性を評価する。
 
 | スケール名 | 範囲 | 変数名サフィックス | 例（建物被覆率） |
@@ -272,6 +276,7 @@ Osborne & Alvares (2019)[S5]の近傍リング設計を参考に、
 > 近傍変数の導入はRQ2（空間スケールの影響評価）の中核をなす。
 
 **実装方針**:
+
 - `scipy.ndimage` または `astropy.convolution` を使用したリング形状カーネルによる畳み込み
 - または `rasterio` + `shapely` による距離リング内の空間集計
 
@@ -374,6 +379,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 | 実装ライブラリ | `shap` |
 
 **RQ1の考察観点**:
+
 - MLR標準化係数とRF/SHAP重要度の一致・不一致
 - 非線形効果の存在有無（MLRとRFの性能差で推定）
 
@@ -408,6 +414,7 @@ LST分布をどの程度説明できるかを評価する。
 | Satellite Only | 衛星指標のみ | 最も制約された状況 |
 
 **公開GISデータ取得**:
+
 - 道路: Geofabrik / OSM の `highway=*`
 - 建物: Microsoft GlobalMLBuildingFootprints, Google Open Buildings, OSM `building=*`, GlobalBuildingAtlas を比較
 - 水域・土地利用: OSM, GHSL, WSF などを補助候補として確認
@@ -448,7 +455,7 @@ RQ3 は、現在次の順で進める。
 |------|------|--------|
 | R²（決定係数） | 説明力の評価 | 1 - SS_res/SS_tot |
 | RMSE | 予測精度 | √(Σ(y-ŷ)²/n) |
-| MAE | 予測精度（外れ値に頑健） | Σ|y-ŷ|/n |
+| MAE | 予測精度（外れ値に頑健） | Σ\|y-ŷ\|/n |
 | VIF | 多重共線性の診断 | 1/(1-R²_j) |
 
 ### 6.2 可視化一覧
@@ -506,6 +513,7 @@ RQ3 は、現在次の順で進める。
 
 > **更新ルール**: 各 Phase のスクリプトを `src/` に追加・更新したら、まずこのドキュメントの実装欄を更新する。  
 > そのうえで、変更内容に応じて関連文書のみを更新する。  
+>
 > - 測量由来 GIS の整備状況や解釈を変えた場合: [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)  
 > - `Satellite Only` の分析結果を変えた場合: [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)  
 > - ドキュメント構成や参照先を変えた場合: [docs/README.md](../README.md)

@@ -10,7 +10,7 @@
 
 ## 🗂️ ディレクトリ構造
 
-```
+```text
 docs/
 ├── README.md                              # 📌 このファイル（全体ガイド）
 ├── setup.md                               # 🛠️ 環境構築ガイド
@@ -99,6 +99,7 @@ docs/
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果 | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
 
 **今後追加予定**:
+
 - RQ1分析結果: 変数重要度ランキング、モデル性能
 - RQ2分析結果: 空間スケール別の比較
 - 図表集: 論文用図表の一覧
@@ -115,6 +116,7 @@ docs/
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
 **先行研究一覧（S1-S8）**:
+
 - **S1**: Ermida et al. (2020) - SMW法 [本研究採用手法]
 - **S2**: Le Ngoc Hanh (2025) - ベトナム・ダナン [地域参考]
 - **S3**: Onačillová (2022) - 高解像度LST
@@ -125,6 +127,7 @@ docs/
 - **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
 
 **構造化要約（現存ファイル）**:
+
 - [S1_Ermida_2020.md](04_archive/02_structured_summaries/S1_Ermida_2020.md)
 - [S2_LeNgocHanh_2025.md](04_archive/02_structured_summaries/S2_LeNgocHanh_2025.md)
 - [S3_Onacillova_2022.md](04_archive/02_structured_summaries/S3_Onacillova_2022.md)
@@ -166,6 +169,7 @@ graph TB
 ```
 
 **凡例**:
+
 - 🔵 青: 研究計画
 - 🟡 黄: 研究手法
 - ⚪ 灰: アーカイブ
@@ -173,36 +177,42 @@ graph TB
 
 ---
 
-
 ## 📋 [01_planning](01_planning/) - 研究計画フェーズ
 
 ### 🎯 目的
+
 研究の方向性を定め、RQ（Research Questions）を明確化する
 
 ### 📄 ドキュメント詳細
 
 #### [available_gis_data.md](01_planning/available_gis_data.md)
+
 **公開GISデータ候補の整理（インデックス）** - 採用データの一覧と評価観点を集約し、カテゴリ別詳細ドキュメントへのリンクを提供する
 
 **主要セクション**:
+
 - 評価観点（都市構造指標適格性、カバレッジ、データ時期、解像度、ライセンス）
 - 結論の要点（各カテゴリの採用判断サマリ）
 - 採用データ一覧（OSM、GBA、FABDEM）
 - カテゴリ別詳細ドキュメントへのリンク
 
 **関連ドキュメント**:
+
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)
 - 手法仕様 → [analysis_workflow.md](02_methods/analysis_workflow.md)
 
 #### [gis_data/](01_planning/gis_data/)
+
 **カテゴリ別GISデータ詳細** - 各データカテゴリの調査結果・データ仕様・取得結果・注意点を格納するサブフォルダ
 
 各ファイルの一覧と詳細は [available_gis_data.md](01_planning/available_gis_data.md) の Section 4（カテゴリ別詳細ドキュメント）を参照。
 
 #### [research_guide.md](01_planning/research_guide.md)
+
 **研究計画書** - 本研究の全体像を定義
 
 **主要セクション**:
+
 - 研究題目: ベトナム主要都市における地表面温度と都市構造の関係性評価
 - 研究背景: 途上国大都市のデータ制約、ヒートアイランド現象
 - **Research Questions**:
@@ -212,28 +222,32 @@ graph TB
 - 研究手法: SMW法、衛星データ、公開データ、機械学習
 - 期待される成果: データ制約下での分析手法の有効性検証
 
-**関連ドキュメント**: 
+**関連ドキュメント**:
+
 - 手法詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)
 - 先行研究 → [previous_studies_report.md](04_archive/previous_studies_report.md)
 
 ### 📝 今後追加予定
+
 - `literature_review.md`: 詳細な文献レビュー
 - `timeline.md`: 研究スケジュール
 
 ---
 
-
 ## 🔬 [02_methods](02_methods/) - 研究手法フェーズ
 
 ### 🎯 目的
+
 研究で使用する具体的な手法やツールを詳細に記録し、再現性を確保する
 
 ### 📄 ドキュメント詳細
 
 #### [calc_LST_report.md](02_methods/calc_LST_report.md)
+
 **Landsat 8 LST算出レポート** - SMW法による地表面温度算出の実施報告
 
 **主要セクション**:
+
 - LST算出手法の選定理由（SMW法 vs 他手法）
 - 処理結果: 2015-2024年のLSTデータ
 - 品質評価: RMSE、欠損率、雲被覆率
@@ -242,13 +256,16 @@ graph TB
 **実装コード**: [src/gee/gee_calc_LST.py](../src/gee/gee_calc_LST.py)
 
 **関連ドキュメント**:
+
 - 手法の理論的背景 → [previous_studies_report.md S1](04_archive/previous_studies_report.md)
 - 実装仕様 → [gee_calc_LST.md](02_methods/gee_calc_LST.md)
 
 #### [gee_calc_LST.md](02_methods/gee_calc_LST.md)
+
 **gee_calc_LST.pyの仕様書** - LST算出スクリプトの詳細仕様
 
 **主要セクション**:
+
 - 入力データ: `data/input/gee_calc_LST_info.csv`
 - 出力データ: `data/output/LST/*.tif`、`gee_calc_LST_results.csv`
 - 処理フロー: GEE認証 → ROI読込 → LST算出 → 品質評価
@@ -258,12 +275,15 @@ graph TB
 **実装コード**: [src/gee/gee_calc_LST.py](../src/gee/gee_calc_LST.py)
 
 **関連ドキュメント**:
+
 - コーディング規約 → [CodingRule.md](02_methods/CodingRule.md)
 
 #### [CodingRule.md](02_methods/CodingRule.md)
+
 **Pythonコーディング規約** - プロジェクト全体で遵守すべき規約
 
 **主要ルール**:
+
 - PEP 8準拠（スペース4つ、タブ禁止、`ruff check`/`ruff format`で自動チェック）
 - 型ヒントを関数の引数・戻り値に付与
 - 日本語docstring必須（初心者にも理解できる説明）
@@ -274,39 +294,46 @@ graph TB
 **適用範囲**: `src/`配下のすべてのPythonスクリプト
 
 **関連ドキュメント**:
+
 - AI指示書 → [CLAUDE.md](../CLAUDE.md)
 
 ### 📝 今後追加予定
+
 - `urban_parameters.md`: 都市構造パラメータの定義と算出方法
 - `statistical_methods.md`: 統計解析手法の詳細
 - `ml_models.md`: 機械学習モデルの選定と実装
 
 ---
 
-
 ## 📊 [03_results](03_results/) - 研究結果フェーズ
 
 ### 🎯 目的
+
 分析結果を体系的に整理し、論文執筆の基盤を構築する
 
 ### � ドキュメント詳細
 
 #### [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md)
+
 **GIS-IDEAS学会用アブストラクト下書き** - RQ3 の Satellite Only 初期結果に基づく本文案と図表案
 
 **主要セクション**:
+
 - Introduction / Methodology / Results / Conclusion の文案
 - 掲載候補の図表セット
 - 断定を避けるべき事項とタイトル案
 
 **関連ドキュメント**:
+
 - 初期結果 → [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)
 
 #### [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md)
+
 **測量由来GISデータ整備状況レポート** - 測量由来 GIS の整備、内容確認、Full シナリオ接続条件の整理
 
 **主要セクション**:
+
 - 測量由来 GIS データ整備の全体概況
 - 7種類の GPKG（CS/DC/DH/GT/RG/TH/TV）の処理結果
 - レイヤ意味の確認結果と想定用途
@@ -315,19 +342,23 @@ graph TB
 **自動生成元**: [src/analysis/analyze_data_status.py](../src/analysis/analyze_data_status.py)（GIS/LSTデータを自動分析）
 
 **活用場面**:
+
 - 測量由来 GIS の入力仕様確認
 - Full シナリオの前提整理
 - 都市構造パラメータ設計時の根拠確認
 
 **関連ドキュメント**:
+
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)（RQ1-3の定義）
 - 手法フロー → [analysis_workflow.md](02_methods/analysis_workflow.md)
 - パラメータ設計 → [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)
 
 #### [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
+
 **Satellite Only 分析結果** - RQ3 の 3 観測日ベースライン整理
 
 **主要セクション**:
+
 - 2023-07-07、2023-07-23、2024-11-30 の分析条件
 - MLR / Random Forest の複数日性能比較
 - Spatial CV による過大評価確認
@@ -337,51 +368,60 @@ graph TB
 **自動生成元**: `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py`
 
 #### [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd)
+
 **RQ3図表用Mermaid図** - Satellite Only 分析フローを論文図表向けに整理した図
 
 **主要セクション**:
+
 - データ準備からモデル評価までの処理順
 - Satellite Only 条件で使う説明変数群
 - 図表化を前提にした簡潔なノード構成
 
 **関連ドキュメント**:
+
 - 分析結果 → [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
 - 解析ガイド → [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md)
 
 ### �📝 今後追加予定のドキュメント
 
 #### RQ別の分析結果
+
 - `rq1_variable_importance.md`: RQ1結果 - 説明変数の重要度ランキング
 - `rq2_spatial_scale.md`: RQ2結果 - 空間集計単位ごとの比較分析
 
 #### 統合結果
+
 - `analysis_summary.md`: 全分析結果の統合まとめ
 - `figures_catalog.md`: 論文用図表の一覧と説明
 - `discussion_draft.md`: 考察の下書き
 
 #### 補足資料
+
 - `model_performance.md`: 各種モデルの性能比較
 - `sensitivity_analysis.md`: 感度分析結果
 
 ### 🔗 関連ドキュメント
+
 - 研究計画 → [research_guide.md](01_planning/research_guide.md)（RQ定義）
 - データソース → [calc_LST_report.md](02_methods/calc_LST_report.md)（LSTデータ）
 - 先行研究比較 → [previous_studies_report.md](04_archive/previous_studies_report.md)
 
 ---
 
-
 ## 📦 [04_archive](04_archive/) - アーカイブ・先行研究
 
 ### 🎯 目的
+
 参考資料や先行研究を整理し、AI支援による文献活用を可能にする
 
 ### 📄 ドキュメント詳細
 
 #### [README.md](04_archive/README.md)
+
 **文献管理システムガイド** - 04_archiveフォルダの構造と使い方
 
 **主要内容**:
+
 - 3層情報管理システム（CSV → Markdown → PDF）
 - AIとの対話例
 - 文献追加手順
@@ -389,9 +429,11 @@ graph TB
 **対象ユーザー**: 研究者本人、AI支援システム
 
 #### [literature_management_guide.md](04_archive/literature_management_guide.md)
+
 **文献管理・AI活用ガイド** - PDFをAIが活用するための戦略書（314行）
 
 **主要セクション**:
+
 - 問題: AIはPDFを直接読めない
 - 解決策: Markdown構造化要約の作成
 - 3層データベースコンセプト（metadata → summaries → findings）
@@ -399,12 +441,15 @@ graph TB
 - AI最適化のベストプラクティス
 
 **関連ドキュメント**:
+
 - テンプレート → [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md)
 
 #### [previous_studies_report.md](04_archive/previous_studies_report.md)
+
 **先行研究整理（マスタードキュメント）** - S1-S8の事実ベース整理
 
 **含まれる研究**:
+
 - **S1**: Ermida et al. (2020) - SMW法 [本研究採用]
 - **S2**: Le Ngoc Hanh (2025) - ダナン都市化とLST [ベトナム事例]
 - **S3**: Onačillová (2022) - 高解像度LST
@@ -417,18 +462,22 @@ graph TB
 **活用場面**: 論文執筆、手法比較、関連研究の参照
 
 **関連ドキュメント**:
+
 - 詳細メタデータ → [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv)
 
 #### [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv)
+
 **論文メタデータベース（CSV）** - AI検索・フィルタリング用
 
 **列構成**:
+
 - ID, 著者, 年, タイトル, 掲載誌, 主目的, データ種別
 - 主要手法, 対象地域, DOI_URL, PDF有無
 - 重要度（A/B/C）, RQ1-3関連度（◎○△）
 - キーワード, メモ
 
 **活用方法**:
+
 ```python
 import pandas as pd
 df = pd.read_csv('papers_database.csv')
@@ -437,9 +486,11 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 ```
 
 #### [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md)
+
 **論文要約テンプレート** - 新規論文追加時の標準フォーマット
 
 **セクション構成**:
+
 1. 基本情報（著者、年、DOI）
 2. 研究目的
 3. 使用データ
@@ -453,7 +504,7 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 
 ### 📁 サブディレクトリ
 
-```
+```text
 04_archive/
 ├── 01_metadata/              # 論文メタデータ
 │   └── papers_database.csv
@@ -469,17 +520,17 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 ```
 
 ### 🔗 関連ドキュメント
+
 - 研究計画との対応 → [research_guide.md](01_planning/research_guide.md)
 - 採用手法の詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)
 
 ---
 
-
 ## 🔄 ドキュメント管理のルール
 
 ### ✅ 新しいドキュメントを追加する場合
 
-1. **適切なフェーズを選択**: 
+1. **適切なフェーズを選択**:
    - 📋 `01_planning/`: 研究の方向性・RQ定義
    - 🔬 `02_methods/`: 手法・ツールの詳細仕様
    - 📊 `03_results/`: 分析結果・図表
@@ -495,6 +546,7 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
    - 既存ドキュメントから新規ドキュメントへのリンクを追加
 
 4. **メタ情報を記載**:
+
    ```markdown
    # ドキュメントタイトル
    
@@ -506,6 +558,7 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 ### ✅ ドキュメントを移動・削除する場合
 
 1. **リンク切れを確認**:
+
    ```powershell
    # 影響範囲を確認
    grep -r "旧ファイル名" docs/
@@ -516,6 +569,7 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
    - このREADME.mdのパスを更新
 
 3. **Git履歴を保持**:
+
    ```bash
    git mv 旧パス 新パス
    ```
@@ -543,7 +597,8 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 > **最も効率的な方法**: ChatGPTで論文分析 → GitHub Copilotでプロジェクト統合
 
 #### フェーズ1: 論文検索（ChatGPT + ScholarGPT）
-```
+
+```text
 ChatGPTに質問：
 「Land Surface Temperature and urban structure in Southeast Asian cities
  で2020年以降の主要論文を教えて。各論文のDOI、引用数、主要な手法も教えて」
@@ -552,7 +607,8 @@ ChatGPTに質問：
 ```
 
 #### フェーズ2: 論文分析（ChatGPT）
-```
+
+```text
 ChatGPTに依頼：
 「docs/04_archive/templates/chatgpt_instruction_paper_analysis.md の
  指示に従って、以下の論文を分析してください」
@@ -567,7 +623,8 @@ ChatGPTに依頼：
 ```
 
 #### フェーズ3: プロジェクト統合（GitHub Copilot）
-```
+
+```text
 VS Code（GitHub Copilot）に依頼：
 「ChatGPTが生成したS9_Zhang_2023.md を保存しました。
  この内容を papers_database.csv に追加し、
@@ -585,7 +642,8 @@ VS Code（GitHub Copilot）に依頼：
 ### 🤖 AIに質問する場合
 
 **効果的な質問例**:
-```
+
+```text
 「research_guide.mdを参照して、RQ1に関連する分析手法を提案してください」
 
 「previous_studies_report.mdから、都市構造パラメータの定義を抽出し、
@@ -599,7 +657,8 @@ VS Code（GitHub Copilot）に依頼：
 ```
 
 **NGな質問例**:
-```
+
+```text
 ❌ 「先行研究を教えて」（曖昧）
 ✅ 「previous_studies_report.mdのS4（Sun et al. 2019）で使用された
     都市構造パラメータを箇条書きで教えて」
@@ -612,7 +671,8 @@ VS Code（GitHub Copilot）に依頼：
 ### 📖 ドキュメント間の関連を確認
 
 **研究の流れに沿って参照**:
-```
+
+```text
 1. 研究計画  → research_guide.md（RQ定義）
 2. 先行研究  → previous_studies_report.md（手法調査）
 3. 手法選定  → calc_LST_report.md（LST算出）
@@ -623,13 +683,15 @@ VS Code（GitHub Copilot）に依頼：
 ```
 
 **ドキュメント関係図を活用**:
+
 - Mermaid図で視覚的に依存関係を把握
 - 矢印の方向 = 参照の流れ
 
 ### 🔍 検索のコツ
 
 **VS Codeでの検索**:
-```
+
+```text
 Ctrl+Shift+F で全文検索
 - "RQ1" → Research Question 1 関連の記述を検索
 - "SMW" → SMW法に関する記述を検索
@@ -637,6 +699,7 @@ Ctrl+Shift+F で全文検索
 ```
 
 **CSVデータの活用**:
+
 ```python
 # 特定のキーワードで論文を検索
 df = pd.read_csv('docs/04_archive/01_metadata/papers_database.csv')
@@ -649,7 +712,7 @@ ml_papers = df[df['キーワード'].str.contains('機械学習|ランダムフ�
 
 ### プロジェクト全体の構成
 
-```
+```text
 MasterResearch/
 ├── .claude/                     # Claude Code設定
 │   └── skills/                  # カスタムskill（check-docs-consistency等）

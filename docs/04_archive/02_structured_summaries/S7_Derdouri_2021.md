@@ -9,7 +9,7 @@
 - **年**: 2021
 - **タイトル**: *Understanding the Links between LULC Changes and SUHI in Cities: Insights from Two-Decadal Studies (2001–2020)*
 - **掲載誌**: Remote Sensing, 13(18), 3654
-- **DOI**: https://doi.org/10.3390/rs13183654
+- **DOI**: <https://doi.org/10.3390/rs13183654>
 - **論文種別**: Systematic Review
 - **対象論文数**: 113本（初期1300件から選定）
 - **レビュー期間**: 2001–2020
@@ -617,7 +617,7 @@ SUHI_i = LST_{urban} - LST_{rural}
 # 📎 重要引用候補
 
 > “LULC changes are one of the major drivers of SUHI intensification.”
-
+>
 > “The relationship between urban structure and SUHI is highly scale dependent.”
 
 ---

@@ -35,7 +35,7 @@ prompt ファイルは completed フォルダに蓄積せず、active に少数�
 
 `.github/prompts/templates/task_intake_template.md` の内容を `active/_intake_{slug}.md` にコピーし、VSCode で記入する。`{slug}` はタスク内容を表す短い英語スネークケース。
 
-```
+```text
 例: .github/prompts/active/_intake_building_gis.md
 ```
 
@@ -66,7 +66,7 @@ Issue 作成直後に Claude が `active/` に自動生成する。Issue 作成�
 
 **命名規則**: `{Issue番号}_{task_name}.prompt.md`（`task_name` は英語スネークケース）
 
-```
+```text
 例: 1_consider_building_gisdata.prompt.md
 ```
 
@@ -148,6 +148,7 @@ git push origin --delete {Issue番号}/{タスク要約英文}  # リモート�
 確認後、確認項目をユーザーに提示し、レビュー・動作確認を依頼する。
 
 **共通完了条件**:
+
 - Issue で要求された成果物が作成・更新されている
 - 関連ドキュメントの更新が完了している
 - コードを含む場合は `docs/02_methods/CodingRule.md` の実装前後チェックリストを完了している
@@ -285,20 +286,21 @@ Issue自体は `Closes #{Issue番号}` により GitHub 側で自動close済み�
 
 ### 作業ブランチ
 
-```
+```text
 {Issue番号}/{タスク要約英文}
 ```
 
 `{タスク要約英文}` は英語の kebab-case。`main` から作成する。
 
 例:
-```
+
+```text
 6/coding-rule-improvement
 ```
 
 ### intake ファイル（一時）
 
-```
+```text
 .github/prompts/active/_intake_{slug}.md
 ```
 
@@ -306,12 +308,13 @@ Issue 作成後に削除する。`_` 始まりで active prompt と区別する�
 
 ### active prompt
 
-```
+```text
 {Issue番号}_{task_name}.prompt.md
 ```
 
 例:
-```
+
+```text
 1_consider_building_gisdata.prompt.md
 ```
 

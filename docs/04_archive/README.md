@@ -8,7 +8,7 @@
 
 ### 📚 先行研究管理（新構造）
 
-```
+```text
 04_archive/
 ├── README.md                           # このファイル
 ├── literature_management_guide.md      # 文献管理・AI活用ガイド
@@ -39,6 +39,7 @@
 ```
 
 ### 現在のファイル
+
 - **[previous_studies_report.md](previous_studies_report.md)**: 先行研究の事実整理（S1〜S8）
   - マスタードキュメントとして維持
   - 概要把握・一覧表示に使用
@@ -65,6 +66,7 @@
   - 詳細比較、引用候補抽出、RQ別整理に使用
 
 ### 今後追加予定のファイル
+
 - `02_structured_summaries/`: 未作成論文の詳細要約
   - 新規追加論文（S9以降）
 - `03_key_findings/`: テーマ別知見の統合
@@ -78,6 +80,7 @@
 ## 🎯 このフォルダの目的
 
 研究の背景資料や参考文献を整理し、**AIが効果的に活用できる形式**で管理する：
+
 - 先行研究の整理（事実ベース）
 - 論文メタデータのデータベース化
 - 重要知見の構造化
@@ -97,7 +100,8 @@
 ### AIとの対話例
 
 #### 例1: 論文の統合（ChatGPT → GitHub Copilot連携）
-```
+
+```text
 【ChatGPT】
 「templates/chatgpt_instruction_paper_analysis.md の指示に従って、
  添付したPDFを分析してください」
@@ -110,17 +114,20 @@
 ```
 
 #### 例2: 論文検索
-```
+
+```text
 「papers_database.csvから、機械学習を使用している論文を抽出」
 ```
 
 #### 例3: 横断比較
-```
+
+```text
 「S1とS4のLST算出手法を比較して表にまとめて」
 ```
 
 #### 例4: 引用文作成
-```
+
+```text
 「S1〜S3の情報から、SMW法の利点を説明する段落を論文用に作成」
 ```
 
@@ -129,10 +136,12 @@
 ## 🔬 先行研究調査のツール使い分け
 
 ### フェーズ1: 論文検索（ChatGPT + ScholarGPT）
+
 **使用ツール**: ChatGPT（ScholarGPT機能）、Google Scholar
 
 **実施内容**:
-```
+
+```text
 ChatGPTに質問：
 「Land Surface Temperature and urban structure relationship in 
  Southeast Asian cities」で2019年以降の主要論文を10本教えて
@@ -141,31 +150,38 @@ ChatGPTに質問：
 **成果物**: 論文リスト（DOI、引用数、概要付き）
 
 ### フェーズ2: 論文分析（ChatGPT）
+
 **使用ツール**: ChatGPT + [chatgpt_instruction_paper_analysis.md](templates/chatgpt_instruction_paper_analysis.md)
 
 **実施内容**:
+
 - PDFを添付または論文情報を入力
 - 構造化要約を自動生成
 
 **成果物**: Markdown形式の構造化要約
 
 ### フェーズ3: プロジェクト統合（GitHub Copilot）
+
 **使用ツール**: GitHub Copilot（VS Code内）
 
 **実施内容**:
-```
+
+```text
 「S9の構造化要約をデータベースに統合してください」
 ```
 
-**成果物**: 
+**成果物**:
+
 - 更新された papers_database.csv
 - 更新された previous_studies_report.md
 
 ### フェーズ4: 分析・考察（GitHub Copilot）
+
 **使用ツール**: GitHub Copilot
 
 **実施内容**:
-```
+
+```text
 「RQ1に関連する論文（S1, S4, S8）の都市構造パラメータを
  比較表にまとめてください」
 ```
@@ -187,7 +203,8 @@ ChatGPTに質問：
    - [templates/chatgpt_instruction_paper_analysis.md](templates/chatgpt_instruction_paper_analysis.md) の「ChatGPTへの指示」セクション全体をコピー
 3. **ChatGPTにペースト**
 4. **論文情報を追加**
-   ```
+
+   ```text
    【論文情報】
    - タイトル: Machine learning approach for urban heat mapping
    - 著者: Zhang et al.
@@ -196,20 +213,24 @@ ChatGPTに質問：
    
    （またはPDFを添付）
    ```
+
 5. **ChatGPTが構造化要約を生成** → コピー
 
 #### ステップ2: VS CodeでMarkdownファイル保存（1分）
 
 1. **新規ファイル作成**
-   ```
+
+   ```text
    docs/04_archive/02_structured_summaries/S9_Zhang_2023.md
    ```
+
 2. **ChatGPTの出力をペースト** → 保存
 
 #### ステップ3: GitHub Copilotで統合（2分）
 
 VS Codeで以下を依頼：
-```
+
+```text
 「S9_Zhang_2023.md の内容を papers_database.csv に追加し、
  previous_studies_report.md のS9セクションを作成してください」
 ```
@@ -221,45 +242,52 @@ VS Codeで以下を依頼：
 ### 【従来方法】手動で論文を追加する場合
 
 1. **メタデータを追加**
-   ```
+
+   ```text
    01_metadata/papers_database.csv に1行追加
    ```
 
 2. **構造化要約を作成**
-   ```
+
+   ```text
    templates/structured_summary_template.md をコピー
    → 02_structured_summaries/S[番号]_[著者]_[年].md として保存
    → PDFを読んで情報を記入（30-60分）
    ```
 
 3. **PDFファイルを整理**（あれば）
-   ```
+
+   ```text
    04_pdfs/S[番号]_[著者]_[年].pdf としてリネーム
    ```
 
 ### 新しい論文を追加する場合
 
 1. **メタデータを追加**
-   ```
+
+   ```text
    01_metadata/papers_database.csv に1行追加
    ```
 
 2. **構造化要約を作成**
-   ```
+
+   ```text
    templates/structured_summary_template.md をコピー
    → 02_structured_summaries/S[番号]_[著者]_[年].md として保存
    → PDFを読んで情報を記入
    ```
 
 3. **PDFファイルを整理**（あれば）
-   ```
+
+   ```text
    04_pdfs/S[番号]_[著者]_[年].pdf としてリネーム
    ```
 
 ### 既存の論文を深掘りする場合
 
 1. **テンプレートをコピー**
-   ```
+
+   ```bash
    cp templates/structured_summary_template.md 02_structured_summaries/S1_ermida_2020.md
    ```
 
@@ -268,22 +296,26 @@ VS Codeで以下を依頼：
    - 本研究との関連性を明記
 
 3. **AIに活用させる**
-   ```
+
+   ```text
    「S1_ermida_2020.mdを参照して、SMW法の実装手順を説明」
    ```
 
-## 💡 ベストプラクティス
+## 💡 ベストプラクティス（情報管理）
 
 ### PDF vs Markdown
+
 - ❌ **PDF**: AIが直接読めない
 - ✅ **Markdown**: AIが確実に参照可能
 - **推奨**: 重要な論文はMarkdown要約を作成
 
 ### Web論文の扱い
+
 - URLがあってもAIが常にアクセスできるとは限らない
 - **推奨**: 手動で要約を作成し、Markdown化
 
 ### 情報の粒度
+
 1. **1行要約**: CSV（`papers_database.csv`）
 2. **5分で分かる要約**: Markdown（`02_structured_summaries/`）
 3. **詳細**: PDF原本

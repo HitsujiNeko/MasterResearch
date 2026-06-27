@@ -7,7 +7,6 @@
 このドキュメントは2026年9月の学会 GIS-IDEAS 用に作成した研究のアブストラクトであり、
 2026-04-16時点での衛星指標のみ条件の初期分析結果をもとに、アブストラクトの構成案と内容案をまとめたものである。
 
-
 ---
 
 ## 1. この下書きの位置づけ
@@ -56,8 +55,9 @@ English: How Far Can Satellite-Derived Indicators Alone Explain Urban Land Surfa
 ---
 
 ## 4. Abstract
+
 日本語: 途上国都市では、建物や道路、人口など都市形態に関する詳細な地理情報システムデータが未整備であることが多く、都市熱環境の定量分析には大きな制約がある。本研究は、ベトナム・ハノイを対象として、衛星由来指標のみで地表面温度（LST）をどこまで説明できるかを検証し、データ制約下での分析可能性を評価した。Google Earth Engine を用いて Landsat 8 から LST、正規化植生指数（NDVI）、正規化市街地指数（NDBI）、正規化水指数（NDWI）を算出し、2023年と2024年において、データ品質を確保できた3観測を分析対象とした。各観測について重回帰分析と Random Forest を random split および空間交差検証で比較した。Random Forest はすべての観測で重回帰分析を上回り、空間交差検証後も R² は 0.60 以上を維持した。また、NDBI は一貫して最も強い昇温側要因であり、NDVI と NDWI は冷却側要因として機能した。以上より、詳細な地理情報システムデータが利用できない条件でも、衛星由来指標のみで LST 分布を一定程度説明できることが示された。
-English: In many cities in the Global South, detailed geographic information system data on urban forms such as buildings, roads, and population remain incomplete or unavailable, which constrains quantitative analysis of urban thermal environments. This study examines how far land surface temperature (LST) can be explained using satellite-derived indicators alone in Hanoi, Vietnam, and evaluates the feasibility of analysis under data-constrained conditions. Using Google Earth Engine, we calculated LST, Normalized Numerical Growth Index (NDVI), Normalized Urban Area Index (NDBI), and Normalized Water Index (NDWI) from Landsat 8. Three observations for 2023 and 2024, for which data quality could be ensured, were selected for analysis. For each observation, 100,000 pixels were randomly sampled after quality control, and Multiple Linear Regression and Random Forest were compared under both random split and spatial cross-validation. Random Forest outperformed Multiple Linear Regression in all observations and retained R² values above 0.60 after spatial cross-validation. NDBI consistently emerged as the strongest warming-related factor, whereas NDVI and NDWI acted as cooling-related factors. These results suggest that a substantial share of LST variability can be explained using satellite-derived indicators alone under data-constrained conditions. 
+English: In many cities in the Global South, detailed geographic information system data on urban forms such as buildings, roads, and population remain incomplete or unavailable, which constrains quantitative analysis of urban thermal environments. This study examines how far land surface temperature (LST) can be explained using satellite-derived indicators alone in Hanoi, Vietnam, and evaluates the feasibility of analysis under data-constrained conditions. Using Google Earth Engine, we calculated LST, Normalized Numerical Growth Index (NDVI), Normalized Urban Area Index (NDBI), and Normalized Water Index (NDWI) from Landsat 8. Three observations for 2023 and 2024, for which data quality could be ensured, were selected for analysis. For each observation, 100,000 pixels were randomly sampled after quality control, and Multiple Linear Regression and Random Forest were compared under both random split and spatial cross-validation. Random Forest outperformed Multiple Linear Regression in all observations and retained R² values above 0.60 after spatial cross-validation. NDBI consistently emerged as the strongest warming-related factor, whereas NDVI and NDWI acted as cooling-related factors. These results suggest that a substantial share of LST variability can be explained using satellite-derived indicators alone under data-constrained conditions.
 
 ---
 
@@ -73,6 +73,7 @@ English: In addition, a study of Da Nang, Vietnam, noted that NDVI and NDBI alon
 English: Accordingly, the contribution of this abstract is not to introduce the full range of urban-structure variables used in previous studies, but to present fact-based results obtained under conditions where detailed GIS data are unavailable. It therefore does not claim conclusions for other conditions with additional data sources and instead focuses on the findings confirmed here and on directions for future extension.
 
 ### 5.1 図表案
+
 なし
 
 ---
@@ -80,6 +81,7 @@ English: Accordingly, the contribution of this abstract is not to introduce the 
 ## 6. Methodology
 
 日本語: LST は Google Earth Engine（Google Earth Engine, n.d.）上で Landsat 8 データから算出し、Ermida et al. (2020) の手法を用いた。算出フローは以下のとおりである。  
+
 - Landsat 8 の熱赤外 TOA データを用いて輝度温度を算出する。  
 - 同じシーンから計算した NDVI を用いて、植生被覆率と地表面放射率を推定する。  
 - 水蒸気量に応じた補正係数を適用し、地表面温度へ変換する。  
@@ -108,6 +110,7 @@ English: For model comparison, NDVI, NDBI, and NDWI were used as explanatory var
 English: In addition, SHAP was used to interpret the Random Forest model and to examine the direction and magnitude of each indicator's contribution to the predictions.
 
 ### 6.1 図表案
+
 - Fig. 1. 日本語: ハノイ市の研究対象領域（ROI） / English: Study area (ROI) in Hanoi, Vietnam.
 - Fig. 2. 日本語: LST 算出からデータセット作成、モデル評価までの処理フロー / English: Workflow from LST derivation to dataset construction and model evaluation.
 - Table 1. 日本語: 各観測日における LST および衛星指標の基礎統計 / English: Descriptive statistics of LST and satellite-derived indices for each observation.
@@ -149,7 +152,8 @@ English: The results presented here indicate that a substantial share of LST var
 English: The main contribution of this paper is not to present the final conclusion of the overall project, but to demonstrate a reproducible analytical workflow and its explanatory performance across multiple observation dates under data-constrained conditions. This is important for comparing with the conditions for introducing open-source GIS data and GIS data derived from survey data as indicators of urban structure, which is a future research direction.
 
 日本語: 今後は、OpenStreetMap や Microsoft GlobalMLBuildingFootprints などの公開 GIS データを導入し、さらに測量 GIS を含む条件と比較する予定である。また、今回の 3 観測で確認された関係が他の日付や季節でも維持されるかを検証する。  
-English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints and then compare the results with a condition that also includes survey-based GIS. The analysis will also test whether the relationships identified in these three observations are maintained across additional dates and seasons.
+English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints and then compare the results with a condition that also includes survey-based GIS. The analysis will also test whether the relationships identified in these three observations are maintained across additional dates and seasons
+
 ---
 
 ## 9. Keywords
@@ -165,17 +169,17 @@ English: Future work will introduce open GIS data sources such as OpenStreetMap 
 ## 10. References
 
 Ermida, S. L., Soares, P., Mantas, V., Göttsche, F.-M., Trigo, I. F., 2020. Google Earth Engine Open-Source Code for Land Surface Temperature Estimation from the Landsat Series. Remote Sensing,12 (9), 1471.
-https://doi.org/10.3390/rs12091471.
+<https://doi.org/10.3390/rs12091471>.
 
-Garzon, J., Molina, I., Velasco, J., & Calabia, A. (2021). A remote sensing approach for surface urban heat island modeling in a tropical Colombian city using regression analysis and machine learning algorithms. Remote Sensing, 13(21), 4256. https://doi.org/10.3390/rs13214256
+Garzon, J., Molina, I., Velasco, J., & Calabia, A. (2021). A remote sensing approach for surface urban heat island modeling in a tropical Colombian city using regression analysis and machine learning algorithms. Remote Sensing, 13(21), 4256. <https://doi.org/10.3390/rs13214256>
 
-Google Earth Engine. (n.d.). Google Earth Engine. Google. Retrieved April 11, 2026, from https://earthengine.google.com/
+Google Earth Engine. (n.d.). Google Earth Engine. Google. Retrieved April 11, 2026, from <https://earthengine.google.com/>
 
 Le Ngoc Hanh, & Tran Thi An. (2025). Assessment of temperature change in Da Nang City, Vietnam, using remote sensing and cloud-computing approach. The GIS-IDEAS Journal, 1(3), 16-28.
 
-Osborne, P. E., & Alvares-Sanches, T. (2019). Quantifying how landscape composition and configuration affect urban land surface temperatures using machine learning and neutral landscapes. *Computers, Environment and Urban Systems, 76*, 80-90. https://doi.org/10.1016/j.compenvurbsys.2019.04.003
+Osborne, P. E., & Alvares-Sanches, T. (2019). Quantifying how landscape composition and configuration affect urban land surface temperatures using machine learning and neutral landscapes. *Computers, Environment and Urban Systems, 76*, 80-90. <https://doi.org/10.1016/j.compenvurbsys.2019.04.003>
 
-Sun, Y., Gao, C., Li, J., Wang, R., & Liu, J. (2019). Quantifying the effects of urban form on land surface temperature in subtropical high-density urban areas using machine learning. Remote Sensing, 11(8), 959. https://doi.org/10.3390/rs11080959
+Sun, Y., Gao, C., Li, J., Wang, R., & Liu, J. (2019). Quantifying the effects of urban form on land surface temperature in subtropical high-density urban areas using machine learning. Remote Sensing, 11(8), 959. <https://doi.org/10.3390/rs11080959>
 
 ---
 

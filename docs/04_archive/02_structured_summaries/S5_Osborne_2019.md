@@ -14,7 +14,7 @@
 | **発表年** | 2019 |
 | **タイトル** | Quantifying how landscape composition and configuration affect urban land surface temperatures using machine learning and neutral landscapes |
 | **掲載誌** | Computers, Environment and Urban Systems, 76, 80–90 |
-| **DOI/URL** | https://doi.org/10.1016/j.compenvurbsys.2019.04.003 |
+| **DOI/URL** | <https://doi.org/10.1016/j.compenvurbsys.2019.04.003> |
 | **引用数** | 取得不可（PDF精読環境の制約） |
 
 ---
@@ -80,6 +80,7 @@
 **中立景観（Landscape Generator）**で「構成固定・配置変更」の15ケースを生成し、学習済みモデルへ投入
 
 **アルゴリズム概要**:
+
 1. Landsat BT → 放射率εを用いてLST算出（Artis & Carnahan式）
 2. 30mピクセルの土地被覆割合（建物/硬質/自然/混合）＋**近傍リング（30–60m等）**を算出
 3. 勾配ブースティング回帰で平均LST（複数月平均）を学習（CV最適化）
@@ -149,10 +150,12 @@
 ### 直接的な活用方法
 
 **"近傍（annuli）説明変数"の導入**:
+
 - 建物密度・道路密度・NDVI等を、30m/60m/90m/120m近傍で再計算
 - 重要度比較（RF/GBM/SHAP）へ展開可能
 
 **スケール比較の設計**:
+
 - **RQ2の「集計単位・解析スケール」で、S5の"リング設計"は強いテンプレになる**
 
 ### 差別化ポイント
@@ -173,9 +176,9 @@
 ### 引用すべき記述
 
 > "The model achieved a correlation … 0.956 … In contrast to other studies, we found adjacency effects to be stronger … at 30 m resolution."（Abstract）
-
+>
 > "When we manipulated landscape configuration, the average city temperature remained the same but the local minima varied by 0.9 °C and the maxima by 4.2 °C."（Abstract）
-
+>
 > "In our city, maximum cooling was achieved when ~60% of land was left natural and distributed in 7–8 patches km⁻²…"（Abstract）
 
 ### 参考にすべき図表

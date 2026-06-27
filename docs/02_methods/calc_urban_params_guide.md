@@ -192,7 +192,7 @@
 
 `src/analysis/urban_params/` パッケージは責務ごとにモジュールを分割している。
 
-```
+```text
 src/analysis/urban_params/
   __init__.py
   __main__.py        # python -m src.analysis.urban_params のエントリーポイント

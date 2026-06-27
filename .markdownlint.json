@@ -1,0 +1,22 @@
+{
+  "default": true,
+  "MD013": false,
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD025": false,
+  "MD033": {
+    "allowed_elements": ["br", "sup", "sub", "details", "summary"]
+  },
+  "MD036": false,
+  "MD048": {
+    "style": "backtick"
+  },
+  "MD049": {
+    "style": "asterisk"
+  },
+  "MD050": {
+    "style": "asterisk"
+  },
+  "MD060": false
+}

@@ -1,0 +1,6 @@
+.conda/
+.pytest_cache/
+node_modules/
+SSD/
+.github/prompts/completed/
+AGENTS.md

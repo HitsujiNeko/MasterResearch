@@ -720,10 +720,11 @@ MasterResearch/
 ├── .github/                    # AI環境設定・タスク管理
 │   ├── copilot-instructions.md # Copilot自動読込（CLAUDE.mdに移譲）
 │   ├── task-workflow.md        # タスク管理ワークフロー定義
-│   └── prompts/                # タスクプロンプト
-│       ├── active/             # 進行中タスク（{Issue番号}_{task_name}.prompt.md）
+│   ├── ISSUE_TEMPLATE/         # Issue テンプレート
+│   └── prompts/                # タスク関連ファイル
+│       ├── active/             # 計画書（{Issue番号}_{task_name}.plan.md）
 │       ├── completed/          # 旧運用アーカイブ（新規追加なし）
-│       └── templates/          # intake テンプレート
+│       └── templates/          # intake テンプレート（オプション）
 │
 ├── docs/                       # 📌 このディレクトリ
 │   └── README.md               # 📌 このファイル

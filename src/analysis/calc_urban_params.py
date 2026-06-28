@@ -92,17 +92,17 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
         "analysis_epsg": 5897,
         "layers": {
             "roi": {
-                "path": "data/GISData/ROI/hanoi/hanoi_ROI_EPSG4326.shp",
+                "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
                 "layer": "hanoi_ROI_EPSG4326",
                 "crs_epsg": 4326,
             },
             "open_buildings": {
-                "path": "data/output/open_gis/hanoi_microsoft_buildings.gpkg",
+                "path": "data/gis/buildings/hanoi_microsoft_buildings.gpkg",
                 "layer": "buildings",
                 "crs_epsg": 4326,
             },
             "open_roads": {
-                "path": "data/output/open_gis/hanoi_osm_roads.gpkg",
+                "path": "data/gis/roads/hanoi_osm_roads.gpkg",
                 "layer": "roads",
                 "crs_epsg": 4326,
             },

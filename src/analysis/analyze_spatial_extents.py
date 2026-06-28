@@ -116,7 +116,7 @@ def read_vector_bbox_any_layer(
 
 def read_roi_hanoi_bbox() -> dict[str, Any]:
     """ROI（hanoi_ROI_EPSG4326.shp）からBBoxを取得する。"""
-    roi_path = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
+    roi_path = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
     if not roi_path.exists():
         raise FileNotFoundError(f"ROIが見つかりません: {roi_path}")
 

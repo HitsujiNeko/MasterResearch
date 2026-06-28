@@ -13,7 +13,7 @@ config_path = r"data\input\gee_calc_LST_info.csv"
 
 CSVファイルの例は以下の通り：
 roi_shapefile_path,start_date,end_date,cloud_threshold,valid_pixel_threshold,output_epsg,lst_method,gee_project_id,city_name,drive_root_folder,drive_export_folder
-data\GISData\ROI\hanoi\hanoi_ROI_EPSG4326.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_GCP_PROJECT_ID,hanoi,MasterResearch_Data,
+data\gis\boundaries\hanoi\hanoi_ROI_EPSG4326.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_GCP_PROJECT_ID,hanoi,MasterResearch_Data,
 
 """
 

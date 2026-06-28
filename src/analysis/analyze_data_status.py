@@ -188,7 +188,7 @@ def analyze_lst_data():
         }
 
     # 3. ROIファイル
-    roi_dir = Path("data/GISData/ROI")
+    roi_dir = Path("data/gis/boundaries")
     if roi_dir.exists():
         roi_files = list(roi_dir.rglob("*.shp")) + list(roi_dir.rglob("*.gpkg"))
         print(f"\nROIファイル: {len(roi_files)}件")

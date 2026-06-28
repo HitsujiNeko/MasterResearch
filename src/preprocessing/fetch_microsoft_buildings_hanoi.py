@@ -26,10 +26,8 @@ from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
-DEFAULT_OUTPUT_PATH = (
-    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_microsoft_buildings.gpkg"
-)
+DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "buildings" / "hanoi_microsoft_buildings.gpkg"
 DEFAULT_SUMMARY_PATH = (
     PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_microsoft_buildings_summary.json"
 )

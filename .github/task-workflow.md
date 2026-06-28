@@ -1,6 +1,6 @@
 # タスクワークフロー
 
-**最終更新**: 2026-06-27
+**最終更新**: 2026-06-28
 **関連ファイル**: [CLAUDE.md](../CLAUDE.md), [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md), [Issue テンプレート](./ISSUE_TEMPLATE/task.md), [parallel-workflow.md](./parallel-workflow.md)
 
 ## 目的
@@ -173,6 +173,7 @@ git push origin --delete {Issue番号}/{タスク要約英文}  # リモート�
 - Issue で要求された成果物が作成・更新されている
 - 関連ドキュメントの更新が完了している
 - コードを含む場合は `docs/02_methods/CodingRule.md` の実装前後チェックリストを完了している
+- コードを含む場合はテストコードが作成され、`pytest` で通過している
 - コミット対象が整理されている
 
 **② レビュー・動作確認**（ユーザが行う）

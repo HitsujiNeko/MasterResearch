@@ -21,7 +21,7 @@
 
 | シナリオ | 使用DEM | 出典 | 備考 |
 |---|---|---|---|
-| **Full** | 測量由来DEM（BSHorizon） | `data/GISData/DEM/BSHorizon/DEM_10m_m05_a100_M200.tif` | 10m解像度、EPSG:5897、有効カバレッジはROIより小さい |
+| **Full** | 測量由来DEM（BSHorizon） | `data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif` | 10m解像度、EPSG:5897、有効カバレッジはROIより小さい |
 | **Limited** | オープンソースDEM（本資料で選定） | GEE経由で取得済み | ハノイROI全域をカバー |
 | **Satellite Only** | DEMなし（衛星指標のみ） | — | — |
 
@@ -195,13 +195,13 @@
 
 比較実施日: 2026-05-27  
 比較スクリプト: `src/analysis/compare_dem_rasters.py`  
-比較出力: `data/GISData/DEM/comparison/`
+比較出力: `data/output/dem_comparison/`
 
 ### 5.1 BSHorizon DEM の基本情報
 
 | 項目 | 値 |
 |---|---|
-| ファイルパス | `data/GISData/DEM/BSHorizon/DEM_10m_m05_a100_M200.tif` |
+| ファイルパス | `data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif` |
 | CRS | EPSG:5897（VN-2000 / TM-3 zone 482） |
 | 解像度 | 10m × 10m |
 | 範囲 | X: 581495–589505、Y: 2321995–2333005（単位: m） |
@@ -269,10 +269,10 @@
 ### 7.2 採用ファイルパス
 
 ```text
-data/GISData/DEM/fabdem_hanoi_dem.tif                    # Limitedシナリオ採用（暫定）
-data/GISData/DEM/nasadem_hanoi_dem.tif                   # 参考保存（比較用）
-data/GISData/DEM/copernicus_glo30_hanoi_dem_clipped.tif  # 参考保存（比較用）
-data/GISData/DEM/srtmgl1_hanoi_dem.tif                   # 参考保存（比較用）
+data/gis/dem/fabdem/fabdem_hanoi_dem.tif                    # Limitedシナリオ採用（暫定）
+data/gis/dem/nasadem/nasadem_hanoi_dem.tif                  # 参考保存（比較用）
+data/gis/dem/copernicus_glo30/copernicus_glo30_hanoi_dem_clipped.tif  # 参考保存（比較用）
+data/gis/dem/srtmgl1/srtmgl1_hanoi_dem.tif                  # 参考保存（比較用）
 ```
 
 ---

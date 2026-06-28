@@ -145,7 +145,7 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 - **算出手法**: SMW法（Ermida et al., 2020）
 - **衛星**: Landsat 8（30m解像度）
 - **算出ツール**: Google Earth Engine（`src/gee/gee_calc_LST.py`）
-- **出力**: `data/output/LST/<city_id>/*.tif`（°C単位）
+- **出力**: `data/satellite/lst/<city_id>/*.tif`（°C単位）
 - **空間範囲**: **GEE算出時にROI（行政区画ポリゴン）でクリップ済み** → 追加のクリップ処理は不要
 - **詳細**: [gee_calc_LST.md](gee_calc_LST.md)
 
@@ -284,7 +284,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 | スクリプト | 処理内容 | 入力 | 出力 |
 |----------|---------|------|------|
-| `src/analysis/calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI/FVC）の算出 | Landsat 8バンド（GEE） | `data/output/indices/*.tif` |
+| `src/analysis/calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI/FVC）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
 | `src/analysis/calc_urban_params.py` | GIS由来都市構造パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + グリッド | `data/csv/analysis/urban_params_<scenario>_<city_id>.csv` |
 | `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出 | `urban_params.csv` | `data/csv/analysis/urban_params_with_neighbors.csv` |
 | `src/analysis/merge_dataset.py` | LSTと全説明変数の結合 | LSTクリップ + パラメータCSV | `data/csv/analysis/analysis_dataset.csv` |

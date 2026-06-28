@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "GISData" / "geofabrik" / "vietnam-260408.osm.pbf"
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads.gpkg"
+DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "gis" / "raw" / "vietnam-260408.osm.pbf"
+DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "roads" / "hanoi_osm_roads.gpkg"
 DEFAULT_SUMMARY_PATH = (
     PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads_summary.json"
 )

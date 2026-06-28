@@ -267,7 +267,7 @@ graph TB
 **主要セクション**:
 
 - 入力データ: `data/input/gee_calc_LST_info.csv`
-- 出力データ: `data/output/LST/*.tif`、`gee_calc_LST_results.csv`
+- 出力データ: `data/satellite/lst/*.tif`、`data/output/gee_calc_LST_results.csv`
 - 処理フロー: GEE認証 → ROI読込 → LST算出 → 品質評価
 - 関数仕様: `lst_smw.apply_smw_lst()`
 - エラーハンドリング: タイムアウト、雲被覆対応
@@ -742,11 +742,21 @@ MasterResearch/
 │   └── analysis/urban_params/  # urban_paramsパッケージのユニットテスト
 │
 ├── data/                       # データ
-│   ├── input/                  # 入力データ
+│   ├── satellite/              # 衛星由来データ
+│   │   ├── lst/                # LST GeoTIFF（年別）
+│   │   └── indices/            # 衛星指標（NDVI/NDBI 等）
+│   ├── gis/                    # GIS空間データ
+│   │   ├── boundaries/         # ROI・行政界
+│   │   ├── dem/                # 標高データ（ソース別）
+│   │   ├── buildings/          # 建物データ
+│   │   ├── roads/              # 道路データ
+│   │   ├── survey/             # 測量マージデータ
+│   │   ├── maps/               # 地図タイル・結合地図
+│   │   └── raw/                # 未加工ソースデータ
+│   ├── input/                  # 軽量な設定ファイル（CSV, txt）
 │   │   ├── gee_calc_LST_info.csv
-│   │   └── GISData/ROI/
-│   ├── output/                 # 出力データ
-│   │   ├── LST/*.tif
+│   │   └── map_info.csv
+│   ├── output/                 # 分析結果（CSV, JSON, ログ）
 │   │   └── gee_calc_LST_results.csv
 │   └── csv/analysis/           # 分析用CSV
 │

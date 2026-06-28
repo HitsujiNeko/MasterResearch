@@ -9,9 +9,9 @@ geotiff形式の地図データを、クリップして結合するプログラ�
 - 結合した地図データを新しいgeotiffファイルとして保存する
 
 path:
-- 地図データ： workspace/data/maps/maps 内の複数のgeotiffファイル
-- CSVファイル： workspace/data/maps/map_info.csv
-- 出力先： workspace/data/maps/merged_map.tif
+- 地図データ： data/gis/maps/ 内の複数のgeotiffファイル
+- CSVファイル： data/input/map_info.csv
+- 出力先： data/gis/maps/merged_map.tif
 
 map_info.csvのフォーマット例:
 id,BJC_code,grid,x1,y1,x2,y2,x3,y3,x4,y4
@@ -59,6 +59,7 @@ id,BJC_code,grid,x1,y1,x2,y2,x3,y3,x4,y4
 # 必要なライブラリのインポート
 import os
 import tempfile
+from pathlib import Path
 
 import pandas as pd
 import rasterio
@@ -67,9 +68,11 @@ from rasterio.merge import merge
 from shapely.geometry import Polygon, mapping
 
 # パス設定
-MAP_INFO_PATH = r"data\input\maps\map_info.csv"
-MAPS_DIR = r"data\input\maps"
-OUTPUT_PATH = r"data\output\maps/merged_map.tif"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MAP_INFO_PATH = PROJECT_ROOT / "data" / "input" / "map_info.csv"
+MAPS_DIR = PROJECT_ROOT / "data" / "gis" / "maps"
+OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "maps" / "merged_map.tif"
+VALIDATION_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "maps" / "validation_results.csv"
 CRS = "EPSG:5897"
 
 # パラメータ設定
@@ -174,9 +177,8 @@ def main(
         if not valid:
             print(f"バリデーション失敗: {tiff_name}。処理を中断します。")
             # CSV出力してから中断
-            pd.DataFrame(validation_results).to_csv(
-                "workspace/data/maps/validation_results.csv", index=False
-            )
+            VALIDATION_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(validation_results).to_csv(VALIDATION_RESULTS_PATH, index=False)
             return
         if reference_res is None:
             reference_res = res  # 最初の画像の解像度を基準に
@@ -190,7 +192,8 @@ def main(
             clipped_metas.append(clipped_meta)
 
     # バリデーション結果をCSV出力
-    pd.DataFrame(validation_results).to_csv("data/output/maps/validation_results.csv", index=False)
+    VALIDATION_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(validation_results).to_csv(VALIDATION_RESULTS_PATH, index=False)
 
     print(f"クリップ完了: {len(clipped_files)} 枚")
 

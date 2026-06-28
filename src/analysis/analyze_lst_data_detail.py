@@ -97,7 +97,7 @@ def analyze_lst_results():
 
 def analyze_lst_roi():
     """LST算出対象エリア（ROI）の分析"""
-    roi_dir = Path("data/GISData/ROI")
+    roi_dir = Path("data/gis/boundaries")
 
     print("\n" + "=" * 80)
     print("ROI（対象エリア）の分析")
@@ -108,7 +108,9 @@ def analyze_lst_roi():
         return None
 
     roi_files = (
-        list(roi_dir.glob("*.shp")) + list(roi_dir.glob("*.gpkg")) + list(roi_dir.glob("*.geojson"))
+        list(roi_dir.rglob("*.shp"))
+        + list(roi_dir.rglob("*.gpkg"))
+        + list(roi_dir.rglob("*.geojson"))
     )
 
     print(f"\nROIディレクトリ: {roi_dir}")

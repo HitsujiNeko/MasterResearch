@@ -26,16 +26,14 @@ SSD/
 # =========================
 # 生成物: 再生成可能な出力は追跡しない
 # =========================
-data/output/LST/**/*.aux.xml
-data/output/maps/**/*.aux.xml
 data/csv/analysis/*_dataset.csv
 data/csv/analysis/urban_params_*.csv
 
-# 入力の大容量ラスタを追跡しない
-data/input/**/*.tif
+# GIS空間データ（大容量）は追跡しない
+data/gis/
 
-# GISデータ（大容量）は追跡しない
-data/GISData/
+# 衛星データ（大容量ラスタ）は追跡しない
+data/satellite/
 
 # GIS補助ファイル
 *.aux

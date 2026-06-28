@@ -15,8 +15,8 @@ GeoTIFFをローカルへ保存する。現在は以下に対応する。
 すべてのデータセットをGEE経由で取得する。
 
 主な出力:
-1. `data/GISData/DEM/<dataset>_hanoi_dem.tif`
-2. `data/GISData/DEM/<dataset>_hanoi_dem_metadata.json`
+1. `data/gis/dem/<dataset>/<dataset>_hanoi_dem.tif`
+2. `data/gis/dem/<dataset>/<dataset>_hanoi_dem_metadata.json`
 """
 
 from __future__ import annotations
@@ -42,8 +42,8 @@ from rasterio.warp import calculate_default_transform, reproject
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "GISData" / "ROI" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "GISData" / "DEM"
+DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "gis" / "dem"
 REQUEST_TIMEOUT_SECONDS = 300
 CLIP_NODATA = -9999.0
 
@@ -182,7 +182,7 @@ def parse_arguments() -> argparse.Namespace:
         "--output-path",
         type=Path,
         default=None,
-        help="出力GeoTIFFパス。未指定時は data/GISData/DEM/ 配下へ保存する。",
+        help="出力GeoTIFFパス。未指定時は data/gis/dem/ 配下へ保存する。",
     )
     parser.add_argument(
         "--metadata-path",

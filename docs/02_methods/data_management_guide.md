@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-04-09  
+**最終更新**: 2026-06-28  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -28,7 +28,7 @@
 
 ### Layer 2: Google Driveで管理するもの
 
-- 大容量ラスタ: data/output/LST/ 配下で生成される GeoTIFF
+- 大容量ラスタ: data/satellite/lst/ 配下で生成される GeoTIFF
 - merge_XX.gpkg などの大容量GISデータ
 - GEEからExportされる配布前データ一式
 - 原則として「成果物の実体」はDrive、「参照情報」はGitに保存
@@ -92,29 +92,46 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
 
 ---
 
-## 6. 本リポジトリでの運用ルール
+## 6. データ配置原則
 
-### 6.1 .gitignore の方針
+### 6.1 原則
 
-- 再生成可能な重い出力は除外
-  - data/output/LST/**/*.tif
-  - data/output/LST/**/*.aux.xml
-  - data/output/maps/**/*.tif
-  - data/output/maps/**/*.aux.xml
-  - data/csv/analysis/*_dataset.csv
-- 入力の大容量ラスタは除外
-  - data/input/**/*.tif
-- 入力GISデータ（大容量）は除外
-  - data/GISData/
+1. **入力データと出力データを分離する** — 元データを保護し、再実行を容易にする
+2. **データの分類軸はカテゴリ（用途）で統一する** — ファイル形式やソース名で分けない
+3. **前処理で生成した空間データも、下流分析の入力であれば入力側に配置する** — 出自は `data_catalog.csv` で追跡する
+4. **衛星由来データと GIS データは別カテゴリとして管理する**
+
+### 6.2 配置先の判定ルール
+
+| データの性質 | 配置先 | 例 |
+|---|---|---|
+| 衛星由来の空間データ | `data/satellite/` | LST GeoTIFF, NDVI, NDWI |
+| GIS 空間データ（由来を問わない） | `data/gis/{category}/` | 建物 GPKG, 道路, DEM, ROI, 地図 |
+| 未加工のソースデータ | `data/gis/raw/` | geofabrik PBF |
+| 軽量な設定・テキスト | `data/input/` | 設定 CSV, テキスト |
+| 分析結果・ログ | `data/output/` | urban_params CSV, JSON レポート, ログ |
+
+---
+
+## 7. 本リポジトリでの運用ルール
+
+### 7.1 .gitignore の方針
+
+- 拡張子ベースのグローバル除外
+  - `*.tif`, `*.tiff`, `*.gpkg`, `*.aux.xml`（大容量バイナリ）
+- ディレクトリベースの除外
+  - `data/gis/`（GIS 空間データ）
+  - `data/satellite/`（衛星由来データ）
+  - `data/csv/analysis/*_dataset.csv`（大容量中間生成物）
 - サンプル共有用フォルダは例外で追跡許可
-  - !data/samples/
-  - !data/samples/**
+  - `!data/samples/`
+  - `!data/samples/**`
 
 補足:
 
 - `data/csv/analysis/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 
-### 6.2 既追跡の大容量出力の扱い
+### 7.2 既追跡の大容量出力の扱い
 
 以下コマンドで、ローカルファイルは残したまま index から除外する。
 
@@ -127,21 +144,21 @@ git commit -m "Stop tracking generated outputs"
 
 ---
 
-## 7. 具体的な日次運用フロー
+## 8. 具体的な日次運用フロー
 
-### 7.1 GEE Export直後
+### 8.1 GEE Export直後
 
 1. Google Driveの対象フォルダに保存先を統一する
 2. ファイル名を規約に合わせる（都市_期間_指標_日付）
 3. エクスポート結果を目視確認し、欠損や異常値を簡易チェックする
 
-### 7.2 ローカル解析前
+### 8.2 ローカル解析前
 
 1. Driveから必要ファイルのみ取得する
 2. ローカルでは data/temp/ または data/output/ に配置する
 3. 解析後に生成される大容量出力はGitへ追加しない
 
-### 7.3 解析完了後（必須）
+### 8.3 解析完了後（必須）
 
 1. 重要成果物はDriveに反映する
 2. docs 側に更新記録を残す（対象都市、期間、生成日時、スクリプト名）
@@ -149,7 +166,7 @@ git commit -m "Stop tracking generated outputs"
 
 ---
 
-## 8. データ目録（メタデータ）をGitで管理する
+## 9. データ目録（メタデータ）をGitで管理する
 
 大容量実体をGitに入れない代わりに、以下の情報をCSVで管理する。
 
@@ -175,7 +192,7 @@ lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc
 
 ---
 
-## 9. LFS/DVCは将来拡張として扱う
+## 10. LFS/DVCは将来拡張として扱う
 
 本研究の現時点では、Git + Google Drive の2層で十分。  
 ただし、以下の条件に該当したら追加導入を検討する。
@@ -185,7 +202,7 @@ lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc
 
 ---
 
-## 10. 最小運用チェックリスト
+## 11. 最小運用チェックリスト
 
 - [ ] 50MB超の新規ファイルを通常Gitへ追加していない
 - [ ] 生成物は data/output/ に分離し、必要最小限のみ追跡
@@ -195,7 +212,7 @@ lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc
 
 ---
 
-## 11. 補足: コマンド早見表
+## 12. 補足: コマンド早見表
 
 ```powershell
 # 追跡中の大きいファイルを確認（例: 50MB超）

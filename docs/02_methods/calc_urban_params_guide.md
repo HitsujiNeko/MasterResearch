@@ -154,7 +154,7 @@
 #### 確定済みパラメータ
 
 - **`ROAD_DEN_<scale>`（道路密度, m/ha）**: Issue #21で設計確定・実装済
-  - **入力**: `data/output/open_gis/hanoi_osm_roads.gpkg`（OSM Geofabrik 由来）
+  - **入力**: `data/gis/roads/hanoi_osm_roads.gpkg`（OSM Geofabrik 由来）
   - **フィルタリング**: ホワイトリスト方式。motorway〜living_street + service を含め、非車道（footway, steps, path 等）・track・construction・proposed・特殊用途を除外。z_order < 0（トンネル・地下道）も除外
   - **算出方法**: `compute_line_length()` でセル内ライン総延長（m/cell）を算出し、`cell_area_ha()` で面積正規化
   - **詳細**: [gis_data_roads.md](../01_planning/gis_data/gis_data_roads.md) セクション 2
@@ -297,7 +297,7 @@ def compute(
 python -m src.analysis.urban_params --city hanoi \
   --scenario limited \
   --scales 30 90 300 --fine-res 10 \
-  --satellite-dir data/output/indices/2023/INDICES_Landsat8_20230707_032329Z.tif
+  --satellite-dir data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif
 ```
 
 主要引数:

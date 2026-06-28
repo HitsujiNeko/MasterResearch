@@ -39,7 +39,7 @@ Landsat 8の地表面温度（LST: Land Surface Temperature）を、Google Earth
 
 | キー | 説明 | 例 |
 |---|---|---|
-| `roi_shapefile_path` | ROIのShapefile | `data/GISData/ROI/hanoi.shp` |
+| `roi_shapefile_path` | ROIのShapefile | `data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp` |
 | `start_date` | 開始日 | `2023-07-01` |
 | `end_date` | 終了日 | `2023-08-31` |
 | `cloud_threshold` | 雲量閾値（現行コードでは未使用） | `30` |

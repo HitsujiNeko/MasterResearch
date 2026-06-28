@@ -32,6 +32,7 @@ docs/
 │   ├── calc_LST_report.md                 # LST算出レポート
 │   ├── gee_calc_LST.md                    # LST算出仕様書
 │   ├── qgis_mcp_setup.md                  # QGIS MCP セットアップガイド
+│   ├── skill_operation_rules.md           # スキル運用ルール
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
@@ -87,6 +88,7 @@ docs/
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
 | [qgis_mcp_setup.md](02_methods/qgis_mcp_setup.md) | QGIS MCP セットアップガイド | nkarasiak/qgis-mcp の導入手順、接続設定、トラブルシューティング | `.mcp.json` |
+| [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 環境別の作成・利用ルール、プロジェクト固有ルール | `.claude/skills/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
 ### 📊 03_results - 研究結果
@@ -277,6 +279,22 @@ graph TB
 **関連ドキュメント**:
 
 - コーディング規約 → [CodingRule.md](02_methods/CodingRule.md)
+
+#### [skill_operation_rules.md](02_methods/skill_operation_rules.md)
+
+**スキル運用ルール** - `.claude/skills/` 配下のカスタムスキルの作成・変更・運用ルール
+
+**主要ルール**:
+
+- 環境ルール: スキルの作成・変更は Claude Desktop（Skill Creator 使用）、VS Code は利用のみ
+- プロジェクト固有ルール: 日本語コメント基本、ファイルパスはスラッシュ統一
+
+**適用範囲**: `.claude/skills/` 配下のすべてのスキル
+
+**関連ドキュメント**:
+
+- コーディング規約 → [CodingRule.md](02_methods/CodingRule.md)
+- AI指示書 → [CLAUDE.md](../CLAUDE.md)
 
 #### [CodingRule.md](02_methods/CodingRule.md)
 

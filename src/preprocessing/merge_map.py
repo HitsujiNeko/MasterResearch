@@ -177,6 +177,7 @@ def main(
         if not valid:
             print(f"バリデーション失敗: {tiff_name}。処理を中断します。")
             # CSV出力してから中断
+            VALIDATION_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
             pd.DataFrame(validation_results).to_csv(VALIDATION_RESULTS_PATH, index=False)
             return
         if reference_res is None:
@@ -191,6 +192,7 @@ def main(
             clipped_metas.append(clipped_meta)
 
     # バリデーション結果をCSV出力
+    VALIDATION_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(validation_results).to_csv(VALIDATION_RESULTS_PATH, index=False)
 
     print(f"クリップ完了: {len(clipped_files)} 枚")

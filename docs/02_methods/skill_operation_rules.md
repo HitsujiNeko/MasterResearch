@@ -22,7 +22,6 @@ Claude Code のカスタムスキル（`.claude/skills/` 配下）の作成・�
 
 - スキルの新規作成・変更は **Claude Desktop 上で Skill Creator スキルを使って** 行う
 - VS Code ではスキルの利用のみとし、SKILL.md の編集は行わない
-- Skill Creator のテスト・評価ループを活用し、品質を担保する
 
 ---
 

@@ -76,6 +76,7 @@
 - タブ文字の使用
 - 日本語変数名の使用
 - コメント・docstringなしのコード
+- VS Code 上でのスキル（`.claude/skills/`）の作成・変更（**詳細**: [skill_operation_rules.md](docs/02_methods/skill_operation_rules.md)）
 
 ---
 

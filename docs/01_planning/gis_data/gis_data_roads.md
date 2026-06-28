@@ -10,7 +10,7 @@
 
 道路ネットワークは `OpenStreetMap` を第一候補とする。`highway=*` タグを使えば道路種別を抽出できるが、地区ごとに欠測や属性のばらつきがあるため、道路密度や道路近接距離は必ず欠測確認を行う。
 
-Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT NULL` の道路ラインを抽出した `data/output/open_gis/hanoi_osm_roads.gpkg` を利用候補とする。今回の抽出結果では、道路ラインは `194,485` 件、ジオメトリ型は `MultiLineString` であり、道路密度指標の算出に利用できる状態である。
+Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT NULL` の道路ラインを抽出した `data/gis/roads/hanoi_osm_roads.gpkg` を利用候補とする。今回の抽出結果では、道路ラインは `194,485` 件、ジオメトリ型は `MultiLineString` であり、道路密度指標の算出に利用できる状態である。
 
 - 主用途: `ROAD_DEN_<scale>` などの道路密度指標の算出
 - 補助用途: 道路近接距離、主要道路と生活道路の粗い区分、都市構造の説明変数作成
@@ -83,7 +83,7 @@ ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
 
 ## 3. Hanoi ROI での取得結果（2026-06-22 調査）
 
-**データソース**: Geofabrik Vietnam extract（`vietnam-260408.osm.pbf`）から `ogr2ogr` で `lines` レイヤのうち `highway IS NOT NULL` を Hanoi ROI でクリップして抽出。出力: `data/output/open_gis/hanoi_osm_roads.gpkg`（レイヤ名: `roads`）。
+**データソース**: Geofabrik Vietnam extract（`vietnam-260408.osm.pbf`）から `ogr2ogr` で `lines` レイヤのうち `highway IS NOT NULL` を Hanoi ROI でクリップして抽出。出力: `data/gis/roads/hanoi_osm_roads.gpkg`（レイヤ名: `roads`）。
 
 **ジオメトリ特性**:
 
@@ -169,7 +169,7 @@ ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
 | # | 工程 | ステータス | 備考 |
 |---|---|---|---|
 | 1 | Geofabrik Vietnam extract の取得 | ✅ 完了 | `vietnam-260408.osm.pbf` を取得済み |
-| 2 | Hanoi ROI での道路ライン抽出 | ✅ 完了 | `ogr2ogr` で `highway IS NOT NULL` を ROI クリップ。194,485 件を `data/output/open_gis/hanoi_osm_roads.gpkg` に出力 |
+| 2 | Hanoi ROI での道路ライン抽出 | ✅ 完了 | `ogr2ogr` で `highway IS NOT NULL` を ROI クリップ。194,485 件を `data/gis/roads/hanoi_osm_roads.gpkg` に出力 |
 | 3 | 道路データの探索的分析 | ✅ 完了 | highway タグ分布・z_order・other_tags の入力率を集計（Section 3 参照） |
 | 4 | ROAD_DEN（道路延長密度）算出ロジックの実装 | ✅ 完了 | `src/analysis/urban_params/params/roads.py` に実装（[PR #26](https://github.com/HitsujiNeko/MasterResearch/pull/26)、コミット `da0384a`）。車道タグのホワイトリスト方式 + z_order < 0 除外 |
 | 5 | ROAD_DEN のスモークテスト | ✅ 完了 | `tests/analysis/urban_params/test_roads.py` に GIS 契約テストを追加済み |

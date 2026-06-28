@@ -42,7 +42,7 @@ GBA の WFS 取得完了・Microsoft 欠落域の定量確認を経て、比較�
 
 #### 優先順位・取得状況
 
-1. `GlobalBuildingAtlas` via WFS / HuggingFace: **✅ 採用済み（`Limited`シナリオ建物主ソース）**。2026-06-09 に ROI クリップ済みで 3,071,511 件取得完了。`data/output/open_gis/hanoi_gba_buildings.gpkg` に出力済み。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS でなく HuggingFace バルクDL推奨**（WFS は大量リクエスト時に IP ブロックが発生するため）。
+1. `GlobalBuildingAtlas` via WFS / HuggingFace: **✅ 採用済み（`Limited`シナリオ建物主ソース）**。2026-06-09 に ROI クリップ済みで 3,071,511 件取得完了。`data/gis/buildings/hanoi_gba_buildings.gpkg` に出力済み。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS でなく HuggingFace バルクDL推奨**（WFS は大量リクエスト時に IP ブロックが発生するため）。
 2. `Google Open Buildings V3 Polygons`: 未取得。ライセンスがより寛容（CC BY 4.0）。建物高さ不要で面積・密度のみ算出する場合の比較候補。confidence閾値の感度分析が必要。GBA との重複率・差分を確認してから採用判断する。
 3. `OSM building=*`: 未取得。Geofabrik Vietnam extract から追加取得でき、道路と同一ソースで再現性が高い。コミュニティ整備状況に依存するため、建物密度の空間偏りを QA する。
 4. `Google Open Buildings 2.5D Temporal`, `GHSL`, `WSF`: 個別フットプリントではなく、built-up / building presence / height の補助変数または妥当性確認に使う。
@@ -51,7 +51,7 @@ GBA の WFS 取得完了・Microsoft 欠落域の定量確認を経て、比較�
 
 **GBA の取得完了により、`Limited` シナリオの建物主ソースを `GlobalBuildingAtlas` に確定した。**
 
-- `data/output/open_gis/hanoi_gba_buildings.gpkg`（3,071,511 件、ROI クリップ済み）を建物フットプリントの正本として使う。
+- `data/gis/buildings/hanoi_gba_buildings.gpkg`（3,071,511 件、ROI クリップ済み）を建物フットプリントの正本として使う。
 - Microsoft 欠落域（105.29–105.47°E）では GBA に 273,742 件の実データが存在することを確認済み。GBA を使うことで Microsoft のカバレッジ欠落問題は解消される。
 - `BUILD_COV_0`, `BUILD_DEN_0` などの建物系パラメータは GBA を主ソースとして再算出する。
 - Microsoft は「Hanoi 中心部から東側の補助的な比較データ」として保持するが、主ソースとしては使わない。
@@ -137,8 +137,8 @@ GBA はフットプリントと建物高さで**元データの年代が異な�
 1. **タイル分割**: ROI BBOX を 0.02° × 0.02° グリッドに分割（全 1,554 タイル）し、WFS を 1 タイルずつ取得。50,000 件 / リクエスト上限によるデータ欠落を回避するため。
 2. **ROI 事前フィルタ**: タイルと行政区画ポリゴンが交差しない場合はリクエスト自体をスキップ（不要リクエストを削減）。
 3. **CRS 変換**: WFS レスポンス（EPSG:3857）を EPSG:4326 に変換。
-4. **ROI クリップ**: 各建物ポリゴンを Hanoi 行政区画ポリゴン（`data/GISData/ROI/hanoi/hanoi_ROI_EPSG4326.shp`）でクリップ。境界を跨ぐ建物は切断して境界内の部分のみ保持。
-5. **出力**: `data/output/open_gis/hanoi_gba_buildings.gpkg`（GeoPackage 形式、EPSG:4326）
+4. **ROI クリップ**: 各建物ポリゴンを Hanoi 行政区画ポリゴン（`data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp`）でクリップ。境界を跨ぐ建物は切断して境界内の部分のみ保持。
+5. **出力**: `data/gis/buildings/hanoi_gba_buildings.gpkg`（GeoPackage 形式、EPSG:4326）
 
 **取得結果**: 3,071,511 件（2026-06-09 完了）
 
@@ -201,7 +201,7 @@ GBA（ベトナム）のフットプリントは Google Open Buildings V3 と概
 ## 4. ワークフロー（2026-06-09 更新）
 
 1. Microsoft 建物データのカバレッジ欠落を QA 結果として固定し、現行 `hanoi_microsoft_buildings.gpkg` の有効範囲を明示する（保留扱い確定）。
-2. ~~`GlobalBuildingAtlas` を WFS で Hanoi ROI から取得する。~~ **✅ 完了（2026-06-09）**。行政区画ポリゴンクリップ済みで 3,071,511 件取得。出力: `data/output/open_gis/hanoi_gba_buildings.gpkg`。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS ではなく HuggingFace バルクDL を推奨**（WFS は IP ブロックが発生したため）。
+2. ~~`GlobalBuildingAtlas` を WFS で Hanoi ROI から取得する。~~ **✅ 完了（2026-06-09）**。行政区画ポリゴンクリップ済みで 3,071,511 件取得。出力: `data/gis/buildings/hanoi_gba_buildings.gpkg`。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS ではなく HuggingFace バルクDL を推奨**（WFS は IP ブロックが発生したため）。
 3. ~~GBA 取得後、Microsoft 欠落域（105.29–105.47°E）での建物数・面積率を比較し、カバレッジ改善を定量確認する。~~ **✅ 完了（2026-06-09）**。Microsoft 欠落域で 273,742 件・面積率 1.25% を確認（ゼロでなく実データあり）。GBA を `Limited` シナリオ建物主ソースとして確定。
 4. 必要に応じて `Google Open Buildings V3 Polygons` を Geofabrik の代替または補完データとして取得し、GBA と比較する。
 5. Geofabrik Vietnam extract から `building=*` を抽出し、GBA / Google と密度・面積率を比較する。

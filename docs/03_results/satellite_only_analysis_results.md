@@ -46,12 +46,12 @@
 
 ### 3.2 入力データ
 
-- `data/output/LST/2023/LST_Landsat8_20230707_032329Z.tif`
-- `data/output/LST/2023/LST_Landsat8_20230723_032309Z.tif`
-- `data/output/LST/2024/LST_Landsat8_20241130_032336Z.tif`
-- `data/output/indices/2023/INDICES_Landsat8_20230707_032329Z.tif`
-- `data/output/indices/2023/INDICES_Landsat8_20230723_032309Z.tif`
-- `data/output/indices/2024/INDICES_Landsat8_20241130_032336Z.tif`
+- `data/satellite/lst/2023/LST_Landsat8_20230707_032329Z.tif`
+- `data/satellite/lst/2023/LST_Landsat8_20230723_032309Z.tif`
+- `data/satellite/lst/2024/LST_Landsat8_20241130_032336Z.tif`
+- `data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif`
+- `data/satellite/indices/2023/INDICES_Landsat8_20230723_032309Z.tif`
+- `data/satellite/indices/2024/INDICES_Landsat8_20241130_032336Z.tif`
 
 ### 3.3 品質管理
 

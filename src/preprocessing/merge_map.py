@@ -68,9 +68,11 @@ from rasterio.merge import merge
 from shapely.geometry import Polygon, mapping
 
 # パス設定
-MAP_INFO_PATH = Path("data/input/map_info.csv")
-MAPS_DIR = Path("data/gis/maps")
-OUTPUT_PATH = Path("data/gis/maps/merged_map.tif")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MAP_INFO_PATH = PROJECT_ROOT / "data" / "input" / "map_info.csv"
+MAPS_DIR = PROJECT_ROOT / "data" / "gis" / "maps"
+OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "maps" / "merged_map.tif"
+VALIDATION_RESULTS_PATH = PROJECT_ROOT / "data" / "output" / "maps" / "validation_results.csv"
 CRS = "EPSG:5897"
 
 # パラメータ設定
@@ -175,9 +177,7 @@ def main(
         if not valid:
             print(f"バリデーション失敗: {tiff_name}。処理を中断します。")
             # CSV出力してから中断
-            pd.DataFrame(validation_results).to_csv(
-                "data/output/maps/validation_results.csv", index=False
-            )
+            pd.DataFrame(validation_results).to_csv(VALIDATION_RESULTS_PATH, index=False)
             return
         if reference_res is None:
             reference_res = res  # 最初の画像の解像度を基準に
@@ -191,7 +191,7 @@ def main(
             clipped_metas.append(clipped_meta)
 
     # バリデーション結果をCSV出力
-    pd.DataFrame(validation_results).to_csv("data/output/maps/validation_results.csv", index=False)
+    pd.DataFrame(validation_results).to_csv(VALIDATION_RESULTS_PATH, index=False)
 
     print(f"クリップ完了: {len(clipped_files)} 枚")
 

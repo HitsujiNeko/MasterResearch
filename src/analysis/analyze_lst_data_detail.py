@@ -108,7 +108,9 @@ def analyze_lst_roi():
         return None
 
     roi_files = (
-        list(roi_dir.glob("*.shp")) + list(roi_dir.glob("*.gpkg")) + list(roi_dir.glob("*.geojson"))
+        list(roi_dir.rglob("*.shp"))
+        + list(roi_dir.rglob("*.gpkg"))
+        + list(roi_dir.rglob("*.geojson"))
     )
 
     print(f"\nROIディレクトリ: {roi_dir}")

@@ -267,7 +267,7 @@ graph TB
 **主要セクション**:
 
 - 入力データ: `data/input/gee_calc_LST_info.csv`
-- 出力データ: `data/satellite/lst/*.tif`、`gee_calc_LST_results.csv`
+- 出力データ: `data/satellite/lst/*.tif`、`data/output/gee_calc_LST_results.csv`
 - 処理フロー: GEE認証 → ROI読込 → LST算出 → 品質評価
 - 関数仕様: `lst_smw.apply_smw_lst()`
 - エラーハンドリング: タイムアウト、雲被覆対応

@@ -1,7 +1,7 @@
 # Setup
 
-**最終更新**: 2026-06-13  
-**関連ドキュメント**: [README.md](README.md), [02_methods/qgis_mcp_setup.md](02_methods/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
+**最終更新**: 2026-06-30  
+**関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
 ---
@@ -302,7 +302,7 @@ ruff format .
 ## 11. QGIS MCP（Claude Code 連携）
 
 Claude Code から QGIS を直接操作するための MCP サーバーが `.mcp.json` に設定済み。
-QGIS プラグインのインストールや接続設定の詳細は [02_methods/qgis_mcp_setup.md](02_methods/qgis_mcp_setup.md) を参照。
+QGIS プラグインのインストールや接続設定の詳細は [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md) を参照。
 
 ---
 

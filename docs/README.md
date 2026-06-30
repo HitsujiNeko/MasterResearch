@@ -14,6 +14,8 @@
 docs/
 ├── README.md                              # 📌 このファイル（全体ガイド）
 ├── setup.md                               # 🛠️ 環境構築ガイド
+├── setup/                                 # 🛠️ 個別ツールのセットアップガイド
+│   └── qgis_mcp_setup.md                  # QGIS MCP セットアップガイド
 │
 ├── 01_planning/                           # 📋 研究計画フェーズ
 │   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理（インデックス）
@@ -28,10 +30,9 @@ docs/
 │   ├── analysis_rq3_satellite_only_guide.md # analysis_rq3_satellite_only.py 初心者向け解説
 │   ├── calc_urban_params_guide.md         # urban_paramsパッケージ 設計ガイド
 │   ├── gee_calc_satellite_indices.md      # 衛星指標算出仕様書（NDVI/NDBI/NDWI）
-│   ├── data_management_guide.md           # データ管理方針（Git/LFS/DVC運用）
+│   ├── data_management_guide.md           # データ管理方針（Git + Google Drive 2層運用）
 │   ├── calc_LST_report.md                 # LST算出レポート
 │   ├── gee_calc_LST.md                    # LST算出仕様書
-│   ├── qgis_mcp_setup.md                  # QGIS MCP セットアップガイド
 │   ├── skill_operation_rules.md           # スキル運用ルール
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
@@ -66,6 +67,12 @@ docs/
 | [README.md](README.md) | docs全体の索引 | ドキュメント構造、管理ルール、関連リンク | docs配下の重要ファイル追加・改名時 |
 | [setup.md](setup.md) | 環境構築ガイド | `environment.yml` を正本としたセットアップ手順、依存確認、GitHub CLI セットアップ、実行例 | 依存関係・実行手順・ツール要件の変更時 |
 
+### 🛠️ setup - 個別ツールのセットアップガイド
+
+| ファイル名 | 概要 | 主要な内容 | 関連ファイル |
+|-----------|------|-----------|------------|
+| [qgis_mcp_setup.md](setup/qgis_mcp_setup.md) | QGIS MCP セットアップガイド | nkarasiak/qgis-mcp の導入手順、接続設定、トラブルシューティング | `.mcp.json` |
+
 ### 📋 01_planning - 研究計画
 
 | ファイル名 | 概要 | 主要な内容 | 関連RQ |
@@ -87,7 +94,6 @@ docs/
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
-| [qgis_mcp_setup.md](02_methods/qgis_mcp_setup.md) | QGIS MCP セットアップガイド | nkarasiak/qgis-mcp の導入手順、接続設定、トラブルシューティング | `.mcp.json` |
 | [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 環境別の作成・利用ルール、プロジェクト固有ルール | `.claude/skills/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
@@ -822,6 +828,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-06-30 | `docs/setup/` を新設し `qgis_mcp_setup.md` を `02_methods/` から移動。`data_catalog.csv` 廃止に伴い `data_management_guide.md` を改訂（Google Drive 2層運用の役割明確化、MCP経由アクセスへの移行）（#44） | AI支援 |
 | 2026-06-24 | `available_gis_data.md` をカテゴリ別ファイルに分割。`gis_data/` サブフォルダを新設し、`gis_data_roads.md`・`gis_data_buildings.md` を新規作成。`dem_selection_guide.md` を `gis_data/gis_data_dem.md` に移動・リネーム（#29） | AI支援 |
 | 2026-06-13 | `check-docs-consistency` skill導入に伴い定期メンテナンス項目を更新。ディレクトリ構造図に`.claude/skills/`を追加し、`02_structured_summaries`の注記をS2-S8に修正 | AI支援 |
 | 2026-06-03 | `setup.md` に GitHub CLI セットアップ手順（セクション9）とトラブルシュートを追加。`.github/` ディレクトリツリーをGitHub Issues運用移行後の実態に更新 | AI支援 |
@@ -838,6 +845,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-06-13  
+**最終更新**: 2026-06-30  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

@@ -1,7 +1,7 @@
 # QGIS MCP セットアップガイド
 
-**最終更新**: 2026-06-26  
-**関連ドキュメント**: [../setup.md](../setup.md), [CodingRule.md](CodingRule.md), [data_management_guide.md](data_management_guide.md)  
+**最終更新**: 2026-06-30  
+**関連ドキュメント**: [../setup.md](../setup.md), [../02_methods/CodingRule.md](../02_methods/CodingRule.md), [../02_methods/data_management_guide.md](../02_methods/data_management_guide.md)  
 **前提知識**: Claude Code の基本操作、QGIS の基本操作
 
 ---

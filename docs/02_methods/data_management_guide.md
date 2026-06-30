@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-06-28  
+**最終更新**: 2026-06-30  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -18,77 +18,66 @@
 
 ## 2. 基本方針（2層管理）
 
-### Layer 1: Gitで管理するもの
+ローカル `data/` と Google Drive は、それぞれ異なる役割を持つ。
 
-- コード: src/
-- ドキュメント: docs/
-- 設定: .github/, .vscode/, .gitignore
-- 軽量な表データ: data/input/*.csv, data/output/*.json
-- 再現実行に必要な最小サンプル: data/samples/
+| | ローカル `data/` | Google Drive |
+|---|---|---|
+| **役割** | スクリプト実行の正本（作業環境） | 永続保管 + PC間共有のハブ |
+| **対象** | 全データ（軽量はGit、大容量はローカルのみ） | Git管理外の大容量ファイルのみ |
+| **更新タイミング** | スクリプト実行時に随時 | 新データ生成・前処理完了後にアップロード |
 
-### Layer 2: Google Driveで管理するもの
-
-- 大容量ラスタ: data/satellite/lst/ 配下で生成される GeoTIFF
-- merge_XX.gpkg などの大容量GISデータ
-- GEEからExportされる配布前データ一式
-- 原則として「成果物の実体」はDrive、「参照情報」はGitに保存
+- スクリプトは常にローカル `data/` を参照する（Driveを直接参照しない）
+- Driveは「PCを変えても同じデータにアクセスできる」ための永続保管・共有用ハブであり、作業の正本ではない
 
 ---
 
-## 3. Google Driveの推奨フォルダ構成
+## 3. Google Driveのフォルダ構成
 
-以下のように、都市・年・データ種別で固定化する。
+ローカル `data/` のカテゴリ構成（`gis/`, `satellite/`）に揃えて、Drive側も以下の構成で固定化する。
 
 ```text
-MasterResearch_Data/
-  LST/
-    hanoi/
-      2023/
-      2024/
-    osaka/
-      2023/
-  GIS_GPKG/
-    wgs84/
-      v20260316/
-  snapshots/
-    thesis_freeze_v1/
+MasterResearch/
+├── satellite/
+│   ├── lst/
+│   └── indices/
+└── gis/
+    ├── buildings/
+    ├── roads/
+    ├── boundaries/
+    ├── dem/
+    ├── survey/
+    ├── maps/
+    └── raw/
 ```
+
+- ルートフォルダは `MasterResearch/` 1つに集約する
+- `data/input/`, `data/output/` はGit管理のためDriveには置かない
+- `data/BSHorizon/`, `data/csv/` はDrive管理対象外（ローカルのみで管理する）
 
 命名ルール:
 
 - ファイル名は半角英数字 + アンダースコア
 - 日付は YYYYMMDD
-- バージョンは vYYYYMMDD（例: v20260316）
-- 論文で使う確定データは snapshots/thesis_freeze_v1 のように凍結保存
 
 ---
 
-## 4. Google Driveをマウントして使う
+## 4. Claude Code からの Google Drive アクセス
 
-Windowsでは Google Drive for desktop を使い、Driveをローカルドライブとしてマウントできる。  
-これにより、解析スクリプトからDrive上データを通常のパスとして参照できる。
+Claude Code には Google Drive へのアクセス機能が組み込みで利用可能であり、`.mcp.json` への追加設定は不要。ファイル一覧取得・検索・ダウンロード・アップロードをClaude Codeから直接行える。
 
-推奨手順:
-
-1. Google Drive for desktop をインストールする
-2. ストリーミングモードでDriveをマウントする（容量節約のため）
-3. マウント先（例: G:/My Drive/MasterResearch_Data/）を固定して使う
-4. ローカル解析時は必要ファイルだけ同期し、処理後にDriveへ戻す
-
-注意:
-
-- 共同編集しない個人研究では、まずは手動同期で十分
-- 巨大ラスタを常時ミラーリングするとローカル容量を圧迫しやすい
+- **マウント運用は行わない**: どのPCでもGoogle Drive for desktopによるローカルドライブ化は行わない。MCP経由でのアクセスで十分とする
+- **大容量ファイルのアップロード**: 数百MB〜GB級のファイルはMCP経由のインライン転送に向かないため、ユーザーがGoogle Drive for desktopやWebブラウザ経由で手動アップロードする
+- **小容量ファイル**: メタデータJSONや軽量なベクタファイル等はClaude CodeからMCP経由でアップロード・取得して構わない
 
 ---
 
-## 5. なぜ拡張子一律除外だけでは不十分か
+## 5. 大容量バイナリの除外方針
 
-- *.tif 一括除外は安全だが、共有すべき小サンプルも除外しやすい
-- .gitignore は「新規追加」を防ぐだけで、既追跡ファイルには効かない
+- `.tif` / `.gpkg` はサイズに関わらず一律Git追跡しない方針とする。共有はDrive経由で行う
+- `.gitignore` は「新規追加」を防ぐだけで、既追跡ファイルには効かない
 - 大容量バイナリを通常Gitで履歴管理すると、clone/pullが重くなる
 
-このため、**パスベースの除外 + サンプル例外許可**を採用する。
+このため、拡張子ベースの除外に加えて**パスベースの除外 + サンプル例外許可**を併用する。
 
 ---
 
@@ -98,7 +87,7 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
 
 1. **入力データと出力データを分離する** — 元データを保護し、再実行を容易にする
 2. **データの分類軸はカテゴリ（用途）で統一する** — ファイル形式やソース名で分けない
-3. **前処理で生成した空間データも、下流分析の入力であれば入力側に配置する** — 出自は `data_catalog.csv` で追跡する
+3. **前処理で生成した空間データも、下流分析の入力であれば入力側に配置する** — 出自はファイル命名規則とGoogle Drive MCPでの検索により追跡する
 4. **衛星由来データと GIS データは別カテゴリとして管理する**
 
 ### 6.2 配置先の判定ルール
@@ -110,6 +99,7 @@ Windowsでは Google Drive for desktop を使い、Driveをローカルドライ
 | 未加工のソースデータ | `data/gis/raw/` | geofabrik PBF |
 | 軽量な設定・テキスト | `data/input/` | 設定 CSV, テキスト |
 | 分析結果・ログ | `data/output/` | urban_params CSV, JSON レポート, ログ |
+| BSHorizon関連データ | `data/BSHorizon/` | 入力CSV, 設定YAML, 出力TXT |
 
 ---
 
@@ -154,8 +144,8 @@ git commit -m "Stop tracking generated outputs"
 
 ### 8.2 ローカル解析前
 
-1. Driveから必要ファイルのみ取得する
-2. ローカルでは data/temp/ または data/output/ に配置する
+1. Claude Code の Google Drive MCP、またはGoogle Drive for desktop/Webブラウザから必要ファイルのみ取得する
+2. ローカルでは `data/gis/{category}/` または `data/satellite/{category}/` に配置する
 3. 解析後に生成される大容量出力はGitへ追加しない
 
 ### 8.3 解析完了後（必須）
@@ -166,33 +156,7 @@ git commit -m "Stop tracking generated outputs"
 
 ---
 
-## 9. データ目録（メタデータ）をGitで管理する
-
-大容量実体をGitに入れない代わりに、以下の情報をCSVで管理する。
-
-- 推奨ファイル: data/input/data_catalog.csv
-- 最低限の列:
-  - dataset_id
-  - city
-  - period
-  - variable
-  - crs
-  - resolution_m
-  - created_at
-  - created_by_script
-  - drive_path
-  - notes
-
-CSV例:
-
-```csv
-dataset_id,city,period,variable,crs,resolution_m,created_at,created_by_script,drive_path,notes
-lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc_LST.py,MasterResearch_Data/LST/hanoi/2023/,cloud<10%
-```
-
----
-
-## 10. LFS/DVCは将来拡張として扱う
+## 9. LFS/DVCは将来拡張として扱う
 
 本研究の現時点では、Git + Google Drive の2層で十分。  
 ただし、以下の条件に該当したら追加導入を検討する。
@@ -202,17 +166,16 @@ lst_hanoi_20230716,hanoi,2023-07-16,LST,EPSG:4326,30,2026-03-16,src/gee/gee_calc
 
 ---
 
-## 11. 最小運用チェックリスト
+## 10. 最小運用チェックリスト
 
 - [ ] 50MB超の新規ファイルを通常Gitへ追加していない
 - [ ] 生成物は data/output/ に分離し、必要最小限のみ追跡
 - [ ] 実験再現に必要なサンプルを data/samples/ に保持
-- [ ] どのデータから結果を作成したかを docs/ と data_catalog.csv に記録
 - [ ] `.gitignore` の更新時は `docs/README.md` と本ガイドの記述も確認した
 
 ---
 
-## 12. 補足: コマンド早見表
+## 11. 補足: コマンド早見表
 
 ```powershell
 # 追跡中の大きいファイルを確認（例: 50MB超）

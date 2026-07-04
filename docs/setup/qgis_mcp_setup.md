@@ -55,7 +55,7 @@ Claude Code <-- stdio (MCP) --> MCP Server (uvx) <-- TCP socket --> QGIS Plugin
       "args": [
         "--python", "3.12",
         "--from",
-        "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip",
+        "https://github.com/nkarasiak/qgis-mcp/archive/refs/tags/v0.5.0.zip",
         "qgis-mcp-server"
       ],
       "env": {

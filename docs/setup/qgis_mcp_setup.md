@@ -1,7 +1,7 @@
 # QGIS MCP セットアップガイド
 
-**最終更新**: 2026-06-30  
-**関連ドキュメント**: [../setup.md](../setup.md), [../02_methods/CodingRule.md](../02_methods/CodingRule.md), [../02_methods/data_management_guide.md](../02_methods/data_management_guide.md)  
+**最終更新**: 2026-07-01  
+**関連ドキュメント**: [../setup.md](../setup.md), [../02_methods/CodingRule.md](../02_methods/CodingRule.md), [../02_methods/data_management_guide.md](../02_methods/data_management_guide.md), [../02_methods/qgis_mcp_usage_guide.md](../02_methods/qgis_mcp_usage_guide.md), [../02_methods/qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md)  
 **前提知識**: Claude Code の基本操作、QGIS の基本操作
 
 ---
@@ -55,7 +55,7 @@ Claude Code <-- stdio (MCP) --> MCP Server (uvx) <-- TCP socket --> QGIS Plugin
       "args": [
         "--python", "3.12",
         "--from",
-        "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip",
+        "https://github.com/nkarasiak/qgis-mcp/archive/refs/tags/v0.5.0.zip",
         "qgis-mcp-server"
       ],
       "env": {

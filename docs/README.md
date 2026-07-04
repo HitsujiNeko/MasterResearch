@@ -34,6 +34,8 @@ docs/
 │   ├── calc_LST_report.md                 # LST算出レポート
 │   ├── gee_calc_LST.md                    # LST算出仕様書
 │   ├── skill_operation_rules.md           # スキル運用ルール
+│   ├── qgis_mcp_usage_guide.md            # QGIS MCP活用ガイド（ユースケース別操作例）
+│   ├── qgis_operation_guidelines.md       # QGIS運用ガイドライン（命名規則・CRS方針・注意事項）
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
@@ -95,6 +97,8 @@ docs/
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
 | [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 環境別の作成・利用ルール、プロジェクト固有ルール | `.claude/skills/` |
+| [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) | QGIS MCP活用ガイド | データ確認・レイヤー操作・スタイル適用・Map Theme切り替え・Processing実行のユースケース別操作例 | `qgis/` |
+| [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max）、大規模レイヤーのクラッシュ対策 | `qgis/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
 ### 📊 03_results - 研究結果
@@ -784,6 +788,11 @@ MasterResearch/
 │   │   └── gee_calc_LST_results.csv
 │   └── csv/analysis/           # 分析用CSV
 │
+├── qgis/                        # QGISワークスペース（詳細: qgis_operation_guidelines.md）
+│   ├── projects/                # 都市単位のQGISプロジェクト（.qgz、Git管理外）
+│   ├── styles/                  # 再利用スタイル（.qml、Git追跡）
+│   └── templates/               # 印刷レイアウトテンプレート（.qpt、Git追跡）
+│
 └── 整備データ/                  # ベトナム測量データ
     └── merge/*.gpkg            # 統合GeoPackage
 ```
@@ -828,6 +837,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-01 | `qgis_mcp_usage_guide.md`・`qgis_operation_guidelines.md` を `02_methods/` に新規追加。`qgis/`（projects/styles/templates）ワークスペースの整備に伴うドキュメント整備（#41） | AI支援 |
 | 2026-06-30 | `docs/setup/` を新設し `qgis_mcp_setup.md` を `02_methods/` から移動。`data_catalog.csv` 廃止に伴い `data_management_guide.md` を改訂（Google Drive 2層運用の役割明確化、MCP経由アクセスへの移行）（#44） | AI支援 |
 | 2026-06-24 | `available_gis_data.md` をカテゴリ別ファイルに分割。`gis_data/` サブフォルダを新設し、`gis_data_roads.md`・`gis_data_buildings.md` を新規作成。`dem_selection_guide.md` を `gis_data/gis_data_dem.md` に移動・リネーム（#29） | AI支援 |
 | 2026-06-13 | `check-docs-consistency` skill導入に伴い定期メンテナンス項目を更新。ディレクトリ構造図に`.claude/skills/`を追加し、`02_structured_summaries`の注記をS2-S8に修正 | AI支援 |
@@ -845,6 +855,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-06-30  
+**最終更新**: 2026-07-01  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

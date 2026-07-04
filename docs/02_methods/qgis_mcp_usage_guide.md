@@ -1,0 +1,84 @@
+# QGIS MCP 活用ガイド
+
+**最終更新**: 2026-07-01
+**関連ドキュメント**: [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [qgis_operation_guidelines.md](qgis_operation_guidelines.md), [data_management_guide.md](data_management_guide.md)
+**前提知識**: QGIS MCPのセットアップ完了（[qgis_mcp_setup.md](../setup/qgis_mcp_setup.md)）、QGISの基本操作
+
+---
+
+## 概要
+
+本ガイドは、セットアップ済みのQGIS MCPを使って実際にどのような作業ができるかを、ユースケース別の操作例で示す。接続手順やトラブルシューティングは[qgis_mcp_setup.md](../setup/qgis_mcp_setup.md)を参照し、本ガイドは「使いこなし方」に特化する。
+
+**プロジェクト構成**: `qgis/projects/hanoi.qgz`（都市単位のプロジェクト、Git管理外）、`qgis/styles/`（再利用スタイル、Git追跡）、`qgis/templates/`（印刷レイアウトテンプレート、Git追跡）。詳細は[qgis_operation_guidelines.md](qgis_operation_guidelines.md)を参照。
+
+---
+
+## ユースケース1: データ確認
+
+GISデータをQGISで目視確認したいとき。
+
+```text
+「<ABS_PATH>/data/gis/buildings/hanoi_gba_buildings.gpkg をQGISに読み込んで、
+ 属性フィールドとレコード数を教えて」
+```
+
+Claude Codeは`add_vector_layer`でレイヤーを読み込み、`get_layer_features`で属性・件数を確認する。ラスターの値域確認には`get_raster_info`（min/max/バンド数/extent）を使う。**`crs`フィールドは空文字列を返すことが多いため、CRS確認には`get_layer_crs`を使う。**
+
+**注意**: パスは絶対パスを指定する。プロジェクトに保存先パスがない状態（新規未保存プロジェクト等）で相対パスを指定すると読み込みに失敗することを確認済み。
+
+## ユースケース2: レイヤー操作・グループ管理
+
+```text
+「<ABS_PATH>/data/gis/roads/hanoi_osm_roads.gpkg を読み込んで
+ 『道路』グループに入れて」
+```
+
+`add_vector_layer` / `add_raster_layer` → `create_layer_group`（未作成の場合）→ `move_layer_to_group` の順で操作する。レイヤー削除は`remove_layer`（元に戻せないため注意）。
+
+## ユースケース3: スタイル適用
+
+再利用スタイル（`qgis/styles/*.qml`）を既存レイヤーに適用する場合。
+
+```text
+「GBA建物レイヤーに qgis/styles/building_coverage.qml を適用して」
+```
+
+`apply_style_qml`でベクター・ラスターどちらにも適用できる。新規にスタイルを作る場合、ベクターの単純な分類（categorized/graduated）は`set_layer_style`で十分だが、**ラスターの疑似カラー（LST・NDVI等）は`set_layer_style`では対応できないため`execute_code`でPyQGISを直接操作する**（[qgis_operation_guidelines.md](qgis_operation_guidelines.md)の注意事項を必ず参照）。
+
+## ユースケース4: Map Theme切り替え
+
+研究のシナリオ定義（Satellite Only / Limited / Full）に対応したMap Themeが`hanoi.qgz`に設定済み。
+
+```text
+「hanoi.qgz で Limited のMap Themeに切り替えて」
+```
+
+`apply_map_theme`で切り替える。テーマ自体の再定義・追加は、対象レイヤーグループの可視性を`execute_code`（`QgsLayerTreeGroup.setItemVisibilityChecked`）で設定してから`add_map_theme`を呼ぶ（同名テーマは上書き更新される）。
+
+## ユースケース5: Processing実行
+
+QGIS Processingアルゴリズムを対話的に実行したい場合。
+
+```text
+「OSM道路レイヤーにバッファ処理を500m半径で実行して」
+```
+
+`list_processing_algorithms`でアルゴリズムを検索し、`get_algorithm_help`でパラメータを確認したうえで`execute_processing`を実行する。複数レイヤーへの一括処理は`execute_processing_batch`を使う。
+
+## ユースケース6: 地図の確認・出力
+
+- 簡易確認: `get_canvas_screenshot`（現在のキャンバス描画を高速に取得、再レンダリングなし）
+- 高品質レンダリング: `render_map`
+- 印刷レイアウト出力: `qgis/templates/standard_a4_map.qpt`をベースにしたレイアウトを`export_layout`でPDF/画像として書き出す
+
+---
+
+## 注意点: 大規模レイヤーのパフォーマンス
+
+本研究のGBA建物データ（約307万件）や測量データ（数十万件規模のレイヤーが複数）を同時に可視化状態にすると、QGIS自体がクラッシュする事例が確認されている。詳細な回避策は[qgis_operation_guidelines.md](qgis_operation_guidelines.md)の「大規模レイヤーの取り扱い」を参照。
+
+**実務上の対策**:
+
+- レイヤー・グループを追加するたびに`save_project`でこまめに保存する（クラッシュ時の作業ロスを最小化）
+- 全レイヤーを同時に可視化する操作（`Full`テーマの確認など）は特に注意し、保存直後に行う

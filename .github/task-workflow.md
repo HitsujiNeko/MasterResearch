@@ -1,6 +1,6 @@
 # タスクワークフロー
 
-**最終更新**: 2026-07-01
+**最終更新**: 2026-07-04
 **関連ファイル**: [CLAUDE.md](../CLAUDE.md), [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md), [Issue テンプレート](./ISSUE_TEMPLATE/task.md), [parallel-workflow.md](./parallel-workflow.md)
 
 ## 目的
@@ -258,12 +258,30 @@ PR をレビューし、問題なければ GitHub 上で squash merge する。
 
 **⑦ マージ後処理**（Claude が行う）
 
+単一実行のタスクか、[parallel-workflow.md](./parallel-workflow.md) の方式 A・方式 B で worktree 隔離実行した並列実行のタスクかで手順が分岐する。
+
+**単一実行の場合:**
+
 ```powershell
 git checkout main
 git pull
 git branch -D {Issue番号}/{タスク要約英文}
 
 # active/ 配下の計画書を削除（存在する場合）
+Remove-Item .github/prompts/active/{ファイル名}
+
+# プロジェクトのステータスを「完了」・完了日（当日）を GraphQL で更新
+```
+
+**並列実行（worktree 隔離実行）の場合:**
+
+共有ディレクトリは他セッションが使用中の可能性があるため、`git checkout` や `git pull` など共有ディレクトリのチェックアウト状態を変更するコマンドは一切実行しない。worktree とブランチの削除のみを行う。
+
+```powershell
+git worktree remove {worktreeパス}
+git branch -D {Issue番号}/{タスク要約英文}
+
+# active/ 配下の計画書を削除（存在する場合。worktree内のパス）
 Remove-Item .github/prompts/active/{ファイル名}
 
 # プロジェクトのステータスを「完了」・完了日（当日）を GraphQL で更新

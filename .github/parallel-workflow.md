@@ -1,6 +1,6 @@
 # 並列タスク実行ワークフロー
 
-**最終更新**: 2026-07-01
+**最終更新**: 2026-07-04
 **関連ファイル**: [task-workflow.md](./task-workflow.md), [CLAUDE.md](../CLAUDE.md)
 **前提知識**: [task-workflow.md](./task-workflow.md) の標準ワークフローの理解
 
@@ -90,7 +90,12 @@ Claude は以下の手順で作業を隔離する。
 1. `git worktree add` で `main` から worktree を作成する
 2. worktree 内で作業ブランチ `{Issue番号}/{タスク要約英文}` を作成する
 3. worktree 内で標準ワークフローに従って実装を進める
-4. タスク完了後、PR 作成・merge を経て worktree を削除する
+4. タスク完了後、PR 作成・merge を経て、[task-workflow.md のマージ後処理](./task-workflow.md)の「並列実行（worktree 隔離実行）の場合」の手順に従い、以下のコマンドで worktree とブランチを削除する。共有ディレクトリのチェックアウト状態には一切触れない。
+
+   ```powershell
+   git worktree remove {worktreeパス}
+   git branch -D {Issue番号}/{タスク要約英文}
+   ```
 
 ---
 

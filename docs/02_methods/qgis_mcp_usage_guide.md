@@ -19,7 +19,7 @@
 GISデータをQGISで目視確認したいとき。
 
 ```text
-「data/gis/buildings/hanoi_gba_buildings.gpkg をQGISに読み込んで、
+「<ABS_PATH>/data/gis/buildings/hanoi_gba_buildings.gpkg をQGISに読み込んで、
  属性フィールドとレコード数を教えて」
 ```
 
@@ -30,7 +30,7 @@ Claude Codeは`add_vector_layer`でレイヤーを読み込み、`get_layer_feat
 ## ユースケース2: レイヤー操作・グループ管理
 
 ```text
-「data/gis/roads/hanoi_osm_roads.gpkg を読み込んで
+「<ABS_PATH>/data/gis/roads/hanoi_osm_roads.gpkg を読み込んで
  『道路』グループに入れて」
 ```
 

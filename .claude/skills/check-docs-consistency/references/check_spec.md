@@ -30,6 +30,7 @@
 - `docs/README.md`（カタログ文書自体）
 - `docs/04_archive/02_structured_summaries/S*.md`（独自メタ形式で管理）
 - `docs/04_archive/templates/structured_summary_template.md`（上記のテンプレート元）
+- `*.mmd`（Mermaid図定義。`# タイトル`見出し構造を持たないため対象外。説明・更新日は`docs/README.md`のカタログ側で管理する）
 
 ## 4. 用語の表記揺れチェック
 

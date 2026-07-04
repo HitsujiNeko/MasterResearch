@@ -644,7 +644,7 @@
     <Option/>
    </customproperties>
   </LayoutObject>
-  <Extent ymax="22.15309807279333043" xmax="106.55244514215927154" ymin="19.99029864817362423" xmin="104.72608118359151774"/>
+  <Extent ymax="1.18421052631578949" xmax="1" ymin="-1.18421052631578949" xmin="-1"/>
   <LayerSet/>
   <AtlasMap margin="0.10000000000000001" scalingMode="2" atlasDriven="0"/>
   <labelBlockingItems/>
@@ -653,7 +653,7 @@
   </atlasClippingSettings>
   <itemClippingSettings clipSource="" enabled="0" clippingType="1" forceLabelsInside="0"/>
  </LayoutItem>
- <LayoutItem labelText="Hanoi 都市構造・LST分析マップ" groupUuid="" position="10,5,mm" background="false" templateUuid="{887e0a3f-a700-4d83-be60-c5c38f1c7d8f}" opacity="1" frame="false" positionLock="false" size="190,15,mm" htmlState="0" uuid="{887e0a3f-a700-4d83-be60-c5c38f1c7d8f}" visibility="1" type="65641" id="" itemRotation="0" excludeFromExports="0" outlineWidthM="0.3,mm" valign="32" marginX="0" frameJoinStyle="miter" marginY="0" blendMode="0" positionOnPage="10,5,mm" zValue="1" referencePoint="0" halign="1">
+ <LayoutItem labelText="{{都市名}} 都市構造マップ" groupUuid="" position="10,5,mm" background="false" templateUuid="{887e0a3f-a700-4d83-be60-c5c38f1c7d8f}" opacity="1" frame="false" positionLock="false" size="190,15,mm" htmlState="0" uuid="{887e0a3f-a700-4d83-be60-c5c38f1c7d8f}" visibility="1" type="65641" id="" itemRotation="0" excludeFromExports="0" outlineWidthM="0.3,mm" valign="32" marginX="0" frameJoinStyle="miter" marginY="0" blendMode="0" positionOnPage="10,5,mm" zValue="1" referencePoint="0" halign="1">
   <FrameColor blue="0" green="0" alpha="255" red="0"/>
   <BackgroundColor blue="255" green="255" alpha="255" red="255"/>
   <LayoutObject>

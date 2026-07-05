@@ -1,6 +1,6 @@
 # 利用可能な公開GISデータ候補
 
-**最終更新**: 2026-06-24  
+**最終更新**: 2026-07-05  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [CodingRule.md](../02_methods/CodingRule.md)  
 **前提知識**: RQ1-RQ3、都市構造パラメータの定義、GISデータのCRS・解像度・ライセンス差
 
@@ -28,6 +28,7 @@
 - `GHSL` と `World Settlement Footprint` は建物フットプリントの代替ではなく、粗い built-up / settlement extent の補助・妥当性確認用として扱う。
 - `Limited` シナリオの建物データソースは GBA に移行済み（`config.py`）。Microsoft 時代のカバレッジ欠落問題は解消されたが、建物パラメータ（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>`）の算出方法自体は別Issue（#7）で設計確定予定。
 - 標高データは `FABDEM v1.2`（Copernicus DEM 派生の準DTM）を `Limited` シナリオの主採用候補とする（BSHorizon との比較で全指標最良）。
+- 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースデータセット候補の調査を完了した（#3）。各カテゴリの候補比較・推奨方針は Section 4 のカテゴリ別詳細ドキュメントを参照。実データの取得・採用可否は未判断。
 
 ---
 
@@ -52,3 +53,10 @@
 | 道路 | [gis_data_roads.md](gis_data/gis_data_roads.md) |
 | 建物 | [gis_data_buildings.md](gis_data/gis_data_buildings.md) |
 | 標高（DEM） | [gis_data_dem.md](gis_data/gis_data_dem.md) |
+| 土地利用（LULC） | [gis_data_lulc.md](gis_data/gis_data_lulc.md) |
+| 人口密度 | [gis_data_population.md](gis_data/gis_data_population.md) |
+| 夜間光 | [gis_data_nighttime_lights.md](gis_data/gis_data_nighttime_lights.md) |
+| 水域（近接距離・面積率） | [gis_data_water.md](gis_data/gis_data_water.md) |
+| POI密度 | [gis_data_poi.md](gis_data/gis_data_poi.md) |
+| 不透水面率 | [gis_data_impervious.md](gis_data/gis_data_impervious.md) |
+| 公園近接距離 | [gis_data_park_proximity.md](gis_data/gis_data_park_proximity.md) |

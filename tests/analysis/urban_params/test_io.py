@@ -73,6 +73,25 @@ def test_iter_feature_records_yields_features(tmp_path: Path) -> None:
     assert features[0]["properties"]["val"] == 1
 
 
+def test_iter_feature_records_excludes_out_of_bbox(tmp_path: Path) -> None:
+    """BBox範囲外のフィーチャは除外される（bboxフィルタが機能していることの回帰テスト）。"""
+    gpkg = tmp_path / "points.gpkg"
+    schema = {"geometry": "Point", "properties": {"val": "int"}}
+    with fiona.open(gpkg, "w", driver="GPKG", layer="data", crs=ANALYSIS_CRS, schema=schema) as dst:
+        dst.write(
+            {"geometry": {"type": "Point", "coordinates": (10, 70)}, "properties": {"val": 1}}
+        )
+        dst.write(
+            {"geometry": {"type": "Point", "coordinates": (500, 500)}, "properties": {"val": 2}}
+        )
+
+    resource = _make_layer_resource(gpkg, "data")
+    features = list(iter_feature_records(resource, ANALYSIS_BBOX))
+
+    assert len(features) == 1
+    assert features[0]["properties"]["val"] == 1
+
+
 # ---------------------------------------------------------------------------
 # find_satellite_rasters
 # ---------------------------------------------------------------------------

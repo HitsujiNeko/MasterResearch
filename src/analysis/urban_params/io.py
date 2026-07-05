@@ -148,8 +148,8 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
     if resource.source_crs != resource.analysis_crs:
         query_bbox = transform_bbox(bbox_analysis, resource.from_analysis)
 
-    with fiona.open(resource.path, layer=resource.layer_name, bbox=query_bbox.to_tuple()) as src:
-        for feature in src:
+    with fiona.open(resource.path, layer=resource.layer_name) as src:
+        for feature in src.filter(bbox=query_bbox.to_tuple()):
             if feature.get("geometry") is None:
                 continue
             yield feature

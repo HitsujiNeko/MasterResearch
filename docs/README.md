@@ -45,13 +45,14 @@ docs/
     ├── README.md                          # 文献管理システムガイド
     ├── literature_management_guide.md     # 文献管理・AI活用ガイド
     ├── previous_studies_report.md         # 先行研究整理（S1-S8）
+    ├── claude_project_instructions.md     # Claude Projects プロジェクト指示（コピペ用）
+    ├── claude_project_knowledge.md        # Claude Projects ナレッジ（アップロード用）
     ├── 01_metadata/
     │   └── papers_database.csv            # 論文メタデータ（CSV）
     ├── 02_structured_summaries/
     │   ├── S1_Ermida_2020.md              # SMW法の構造化要約
     │   └── S2-S8_*.md                     # 既存構造化要約
     └── templates/
-        ├── chatgpt_instruction_paper_analysis.md # ChatGPT論文分析指示書
         └── structured_summary_template.md # 論文要約テンプレート
 ```
 
@@ -121,7 +122,8 @@ docs/
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理詳細ガイド | PDFのMarkdown変換戦略、ベストプラクティス | 論文要約作成時 |
 | [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S8の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 8論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
-| [templates/chatgpt_instruction_paper_analysis.md](04_archive/templates/chatgpt_instruction_paper_analysis.md) | ChatGPT用論文分析指示書 | PDFや書誌情報から構造化要約を作る標準プロンプト | 論文要約作成前 |
+| [claude_project_instructions.md](04_archive/claude_project_instructions.md) | Claude Projects プロジェクト指示 | claude.ai の文献調査用プロジェクトにコピペする指示文（正本） | Claude Projects セットアップ・指示変更時 |
+| [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
 **先行研究一覧（S1-S8）**:
@@ -510,6 +512,32 @@ df = pd.read_csv('papers_database.csv')
 rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 ```
 
+#### [claude_project_instructions.md](04_archive/claude_project_instructions.md)
+
+**Claude Projects プロジェクト指示（コピペ用）** - claude.ai の文献調査用プロジェクトの「プロジェクト指示」欄に貼り付ける指示文
+
+**主要内容**:
+
+- リサーチアシスタントとしての役割定義（論文検索・論文分析・壁打ち）
+- 構造化要約の出力ルール（RQ関連度評価、数値の正確性、日本語記述）
+- セットアップ・更新手順（リポジトリ側を正本として管理）
+
+**使用タイミング**: Claude Projects の初回セットアップ時、指示内容の変更時
+
+#### [claude_project_knowledge.md](04_archive/claude_project_knowledge.md)
+
+**Claude Projects ナレッジ（アップロード用）** - claude.ai のプロジェクトナレッジに常時参照させる研究コンテキストの凝縮版
+
+**主要内容**:
+
+- 研究概要・RQ1-3・用語集
+- 分析の現在地（シナリオ別の進捗）
+- 先行研究S1-S8のサマリーと研究ギャップ
+- 構造化要約テンプレートの要件
+- 更新タイミングと差し替え手順
+
+**使用タイミング**: 論文追加時・分析進捗時にリポジトリ側を更新し、claude.ai のナレッジを差し替える
+
 #### [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md)
 
 **論文要約テンプレート** - 新規論文追加時の標準フォーマット
@@ -540,7 +568,6 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 │   └── lst_methods_comparison.md
 ├── 04_pdfs/                  # PDF原本（移動予定）
 └── templates/                # テンプレート
-    ├── chatgpt_instruction_paper_analysis.md
     └── structured_summary_template.md
 ```
 
@@ -617,45 +644,42 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 
 ## 💡 活用のヒント
 
-### 🔬 先行研究調査：ChatGPT → GitHub Copilot 連携ワークフロー
+### 🔬 先行研究調査：claude.ai → Claude Code 連携ワークフロー
 
-> **最も効率的な方法**: ChatGPTで論文分析 → GitHub Copilotでプロジェクト統合
+> **最も効率的な方法**: claude.ai（Claude Projects）で論文分析 → Claude Code `/add-paper` でプロジェクト統合
 
-#### フェーズ1: 論文検索（ChatGPT + ScholarGPT）
+#### フェーズ1: 論文検索（claude.ai）
 
 ```text
-ChatGPTに質問：
+claude.ai（文献調査用プロジェクト）に質問：
 「Land Surface Temperature and urban structure in Southeast Asian cities
- で2020年以降の主要論文を教えて。各論文のDOI、引用数、主要な手法も教えて」
+ で2020年以降の主要論文を教えて。各論文のDOI、主要な手法、RQとの関連も教えて」
 
 → 論文リスト（10-15本）を取得
 ```
 
-#### フェーズ2: 論文分析（ChatGPT）
+#### フェーズ2: 論文分析（claude.ai）
 
 ```text
-ChatGPTに依頼：
-「docs/04_archive/templates/chatgpt_instruction_paper_analysis.md の
- 指示に従って、以下の論文を分析してください」
- 
+claude.ai（文献調査用プロジェクト）にPDFを添付、または論文情報を入力：
+
 【論文情報】
 - タイトル: [論文タイトル]
 - 著者: [著者名]
 - DOI: [DOI]
-（またはPDFを添付）
 
-→ 構造化要約が自動生成される（5-10分）
+→ プロジェクト指示・ナレッジに従い構造化要約が生成される（5-10分）
 ```
 
-#### フェーズ3: プロジェクト統合（GitHub Copilot）
+セットアップ: [claude_project_instructions.md](04_archive/claude_project_instructions.md)（プロジェクト指示）、[claude_project_knowledge.md](04_archive/claude_project_knowledge.md)（ナレッジ）
+
+#### フェーズ3: プロジェクト統合（Claude Code）
 
 ```text
-VS Code（GitHub Copilot）に依頼：
-「ChatGPTが生成したS9_Zhang_2023.md を保存しました。
- この内容を papers_database.csv に追加し、
- previous_studies_report.md を更新してください」
+Claude Code で /add-paper を実行し、生成された構造化要約をペースト
 
-→ データベースが自動更新される（1-2分）
+→ S番号採番・ファイル作成・papers_database.csv追記・
+   README更新・コミットまで自動実行（2分）
 ```
 
 **所要時間**: 論文1本あたり **合計10-15分** 🚀
@@ -834,6 +858,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-07 | 文献管理を claude.ai → Claude Code（`/add-paper` スキル）連携に刷新。`claude_project_instructions.md`・`claude_project_knowledge.md` を `04_archive/` に新規追加し、`chatgpt_instruction_paper_analysis.md` を削除 | AI支援 |
 | 2026-07-05 | 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースGISデータセット候補を調査。`gis_data/`配下に7ファイルを新規追加し、`available_gis_data.md` Section 4にリンクを追加 | AI支援 |
 | 2026-07-01 | `qgis_mcp_usage_guide.md`・`qgis_operation_guidelines.md` を `02_methods/` に新規追加。`qgis/`（projects/styles/templates）ワークスペースの整備に伴うドキュメント整備（#41） | AI支援 |
 | 2026-06-30 | `docs/setup/` を新設し `qgis_mcp_setup.md` を `02_methods/` から移動。`data_catalog.csv` 廃止に伴い `data_management_guide.md` を改訂（Google Drive 2層運用の役割明確化、MCP経由アクセスへの移行）（#44） | AI支援 |
@@ -853,6 +878,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-05  
+**最終更新**: 2026-07-07  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

@@ -1,7 +1,7 @@
 # 先行研究管理・活用ガイド（AI活用最適化版）
 
-**最終更新**: 2026-02-26  
-**関連ドキュメント**: [structured_summary_template.md](templates/structured_summary_template.md), [previous_studies_report.md](previous_studies_report.md)
+**最終更新**: 2026-07-07  
+**関連ドキュメント**: [structured_summary_template.md](templates/structured_summary_template.md), [previous_studies_report.md](previous_studies_report.md), [claude_project_instructions.md](claude_project_instructions.md)
 
 ## 📋 現状分析
 
@@ -220,7 +220,12 @@ Landsat LSTをSMW法でGEE上に実装し、再現性を確保
 
 ### A. 論文要約の作成方法
 
-#### 方法1: 手動作成（推奨）
+#### 推奨: claude.ai → Claude Code 連携
+
+1. claude.ai（Claude Projects）に論文PDF・書誌情報を渡して構造化要約を生成する（セットアップは [claude_project_instructions.md](claude_project_instructions.md) を参照）
+2. Claude Code で `/add-paper` を実行し、要約をペーストする（採番・ファイル作成・CSV追記・README更新・コミットまで自動）
+
+#### 方法1: 手動作成
 
 1. PDFを読んで重要情報を抽出
 2. テンプレートに沿ってMarkdownで記述

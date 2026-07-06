@@ -420,7 +420,7 @@ A Remote Sensing Approach for Surface Urban Heat Island Modeling in a Tropical C
 * [previous_studies_report.md](../04_archive/previous_studies_report.md) - 先行研究の整理・要約（S1-S6の詳細分析）
 * [papers_database.csv](../04_archive/01_metadata/papers_database.csv) - 文献メタデータ管理（RQ関連度評価含む）
 * [02_structured_summaries/](../04_archive/02_structured_summaries/) - PDF精読済み文献の構造化要約（S1-S6）
-* [chatgpt_instruction_paper_analysis.md](../04_archive/templates/chatgpt_instruction_paper_analysis.md) - ChatGPTに論文分析を依頼する際の標準プロンプト
+* [claude_project_instructions.md](../04_archive/claude_project_instructions.md) - claude.ai（Claude Projects）に論文分析を依頼する際のプロジェクト指示
 
 ---
 

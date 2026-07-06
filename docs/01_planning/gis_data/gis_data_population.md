@@ -1,0 +1,120 @@
+# 人口密度データの調査・評価
+
+**最終更新**: 2026-07-05  
+**関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
+**前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
+
+---
+
+## 1. 調査目的
+
+先行研究S2（ベトナム・ダナン市）では著者自身が「NDVI/NDBIのみでは建物高さ・人口密度を捉えられない」と指摘しており、`research_guide.md`でも人口密度は「人口・人間活動指標」として言及されている（データ入手可能な場合の追加候補）。本資料では、ベトナム国勢調査に依存せず利用できるオープンソースの人口密度グリッドデータを調査する。
+
+Hanoi ROIでの実データ取得・採用可否は未判断。
+
+### 1.1 評価軸についての補足
+
+候補となる人口密度データは、いずれも**国勢調査（行政区画単位の集計値）を何らかの補助データで空間的に按分した推計値**であり、実測データではない。そのため、ラスタの見た目の解像度（10m/30m/100m等）は必ずしも情報の精度を意味しない。按分の元になった国勢調査の統計単位（コミューン/ワード単位等）がラスタの解像度より粗ければ、高解像度に見えても実質的な情報量はそれ以上にはならない。
+
+本資料では解像度を数ある評価軸の1つとして扱い、より重視すべき以下の観点を優先して比較する。
+
+- **人口概念の違い**: 居住人口（夜間人口、国勢調査ベース）か、実効人口/アンビエント人口（昼間の人口移動を考慮した実際の分布）か。本研究はLandsatの昼間観測によるLSTを扱うため、居住人口だけでなく実効人口という選択肢も検討に値する。
+- **データ作成時期・国勢調査基準年**: 按分の元になった国勢調査年が、本研究のLandsat観測期間（2023年前後）とどれだけ近いか。
+- **手法の透明性・検証実績**: 按分手法（機械学習ベース vs 単純な建物量按分）とその検証状況。
+
+---
+
+## 2. 候補データ比較表
+
+| 項目 | WorldPop | GHS-POP | Meta/CIESIN HRSL | GPWv4 | LandScan Global | Kontur Population |
+|---|---|---|---|---|---|---|
+| 人口概念 | 居住人口 | 居住人口 | 居住人口 | 居住人口 | **実効人口（アンビエント、昼夜間移動を考慮）** | 居住人口（他データの合成） |
+| 按分手法 | Random Forest（機械学習） | 建物量（GHS-BUILT）による按分 | 建物検出（ML）+ 国勢調査按分 | 行政区画内で面積按分（比較的単純） | 多変量dasymetricモデル + 専門家による手動補正 | GHSL+HRSL+OSM等の合成・補正 |
+| 国勢調査基準年（ベトナム） | 2019年ベトナム国勢調査を各年のUNPD推計に合わせて按分 | 多時期プロダクトの一部として反映（具体的な基準年はプロダクト世代による） | 未確認（取得時に要確認） | 2010年国勢調査ラウンド（2005〜2014年収集）を基に2000〜2020年へ外挿 | 各国の国勢調査・行政記録を年次更新で反映（詳細はドキュメント要確認） | 元データ（GHSL/HRSL）の基準年に依存 |
+| 空間解像度 | 100m（3 arc-sec）/ 1km（30 arc-sec） | 50m/100m/250m/1kmから選択可 | 約30m | 1km（30 arc-sec） | 1km（30 arc-sec） | 400m/3km/22km（H3六角形グリッド） |
+| データ時期 | 国別に年次（2015〜2030年） | 1975〜2020年（5年おき）+ 2025/2030年推計 | 単一時点（不定期更新） | 2000/2005/2010/2015/2020年 | 2000〜2024年（年次） | 不定期更新（元データ更新に追従） |
+| ベトナム/ハノイ カバレッジ | ✅ 国別データセットあり | ✅ 全球データセット | ✅ 160カ国以上に対応 | ✅ 全球データセット | ✅ 全球データセット | ✅ 全球データセット |
+| ライセンス | CC BY 4.0 | 完全オープン（JRC無償公開） | CC BY 4.0 | CC BY 4.0 | CC BY 4.0（公開ポータル経由） | CC BY 4.0 |
+| 先行研究での採用実績 | 採用実績なし（S2は「捉えられなかった限界」として言及、S6は不使用） | 特になし | 特になし | 都市気候・LST研究で広く採用される「古典的」標準 | 特になし（防災・人道支援分野での採用が多い） | 特になし（比較的新しいデータセット） |
+| 取得方法（スクリプト可否） | ✅ HDX/GEE経由 | ✅ JRCポータル直接DL | ✅ HDX/AWS Open Data経由 | ✅ NASA SEDAC/GEE経由 | ✅ LandScan公開ポータル/GEE経由 | ✅ HDX直接DL |
+
+---
+
+## 3. 候補データ詳細
+
+### 3.1 WorldPop
+
+- **提供機関**: University of Southampton (WorldPop Research Group)
+- **手法**: 国勢調査を衛星画像由来の建物・土地利用情報でRandom Forestにより空間的に再配分（dasymetric mapping）。「constrained」（建成域内のみ推計）と「unconstrained」（全域推計）の2方式がある。
+- **ベトナムの基準**: 2019年ベトナム国勢調査をベースに、各年のUNPD（国連人口部）推計に合わせて按分。
+- **本研究との関連**: 先行研究S2・S6は人口密度データを実際には使用していない（S2は著者自身が「NDVI/NDBIのみでは人口密度を捉えられない」と限界として指摘したのみ、S6は使用パラメータにNDBI/NDVI/NDWI/PW/PUCのみを挙げ人口密度は含まれない）。都市LST研究での採用実績があるわけではなく、むしろ「先行研究が捉えられていなかった変数」として本研究独自に追加する位置づけになる。
+
+### 3.2 GHS-POP（Global Human Settlement Population Grid）
+
+- **提供機関**: European Commission Joint Research Centre (JRC)
+- **手法**: 国勢調査人口を、GHS-BUILT（建物量グリッド）に応じて按分。
+- **時系列**: 1975〜2020年を5年おきに提供 + 2025年・2030年の推計値。GHS-BUILT（建物量）と同一の枠組みで作られているため、建物指標との整合性を取りやすい。
+
+### 3.3 Meta/CIESIN High Resolution Settlement Layer (HRSL)
+
+- **提供機関**: Meta（旧Facebook Connectivity Lab）+ CIESIN（Columbia大学）
+- **手法**: Maxar高解像度衛星画像に対する深層学習ベースの建物検出結果を、CIESINのGridded Population of the World (GPW) 人口統計で按分。
+- **懸念点**: 更新が不定期で、ベトナム版の具体的な国勢調査基準年・作成年月日が未確認。解像度は約30mと高いが、按分の元になった統計単位（コミューン/ワード等）はそれより粗いため、見た目ほどの精度向上があるとは限らない。
+
+### 3.4 GPWv4（Gridded Population of the World, v4.11）
+
+- **提供機関**: CIESIN（Columbia大学）、NASA SEDACでホスト
+- **手法**: 2010年国勢調査ラウンド（各国の実施年は2005〜2014年の範囲）の行政区画別人口を、面積按分（areal weighting）で比較的単純にグリッド化。機械学習は用いず、手法が透明で長年の実績がある。
+- **時系列**: 2000/2005/2010/2015/2020年の5時点。UN World Population Prospectsに整合させた将来推計版もあり。
+- **位置づけ**: 都市気候・LST分野で最も広く引用される「古典的」標準データセットの1つ。手法のシンプルさゆえに、複雑なML按分モデルの結果と比較する基準点として有用。
+
+### 3.5 LandScan Global
+
+- **提供機関**: Oak Ridge National Laboratory (ORNL)
+- **手法**: 多変量dasymetricモデルに加え、専門家による手動補正（避難民・急速都市化・無人地域等の反映）。
+- **人口概念の違い（重要）**: 他候補が「居住人口（夜間人口）」を推計するのに対し、LandScanは**「実効人口（ambient population）」**を推計する。つまり、通勤・通学等の日中の人口移動を考慮した「その時間帯に実際にそこにいる人口」を表す。
+- **本研究との関連**: 本研究のLSTはLandsat 8の昼間観測（現地時間午前中）に基づくため、地表面温度と人間活動の関係を見る上では、夜間人口より実効人口の方が概念的に整合する可能性がある。ただし本資料で挙げた他候補（WorldPop, GHS-POP, HRSL, GPWv4, Kontur）はいずれも居住人口ベースであるため、実効人口を採用する場合は他候補との単純比較ができない点がトレードオフになる。
+
+### 3.6 Kontur Population
+
+- **提供機関**: Kontur Inc.
+- **手法**: GHSL・Meta HRSL・Microsoft Building Footprints・OpenStreetMap等を統合し、OSMデータで既知のアーティファクトを補正した合成データセット。
+- **グリッド形式**: H3六角形グリッド（400m/3km/22km）。本研究の正方形30mグリッドとは形状が異なるため、利用する場合はグリッド変換（六角形→正方形集計）が必要になる。
+- **懸念点**: 複数データソースの合成であるため、各構成要素の基準年が混在し、単一の明確な基準年を持たない。
+
+---
+
+## 4. 推奨方針
+
+解像度ではなく、「人口概念の妥当性」「ベトナム国勢調査年との時間整合性」「先行研究との比較可能性」を優先して評価する。
+
+- **主候補**: `WorldPop`。ベトナム2019年国勢調査を基準に各年へ按分しており、居住人口ベースで都市構造パラメータとしての解釈がしやすい。なお、S2・S6は人口密度データを実際には使用していない（3.1節参照）ため、これらとの直接比較実績があるわけではない。本研究がS2の指摘した限界（人口密度を扱えていない）に対応する形で、独自に追加する変数と位置づける。
+- **比較検討候補（人口概念の違いに注目）**: `LandScan Global`。本研究のLST算出が昼間観測であることを踏まえ、実効人口（アンビエント人口）という異なる切り口で都市構造との関係を検証する価値がある。WorldPop（居住人口）と両方算出し、どちらがLSTとの関係をよりよく説明するかをRQ1で比較する案もある。
+- **手法透明性の基準点**: `GPWv4`。機械学習を使わない単純な按分手法のため、他候補の妥当性確認（クロスチェック）に使える。
+- **建物指標との整合性重視の場合**: `GHS-POP`。GHS-BUILT（建物量）と同一枠組みのため、建物系パラメータとの整合性を取りやすい。
+- **保留**: `Meta/CIESIN HRSL`は解像度は高いが基準年の透明性に欠ける。`Kontur Population`は六角形グリッドで本研究の正方形グリッドと形状が異なり変換コストがかかる上、基準年が混在するため、いずれも優先度は低い。
+- 全候補ともPythonスクリプト経由（HDX直接DL / JRCポータル直接DL / NASA SEDAC / GEE）で取得可能なため、**取得スクリプト作成タスクとして別Issueを起票**する（優先度はユーザーに確認の上で起票。WorldPopとLandScanの2種を同時に取得し比較する案も含めて相談する）。
+
+---
+
+## 5. 注意点
+
+- いずれの候補も国勢調査データを何らかの補助データで按分した推計値であり、実測人口ではない。按分手法（Random Forest, 建物量按分, 面積按分, 手動補正等）により、同一地域でも値が異なりうる。
+- 居住人口（WorldPop, GHS-POP, HRSL, GPWv4, Kontur）と実効人口（LandScan）は概念が異なるため、両方を比較する場合はその違いをドキュメントに明記し、単純な数値比較をしないよう注意する。
+- 建物系パラメータ（`BUILD_COV`, `BUILD_DEN`）と人口密度は相関が高くなる可能性があるため、多重共線性への配慮が必要（RQ1のモデル構築時に確認する）。
+- いずれのデータセットも実際のHanoi ROIでの取得・値域確認は未実施。取得スクリプト作成時に確認する。
+
+---
+
+## 6. 参考ソース
+
+- WorldPop: <https://www.worldpop.org/>
+- WorldPop Vietnam人口密度（HDX）: <https://data.humdata.org/dataset/worldpop-population-density-for-viet-nam>
+- WorldPop Constrained vs Unconstrained手法解説: <https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained/>
+- GHS-POP: <https://human-settlement.emergency.copernicus.eu/ghs_pop2023.php>
+- Meta/CIESIN HRSL（AWS Open Data Registry）: <https://registry.opendata.aws/dataforgood-fb-hrsl/>
+- GPWv4（SEDAC）: <https://sedac.ciesin.columbia.edu/data/collection/gpw-v4>
+- GPWv4 GEEカタログ: <https://developers.google.com/earth-engine/datasets/catalog/CIESIN_GPWv411_GPW_Population_Density>
+- LandScan Global: <https://landscan.ornl.gov/>
+- LandScan Global論文（2025, Scientific Data）: <https://www.nature.com/articles/s41597-025-04817-z>
+- Kontur Population（HDX）: <https://data.humdata.org/dataset/kontur-population-dataset>

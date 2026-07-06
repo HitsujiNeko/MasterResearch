@@ -20,10 +20,7 @@ docs/
 ├── 01_planning/                           # 📋 研究計画フェーズ
 │   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理（インデックス）
 │   ├── research_guide.md                  # 研究計画書（RQ定義）
-│   └── gis_data/                          # カテゴリ別GISデータ詳細
-│       ├── gis_data_roads.md              # 道路データの調査・評価
-│       ├── gis_data_buildings.md          # 建物データの調査・評価
-│       └── gis_data_dem.md                # DEMデータの調査・評価
+│   └── gis_data/                          # カテゴリ別GISデータ詳細（道路・建物・DEM・LULC・人口密度・夜間光・水域・POI密度・不透水面率・公園近接距離、計10ファイル）
 │
 ├── 02_methods/                            # 🔬 研究手法フェーズ
 │   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
@@ -837,6 +834,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-05 | 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースGISデータセット候補を調査。`gis_data/`配下に7ファイルを新規追加し、`available_gis_data.md` Section 4にリンクを追加 | AI支援 |
 | 2026-07-01 | `qgis_mcp_usage_guide.md`・`qgis_operation_guidelines.md` を `02_methods/` に新規追加。`qgis/`（projects/styles/templates）ワークスペースの整備に伴うドキュメント整備（#41） | AI支援 |
 | 2026-06-30 | `docs/setup/` を新設し `qgis_mcp_setup.md` を `02_methods/` から移動。`data_catalog.csv` 廃止に伴い `data_management_guide.md` を改訂（Google Drive 2層運用の役割明確化、MCP経由アクセスへの移行）（#44） | AI支援 |
 | 2026-06-24 | `available_gis_data.md` をカテゴリ別ファイルに分割。`gis_data/` サブフォルダを新設し、`gis_data_roads.md`・`gis_data_buildings.md` を新規作成。`dem_selection_guide.md` を `gis_data/gis_data_dem.md` に移動・リネーム（#29） | AI支援 |
@@ -855,6 +853,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-01  
+**最終更新**: 2026-07-05  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

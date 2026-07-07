@@ -77,7 +77,7 @@ if __name__ == "__main__":
 ## 検証チェックリスト（Step 6 で実施）
 
 - [ ] **CRS**: 出力の CRS が EPSG:4326 である（`gdf.crs` / rasterio の `crs` で確認）
-- [ ] **件数・値域**: 件数（ベクタ）または画素統計（ラスタ: min/max/mean/nodata率）が調査ドキュメントの想定と整合する
+- [ ] **件数・値域**: 件数（ベクタ）または画素統計（ラスタ: `total_pixels` / `valid_pixels` / `valid_pixel_ratio` / `mean` / `min` / `max` / `std`）が調査ドキュメントの想定と整合する
 - [ ] **カバレッジ**: ROI に対する空間的な抜けがない（bbox比較、必要なら QGIS で目視）
 - [ ] **属性**: 必要な属性列が揃い、型・単位が仕様どおり（LST関連は必ず °C）
 - [ ] **有効カバレッジの記録**: 欠損域・データ提供範囲の限界をサマリーJSONと調査ドキュメントに記録する
@@ -99,4 +99,4 @@ if __name__ == "__main__":
 }
 ```
 
-ラスタの場合は `feature_count` の代わりに `pixel_stats`（min/max/mean/nodata_ratio）を記録する。
+ラスタの場合は `feature_count` の代わりに `pixel_stats` を記録する。キー名は既存実装（`src/gee/gee_calc_LST.py` の `calculate_pixel_stats()` 等）の契約に合わせ、`total_pixels` / `valid_pixels` / `valid_pixel_ratio` を基本とし、必要に応じて `mean` / `min` / `max` / `std` を含める。

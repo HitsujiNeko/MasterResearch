@@ -48,7 +48,7 @@
 | S1 | Ermida et al. (2020) | グローバル | SMW法のGEE実装。RMSE約2K。本研究のLST算出基盤。TCWV 2.5°の粗さに注意 | 手法基盤 |
 | S2 | Le Ngoc Hanh & Tran (2025) | ダナン | NDVI/NDBIで30年のLST変化を分析。著者自身が「NDVI/NDBIのみでは不十分」と明記 | RQ3◎ |
 | S3 | Onačillová et al. (2022) | 欧州都市 | Landsat 30m→Sentinel-2 10mダウンスケーリング。R²=0.642→0.829 | RQ2◎ |
-| S4 | Sun et al. (2019) | 深圳 | RF変数重要度: 緑地>建物密度>道路密度（R²≈0.78）。物理的都市形態指標を複数導入 | RQ1◎ |
+| S4 | Sun et al. (2019) | 寧波（Ningbo） | RF変数重要度: NDVI（生態インフラ）・建物密度が支配的。RF R²>0.9だがCVで0.66まで低下。100m/200m/400mスケール比較・2D/3D形態指標を導入 | RQ1◎ RQ2◎ |
 | S5 | Osborne & Alvares (2019) | Southampton | 近傍リング設計（30-60/60-90/90-120m）。隣接効果>即時効果（相関0.956） | RQ2◎◎ |
 | S6 | Garzón et al. (2021) | 熱帯コロンビア | MLR寄与率: NDWI 51.46%が最大。Fcover放射率でR²=0.78。限定検証でR²=0.82 | RQ3◎ |
 | S7 | Derdouri et al. (2021) | 133都市レビュー | LULC-SUHI研究113本の体系的整理。Landsat 95.5%、途上国92.7%。ハノイ事例: 市街地1%増→LST 0.075-0.108°C上昇 | RQ1-3◎ |

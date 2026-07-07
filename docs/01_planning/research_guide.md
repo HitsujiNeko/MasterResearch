@@ -59,7 +59,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 | **S1** | Ermida et al. (2020) | SMW法によるLST算出手法のGEE実装<sup>[1]</sup> | LST算出の標準手法（RQ1-3の基盤）<br>**TCWV=2.5°粗さ**に注意 |
 | **S2** | Le Ngoc Hanh & Tran (年不明) | ベトナム・ダナン市のLST時系列分析<sup>[2]</sup> | **ベトナム都市の稀少事例**（RQ3◎）<br>著者が「NDVI/NDBI不十分」と明記 |
 | **S3** | Onačillová et al. (2022) | Landsat 8→Sentinel-2ダウンスケーリング<sup>[3]</sup> | スケール変換手法（RQ2◎）<br>R²=0.642→**0.829**の精度向上 |
-| **S4** | Sun et al. (2019) | Random Forestによる都市構造要因の重要度評価<sup>[4]</sup> | 変数重要度分析の参考（RQ1◎）<br>R²≈0.78、緑地>建物密度>道路密度 |
+| **S4** | Sun et al. (2019) | Random Forestによる都市構造要因の重要度評価<sup>[4]</sup> | 変数重要度分析の参考（RQ1◎）<br>RF R²>0.9（CVでは0.66まで低下）、NDVI・建物密度が支配的 |
 | **S5** | Osborne & Alvares (2019) | 構成・配置の分離評価、**近傍リング設計**<sup>[5]</sup> | **RQ2の核心文献**（◎◎）<br>30-60m/60-90m/90-120mリング設計 |
 | **S6** | Garzón et al. (2021) | 熱帯コロンビア都市のSUHI、**MLR寄与率定量化**<sup>[6]</sup> | 熱帯途上国都市の参考（RQ3◎）<br>**NDWI最大寄与51.46%**、Fcover放射率R²=0.78 |
 
@@ -68,7 +68,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 * **LST算出**：SMW法が標準的だが、熱帯都市ではTCWV粗さとFcover放射率が重要
 * **支配的変数**：NDVI/NDWIが重要だが、「建物密度・道路密度等の物理量が不足」との指摘あり
 * **空間スケール**：近傍効果（30-60m等のリング）が即時効果より強い場合がある
-* **データ制約**：途上国都市でも公開衛星+限定的検証でR²=0.78-0.82達成可能
+* **データ制約**：熱帯途上国都市（S6）でも公開衛星+限定的検証でR²=0.82達成可能。ただし機械学習は交差検証で性能が低下しうる（S4: ランダム分割R²>0.9→CV R²=0.66）
 
 ### 4.2 本研究の新規性
 
@@ -106,7 +106,7 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 | 論文 | 主要な発見 | 本研究への示唆 |
 |------|-----------|--------------|
 | **S2** | 著者が「NDVI/NDBI不十分、建物高さ・人口密度を捉えられない」と明記<sup>[2]</sup> | **物理的都市構造指標の必要性を正当化** |
-| **S4** | Random Forest変数重要度：緑地 > 建物密度 > 道路密度、R²≈0.78<sup>[4]</sup> | RF+変数重要度評価の有効性 |
+| **S4** | Random Forest変数重要度：NDVI（生態インフラ）・建物密度が支配的、RF R²>0.9（CV R²=0.66）<sup>[4]</sup> | RF+変数重要度評価の有効性、CVによる過大評価チェックの必要性 |
 | **S6** | MLR寄与率：**NDWI 51.46%**（熱帯都市で水分最大）、NDBI 21.38%<sup>[6]</sup> | 熱帯ベトナム都市でNDWI重視すべき |
 
 **本研究での展開**：S4/S6の手法を参考に、RF/GBDT+SHAP値で建物密度・道路密度・NDVI/NDWI等の相対的寄与度を定量化する。
@@ -247,7 +247,7 @@ Osborne & Alvares (2019)<sup>[5]</sup>の近傍リング設計を参考に、各
 
 **Random Forest（RF）** および **Gradient Boosting Decision Tree（GBDT）** を適用し、非線形関係や変数間の相互作用を考慮した上で、各パラメータの相対的重要度を評価する。
 
-* **参考事例**：Sun et al. (2019)<sup>[4]</sup>では、Random Forestにより変数重要度を評価し、**緑地 > 建物密度 > 道路密度**という順位を示した（R²≈0.78）。Osborne & Alvares (2019)<sup>[5]</sup>では、GBMで近傍変数（NAT_ANN12等）の重要性を検証した。
+* **参考事例**：Sun et al. (2019)<sup>[4]</sup>では、Random Forestにより変数重要度を評価し、**NDVI（都市生態インフラ）と建物密度（BD）が支配的**であることを示した（RF R²>0.9、ただし交差検証では最良でも CV R²=0.66 まで低下）。Osborne & Alvares (2019)<sup>[5]</sup>では、GBMで近傍変数（NAT_ANN12等）の重要性を検証した。
 * **本研究での活用**：RF/GBDTの変数重要度（feature importance）を算出し、即時効果と近傍効果の相対的寄与を比較する。
 
 **【段階3：解釈性の向上】**
@@ -374,11 +374,11 @@ Combining Landsat 8 and Sentinel-2 Data in Google Earth Engine to Derive Higher 
 <https://www.mdpi.com/2072-4292/14/16/4076>  
 → **ダウンスケーリング手法**（R²=0.642→0.829）、RQ2参考
 
-[4] **Sun, R., Lü, Y., Yang, X., Chen, L.** (2019).  
+[4] **Sun, Y., Gao, C., Li, J., Wang, R., Liu, J.** (2019).  
 Quantifying the effects of urban form on land surface temperature in subtropical high-density urban areas using machine learning.  
 *Remote Sensing*, 11 (8), 959.  
 <https://www.mdpi.com/2072-4292/11/8/959>  
-→ **Random Forest変数重要度**（緑地 > 建物密度 > 道路密度）、RQ1参考
+→ **Random Forest変数重要度**（NDVI・建物密度が支配的）、100m/200m/400mスケール比較、RQ1・RQ2参考
 
 [5] **Osborne, P.E., Alvares-Sanches, T.** (2019).  
 Quantifying how landscape composition and configuration affect urban land surface temperatures using machine learning and neutral landscapes.  

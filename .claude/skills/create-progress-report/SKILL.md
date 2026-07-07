@@ -66,11 +66,10 @@ description: "個別ゼミ向け進捗報告パワポを自動生成する。Git
 
 ### Step 4: 「今後の予定」の選択
 
-未着手・進行中の Issue 一覧を取得し、掲載するものをユーザーに選択してもらう。
+Step 1 で取得済みの Project アイテムから、**Status が「未着手」または「進行中」** の Issue を抽出し、掲載するものをユーザーに選択してもらう（AskUserQuestion・複数選択可）。
 
-```bash
-gh issue list --state open --json number,title,labels,milestone --limit 50
-```
+- `gh issue list --state open` は使わない（Project 外の open Issue が混ざり、未着手/進行中のステータス判定もできないため）
+- 各候補には「Issue番号・タイトル・Status・優先度」を添える
 
 ### Step 5: ファクトチェック
 

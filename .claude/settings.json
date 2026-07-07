@@ -11,6 +11,8 @@
       "Bash(gh project view *)",
       "Bash(gh project item-list *)",
       "Bash(gh project field-list *)",
+      "Bash(gh project list *)",
+      "Bash(npx markdownlint-cli2 *)",
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git status *)",

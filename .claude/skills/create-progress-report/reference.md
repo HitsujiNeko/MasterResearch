@@ -81,7 +81,7 @@ QGIS-MCP で報告用の地図画像を生成する際は、以下に**必ず従
   "reports": [
     {
       "date": "2026-07-07",
-      "file": "presentations/progress_report_20260707.pptx",
+      "file": "presentations/progress_report_20260707_1030.pptx",
       "reported_issues": [70, 72, 80],
       "notes": "補足メモ（任意）"
     }

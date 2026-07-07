@@ -96,7 +96,7 @@ QGIS-MCP が利用できない場合は、既存PNG（`data/csv/analysis/*.png` 
 
 ### Step 8: 保存・報告履歴ログの更新
 
-1. 完成 pptx を `presentations/progress_report_YYYYMMDD.pptx` として保存する（フォルダが無ければ作成する。Git管理外）
+1. 完成 pptx を `presentations/progress_report_YYYYMMDD_HHMM.pptx` として保存する（同日再生成での上書きを防ぐため時刻まで含める。フォルダが無ければ作成する。Git管理外）
 2. `.github/progress_report_history.json` に今回の報告を追記する（date / file / reported_issues / notes）
 3. 履歴ログの変更をユーザーに提示し、承認後にコミットする
    - コミットメッセージ: `docs: 個別ゼミ進捗報告（YYYY-MM-DD）の履歴を記録 (#{Issue番号})`（対応 Issue がない場合は番号を省略）

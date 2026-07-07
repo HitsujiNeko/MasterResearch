@@ -44,7 +44,7 @@
 
 1. claude.ai で文献調査用のプロジェクトを作成する
 2. 上記コードブロックの内容を「プロジェクト指示」欄に貼り付ける
-3. [claude_project_knowledge.md](claude_project_knowledge.md) をナレッジにアップロードする
+3. ナレッジに [claude_project_knowledge.md](claude_project_knowledge.md) を **GitHubリポジトリ連携（Add content from GitHub）** で追加する（`HitsujiNeko/MasterResearch` の `main` ブランチから `docs/04_archive/claude_project_knowledge.md` を選択）
 4. 論文PDF・書誌情報を渡して構造化要約を生成させる
 5. 生成された要約をコピーし、Claude Code で `/add-paper` を実行して登録する
 
@@ -53,3 +53,16 @@
 - RQ・研究手法・採用データに変更があったとき
 - 出力形式（テンプレート）を変更したとき
 - claude.ai 側の指示だけを直接編集せず、必ずこのファイルを先に更新する
+
+## ナレッジの再同期（重要）
+
+GitHubリポジトリ連携で追加したファイルは**自動同期されない**（2026-07-07 実機確認済み）。`claude_project_knowledge.md` をリポジトリ側で更新した後は、claude.ai のプロジェクト画面でファイル一覧の GitHub アイコン横にある**更新（再読込）アイコン**をクリックし、手動で最新版を取り込む。
+
+再同期後は、以下のような質問で反映を確認できる。
+
+```text
+claude_project_knowledge.md を参照して、S4（Sun et al. 2019）の
+対象都市とRFモデルのR²を教えてください
+```
+
+期待する回答に更新後の値（例: 対象都市=寧波、R²>0.9でCV時0.66）が含まれていれば同期成功。古い値が返る場合は再同期を再実行する。

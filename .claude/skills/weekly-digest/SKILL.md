@@ -18,7 +18,7 @@ GitHub Project と git 履歴から過去7日間の進捗を集計し、専用Is
    gh api graphql -f query='query($cursor: String) { user(login:"HitsujiNeko") { projectV2(number:1) { items(first:100, after:$cursor) { nodes { content { ... on Issue { number title state labels(first:10){ nodes { name } } } } fieldValues(first:20) { nodes { ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } } } } } pageInfo { hasNextPage endCursor } } } } }' -F cursor="$CURSOR"
    ```
 
-   - 初回は `-F cursor` を省略（または空）で実行し、`pageInfo.hasNextPage` が `true` の間は `endCursor` を `cursor` に渡して繰り返し、全ページを結合する（`items(first:100)` 単発ではアイテムが100件を超えると取りこぼす）
+   - 初回は `-F cursor` 自体を付けずに実行し（空文字を渡すと `after: ""` となり無効なcursorになる）、`pageInfo.hasNextPage` が `true` の間は `endCursor` を `cursor` に渡して繰り返し、全ページを結合する（`items(first:100)` 単発ではアイテムが100件を超えると取りこぼす）
    - 日本語を含むJSONはパイプで直接処理せず、一時ファイルに書き出してから UTF-8 指定の python で読む（`PYTHONIOENCODING=utf-8` 併用）
 
 2. **分類**（基準日 = 実行日）:

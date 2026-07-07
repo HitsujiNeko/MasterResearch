@@ -222,8 +222,8 @@ Landsat LSTをSMW法でGEE上に実装し、再現性を確保
 
 #### 推奨: claude.ai → Claude Code 連携
 
-1. claude.ai（Claude Projects）に論文PDF・書誌情報を渡して構造化要約を生成する（セットアップは [claude_project_instructions.md](claude_project_instructions.md) を参照）
-2. Claude Code で `/add-paper` を実行し、要約をペーストする（採番・ファイル作成・CSV追記・README更新・コミットまで自動）
+1. claude.ai（Claude Projects）に論文PDF・書誌情報を渡して構造化要約を生成する（セットアップは [claude_project_instructions.md](claude_project_instructions.md) と [claude_project_knowledge.md](claude_project_knowledge.md) を参照）
+2. Claude Code で `/add-paper` を実行し、要約をペーストする（採番・ファイル作成・CSV追記・README更新まで自動。コミット案を提示し、承認後にコミット）
 
 #### 方法1: 手動作成
 

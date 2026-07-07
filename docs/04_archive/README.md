@@ -1,6 +1,6 @@
 # 04_archive - アーカイブ
 
-**最終更新**: 2026-05-20
+**最終更新**: 2026-07-07
 
 このフォルダには、参考資料や完了済みのドキュメント、先行研究の整理などを格納します。
 
@@ -13,6 +13,8 @@
 ├── README.md                           # このファイル
 ├── literature_management_guide.md      # 文献管理・AI活用ガイド
 ├── previous_studies_report.md          # 先行研究の事実整理（マスター）
+├── claude_project_instructions.md      # Claude Projects プロジェクト指示（コピペ用）
+├── claude_project_knowledge.md         # Claude Projects ナレッジ（アップロード用）
 │
 ├── 01_metadata/                        # 論文メタデータ
 │   └── papers_database.csv             # 全論文の基本情報（CSV）
@@ -34,7 +36,6 @@
 │   └── (論文PDFファイル)
 │
 └── templates/                          # テンプレート
-    ├── chatgpt_instruction_paper_analysis.md
     └── structured_summary_template.md  # 論文要約テンプレート
 ```
 
@@ -49,16 +50,20 @@
   - 推奨ディレクトリ構造
   - ベストプラクティス
 
+- **[claude_project_instructions.md](claude_project_instructions.md)**: Claude Projects プロジェクト指示
+  - claude.ai の文献調査用プロジェクトの「プロジェクト指示」欄にコピペする
+  - リポジトリ側を正本として管理
+
+- **[claude_project_knowledge.md](claude_project_knowledge.md)**: Claude Projects ナレッジ
+  - claude.ai のプロジェクトナレッジにアップロードして常時参照させる
+  - 研究概要・RQ・用語集・先行研究サマリー・分析の現在地を凝縮
+
 - **[01_metadata/papers_database.csv](01_metadata/papers_database.csv)**: 論文データベース
   - 全論文の基本情報（CSV形式）
   - AIによる検索・集計が可能
 
 - **[templates/structured_summary_template.md](templates/structured_summary_template.md)**: 論文要約テンプレート
   - 新しい論文を追加する際に使用
-
-- **[templates/chatgpt_instruction_paper_analysis.md](templates/chatgpt_instruction_paper_analysis.md)**: ChatGPT用指示書
-  - ChatGPTに論文分析を依頼する際の標準プロンプト
-  - 構造化要約を自動生成
 
 - **[02_structured_summaries/](02_structured_summaries/)**: 既存の構造化要約
   - `S1_Ermida_2020.md` から `S8_Lin_2024.md` までを保存
@@ -99,18 +104,19 @@
 
 ### AIとの対話例
 
-#### 例1: 論文の統合（ChatGPT → GitHub Copilot連携）
+#### 例1: 論文の統合（claude.ai → Claude Code 連携）
 
 ```text
-【ChatGPT】
-「templates/chatgpt_instruction_paper_analysis.md の指示に従って、
- 添付したPDFを分析してください」
+【claude.ai（Claude Projects）】
+「添付したPDFを分析して、構造化要約を作成してください」
 
-↓ 構造化要約が生成される
+↓ プロジェクト指示・ナレッジに従い構造化要約が生成される
 
-【GitHub Copilot】
-「S9_Zhang_2023.md を papers_database.csv と 
- previous_studies_report.md に統合してください」
+【Claude Code】
+「/add-paper」を実行し、生成された要約をペースト
+
+↓ S番号採番・ファイル作成・CSV追記・README更新まで自動。
+   コミット案を提示し、承認後にコミット
 ```
 
 #### 例2: 論文検索
@@ -135,49 +141,52 @@
 
 ## 🔬 先行研究調査のツール使い分け
 
-### フェーズ1: 論文検索（ChatGPT + ScholarGPT）
+### フェーズ1: 論文検索（claude.ai）
 
-**使用ツール**: ChatGPT（ScholarGPT機能）、Google Scholar
+**使用ツール**: claude.ai（Claude Projects + Web検索）、Google Scholar
 
 **実施内容**:
 
 ```text
-ChatGPTに質問：
-「Land Surface Temperature and urban structure relationship in 
+claude.aiに質問：
+「Land Surface Temperature and urban structure relationship in
  Southeast Asian cities」で2019年以降の主要論文を10本教えて
 ```
 
-**成果物**: 論文リスト（DOI、引用数、概要付き）
+**成果物**: 論文リスト（DOI、概要、RQ関連度付き）
 
-### フェーズ2: 論文分析（ChatGPT）
+### フェーズ2: 論文分析（claude.ai）
 
-**使用ツール**: ChatGPT + [chatgpt_instruction_paper_analysis.md](templates/chatgpt_instruction_paper_analysis.md)
+**使用ツール**: claude.ai（Claude Projects）
+
+- プロジェクト指示: [claude_project_instructions.md](claude_project_instructions.md) をコピペ済みであること
+- ナレッジ: [claude_project_knowledge.md](claude_project_knowledge.md) をアップロード済みであること
 
 **実施内容**:
 
-- PDFを添付または論文情報を入力
-- 構造化要約を自動生成
+- PDFを添付または論文情報を入力し、構造化要約を生成させる
 
 **成果物**: Markdown形式の構造化要約
 
-### フェーズ3: プロジェクト統合（GitHub Copilot）
+### フェーズ3: プロジェクト統合（Claude Code）
 
-**使用ツール**: GitHub Copilot（VS Code内）
+**使用ツール**: Claude Code の `/add-paper` スキル
 
 **実施内容**:
 
 ```text
-「S9の構造化要約をデータベースに統合してください」
+/add-paper を実行し、claude.aiが生成した構造化要約をペースト
 ```
 
 **成果物**:
 
+- `02_structured_summaries/S{番号}_{著者}_{年}.md`
 - 更新された papers_database.csv
-- 更新された previous_studies_report.md
+- 更新された docs/README.md・04_archive/README.md
 
-### フェーズ4: 分析・考察（GitHub Copilot）
+### フェーズ4: 分析・考察（Claude Code）
 
-**使用ツール**: GitHub Copilot
+**使用ツール**: Claude Code
 
 **実施内容**:
 
@@ -192,17 +201,14 @@ ChatGPTに質問：
 
 ## 💡 ベストプラクティス
 
-### 【推奨】ChatGPT → GitHub Copilot 連携ワークフロー
+### 【推奨】claude.ai → Claude Code 連携ワークフロー
 
-> **最も効率的な方法**: ChatGPTで論文分析 → GitHub Copilotでプロジェクト統合
+> **最も効率的な方法**: claude.aiで論文分析 → Claude Code `/add-paper` でプロジェクト統合
 
-#### ステップ1: ChatGPTで論文分析（5-10分）
+#### ステップ1: claude.aiで論文分析（5-10分）
 
-1. **ChatGPT（修士研究プロジェクト）を開く**
-2. **指示書をコピー**
-   - [templates/chatgpt_instruction_paper_analysis.md](templates/chatgpt_instruction_paper_analysis.md) の「ChatGPTへの指示」セクション全体をコピー
-3. **ChatGPTにペースト**
-4. **論文情報を追加**
+1. **claude.ai の文献調査用プロジェクトを開く**（初回セットアップは [claude_project_instructions.md](claude_project_instructions.md) を参照）
+2. **論文PDFを添付**、または論文情報を入力
 
    ```text
    【論文情報】
@@ -210,32 +216,17 @@ ChatGPTに質問：
    - 著者: Zhang et al.
    - 年: 2023
    - DOI: https://doi.org/10.1016/j.uclim.2023.101423
-   
-   （またはPDFを添付）
    ```
 
-5. **ChatGPTが構造化要約を生成** → コピー
+3. **claude.aiが構造化要約を生成** → コピー
 
-#### ステップ2: VS CodeでMarkdownファイル保存（1分）
+#### ステップ2: Claude Codeで統合（2分）
 
-1. **新規ファイル作成**
+1. Claude Code で `/add-paper` を実行
+2. 構造化要約をペースト
+3. S番号採番・ファイル作成・CSV追記・README更新までが自動実行され、ファクトチェックとコミット案の提示を経て、承認後にコミットされる
 
-   ```text
-   docs/04_archive/02_structured_summaries/S9_Zhang_2023.md
-   ```
-
-2. **ChatGPTの出力をペースト** → 保存
-
-#### ステップ3: GitHub Copilotで統合（2分）
-
-VS Codeで以下を依頼：
-
-```text
-「S9_Zhang_2023.md の内容を papers_database.csv に追加し、
- previous_studies_report.md のS9セクションを作成してください」
-```
-
-**完了！** 論文1本あたり **合計10分** で統合完了
+**完了！** 論文1本あたり **合計10分程度** で統合完了
 
 ---
 
@@ -253,28 +244,6 @@ VS Codeで以下を依頼：
    templates/structured_summary_template.md をコピー
    → 02_structured_summaries/S[番号]_[著者]_[年].md として保存
    → PDFを読んで情報を記入（30-60分）
-   ```
-
-3. **PDFファイルを整理**（あれば）
-
-   ```text
-   04_pdfs/S[番号]_[著者]_[年].pdf としてリネーム
-   ```
-
-### 新しい論文を追加する場合
-
-1. **メタデータを追加**
-
-   ```text
-   01_metadata/papers_database.csv に1行追加
-   ```
-
-2. **構造化要約を作成**
-
-   ```text
-   templates/structured_summary_template.md をコピー
-   → 02_structured_summaries/S[番号]_[著者]_[年].md として保存
-   → PDFを読んで情報を記入
    ```
 
 3. **PDFファイルを整理**（あれば）
@@ -305,14 +274,14 @@ VS Codeで以下を依頼：
 
 ### PDF vs Markdown
 
-- ❌ **PDF**: AIが直接読めない
-- ✅ **Markdown**: AIが確実に参照可能
+- ❌ **PDF**: AIが直接読めない（Claude CodeはReadツールで読めるが、毎回のコンテキスト消費が大きい）
+- ✅ **Markdown**: AIが確実かつ低コストに参照可能
 - **推奨**: 重要な論文はMarkdown要約を作成
 
 ### Web論文の扱い
 
 - URLがあってもAIが常にアクセスできるとは限らない
-- **推奨**: 手動で要約を作成し、Markdown化
+- **推奨**: 構造化要約を作成し、Markdown化
 
 ### 情報の粒度
 
@@ -330,4 +299,4 @@ VS Codeで以下を依頼：
 
 ---
 
-**最終更新**: 2026-05-20
+**最終更新**: 2026-07-07

@@ -321,8 +321,8 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 | 出力 | 内容 |
 |------|------|
-| `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_dataset.csv` | 各観測日のピクセル単位データセット |
-| `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_summary.json` | 行数、採用観測、品質フィルタ条件の記録 |
+| `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_dataset.csv` | 各観測日のピクセル単位データセット |
+| `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_summary.json` | 行数、採用観測、品質フィルタ条件の記録 |
 | `data/output/satellite_only/multidate/satellite_only_multidate_summary.csv` | 3観測日の要約比較 |
 
 列構成は `lon`, `lat`, `LST`, `NDVI`, `NDBI`, `NDWI` を基本とし、  

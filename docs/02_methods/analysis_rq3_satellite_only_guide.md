@@ -179,7 +179,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 
 ## 7. 主な出力ファイル
 
-`data/output/satellite_only/<date>_<obs_key>/` に次が出ます（接頭辞はデータセット名に依存）。
+`data/output/satellite_only/<obs_key>/` に次が出ます（接頭辞はデータセット名に依存）。
 
 - `*_sample_*.csv`: サンプリング結果
 - `*_feature_importance.csv`: 係数・重要度・VIF

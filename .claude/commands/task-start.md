@@ -23,7 +23,8 @@ argument-hint: "{Issue番号}"
 git status --short
 git diff --stat
 git log origin/main..HEAD --oneline
-gh pr list --head {既存ブランチ名} --json number,url,state
+current_branch=$(git branch --show-current)
+gh pr list --head "$current_branch" --json number,url,state
 ```
 
 未コミットの変更・未pushのコミット・既存PRがある場合は内容を提示し、どこから作業を再開するかをユーザーに確認する。**状態を推測して自動的にスキップしない。**

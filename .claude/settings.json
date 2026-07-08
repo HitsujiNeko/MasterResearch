@@ -15,7 +15,9 @@
       "Read(./.env.*)"
     ],
     "allow": [
+      "Bash(ruff check)",
       "Bash(ruff check *)",
+      "Bash(ruff format)",
       "Bash(ruff format *)",
       "Bash(*/ruff* check *)",
       "Bash(gh issue view *)",

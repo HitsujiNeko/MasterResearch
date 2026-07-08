@@ -205,7 +205,7 @@ def main() -> None:
     CLI引数からシナリオ・都市・出力スケールを決定し、解析範囲レイヤ・
     建物・道路・標高・衛星指標の各レイヤを解決したうえで、``--scales``
     で指定したスケールごとに ``run_for_scale()`` を呼び出し、
-    ``data/csv/analysis/urban_params_<scenario>_<city>_<scale>m.csv``
+    ``data/output/urban_params/urban_params_<scenario>_<city>_<scale>m.csv``
     へ結果を出力する。
     """
     args = parse_arguments()
@@ -236,7 +236,7 @@ def main() -> None:
         else:
             print("衛星ラスタは検出されませんでした。GIS由来列のみを出力します。")
 
-    out_dir = PROJECT_ROOT / "data" / "csv" / "analysis"
+    out_dir = PROJECT_ROOT / "data" / "output" / "urban_params"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for scale in args.scales:

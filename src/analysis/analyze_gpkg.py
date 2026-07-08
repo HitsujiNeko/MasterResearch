@@ -20,7 +20,7 @@ INPUT_FILE_DIR = Path("整備データ/merge")  # 必要に応じてファイル
 # オンライン翻訳APIを利用する場合はTrue
 USE_API = False
 # 出力先ディレクトリ
-OUTPUT_CSV_DIR = Path("data/csv/analysis")
+OUTPUT_CSV_DIR = Path("data/output/survey_translated")
 OUTPUT_CSV_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_CSV_PATH = OUTPUT_CSV_DIR / "merge_CS_translated.csv"
 OUTPUT_GPKG_DIR = Path("data/output")

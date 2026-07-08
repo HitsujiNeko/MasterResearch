@@ -35,7 +35,7 @@ from sklearn.preprocessing import StandardScaler  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "csv" / "analysis"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "satellite_only" / "20230707_032329Z"
 COORD_COLUMNS = ["lon", "lat"]
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 TARGET_COLUMN = "LST"

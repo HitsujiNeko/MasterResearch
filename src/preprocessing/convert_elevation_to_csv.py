@@ -24,7 +24,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CONDA_ROOT = PROJECT_ROOT / ".conda"
 DEFAULT_INPUT_PATH = PROJECT_ROOT / "整備データ" / "merge" / "merge_DH.gpkg"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "csv" / "analysis" / "merge_DH_elevation_points.csv"
+DEFAULT_OUTPUT_PATH = (
+    PROJECT_ROOT / "data" / "output" / "survey_translated" / "merge_DH_elevation_points.csv"
+)
 
 
 def configure_gdal_environment() -> None:

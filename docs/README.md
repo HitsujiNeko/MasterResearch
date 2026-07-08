@@ -33,6 +33,7 @@ docs/
 │   ├── skill_operation_rules.md           # スキル運用ルール
 │   ├── qgis_mcp_usage_guide.md            # QGIS MCP活用ガイド（ユースケース別操作例）
 │   ├── qgis_operation_guidelines.md       # QGIS運用ガイドライン（命名規則・CRS方針・注意事項）
+│   ├── claude_workflow_regression_tests.md # Claude Code運用ルール回帰テスト項目書・実施結果
 │   └── CodingRule.md                      # Pythonコーディング規約
 │
 ├── 03_results/                            # 📊 研究結果フェーズ
@@ -97,6 +98,7 @@ docs/
 | [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 作成・変更の承認ルール（行為ベース）、`shared/` 共通リファレンス運用、プロジェクト固有ルール | `.claude/skills/` |
 | [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) | QGIS MCP活用ガイド | データ確認・レイヤー操作・スタイル適用・Map Theme切り替え・Processing実行のユースケース別操作例 | `qgis/` |
 | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max）、大規模レイヤーのクラッシュ対策 | `qgis/` |
+| [claude_workflow_regression_tests.md](02_methods/claude_workflow_regression_tests.md) | Claude Code運用ルール回帰テスト項目書 | deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点のテスト項目書（正本・再利用）と実施結果記録 | `.claude/settings.json`, `.claude/commands/`, `.claude/skills/shared/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
 ### 📊 03_results - 研究結果
@@ -860,6 +862,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-08 | `claude_workflow_regression_tests.md` を `02_methods/` に新規追加。deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点の回帰テスト項目書と初回実施結果を記載（#97） | AI支援 |
 | 2026-07-08 | Claude Code 運用再設計: `CodingRule.md` に 11.4（テスト必須の適用範囲: `src/` 必須・`sandbox/` 不要）を新設。`skill_operation_rules.md` を行為ベース承認ルールに改訂し、`shared/` 共通リファレンスの運用を追加 | AI支援 |
 | 2026-07-07 | 文献管理を claude.ai → Claude Code（`/add-paper` スキル）連携に刷新。`claude_project_instructions.md`・`claude_project_knowledge.md` を `04_archive/` に新規追加し、`chatgpt_instruction_paper_analysis.md` を削除 | AI支援 |
 | 2026-07-05 | 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースGISデータセット候補を調査。`gis_data/`配下に7ファイルを新規追加し、`available_gis_data.md` Section 4にリンクを追加 | AI支援 |

@@ -67,7 +67,8 @@ def load_gee_project_id(config_path: Path, explicit_project_id: str = "") -> str
     if config_df.empty:
         raise ValueError(f"GEE設定CSVが空です: {config_path}")
 
-    project_id = str(config_df.iloc[0].get("gee_project_id", "")).strip()
+    raw_value = config_df.iloc[0].get("gee_project_id", "")
+    project_id = "" if pd.isna(raw_value) else str(raw_value).strip()
     if not project_id or project_id == "YOUR_GCP_PROJECT_ID":
         raise ValueError(
             "GEEプロジェクトIDが取得できませんでした。"

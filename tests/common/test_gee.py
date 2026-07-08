@@ -81,3 +81,30 @@ def test_load_gee_project_id_rejects_placeholder(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         gee.load_gee_project_id(config_path)
+
+
+def test_load_gee_project_id_empty_csv_raises(tmp_path: Path) -> None:
+    """ヘッダーのみでデータ行がない場合はValueErrorになる。"""
+    config_path = tmp_path / "gee_config.csv"
+    pd.DataFrame(columns=["gee_project_id"]).to_csv(config_path, index=False)
+
+    with pytest.raises(ValueError):
+        gee.load_gee_project_id(config_path)
+
+
+def test_load_gee_project_id_nan_value_raises(tmp_path: Path) -> None:
+    """gee_project_idが空（NaN）の場合はValueErrorになる。"""
+    config_path = tmp_path / "gee_config.csv"
+    pd.DataFrame({"gee_project_id": [None]}).to_csv(config_path, index=False)
+
+    with pytest.raises(ValueError):
+        gee.load_gee_project_id(config_path)
+
+
+def test_load_gee_project_id_missing_column_raises(tmp_path: Path) -> None:
+    """gee_project_id列が存在しない場合はValueErrorになる。"""
+    config_path = tmp_path / "gee_config.csv"
+    pd.DataFrame({"other_column": ["value"]}).to_csv(config_path, index=False)
+
+    with pytest.raises(ValueError):
+        gee.load_gee_project_id(config_path)

@@ -70,6 +70,30 @@ def test_fetch_json_with_retry_succeeds_after_transient_error(
     assert sleep_calls == [5]
 
 
+def test_fetch_json_with_retry_succeeds_after_http_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HTTP 500エラー（429以外）の後に成功した場合、リトライして結果を返す。"""
+    attempt_count = {"value": 0}
+    sleep_calls: list[float] = []
+
+    def fake_urlopen(url: str, timeout: int) -> _FakeResponse:
+        attempt_count["value"] += 1
+        if attempt_count["value"] < 2:
+            raise urllib.error.HTTPError(url, 500, "Internal Server Error", hdrs=None, fp=None)
+        return _FakeResponse({"ok": True})
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    result = http_fetch.fetch_json_with_retry(
+        "https://example.com", timeout=10, max_retry_count=3, retry_wait_seconds=5
+    )
+
+    assert result == {"ok": True}
+    assert sleep_calls == [5]
+
+
 def test_fetch_json_with_retry_raises_after_max_retries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

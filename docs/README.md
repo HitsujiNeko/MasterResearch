@@ -94,7 +94,7 @@ docs/
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
-| [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 環境別の作成・利用ルール、プロジェクト固有ルール | `.claude/skills/` |
+| [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 作成・変更の承認ルール（行為ベース）、`shared/` 共通リファレンス運用、プロジェクト固有ルール | `.claude/skills/` |
 | [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) | QGIS MCP活用ガイド | データ確認・レイヤー操作・スタイル適用・Map Theme切り替え・Processing実行のユースケース別操作例 | `qgis/` |
 | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max）、大規模レイヤーのクラッシュ対策 | `qgis/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
@@ -858,6 +858,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-08 | Claude Code 運用再設計: `CodingRule.md` に 11.4（テスト必須の適用範囲: `src/` 必須・`sandbox/` 不要）を新設。`skill_operation_rules.md` を行為ベース承認ルールに改訂し、`shared/` 共通リファレンスの運用を追加 | AI支援 |
 | 2026-07-07 | 文献管理を claude.ai → Claude Code（`/add-paper` スキル）連携に刷新。`claude_project_instructions.md`・`claude_project_knowledge.md` を `04_archive/` に新規追加し、`chatgpt_instruction_paper_analysis.md` を削除 | AI支援 |
 | 2026-07-05 | 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースGISデータセット候補を調査。`gis_data/`配下に7ファイルを新規追加し、`available_gis_data.md` Section 4にリンクを追加 | AI支援 |
 | 2026-07-01 | `qgis_mcp_usage_guide.md`・`qgis_operation_guidelines.md` を `02_methods/` に新規追加。`qgis/`（projects/styles/templates）ワークスペースの整備に伴うドキュメント整備（#41） | AI支援 |
@@ -878,6 +879,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-07  
+**最終更新**: 2026-07-08  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

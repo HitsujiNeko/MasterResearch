@@ -1,8 +1,33 @@
 {
   "permissions": {
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git push origin --delete*)",
+      "Bash(git push --delete*)",
+      "Bash(git push * --delete*)",
+      "Bash(git reset --hard*)",
+      "Bash(git reset * --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git clean -x*)",
+      "Bash(git clean -d*)",
+      "Bash(git clean * -f*)",
+      "Bash(git clean * -x*)",
+      "Bash(git clean * -d*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh * pr merge*)",
+      "Bash(gh repo delete*)",
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ],
     "allow": [
+      "Bash(ruff check)",
+      "Bash(ruff check *)",
+      "Bash(ruff format)",
+      "Bash(ruff format *)",
       "Bash(*/ruff* check *)",
-      "Bash(tasklist *)",
       "Bash(gh issue view *)",
       "Bash(gh issue list *)",
       "Bash(gh pr view *)",
@@ -16,18 +41,7 @@
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git status *)",
-      "Bash(git branch *)",
-      "PowerShell(Get-Date *)",
-      "PowerShell(Get-ChildItem *)",
-      "PowerShell(Get-Command *)",
-      "PowerShell(Get-Content *)",
-      "PowerShell(Test-Path *)",
-      "PowerShell(Get-Process *)",
-      "PowerShell(Test-NetConnection *)",
-      "PowerShell(git log *)",
-      "PowerShell(git diff *)",
-      "PowerShell(git status *)",
-      "PowerShell(git branch *)"
+      "Bash(git branch *)"
     ]
   }
 }

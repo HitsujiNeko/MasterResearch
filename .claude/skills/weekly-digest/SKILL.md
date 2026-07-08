@@ -12,22 +12,13 @@ GitHub Project と git 履歴から過去7日間の進捗を集計し、専用Is
 
 ### Step 1: 進捗データの収集
 
-1. **Project 全アイテムの取得**（GraphQL。`gh project item-list` は日本語フィールド名を破壊するため使用禁止）。**ページネーションで最後まで**取得する:
-
-   ```bash
-   gh api graphql -f query='query($cursor: String) { user(login:"HitsujiNeko") { projectV2(number:1) { items(first:100, after:$cursor) { nodes { content { ... on Issue { number title state labels(first:10){ nodes { name } } } } fieldValues(first:20) { nodes { ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } } } } } pageInfo { hasNextPage endCursor } } } } }' -F cursor="$CURSOR"
-   ```
-
-   - 初回は `-F cursor` 自体を付けずに実行し（空文字を渡すと `after: ""` となり無効なcursorになる）、`pageInfo.hasNextPage` が `true` の間は `endCursor` を `cursor` に渡して繰り返し、全ページを結合する（`items(first:100)` 単発ではアイテムが100件を超えると取りこぼす）
-   - 日本語を含むJSONはパイプで直接処理せず、一時ファイルに書き出してから UTF-8 指定の python で読む（`PYTHONIOENCODING=utf-8` 併用）
+1. **Project 全アイテムの取得**: [../shared/github-project-api.md](../shared/github-project-api.md) の「Project 全アイテムの取得」に従い、ページネーションで全ページを取得する（クエリ・フィールド名・使用禁止コマンド・日本語処理の注意はすべて同ファイルが正本）
 
 2. **分類**（基準日 = 実行日）:
    - **完了**: 「完了日」が過去7日以内
    - **新規着手**: 「開始日」が過去7日以内（完了済みを除く）
    - **進行中・保留**: 現在のステータスが「進行中」「保留」
    - **長期滞留**: 「進行中」のまま開始日から21日以上経過したもの（注意喚起用）
-
-   フィールド名の注意: ステータスのフィールド名は **`Status`（英語）**、値（未着手/進行中/保留/完了/キャンセル）と「開始日」「完了日」「優先度」フィールド名は日本語（実データで確認済み）
 
 3. **commit 履歴**:
 
@@ -70,7 +61,7 @@ GitHub Project と git 履歴から過去7日間の進捗を集計し、専用Is
    ```
 
 2. **存在しない場合（初回のみ）**: タイトル「研究進捗 週次ダイジェスト」・ラベル `workflow` でIssueを作成する。本文には「このIssueは週次ダイジェストの蓄積専用。/weekly-digest スキルがコメントを追記する」と記載する。プロジェクトへの追加・優先度設定は行わない
-3. ダイジェストを一時ファイルに書き出し、`gh issue comment {番号} --body-file {一時ファイル}` で投稿する（日本語文字化け対策のためBashツールを使用）
+3. ダイジェストを [../shared/github-project-api.md](../shared/github-project-api.md) の「日本語テキストの安全な処理」に従い、一時ファイル経由の `--body-file` で投稿する
 4. 投稿したコメントのURLをユーザーに報告する
 
 ## 注意事項

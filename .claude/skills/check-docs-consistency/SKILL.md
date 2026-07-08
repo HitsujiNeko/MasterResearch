@@ -37,7 +37,7 @@ Issue を作成せず、ユーザーに「問題なし」と報告して終了�
 ### 問題ありの場合
 
 `.github/ISSUE_TEMPLATE/docs-consistency-report.md` の構成に従い Issue を作成する。
-日本語の文字化けを防ぐため、本文は一時ファイルに書き出して `--body-file` で渡す（Bash ツールを使用）。
+本文は [../shared/github-project-api.md](../shared/github-project-api.md) の「日本語テキストの安全な処理」に従い、一時ファイル経由の `--body-file` で渡す。
 
 ```bash
 gh issue create --repo HitsujiNeko/MasterResearch \

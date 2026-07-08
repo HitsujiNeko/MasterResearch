@@ -30,11 +30,11 @@ description: "GitHub Issue を起票し、プロジェクトへの追加・ス�
 
 ユーザー承認後、以下の3ステップを**途中で中断せず一体実行**する。
 
-1. **Issue作成**: 日本語本文はBashツールで一時ファイルに書き出し `--body-file` で渡す
+1. **Issue作成**: 日本語本文は [../shared/github-project-api.md](../shared/github-project-api.md) の「日本語テキストの安全な処理」に従い、一時ファイル経由の `--body-file` で渡す
 2. **プロジェクト追加**: `gh project item-add 1 --owner HitsujiNeko`
 3. **ステータス・優先度設定**: GraphQLで「未着手」と指定優先度を設定。ID一覧は [reference.md](reference.md) を参照
 
-**認証エラー時**: `gh auth refresh -s project` の実行を案内し、設定未完了を明示的に警告する。暗黙にスキップしない。
+**認証エラー時**: [../shared/github-project-api.md](../shared/github-project-api.md) の「認証エラー時」に従う（案内して明示的に警告。暗黙にスキップしない）。
 
 ### Step 3: 完了報告
 

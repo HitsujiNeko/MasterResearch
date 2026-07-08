@@ -1,7 +1,7 @@
 # スキル運用ルール
 
 **最終更新**: 2026-07-08
-**関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [CodingRule.md](CodingRule.md)
+**関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [CodingRule.md](CodingRule.md), [shared/github-project-api.md](../../.claude/skills/shared/github-project-api.md), [shared/finalize-steps.md](../../.claude/skills/shared/finalize-steps.md)
 
 ---
 

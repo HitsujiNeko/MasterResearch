@@ -179,7 +179,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 
 ## 7. 主な出力ファイル
 
-`data/csv/analysis/` に次が出ます（接頭辞はデータセット名に依存）。
+`data/output/satellite_only/<obs_key>/` に次が出ます（接頭辞はデータセット名に依存）。
 
 - `*_sample_*.csv`: サンプリング結果
 - `*_feature_importance.csv`: 係数・重要度・VIF
@@ -197,7 +197,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 
 ```powershell
 python src/analysis/analysis_rq3_satellite_only.py \
-  --dataset-path data/csv/analysis/satellite_only_20230707_20230707_032329Z_dataset.csv \
+  --dataset-path data/output/satellite_only/20230707_032329Z/satellite_only_20230707_20230707_032329Z_dataset.csv \
   --sample-size 100000 \
   --cv-splits 5 \
   --spatial-bins 8 \

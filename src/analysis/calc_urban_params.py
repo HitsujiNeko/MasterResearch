@@ -813,7 +813,7 @@ def main() -> None:
 
     output_df = output_df[output_df["IN_ANALYSIS_AREA"] == 1].copy()
 
-    out_dir = PROJECT_ROOT / "data" / "csv" / "analysis"
+    out_dir = PROJECT_ROOT / "data" / "output" / "urban_params"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"urban_params_{args.scenario}_{args.city}.csv"
     output_df.to_csv(out_path, index=False, encoding="utf-8")

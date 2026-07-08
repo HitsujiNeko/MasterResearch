@@ -122,7 +122,7 @@
 
 ## 6. 出力仕様
 
-出力先: `data/csv/analysis/urban_params_<scenario>_<city_id>_<scale>m.csv`
+出力先: `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`
 
 `<scale>` は coarseグリッド解像度（m）で、既定では `30` / `90` / `300` の3ファイルを出力する。  
 各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。旧実装の `_0` サフィックスは廃止した。
@@ -317,7 +317,7 @@ python -m src.analysis.urban_params --city hanoi \
 - `satellite_only` はGIS入力を使用せず、衛星指標と品質管理列のみを出力する。
 - 解析範囲の外接 bbox でスケールごとにグリッドを作成した後、基準レイヤのポリゴン内セル（`IN_ANALYSIS_AREA == 1`）のみを CSV に出力する。
 - 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。複数観測ファイルを含むディレクトリではなく、単一観測ファイルを指定する。
-- 出力先は `data/csv/analysis/urban_params_<scenario>_<city_id>_<scale>m.csv` とする。
+- 出力先は `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv` とする。
 - 実行には `fiona`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
 
 ---

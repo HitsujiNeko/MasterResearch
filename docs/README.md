@@ -103,7 +103,7 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 自動生成元 |
 |-----------|------|-----------|-----------|
-| [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md) | GIS-IDEAS学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/csv/analysis/`, `src/analysis/` |
+| [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md) | GIS-IDEAS学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/output/satellite_only/`, `src/analysis/` |
 | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認、Full シナリオ接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果 | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
@@ -805,9 +805,11 @@ MasterResearch/
 │   ├── input/                  # 軽量な設定ファイル（CSV, txt）
 │   │   ├── gee_calc_LST_info.csv
 │   │   └── map_info.csv
-│   ├── output/                 # 分析結果（CSV, JSON, ログ）
-│   │   └── gee_calc_LST_results.csv
-│   └── csv/analysis/           # 分析用CSV
+│   └── output/                 # 分析結果（CSV, JSON, ログ）
+│       ├── gee_calc_LST_results.csv
+│       ├── satellite_only/     # RQ3 Satellite Only 分析結果（観測日時別サブフォルダ + multidate/）
+│       ├── urban_params/       # 都市構造パラメータCSV
+│       └── survey_translated/  # 測量マージ属性の翻訳CSV
 │
 ├── qgis/                        # QGISワークスペース（詳細: qgis_operation_guidelines.md）
 │   ├── projects/                # 都市単位のQGISプロジェクト（.qgz、Git管理外）

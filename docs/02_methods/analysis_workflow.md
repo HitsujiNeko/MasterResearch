@@ -285,9 +285,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | スクリプト | 処理内容 | 入力 | 出力 |
 |----------|---------|------|------|
 | `src/analysis/calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI/FVC）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
-| `src/analysis/calc_urban_params.py` | GIS由来都市構造パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + グリッド | `data/csv/analysis/urban_params_<scenario>_<city_id>.csv` |
-| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出 | `urban_params.csv` | `data/csv/analysis/urban_params_with_neighbors.csv` |
-| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合 | LSTクリップ + パラメータCSV | `data/csv/analysis/analysis_dataset.csv` |
+| `src/analysis/calc_urban_params.py` | GIS由来都市構造パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + グリッド | `data/output/urban_params/urban_params_<scenario>_<city_id>.csv` |
+| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出 | `urban_params.csv` | `data/output/urban_params/urban_params_with_neighbors.csv` |
+| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合 | LSTクリップ + パラメータCSV | `data/output/analysis_dataset.csv` |
 
 ---
 
@@ -312,7 +312,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | `WATER_COV_*` | float | 水域率（各スケール） |
 | `data_source` | str | `"satellite_only"`, `"open_gis"`, `"survey_gis"` などの入力種別 |
 
-**出力ファイル**: `data/csv/analysis/analysis_dataset.csv`
+**出力ファイル**: `data/output/analysis_dataset.csv`
 
 ### 4.1.1 Satellite Only の現行出力（2026-04-21）
 
@@ -321,9 +321,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 | 出力 | 内容 |
 |------|------|
-| `data/csv/analysis/satellite_only_<date>_<obs_key>_dataset.csv` | 各観測日のピクセル単位データセット |
-| `data/csv/analysis/satellite_only_<date>_<obs_key>_summary.json` | 行数、採用観測、品質フィルタ条件の記録 |
-| `data/csv/analysis/satellite_only_multidate_summary.csv` | 3観測日の要約比較 |
+| `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_dataset.csv` | 各観測日のピクセル単位データセット |
+| `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_summary.json` | 行数、採用観測、品質フィルタ条件の記録 |
+| `data/output/satellite_only/multidate/satellite_only_multidate_summary.csv` | 3観測日の要約比較 |
 
 列構成は `lon`, `lat`, `LST`, `NDVI`, `NDBI`, `NDWI` を基本とし、  
 GIS 列は Full / Limited シナリオの実装時に追加する。

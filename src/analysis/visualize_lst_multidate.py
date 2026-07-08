@@ -14,13 +14,20 @@ import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT = PROJECT_ROOT / "data/csv/analysis/satellite_only_multidate_lst_violin.png"
+SATELLITE_ONLY_DIR = PROJECT_ROOT / "data" / "output" / "satellite_only"
+DEFAULT_OUTPUT = SATELLITE_ONLY_DIR / "multidate" / "satellite_only_multidate_lst_violin.png"
 DEFAULT_SAMPLE_PATHS = [
-    PROJECT_ROOT / "data/csv/analysis/satellite_only_20230707_20230707_032329Z_sample_100000.csv",
-    PROJECT_ROOT / "data/csv/analysis/satellite_only_20230723_20230723_032309Z_sample_100000.csv",
-    PROJECT_ROOT / "data/csv/analysis/satellite_only_20241130_20241130_032336Z_sample_100000.csv",
+    SATELLITE_ONLY_DIR
+    / "20230707_032329Z"
+    / "satellite_only_20230707_20230707_032329Z_sample_100000.csv",
+    SATELLITE_ONLY_DIR
+    / "20230723_032309Z"
+    / "satellite_only_20230723_20230723_032309Z_sample_100000.csv",
+    SATELLITE_ONLY_DIR
+    / "20241130_032336Z"
+    / "satellite_only_20241130_20241130_032336Z_sample_100000.csv",
 ]
-DEFAULT_SUMMARY_PATH = PROJECT_ROOT / "data/csv/analysis/satellite_only_multidate_summary.csv"
+DEFAULT_SUMMARY_PATH = SATELLITE_ONLY_DIR / "multidate" / "satellite_only_multidate_summary.csv"
 COLORS = ["#232a8f", "#35d31f", "#f0aa1c"]
 
 

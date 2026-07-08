@@ -12,7 +12,7 @@ Google Drive とローカル `data/` の2層運用（`docs/02_methods/data_manag
 
 | 対象 | 理由 |
 |---|---|
-| `data/satellite/`, `data/gis/`, `data/csv/`, `data/BSHorizon/` | Git 管理外の大容量データ。Drive が共有経路 |
+| `data/satellite/`, `data/gis/`, `data/BSHorizon/` | Git 管理外の大容量データ。Drive が共有経路 |
 | 対象外: `data/input/`, `data/output/` | Git で管理するため Drive 同期不要 |
 
 ## 実行手順
@@ -35,7 +35,7 @@ Google Drive MCP の `search_files` ツールを使う。
 対象4ディレクトリを走査し、相対パス一覧を作る（存在しないディレクトリはスキップし、その旨を記録）。
 
 ```powershell
-Get-ChildItem -Recurse -File data/satellite, data/gis, data/csv, data/BSHorizon |
+Get-ChildItem -Recurse -File data/satellite, data/gis, data/BSHorizon |
   ForEach-Object { $_.FullName.Replace((Get-Location).Path + '\', '').Replace('\', '/') }
 ```
 

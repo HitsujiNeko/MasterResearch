@@ -146,7 +146,7 @@ python -m src.analysis.calc_urban_params --city hanoi
 
 期待結果:
 
-- `data/csv/analysis/urban_params_hanoi.csv` が生成または更新される
+- `data/output/urban_params/urban_params_hanoi.csv` が生成または更新される
 
 ### 7.3 LST 計算
 

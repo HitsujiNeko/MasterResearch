@@ -25,8 +25,9 @@ SSD/
 # =========================
 # 生成物: 再生成可能な出力は追跡しない
 # =========================
-data/csv/analysis/*_dataset.csv
-data/csv/analysis/urban_params_*.csv
+data/output/satellite_only/*/*_dataset.csv
+data/output/satellite_only/*/*_sample_*.csv
+data/output/urban_params/*.csv
 
 # GIS空間データ（大容量）は追跡しない
 data/gis/

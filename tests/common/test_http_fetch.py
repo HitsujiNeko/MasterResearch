@@ -27,6 +27,12 @@ class _FakeResponse:
         return self._body
 
 
+def test_fetch_json_with_retry_rejects_non_http_scheme() -> None:
+    """http/https以外のURLスキームはValueErrorになる。"""
+    with pytest.raises(ValueError):
+        http_fetch.fetch_json_with_retry("file:///etc/passwd", timeout=10)
+
+
 def test_fetch_json_with_retry_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """正常応答時はそのままJSONを辞書として返す。"""
     monkeypatch.setattr(

@@ -44,8 +44,12 @@ def fetch_json_with_retry(
         JSONレスポンスをパースした辞書。
 
     Raises:
+        ValueError: url が http/https 以外のスキームの場合。
         RuntimeError: リトライ上限を超えてもエラーが解消しない場合。
     """
+    if not url.startswith(("http://", "https://")):
+        raise ValueError(f"許可されていないURLスキームです: {url}")
+
     last_error: Exception | None = None
     generic_attempt = 0
     rate_limit_attempt = 0

@@ -7,9 +7,16 @@ argument-hint: "{Issue番号}（省略時は現在のタスク）"
 
 ユーザーから「マージしました」の連絡を受けたとき、またはこのコマンドが実行されたときの手順。
 
-## Step 1: マージ確認
+## Step 1: 対象 PR の特定とマージ確認
 
-`gh pr view {PR番号} --json state,mergedAt` で対象 PR が **MERGED** であることを確認する。未マージなら中断してユーザーに報告する。
+1. 対象 PR を特定する。会話の文脈で PR 番号が明らかな場合はそれを使う。不明な場合は Issue 番号（ブランチ命名規則 `{Issue番号}/{タスク要約英文}`）から引く:
+
+   ```bash
+   git branch --list "{Issue番号}/*"                            # ブランチ名の確認
+   gh pr list --state all --head {ブランチ名} --json number,url,state
+   ```
+
+2. `gh pr view {PR番号} --json state,mergedAt` で対象 PR が **MERGED** であることを確認する。未マージなら中断してユーザーに報告する。
 
 ## Step 2: 削除対象の提示（確認ゲート）
 

@@ -782,6 +782,7 @@ MasterResearch/
 │   └── README.md               # 📌 このファイル
 │
 ├── src/                        # Pythonスクリプト
+│   ├── common/                 # 共通モジュール（config・roi・summary・http_fetch・gee）
 │   ├── gee/gee_calc_LST.py     # LST算出メイン
 │   ├── module/lst_smw.py       # SMW法モジュール
 │   ├── analysis/               # 分析スクリプト
@@ -790,6 +791,7 @@ MasterResearch/
 │   └── preprocessing/*.py      # GIS前処理スクリプト
 │
 ├── tests/                      # テスト（pytest）
+│   ├── common/                 # src/common/ のユニットテスト
 │   └── analysis/urban_params/  # urban_paramsパッケージのユニットテスト
 │
 ├── data/                       # データ
@@ -862,6 +864,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-08 | `CodingRule.md` に重複コード共通化規約（5.1節）を追加し、共通モジュール `src/common/`（config・roi・summary・http_fetch・gee）を新設。`new-data-script` スキルの scaffold を共通モジュール利用型に改訂し、プロジェクト構成図に `src/common/`・`tests/common/` を反映 | AI支援 |
 | 2026-07-08 | `claude_workflow_regression_tests.md` を `02_methods/` に新規追加。deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点の回帰テスト項目書と初回実施結果を記載（#97） | AI支援 |
 | 2026-07-08 | Claude Code 運用再設計: `CodingRule.md` に 11.4（テスト必須の適用範囲: `src/` 必須・`sandbox/` 不要）を新設。`skill_operation_rules.md` を行為ベース承認ルールに改訂し、`shared/` 共通リファレンスの運用を追加 | AI支援 |
 | 2026-07-07 | 文献管理を claude.ai → Claude Code（`/add-paper` スキル）連携に刷新。`claude_project_instructions.md`・`claude_project_knowledge.md` を `04_archive/` に新規追加し、`chatgpt_instruction_paper_analysis.md` を削除 | AI支援 |

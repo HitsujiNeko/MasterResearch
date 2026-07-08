@@ -47,6 +47,7 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 - docstring 冒頭にデータソースと**確認日付きの制約メモ**を記載する
 - `PROJECT_ROOT` 起点の相対パス・argparse・logging・リトライを標準装備する
+- `src/common/` の共通モジュール(config・roi・summary・http_fetch・gee)を利用し、同等機能を自前実装しない
 - 1関数1責務・型ヒント・日本語docstring(CodingRule 準拠)
 
 ### Step 5: テストコードの作成・実行

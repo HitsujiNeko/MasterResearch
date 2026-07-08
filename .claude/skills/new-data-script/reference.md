@@ -26,18 +26,22 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
+from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
+from src.common.roi import load_roi_geometry
+from src.common.summary import save_summary
+
+# HTTP/WFS系データソースの場合のみ import する
+# from src.common.http_fetch import fetch_json_with_retry
+# GEE系データソースの場合のみ import する
+# from src.common.gee import authenticate_gee, load_gee_project_id
+
+# スクリプト固有の定数（エンドポイントURL・タイルサイズ等）はここで定義する
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "{カテゴリ}" / "{出力名}.gpkg"
 DEFAULT_SUMMARY_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "{出力名}_summary.json"
-
-HANOI_UTM_CRS = "EPSG:32648"  # 面積・距離計算用
 REQUEST_TIMEOUT_SECONDS = 120
-MAX_RETRY_COUNT = 3
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -45,11 +49,7 @@ logger = logging.getLogger(__name__)
 
 def parse_arguments() -> argparse.Namespace:
     """コマンドライン引数を解析する。"""
-    # --roi / --output / --summary / 試行実行用の --bbox 等を定義
-
-
-def load_roi(roi_path: Path):
-    """ROI ポリゴンを読み込み、EPSG:4326 のジオメトリを返す。"""
+    # --roi(デフォルトは DEFAULT_HANOI_ROI_PATH) / --output / --summary / 試行実行用の --bbox 等を定義
 
 
 def fetch_data(...):
@@ -70,9 +70,13 @@ if __name__ == "__main__":
 
 設計原則:
 
+- ROI 読み込み・サマリー保存・定数（`PROJECT_ROOT`・CRS・デフォルトROIパス）は `src/common/` の共通モジュールを import して使い、自前実装しない（[CodingRule.md 5.1](../../../docs/02_methods/CodingRule.md#51-重複コードの共通化)参照）
+- HTTP/WFS のリトライ処理は `src.common.http_fetch`、GEE 認証・プロジェクトID解決は `src.common.gee` を使う（データソース区分に応じて必要な方のみ import する）
+- スクリプト固有の定数（エンドポイントURL・タイルサイズ等）は従来どおり各スクリプトで定義する
 - 引数なしで「本番の全量取得」、`--bbox` 等の引数で「小範囲の試行実行」ができるようにする
 - サマリー生成・座標計算・属性変換は I/O から分離した純粋関数にする（テスト容易性のため）
 - 中間結果・進捗ログを適宜出力する（大規模データ処理時）
+- 実行は `python -m src.preprocessing.{スクリプト名}` 形式（[setup.md](../../../docs/setup.md) 6章参照）
 
 ## 検証チェックリスト（Step 6 で実施）
 

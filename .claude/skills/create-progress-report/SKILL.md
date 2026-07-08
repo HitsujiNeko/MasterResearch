@@ -28,16 +28,9 @@ description: "個別ゼミ向け進捗報告パワポを自動生成する。Git
 
 収集期間は**固定で過去3週間**とする（ゼミ開催日からの逆算はしない）。
 
-1. **Project 全アイテムの収集（主情報源）**: GitHub Project の全アイテム（Status・完了日・ラベル）を**ページネーションで最後まで**取得する
+1. **Project 全アイテムの収集（主情報源）**: [../shared/github-project-api.md](../shared/github-project-api.md) の「Project 全アイテムの取得」に従い、GitHub Project の全アイテム（Status・完了日・ラベル）をページネーションで全ページ取得する（クエリ・フィールド名・使用禁止コマンド・日本語処理の注意はすべて同ファイルが正本）
 
-   ```bash
-   gh api graphql -f query='query($cursor: String) { user(login:"HitsujiNeko") { projectV2(number:1) { items(first:100, after:$cursor) { nodes { content { ... on Issue { number title labels(first:10){ nodes { name } } } } fieldValues(first:20) { nodes { ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } } } } } pageInfo { hasNextPage endCursor } } } } }' -F cursor="$CURSOR"
-   ```
-
-   - 初回は `-F cursor` を省略（または空）で実行し、`pageInfo.hasNextPage` が `true` の間は `endCursor` を `cursor` に渡して繰り返し、全ページを結合する（`items(first:100)` 単発ではアイテムが100件を超えると取りこぼす）
    - 結果から「完了日」フィールドが過去3週間以内の Issue（番号・タイトル・ラベル）を抽出する
-   - フィールド名の注意: Status フィールドは英語名 `Status`、「開始日」「完了日」「優先度」は日本語名
-   - 注意: `gh project item-list` は日本語フィールド名の先頭文字を破壊する（先頭文字を小文字化する際にマルチバイト文字を壊す）ため使用しない。日本語を含むJSONをパイプで直接処理すると文字化けするため、一時ファイルに書き出してから UTF-8 指定で読む
    - 取得結果は Step 4（今後の予定）でも使うため保持しておく
 
 2. **commit 履歴の収集（作業内容の補足）**:
@@ -73,10 +66,7 @@ Step 1 で取得済みの Project アイテムから、**Status が「未着手�
 
 ### Step 5: ファクトチェック
 
-スライド構成案に含まれる**数値・固有名詞（件数、データサイズ、精度指標、データセット名、期間等）** を「記載値 / 出典（Issue番号・出力ファイルパス）」の一覧表で提示し、生成前にユーザーの確認を得る。
-
-- 精度指標等の数値は Issue 本文や会話の記憶ではなく、`data/csv/analysis/` 等の出力ファイルから読み取って転記する
-- 出典が確認できない値は「要確認」と明示し、スライドには含めない
+[../shared/finalize-steps.md](../shared/finalize-steps.md) の「Step A: ファクトチェック」に従い、スライド構成案に含まれる数値・固有名詞を「記載値 / 出典（Issue番号・出力ファイルパス）」の一覧表で提示し、生成前にユーザーの確認を得る。出典が確認できない値はスライドに含めない。
 
 ### Step 6: 画像生成（QGIS-MCP）
 

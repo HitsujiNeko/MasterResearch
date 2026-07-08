@@ -1,6 +1,6 @@
 # スキル運用ルール
 
-**最終更新**: 2026-07-07
+**最終更新**: 2026-07-08
 **関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [CodingRule.md](CodingRule.md)
 
 ---
@@ -13,16 +13,26 @@ Claude Code のカスタムスキル（`.claude/skills/` 配下）の作成・�
 
 ---
 
-## 環境ルール
+## 作成・変更のルール（行為ベース）
 
-| 環境 | スキルの利用 | スキルの作成・変更 |
-|---|---|---|
-| **Claude Desktop** | 可 | 可（Skill Creator 使用） |
-| **Claude Code デスクトップアプリ** | 可 | 可（Skill Creator スキルが利用可能な場合のみ） |
-| **VS Code (Claude Code 拡張)** | 可 | 不可 |
+環境（Claude Desktop / デスクトップアプリ / VS Code / リモート）による禁止は設けず、**行為に対する承認**で統制する。
 
-- スキルの新規作成・変更は **Skill Creator スキルが利用できる環境**（Claude Desktop、または Skill Creator が有効な Claude Code デスクトップアプリ）で行う
-- VS Code ではスキルの利用のみとし、SKILL.md の編集は行わない
+- スキルの新規作成・変更は、**環境を問わずユーザーの明示承認を得てから**行う（変更内容の提示 → 承認 → 実施）
+- Skill Creator スキルが利用できる環境では、作成・変更に Skill Creator を使用することを推奨する
+- 承認なしのスキル変更は、軽微な修正（typo 等）であっても行わない
+
+---
+
+## 共通リファレンス（shared/）
+
+複数スキルが共有する手順は `.claude/skills/shared/` に一元化し、各スキルからは参照のみとする（重複記載によるドリフト防止）。
+
+| ファイル | 内容 |
+|---|---|
+| `shared/github-project-api.md` | GitHub Project の GraphQL 取得クエリ・フィールド名・使用禁止コマンド・日本語処理 |
+| `shared/finalize-steps.md` | ドキュメント生成系スキルの終端手順（ファクトチェック→lint→承認・コミット→push条件） |
+
+クエリや手順を変更する場合は shared 側のみを更新し、各スキルには固有の差分だけを書く。
 
 ---
 

@@ -7,11 +7,17 @@
 ## Project 全アイテムの取得（GraphQL・ページネーション必須）
 
 ```bash
-gh api graphql -f query='query($cursor: String) { user(login:"HitsujiNeko") { projectV2(number:1) { items(first:100, after:$cursor) { nodes { content { ... on Issue { number title state labels(first:10){ nodes { name } } } } fieldValues(first:20) { nodes { ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } } } } } pageInfo { hasNextPage endCursor } } } } }' -F cursor="$CURSOR"
+QUERY='query($cursor: String) { user(login:"HitsujiNeko") { projectV2(number:1) { items(first:100, after:$cursor) { nodes { content { ... on Issue { number title state labels(first:10){ nodes { name } } } } fieldValues(first:20) { nodes { ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } } } } } pageInfo { hasNextPage endCursor } } } } }'
+
+if [ -n "${CURSOR:-}" ]; then
+  gh api graphql -f query="$QUERY" -F cursor="$CURSOR"
+else
+  gh api graphql -f query="$QUERY"    # 初回は cursor を渡さない
+fi
 ```
 
-- **初回は `-F cursor` 自体を付けずに実行する**（空文字を渡すと `after: ""` となり無効な cursor になる）
-- `pageInfo.hasNextPage` が `true` の間は `endCursor` を `cursor` に渡して繰り返し、**全ページを結合する**（`items(first:100)` 単発ではアイテムが100件を超えると取りこぼす）
+- **初回は `-F cursor` 自体を付けずに実行する**（空文字を渡すと `after: ""` となり無効な cursor になるため、上記のように `CURSOR` の有無で分岐させる）
+- `pageInfo.hasNextPage` が `true` の間は `endCursor` を `CURSOR` に設定して繰り返し、**全ページを結合する**（`items(first:100)` 単発ではアイテムが100件を超えると取りこぼす）
 
 ## フィールド名の注意（実データで確認済み）
 

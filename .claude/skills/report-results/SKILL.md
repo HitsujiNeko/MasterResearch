@@ -1,6 +1,6 @@
 ---
 name: report-results
-description: "分析スクリプトの実行結果（data/csv/analysis/ 等のCSV/JSON/PNG）から docs/03_results/ の結果ドキュメントを定型生成し、docs/README.md の更新・lint・コミットまで一体実行する。「分析結果をドキュメント化して」「結果レポートを作って」「03_resultsにまとめて」などのリクエストで使用する。"
+description: "分析スクリプトの実行結果（data/output/ 等のCSV/JSON/PNG）から docs/03_results/ の結果ドキュメントを定型生成し、docs/README.md の更新・lint・コミットまで一体実行する。「分析結果をドキュメント化して」「結果レポートを作って」「03_resultsにまとめて」などのリクエストで使用する。"
 ---
 
 # 分析結果ドキュメント生成スキル
@@ -31,7 +31,7 @@ description: "分析スクリプトの実行結果（data/csv/analysis/ 等のCS
 以下をユーザーに確認する（会話の流れから明らかな場合は確認結果として提示する）:
 
 1. **対象の分析**: 実行した分析スクリプト（例: `src/analysis/analysis_rq3_satellite_only.py`）と実行条件
-2. **出力ファイル群**: `data/csv/analysis/` / `data/output/` 配下の対象ファイル（Globで候補を提示する）
+2. **出力ファイル群**: `data/output/` 配下の対象ファイル（Globで候補を提示する）
 3. **対象RQ**: RQ1 / RQ2 / RQ3 のどれに対応する結果か
 4. **ドキュメント名**: `docs/README.md` の命名規則に従う（小文字スネークケース、内容が分かる名前。例: `rq1_variable_importance.md`）
 5. **新規作成か既存更新か**: 既存ドキュメント（例: `satellite_only_analysis_results.md`）への追記の場合は、既存構成を維持して差分を統合する

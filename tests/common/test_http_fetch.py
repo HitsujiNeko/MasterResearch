@@ -87,6 +87,27 @@ def test_fetch_json_with_retry_raises_after_max_retries(
         )
 
 
+def test_fetch_json_with_retry_attempts_max_retry_count_plus_one_times(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """max_retry_count回のリトライ後（初回+max_retry_count回試行後）にRuntimeErrorになる。"""
+    attempt_count = {"value": 0}
+
+    def fake_urlopen(url: str, timeout: int) -> _FakeResponse:
+        attempt_count["value"] += 1
+        raise urllib.error.URLError("always fails")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(RuntimeError):
+        http_fetch.fetch_json_with_retry(
+            "https://example.com", timeout=10, max_retry_count=2, retry_wait_seconds=1
+        )
+
+    assert attempt_count["value"] == 3
+
+
 def test_fetch_json_with_retry_rate_limit_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     """HTTP 429時は指数バックオフの待機秒数（60→120→240）でリトライする。"""
     attempt_count = {"value": 0}

@@ -96,7 +96,7 @@ def fetch_json_with_retry(
                 exc,
             )
 
-        if generic_attempt >= max_retry_count:
+        if generic_attempt > max_retry_count:
             raise RuntimeError(
                 f"リクエストが{max_retry_count}回失敗しました: {last_error}"
             ) from last_error

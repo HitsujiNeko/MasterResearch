@@ -76,20 +76,20 @@
 
 観測日ごとに次の出力を保持している。
 
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_summary.json`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_results.json`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_feature_importance.csv`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_spatial_cv_folds.csv`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_shap_importance.csv`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_model_comparison.png`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_spatial_cv.png`
-- `data/csv/analysis/satellite_only_<date>_<obs_key>_shap_summary.png`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_summary.json`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_results.json`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_feature_importance.csv`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_spatial_cv_folds.csv`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_shap_importance.csv`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_model_comparison.png`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_spatial_cv.png`
+- `data/output/satellite_only/<date>_<obs_key>/satellite_only_<date>_<obs_key>_shap_summary.png`
 
 観測日比較の要約:
 
-- `data/csv/analysis/satellite_only_multidate_summary.csv`
-- `data/csv/analysis/satellite_only_multidate_summary.json`
-- `data/csv/analysis/satellite_only_multidate_lst_violin.png`
+- `data/output/satellite_only/multidate/satellite_only_multidate_summary.csv`
+- `data/output/satellite_only/multidate/satellite_only_multidate_summary.json`
+- `data/output/satellite_only/multidate/satellite_only_multidate_lst_violin.png`
 
 ---
 

@@ -51,8 +51,9 @@ MasterResearch/
 ```
 
 - ルートフォルダは `MasterResearch/` 1つに集約する
-- `data/input/`, `data/output/` はGit管理のためDriveには置かない
-- `data/BSHorizon/`, `data/csv/` はDrive管理対象外（ローカルのみで管理する）
+- `data/input/`, `data/output/` は基本的にGit管理のためDriveには置かない
+  - ただし `data/output/` 配下には `.gitignore` で除外した大容量ファイル（`satellite_only/*/*_dataset.csv`, `satellite_only/*/*_sample_100000.csv`, `urban_params/*.csv` 等）もローカルのみで存在する。これらのDrive同期要否は別途検討する
+- `data/BSHorizon/` はDrive管理対象外（ローカルのみで管理する）
 
 命名ルール:
 
@@ -112,14 +113,17 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 - ディレクトリベースの除外
   - `data/gis/`（GIS 空間データ）
   - `data/satellite/`（衛星由来データ）
-  - `data/csv/analysis/*_dataset.csv`（大容量中間生成物）
+  - `data/output/satellite_only/*/*_dataset.csv`（大容量中間生成物）
+  - `data/output/satellite_only/*/*_sample_100000.csv`（大容量サンプルCSV）
+  - `data/output/urban_params/*.csv`（都市構造パラメータCSV。一部は追跡済みの例外あり）
 - サンプル共有用フォルダは例外で追跡許可
   - `!data/samples/`
   - `!data/samples/**`
 
 補足:
 
-- `data/csv/analysis/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
+- `data/output/satellite_only/*/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
+- `data/output/satellite_only/*/*_sample_100000.csv` も同様に大容量のため、Git管理外とする
 
 ### 7.2 既追跡の大容量出力の扱い
 

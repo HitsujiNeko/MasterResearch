@@ -1,6 +1,6 @@
 # コーディング・ドキュメント記法規約（研究プロジェクト用）
 
-**最終更新**: 2026-07-08  
+**最終更新**: 2026-07-12  
 **関連ドキュメント**:  
 
 - AI指示書 → [CLAUDE.md](../../CLAUDE.md)
@@ -164,6 +164,11 @@ Python ファイルの新規作成・機能変更時には、対応するテス�
 ## 13. ツールによる自動チェックの範囲
 
 `ruff`・`markdownlint` で機械的に保証される項目と、セルフレビューで確認する項目を区別する。
+
+`ruff`・`pytest`・`markdownlint` は [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) により
+PR作成時・`main` へのpush時にも自動実行される（[setup.md 12章](../setup.md#12-cigithub-actions)参照）。
+ローカルでの実行（pre-commit・エディタ拡張）に加えた二重のゲートであり、テストが通らないコードが
+`main` に入ることを防ぐ。
 
 ### ruffで保証される項目（Python）
 

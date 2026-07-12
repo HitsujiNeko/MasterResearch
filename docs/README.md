@@ -66,7 +66,7 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 更新契機 |
 |-----------|------|-----------|--------|
 | [README.md](README.md) | docs全体の索引 | ドキュメント構造、管理ルール、関連リンク | docs配下の重要ファイル追加・改名時 |
-| [setup.md](setup.md) | 環境構築ガイド | `environment.yml` を正本としたセットアップ手順、依存確認、GitHub CLI セットアップ、実行例 | 依存関係・実行手順・ツール要件の変更時 |
+| [setup.md](setup.md) | 環境構築ガイド | `environment.yml` を正本としたセットアップ手順、依存確認、GitHub CLI セットアップ、実行例、Claude Code on the web 向けリモートセッション依存導入 | 依存関係・実行手順・ツール要件の変更時 |
 
 ### 🛠️ setup - 個別ツールのセットアップガイド
 
@@ -864,6 +864,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-12 | Claude Code on the web 向け SessionStart hook で pytest 実行環境を自動構築。`setup.md` に13章（リモートセッション）・14章（補足）を追加（#103） | AI支援 |
 | 2026-07-12 | GitHub Actions CI（ruff・pytest・markdownlint）を導入。`setup.md`（12章）・`CodingRule.md`（13章）にCIの位置づけを追記（#102） | AI支援 |
 | 2026-07-08 | `CodingRule.md` に重複コード共通化規約（5.1節）を追加し、共通モジュール `src/common/`（config・roi・summary・http_fetch・gee）を新設。`new-data-script` スキルの scaffold を共通モジュール利用型に改訂し、プロジェクト構成図に `src/common/`・`tests/common/` を反映 | AI支援 |
 | 2026-07-08 | `claude_workflow_regression_tests.md` を `02_methods/` に新規追加。deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点の回帰テスト項目書と初回実施結果を記載（#97） | AI支援 |

@@ -322,7 +322,41 @@ Python系CI依存の導入はpipベース（`requirements.txt` + `pytest`/`ruff`
 
 ---
 
-## 13. 補足
+## 13. リモートセッション（Claude Code on the web）
+
+Claude Code on the web のクラウドセッションには Python 3.x（pip / pytest / ruff 含む）が標準でプリインストールされているが、
+本プロジェクト固有の依存（geopandas・fiona・rasterio・pyproj・shapely・earthengine-api 等）は含まれない。
+このため `.claude/settings.json` の **SessionStart hook** から [`scripts/install_pkgs.sh`](../scripts/install_pkgs.sh) を実行し、
+クラウドセッション起動時にのみ依存を導入する。
+
+### 13.1 仕組み
+
+- `SessionStart` hook はセッション開始・resume のたびに実行される（Claude Code 起動後、リポジトリのクローンが確定した状態で走る）
+- `scripts/install_pkgs.sh` は環境変数 `CLAUDE_CODE_REMOTE` が `"true"` の場合のみ処理を行う。ローカル（Windows + Conda）では即座に `exit 0` し、何もしない
+- 主要パッケージが import 可能な場合はインストールをスキップし、起動レイテンシを抑える
+- 未導入の場合のみ `pip install -r requirements.txt pytest` を実行する
+
+依存リストは CI（[12章](#12-cigithub-actions)）と同じ `requirements.txt` を参照するため、二重管理にならない。
+
+### 13.2 動作確認
+
+Claude Code on the web で新規セッションを開始すると自動的に hook が実行される。手動での設定は不要。
+セッション内で以下を実行し、テストが通ることを確認する。
+
+```bash
+pytest tests/
+```
+
+### 13.3 注意点
+
+- hook はリポジトリにコミットされているため、環境を再作成しても手動設定は不要
+- `scripts/install_pkgs.sh` は LF 改行を前提とする（`.gitattributes` で `*.sh` を `eol=lf` に固定済み。Windows 側の `core.autocrlf` によるコミット時の改行コード破壊を防止するため）
+- hook は `bash` 経由で明示的に起動する（`chmod +x` によるGit実行ビット管理は、ローカルがWindows・`core.fileMode=false`のため信頼できないための対応）
+- `cryptography`（`earthengine-api` → `google-auth` 経由の依存）がコンテナのシステム版 `cffi` と衝突し `ModuleNotFoundError: _cffi_backend` で失敗することが実測で確認されているため、`scripts/install_pkgs.sh` は `pip install --force-reinstall cffi cryptography` を自動実行する
+
+---
+
+## 14. 補足
 
 - [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

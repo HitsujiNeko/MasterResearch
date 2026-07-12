@@ -21,7 +21,9 @@ import csv
 import os
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+from src.common.config import PROJECT_ROOT
+from src.common.paths import prepare_output_path, resolve_existing_path
+
 CONDA_ROOT = PROJECT_ROOT / ".conda"
 DEFAULT_INPUT_PATH = PROJECT_ROOT / "整備データ" / "merge" / "merge_DH.gpkg"
 DEFAULT_OUTPUT_PATH = (
@@ -82,22 +84,6 @@ def parse_elevation(text_value: object) -> float:
     return float(normalized)
 
 
-def validate_input_path(input_path: Path) -> Path:
-    """入力 GeoPackage の存在を確認し、絶対パスを返す。"""
-    resolved = input_path if input_path.is_absolute() else (PROJECT_ROOT / input_path)
-    resolved = resolved.resolve()
-    if not resolved.exists():
-        raise FileNotFoundError(f"入力 GeoPackage が見つかりません: {resolved}")
-    return resolved
-
-
-def validate_output_path(output_path: Path) -> Path:
-    """出力先ディレクトリを作成し、絶対パスを返す。"""
-    resolved = output_path if output_path.is_absolute() else (PROJECT_ROOT / output_path)
-    resolved.parent.mkdir(parents=True, exist_ok=True)
-    return resolved.resolve()
-
-
 def convert_points_to_csv(
     input_path: Path,
     output_path: Path,
@@ -139,8 +125,8 @@ def convert_points_to_csv(
 def main() -> None:
     """GeoPackage から CSV への変換処理を実行する。"""
     args = parse_args()
-    input_path = validate_input_path(args.input_path)
-    output_path = validate_output_path(args.output_path)
+    input_path = resolve_existing_path(args.input_path)
+    output_path = prepare_output_path(args.output_path)
 
     stats = convert_points_to_csv(
         input_path=input_path,

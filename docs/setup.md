@@ -352,7 +352,7 @@ pytest tests/
 - hook はリポジトリにコミットされているため、環境を再作成しても手動設定は不要
 - `scripts/install_pkgs.sh` は LF 改行を前提とする（`.gitattributes` で `*.sh` を `eol=lf` に固定済み。Windows 側の `core.autocrlf` によるコミット時の改行コード破壊を防止するため）
 - hook は `bash` 経由で明示的に起動する（`chmod +x` によるGit実行ビット管理は、ローカルがWindows・`core.fileMode=false`のため信頼できないための対応）
-- `cryptography` / `cffi` のバージョン衝突が発生した場合は、セッション内で `pip install --force-reinstall cffi cryptography` を実行する（システム版とpip版の衝突が原因のことがある）
+- `cryptography`（`earthengine-api` → `google-auth` 経由の依存）がコンテナのシステム版 `cffi` と衝突し `ModuleNotFoundError: _cffi_backend` で失敗することが実測で確認されているため、`scripts/install_pkgs.sh` は `pip install --force-reinstall cffi cryptography` を自動実行する
 
 ---
 

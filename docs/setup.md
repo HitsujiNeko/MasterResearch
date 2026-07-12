@@ -314,7 +314,8 @@ QGIS プラグインのインストールや接続設定の詳細は [setup/qgis
 - `pytest tests/`
 - `npx --yes markdownlint-cli2@0.22.1 "**/*.md"`
 
-CI用の依存導入はpipベース（`requirements.txt` + `pytest`/`ruff`）で、本セットアップ（1章）の
+Python系CI依存の導入はpipベース（`requirements.txt` + `pytest`/`ruff`）で、Markdown lintは
+`npx --yes markdownlint-cli2@0.22.1` で実行する。本セットアップ（1章）の
 **Conda環境を唯一の実行環境とする方針は変更しない**。CIは大容量の研究データを必要としない
 `tests/` 配下のユニットテストのみを対象とする軽量な検査であり、ローカル開発環境の構築手段は
 引き続き `environment.yml` を正本とする。

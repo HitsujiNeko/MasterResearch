@@ -864,6 +864,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-12 | GitHub Actions CI（ruff・pytest・markdownlint）を導入。`setup.md`（12章）・`CodingRule.md`（13章）にCIの位置づけを追記（#102） | AI支援 |
 | 2026-07-08 | `CodingRule.md` に重複コード共通化規約（5.1節）を追加し、共通モジュール `src/common/`（config・roi・summary・http_fetch・gee）を新設。`new-data-script` スキルの scaffold を共通モジュール利用型に改訂し、プロジェクト構成図に `src/common/`・`tests/common/` を反映 | AI支援 |
 | 2026-07-08 | `claude_workflow_regression_tests.md` を `02_methods/` に新規追加。deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点の回帰テスト項目書と初回実施結果を記載（#97） | AI支援 |
 | 2026-07-08 | Claude Code 運用再設計: `CodingRule.md` に 11.4（テスト必須の適用範囲: `src/` 必須・`sandbox/` 不要）を新設。`skill_operation_rules.md` を行為ベース承認ルールに改訂し、`shared/` 共通リファレンスの運用を追加 | AI支援 |

@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-06-30  
+**最終更新**: 2026-07-12  
 **関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
@@ -306,7 +306,22 @@ QGIS プラグインのインストールや接続設定の詳細は [setup/qgis
 
 ---
 
-## 12. 補足
+## 12. CI（GitHub Actions）
+
+`.github/workflows/ci.yml` により、PR作成時・`main` へのpush時に以下が自動実行される。
+
+- `ruff check .` / `ruff format --check .`
+- `pytest tests/`
+- `npx markdownlint-cli2 "**/*.md"`
+
+CI用の依存導入はpipベース（`requirements.txt` + `pytest`/`ruff`）で、本セットアップ（1章）の
+**Conda環境を唯一の実行環境とする方針は変更しない**。CIは大容量の研究データを必要としない
+`tests/` 配下のユニットテストのみを対象とする軽量な検査であり、ローカル開発環境の構築手段は
+引き続き `environment.yml` を正本とする。
+
+---
+
+## 13. 補足
 
 - [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

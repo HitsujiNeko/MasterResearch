@@ -55,6 +55,10 @@ qgis/projects/
 # BSHorizon出力テキスト（大容量）
 data/BSHorizon/output/*.txt
 
+# BSHorizon入力CSV（正本 data/output/survey_translated/ から
+# prepare_bs_horizon_input.py で再生成可能なため追跡外）
+data/BSHorizon/input/merge_DH_elevation_points.csv
+
 # =========================
 # 個人用作業メモ（Git追跡外）
 # =========================

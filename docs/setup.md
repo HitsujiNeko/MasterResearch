@@ -312,7 +312,7 @@ QGIS プラグインのインストールや接続設定の詳細は [setup/qgis
 
 - `ruff check .` / `ruff format --check .`
 - `pytest tests/`
-- `npx markdownlint-cli2 "**/*.md"`
+- `npx --yes markdownlint-cli2@0.22.1 "**/*.md"`
 
 CI用の依存導入はpipベース（`requirements.txt` + `pytest`/`ruff`）で、本セットアップ（1章）の
 **Conda環境を唯一の実行環境とする方針は変更しない**。CIは大容量の研究データを必要としない

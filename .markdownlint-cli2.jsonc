@@ -1,0 +1,16 @@
+{
+  // markdownlint-cli2 は .markdownlintignore を非サポートのため、除外リストはここに定義する。
+  // ルール設定自体は .markdownlint.json を参照する。
+  "ignores": [
+    ".conda/**",
+    ".pytest_cache/**",
+    "node_modules/**",
+    "SSD/**",
+    ".github/prompts/completed/**",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/**",
+    "AGENTS.md",
+    "DGNファイル内容確定結果.md",
+    "gpkgの確認結果.md"
+  ]
+}

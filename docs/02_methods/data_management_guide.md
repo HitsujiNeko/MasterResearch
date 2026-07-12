@@ -115,7 +115,9 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
   - `data/satellite/`（衛星由来データ）
   - `data/output/satellite_only/*/*_dataset.csv`（大容量中間生成物）
   - `data/output/satellite_only/*/*_sample_100000.csv`（大容量サンプルCSV）
-  - `data/output/urban_params/*.csv`（都市構造パラメータCSV。一部は追跡済みの例外あり）
+  - `data/output/urban_params/*.csv`（都市構造パラメータCSV）
+- ファイルベースの除外
+  - `data/BSHorizon/input/merge_DH_elevation_points.csv`（正本 `data/output/survey_translated/merge_DH_elevation_points.csv` から `prepare_bs_horizon_input.py` で再生成可能なため）
 - サンプル共有用フォルダは例外で追跡許可
   - `!data/samples/`
   - `!data/samples/**`
@@ -135,6 +137,11 @@ git commit -m "Stop tracking generated outputs"
 ```
 
 必要に応じて、将来的に履歴クリーンアップ（git filter-repo 等）を検討する。
+
+正本から派生する入力ファイル（例: `data/BSHorizon/input/merge_DH_elevation_points.csv`）を
+追跡解除する場合は、`git rm --cached` に加えて再生成用スクリプトを用意し、
+下流パイプラインが要求する形式（ヘッダー有無・改行コード等）を維持したまま
+いつでも再生成できることを確認してから解除する（例: `prepare_bs_horizon_input.py`）。
 
 ---
 

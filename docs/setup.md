@@ -322,7 +322,45 @@ Python系CI依存の導入はpipベース（`requirements.txt` + `pytest`/`ruff`
 
 ---
 
-## 13. 補足
+## 13. リモートセッション（Claude Code on the web）
+
+Claude Code on the web のクラウドセッションには Python 3.x（pip / pytest / ruff 含む）が標準でプリインストールされているが、
+本プロジェクト固有の依存（geopandas・fiona・rasterio・pyproj・shapely 等の地理空間系ライブラリ）は含まれない。
+このため、環境設定の **Setup script** に以下を登録し、クラウドセッション起動時に依存を導入する。
+
+### 13.1 設定手順（初回のみ）
+
+1. [claude.ai/code](https://claude.ai/code) で環境選択から対象環境を開き、設定ダイアログを開く
+2. **Setup script** 欄に以下を貼り付けて保存する
+
+   ```bash
+   #!/bin/bash
+   pip install -r requirements.txt pytest
+   ```
+
+3. 保存後の初回セッション起動時にスクリプトが実行され、以降は環境がキャッシュされるため
+   通常は再実行されない（環境のキャッシュは約7日で自動的に再構築される。手動での再設定は不要）
+
+依存リストは CI（[12章](#12-cigithub-actions)）と同じ `requirements.txt` を参照するため、二重管理にならない。
+`pytest` はクラウド側に標準搭載済みだが、プロジェクトの `environment.yml` とバージョンを揃えるため明示的にインストールする。
+
+### 13.2 動作確認
+
+Setup script 保存後、新規セッションで以下を実行し、テストが通ることを確認する。
+
+```bash
+pytest tests/
+```
+
+### 13.3 注意点
+
+- Setup script は**クラウド環境の設定であり、リポジトリには含まれない**（Git管理外）。環境を新規作成した場合は 13.1 の手順を再度行う
+- ローカル（Windows + Conda）環境には影響しない。本セットアップ（1章）の**ローカル開発ではConda環境を唯一の実行環境とする方針は変更しない**
+- Setup script が失敗するとセッション起動自体が失敗する。ネットワークアクセスが **Trusted**（既定）以上であることを確認する
+
+---
+
+## 14. 補足
 
 - [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

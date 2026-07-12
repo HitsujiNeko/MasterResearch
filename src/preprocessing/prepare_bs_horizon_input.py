@@ -48,6 +48,12 @@ def strip_header(input_path: Path, output_path: Path) -> int:
     """入力 CSV の先頭1行（ヘッダー）を除いて出力先に書き出す。
 
     改行コードは変換せず、入力ファイルのものをそのまま保持する。
+
+    Args:
+        input_path: ヘッダーありの入力 CSV パス。
+        output_path: ヘッダーなしの出力先 CSV パス。
+    Returns:
+        書き出したデータ行数（ヘッダー行を除いた件数）。
     """
     written_count = 0
     with input_path.open("r", encoding="utf-8", newline="") as src_file:

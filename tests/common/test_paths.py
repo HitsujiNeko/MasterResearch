@@ -49,3 +49,16 @@ def test_prepare_output_path_creates_parent_directory(tmp_path: Path) -> None:
     assert resolved.parent.exists()
     assert resolved.parent.is_dir()
     assert resolved == output_path.resolve()
+
+
+def test_prepare_output_path_resolves_relative_path_against_project_root(
+    tmp_path: Path,
+) -> None:
+    """相対パスは project_root 引数を基準に解決し、親ディレクトリを作成する。"""
+    output_path = Path("nested") / "output.csv"
+
+    resolved = prepare_output_path(output_path, project_root=tmp_path)
+
+    assert resolved == (tmp_path / "nested" / "output.csv").resolve()
+    assert resolved.parent.exists()
+    assert resolved.parent.is_dir()

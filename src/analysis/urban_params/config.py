@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再エクスポート
 
 # 衛星指標ラスタのバンド説明として検出対象とするキー一覧。
 RASTER_KEYS = ("NDVI", "NDBI", "NDWI", "FVC")

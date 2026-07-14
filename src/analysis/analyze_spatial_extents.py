@@ -30,7 +30,7 @@ import fiona
 import rasterio
 from pyproj import CRS, Transformer
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+from src.common.config import PROJECT_ROOT
 
 
 @dataclass(frozen=True)

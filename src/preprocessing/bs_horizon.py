@@ -22,7 +22,8 @@ from typing import Iterable
 
 import numpy as np
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+from src.common.config import PROJECT_ROOT
+
 SENTINEL_LIMIT = 1.0e9
 SPLIT_PATTERN = re.compile(r"[\s,]+")
 

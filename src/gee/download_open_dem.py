@@ -40,7 +40,8 @@ from rasterio.enums import Resampling
 from rasterio.mask import mask
 from rasterio.warp import calculate_default_transform, reproject
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.common.config import PROJECT_ROOT
+
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "gis" / "dem"

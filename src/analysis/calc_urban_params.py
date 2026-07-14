@@ -41,8 +41,8 @@ try:
 except Exception:  # pragma: no cover
     shapely_make_valid = None
 
+from src.common.config import PROJECT_ROOT
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 RASTER_KEYS = ("NDVI", "NDBI", "NDWI", "FVC")
 
 

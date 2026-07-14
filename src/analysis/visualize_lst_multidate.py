@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.common.config import PROJECT_ROOT
+
 SATELLITE_ONLY_DIR = PROJECT_ROOT / "data" / "output" / "satellite_only"
 DEFAULT_OUTPUT = SATELLITE_ONLY_DIR / "multidate" / "satellite_only_multidate_lst_violin.png"
 DEFAULT_SAMPLE_PATHS = [

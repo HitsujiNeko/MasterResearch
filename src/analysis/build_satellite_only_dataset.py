@@ -14,7 +14,8 @@ import subprocess
 from pathlib import Path
 from typing import Iterator
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.common.config import PROJECT_ROOT
+
 CONDA_ROOT = PROJECT_ROOT / ".conda"
 CONDA_PATH_PREFIX = [
     str(CONDA_ROOT),

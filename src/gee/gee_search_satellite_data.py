@@ -37,6 +37,7 @@ import ee
 import pandas as pd
 from tqdm import tqdm
 
+from src.common.config import PROJECT_ROOT
 from src.gee.gee_calc_LST import (
     authenticate_gee,
     build_drive_export_folder,
@@ -58,7 +59,6 @@ from src.gee.gee_calc_satellite_indices import (
 )
 from src.module.lst_smw import calculate_lst_smw
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "output" / "gee_search_satellite_data_results.csv"
 ROI_COVERAGE_TOLERANCE = 0.999999

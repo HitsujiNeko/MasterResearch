@@ -46,6 +46,8 @@ description: "分析スクリプトの実行結果（data/output/ 等のCSV/JSON
 
 `docs/03_results/satellite_only_analysis_results.md` を構成の型として、以下の標準構成で生成する（分析の性質に応じてセクションの追加・省略可）:
 
+（以下テンプレート中のリンクは生成先 `docs/03_results/` からの相対パスです。SKILL.md 自身からは解決しません）
+
 ```markdown
 # {分析名} 分析結果
 

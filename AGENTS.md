@@ -6,4 +6,3 @@
 
 1. `docs/02_methods/CodingRule.md`
 2. `docs/02_methods/analysis_workflow.md`
-3. `docs/02_methods/agency_agents_minimal_set.md`

@@ -84,6 +84,8 @@ docs/
 | [gis_data_dem.md](01_planning/gis_data/gis_data_dem.md) | DEM候補の調査・選定ガイド | DSM/DTM特性、センサー種別、BSHorizon比較結果、Limitedシナリオ採用判断 | RQ1, RQ3 |
 | [research_guide.md](01_planning/research_guide.md) | 研究計画書 | 研究題目、背景、RQ1-3、手法概要、期待される成果 | 全RQ |
 
+> **注記**: `gis_data/` 配下の各カテゴリ詳細ファイルは [available_gis_data.md](01_planning/available_gis_data.md) Section 4 を索引の正本とする。本表には代表例のみ掲載し、全件掲載は求めない（check-docs-consistency のカタログ比較対象外）。
+
 ### 🔬 02_methods - 研究手法
 
 | ファイル名 | 概要 | 主要な内容 | 実装ファイル |
@@ -864,6 +866,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-14 | `gis_data/` 配下7ファイルのカタログ未掲載と check_spec との方針矛盾を解消。全ドキュメントカタログ表に `available_gis_data.md` Section 4 を索引の正本とする注記を追加し、`check_spec.md` にカタログ比較対象外の例外を明文化（#105） | AI支援 |
 | 2026-07-12 | Claude Code on the web 向け SessionStart hook で pytest 実行環境を自動構築。`setup.md` に13章（リモートセッション）・14章（補足）を追加（#103） | AI支援 |
 | 2026-07-12 | GitHub Actions CI（ruff・pytest・markdownlint）を導入。`setup.md`（12章）・`CodingRule.md`（13章）にCIの位置づけを追記（#102） | AI支援 |
 | 2026-07-08 | `CodingRule.md` に重複コード共通化規約（5.1節）を追加し、共通モジュール `src/common/`（config・roi・summary・http_fetch・gee）を新設。`new-data-script` スキルの scaffold を共通モジュール利用型に改訂し、プロジェクト構成図に `src/common/`・`tests/common/` を反映 | AI支援 |
@@ -889,6 +892,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-12  
+**最終更新**: 2026-07-14  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

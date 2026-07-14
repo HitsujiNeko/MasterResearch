@@ -59,7 +59,6 @@ id,BJC_code,grid,x1,y1,x2,y2,x3,y3,x4,y4
 # 必要なライブラリのインポート
 import os
 import tempfile
-from pathlib import Path
 
 import pandas as pd
 import rasterio
@@ -67,8 +66,9 @@ from rasterio.mask import mask
 from rasterio.merge import merge
 from shapely.geometry import Polygon, mapping
 
+from src.common.config import PROJECT_ROOT
+
 # パス設定
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAP_INFO_PATH = PROJECT_ROOT / "data" / "input" / "map_info.csv"
 MAPS_DIR = PROJECT_ROOT / "data" / "gis" / "maps"
 OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "maps" / "merged_map.tif"

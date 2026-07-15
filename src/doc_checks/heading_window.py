@@ -18,6 +18,12 @@ def extract_heading_window(
     """先頭の `# 見出し` 行の直後 lookahead_lines 行を1つの文字列として返す。
 
     見出しが存在しない場合は None を返す。
+
+    Args:
+        text: 抽出対象の Markdown テキスト。
+        lookahead_lines: 見出し直後から抽出する行数。
+    Returns:
+        抽出された文字列。見出しがない場合は None。
     """
     lines = text.splitlines()
     heading_index = next((i for i, line in enumerate(lines) if _HEADING_PATTERN.match(line)), None)

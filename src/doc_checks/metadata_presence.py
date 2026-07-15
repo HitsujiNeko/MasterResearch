@@ -28,13 +28,23 @@ _EXCLUDED_PATTERNS = (re.compile(r"^docs/04_archive/02_structured_summaries/S.*\
 
 @dataclass(frozen=True)
 class MissingMetadata:
-    """冒頭メタ情報が欠落しているファイル1件。"""
+    """冒頭メタ情報が欠落しているファイル1件。
+
+    Attributes:
+        file: プロジェクトルートからの相対パス。
+    """
 
     file: str
 
 
 def check_metadata_presence(project_root: Path = PROJECT_ROOT) -> list[MissingMetadata]:
-    """冒頭「最終更新」メタ情報が欠落しているファイルを検出する。"""
+    """冒頭「最終更新」メタ情報が欠落しているファイルを検出する。
+
+    Args:
+        project_root: プロジェクトのルートディレクトリ。
+    Returns:
+        メタ情報が欠落しているファイルのリスト。
+    """
     violations: list[MissingMetadata] = []
     for relative_path in collect_docs_markdown_files(project_root):
         posix_path = relative_path.as_posix()
@@ -47,11 +57,25 @@ def check_metadata_presence(project_root: Path = PROJECT_ROOT) -> list[MissingMe
 
 
 def _is_excluded(posix_path: str) -> bool:
+    """判定対象外のファイルかどうかを判定する。
+
+    Args:
+        posix_path: 判定対象のプロジェクトルート相対パス（POSIX形式）。
+    Returns:
+        判定対象外であれば True。
+    """
     if posix_path in _EXCLUDED_PATHS:
         return True
     return any(pattern.match(posix_path) for pattern in _EXCLUDED_PATTERNS)
 
 
 def _has_metadata_near_heading(text: str) -> bool:
+    """冒頭見出し直後の数行に「最終更新」の記載があるかを判定する。
+
+    Args:
+        text: 判定対象のファイル本文。
+    Returns:
+        記載があれば True。
+    """
     window = extract_heading_window(text)
     return window is not None and _META_KEYWORD in window

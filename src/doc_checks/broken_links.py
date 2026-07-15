@@ -29,7 +29,13 @@ class BrokenLink:
 
 
 def check_broken_links(project_root: Path = PROJECT_ROOT) -> list[BrokenLink]:
-    """収集した Markdown ファイル群の相対パスリンクが解決できるか検証する。"""
+    """収集した Markdown ファイル群の相対パスリンクが解決できるか検証する。
+
+    Args:
+        project_root: プロジェクトのルートディレクトリ。
+    Returns:
+        検出されたリンク切れのリスト。
+    """
     broken: list[BrokenLink] = []
     for relative_path in collect_markdown_files(project_root):
         file_path = project_root / relative_path

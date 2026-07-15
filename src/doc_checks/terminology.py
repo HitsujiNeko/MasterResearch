@@ -73,6 +73,15 @@ def check_terminology(project_root: Path = PROJECT_ROOT) -> list[TerminologyViol
 
 
 def _check_line(file: str, line_number: int, line: str) -> list[TerminologyViolation]:
+    """1行分のテキストに対して全カテゴリの表記揺れパターンを検査する。
+
+    Args:
+        file: 検査対象ファイルのプロジェクトルート相対パス。
+        line_number: 行番号（1始まり）。
+        line: 検査対象の行テキスト。
+    Returns:
+        検出された表記揺れのリスト。
+    """
     results: list[TerminologyViolation] = []
 
     for match in _LST_UNIT_PATTERN.finditer(line):
@@ -109,4 +118,14 @@ def _check_line(file: str, line_number: int, line: str) -> list[TerminologyViola
 
 
 def _violation(file: str, line: int, category: str, matched_text: str) -> TerminologyViolation:
+    """TerminologyViolation を組み立てる。
+
+    Args:
+        file: 検出対象ファイルのプロジェクトルート相対パス。
+        line: 検出行の行番号。
+        category: 表記揺れのカテゴリ名。
+        matched_text: 検出された実際の文字列。
+    Returns:
+        組み立てた TerminologyViolation。
+    """
     return TerminologyViolation(file=file, line=line, category=category, matched_text=matched_text)

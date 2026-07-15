@@ -60,6 +60,13 @@ def check_freshness(
 
 
 def _extract_metadata_date(text: str) -> date | None:
+    """冒頭見出し直後の「最終更新」日付を抽出する。
+
+    Args:
+        text: 判定対象のファイル本文。
+    Returns:
+        抽出した日付。記載がない・解析できない場合は None。
+    """
     window = extract_heading_window(text)
     if window is None:
         return None
@@ -73,6 +80,14 @@ def _extract_metadata_date(text: str) -> date | None:
 
 
 def _last_commit_date(project_root: Path, relative_path: Path) -> date | None:
+    """git履歴からファイルの最終コミット日を取得する。
+
+    Args:
+        project_root: gitコマンドを実行するリポジトリのルートディレクトリ。
+        relative_path: project_root からの相対パス。
+    Returns:
+        最終コミット日。git履歴が取得できない場合は None。
+    """
     result = subprocess.run(
         ["git", "log", "-1", "--format=%as", "--", relative_path.as_posix()],
         cwd=project_root,

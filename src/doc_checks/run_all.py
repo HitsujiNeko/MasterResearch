@@ -21,7 +21,13 @@ from src.doc_checks.terminology import check_terminology
 
 
 def main(project_root: Path = PROJECT_ROOT) -> int:
-    """全チェックを実行し、結果を表示したうえで終了コードを返す。"""
+    """全チェックを実行し、結果を表示したうえで終了コードを返す。
+
+    Args:
+        project_root: プロジェクトのルートディレクトリ。
+    Returns:
+        違反があった場合は1、すべて通過した場合は0。
+    """
     has_failure = False
 
     catalog_result = check_catalog_diff(project_root)

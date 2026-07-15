@@ -11,10 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.common.config import PROJECT_ROOT
+from src.doc_checks.heading_window import extract_heading_window
 from src.doc_checks.scan_targets import collect_docs_markdown_files
 
-_HEADING_PATTERN = re.compile(r"^#\s+\S")
-_LOOKAHEAD_LINES = 5
 _META_KEYWORD = "最終更新"
 
 # 独自メタ形式・カタログ文書自体など、判定対象外とするファイル
@@ -54,9 +53,5 @@ def _is_excluded(posix_path: str) -> bool:
 
 
 def _has_metadata_near_heading(text: str) -> bool:
-    lines = text.splitlines()
-    heading_index = next((i for i, line in enumerate(lines) if _HEADING_PATTERN.match(line)), None)
-    if heading_index is None:
-        return False
-    window = lines[heading_index + 1 : heading_index + 1 + _LOOKAHEAD_LINES]
-    return any(_META_KEYWORD in line for line in window)
+    window = extract_heading_window(text)
+    return window is not None and _META_KEYWORD in window

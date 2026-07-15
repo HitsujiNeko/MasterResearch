@@ -17,6 +17,8 @@ import logging
 import subprocess
 from pathlib import Path
 
+from src.common.gdal_tools import find_gdal_toolset
+
 # ログ出力先ディレクトリを作成（存在しない場合にFileHandlerがエラーになるのを防ぐ）
 Path("data/output").mkdir(parents=True, exist_ok=True)
 
@@ -64,23 +66,27 @@ def has_dgnv8_support(ogrinfo_path: str) -> bool:
 def get_ogr2ogr_path(require_dgnv8: bool = True) -> str:
     """ogr2ogrの実行ファイルパスを取得
 
+    Args:
+        require_dgnv8: DGNv8ドライバ対応を必須とするか。
+
     Returns:
         ogr2ogrの実行可能パス
 
     Raises:
-        SystemExit: ogr2ogrが見つからない場合
+        SystemExit: 条件を満たすogr2ogrが見つからない場合
 
     優先順位：
-        1. QGIS 3.40.11のバンドル版
-        2. OSGeo4W（64bit/32bit）
-        3. システムパス上のogr2ogr
+        1. src.common.gdal_tools が探索するQGIS（3.40以上）/OSGeo4W同梱版
+        2. システムパス上のogr2ogr（1がDGNv8非対応、または見つからない場合のフォールバック）
     """
-    candidates = [
-        r"C:\Program Files\QGIS 3.40.11\bin\ogr2ogr.exe",
-        r"C:\OSGeo4W\bin\ogr2ogr.exe",
-        r"C:\OSGeo4W64\bin\ogr2ogr.exe",
-        "ogr2ogr",
-    ]
+    candidates = []
+    try:
+        common_ogr2ogr_path, _, _ = find_gdal_toolset()
+        candidates.append(str(common_ogr2ogr_path))
+    except FileNotFoundError as error:
+        logger.warning("共通探索でogr2ogrが見つかりませんでした: %s", error)
+    candidates.append("ogr2ogr")
+
     for path in candidates:
         try:
             result = subprocess.run([path, "--version"], capture_output=True, text=True, check=True)

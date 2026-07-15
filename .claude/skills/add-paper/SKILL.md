@@ -38,18 +38,39 @@ S番号・ファイル名を確定する**前**に、正式書誌を機械照合
 
 > **注**: 当初 DOI なし論文の検索には OpenAlex を想定していたが、2026-07-15 時点で OpenAlex API はクレジット制の課金体系に移行しており（`https://api.openalex.org/works` が 429 + 課金メッセージを返す）、無認証・無料での利用を前提にできない。そのため Crossref の書誌検索（`query.bibliographic=`、認証不要）に一本化する。将来 OpenAlex が無料枠を再提供した場合はフォールバック先として追加を検討する。
 
+共通: Crossref への `curl` 呼び出しは失敗判定・タイムアウト・リトライ・User-Agent（`mailto`付き）を必ず指定する。
+
+```sh
+curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
+  -H 'User-Agent: add-paper/1.0 (mailto:担当者のメールアドレス)' \
+  "https://api.crossref.org/works/{正規化後DOI}"
+
+curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
+  -H 'User-Agent: add-paper/1.0 (mailto:担当者のメールアドレス)' \
+  --get 'https://api.crossref.org/works' \
+  --data-urlencode "query.bibliographic={タイトル}" \
+  --data 'rows=3'
+```
+
+比較ルール（照合時は必ずこの基準に従う）:
+
+- 発表年は `issued`（`published-print`/`published-online`のうち早い方をCrossrefが解決した値）を基準にし、Step間・論文間で基準を統一する
+- タイトル・掲載誌・巻号は空白・大文字小文字を正規化してから比較する
+- 著者は `author[].given` / `author[].family` を正規化して比較する。筆頭著者姓の自動採用はしない
+- 対応表には項目名にCrossrefフィールド名（`issued`・`container-title`等）を併記する
+
 1. **DOI がある場合**:
    - DOI を正規化する: 前後の空白・引用符・末尾句読点を除去し、`doi:`・`http(s)://doi.org/`・`http(s)://dx.doi.org/` の各プレフィックスを除去してから小文字化する。正規化後は `10.<prefix>/<suffix>` 形式であることを確認する。元の入力値は監査用に変更せず保持する
-   - `curl -s https://api.crossref.org/works/{正規化後DOI}` で生 JSON を取得する（WebFetch は要約を経由し数値・巻号等の転記精度が落ちるため使用しない）
-   - 取得したタイトル・著者・発表年・掲載誌・巻号と、入力（要約・PDF転記値）を照合する
+   - 上記 `curl` で `works/{正規化後DOI}` の生 JSON を取得する（WebFetch は要約を経由し数値・巻号等の転記精度が落ちるため使用しない）
+   - 取得したタイトル・著者・発表年（`issued`）・掲載誌・巻号と、入力（要約・PDF転記値）を比較ルールに従って照合する
    - 差分があれば対応表（項目｜入力値｜Crossref取得値）で提示し、どちらを採用するかユーザーに確認する
    - ベトナム人著者名等、Crossref の given/family 分割が姓の判定と一致しない場合があるため、ファイル名用の筆頭著者姓は機械的に採用せずユーザーに確認する
 2. **DOI がない場合**:
-   - `curl -s "https://api.crossref.org/works?query.bibliographic={タイトル（URLエンコード）}&rows=3"` でタイトル検索し、DOI の特定を試みる
-   - 上位候補が複数返るため自動採用しない。候補（タイトル・著者・年・DOI）を提示し、ユーザーが同一論文と確認したうえで DOI を採用する
+   - 上記 `curl` で `works?query.bibliographic={タイトル}&rows=3` を検索し、DOI の特定を試みる
+   - 上位候補が複数返るため自動採用しない。候補（タイトル・著者・年・DOI）を比較ルールに従って提示し、ユーザーが同一論文と確認したうえで DOI を採用する
    - 見つからない、またはユーザーが同一論文と確認できない場合は従来どおり「未確認」と明記する（小規模会議録等は Crossref 未収載のことが多い）
-3. **API が失敗した場合・DOI が未登録の場合**: 照合をスキップし、その旨を記録する（登録フロー自体は止めない）
-4. 照合結果（実施日・一致/不一致/スキップの別）は Step 2 で要約ファイル末尾に記録する
+3. **API が失敗した場合・DOI が未登録の場合**: 照合をスキップし、失敗種別（`DOI未登録` / `HTTP {ステータスコード}` / `タイムアウト` / `JSON不正` 等）と再試行可否を記録する（登録フロー自体は止めない）
+4. 照合結果（実施日・一致/不一致/候補採用/スキップの別。スキップ時は失敗種別を含む）は Step 2 で要約ファイル末尾に記録する
 
 ### Step 2: S番号の採番・要約ファイルの作成
 

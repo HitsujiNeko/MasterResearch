@@ -17,6 +17,8 @@ import subprocess
 from pathlib import Path
 from typing import Set
 
+from src.common.gdal_tools import find_gdal_toolset
+
 # ログ出力先ディレクトリを作成（存在しない場合にFileHandlerがエラーになるのを防ぐ）
 Path("data/output").mkdir(parents=True, exist_ok=True)
 
@@ -38,13 +40,26 @@ DEFAULT_SKIP_FILES = [
 
 
 def get_ogr2ogr_path() -> str:
-    """ogr2ogrの実行ファイルパスを取得"""
-    candidates = [
-        r"C:\Program Files\QGIS 3.40.11\bin\ogr2ogr.exe",
-        r"C:\OSGeo4W\bin\ogr2ogr.exe",
-        r"C:\OSGeo4W64\bin\ogr2ogr.exe",
-        "ogr2ogr",
-    ]
+    """ogr2ogrの実行ファイルパスを取得
+
+    優先順位：
+        1. src.common.gdal_tools が探索するQGIS（3.40以上）/OSGeo4W同梱版
+        2. システムパス上のogr2ogr（1が見つからない場合のフォールバック）
+
+    Returns:
+        ogr2ogrの実行可能パス
+
+    Raises:
+        SystemExit: ogr2ogrが見つからない場合
+    """
+    candidates = []
+    try:
+        common_ogr2ogr_path, _, _ = find_gdal_toolset()
+        candidates.append(str(common_ogr2ogr_path))
+    except FileNotFoundError as error:
+        logger.warning("共通探索でogr2ogrが見つかりませんでした: %s", error)
+    candidates.append("ogr2ogr")
+
     for path in candidates:
         try:
             subprocess.run([path, "--version"], capture_output=True, text=True, check=True)

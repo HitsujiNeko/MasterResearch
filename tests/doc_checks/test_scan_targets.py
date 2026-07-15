@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.doc_checks.scan_targets import collect_markdown_files
+from src.doc_checks.scan_targets import collect_docs_markdown_files, collect_markdown_files
 
 
 def _touch(path: Path) -> None:
@@ -69,3 +69,31 @@ def test_collect_markdown_files_returns_sorted_unique_list(tmp_path: Path) -> No
 
     assert result == sorted(result, key=lambda path: path.as_posix())
     assert len(result) == len(set(result))
+
+
+def test_collect_docs_markdown_files_excludes_claude_and_github_and_root(tmp_path: Path) -> None:
+    """docs限定走査は.claude/・.github/・ルート直下の.mdを対象外とする。"""
+    _touch(tmp_path / "docs" / "README.md")
+    _touch(tmp_path / ".claude" / "skills" / "foo" / "SKILL.md")
+    _touch(tmp_path / ".github" / "task-workflow.md")
+    _touch(tmp_path / "CLAUDE.md")
+
+    result = collect_docs_markdown_files(project_root=tmp_path)
+
+    assert result == [Path("docs/README.md")]
+
+
+def test_collect_docs_markdown_files_includes_mmd(tmp_path: Path) -> None:
+    """docs限定走査は.mmdも対象に含む。"""
+    _touch(tmp_path / "docs" / "diagram.mmd")
+
+    result = collect_docs_markdown_files(project_root=tmp_path)
+
+    assert result == [Path("docs/diagram.mmd")]
+
+
+def test_collect_docs_markdown_files_returns_empty_when_docs_dir_missing(tmp_path: Path) -> None:
+    """docs/ディレクトリ自体が存在しない場合は空リストを返す。"""
+    result = collect_docs_markdown_files(project_root=tmp_path)
+
+    assert result == []

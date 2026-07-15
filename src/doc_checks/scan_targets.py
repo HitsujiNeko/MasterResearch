@@ -45,6 +45,28 @@ def collect_markdown_files(project_root: Path = PROJECT_ROOT) -> list[Path]:
     return sorted(relative_paths, key=lambda path: path.as_posix())
 
 
+def collect_docs_markdown_files(project_root: Path = PROJECT_ROOT) -> list[Path]:
+    """`docs/` 配下限定で検査対象の Markdown ファイル一覧を取得する。
+
+    メタ情報の有無・用語の表記揺れなど、`docs/` の運用ルール
+    （CLAUDE.md 最小用語集・`docs/README.md` の記載規則）に閉じたチェックで使用する。
+    `.claude/`・`.github/` は元々これらのルールの対象外のため、
+    `.md` 拡張子や見出し構造がルール準拠でなくても違反として扱わない。
+
+    Args:
+        project_root: 走査の基準ディレクトリ。
+    Returns:
+        project_root からの相対パスの一覧（重複なし・パス文字列昇順）。
+    """
+    docs_dir = project_root / "docs"
+    if not docs_dir.exists():
+        return []
+    relative_paths = (
+        path.relative_to(project_root) for path in _walk(docs_dir, extensions=(".md", ".mmd"))
+    )
+    return sorted(relative_paths, key=lambda path: path.as_posix())
+
+
 def _walk(directory: Path, extensions: tuple[str, ...]) -> list[Path]:
     """directory 配下を再帰的に走査し、除外ディレクトリを除いた対象ファイルを返す。"""
     results: list[Path] = []

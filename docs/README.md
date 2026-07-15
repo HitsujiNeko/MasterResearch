@@ -856,7 +856,7 @@ MasterResearch/
 
 ### 定期メンテナンス
 
-- [ ] 月1回: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
+- [ ] 週次: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
 - [ ] 研究フェーズ移行時: ドキュメント構成の見直し
 - [ ] 論文投稿前: 全ドキュメントの整合性確認
 
@@ -866,6 +866,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-15 | ドキュメント整合性チェックのうち機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報・表記揺れ・書誌整合）を `src/doc_checks/` にスクリプト化しCIへ統合。定期メンテナンスの頻度記載を「月1回」から「週次」に統一（#104） | AI支援 |
 | 2026-07-14 | `gis_data/` 配下7ファイルのカタログ未掲載と check_spec との方針矛盾を解消。全ドキュメントカタログ表に `available_gis_data.md` Section 4 を索引の正本とする注記を追加し、`check_spec.md` にカタログ比較対象外の例外を明文化（#105） | AI支援 |
 | 2026-07-12 | Claude Code on the web 向け SessionStart hook で pytest 実行環境を自動構築。`setup.md` に13章（リモートセッション）・14章（補足）を追加（#103） | AI支援 |
 | 2026-07-12 | GitHub Actions CI（ruff・pytest・markdownlint）を導入。`setup.md`（12章）・`CodingRule.md`（13章）にCIの位置づけを追記（#102） | AI支援 |
@@ -892,6 +893,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-14  
+**最終更新**: 2026-07-15  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

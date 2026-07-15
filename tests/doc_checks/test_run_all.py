@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src.doc_checks.run_all import main
 
 _README_TEMPLATE = """# 📚 研究ドキュメント管理
@@ -40,7 +42,9 @@ def _build_valid_project(tmp_path: Path) -> None:
     _write(tmp_path / "docs" / "04_archive" / "01_metadata" / "papers_database.csv", _CSV_HEADER)
 
 
-def test_returns_zero_when_no_violations(tmp_path: Path, capsys) -> None:
+def test_returns_zero_when_no_violations(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """違反がなければ終了コード0を返す。"""
     _build_valid_project(tmp_path)
 
@@ -50,7 +54,9 @@ def test_returns_zero_when_no_violations(tmp_path: Path, capsys) -> None:
     assert "[OK]" in capsys.readouterr().out
 
 
-def test_returns_one_when_broken_link_exists(tmp_path: Path, capsys) -> None:
+def test_returns_one_when_broken_link_exists(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """機械的チェックの違反（リンク切れ）があれば終了コード1を返す。"""
     _build_valid_project(tmp_path)
     _write(tmp_path / "docs" / "orphan.md", "[存在しない](missing.md)")
@@ -72,7 +78,9 @@ def test_returns_one_when_broken_link_exists(tmp_path: Path, capsys) -> None:
     assert "[NG] リンク切れ" in output
 
 
-def test_freshness_warning_does_not_affect_exit_code(tmp_path: Path, capsys) -> None:
+def test_freshness_warning_does_not_affect_exit_code(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """鮮度警告のみの場合は終了コード0のまま（gitリポジトリでないため警告も出ない）。"""
     _build_valid_project(tmp_path)
 

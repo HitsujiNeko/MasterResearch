@@ -1,7 +1,7 @@
 # S1: Ermida et al. (2020)
 
-**最終更新**: 2026-02-26  
-**分析者**: ChatGPT（PDF精読版）  
+**最終更新**: 2026-07-15  
+**分析者**: ChatGPT（PDF精読版）／PDF突合監査 #94（2026-07-15）  
 **本研究との関連度**: 中（※LST推定"手法基盤"として重要。都市構造×LSTの説明変数比較そのものではない）
 
 ---
@@ -10,7 +10,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| **著者** | Sofia L. Ermida; Pedro Soares; Victor Mantas; Frank-M. Göttsche; Isabel F. Trigo |
+| **著者** | Sofia L. Ermida; Patrícia Soares; Vasco Mantas; Frank-M. Göttsche; Isabel F. Trigo |
 | **発表年** | 2020 |
 | **タイトル** | Google Earth Engine Open-Source Code for Land Surface Temperature Estimation from the Landsat Series |
 | **掲載誌** | Remote Sensing, 12(9), 1471 |
@@ -83,8 +83,8 @@ Google Earth Engine（GEE）上で、Landsat 4/5/7/8のLSTを一貫した枠組�
 
 ### 7.1 定量的結果
 
-- **12観測点での検証**: Landsat 5/7/8の全体RMSEが約**2.0–2.1 K**、全体の精度（bias相当）は0.5K / -0.1K / 0.2K と報告
-- **サイト別**: （一部サイトを除き）RMSEが概ね**1.4–2.5Kの範囲**と記述
+- **12観測点での検証**: 全体のaccuracy（bias相当・中央誤差）はLandsat 5/7/8で **0.5 K / 0.0 K / 0.3 K**、全体のprecision（RMSE）は外れ値除去後で **1.3 K / 1.1 K / 1.0 K**（除去前 2.0 / 2.0 / 1.9 K）と報告（PDF p.11）
+- **サイト別**: FPK・TBL・GOBを除きbias（μ）は概ね±1 K前後で、RMSEはサイト・センサにより幅がある（Table 3, PDF p.13）
 - 極端に湿潤（TCWV>5cm）条件でLandsat 8の方がやや良い傾向を示唆
 
 ### 7.2 主要な発見
@@ -148,6 +148,7 @@ Google Earth Engine（GEE）上で、Landsat 4/5/7/8のLSTを一貫した枠組�
 ## 📌 PDF精読による重要な修正点
 
 1. **手法名の確認**: SMW（Statistical Mono-Window）法が正式名称
-2. **RMSE修正**: 1.3K→**2.0–2.1K**（より正確な全体値）
+2. **精度の整理**: accuracy（bias）0.5 / 0.0 / 0.3 K、precision（RMSE）は外れ値除去後1.0–1.3 K（除去前1.9–2.0 K）（PDF p.11）
 3. **TCWV粗さ**: **2.5°の空間解像度**という重要な限界を明記
 4. **RQ1関連度**: ◎→○に修正（手法基盤としての位置づけ）
+5. **著者名の修正（#94監査）**: Patrícia Soares・Vasco Mantas（誤: Pedro Soares・Victor Mantas。PDF p.1）

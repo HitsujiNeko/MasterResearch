@@ -57,7 +57,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 | 論文ID | 著者・年 | 主要な貢献 | 本研究との関連性 |
 |--------|---------|-----------|----------------|
 | **S1** | Ermida et al. (2020) | SMW法によるLST算出手法のGEE実装<sup>[1]</sup> | LST算出の標準手法（RQ1-3の基盤）<br>**TCWV=2.5°粗さ**に注意 |
-| **S2** | Le Ngoc Hanh & Tran (年不明) | ベトナム・ダナン市のLST時系列分析<sup>[2]</sup> | **ベトナム都市の稀少事例**（RQ3◎）<br>著者が「NDVI/NDBI不十分」と明記 |
+| **S2** | Le Ngoc Hanh & Tran (2025) | ベトナム・ダナン市のLST時系列分析<sup>[2]</sup> | **ベトナム都市の稀少事例**（RQ3◎）<br>著者が「NDVI/NDBI不十分」と明記 |
 | **S3** | Onačillová et al. (2022) | Landsat 8→Sentinel-2ダウンスケーリング<sup>[3]</sup> | スケール変換手法（RQ2◎）<br>R²=0.642→**0.829**の精度向上 |
 | **S4** | Sun et al. (2019) | Random Forestによる都市構造要因の重要度評価<sup>[4]</sup> | 変数重要度分析の参考（RQ1◎）<br>RF R²>0.9（CVでは0.66まで低下）、NDVI・建物密度が支配的 |
 | **S5** | Osborne & Alvares (2019) | 構成・配置の分離評価、**近傍リング設計**<sup>[5]</sup> | **RQ2の核心文献**（◎◎）<br>30-60m/60-90m/90-120mリング設計 |
@@ -363,7 +363,7 @@ Google Earth Engine open-source code for Land Surface Temperature estimation fro
 <https://www.mdpi.com/2072-4292/12/9/1471>  
 → **SMW法によるLST算出の標準手法**（本研究で採用）
 
-[2] **Le Ngoc Hanh, Tran Thi An** (年不明).  
+[2] **Le Ngoc Hanh, Tran Thi An** (2025).  
 Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach.  
 *The GIS-IDEAS Journal*.  
 → **ベトナム都市の稀少事例**。著者が「NDVI/NDBI不十分」と明記

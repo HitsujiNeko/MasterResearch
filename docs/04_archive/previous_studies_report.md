@@ -131,11 +131,11 @@ Landsatシリーズ（4–8）からLSTを一貫して算出可能なGoogle Eart
 
 ## 3. 先行研究 S2
 
-### Le Ngoc Hanh & Tran Thi An（年不明）
+### Le Ngoc Hanh & Tran Thi An（2025）
 
 **Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach**
 
-**注記**: 発表年はPDF断片から確定できず（書誌ページが必要）
+**注記**: 発表年2025はPDF全文（#94監査, 2026-07-15）で確定（Published August 2025）
 
 ### 3.1 研究目的
 
@@ -233,7 +233,7 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
 
 ### 3.10 URL
 
-*Le Ngoc Hanh & Tran Thi An（年不明）. The GIS-IDEAS Journal, Vol. 1, No. 3, 16–28.*
+*Le Ngoc Hanh & Tran Thi An（2025）. The GIS-IDEAS Journal, Vol. 1, No. 3, 16–28.*
 DOI/URL: 記載なし
 
 **構造化要約**: [S2_LeNgocHanh_2025.md](02_structured_summaries/S2_LeNgocHanh_2025.md) 参照

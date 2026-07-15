@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from src.common.config import PROJECT_ROOT
+from src.common.gdal_tools import find_gdal_toolset
 
 DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "gis" / "raw" / "vietnam-260408.osm.pbf"
 DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
@@ -25,21 +26,6 @@ DEFAULT_SUMMARY_PATH = (
 )
 DEFAULT_LAYER_NAME = "roads"
 REQUEST_TIMEOUT_SECONDS = 3600
-OGR2OGR_CANDIDATES = (
-    Path(r"C:\Program Files\QGIS 3.40.11\bin\ogr2ogr.exe"),
-    Path(r"C:\OSGeo4W\bin\ogr2ogr.exe"),
-    Path(r"C:\OSGeo4W64\bin\ogr2ogr.exe"),
-)
-OGRINFO_CANDIDATES = (
-    Path(r"C:\Program Files\QGIS 3.40.11\bin\ogrinfo.exe"),
-    Path(r"C:\OSGeo4W\bin\ogrinfo.exe"),
-    Path(r"C:\OSGeo4W64\bin\ogrinfo.exe"),
-)
-GDAL_DATA_CANDIDATES = (
-    Path(r"C:\Program Files\QGIS 3.40.11\apps\gdal\share\gdal"),
-    Path(r"C:\OSGeo4W\share\gdal"),
-    Path(r"C:\OSGeo4W64\share\gdal"),
-)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -94,14 +80,6 @@ def ensure_input_files(input_pbf: Path, roi_path: Path) -> None:
         raise FileNotFoundError(f"入力 OSM PBF が見つかりません: {input_pbf}")
     if not roi_path.exists():
         raise FileNotFoundError(f"ROI ファイルが見つかりません: {roi_path}")
-
-
-def find_existing_path(candidates: tuple[Path, ...], label: str) -> Path:
-    """候補の中から存在する実行ファイルまたはディレクトリを返す。"""
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(f"{label} が見つかりませんでした。候補: {candidates}")
 
 
 def build_gdal_environment(gdal_data_path: Path) -> dict[str, str]:
@@ -224,9 +202,7 @@ def run(
 ) -> None:
     """道路抽出処理を実行する。"""
     ensure_input_files(input_pbf, roi_path)
-    ogr2ogr_path = find_existing_path(OGR2OGR_CANDIDATES, "ogr2ogr")
-    ogrinfo_path = find_existing_path(OGRINFO_CANDIDATES, "ogrinfo")
-    gdal_data_path = find_existing_path(GDAL_DATA_CANDIDATES, "GDAL_DATA")
+    ogr2ogr_path, ogrinfo_path, gdal_data_path = find_gdal_toolset()
     environment = build_gdal_environment(gdal_data_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

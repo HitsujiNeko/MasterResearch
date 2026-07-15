@@ -129,7 +129,7 @@ def find_gdal_toolset(
         "ogr2ogr/ogrinfo/GDAL_DATA が見つかりませんでした。"
         f"QGIS {min_qgis_version[0]}.{min_qgis_version[1]} 以上のスタンドアロン版、"
         "または OSGeo4W をインストールしてください。"
-        f"探索対象: '{program_files_dir}\\QGIS *'"
+        f"探索対象: '{program_files_dir / 'QGIS *'}'"
         f"（バージョン {min_qgis_version[0]}.{min_qgis_version[1]} 以上）, "
         f"{[str(root) for root in osgeo4w_roots]}"
     )

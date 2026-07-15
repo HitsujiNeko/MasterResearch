@@ -1,7 +1,7 @@
-# S2: Le Ngoc Hanh & Tran Thi An（年不明）
+# S2: Le Ngoc Hanh & Tran Thi An（2025）
 
-**最終更新**: 2026-02-26  
-**分析者**: ChatGPT（PDF精読版）  
+**最終更新**: 2026-07-15  
+**分析者**: ChatGPT（PDF精読版）／PDF突合監査 #94（2026-07-15）  
 **本研究との関連度**: 中（※ベトナム都市・データ制約・GEE活用は強く合うが、RQ1の"都市構造多変量/ML"は限定的）
 
 ---
@@ -11,13 +11,14 @@
 | 項目 | 内容 |
 |------|------|
 | **著者** | Le Ngoc Hanh; Tran Thi An |
-| **発表年** | **年不明**（PDF断片から確定できず。本文の書誌ページが必要） |
-| **タイトル** | （PDF断片から正確な原題を取得できず：Da Nang CityのLST変化・GEEを扱う論文） |
-| **掲載誌** | The GIS-IDEAS Journal, Vol. 1, No. 3, 16–28（PDFヘッダより） |
-| **DOI/URL** | DOIの明記なし（少なくとも取得したページ範囲では確認不可） |
+| **発表年** | 2025 |
+| **発表年 詳細** | Received 15-04-2025 / Accepted 15-06-2025 / Published August 2025（PDF p.16で確定） |
+| **タイトル** | Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach |
+| **掲載誌** | The GIS-IDEAS Journal, Vol. 1, No. 3, 16–28（AGILE Publishing, ISSN 2759-7369） |
+| **DOI/URL** | DOIの明記なし（How to cite: Le, N. H., & Tran, T. A. (2025). The GIS-IDEAS Journal, 1(3), 16–28） |
 | **引用数** | 取得不可（Google Scholarにアクセスできないため） |
 
-**注記**: もし「表紙/1ページ目（タイトル・年・DOIが載る箇所）」を追加抽出できれば、ここは確定可能。
+**注記**: 発表年・原題・掲載誌はPDF全文（#94監査, 2026-07-15）で確定済み。
 
 ---
 
@@ -31,7 +32,7 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
 
 - **対象地域**: Da Nang City, Vietnam（地区別集計あり：Hai Chau/Thanh Khe/Hoa Vang等）
 - **対象期間**: 1991–2020（乾季：May–Augustを扱う記述）
-- **空間範囲**: 市域全体（km²の明示は取得範囲では未確認）
+- **空間範囲**: 市域全体（自然面積 1284.74 km²。うち都市地区 246.56 km²、郊外地区 1038.18 km²。PDF p.17–18）
 
 ---
 
@@ -150,7 +151,7 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
 
 ## 📌 PDF精読による重要な修正点
 
-1. **発表年不明**: PDFから確定できず（要確認）
+1. **発表年・原題の確定（#94監査）**: 2025年（Published August 2025）、原題 "Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach"。市域面積1284.74 km²もPDFで確定
 2. **著者自身の限界明記**: 「NDVI/NDBIのみでは不足」と明確に記載
 3. **詳細な定量結果**: 地区別LST、5年期平均など
 4. **将来予測の詳細**: RCP4.5による+0.7°C/+1.8°C/+2.4°C

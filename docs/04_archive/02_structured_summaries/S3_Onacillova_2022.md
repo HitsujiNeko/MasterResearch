@@ -1,7 +1,7 @@
 # S3: Onačillová et al. (2022)
 
-**最終更新**: 2026-02-26  
-**分析者**: ChatGPT（PDF精読版）  
+**最終更新**: 2026-07-15  
+**分析者**: ChatGPT（PDF精読版）／PDF突合監査 #94（2026-07-15）  
 **本研究との関連度**: 中（※都市構造"代理指標（NDVI/NDBI/NDWI）"でLSTを説明・高解像化。建物密度等は未使用）
 
 ---
@@ -10,7 +10,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| **著者** | Katarína Onačillová; Daniel Paluba;（ほか共著：PDFの著者貢献欄より複数名） |
+| **著者** | Katarína Onačillová; Michal Gallay; Daniel Paluba; Anna Púliová; Ondrej Tokarčík; Daniela Laubertová |
 | **発表年** | 2022 |
 | **タイトル** | Combining Landsat 8 and Sentinel-2 Data in Google Earth Engine to Derive Higher Resolution Land Surface Temperature Maps in Urban Environment |
 | **掲載誌** | Remote Sensing, 14, 4076 |

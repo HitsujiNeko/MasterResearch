@@ -20,6 +20,8 @@ GeoPandas / Fiona / Rasterio / GDAL を含むため、`pip install -r requiremen
 - Conda または Miniconda を利用可能であること
 - リポジトリのルートで作業すること
 - Google Earth Engine を使う場合は、Google アカウントと GCP プロジェクトを用意していること
+- QGIS （バージョンは 3.40 以上）
+  [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md) に記載のQGIS要件「3.28以上」はMCP接続用の別要件であり、ソースコードの実行には3.40以上が必要。
 
 ---
 

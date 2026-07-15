@@ -42,3 +42,15 @@ jobs:
         with:
           persist-credentials: false
       - run: npx --yes markdownlint-cli2@0.22.1 "**/*.md"
+
+  doc-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m src.doc_checks.run_all

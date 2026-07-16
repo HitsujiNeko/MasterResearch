@@ -1,7 +1,8 @@
 # 研究計画書
 
-**最終更新**: 2026-02-26  
-**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)
+**最終更新**: 2026-07-16  
+**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
+**前提知識**: RQ1-RQ3、LST・ROI・3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 
 ## 1. 研究題目（仮）
 
@@ -11,7 +12,7 @@
 
 ### 2.1 社会的背景
 
-近年ハノイでは急速な都市化と人口集中に伴い都市ヒートアイランド現象が顕在化しており都市環境の悪化や住民の健康リスクが懸念されている。この結びつきはハノイにおいて定量的にも示されており、Derdouri et al. (2021)のレビュー<sup>[7]</sup>は、ハノイ内城部で市街地（urban areas）が1%増加すると地表面温度が0.075〜0.108℃上昇すると推定したTran et al. (2017)の結果を報告している。都市化の進行がそのまま地表面温度の上昇に直結する状況にあり、都市構造のどの要素がこの上昇を規定しているかを明らかにする必要がある。
+近年ハノイでは急速な都市化と人口集中に伴い都市ヒートアイランド現象が顕在化しており都市環境の悪化や住民の健康リスクが懸念されている。この結びつきはハノイにおいて定量的にも示されており、Derdouri et al. (2021)のレビュー<sup>[7]</sup>は、ハノイ内城部で市街地（urban areas）が1%増加すると地表面温度が0.075〜0.108°C上昇すると推定したTran et al. (2017)の結果を報告している。都市化の進行がそのまま地表面温度の上昇に直結する状況にあり、都市構造のどの要素がこの上昇を規定しているかを明らかにする必要がある。
 
 ### 2.2 学術的背景
 
@@ -26,7 +27,6 @@
 ### 2.3 問題意識
 
 * 既往研究・既存手法の限界を調査する必要がある
-* タスクで、この研究で解決すべき課題を明確にする（タスク２）
 
 ## 3. 研究目的・研究課題
 
@@ -39,8 +39,6 @@
 RQ1：Landsat 8（30m）LSTと都市構造データを組み合わせた場合、どの説明変数がLSTに対して支配的か？
 RQ2：都市構造パラメータとLSTの関係性は、空間集計単位や解析スケールの違いによってどのように変化するか？
 RQ3：詳細な測量データが限定的な条件下においても、衛星データおよび公開データを用いた都市構造パラメータにより、LST分布の説明はどの程度可能か？
-
-※ AIは **RQが明示されていると推論・提案精度が大きく向上** します。
 
 ### 3.3 期待される成果
 
@@ -68,7 +66,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 | **S4** | Sun et al. (2019) | Random Forestによる都市構造要因の重要度評価<sup>[4]</sup> | 変数重要度分析の参考（RQ1◎）<br>RF R²>0.9（CVでは0.66まで低下）、NDVI・建物密度が支配的 |
 | **S5** | Osborne & Alvares (2019) | 構成・配置の分離評価、**近傍リング設計**<sup>[5]</sup> | **RQ2の核心文献**（◎◎）<br>30-60m/60-90m/90-120mリング設計 |
 | **S6** | Garzón et al. (2021) | 熱帯コロンビア都市のSUHI、**MLR寄与率定量化**<sup>[6]</sup> | 熱帯途上国都市の参考（RQ3◎）<br>**NDWI最大寄与51.46%**、Fcover放射率R²=0.78 |
-| **S7** | Derdouri et al. (2021) | LULC変化とSUHIの体系的レビュー（2001–2020年、133都市）<sup>[7]</sup> | **ハノイ固有の知見**（RQ1・RQ3◎）<br>レビューが引用するTran et al. (2017)：市街地1%増加→LST 0.075–0.108℃上昇 |
+| **S7** | Derdouri et al. (2021) | LULC変化とSUHIの体系的レビュー（2001–2020年、133都市）<sup>[7]</sup> | **ハノイ固有の知見**（RQ1・RQ3◎）<br>レビューが引用するTran et al. (2017)：市街地1%増加→LST 0.075–0.108°C上昇 |
 | **S8** | Lin et al. (2024) | 都市機能ゾーン別の2D/3D都市形態とUHI、**XGBoost+SHAP**<sup>[8]</sup> | **S2の建物高さ指摘への直接的対応**（RQ1◎）<br>XGBoost R²=0.83（OLS 0.49 / RF 0.77）、建物面積率が最大の正寄与 |
 
 **主要な知見の統合**：
@@ -139,7 +137,7 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 | **S1** | SMW法、**TCWV=2.5°粗さ**に注意（熱帯・沿岸都市で影響大）<sup>[1]</sup> | ベトナム都市でのLST算出の制約理解 |
 | **S2** | ベトナム・ダナン市の稀少事例<sup>[2]</sup> | ベトナム都市研究の参考 |
 | **S6** | 熱帯コロンビア都市、現地検証2日・30点でR²=0.82達成<br>**Sentinel-2 Fcover放射率でR²=0.78**（ASTER比3倍精度）<sup>[6]</sup> | 限定的検証でも高精度可能<br>Fcover放射率の導入検討 |
-| **S7** | SUHI研究の**92.7%が発展途上国都市**を対象とし、**95.5%がLandsat**を使用。ハノイでも市街地1%増加→LST 0.075–0.108℃上昇（Tran et al. 2017の推定）<sup>[7]</sup> | 公開衛星データ中心の設計が研究文脈に合致<br>**ハノイを対象とする本研究の直接的な基準値** |
+| **S7** | SUHI研究の**92.7%が発展途上国都市**を対象とし、**95.5%がLandsat**を使用。ハノイでも市街地1%増加→LST 0.075–0.108°C上昇（Tran et al. 2017の推定）<sup>[7]</sup> | 公開衛星データ中心の設計が研究文脈に合致<br>**ハノイを対象とする本研究の直接的な基準値** |
 | **S8** | 公開・準公開の地理空間ビッグデータ（OSM・POI・夜間光等）の統合でXGBoost R²=0.83<sup>[8]</sup> | 公開データの組み合わせでも高い説明力が得られうる |
 
 **本研究での展開**：高精度測量データ（DGN）と公開データ（OSM等）の比較を通じて、途上国都市でのデータ代替可能性を検証する。S6のFcover放射率手法も導入を検討する。
@@ -246,28 +244,7 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 
 ---
 
-## 7. AIの活用方針（重要）
-
-### 7.1 AIを活用する内容
-
-* 文献整理・要約
-* コード補助（Python / QGIS）
-* 手法比較・アイデア出し
-* 結果解釈の壁打ち
-
-### 7.2 AIを活用しない内容
-
-* 学術的判断の最終決定
-* 結果の恣意的解釈
-* 結論の責任所在
-
-```text
-AIは研究補助として利用し、研究の最終的な判断・責任は研究者自身が負う。
-```
-
----
-
-## 8. 研究設計上の論点
+## 7. 研究設計上の論点
 
 本計画書では、研究設計そのものに関わる未解決の論点を記す。実装レベルの検討課題は [analysis_workflow.md](../02_methods/analysis_workflow.md)「未確定事項・今後の検討課題」を、タスクの進捗は GitHub Issues / Project を正本とする。
 
@@ -277,7 +254,7 @@ AIは研究補助として利用し、研究の最終的な判断・責任は研
 
 ---
 
-## 9. 参考文献
+## 8. 参考文献
 
 **主要文献（本文中の上付き番号に対応）**
 
@@ -320,7 +297,7 @@ A Remote Sensing Approach for Surface Urban Heat Island Modeling in a Tropical C
 Understanding the Links between LULC Changes and SUHI in Cities: Insights from Two-Decadal Studies (2001–2020).  
 *Remote Sensing*, 13 (18), 3654.  
 <https://doi.org/10.3390/rs13183654>  
-→ **SUHI研究の体系的レビュー**（133都市）。**ハノイの知見**（市街地1%増加→LST 0.075–0.108℃上昇、Tran et al. 2017の推定を引用）
+→ **SUHI研究の体系的レビュー**（133都市）。**ハノイの知見**（市街地1%増加→LST 0.075–0.108°C上昇、Tran et al. 2017の推定を引用）
 
 [8] **Lin, A., Wu, H., Luo, W., Fan, K., Liu, H.** (2024).  
 How does urban heat island differ across urban functional zones? Insights from 2D/3D urban morphology using geospatial big data.  
@@ -335,21 +312,35 @@ How does urban heat island differ across urban functional zones? Insights from 2
 
 ---
 
-## 10. 別ドキュメントの参照一覧
+## 9. 別ドキュメントの参照一覧
+
+本計画書が委譲している内容の正本を以下に示す。
 
 **プロジェクト全体の構成**：
 
 * [docs/README.md](../README.md) - ドキュメント構造の全体像（Single Source of Truth）
+* [CLAUDE.md](../../CLAUDE.md) - 最小用語集（3シナリオ等の定義の正本）・AI支援の最小方針
 
-**データ関連**：
+**分析手法（§5の委譲先）**：
 
-* [DGNファイル内容確定結果.md](../../DGNファイル内容確定結果.md) - 研究に使用可能なベクタデータの内容確認結果
-
-**手法・仕様書**：
-
+* [analysis_workflow.md](../02_methods/analysis_workflow.md) - 分析ワークフロー仕様書。入出力・グリッド設計・パラメータ一覧・近傍変数・モデル・実装スケジュール・未確定事項の正本
+* [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md) - `Satellite Only` の分析仕様（Spatial CV 等）
+* [fig2_satellite_only_workflow.mmd](../03_results/fig2_satellite_only_workflow.mmd) - ワークフロー図
 * [gee_calc_LST.md](../02_methods/gee_calc_LST.md) - LST算出スクリプトの仕様書
 * [calc_LST_report.md](../02_methods/calc_LST_report.md) - Landsat 8 LST算出の処理手順とレポート
 * [CodingRule.md](../02_methods/CodingRule.md) - Pythonコーディング規約（PEP 8準拠）
+
+**使用データ（§6の委譲先）**：
+
+* [available_gis_data.md](available_gis_data.md) - 公開GISデータの評価・採用データ一覧
+* [gis_data/](gis_data/) - カテゴリ別の候補比較・採用判断・解像度・ライセンス・カバレッジ（10ファイル）
+* [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) - 測量由来GISの整備状況
+* [DGNファイル内容確定結果.md](../../DGNファイル内容確定結果.md) - 研究に使用可能なベクタデータの内容確認結果
+
+**分析結果**：
+
+* [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md) - `Satellite Only` の分析結果
+* [GIS_IDEAS_abstract.md](../03_results/GIS_IDEAS_abstract.md) - 学会発表用アブストラクト
 
 **文献レビュー**：
 
@@ -360,20 +351,10 @@ How does urban heat island differ across urban functional zones? Insights from 2
 
 ---
 
-## 補足：この計画書の使い方（AI向け）
+## 補足：この計画書の位置づけ
 
-* 本計画書は、AIが研究内容・制約・方針を正確に把握するための基礎資料として作成した
-* 研究の進行に応じて随時更新する
-* 他にも必要な情報があれば、別途ドキュメントとして追加可能
-* **最終更新**: 2026-02-26（文献レビューS1-S6の知見を反映）
+本計画書は、研究の全体像（背景・目的・RQ・新規性・手法の方針・データの位置づけ）を定義する。
 
-## 補足２：研究で定義する用語集（AI向け）
+**実装詳細・データ採用判断・進捗は本計画書に書かない。** それぞれ §5・§6・§7 に示した委譲先を正本とし、本計画書からは参照する。この分担により、実装の進行に伴って計画書が陳腐化することを防ぐ。
 
-* **LST**: Land Surface Temperature（地表面温度） - 本研究では必ず摂氏（°C）で出力
-* **NDVI**: Normalized Difference Vegetation Index（正規化植生指数） - 緑地の指標
-* **NDBI**: Normalized Difference Built-up Index（正規化建物指数） - 市街化の指標
-* **NDWI**: Normalized Difference Water Index（正規化水指数） - 水域の指標（熱帯都市で重要）
-* **SMW法**: Statistical Mono-Window法（Ermida et al. 2020）- 本研究の標準LST算出手法
-* **SUHI**: Surface Urban Heat Island（表面都市ヒートアイランド）
-
-**都市構造パラメータ**・**近傍変数**の定義は §5.3 を参照。
+用語の定義は [CLAUDE.md](../../CLAUDE.md) の最小用語集を正本とする。本研究に固有の「都市構造パラメータ」「近傍変数」の定義のみ §5.3 に置く。

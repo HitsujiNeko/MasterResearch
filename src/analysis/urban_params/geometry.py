@@ -17,7 +17,9 @@ from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform as shp_transform
 
-from .grid import BBox, GridSpec
+from src.common.geo_metadata import BBox
+
+from .grid import GridSpec
 from .io import LayerResource, iter_feature_records
 
 try:

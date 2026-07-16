@@ -1,4 +1,8 @@
-"""解析グリッド（fine/coarse）の構築と座標変換を扱うモジュール。"""
+"""解析グリッド（fine/coarse）の構築を扱うモジュール。
+
+バウンディングボックス（``BBox``）と座標変換（``transform_bbox``）は
+共通モジュール ``src.common.geo_metadata`` に集約している。
+"""
 
 from __future__ import annotations
 
@@ -9,30 +13,7 @@ import numpy as np
 from pyproj import CRS, Transformer
 from rasterio.transform import Affine, from_origin
 
-
-@dataclass(frozen=True)
-class BBox:
-    """経緯度または投影座標系のバウンディングボックス。
-
-    Attributes:
-        minx: 最小X座標（または経度）。
-        miny: 最小Y座標（または緯度）。
-        maxx: 最大X座標（または経度）。
-        maxy: 最大Y座標（または緯度）。
-    """
-
-    minx: float
-    miny: float
-    maxx: float
-    maxy: float
-
-    def to_tuple(self) -> tuple[float, float, float, float]:
-        """Fionaのbbox引数へ渡す形式で返す。
-
-        Returns:
-            ``(minx, miny, maxx, maxy)`` の順のタプル。
-        """
-        return (self.minx, self.miny, self.maxx, self.maxy)
+from src.common.geo_metadata import BBox
 
 
 @dataclass(frozen=True)
@@ -60,29 +41,6 @@ class GridSpec:
     fine_shape: tuple[int, int]
     coarse_transform: Affine
     fine_transform: Affine
-
-
-def transform_bbox(bbox: BBox, transformer: Transformer) -> BBox:
-    """BBoxを別の座標系へ変換する。
-
-    BBoxの4隅すべてを変換したうえで、変換後の座標から再度
-    最小・最大値を取り直す（回転を伴う変換でも矩形を保つため）。
-
-    Args:
-        bbox: 変換元の座標系上のBBox。
-        transformer: 変換元から変換先座標系への変換器。
-
-    Returns:
-        変換先座標系上のBBox。
-    """
-    corners = [
-        (bbox.minx, bbox.miny),
-        (bbox.minx, bbox.maxy),
-        (bbox.maxx, bbox.miny),
-        (bbox.maxx, bbox.maxy),
-    ]
-    x_coords, y_coords = zip(*[transformer.transform(x, y) for x, y in corners])
-    return BBox(min(x_coords), min(y_coords), max(x_coords), max(y_coords))
 
 
 def build_grid(

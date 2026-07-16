@@ -14,9 +14,11 @@ import numpy as np
 import pandas as pd
 from pyproj import CRS
 
+from src.common.geo_metadata import BBox
+
 from .config import CITY_CONFIG, PROJECT_ROOT, SCENARIO_LAYER_KEYS
 from .geometry import compute_polygon_coverage
-from .grid import BBox, GridSpec, build_grid, grid_centers_wgs84
+from .grid import GridSpec, build_grid, grid_centers_wgs84
 from .io import (
     LayerResource,
     bbox_from_layer,

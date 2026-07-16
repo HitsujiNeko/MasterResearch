@@ -1,0 +1,1308 @@
+{
+  "generated_at": "2026-07-16 18:08:50 +0900",
+  "project_root": "C:\\MasterResearch",
+  "target_dirs": [
+    "data/gis",
+    "data/satellite"
+  ],
+  "files": [
+    {
+      "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+      "size_bytes": 67324,
+      "modified_at": "2026-04-09 14:11:56",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "hanoi_ROI_EPSG4326",
+          "geometry_type": "Polygon",
+          "feature_count": 1,
+          "bbox": [
+            105.28812456270636,
+            20.564469161724375,
+            106.02005052860555,
+            21.385222290909635
+          ],
+          "fields": {
+            "Ma": "str:254",
+            "Cap": "int:10",
+            "STT": "int:10",
+            "TinhThanh": "str:254",
+            "SapNhap": "str:254",
+            "SoXa": "float:19.11",
+            "Loai": "str:254",
+            "Dtich_km2": "float:19.11",
+            "DanSo_ng": "float:19.11",
+            "MD_ngkm2": "float:19.11"
+          }
+        }
+      ],
+      "crs": "EPSG:4326",
+      "bbox_union": [
+        105.28812456270636,
+        20.564469161724375,
+        106.02005052860555,
+        21.385222290909635
+      ]
+    },
+    {
+      "path": "data/gis/boundaries/vietnam_major_cities_admin_boundaries.geojson",
+      "size_bytes": 5236140,
+      "modified_at": "2026-07-15 11:39:34",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "vietnam_major_cities_admin_boundaries",
+          "geometry_type": "Unknown",
+          "feature_count": 5,
+          "bbox": [
+            105.22566222885315,
+            9.244904868405726,
+            112.74212953499998,
+            21.38522229090964
+          ],
+          "fields": {
+            "Ma": "str",
+            "Cap": "int32",
+            "STT": "int32",
+            "TinhThanh": "str",
+            "SapNhap": "str",
+            "SoXa": "int32",
+            "Loai": "str",
+            "Dtich_km2": "float",
+            "DanSo_ng": "int32",
+            "MD_ngkm2": "float"
+          }
+        }
+      ],
+      "crs": "EPSG:4326",
+      "bbox_union": [
+        105.22566222885315,
+        9.244904868405726,
+        112.74212953499998,
+        21.38522229090964
+      ]
+    },
+    {
+      "path": "data/gis/boundaries/vietnam_major_cities_admin_boundaries.shp",
+      "size_bytes": 817296,
+      "modified_at": "2025-12-31 11:41:28",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "vietnam_major_cities_admin_boundaries",
+          "geometry_type": "Polygon",
+          "feature_count": 5,
+          "bbox": [
+            105.22566222885315,
+            9.244904868405726,
+            112.74212953499998,
+            21.385222290909635
+          ],
+          "fields": {
+            "Ma": "str:254",
+            "Cap": "int:10",
+            "STT": "int:10",
+            "TinhThanh": "str:254",
+            "SapNhap": "str:254",
+            "SoXa": "float:19.11",
+            "Loai": "str:254",
+            "Dtich_km2": "float:19.11",
+            "DanSo_ng": "float:19.11",
+            "MD_ngkm2": "float:19.11"
+          }
+        }
+      ],
+      "crs": "EPSG:4326",
+      "bbox_union": [
+        105.22566222885315,
+        9.244904868405726,
+        112.74212953499998,
+        21.385222290909635
+      ]
+    },
+    {
+      "path": "data/gis/buildings/hanoi_gba_buildings.gpkg",
+      "size_bytes": 797532160,
+      "modified_at": "2026-06-09 18:11:48",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "buildings",
+          "geometry_type": "Polygon",
+          "feature_count": 3071511,
+          "bbox": [
+            105.29536418,
+            20.56609363,
+            106.01990243,
+            21.38481626
+          ],
+          "fields": {
+            "ogc_fid": "int",
+            "source": "str",
+            "gba_id": "str",
+            "height": "float",
+            "var": "float",
+            "region": "str"
+          }
+        }
+      ],
+      "crs": "EPSG:4326",
+      "bbox_union": [
+        105.29536418,
+        20.56609363,
+        106.01990243,
+        21.38481626
+      ]
+    },
+    {
+      "path": "data/gis/buildings/hanoi_microsoft_buildings.gpkg",
+      "size_bytes": 498696192,
+      "modified_at": "2026-04-09 20:56:37",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "buildings",
+          "geometry_type": "Polygon",
+          "feature_count": 1065629,
+          "bbox": [
+            105.4687131785416,
+            20.56642671471577,
+            106.0026082485906,
+            21.38468533901278
+          ],
+          "fields": {
+            "feature_id": "str",
+            "height_m": "float",
+            "confidence": "float",
+            "is_clipped": "bool",
+            "quadkey": "str",
+            "source_location": "str",
+            "source_url": "str"
+          }
+        }
+      ],
+      "crs": "EPSG:4326",
+      "bbox_union": [
+        105.4687131785416,
+        20.56642671471577,
+        106.0026082485906,
+        21.38468533901278
+      ]
+    },
+    {
+      "path": "data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif",
+      "size_bytes": 3534954,
+      "modified_at": "2026-05-27 11:06:58",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        581495.0,
+        2321995.0,
+        589505.0,
+        2333005.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "width": 801,
+      "height": 1101,
+      "band_count": 1,
+      "nodata": -9999.0,
+      "dtype": "float32"
+    },
+    {
+      "path": "data/gis/dem/copernicus_glo30/copernicus_glo30_hanoi_dem.tif",
+      "size_bytes": 12489966,
+      "modified_at": "2026-05-27 09:04:08",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": -9999.0,
+      "dtype": "float32"
+    },
+    {
+      "path": "data/gis/dem/fabdem/fabdem_hanoi_dem.tif",
+      "size_bytes": 5915775,
+      "modified_at": "2026-06-02 19:54:28",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": -9999.0,
+      "dtype": "float32"
+    },
+    {
+      "path": "data/gis/dem/nasadem/nasadem_hanoi_dem.tif",
+      "size_bytes": 2439457,
+      "modified_at": "2026-05-27 09:03:40",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": -9999.0,
+      "dtype": "float32"
+    },
+    {
+      "path": "data/gis/dem/srtmgl1/srtmgl1_hanoi_dem.tif",
+      "size_bytes": 2458483,
+      "modified_at": "2026-05-27 09:04:33",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": -9999.0,
+      "dtype": "float32"
+    },
+    {
+      "path": "data/gis/maps/235-b_modified.tif",
+      "size_bytes": 74553744,
+      "modified_at": "2025-10-21 17:28:00",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585472.9682054755,
+        2328736.061085433,
+        586650.87349532,
+        2330096.8630344723
+      ],
+      "resolution": [
+        0.25402313777108154,
+        0.25402313777108154
+      ],
+      "width": 4637,
+      "height": 5357,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/235-c_modified.tif",
+      "size_bytes": 74740209,
+      "modified_at": "2025-10-22 12:48:28",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        586552.8376987514,
+        2328739.1036623814,
+        587728.4414047025,
+        2330106.5337781
+      ],
+      "resolution": [
+        0.25407471492352235,
+        0.25407471492352235
+      ],
+      "width": 4627,
+      "height": 5382,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/235-e_modified.tif",
+      "size_bytes": 75060087,
+      "modified_at": "2025-10-20 17:14:06",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585475.6810636584,
+        2327580.303137947,
+        586657.4780809486,
+        2328946.0255723735
+      ],
+      "resolution": [
+        0.2540406314037305,
+        0.2540406314037305
+      ],
+      "width": 4652,
+      "height": 5376,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/235-f_modified.tif",
+      "size_bytes": 74951979,
+      "modified_at": "2025-11-28 20:53:22",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        586555.6587143033,
+        2327590.957352137,
+        587742.900038165,
+        2328948.1311633037
+      ],
+      "resolution": [
+        0.254009697017924,
+        0.254009697017924
+      ],
+      "width": 4674,
+      "height": 5343,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/235-h_modified.tif",
+      "size_bytes": 74857695,
+      "modified_at": "2026-01-31 16:49:59",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585485.3658289093,
+        2326425.4408163237,
+        586662.928911148,
+        2327791.982960941
+      ],
+      "resolution": [
+        0.2540041160997958,
+        0.2540041160997958
+      ],
+      "width": 4636,
+      "height": 5380,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/235-k_modified.tif",
+      "size_bytes": 73961508,
+      "modified_at": "2025-11-29 08:44:01",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        586569.3027671104,
+        2326432.560857393,
+        587736.4903242958,
+        2327794.8300345824
+      ],
+      "resolution": [
+        0.2540125260468719,
+        0.2540125260468719
+      ],
+      "width": 4595,
+      "height": 5363,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/236-a_modified.tif",
+      "size_bytes": 74170665,
+      "modified_at": "2025-10-27 14:31:12",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        587639.3164164232,
+        2328744.9081374295,
+        588809.7283497715,
+        2330107.0867829476
+      ],
+      "resolution": [
+        0.2539956452578798,
+        0.2539956452578798
+      ],
+      "width": 4608,
+      "height": 5363,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/236-b_modified.tif",
+      "size_bytes": 74569107,
+      "modified_at": "2025-11-29 12:47:41",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        588717.2405561453,
+        2328750.795777655,
+        589891.9977808829,
+        2330115.2921692855
+      ],
+      "resolution": [
+        0.2540015621054088,
+        0.2540015621054088
+      ],
+      "width": 4625,
+      "height": 5372,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/236-d_modified.tif",
+      "size_bytes": 74931063,
+      "modified_at": "2025-10-20 16:41:56",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        587643.4147278346,
+        2327591.8310803357,
+        588823.0115088202,
+        2328957.359136877
+      ],
+      "resolution": [
+        0.25400447480310834,
+        0.25400447480310834
+      ],
+      "width": 4644,
+      "height": 5376,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/236-e_modified.tif",
+      "size_bytes": 75107175,
+      "modified_at": "2025-10-26 21:42:22",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        588719.453873165,
+        2327594.755209994,
+        589899.9283601213,
+        2328962.155089033
+      ],
+      "resolution": [
+        0.2539747175035205,
+        0.2539747175035205
+      ],
+      "width": 4648,
+      "height": 5384,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/236-g_modified.tif",
+      "size_bytes": 74770245,
+      "modified_at": "2025-11-29 08:49:01",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        587644.1940957893,
+        2326433.276195538,
+        588819.7317290263,
+        2327800.5880105156
+      ],
+      "resolution": [
+        0.25400553872882387,
+        0.25400553872882387
+      ],
+      "width": 4628,
+      "height": 5383,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/236-h_modified.tif",
+      "size_bytes": 75416205,
+      "modified_at": "2025-10-20 16:19:38",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        588726.8092163043,
+        2326444.026387058,
+        589912.4088754833,
+        2327811.224965756
+      ],
+      "resolution": [
+        0.2539845028232616,
+        0.2539845028232616
+      ],
+      "width": 4668,
+      "height": 5383,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/251-b_modified.tif",
+      "size_bytes": 76321533,
+      "modified_at": "2025-10-20 16:13:48",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585478.5082619579,
+        2325264.411163519,
+        586672.5184241837,
+        2326640.687726919
+      ],
+      "resolution": [
+        0.2542069751385604,
+        0.2542069751385604
+      ],
+      "width": 4697,
+      "height": 5414,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/251-c_modified.tif",
+      "size_bytes": 75300981,
+      "modified_at": "2025-11-29 09:00:07",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        586560.9762992264,
+        2325276.555604706,
+        587749.6559744953,
+        2326638.2034122096
+      ],
+      "resolution": [
+        0.2539913836044744,
+        0.2539913836044744
+      ],
+      "width": 4680,
+      "height": 5361,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/251-e_modified.tif",
+      "size_bytes": 75487155,
+      "modified_at": "2025-10-20 16:34:54",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585487.8619603862,
+        2324119.954380594,
+        586675.4479612865,
+        2325486.630890721
+      ],
+      "resolution": [
+        0.25402909110167127,
+        0.25402909110167127
+      ],
+      "width": 4675,
+      "height": 5380,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/251-f_modified.tif",
+      "size_bytes": 76393392,
+      "modified_at": "2025-10-21 11:49:36",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        586566.8363092943,
+        2324122.6403335165,
+        587763.5423655261,
+        2325495.130849717
+      ],
+      "resolution": [
+        0.2540237860818921,
+        0.2540237860818921
+      ],
+      "width": 4711,
+      "height": 5403,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/251-h_modified.tif",
+      "size_bytes": 76210002,
+      "modified_at": "2025-10-20 23:50:16",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585493.1063411895,
+        2322961.3058478963,
+        586684.7855183037,
+        2324336.3984477087
+      ],
+      "resolution": [
+        0.2540352114931288,
+        0.2540352114931288
+      ],
+      "width": 4691,
+      "height": 5413,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/251-k_modified.tif",
+      "size_bytes": 75840189,
+      "modified_at": "2025-10-20 16:15:06",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        586576.0431036736,
+        2322972.752593812,
+        587768.8495159107,
+        2324339.552275296
+      ],
+      "resolution": [
+        0.25400477262290155,
+        0.25400477262290155
+      ],
+      "width": 4696,
+      "height": 5381,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/252-a_modified.tif",
+      "size_bytes": 76007355,
+      "modified_at": "2025-11-28 21:14:04",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        587639.5806811443,
+        2325287.7583938143,
+        588837.559867146,
+        2326651.8695534472
+      ],
+      "resolution": [
+        0.2540244245126594,
+        0.2540244245126594
+      ],
+      "width": 4716,
+      "height": 5370,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/252-b_modified.tif",
+      "size_bytes": 75865815,
+      "modified_at": "2025-10-20 16:10:50",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        588724.8883010081,
+        2325293.0707727564,
+        589922.8806234538,
+        2326654.6566184536
+      ],
+      "resolution": [
+        0.25402721001815365,
+        0.25402721001815365
+      ],
+      "width": 4716,
+      "height": 5360,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/252-d_modified.tif",
+      "size_bytes": 75429645,
+      "modified_at": "2025-10-20 16:20:44",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        587650.5274491868,
+        2324133.75624572,
+        588841.4299932888,
+        2325495.6224016356
+      ],
+      "resolution": [
+        0.2540321126497594,
+        0.2540321126497594
+      ],
+      "width": 4688,
+      "height": 5361,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/252-g_modified.tif",
+      "size_bytes": 76690791,
+      "modified_at": "2025-11-29 09:18:22",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        587654.0831651627,
+        2322972.6309818043,
+        588857.8400867255,
+        2324342.256919991
+      ],
+      "resolution": [
+        0.25401074521267614,
+        0.25401074521267614
+      ],
+      "width": 4739,
+      "height": 5392,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/252-h_modified.tif",
+      "size_bytes": 76735542,
+      "modified_at": "2025-11-10 10:58:24",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        588732.0899815678,
+        2322979.2679428454,
+        589940.1476784055,
+        2324345.3512732126
+      ],
+      "resolution": [
+        0.25406050406681013,
+        0.25406050406681013
+      ],
+      "width": 4755,
+      "height": 5377,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/maps/merged_map.tif",
+      "size_bytes": 1410085587,
+      "modified_at": "2026-01-31 16:52:18",
+      "kind": "raster",
+      "crs": "EPSG:5897",
+      "bbox": [
+        585516.9142083098,
+        2323064.6351053934,
+        589884.8420622835,
+        2330007.5955069526
+      ],
+      "resolution": [
+        0.25402313777108154,
+        0.25402313777108154
+      ],
+      "width": 17195,
+      "height": 27332,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "uint8"
+    },
+    {
+      "path": "data/gis/roads/hanoi_osm_roads.gpkg",
+      "size_bytes": 57040896,
+      "modified_at": "2026-04-10 11:02:04",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "roads",
+          "geometry_type": "MultiLineString",
+          "feature_count": 194485,
+          "bbox": [
+            105.2942696,
+            20.56618388441431,
+            106.0200445913122,
+            21.3847445
+          ],
+          "fields": {
+            "osm_id": "str",
+            "name": "str",
+            "highway": "str",
+            "z_order": "int32",
+            "other_tags": "str"
+          }
+        }
+      ],
+      "crs": "EPSG:4326",
+      "bbox_union": [
+        105.2942696,
+        20.56618388441431,
+        106.0200445913122,
+        21.3847445
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_CS.gpkg",
+      "size_bytes": 4112384,
+      "modified_at": "2026-07-01 17:18:40",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 20110,
+          "bbox": [
+            581143.806,
+            2321788.282,
+            589920.919,
+            2333565.233
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        581143.806,
+        2321788.282,
+        589920.919,
+        2333565.233
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_DC.gpkg",
+      "size_bytes": 166080512,
+      "modified_at": "2026-03-31 19:27:31",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 464234,
+          "bbox": [
+            499999.100212446,
+            584447.947596123,
+            2327393.00442213,
+            2333466.918
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        499999.100212446,
+        584447.947596123,
+        2327393.00442213,
+        2333466.918
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_DH.gpkg",
+      "size_bytes": 127438848,
+      "modified_at": "2026-03-31 19:31:15",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 104317,
+          "bbox": [
+            499999.100212446,
+            999999.100496644,
+            589882.9700000001,
+            2333460.019
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        499999.100212446,
+        999999.100496644,
+        589882.9700000001,
+        2333460.019
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_GT.gpkg",
+      "size_bytes": 96763904,
+      "modified_at": "2026-03-31 19:38:34",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 209077,
+          "bbox": [
+            499999.100212446,
+            999999.100496644,
+            589890.455,
+            2335761.361
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        499999.100212446,
+        999999.100496644,
+        589890.455,
+        2335761.361
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_RG.gpkg",
+      "size_bytes": 888832,
+      "modified_at": "2026-03-31 19:11:45",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 721,
+          "bbox": [
+            581174.924,
+            2321890.43,
+            589888.185,
+            2333462.569
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        581174.924,
+        2321890.43,
+        589888.185,
+        2333462.569
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_TH.gpkg",
+      "size_bytes": 109035520,
+      "modified_at": "2025-12-14 16:13:29",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 55269,
+          "bbox": [
+            499999.100212446,
+            999999.100496644,
+            589882.098,
+            2333467.232
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        499999.100212446,
+        999999.100496644,
+        589882.098,
+        2333467.232
+      ]
+    },
+    {
+      "path": "data/gis/survey/merge_TV.gpkg",
+      "size_bytes": 64069632,
+      "modified_at": "2026-02-27 08:09:25",
+      "kind": "vector",
+      "layers": [
+        {
+          "layer": "elements",
+          "geometry_type": "Unknown",
+          "feature_count": 127791,
+          "bbox": [
+            499999.100212446,
+            999999.100496644,
+            589890.875,
+            2333467.232
+          ],
+          "fields": {
+            "Type": "int32",
+            "Level": "int32",
+            "GraphicGroup": "int32",
+            "ColorIndex": "int32",
+            "Weight": "int32",
+            "Style": "int32",
+            "EntityNum": "int32",
+            "MSLink": "int32",
+            "Text": "str",
+            "ULink": "json"
+          }
+        }
+      ],
+      "crs": "",
+      "bbox_union": [
+        499999.100212446,
+        999999.100496644,
+        589890.875,
+        2333467.232
+      ]
+    },
+    {
+      "path": "data/satellite/indices/2023/INDICES_Landsat8_20230707_032305Z.tif",
+      "size_bytes": 178793617,
+      "modified_at": "2026-04-06 20:27:47",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif",
+      "size_bytes": 136323253,
+      "modified_at": "2026-04-06 20:27:45",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/indices/2023/INDICES_Landsat8_20230723_032309Z.tif",
+      "size_bytes": 95681286,
+      "modified_at": "2026-04-10 21:28:28",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/indices/2023/INDICES_Landsat8_20241130_032336Z.tif",
+      "size_bytes": 111373254,
+      "modified_at": "2026-04-10 21:28:22",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 3,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/lst/2023/LST_Landsat8_20230707_032305Z.tif",
+      "size_bytes": 31125663,
+      "modified_at": "2026-04-06 20:30:14",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/lst/2023/LST_Landsat8_20230707_032329Z.tif",
+      "size_bytes": 18323165,
+      "modified_at": "2026-04-06 20:30:14",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/lst/2023/LST_Landsat8_20230723_032309Z.tif",
+      "size_bytes": 29142174,
+      "modified_at": "2026-04-10 21:28:29",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": null,
+      "dtype": "float64"
+    },
+    {
+      "path": "data/satellite/lst/2023/LST_Landsat8_20241130_032336Z.tif",
+      "size_bytes": 32431715,
+      "modified_at": "2026-04-10 21:28:27",
+      "kind": "raster",
+      "crs": "EPSG:4326",
+      "bbox": [
+        105.28803102204105,
+        20.5643233155925,
+        106.02024781012688,
+        21.385473316806156
+      ],
+      "resolution": [
+        0.00026949458523585647,
+        0.00026949458523585647
+      ],
+      "width": 2717,
+      "height": 3047,
+      "band_count": 1,
+      "nodata": null,
+      "dtype": "float64"
+    }
+  ],
+  "file_count": 50,
+  "error_count": 0
+}

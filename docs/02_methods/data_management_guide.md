@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-06-30  
+**最終更新**: 2026-07-16  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -142,6 +142,34 @@ git commit -m "Stop tracking generated outputs"
 追跡解除する場合は、`git rm --cached` に加えて再生成用スクリプトを用意し、
 下流パイプラインが要求する形式（ヘッダー有無・改行コード等）を維持したまま
 いつでも再生成できることを確認してから解除する（例: `prepare_bs_horizon_input.py`）。
+
+---
+
+## 7.3 データインベントリの自動生成
+
+`data/` は Git 管理外のため、リポジトリだけでは手元にどのデータがあるか分からない。
+そこで `data/gis/` と `data/satellite/` を走査し、各ファイルのメタデータを
+JSON として再生成できるインベントリスクリプトを用意している。
+
+- **スクリプト**: `src/analysis/build_data_inventory.py`
+- **出力**: `data/output/data_inventory.json`（Git 追跡対象・軽量。実行日時を記録）
+- **記録内容**:
+  - ラスタ（`.tif` / `.tiff`）: CRS・空間範囲・解像度・バンド数・nodata・dtype
+  - ベクタ（`.gpkg` / `.shp` / `.geojson` / `.gml`）: レイヤ一覧・ジオメトリ種別・地物数・属性スキーマ・CRS
+  - 共通: 相対パス・ファイルサイズ・更新日時
+- **設計方針**: 手保守の台帳ではなく**スクリプトで再生成する成果物**とし、陳腐化を防ぐ。
+  読み込みはメタデータのみ（全画素・全地物は読み込まない）。1ファイルの読み込み失敗は
+  `error` として記録し、走査を止めない。
+
+実行方法（conda 環境 `masterresearch` を使用）:
+
+```powershell
+# プロジェクトルートで実行
+& "$env:USERPROFILE\miniconda3\envs\masterresearch\python.exe" -m src.analysis.build_data_inventory
+```
+
+新しいデータを配置・更新したら再実行して `data_inventory.json` を更新する。
+存在の突合は check-drive-sync、内容面の把握は本スクリプトが担う。
 
 ---
 

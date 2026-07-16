@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -31,44 +30,7 @@ import rasterio
 from pyproj import CRS, Transformer
 
 from src.common.config import PROJECT_ROOT
-
-
-@dataclass(frozen=True)
-class BBox:
-    """バウンディングボックス（WGS84の経緯度を想定）"""
-
-    minx: float
-    miny: float
-    maxx: float
-    maxy: float
-
-    def to_list(self) -> list[float]:
-        return [self.minx, self.miny, self.maxx, self.maxy]
-
-    def union(self, other: "BBox") -> "BBox":
-        return BBox(
-            minx=min(self.minx, other.minx),
-            miny=min(self.miny, other.miny),
-            maxx=max(self.maxx, other.maxx),
-            maxy=max(self.maxy, other.maxy),
-        )
-
-
-def bbox_from_fiona_bounds(bounds: tuple[float, float, float, float]) -> BBox:
-    minx, miny, maxx, maxy = bounds
-    return BBox(float(minx), float(miny), float(maxx), float(maxy))
-
-
-def transform_bbox(bbox: BBox, transformer: Transformer) -> BBox:
-    """BBoxを別CRSへ変換する。"""
-    corners = [
-        (bbox.minx, bbox.miny),
-        (bbox.minx, bbox.maxy),
-        (bbox.maxx, bbox.miny),
-        (bbox.maxx, bbox.maxy),
-    ]
-    x_coords, y_coords = zip(*[transformer.transform(x, y) for x, y in corners])
-    return BBox(min(x_coords), min(y_coords), max(x_coords), max(y_coords))
+from src.common.geo_metadata import BBox, bbox_from_bounds, transform_bbox
 
 
 def read_vector_bbox_any_layer(
@@ -92,7 +54,7 @@ def read_vector_bbox_any_layer(
                 crs_wkt = src.crs_wkt
 
             # Fionaが提供するbounds（レイヤ全体）
-            layer_bbox = bbox_from_fiona_bounds(src.bounds)
+            layer_bbox = bbox_from_bounds(src.bounds)
             if transformer is not None:
                 layer_bbox = transform_bbox(layer_bbox, transformer)
             layer_info.append(
@@ -212,7 +174,7 @@ def main() -> None:
         info = read_vector_bbox_any_layer(gpkg_path, source_crs=source_crs, output_crs=output_crs)
         report["gis_merge_from_5897"].append(info)
 
-        bb = bbox_from_fiona_bounds(tuple(info["bbox_union"]))
+        bb = bbox_from_bounds(tuple(info["bbox_union"]))
         union_bbox = bb if union_bbox is None else union_bbox.union(bb)
 
     if union_bbox is not None:

@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import pytest
-from pyproj import CRS, Transformer
+from pyproj import CRS
 
 from src.analysis.urban_params.grid import (
-    BBox,
     build_grid,
     cell_area_ha,
     grid_centers_wgs84,
-    transform_bbox,
 )
+from src.common.geo_metadata import BBox
 
 ANALYSIS_CRS = CRS.from_epsg(3857)
 
@@ -55,19 +54,6 @@ def test_cell_area_ha() -> None:
 
     assert cell_area_ha(grid_100m) == pytest.approx(1.0)
     assert cell_area_ha(grid_30m) == pytest.approx(0.09)
-
-
-def test_transform_bbox_identity() -> None:
-    """同一CRS間の変換ではBBoxの値が変化しない。"""
-    bbox = BBox(0.0, 0.0, 80.0, 80.0)
-    identity = Transformer.from_crs(ANALYSIS_CRS, ANALYSIS_CRS, always_xy=True)
-
-    transformed = transform_bbox(bbox, identity)
-
-    assert transformed.minx == pytest.approx(bbox.minx)
-    assert transformed.miny == pytest.approx(bbox.miny)
-    assert transformed.maxx == pytest.approx(bbox.maxx)
-    assert transformed.maxy == pytest.approx(bbox.maxy)
 
 
 def test_grid_centers_wgs84_shape_and_order() -> None:

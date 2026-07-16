@@ -872,6 +872,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-16 | 新規GISデータの定型確認スキル `/inspect-gis-data` を新設（メタデータ抽出→QGIS表示→確認チェックリスト→所見テンプレート出力）。`build_data_inventory.py` に単一ファイルのメタデータをJSON出力する `--path` オプションを追加し抽出処理を共用。CRS未定義データは `set_layer_crs` で想定CRS（VN-2000/UTM48N=`EPSG:3405`）を設定しROIと重ねる手順を明文化（#116） | AI支援 |
 | 2026-07-16 | `data/gis`・`data/satellite` を走査しメタデータJSON（`data/output/data_inventory.json`）を再生成する `build_data_inventory.py` を新設。CRS・bounds・解像度・レイヤ/地物数の読み取りを共通モジュール `src/common/geo_metadata.py` に抽出し `analyze_spatial_extents.py` と共用。`data_management_guide.md` 7.3に用途と実行方法を追記（#114） | AI支援 |
 | 2026-07-16 | `research_guide.md` を研究計画書として純化。実装詳細を `analysis_workflow.md` へ、データ採用判断を `available_gis_data.md`・`gis_data/` へ、進捗をGitHub Issues / Projectへ委譲し、AI向け記述をCLAUDE.mdに一本化。S7・S8の知見を反映し、文書内の不整合（重複採番・点数不一致・「期待される成果」の重複）を解消 | AI支援 |
 | 2026-07-15 | 構造化要約S1-S8とPDF原本の突合監査を実施。S1の著者名誤り（Pedro Soares・Victor Mantas → Patrícia Soares・Vasco Mantas）と精度値を修正、S2の発表年（年不明→2025）・原題・面積をPDFで確定、S3の全著者を補完。S4-S8は誤りなしを確認（S8はPDF入手により突合検証済み）（#94） | AI支援 |

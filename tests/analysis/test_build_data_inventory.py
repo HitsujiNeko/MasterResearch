@@ -6,6 +6,7 @@ PROJECT_ROOT をテスト用の一時ディレクトリに差し替え、実デ�
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import fiona
@@ -99,3 +100,65 @@ def test_build_inventory_for_dir_missing_returns_empty(
     """走査対象ディレクトリが存在しない場合は空リストを返す。"""
     monkeypatch.setattr(inv, "PROJECT_ROOT", tmp_path)
     assert inv.build_inventory_for_dir(tmp_path / "data" / "gis") == []
+
+
+def test_inspect_file_returns_metadata_for_vector(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """単一ベクタファイルのメタデータ辞書を返す。"""
+    monkeypatch.setattr(inv, "PROJECT_ROOT", tmp_path)
+    vector = tmp_path / "data" / "gis" / "boundaries" / "roi.gpkg"
+    _write_vector(vector)
+
+    entry = inv.inspect_file(vector)
+
+    assert entry is not None
+    assert entry["kind"] == "vector"
+    assert entry["crs"] == "EPSG:4326"
+    assert entry["layers"][0]["feature_count"] == 1
+    assert entry["path"].startswith("data/gis/")
+
+
+def test_inspect_file_returns_none_for_unknown_suffix(tmp_path: Path) -> None:
+    """対象外の拡張子は None を返す。"""
+    other = tmp_path / "notes.txt"
+    other.write_text("memo")
+    assert inv.inspect_file(other) is None
+
+
+def test_main_single_file_prints_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--path 指定時は単一ファイルのメタデータを JSON で標準出力し 0 を返す。"""
+    monkeypatch.setattr(inv, "PROJECT_ROOT", tmp_path)
+    vector = tmp_path / "data" / "gis" / "boundaries" / "roi.gpkg"
+    _write_vector(vector)
+
+    exit_code = inv.main(["--path", str(vector)])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["kind"] == "vector"
+    assert payload["layers"][0]["feature_count"] == 1
+    # 単一ファイルモードではインベントリJSONを生成しない
+    assert not (tmp_path / "data" / "output" / "data_inventory.json").exists()
+
+
+def test_main_single_file_missing_returns_2(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """存在しないファイルを指定した場合は終了コード2を返す。"""
+    exit_code = inv.main(["--path", str(tmp_path / "no_such_file.gpkg")])
+    assert exit_code == 2
+    assert "存在しません" in capsys.readouterr().err
+
+
+def test_main_single_file_unknown_suffix_returns_1(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """対象外拡張子を指定した場合は終了コード1を返す。"""
+    other = tmp_path / "notes.txt"
+    other.write_text("memo")
+    exit_code = inv.main(["--path", str(other)])
+    assert exit_code == 1
+    assert "対象外" in capsys.readouterr().err

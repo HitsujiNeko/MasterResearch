@@ -15,12 +15,17 @@
     - data/output/data_inventory.json（Git 追跡対象・軽量）
 
 実行:
+    # 全走査してインベントリJSONを生成する（従来どおり）
     python -m src.analysis.build_data_inventory
+    # 単一ファイルのメタデータのみを標準出力する（内容確認用）
+    python -m src.analysis.build_data_inventory --path data/gis/survey/merge_DH.gpkg
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -45,9 +50,15 @@ def _relative_path(path: Path) -> str:
     Args:
         path: 対象ファイルの絶対パス。
     Returns:
-        POSIX 区切り（``/``）の相対パス文字列。
+        POSIX 区切り（``/``）の相対パス文字列。PROJECT_ROOT 配下でない場合は
+        絶対パスを POSIX 区切りで返す。
     """
-    return str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+    try:
+        rel = path.relative_to(PROJECT_ROOT)
+    except ValueError:
+        # PROJECT_ROOT 外のファイルを単一指定した場合は絶対パスで返す
+        return path.as_posix()
+    return str(rel).replace("\\", "/")
 
 
 def _common_file_info(path: Path) -> dict[str, Any]:
@@ -86,6 +97,37 @@ def _classify(path: Path) -> str | None:
     return None
 
 
+def inspect_file(path: Path) -> dict[str, Any] | None:
+    """単一ファイルのメタデータを抽出する。
+
+    全走査（``build_inventory_for_dir``）と単一ファイル確認（``--path``）の
+    双方から呼ぶ共通の抽出処理。メタデータ読み取りの実体は
+    ``src.common.geo_metadata`` に一本化し、本関数はその呼び分けのみを担う。
+
+    Args:
+        path: 対象ファイルのパス。
+    Returns:
+        メタデータ辞書（相対パス・サイズ・更新日時・``kind`` と空間メタデータ）。
+        ラスタ・ベクタいずれの対象拡張子でもない場合は ``None``。
+        読み取りに失敗した場合は ``error`` キーを含む辞書を返す（例外は送出しない）。
+    """
+    kind = _classify(path)
+    if kind is None:
+        return None
+
+    entry = _common_file_info(path)
+    entry["kind"] = kind
+    try:
+        if kind == "raster":
+            entry.update(read_raster_metadata(path))
+        else:
+            entry.update(read_vector_metadata(path))
+    except Exception as exc:  # noqa: BLE001 - 1ファイルの失敗で全体を止めない
+        entry["error"] = f"メタデータ読み取り失敗 ({type(exc).__name__}): {exc}"
+
+    return entry
+
+
 def build_inventory_for_dir(base_dir: Path) -> list[dict[str, Any]]:
     """1つのディレクトリ配下を再帰走査し、対象ファイルのメタデータ一覧を返す。
 
@@ -101,20 +143,9 @@ def build_inventory_for_dir(base_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(base_dir.rglob("*")):
         if not path.is_file():
             continue
-        kind = _classify(path)
-        if kind is None:
+        entry = inspect_file(path)
+        if entry is None:
             continue
-
-        entry = _common_file_info(path)
-        entry["kind"] = kind
-        try:
-            if kind == "raster":
-                entry.update(read_raster_metadata(path))
-            else:
-                entry.update(read_vector_metadata(path))
-        except Exception as exc:  # noqa: BLE001 - 1ファイルの失敗で全体を止めない
-            entry["error"] = f"メタデータ読み取り失敗 ({type(exc).__name__}): {exc}"
-
         entries.append(entry)
 
     return entries
@@ -138,8 +169,61 @@ def build_inventory() -> dict[str, Any]:
     return inventory
 
 
-def main() -> None:
-    """インベントリを生成し data/output/data_inventory.json に書き出す。"""
+def _print_single_file(path: Path) -> int:
+    """単一ファイルのメタデータを JSON で標準出力する（内容確認用）。
+
+    インベントリJSONは生成せず、指定ファイル1件のメタデータのみを出力する。
+
+    Args:
+        path: 対象ファイルのパス（相対指定はカレントディレクトリ基準で解決する）。
+    Returns:
+        終了コード（0: 成功、1: 対象外の拡張子、2: ファイルが存在しない）。
+    """
+    resolved = path.resolve()
+    if not resolved.exists():
+        print(f"ファイルが存在しません: {path}", file=sys.stderr)
+        return 2
+
+    entry = inspect_file(resolved)
+    if entry is None:
+        print(
+            f"対象外の拡張子です（ラスタ/ベクタではありません）: {path}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(json.dumps(entry, ensure_ascii=False, indent=2))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """インベントリ生成、または単一ファイルのメタデータ出力を行う。
+
+    Args:
+        argv: コマンドライン引数（省略時は ``sys.argv`` を使用）。
+    Returns:
+        終了コード（0: 成功、1以上: 失敗）。
+    """
+    parser = argparse.ArgumentParser(
+        description=(
+            "data/ 配下GISデータのインベントリ生成、または単一ファイルのメタデータ出力を行う。"
+        )
+    )
+    parser.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help=(
+            "指定した単一ファイルのメタデータのみを JSON で標準出力する"
+            "（data_inventory.json は生成しない）。省略時は全走査してインベントリを生成する。"
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    if args.path is not None:
+        return _print_single_file(args.path)
+
+    # 従来どおり全走査してインベントリJSONを出力する
     inventory = build_inventory()
 
     out_path = PROJECT_ROOT / "data" / "output" / "data_inventory.json"
@@ -149,7 +233,8 @@ def main() -> None:
     print("出力:", out_path)
     print("ファイル数:", inventory["file_count"])
     print("読み込み失敗:", inventory["error_count"])
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

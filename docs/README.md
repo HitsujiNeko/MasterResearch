@@ -872,6 +872,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-16 | `data/gis`・`data/satellite` を走査しメタデータJSON（`data/output/data_inventory.json`）を再生成する `build_data_inventory.py` を新設。CRS・bounds・解像度・レイヤ/地物数の読み取りを共通モジュール `src/common/geo_metadata.py` に抽出し `analyze_spatial_extents.py` と共用。`data_management_guide.md` 7.3に用途と実行方法を追記（#114） | AI支援 |
 | 2026-07-16 | `research_guide.md` を研究計画書として純化。実装詳細を `analysis_workflow.md` へ、データ採用判断を `available_gis_data.md`・`gis_data/` へ、進捗をGitHub Issues / Projectへ委譲し、AI向け記述をCLAUDE.mdに一本化。S7・S8の知見を反映し、文書内の不整合（重複採番・点数不一致・「期待される成果」の重複）を解消 | AI支援 |
 | 2026-07-15 | 構造化要約S1-S8とPDF原本の突合監査を実施。S1の著者名誤り（Pedro Soares・Victor Mantas → Patrícia Soares・Vasco Mantas）と精度値を修正、S2の発表年（年不明→2025）・原題・面積をPDFで確定、S3の全著者を補完。S4-S8は誤りなしを確認（S8はPDF入手により突合検証済み）（#94） | AI支援 |
 | 2026-07-15 | ドキュメント整合性チェックのうち機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報・表記揺れ・書誌整合）を `src/doc_checks/` にスクリプト化しCIへ統合。定期メンテナンスの頻度記載を「月1回」から「週次」に統一（#104） | AI支援 |

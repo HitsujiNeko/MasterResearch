@@ -565,7 +565,7 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 04_archive/
 ├── 01_metadata/              # 論文メタデータ
 │   └── papers_database.csv
-├── 02_structured_summaries/  # 構造化要約（S1-S6登録済み）
+├── 02_structured_summaries/  # 構造化要約（S1-S8登録済み）
 │   └── S1_Ermida_2020.md 等
 ├── 03_key_findings/          # テーマ別知見（今後追加）
 │   ├── urban_parameters_catalog.md

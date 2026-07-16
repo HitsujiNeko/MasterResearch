@@ -1,6 +1,6 @@
 # Claude Code運用ルール 回帰テスト項目書
 
-**最終更新**: 2026-07-08
+**最終更新**: 2026-07-16
 **関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [task-workflow.md](../../.github/task-workflow.md), [parallel-workflow.md](../../.github/parallel-workflow.md), [skill_operation_rules.md](skill_operation_rules.md)
 **前提知識**: PR #96（Claude Code運用ルール再設計: denyガードレール・カスタムコマンド化・sharedスキル共通化）
 
@@ -121,7 +121,8 @@ PR #96 で再設計した Claude Code の運用ルール（deny ガードレー�
 | `/task-start` | 単一実行判定（ブランチ=main） | 合格 | 本Issue #97着手時、`main`から単一実行として判定されStep3へ進んだ（本ドキュメント作成タスク自体が実例） |
 | `/task-start` | 単一実行（継続）判定 | 未実施 | 該当シナリオが本セッション中に発生しなかったため、ロジック記述の確認のみ（task-start.md該当箇所は存在し矛盾なし） |
 | `/task-start` | 並列実行判定（2パターン） | 未実施 | 別ブランチ作成を伴う実地テストは過剰と判断し、task-start.md / parallel-workflow.md の記述整合性確認に留めた |
-| `/task-done` | 削除前確認ゲート | 未実施 | 本タスクは未マージのため実施不可。次回マージ後のtask-done実行時に記録を追記する |
+| `/task-done` | MERGED 検証ハードゲート | 未実施 | 本タスクは未マージのため実施不可。次回マージ後のtask-done実行時に記録を追記する |
+| `/task-done` | マージ後処理の無確認実行 | 未実施 | 同上。MERGED 検証後、追加確認なしでブランチ・計画書が削除されることを次回マージ後に確認する |
 | `/coderabbit` | 返信方式 | 未実施 | 本タスクにPRレビューが発生していないため未実施 |
 
 ### 観点3: 承認ゲート確認
@@ -159,3 +160,4 @@ PR #96 で再設計した Claude Code の運用ルール（deny ガードレー�
 | 日付 | 内容 |
 |---|---|
 | 2026-07-08 | 初版作成。5観点のテスト項目書と初回実施結果を記載 |
+| 2026-07-16 | task-done の確認ゲート撤廃に伴い、観点2の task-done 項目を「MERGED 検証ハードゲート」「マージ後処理の無確認実行」の2項目へ更新（テスト項目書・実施結果の両方） |

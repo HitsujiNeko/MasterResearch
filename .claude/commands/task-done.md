@@ -30,14 +30,17 @@ Step 1 で MERGED を確認したら、以下を確認を取らずに実行す�
 git checkout main
 git pull
 git branch -D {Issue番号}/{タスク要約英文}
-rm .github/prompts/active/{計画書ファイル}   # 存在する場合
+rm -f -- .github/prompts/active/{計画書ファイル}   # 存在しなくても成功する
 ```
 
 **並列実行（worktree 隔離）の場合:**
 
 共有ディレクトリは他セッションが使用中の可能性があるため、`git checkout`・`git pull` など**共有ディレクトリのチェックアウト状態を変更するコマンドは一切実行しない**。
 
+計画書は git 未追跡のため、worktree 内に残っていると `git worktree remove` が未追跡ファイルを理由に停止する。`git worktree remove` の前に計画書を削除する。
+
 ```bash
+rm -f -- {worktreeパス}/.github/prompts/active/{計画書ファイル}   # 存在しなくても成功する
 git worktree remove {worktreeパス}
 git branch -D {Issue番号}/{タスク要約英文}
 ```

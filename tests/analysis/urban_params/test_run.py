@@ -6,12 +6,13 @@ import argparse
 
 import numpy as np
 
-from src.analysis.urban_params.grid import BBox, build_grid
+from src.analysis.urban_params.grid import build_grid
 from src.analysis.urban_params.run import (
     build_quality_columns,
     build_satellite_quality,
     run_for_scale,
 )
+from src.common.geo_metadata import BBox
 
 from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
 

@@ -9,8 +9,9 @@ from typing import Any, Iterable
 import fiona
 from pyproj import CRS, Transformer
 
+from src.common.geo_metadata import BBox, transform_bbox
+
 from .config import PROJECT_ROOT, RASTER_KEYS
-from .grid import BBox, transform_bbox
 
 
 @dataclass(frozen=True)

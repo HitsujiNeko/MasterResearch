@@ -8,8 +8,8 @@ import fiona
 import pytest
 from pyproj import CRS, Transformer
 
-from src.analysis.urban_params.grid import BBox
 from src.analysis.urban_params.io import LayerResource
+from src.common.geo_metadata import BBox
 
 # テスト用の解析範囲BBox。fine_res=10m, coarse_res=20mで factor=2 となる。
 ANALYSIS_BBOX = BBox(0.0, 0.0, 80.0, 80.0)

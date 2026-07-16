@@ -10,8 +10,9 @@ import rasterio
 from pyproj import CRS
 from rasterio.transform import from_origin
 
-from src.analysis.urban_params.grid import BBox, build_grid
+from src.analysis.urban_params.grid import build_grid
 from src.analysis.urban_params.params.raster import aggregate_raster_to_grid
+from src.common.geo_metadata import BBox
 
 
 def _write_test_raster(

@@ -224,7 +224,9 @@ graph TB
 
 #### [research_guide.md](01_planning/research_guide.md)
 
-**研究計画書** - 本研究の全体像を定義
+**研究計画書** - 本研究の全体像（背景・目的・RQ・新規性・手法の方針・データの位置づけ）を定義
+
+実装詳細・データ採用判断・進捗は本書に置かず、委譲先を正本として参照する構成をとる。
 
 **主要セクション**:
 
@@ -234,12 +236,16 @@ graph TB
   - **RQ1**: どの説明変数がLSTに支配的か？
   - **RQ2**: 空間集計単位の違いによる影響は？
   - **RQ3**: データ制約下での説明可能性は？
-- 研究手法: SMW法、衛星データ、公開データ、機械学習
-- 期待される成果: データ制約下での分析手法の有効性検証
+- 研究の新規性・位置づけ: 主要文献S1-S8の整理とRQ別の知見
+- 研究手法: 手法選定の方針と根拠（SMW法の採用、MLR→RF/GBDT→SHAPの段階設計）
+- 使用データ: 衛星由来／公開GIS／測量GISの3層とRQ3の3シナリオの対応
+- 研究設計上の論点
 
 **関連ドキュメント**:
 
-- 手法詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)
+- 手法詳細（§5の委譲先） → [analysis_workflow.md](02_methods/analysis_workflow.md), [calc_LST_report.md](02_methods/calc_LST_report.md)
+- データ詳細（§6の委譲先） → [available_gis_data.md](01_planning/available_gis_data.md), [gis_data/](01_planning/gis_data/)
+- 用語定義 → [CLAUDE.md](../CLAUDE.md)（最小用語集）
 - 先行研究 → [previous_studies_report.md](04_archive/previous_studies_report.md)
 
 ### 📝 今後追加予定
@@ -565,7 +571,7 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 04_archive/
 ├── 01_metadata/              # 論文メタデータ
 │   └── papers_database.csv
-├── 02_structured_summaries/  # 構造化要約（S1-S6登録済み）
+├── 02_structured_summaries/  # 構造化要約（S1-S8登録済み）
 │   └── S1_Ermida_2020.md 等
 ├── 03_key_findings/          # テーマ別知見（今後追加）
 │   ├── urban_parameters_catalog.md
@@ -866,6 +872,7 @@ MasterResearch/
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-07-16 | `research_guide.md` を研究計画書として純化。実装詳細を `analysis_workflow.md` へ、データ採用判断を `available_gis_data.md`・`gis_data/` へ、進捗をGitHub Issues / Projectへ委譲し、AI向け記述をCLAUDE.mdに一本化。S7・S8の知見を反映し、文書内の不整合（重複採番・点数不一致・「期待される成果」の重複）を解消 | AI支援 |
 | 2026-07-15 | 構造化要約S1-S8とPDF原本の突合監査を実施。S1の著者名誤り（Pedro Soares・Victor Mantas → Patrícia Soares・Vasco Mantas）と精度値を修正、S2の発表年（年不明→2025）・原題・面積をPDFで確定、S3の全著者を補完。S4-S8は誤りなしを確認（S8はPDF入手により突合検証済み）（#94） | AI支援 |
 | 2026-07-15 | ドキュメント整合性チェックのうち機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報・表記揺れ・書誌整合）を `src/doc_checks/` にスクリプト化しCIへ統合。定期メンテナンスの頻度記載を「月1回」から「週次」に統一（#104） | AI支援 |
 | 2026-07-14 | `gis_data/` 配下7ファイルのカタログ未掲載と check_spec との方針矛盾を解消。全ドキュメントカタログ表に `available_gis_data.md` Section 4 を索引の正本とする注記を追加し、`check_spec.md` にカタログ比較対象外の例外を明文化（#105） | AI支援 |
@@ -894,6 +901,6 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-15  
+**最終更新**: 2026-07-16  
 **管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
 **次回更新予定**: 03_results/に分析結果追加時

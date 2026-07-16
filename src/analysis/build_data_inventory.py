@@ -113,7 +113,7 @@ def build_inventory_for_dir(base_dir: Path) -> list[dict[str, Any]]:
             else:
                 entry.update(read_vector_metadata(path))
         except Exception as exc:  # noqa: BLE001 - 1ファイルの失敗で全体を止めない
-            entry["error"] = f"{type(exc).__name__}: {exc}"
+            entry["error"] = f"メタデータ読み取り失敗 ({type(exc).__name__}): {exc}"
 
         entries.append(entry)
 

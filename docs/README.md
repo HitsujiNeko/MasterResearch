@@ -245,7 +245,7 @@ graph TB
 
 - 手法詳細（§5の委譲先） → [analysis_workflow.md](02_methods/analysis_workflow.md), [calc_LST_report.md](02_methods/calc_LST_report.md)
 - データ詳細（§6の委譲先） → [available_gis_data.md](01_planning/available_gis_data.md), [gis_data/](01_planning/gis_data/)
-- 用語定義 → CLAUDE.md（最小用語集）
+- 用語定義 → [CLAUDE.md](../CLAUDE.md)（最小用語集）
 - 先行研究 → [previous_studies_report.md](04_archive/previous_studies_report.md)
 
 ### 📝 今後追加予定

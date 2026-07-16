@@ -52,14 +52,18 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 
 ### 3. CRS
 
-- [ ] `get_layer_crs` で CRS は正しく認識されているか
+- [ ] `get_layer_crs` で CRS は正しく認識されているか（`authid` が空でも proj4/description で判断する）
+- [ ] CRS 未定義（`authid`・`proj4` 空）の場合、想定 CRS を `set_layer_crs` で設定したか
+      （ベトナム測量データは VN-2000 / UTM zone 48N = `EPSG:3405`）
+- [ ] 設定後、代表点を `transform_coordinates` で EPSG:4326 に変換し ROI 域内に落ちるか確認したか
 - [ ] VN-2000 等の投影座標系の場合、ROI（EPSG:4326）と正しく重なるか
-- [ ] CRS 未定義（`crs` 空・`Unknown`）の場合、想定される座標系は何か
 
 ### 4. ジオメトリ
 
 - [ ] ジオメトリ種別は想定どおりか（Point/Line/Polygon、混在の有無）
 - [ ] 不正ジオメトリ（自己交差・空ジオメトリ）はないか
+- [ ] **extent が不自然に広い / 切りの良いダミー座標**（例: `499999.1`, `999999.1`）はないか
+      → 外れ値ジオメトリの混入を疑い、地物をサンプリングして実分布を確認する
 - [ ] 地物数はデータ仕様と整合するか
 
 ### 5. ラスタ固有
@@ -115,14 +119,15 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | 接続確認 | `ping` | クラッシュ後は `get_project_info` で状態確認 |
 | ベクタ読み込み | `add_vector_layer` | **絶対パス**指定 |
 | ラスタ読み込み | `add_raster_layer` | **絶対パス**指定 |
-| CRS 確認 | `get_layer_crs` | メタデータ JSON の `crs` が空でもここで確定 |
+| CRS 確認 | `get_layer_crs` | `authid` 空でも proj4/description で判断 |
+| CRS 設定（未定義時） | `set_layer_crs` | 再投影せず解釈を変える。測量データは `EPSG:3405` |
+| 座標変換で妥当性確認 | `transform_coordinates` | 代表点を EPSG:4326 化し ROI 域内か確認 |
 | 属性・件数確認 | `get_layer_features` | |
 | ラスタ値域確認 | `get_raster_info` | min/max/バンド数/extent |
 | グループ作成・移動 | `create_layer_group` → `move_layer_to_group` | ROI は `ROI` グループへ |
 | 範囲へズーム | `zoom_to_layer` | |
-| 描画取得 | `get_canvas_screenshot` | 再レンダリングなしの高速確認 |
-| 座標系突き合わせ | `transform_coordinates` | VN-2000 と ROI の範囲比較等 |
-| 保存 | `save_project` | 大規模レイヤはこまめに保存（クラッシュ対策） |
+| 描画取得 | `get_canvas_screenshot` | 再レンダリングなしの高速確認。ROI 基準でズーム |
+| 保存 | `save_project` | 明示指示がある時のみ。大規模レイヤはこまめに（クラッシュ対策） |
 
 ### 命名規則（qgis_operation_guidelines.md より）
 

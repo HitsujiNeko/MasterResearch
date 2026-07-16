@@ -51,10 +51,17 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。命�
 2. `add_vector_layer` / `add_raster_layer` で対象を**絶対パス**指定で読み込む
 3. ROI（既定: `data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp`。対象都市が異なる場合はユーザーに確認）を
    読み込み、`ROI` グループに配置する
-4. `get_layer_crs` で対象レイヤの CRS を確認する（メタデータ JSON の `crs` が空でもここで確定できる）。
-   VN-2000 等の投影座標系なら、ROI（EPSG:4326）と重なるかを確認し、必要に応じて
-   `transform_coordinates` で範囲を突き合わせる（プロジェクト CRS は EPSG:4326 のまま維持）
-5. `zoom_to_layer` → `get_canvas_screenshot` で描画を取得し、カバレッジを目視提示する
+4. `get_layer_crs` で対象レイヤの CRS を確認する。
+   - **CRS が未定義**（`authid`・`proj4` が空）の場合、データは正しい位置に描画されず ROI と重ならない。
+     想定される CRS（ベトナム測量データは VN-2000 / UTM zone 48N = `EPSG:3405`）を
+     `set_layer_crs` で設定してから重ねる（`set_layer_crs` は再投影せず解釈を変えるだけ）。
+     設定前に代表点を `transform_coordinates` で EPSG:4326 に変換し、ROI 域内に落ちるかで
+     CRS 推定の妥当性を確認するとよい
+   - VN-2000 等の投影座標系は、プロジェクト CRS（EPSG:4326）のオンザフライ変換で ROI と重なる
+     （データは恒久再投影しない。プロジェクト CRS は EPSG:4326 のまま維持）
+5. **ROI レイヤにズーム**して `get_canvas_screenshot` で描画を取得し、カバレッジを目視提示する。
+   対象レイヤ全体にズームすると、外れ値ジオメトリがある場合に実データが1点に潰れて見えないため、
+   まず ROI 基準で重なりを確認する（下記 Step 3 のジオメトリ確認と連動）
 6. 大規模レイヤ（数十万件〜）を扱う場合は、レイヤ追加ごとに `save_project` でこまめに保存する
    （[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) のクラッシュ対策）
 

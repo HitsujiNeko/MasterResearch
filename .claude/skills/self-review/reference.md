@@ -1,7 +1,7 @@
 # セルフレビュー 詳細リファレンス
 
 **役割**: `/self-review` スキルの点検セクションの詳細項目・所見出力テンプレートを定義する。
-**関連**: [SKILL.md](SKILL.md), [CodingRule.md](../../docs/02_methods/CodingRule.md)（点検項目の正本）
+**関連**: [SKILL.md](SKILL.md), [CodingRule.md](../../../docs/02_methods/CodingRule.md)（点検項目の正本）
 
 点検項目そのものの正本は CodingRule.md 側にある。本ファイルは CodingRule.md を土台に、
 **セルフレビュー時に確認する形へ具体化**したチェックリストと出力様式を提供する。

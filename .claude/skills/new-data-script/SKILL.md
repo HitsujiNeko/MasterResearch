@@ -67,7 +67,7 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 1. `docs/01_planning/gis_data/gis_data_{カテゴリ}.md` に取得結果(件数・カバレッジ・注意点)を追記する
 2. `docs/02_methods/CodingRule.md` の「実装前後チェックリスト」を完了する
-3. `ruff check` / `ruff format`・markdownlint を実行し、ユーザー承認後にコミットする
+3. `ruff check` / `ruff format`・markdownlint を実行し、セルフレビュー(`/self-review`)の所見つきレビューを提示のうえ、ユーザー承認後にコミットする
 
 ## 注意事項
 

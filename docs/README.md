@@ -10,56 +10,29 @@
 
 ## 🗂️ ディレクトリ構造
 
+フォルダ構成のみを示す。各フォルダ内のファイル一覧は「[全ドキュメントカタログ](#-全ドキュメントカタログ)」を正本とする。
+
 ```text
 docs/
-├── README.md                              # 📌 このファイル（全体ガイド）
-├── setup.md                               # 🛠️ 環境構築ガイド
-├── setup/                                 # 🛠️ 個別ツールのセットアップガイド
-│   └── qgis_mcp_setup.md                  # QGIS MCP セットアップガイド
-│
-├── 01_planning/                           # 📋 研究計画フェーズ
-│   ├── available_gis_data.md              # 利用可能な公開GISデータ候補の整理（インデックス）
-│   ├── research_guide.md                  # 研究計画書（RQ定義）
-│   └── gis_data/                          # カテゴリ別GISデータ詳細（道路・建物・DEM・LULC・人口密度・夜間光・水域・POI密度・不透水面率・公園近接距離、計10ファイル）
-│
-├── 02_methods/                            # 🔬 研究手法フェーズ
-│   ├── analysis_workflow.md               # 分析ワークフロー仕様書（前処理→モデル→評価の全工程）
-│   ├── analysis_rq3_satellite_only_guide.md # analysis_rq3_satellite_only.py 初心者向け解説
-│   ├── calc_urban_params_guide.md         # urban_paramsパッケージ 設計ガイド
-│   ├── gee_calc_satellite_indices.md      # 衛星指標算出仕様書（NDVI/NDBI/NDWI）
-│   ├── data_management_guide.md           # データ管理方針（Git + Google Drive 2層運用）
-│   ├── calc_LST_report.md                 # LST算出レポート
-│   ├── gee_calc_LST.md                    # LST算出仕様書
-│   ├── skill_operation_rules.md           # スキル運用ルール
-│   ├── qgis_mcp_usage_guide.md            # QGIS MCP活用ガイド（ユースケース別操作例）
-│   ├── qgis_operation_guidelines.md       # QGIS運用ガイドライン（命名規則・CRS方針・注意事項）
-│   ├── claude_workflow_regression_tests.md # Claude Code運用ルール回帰テスト項目書・実施結果
-│   └── CodingRule.md                      # Pythonコーディング規約
-│
-├── 03_results/                            # 📊 研究結果フェーズ
-│   ├── GIS_IDEAS_abstract.md            # GIS-IDEAS学会用アブストラクト下書き
-│   ├── survey_gis_data_preparation_status.md # 測量由来GISデータ整備状況レポート
-│   ├── fig2_satellite_only_workflow.mmd   # RQ3図表用Mermaid図
-│   └── satellite_only_analysis_results.md # Satellite Only 分析結果
-│
-└── 04_archive/                            # 📦 アーカイブ
-    ├── README.md                          # 文献管理システムガイド
-    ├── literature_management_guide.md     # 文献管理・AI活用ガイド
-    ├── previous_studies_report.md         # 先行研究整理（S1-S8）
-    ├── claude_project_instructions.md     # Claude Projects プロジェクト指示（コピペ用）
-    ├── claude_project_knowledge.md        # Claude Projects ナレッジ（アップロード用）
-    ├── 01_metadata/
-    │   └── papers_database.csv            # 論文メタデータ（CSV）
-    ├── 02_structured_summaries/
-    │   ├── S1_Ermida_2020.md              # SMW法の構造化要約
-    │   └── S2-S8_*.md                     # 既存構造化要約
-    └── templates/
-        └── structured_summary_template.md # 論文要約テンプレート
+├── README.md                     # 📌 このファイル（全体索引）
+├── setup.md                      # 🛠️ 環境構築ガイド
+├── setup/                        # 🛠️ 個別ツールのセットアップガイド
+├── 01_planning/                  # 📋 研究計画（RQ定義・GISデータ調査）
+│   └── gis_data/                 # カテゴリ別GISデータ詳細
+├── 02_methods/                   # 🔬 研究手法（仕様書・規約・運用ガイド）
+├── 03_results/                   # 📊 研究結果（分析結果・学会原稿）
+└── 04_archive/                   # 📦 アーカイブ・先行研究（文献管理）
+    ├── 01_metadata/              # 論文メタデータ（CSV）
+    ├── 02_structured_summaries/  # 論文の構造化要約
+    ├── 04_pdfs/                  # 論文PDF原本（Git管理外）
+    └── templates/                # 論文要約テンプレート
 ```
 
 ---
 
 ## 📊 全ドキュメントカタログ
+
+> 今後追加予定のドキュメントは GitHub Issues（タスク管理の正本）で管理し、本カタログには現存ファイルのみを掲載する。
 
 ### 🛠️ ルート
 
@@ -79,12 +52,9 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 関連RQ |
 |-----------|------|-----------|--------|
 | [available_gis_data.md](01_planning/available_gis_data.md) | 公開GISデータ候補の整理（インデックス） | 評価観点、採用データ一覧、結論の要点、カテゴリ別ドキュメントへのリンク | 全RQ |
-| [gis_data_roads.md](01_planning/gis_data/gis_data_roads.md) | 道路データの調査・評価 | OSM道路データの採用根拠、Hanoi ROI取得結果、highway分布、注意点 | RQ1, RQ2 |
-| [gis_data_buildings.md](01_planning/gis_data/gis_data_buildings.md) | 建物データの調査・評価 | GBA採用根拠、候補比較表、GBA詳細仕様、Limitedシナリオ方針 | RQ1, RQ2, RQ3 |
-| [gis_data_dem.md](01_planning/gis_data/gis_data_dem.md) | DEM候補の調査・選定ガイド | DSM/DTM特性、センサー種別、BSHorizon比較結果、Limitedシナリオ採用判断 | RQ1, RQ3 |
 | [research_guide.md](01_planning/research_guide.md) | 研究計画書 | 研究題目、背景、RQ1-3、手法概要、期待される成果 | 全RQ |
 
-> **注記**: `gis_data/` 配下の各カテゴリ詳細ファイルは [available_gis_data.md](01_planning/available_gis_data.md) Section 4 を索引の正本とする。本表には代表例のみ掲載し、全件掲載は求めない（check-docs-consistency のカタログ比較対象外）。
+> **注記**: `gis_data/` 配下の各カテゴリ詳細ファイルは [available_gis_data.md](01_planning/available_gis_data.md) Section 4 を索引の正本とし、本表には掲載しない（check-docs-consistency のカタログ比較対象外）。
 
 ### 🔬 02_methods - 研究手法
 
@@ -111,12 +81,6 @@ docs/
 | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認、Full シナリオ接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果 | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py` |
-
-**今後追加予定**:
-
-- RQ1分析結果: 変数重要度ランキング、モデル性能
-- RQ2分析結果: 空間スケール別の比較
-- 図表集: 論文用図表の一覧
 
 ### 📦 04_archive - アーカイブ・先行研究
 
@@ -154,440 +118,6 @@ docs/
 
 ---
 
-## 🔄 ドキュメント関係図
-
-```mermaid
-graph TB
-    A[research_guide.md<br/>研究計画書] --> B[calc_LST_report.md<br/>LST算出レポート]
-    A --> C[previous_studies_report.md<br/>先行研究整理]
-    
-    B --> D[gee_calc_LST.md<br/>LST算出仕様]
-    D --> E[src/gee/gee_calc_LST.py<br/>実装コード]
-    
-    C --> F[papers_database.csv<br/>論文DB]
-    C --> G[literature_management_guide.md<br/>文献管理ガイド]
-    
-    E --> H[CodingRule.md<br/>コーディング規約]
-    E --> J[src/analysis/analyze_data_status.py<br/>データ分析]
-    
-    J --> K[survey_gis_data_preparation_status.md<br/>測量由来GIS整備状況]
-    
-    A -.RQ1-3定義.-> I[03_results/<br/>分析結果]
-    B -.LSTデータ.-> K
-    K --> I
-    
-    style A fill:#e1f5ff,stroke:#0066cc
-    style B fill:#fff4e1,stroke:#cc8800
-    style C fill:#f0f0f0,stroke:#666
-    style I fill:#e1ffe1,stroke:#00cc00
-    style K fill:#e1ffe1,stroke:#00cc00
-```
-
-**凡例**:
-
-- 🔵 青: 研究計画
-- 🟡 黄: 研究手法
-- ⚪ 灰: アーカイブ
-- 🟢 緑: 研究結果（今後）
-
----
-
-## 📋 [01_planning](01_planning/) - 研究計画フェーズ
-
-### 🎯 目的
-
-研究の方向性を定め、RQ（Research Questions）を明確化する
-
-### 📄 ドキュメント詳細
-
-#### [available_gis_data.md](01_planning/available_gis_data.md)
-
-**公開GISデータ候補の整理（インデックス）** - 採用データの一覧と評価観点を集約し、カテゴリ別詳細ドキュメントへのリンクを提供する
-
-**主要セクション**:
-
-- 評価観点（都市構造指標適格性、カバレッジ、データ時期、解像度、ライセンス）
-- 結論の要点（各カテゴリの採用判断サマリ）
-- 採用データ一覧（OSM、GBA、FABDEM）
-- カテゴリ別詳細ドキュメントへのリンク
-
-**関連ドキュメント**:
-
-- 研究計画 → [research_guide.md](01_planning/research_guide.md)
-- 手法仕様 → [analysis_workflow.md](02_methods/analysis_workflow.md)
-
-#### [gis_data/](01_planning/gis_data/)
-
-**カテゴリ別GISデータ詳細** - 各データカテゴリの調査結果・データ仕様・取得結果・注意点を格納するサブフォルダ
-
-各ファイルの一覧と詳細は [available_gis_data.md](01_planning/available_gis_data.md) の Section 4（カテゴリ別詳細ドキュメント）を参照。
-
-#### [research_guide.md](01_planning/research_guide.md)
-
-**研究計画書** - 本研究の全体像（背景・目的・RQ・新規性・手法の方針・データの位置づけ）を定義
-
-実装詳細・データ採用判断・進捗は本書に置かず、委譲先を正本として参照する構成をとる。
-
-**主要セクション**:
-
-- 研究題目: ベトナム主要都市における地表面温度と都市構造の関係性評価
-- 研究背景: 途上国大都市のデータ制約、ヒートアイランド現象
-- **Research Questions**:
-  - **RQ1**: どの説明変数がLSTに支配的か？
-  - **RQ2**: 空間集計単位の違いによる影響は？
-  - **RQ3**: データ制約下での説明可能性は？
-- 研究の新規性・位置づけ: 主要文献S1-S8の整理とRQ別の知見
-- 研究手法: 手法選定の方針と根拠（SMW法の採用、MLR→RF/GBDT→SHAPの段階設計）
-- 使用データ: 衛星由来／公開GIS／測量GISの3層とRQ3の3シナリオの対応
-- 研究設計上の論点
-
-**関連ドキュメント**:
-
-- 手法詳細（§5の委譲先） → [analysis_workflow.md](02_methods/analysis_workflow.md), [calc_LST_report.md](02_methods/calc_LST_report.md)
-- データ詳細（§6の委譲先） → [available_gis_data.md](01_planning/available_gis_data.md), [gis_data/](01_planning/gis_data/)
-- 用語定義 → [CLAUDE.md](../CLAUDE.md)（最小用語集）
-- 先行研究 → [previous_studies_report.md](04_archive/previous_studies_report.md)
-
-### 📝 今後追加予定
-
-- `literature_review.md`: 詳細な文献レビュー
-- `timeline.md`: 研究スケジュール
-
----
-
-## 🔬 [02_methods](02_methods/) - 研究手法フェーズ
-
-### 🎯 目的
-
-研究で使用する具体的な手法やツールを詳細に記録し、再現性を確保する
-
-### 📄 ドキュメント詳細
-
-#### [calc_LST_report.md](02_methods/calc_LST_report.md)
-
-**Landsat 8 LST算出レポート** - SMW法による地表面温度算出の実施報告
-
-**主要セクション**:
-
-- LST算出手法の選定理由（SMW法 vs 他手法）
-- 処理結果: 2015-2024年のLSTデータ
-- 品質評価: RMSE、欠損率、雲被覆率
-- 次のステップ: 都市構造パラメータとの統合分析
-
-**実装コード**: [src/gee/gee_calc_LST.py](../src/gee/gee_calc_LST.py)
-
-**関連ドキュメント**:
-
-- 手法の理論的背景 → [previous_studies_report.md S1](04_archive/previous_studies_report.md)
-- 実装仕様 → [gee_calc_LST.md](02_methods/gee_calc_LST.md)
-
-#### [gee_calc_LST.md](02_methods/gee_calc_LST.md)
-
-**gee_calc_LST.pyの仕様書** - LST算出スクリプトの詳細仕様
-
-**主要セクション**:
-
-- 入力データ: `data/input/gee_calc_LST_info.csv`
-- 出力データ: `data/satellite/lst/*.tif`、`data/output/gee_calc_LST_results.csv`
-- 処理フロー: GEE認証 → ROI読込 → LST算出 → 品質評価
-- 関数仕様: `lst_smw.apply_smw_lst()`
-- エラーハンドリング: タイムアウト、雲被覆対応
-
-**実装コード**: [src/gee/gee_calc_LST.py](../src/gee/gee_calc_LST.py)
-
-**関連ドキュメント**:
-
-- コーディング規約 → [CodingRule.md](02_methods/CodingRule.md)
-
-#### [skill_operation_rules.md](02_methods/skill_operation_rules.md)
-
-**スキル運用ルール** - `.claude/skills/` 配下のカスタムスキルの作成・変更・運用ルール
-
-**主要ルール**:
-
-- 環境ルール: スキルの作成・変更は Claude Desktop（Skill Creator 使用）、VS Code は利用のみ
-- プロジェクト固有ルール: 日本語コメント基本、ファイルパスはスラッシュ統一
-
-**適用範囲**: `.claude/skills/` 配下のすべてのスキル
-
-**関連ドキュメント**:
-
-- コーディング規約 → [CodingRule.md](02_methods/CodingRule.md)
-- AI指示書 → [CLAUDE.md](../CLAUDE.md)
-
-#### [CodingRule.md](02_methods/CodingRule.md)
-
-**Pythonコーディング規約** - プロジェクト全体で遵守すべき規約
-
-**主要ルール**:
-
-- PEP 8準拠（スペース4つ、タブ禁止、`ruff check`/`ruff format`で自動チェック）
-- 型ヒントを関数の引数・戻り値に付与
-- 日本語docstring必須（初心者にも理解できる説明）
-- 命名規則: スネークケース（変数・関数）、キャメルケース（クラス）
-- 1関数1責務
-- 再現性: 相対パス、乱数シード設定
-
-**適用範囲**: `src/`配下のすべてのPythonスクリプト
-
-**関連ドキュメント**:
-
-- AI指示書 → [CLAUDE.md](../CLAUDE.md)
-
-### 📝 今後追加予定
-
-- `urban_parameters.md`: 都市構造パラメータの定義と算出方法
-- `statistical_methods.md`: 統計解析手法の詳細
-- `ml_models.md`: 機械学習モデルの選定と実装
-
----
-
-## 📊 [03_results](03_results/) - 研究結果フェーズ
-
-### 🎯 目的
-
-分析結果を体系的に整理し、論文執筆の基盤を構築する
-
-### � ドキュメント詳細
-
-#### [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md)
-
-**GIS-IDEAS学会用アブストラクト下書き** - RQ3 の Satellite Only 初期結果に基づく本文案と図表案
-
-**主要セクション**:
-
-- Introduction / Methodology / Results / Conclusion の文案
-- 掲載候補の図表セット
-- 断定を避けるべき事項とタイトル案
-
-**関連ドキュメント**:
-
-- 初期結果 → [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
-- 研究計画 → [research_guide.md](01_planning/research_guide.md)
-
-#### [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md)
-
-**測量由来GISデータ整備状況レポート** - 測量由来 GIS の整備、内容確認、Full シナリオ接続条件の整理
-
-**主要セクション**:
-
-- 測量由来 GIS データ整備の全体概況
-- 7種類の GPKG（CS/DC/DH/GT/RG/TH/TV）の処理結果
-- レイヤ意味の確認結果と想定用途
-- Full シナリオへ接続するための残課題
-
-**自動生成元**: [src/analysis/analyze_data_status.py](../src/analysis/analyze_data_status.py)（GIS/LSTデータを自動分析）
-
-**活用場面**:
-
-- 測量由来 GIS の入力仕様確認
-- Full シナリオの前提整理
-- 都市構造パラメータ設計時の根拠確認
-
-**関連ドキュメント**:
-
-- 研究計画 → [research_guide.md](01_planning/research_guide.md)（RQ1-3の定義）
-- 手法フロー → [analysis_workflow.md](02_methods/analysis_workflow.md)
-- パラメータ設計 → [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md)
-
-#### [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
-
-**Satellite Only 分析結果** - RQ3 の 3 観測日ベースライン整理
-
-**主要セクション**:
-
-- 2023-07-07、2023-07-23、2024-11-30 の分析条件
-- MLR / Random Forest の複数日性能比較
-- Spatial CV による過大評価確認
-- SHAP による変数重要度と寄与方向の解釈
-- Limited / Full 比較に向けた次段階整理
-
-**自動生成元**: `src/analysis/build_satellite_only_dataset.py`, `src/analysis/analysis_rq3_satellite_only.py`
-
-#### [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd)
-
-**RQ3図表用Mermaid図** - Satellite Only 分析フローを論文図表向けに整理した図
-
-**主要セクション**:
-
-- データ準備からモデル評価までの処理順
-- Satellite Only 条件で使う説明変数群
-- 図表化を前提にした簡潔なノード構成
-
-**関連ドキュメント**:
-
-- 分析結果 → [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md)
-- 解析ガイド → [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md)
-
-### �📝 今後追加予定のドキュメント
-
-#### RQ別の分析結果
-
-- `rq1_variable_importance.md`: RQ1結果 - 説明変数の重要度ランキング
-- `rq2_spatial_scale.md`: RQ2結果 - 空間集計単位ごとの比較分析
-
-#### 統合結果
-
-- `analysis_summary.md`: 全分析結果の統合まとめ
-- `figures_catalog.md`: 論文用図表の一覧と説明
-- `discussion_draft.md`: 考察の下書き
-
-#### 補足資料
-
-- `model_performance.md`: 各種モデルの性能比較
-- `sensitivity_analysis.md`: 感度分析結果
-
-### 🔗 関連ドキュメント
-
-- 研究計画 → [research_guide.md](01_planning/research_guide.md)（RQ定義）
-- データソース → [calc_LST_report.md](02_methods/calc_LST_report.md)（LSTデータ）
-- 先行研究比較 → [previous_studies_report.md](04_archive/previous_studies_report.md)
-
----
-
-## 📦 [04_archive](04_archive/) - アーカイブ・先行研究
-
-### 🎯 目的
-
-参考資料や先行研究を整理し、AI支援による文献活用を可能にする
-
-### 📄 ドキュメント詳細
-
-#### [README.md](04_archive/README.md)
-
-**文献管理システムガイド** - 04_archiveフォルダの構造と使い方
-
-**主要内容**:
-
-- 3層情報管理システム（CSV → Markdown → PDF）
-- AIとの対話例
-- 文献追加手順
-
-**対象ユーザー**: 研究者本人、AI支援システム
-
-#### [literature_management_guide.md](04_archive/literature_management_guide.md)
-
-**文献管理・AI活用ガイド** - PDFをAIが活用するための戦略書（314行）
-
-**主要セクション**:
-
-- 問題: AIはPDFを直接読めない
-- 解決策: Markdown構造化要約の作成
-- 3層データベースコンセプト（metadata → summaries → findings）
-- 論文要約作成ガイド（30-60分/論文）
-- AI最適化のベストプラクティス
-
-**関連ドキュメント**:
-
-- テンプレート → [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md)
-
-#### [previous_studies_report.md](04_archive/previous_studies_report.md)
-
-**先行研究整理（マスタードキュメント）** - S1-S8の事実ベース整理
-
-**含まれる研究**:
-
-- **S1**: Ermida et al. (2020) - SMW法 [本研究採用]
-- **S2**: Le Ngoc Hanh (2025) - ダナン都市化とLST [ベトナム事例]
-- **S3**: Onačillová (2022) - 高解像度LST
-- **S4**: Sun et al. (2019) - 機械学習による都市構造評価 [RQ1参考]
-- **S5**: Osborne (2019) - 景観構成・配置 [RQ2参考]
-- **S6**: Garzón (2021) - 熱帯都市SUHI [途上国事例]
-- **S7**: Derdouri et al. (2021) - LULC変化とSUHI研究レビュー
-- **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
-
-**活用場面**: 論文執筆、手法比較、関連研究の参照
-
-**関連ドキュメント**:
-
-- 詳細メタデータ → [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv)
-
-#### [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv)
-
-**論文メタデータベース（CSV）** - AI検索・フィルタリング用
-
-**列構成**:
-
-- ID, 著者, 年, タイトル, 掲載誌, 主目的, データ種別
-- 主要手法, 対象地域, DOI_URL, PDF有無
-- 重要度（A/B/C）, RQ1-3関連度（◎○△）
-- キーワード, メモ
-
-**活用方法**:
-
-```python
-import pandas as pd
-df = pd.read_csv('papers_database.csv')
-# RQ1に関連する論文を抽出
-rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
-```
-
-#### [claude_project_instructions.md](04_archive/claude_project_instructions.md)
-
-**Claude Projects プロジェクト指示（コピペ用）** - claude.ai の文献調査用プロジェクトの「プロジェクト指示」欄に貼り付ける指示文
-
-**主要内容**:
-
-- リサーチアシスタントとしての役割定義（論文検索・論文分析・壁打ち）
-- 構造化要約の出力ルール（RQ関連度評価、数値の正確性、日本語記述）
-- セットアップ・更新手順（リポジトリ側を正本として管理）
-
-**使用タイミング**: Claude Projects の初回セットアップ時、指示内容の変更時
-
-#### [claude_project_knowledge.md](04_archive/claude_project_knowledge.md)
-
-**Claude Projects ナレッジ（アップロード用）** - claude.ai のプロジェクトナレッジに常時参照させる研究コンテキストの凝縮版
-
-**主要内容**:
-
-- 研究概要・RQ1-3・用語集
-- 分析の現在地（シナリオ別の進捗）
-- 先行研究S1-S8のサマリーと研究ギャップ
-- 構造化要約テンプレートの要件
-- 更新タイミングと差し替え手順
-
-**使用タイミング**: 論文追加時・分析進捗時にリポジトリ側を更新し、claude.ai のナレッジを差し替える
-
-#### [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md)
-
-**論文要約テンプレート** - 新規論文追加時の標準フォーマット
-
-**セクション構成**:
-
-1. 基本情報（著者、年、DOI）
-2. 研究目的
-3. 使用データ
-4. 都市構造パラメータの定義
-5. 分析手法
-6. 主要な結果
-7. 本研究との関連性（RQ1-3）
-8. 重要な引用・図表
-
-**使用タイミング**: 新しい論文をデータベースに追加する際
-
-### 📁 サブディレクトリ
-
-```text
-04_archive/
-├── 01_metadata/              # 論文メタデータ
-│   └── papers_database.csv
-├── 02_structured_summaries/  # 構造化要約（S1-S8登録済み）
-│   └── S1_Ermida_2020.md 等
-├── 03_key_findings/          # テーマ別知見（今後追加）
-│   ├── urban_parameters_catalog.md
-│   └── lst_methods_comparison.md
-├── 04_pdfs/                  # PDF原本（移動予定）
-└── templates/                # テンプレート
-    └── structured_summary_template.md
-```
-
-### 🔗 関連ドキュメント
-
-- 研究計画との対応 → [research_guide.md](01_planning/research_guide.md)
-- 採用手法の詳細 → [calc_LST_report.md](02_methods/calc_LST_report.md)
-
----
-
 ## 🔄 ドキュメント管理のルール
 
 ### ✅ 新しいドキュメントを追加する場合
@@ -599,9 +129,8 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
    - 📦 `04_archive/`: 参考資料・先行研究
 
 2. **このREADME.mdを更新**:
-   - 該当フェーズの「ドキュメント詳細」セクションに追加
-   - 「全ドキュメントカタログ」テーブルに行を追加
-   - 必要に応じて「ドキュメント関係図」を更新
+   - 「全ドキュメントカタログ」の該当フェーズの表に行を追加する
+   - 新規フォルダを作成した場合のみ「ディレクトリ構造」に追記する
 
 3. **相互参照を設定**:
    - 新規ドキュメントの冒頭に**関連ドキュメント**セクションを追加
@@ -616,6 +145,12 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
    **関連ドキュメント**: [research_guide.md], [CodingRule.md]  
    **前提知識**: RQ1-RQ3の理解
    ```
+
+### ✅ 既存ドキュメントを更新する場合
+
+- [ ] 冒頭の「最終更新」日付を更新
+- [ ] 影響を受ける関連ドキュメントを確認
+- [ ] リンク切れがないか確認
 
 ### ✅ ドキュメントを移動・削除する場合
 
@@ -643,6 +178,12 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 - **日付を含める場合**: `20260226_meeting_notes.md`（YYYYMMDD形式）
 - **バージョン管理**: `analysis_v1.md`より Git を使用
 
+### ✅ 定期メンテナンス
+
+- [ ] 週次: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
+- [ ] 研究フェーズ移行時: ドキュメント構成の見直し
+- [ ] 論文投稿前: 全ドキュメントの整合性確認
+
 ### ❌ 禁止事項
 
 - **サブフォルダのREADME.md作成**: このdocs/README.mdに集約
@@ -652,258 +193,40 @@ rq1_papers = df[df['RQ1関連'].str.contains('◎|○')]
 
 ---
 
-## 💡 活用のヒント
+## 💡 文献管理ワークフロー
 
-### 🔬 先行研究調査：claude.ai → Claude Code 連携ワークフロー
-
-> **最も効率的な方法**: claude.ai（Claude Projects）で論文分析 → Claude Code `/add-paper` でプロジェクト統合
-
-#### フェーズ1: 論文検索（claude.ai）
-
-```text
-claude.ai（文献調査用プロジェクト）に質問：
-「Land Surface Temperature and urban structure in Southeast Asian cities
- で2020年以降の主要論文を教えて。各論文のDOI、主要な手法、RQとの関連も教えて」
-
-→ 論文リスト（10-15本）を取得
-```
-
-#### フェーズ2: 論文分析（claude.ai）
-
-```text
-claude.ai（文献調査用プロジェクト）にPDFを添付、または論文情報を入力：
-
-【論文情報】
-- タイトル: [論文タイトル]
-- 著者: [著者名]
-- DOI: [DOI]
-
-→ プロジェクト指示・ナレッジに従い構造化要約が生成される（5-10分）
-```
-
-セットアップ: [claude_project_instructions.md](04_archive/claude_project_instructions.md)（プロジェクト指示）、[claude_project_knowledge.md](04_archive/claude_project_knowledge.md)（ナレッジ）
-
-#### フェーズ3: プロジェクト統合（Claude Code）
-
-```text
-Claude Code で /add-paper を実行し、生成された構造化要約をペースト
-
-→ S番号採番・ファイル作成・papers_database.csv追記・
-   README更新まで自動実行し、コミット案を提示。承認後にコミット（2分）
-```
-
-**所要時間**: 論文1本あたり **合計10-15分** 🚀
-
-**詳細ガイド**: [04_archive/README.md](04_archive/README.md)（ツール使い分けセクション）
-
----
-
-### 🤖 AIに質問する場合
-
-**効果的な質問例**:
-
-```text
-「research_guide.mdを参照して、RQ1に関連する分析手法を提案してください」
-
-「previous_studies_report.mdから、都市構造パラメータの定義を抽出し、
- 表形式でまとめてください」
-
-「calc_LST_report.mdに基づいて、SMW法の処理フローを
- Mermaid図で作成してください」
-
-「papers_database.csvから重要度Aの論文のみをフィルタリングし、
- RQ1との関連度が高い順に並べてください」
-```
-
-**NGな質問例**:
-
-```text
-❌ 「先行研究を教えて」（曖昧）
-✅ 「previous_studies_report.mdのS4（Sun et al. 2019）で使用された
-    都市構造パラメータを箇条書きで教えて」
-
-❌ 「LSTの計算方法は？」（文脈不明）
-✅ 「gee_calc_LST.mdを参照して、SMW法の入力パラメータと
-    出力フォーマットを説明して」
-```
-
-### 📖 ドキュメント間の関連を確認
-
-**研究の流れに沿って参照**:
-
-```text
-1. 研究計画  → research_guide.md（RQ定義）
-2. 先行研究  → previous_studies_report.md（手法調査）
-3. 手法選定  → calc_LST_report.md（LST算出）
-4. 実装仕様  → gee_calc_LST.md
-5. コード規約 → CodingRule.md
-6. 実装      → src/gee/gee_calc_LST.py
-7. 結果整理  → 03_results/（今後）
-```
-
-**ドキュメント関係図を活用**:
-
-- Mermaid図で視覚的に依存関係を把握
-- 矢印の方向 = 参照の流れ
-
-### 🔍 検索のコツ
-
-**VS Codeでの検索**:
-
-```text
-Ctrl+Shift+F で全文検索
-- "RQ1" → Research Question 1 関連の記述を検索
-- "SMW" → SMW法に関する記述を検索
-- "都市構造パラメータ" → パラメータ定義を検索
-```
-
-**CSVデータの活用**:
-
-```python
-# 特定のキーワードで論文を検索
-df = pd.read_csv('docs/04_archive/01_metadata/papers_database.csv')
-ml_papers = df[df['キーワード'].str.contains('機械学習|ランダムフォレスト')]
-```
+先行研究の追加は、claude.ai（Claude Projects）で構造化要約を生成し、Claude Code の `/add-paper` スキルでプロジェクトへ統合する2段構成をとる。
+手順・ツール使い分けの詳細は [04_archive/README.md](04_archive/README.md) を正本として参照する。
+Claude Projects のセットアップは [claude_project_instructions.md](04_archive/claude_project_instructions.md)（プロジェクト指示）・[claude_project_knowledge.md](04_archive/claude_project_knowledge.md)（ナレッジ）を正本とする。
 
 ---
 
 ## 🔗 関連ディレクトリ
 
-### プロジェクト全体の構成
+プロジェクト全体のトップレベル構成と、各ディレクトリの詳細を定義する正本ドキュメントを示す。
 
 ```text
 MasterResearch/
-├── .claude/                     # Claude Code設定
-│   └── skills/                  # カスタムskill（check-docs-consistency等）
-│
-├── .github/                    # AI環境設定・タスク管理
-│   ├── copilot-instructions.md # Copilot自動読込（CLAUDE.mdに移譲）
-│   ├── task-workflow.md        # タスク管理ワークフロー定義
-│   ├── parallel-workflow.md    # 並列タスク実行ワークフロー
-│   ├── ISSUE_TEMPLATE/         # Issue テンプレート
-│   └── prompts/                # タスク関連ファイル
-│       ├── active/             # 計画書（{Issue番号}_{task_name}.plan.md）
-│       ├── completed/          # 旧運用アーカイブ（新規追加なし）
-│       └── templates/          # intake テンプレート（オプション）
-│
-├── docs/                       # 📌 このディレクトリ
-│   └── README.md               # 📌 このファイル
-│
-├── src/                        # Pythonスクリプト
-│   ├── common/                 # 共通モジュール（config・roi・summary・http_fetch・gee）
-│   ├── gee/gee_calc_LST.py     # LST算出メイン
-│   ├── module/lst_smw.py       # SMW法モジュール
-│   ├── analysis/               # 分析スクリプト
-│   │   ├── urban_params/       # 都市構造パラメータ算出パッケージ（python -m src.analysis.urban_params）
-│   │   └── *.py                # その他分析スクリプト
-│   └── preprocessing/*.py      # GIS前処理スクリプト
-│
-├── tests/                      # テスト（pytest）
-│   ├── common/                 # src/common/ のユニットテスト
-│   └── analysis/urban_params/  # urban_paramsパッケージのユニットテスト
-│
-├── data/                       # データ
-│   ├── satellite/              # 衛星由来データ
-│   │   ├── lst/                # LST GeoTIFF（年別）
-│   │   └── indices/            # 衛星指標（NDVI/NDBI 等）
-│   ├── gis/                    # GIS空間データ
-│   │   ├── boundaries/         # ROI・行政界
-│   │   ├── dem/                # 標高データ（ソース別）
-│   │   ├── buildings/          # 建物データ
-│   │   ├── roads/              # 道路データ
-│   │   ├── survey/             # 測量マージデータ
-│   │   ├── maps/               # 地図タイル・結合地図
-│   │   └── raw/                # 未加工ソースデータ
-│   ├── input/                  # 軽量な設定ファイル（CSV, txt）
-│   │   ├── gee_calc_LST_info.csv
-│   │   └── map_info.csv
-│   └── output/                 # 分析結果（CSV, JSON, ログ）
-│       ├── gee_calc_LST_results.csv
-│       ├── satellite_only/     # RQ3 Satellite Only 分析結果（観測日時別サブフォルダ + multidate/）
-│       ├── urban_params/       # 都市構造パラメータCSV
-│       └── survey_translated/  # 測量マージ属性の翻訳CSV
-│
-├── qgis/                        # QGISワークスペース（詳細: qgis_operation_guidelines.md）
-│   ├── projects/                # 都市単位のQGISプロジェクト（.qgz、Git管理外）
-│   ├── styles/                  # 再利用スタイル（.qml、Git追跡）
-│   └── templates/               # 印刷レイアウトテンプレート（.qpt、Git追跡）
-│
-└── 整備データ/                  # ベトナム測量データ
-    └── merge/*.gpkg            # 統合GeoPackage
+├── .claude/        # Claude Code設定・カスタムスキル
+├── .github/        # タスク管理ワークフロー・CI・Issueテンプレート
+├── docs/           # 📌 このディレクトリ（研究ドキュメント）
+├── src/            # Pythonスクリプト（GEE・前処理・分析・共通モジュール）
+├── tests/          # pytestテスト
+├── data/           # 研究データ（衛星・GIS・入出力。Git管理外を含む）
+├── qgis/           # QGISワークスペース（プロジェクト・スタイル・テンプレート）
+└── 整備データ/     # ベトナム測量データ（統合GeoPackage）
 ```
 
-### 各ディレクトリの関係
-
-| ディレクトリ | 役割 | docs/との関係 |
-|------------|------|--------------|
-| `.github/` | AI支援環境 | copilot-instructions.mdがdocs/を参照 |
-| `src/` | 実装コード | docs/02_methods/の仕様に基づく |
-| `data/` | データ | docs/02_methods/で入出力を定義 |
-| `整備データ/` | 元データ | docs/で使用方法を説明（今後） |
-
----
-
-## 📋 チェックリスト
-
-### 新規ドキュメント追加時
-
-- [ ] 適切なフェーズフォルダに配置
-- [ ] docs/README.mdを更新（このファイル）
-- [ ] 冒頭にメタ情報を記載（最終更新日、関連ドキュメント）
-- [ ] 相互参照リンクを設定
-- [ ] 必要に応じてドキュメント関係図を更新
-
-### ドキュメント更新時
-
-- [ ] 最終更新日を更新
-- [ ] 重要な変更は変更履歴に記録
-- [ ] 影響を受ける関連ドキュメントを確認
-- [ ] リンク切れがないか確認
-
-### 定期メンテナンス
-
-- [ ] 週次: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
-- [ ] 研究フェーズ移行時: ドキュメント構成の見直し
-- [ ] 論文投稿前: 全ドキュメントの整合性確認
+| ディレクトリ | 正本ドキュメント |
+|------------|----------------|
+| `.claude/skills/` | [skill_operation_rules.md](02_methods/skill_operation_rules.md) |
+| `.github/`（タスク管理） | [task-workflow.md](../.github/task-workflow.md) / [parallel-workflow.md](../.github/parallel-workflow.md) |
+| `src/`・`tests/` | [CodingRule.md](02_methods/CodingRule.md)・`02_methods/` の各仕様書 |
+| `data/` | [data_management_guide.md](02_methods/data_management_guide.md) |
+| `qgis/` | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) |
+| `整備データ/` | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) |
 
 ---
 
-## 📝 変更履歴
-
-| 日付 | 変更内容 | 担当 |
-|------|---------|------|
-| 2026-07-17 | 実装後・コミット前のセルフレビュースキル `/self-review` を新設。ビルトインの `/code-review`（汎用的なバグ・簡潔化・効率）と `/coderabbit`（外部レビュー対応）に役割を委譲し、「自動検出不可のプロジェクト固有規約」と「テストが保証していない範囲（CRS・単位°C・有効カバレッジ等の研究ドメイン前提を含む）」の洗い出しに特化。点検項目の正本は `CodingRule.md` 側に置き重複記載を回避。`task-workflow.md`・`CLAUDE.md` の段階的コミットを `実装 → lint → セルフレビュー → 所見つきレビュー提示 → 承認 → コミット` に更新（#140） | AI支援 |
-| 2026-07-16 | 新規GISデータの定型確認スキル `/inspect-gis-data` を新設（メタデータ抽出→QGIS表示→確認チェックリスト→所見テンプレート出力）。`build_data_inventory.py` に単一ファイルのメタデータをJSON出力する `--path` オプションを追加し抽出処理を共用。CRS未定義データは `set_layer_crs` で想定CRS（VN-2000/UTM48N=`EPSG:3405`）を設定しROIと重ねる手順を明文化（#116） | AI支援 |
-| 2026-07-16 | `data/gis`・`data/satellite` を走査しメタデータJSON（`data/output/data_inventory.json`）を再生成する `build_data_inventory.py` を新設。CRS・bounds・解像度・レイヤ/地物数の読み取りを共通モジュール `src/common/geo_metadata.py` に抽出し `analyze_spatial_extents.py` と共用。`data_management_guide.md` 7.3に用途と実行方法を追記（#114） | AI支援 |
-| 2026-07-16 | `research_guide.md` を研究計画書として純化。実装詳細を `analysis_workflow.md` へ、データ採用判断を `available_gis_data.md`・`gis_data/` へ、進捗をGitHub Issues / Projectへ委譲し、AI向け記述をCLAUDE.mdに一本化。S7・S8の知見を反映し、文書内の不整合（重複採番・点数不一致・「期待される成果」の重複）を解消 | AI支援 |
-| 2026-07-15 | 構造化要約S1-S8とPDF原本の突合監査を実施。S1の著者名誤り（Pedro Soares・Victor Mantas → Patrícia Soares・Vasco Mantas）と精度値を修正、S2の発表年（年不明→2025）・原題・面積をPDFで確定、S3の全著者を補完。S4-S8は誤りなしを確認（S8はPDF入手により突合検証済み）（#94） | AI支援 |
-| 2026-07-15 | ドキュメント整合性チェックのうち機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報・表記揺れ・書誌整合）を `src/doc_checks/` にスクリプト化しCIへ統合。定期メンテナンスの頻度記載を「月1回」から「週次」に統一（#104） | AI支援 |
-| 2026-07-14 | `gis_data/` 配下7ファイルのカタログ未掲載と check_spec との方針矛盾を解消。全ドキュメントカタログ表に `available_gis_data.md` Section 4 を索引の正本とする注記を追加し、`check_spec.md` にカタログ比較対象外の例外を明文化（#105） | AI支援 |
-| 2026-07-12 | Claude Code on the web 向け SessionStart hook で pytest 実行環境を自動構築。`setup.md` に13章（リモートセッション）・14章（補足）を追加（#103） | AI支援 |
-| 2026-07-12 | GitHub Actions CI（ruff・pytest・markdownlint）を導入。`setup.md`（12章）・`CodingRule.md`（13章）にCIの位置づけを追記（#102） | AI支援 |
-| 2026-07-08 | `CodingRule.md` に重複コード共通化規約（5.1節）を追加し、共通モジュール `src/common/`（config・roi・summary・http_fetch・gee）を新設。`new-data-script` スキルの scaffold を共通モジュール利用型に改訂し、プロジェクト構成図に `src/common/`・`tests/common/` を反映 | AI支援 |
-| 2026-07-08 | `claude_workflow_regression_tests.md` を `02_methods/` に新規追加。deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点の回帰テスト項目書と初回実施結果を記載（#97） | AI支援 |
-| 2026-07-08 | Claude Code 運用再設計: `CodingRule.md` に 11.4（テスト必須の適用範囲: `src/` 必須・`sandbox/` 不要）を新設。`skill_operation_rules.md` を行為ベース承認ルールに改訂し、`shared/` 共通リファレンスの運用を追加 | AI支援 |
-| 2026-07-07 | 文献管理を claude.ai → Claude Code（`/add-paper` スキル）連携に刷新。`claude_project_instructions.md`・`claude_project_knowledge.md` を `04_archive/` に新規追加し、`chatgpt_instruction_paper_analysis.md` を削除 | AI支援 |
-| 2026-07-05 | 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースGISデータセット候補を調査。`gis_data/`配下に7ファイルを新規追加し、`available_gis_data.md` Section 4にリンクを追加 | AI支援 |
-| 2026-07-01 | `qgis_mcp_usage_guide.md`・`qgis_operation_guidelines.md` を `02_methods/` に新規追加。`qgis/`（projects/styles/templates）ワークスペースの整備に伴うドキュメント整備（#41） | AI支援 |
-| 2026-06-30 | `docs/setup/` を新設し `qgis_mcp_setup.md` を `02_methods/` から移動。`data_catalog.csv` 廃止に伴い `data_management_guide.md` を改訂（Google Drive 2層運用の役割明確化、MCP経由アクセスへの移行）（#44） | AI支援 |
-| 2026-06-24 | `available_gis_data.md` をカテゴリ別ファイルに分割。`gis_data/` サブフォルダを新設し、`gis_data_roads.md`・`gis_data_buildings.md` を新規作成。`dem_selection_guide.md` を `gis_data/gis_data_dem.md` に移動・リネーム（#29） | AI支援 |
-| 2026-06-13 | `check-docs-consistency` skill導入に伴い定期メンテナンス項目を更新。ディレクトリ構造図に`.claude/skills/`を追加し、`02_structured_summaries`の注記をS2-S8に修正 | AI支援 |
-| 2026-06-03 | `setup.md` に GitHub CLI セットアップ手順（セクション9）とトラブルシュートを追加。`.github/` ディレクトリツリーをGitHub Issues運用移行後の実態に更新 | AI支援 |
-| 2026-06-02 | `dem_selection_guide.md` を01_planningに追加。DEM候補調査・BSHorizon比較結果・Limited選定根拠を収録 | AI支援 |
-| 2026-05-20 | 先行研究S7/S8をDerdouri et al. (2021)・Lin et al. (2024)へ更新し、構造化要約参照を追加 | AI支援 |
-| 2026-04-21 | `satellite_only_20230707_initial_run.md` を `satellite_only_analysis_results.md` に改名し、3観測日版へ更新。`data_preparation_status.md` も `survey_gis_data_preparation_status.md` に改名し、測量由来GIS向けに再整理 | AI支援 |
-| 2026-04-21 | `conference_abstract_rq3_satellite_only_draft.md` を `GIS_IDEAS_abstract.md` に改名し、索引参照を更新 | AI支援 |
-| 2026-04-21 | `fig2_satellite_only_workflow.mmd`、`04_archive`配下の既存構造化要約、テンプレートを索引へ反映。古い実装パス表記も修正 | AI支援 |
-| 2026-04-09 | `available_gis_data.md` と `conference_abstract_rq3_satellite_only_draft.md` を索引に追加 | AI支援 |
-| 2026-04-07 | `setup.md` と `satellite_only_20230707_initial_run.md` を索引に追加 | AI支援 |
-| 2026-02-26 | 案1（Single Source of Truth）実装：サブREADME削除、docs/README.md充実化 | AI支援 |
-| 2026-02-26 | 提案5実装：フェーズ別ディレクトリ構造に再編 | AI支援 |
-| 2026-02-XX | 初版作成 | 研究者 |
-
----
-
-**最終更新**: 2026-07-16  
-**管理方針**: Single Source of Truth - すべての情報をこのREADME.mdに集約  
-**次回更新予定**: 03_results/に分析結果追加時
+**最終更新**: 2026-07-18  
+**管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）

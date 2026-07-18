@@ -51,8 +51,8 @@ flowchart LR
 | フォルダ | 内容 |
 |---|---|
 | [`docs/`](docs/README.md) | 研究ドキュメント一式（計画・手法・結果・参考資料）。全体の目次は [docs/README.md](docs/README.md) が正本 |
-| `src/` | データ取得・前処理・分析の Python / GEE 実装コード |
-| `data/` | GIS・衛星データ（**Git 管理外**。後述の Drive 運用を参照） |
+| `src/` | データ取得・前処理・分析の Python / GEE（Google Earth Engine：Google の衛星データ解析基盤）実装コード |
+| `data/` | GIS（地理情報システム）・衛星データ（**Git 管理外**。下の「補足 > 研究データの扱い」を参照） |
 | `QGIS/` | QGIS プロジェクト・可視化まわりのファイル |
 | `tests/` | `src/` に対する pytest テストコード |
 

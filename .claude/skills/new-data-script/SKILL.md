@@ -66,9 +66,8 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 ### Step 7: ドキュメント更新・チェックリスト・コミット
 
 1. `docs/01_planning/gis_data/gis_data_{カテゴリ}.md` に取得結果(件数・カバレッジ・注意点)を追記する
-2. `docs/README.md` の変更履歴を更新する(該当する場合)
-3. `docs/02_methods/CodingRule.md` の「実装前後チェックリスト」を完了する
-4. `ruff check` / `ruff format`・markdownlint を実行し、ユーザー承認後にコミットする
+2. `docs/02_methods/CodingRule.md` の「実装前後チェックリスト」を完了する
+3. `ruff check` / `ruff format`・markdownlint を実行し、ユーザー承認後にコミットする
 
 ## 注意事項
 

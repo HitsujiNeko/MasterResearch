@@ -74,6 +74,7 @@
 ### 禁止事項
 
 - 研究データの絶対パスのハードコード（例外条件は CodingRule.md 7章）
+- コード（docstring・コメント）・docs本文へのIssue番号の記載（参照先アクセスによる無駄なコンテキスト消費を避けるため。対象・例外の線引きは CodingRule.md 4.1節）
 - スキル（`.claude/skills/`）の作成・変更を**ユーザーの明示承認なしに**行うこと（**詳細**: [skill_operation_rules.md](docs/02_methods/skill_operation_rules.md)）
 
 ### 機械的ガードレール
@@ -103,4 +104,4 @@
 - 研究の進行に応じて随時更新し、変更時は日付を記録する
 - 詳細手順はここに書かず、参照先（task-workflow.md・CodingRule.md・コマンド・スキル）に置く
 
-**最終更新**: 2026-07-17
+**最終更新**: 2026-07-18

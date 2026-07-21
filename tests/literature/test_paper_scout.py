@@ -268,6 +268,42 @@ def test_scout_records_unresolved_start(
     assert "S2" in skipped[0]
 
 
+def test_title_similarity() -> None:
+    assert paper_scout.title_similarity("Urban Heat Island Study", "Urban Heat Island Study") == 1.0
+    assert paper_scout.title_similarity("Urban Heat Island", "") == 0.0
+    # 無関係なタイトルは低い類似度
+    assert paper_scout.title_similarity(
+        "Assessment of Temperature Change in Da Nang City",
+        "Internet of Things is a revolutionary approach",
+    ) < 0.5
+
+
+def test_resolve_start_work_adopts_similar_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    # DOI なし・完全一致なしでも、類似度が閾値以上なら採用する
+    similar = _work("W9", doi=None, title="Urban Heat Island in Hanoi Vietnam 2021")
+    monkeypatch.setattr(
+        paper_scout, "_safe_fetch", lambda url, timeout: {"results": [similar]}
+    )
+    work = paper_scout.resolve_start_work(
+        "Urban Heat Island in Hanoi, Vietnam (2021)", None, None, timeout=5
+    )
+    assert work is similar
+
+
+def test_resolve_start_work_rejects_dissimilar_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 最上位候補が無関係なら採用せず None（起点スキップ）
+    unrelated = _work("W8", doi=None, title="Internet of Things revolutionary review")
+    monkeypatch.setattr(
+        paper_scout, "_safe_fetch", lambda url, timeout: {"results": [unrelated]}
+    )
+    work = paper_scout.resolve_start_work(
+        "Assessment of Temperature Change in Da Nang City Vietnam", None, None, timeout=5
+    )
+    assert work is None
+
+
 def test_resolve_start_work_requests_referenced_works(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -282,6 +318,25 @@ def test_resolve_start_work_requests_referenced_works(
     paper_scout.resolve_start_work("Title", "10.1/x", None, timeout=5)
     assert captured
     assert "referenced_works" in captured[0]
+
+
+def _candidate(work_id: str, score: float) -> paper_scout.Candidate:
+    """スコアだけを指定した候補を作るテスト用ヘルパー。"""
+    return paper_scout.Candidate(
+        openalex_id=work_id, title="t", year=None, venue=None, doi=None, score=score
+    )
+
+
+def test_filter_by_min_score_excludes_below_threshold() -> None:
+    cands = [_candidate("W1", 50.0), _candidate("W2", 20.0), _candidate("W3", 0.0)]
+    result = paper_scout.filter_by_min_score(cands, 20.0)
+    assert [c.openalex_id for c in result] == ["W1", "W2"]
+
+
+def test_filter_by_min_score_zero_returns_all() -> None:
+    cands = [_candidate("W1", 0.0)]
+    # 閾値 0 は除外なし（同一リストを返す）
+    assert paper_scout.filter_by_min_score(cands, 0.0) == cands
 
 
 def test_fetch_forward_paginates(monkeypatch: pytest.MonkeyPatch) -> None:

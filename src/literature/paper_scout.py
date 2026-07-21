@@ -51,6 +51,10 @@ _ID_BATCH_SIZE = 50
 # タイトルへのマッチはアブストラクトより重視するための倍率
 _TITLE_WEIGHT = 2.0
 
+# タイトル検索フォールバックで起点として採用する最小の Jaccard 類似度
+# （これ未満なら別論文とみなしスキップする）
+_TITLE_MATCH_THRESHOLD = 0.5
+
 # RQ1-3 に関連するキーワードと重み（小文字・単語境界で照合する）
 # キーワード・重みは研究の関心に応じて調整してよい。
 KEYWORD_WEIGHTS: dict[str, float] = {
@@ -154,6 +158,27 @@ def normalize_title(value: str | None) -> str:
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def title_similarity(left: str, right: str) -> float:
+    """2つのタイトルのトークン集合 Jaccard 類似度を返す（0.0〜1.0）。
+
+    正規化後の単語集合の重なり（|A∩B| / |A∪B|）で測る。誤った起点採用を
+    防ぐための粗い一致判定に用いる。
+
+    Args:
+        left: タイトル1。
+        right: タイトル2。
+    Returns:
+        Jaccard 類似度。どちらかが空なら 0.0。
+    """
+    tokens_left = set(normalize_title(left).split())
+    tokens_right = set(normalize_title(right).split())
+    if not tokens_left or not tokens_right:
+        return 0.0
+    intersection = tokens_left & tokens_right
+    union = tokens_left | tokens_right
+    return len(intersection) / len(union)
 
 
 def short_openalex_id(openalex_id: str | None) -> str | None:
@@ -371,13 +396,24 @@ def resolve_start_work(
     for work in works:
         if normalize_title(_work_title(work)) == target:
             return work
-    # 完全一致が無ければ最上位候補を採用するが、誤った起点を種にしうるため警告する
+    # 完全一致が無い場合は、最も類似する候補を類似度で判定する。
+    # 閾値未満は別論文とみなし採用しない（誤った起点による候補汚染を防ぐ）。
+    best_work = max(works, key=lambda work: title_similarity(title, _work_title(work)))
+    best_score = title_similarity(title, _work_title(best_work))
+    if best_score >= _TITLE_MATCH_THRESHOLD:
+        logger.info(
+            "タイトル近似一致（類似度 %.2f）で起点採用: %r → %r",
+            best_score,
+            title,
+            _work_title(best_work),
+        )
+        return best_work
     logger.warning(
-        "タイトル完全一致なし。最上位候補を起点に採用します（要確認）: %r → %r",
+        "タイトル一致が弱く（類似度 %.2f）起点を採用しません: %r",
+        best_score,
         title,
-        _work_title(works[0]),
     )
-    return works[0]
+    return None
 
 
 def fetch_backward(
@@ -535,6 +571,22 @@ def scout(
 # ---------------------------------------------------------------------------
 # 出力
 # ---------------------------------------------------------------------------
+def filter_by_min_score(
+    candidates: list[Candidate], min_score: float
+) -> list[Candidate]:
+    """スコアが min_score 以上の候補のみを返す（順序は保つ）。
+
+    Args:
+        candidates: 候補リスト。
+        min_score: 足切り閾値（この値未満を除外する）。
+    Returns:
+        閾値以上の候補リスト。
+    """
+    if min_score <= 0.0:
+        return candidates
+    return [cand for cand in candidates if cand.score >= min_score]
+
+
 def write_candidates_csv(candidates: list[Candidate], output_path: Path) -> None:
     """全候補を CSV に書き出す。"""
     with output_path.open("w", encoding="utf-8", newline="") as handle:
@@ -591,6 +643,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--top", type=int, default=20, help="標準出力に表示する件数")
     parser.add_argument(
+        "--min-score",
+        type=float,
+        default=0.0,
+        help="このスコア未満の候補を除外する（既定 0.0＝除外なし）",
+    )
+    parser.add_argument(
         "--max-forward",
         type=int,
         default=400,
@@ -640,12 +698,20 @@ def main(argv: list[str] | None = None) -> int:
         for line in skipped:
             print(f"  - {line}", file=sys.stderr)
 
-    print(f"未登録の候補: {len(candidates)} 件（スコア降順・上位 {args.top} 件）\n")
-    print(format_table(candidates, args.top))
+    total = len(candidates)
+    filtered = filter_by_min_score(candidates, args.min_score)
+    if args.min_score > 0.0:
+        print(
+            f"未登録の候補: {len(filtered)} 件"
+            f"（スコア {args.min_score:g} 以上・全 {total} 件中／上位 {args.top} 件表示）\n"
+        )
+    else:
+        print(f"未登録の候補: {total} 件（スコア降順・上位 {args.top} 件）\n")
+    print(format_table(filtered, args.top))
 
     if args.output:
         output_path = prepare_output_path(Path(args.output))
-        write_candidates_csv(candidates, output_path)
+        write_candidates_csv(filtered, output_path)
         print(f"\n全候補を書き出しました: {output_path}")
     return 0
 

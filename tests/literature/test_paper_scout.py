@@ -180,18 +180,14 @@ def _work(
 def test_add_candidate_excludes_registered_doi() -> None:
     candidates: dict[str, paper_scout.Candidate] = {}
     work = _work("W1", doi="https://doi.org/10.3390/rs13214256", title="Registered")
-    paper_scout.add_candidate(
-        candidates, work, "S1", "前方", {"10.3390/rs13214256"}, set()
-    )
+    paper_scout.add_candidate(candidates, work, "S1", "前方", {"10.3390/rs13214256"}, set())
     assert candidates == {}
 
 
 def test_add_candidate_excludes_registered_title() -> None:
     candidates: dict[str, paper_scout.Candidate] = {}
     work = _work("W2", doi=None, title="Already Registered Paper")
-    paper_scout.add_candidate(
-        candidates, work, "S1", "前方", set(), {"already registered paper"}
-    )
+    paper_scout.add_candidate(candidates, work, "S1", "前方", set(), {"already registered paper"})
     assert candidates == {}
 
 
@@ -251,9 +247,7 @@ def test_scout_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
     assert candidates[0].directions == {"前方"}
 
 
-def test_scout_records_unresolved_start(
-    monkeypatch: pytest.MonkeyPatch, csv_path: Path
-) -> None:
+def test_scout_records_unresolved_start(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> None:
     # 常に空 → 起点解決失敗を skipped に記録する
     monkeypatch.setattr(paper_scout, "_safe_fetch", lambda url, timeout: {"results": []})
     candidates, skipped = paper_scout.scout(
@@ -272,18 +266,19 @@ def test_title_similarity() -> None:
     assert paper_scout.title_similarity("Urban Heat Island Study", "Urban Heat Island Study") == 1.0
     assert paper_scout.title_similarity("Urban Heat Island", "") == 0.0
     # 無関係なタイトルは低い類似度
-    assert paper_scout.title_similarity(
-        "Assessment of Temperature Change in Da Nang City",
-        "Internet of Things is a revolutionary approach",
-    ) < 0.5
+    assert (
+        paper_scout.title_similarity(
+            "Assessment of Temperature Change in Da Nang City",
+            "Internet of Things is a revolutionary approach",
+        )
+        < 0.5
+    )
 
 
 def test_resolve_start_work_adopts_similar_title(monkeypatch: pytest.MonkeyPatch) -> None:
     # DOI なし・完全一致なしでも、類似度が閾値以上なら採用する
     similar = _work("W9", doi=None, title="Urban Heat Island in Hanoi Vietnam 2021")
-    monkeypatch.setattr(
-        paper_scout, "_safe_fetch", lambda url, timeout: {"results": [similar]}
-    )
+    monkeypatch.setattr(paper_scout, "_safe_fetch", lambda url, timeout: {"results": [similar]})
     work = paper_scout.resolve_start_work(
         "Urban Heat Island in Hanoi, Vietnam (2021)", None, None, timeout=5
     )
@@ -295,9 +290,7 @@ def test_resolve_start_work_rejects_dissimilar_title(
 ) -> None:
     # 最上位候補が無関係なら採用せず None（起点スキップ）
     unrelated = _work("W8", doi=None, title="Internet of Things revolutionary review")
-    monkeypatch.setattr(
-        paper_scout, "_safe_fetch", lambda url, timeout: {"results": [unrelated]}
-    )
+    monkeypatch.setattr(paper_scout, "_safe_fetch", lambda url, timeout: {"results": [unrelated]})
     work = paper_scout.resolve_start_work(
         "Assessment of Temperature Change in Da Nang City Vietnam", None, None, timeout=5
     )

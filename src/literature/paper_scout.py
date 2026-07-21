@@ -96,8 +96,7 @@ KEYWORD_WEIGHTS: dict[str, float] = {
 
 # キーワード照合用に事前コンパイルした正規表現（単語境界つき）
 _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
-    keyword: re.compile(r"\b" + re.escape(keyword) + r"\b")
-    for keyword in KEYWORD_WEIGHTS
+    keyword: re.compile(r"\b" + re.escape(keyword) + r"\b") for keyword in KEYWORD_WEIGHTS
 }
 
 
@@ -135,9 +134,7 @@ def normalize_doi(value: str | None) -> str | None:
         return None
     text = value.strip().strip("\"'").rstrip(".,;")
     text = re.sub(r"^doi:", "", text, flags=re.IGNORECASE)
-    text = re.sub(
-        r"^https?://(dx\.)?doi\.org/", "", text, flags=re.IGNORECASE
-    )
+    text = re.sub(r"^https?://(dx\.)?doi\.org/", "", text, flags=re.IGNORECASE)
     text = text.strip().lower()
     if re.match(r"^10\.\d{4,9}/\S+$", text):
         return text
@@ -416,9 +413,7 @@ def resolve_start_work(
     return None
 
 
-def fetch_backward(
-    work: dict[str, Any], mailto: str | None, timeout: int
-) -> list[dict[str, Any]]:
+def fetch_backward(work: dict[str, Any], mailto: str | None, timeout: int) -> list[dict[str, Any]]:
     """後方引用（参考文献）の work メタデータを取得する。
 
     Args:
@@ -435,9 +430,7 @@ def fetch_backward(
     for start in range(0, len(short_ids), _ID_BATCH_SIZE):
         batch = short_ids[start : start + _ID_BATCH_SIZE]
         joined = "|".join(batch)
-        url = _build_url(
-            f"filter=openalex_id:{joined}&per-page={_ID_BATCH_SIZE}", mailto
-        )
+        url = _build_url(f"filter=openalex_id:{joined}&per-page={_ID_BATCH_SIZE}", mailto)
         result = _safe_fetch(url, timeout)
         if result:
             collected.extend(result.get("results") or [])
@@ -460,9 +453,7 @@ def fetch_forward(
     collected: list[dict[str, Any]] = []
     cursor = "*"
     while cursor and len(collected) < max_forward:
-        url = _build_url(
-            f"filter=cites:{short_id}&per-page=200&cursor={cursor}", mailto
-        )
+        url = _build_url(f"filter=cites:{short_id}&per-page=200&cursor={cursor}", mailto)
         result = _safe_fetch(url, timeout)
         if not result:
             break
@@ -551,14 +542,22 @@ def scout(
         logger.info("起点 %s を解決（%s）", paper_id, short_id)
         for ref_work in fetch_backward(work, mailto, timeout):
             add_candidate(
-                candidates, ref_work, paper_id, "後方",
-                registered_dois, registered_titles,
+                candidates,
+                ref_work,
+                paper_id,
+                "後方",
+                registered_dois,
+                registered_titles,
             )
         if short_id:
             for citing_work in fetch_forward(short_id, mailto, timeout, max_forward):
                 add_candidate(
-                    candidates, citing_work, paper_id, "前方",
-                    registered_dois, registered_titles,
+                    candidates,
+                    citing_work,
+                    paper_id,
+                    "前方",
+                    registered_dois,
+                    registered_titles,
                 )
     ranked = sorted(
         candidates.values(),
@@ -571,9 +570,7 @@ def scout(
 # ---------------------------------------------------------------------------
 # 出力
 # ---------------------------------------------------------------------------
-def filter_by_min_score(
-    candidates: list[Candidate], min_score: float
-) -> list[Candidate]:
+def filter_by_min_score(candidates: list[Candidate], min_score: float) -> list[Candidate]:
     """スコアが min_score 以上の候補のみを返す（順序は保つ）。
 
     Args:
@@ -591,9 +588,7 @@ def write_candidates_csv(candidates: list[Candidate], output_path: Path) -> None
     """全候補を CSV に書き出す。"""
     with output_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(
-            ["スコア", "タイトル", "年", "掲載誌", "DOI", "経由", "方向", "マッチKW"]
-        )
+        writer.writerow(["スコア", "タイトル", "年", "掲載誌", "DOI", "経由", "方向", "マッチKW"])
         for cand in candidates:
             writer.writerow(
                 [
@@ -628,9 +623,7 @@ def format_table(candidates: list[Candidate], top: int) -> str:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """コマンドライン引数を解釈する。"""
-    parser = argparse.ArgumentParser(
-        description="OpenAlex 引用スノーボーリングによる文献候補探索"
-    )
+    parser = argparse.ArgumentParser(description="OpenAlex 引用スノーボーリングによる文献候補探索")
     parser.add_argument(
         "--csv",
         default="docs/04_archive/01_metadata/papers_database.csv",

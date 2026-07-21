@@ -315,9 +315,9 @@ def _auth_params(mailto: str | None) -> str:
     """
     api_key = os.environ.get("OPENALEX_API_KEY", "").strip()
     if api_key:
-        return f"&api_key={api_key}"
+        return f"&api_key={quote(api_key, safe='')}"
     if mailto:
-        return f"&mailto={mailto}"
+        return f"&mailto={quote(mailto, safe='')}"
     return ""
 
 
@@ -681,7 +681,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _parse_args(argv)
     csv_path = resolve_existing_path(Path(args.csv))
-    s_numbers = [s for s in args.s.split(",")] if args.s else None
+    s_numbers = args.s.split(",") if args.s else None
 
     candidates, skipped = scout(
         csv_path=csv_path,
@@ -710,7 +710,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         output_path = prepare_output_path(Path(args.output))
         write_candidates_csv(filtered, output_path)
-        print(f"\n全候補を書き出しました: {output_path}")
+        print(f"\n候補を書き出しました: {output_path}")
     return 0
 
 

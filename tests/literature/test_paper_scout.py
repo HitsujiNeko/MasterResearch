@@ -96,12 +96,21 @@ def test_auth_params_prefers_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_auth_params_falls_back_to_mailto(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
-    assert paper_scout._auth_params("me@example.com") == "&mailto=me@example.com"
+    # @ は %40 にエンコードされる（サーバ側でデコードされ polite pool として機能）
+    assert paper_scout._auth_params("me@example.com") == "&mailto=me%40example.com"
 
 
 def test_auth_params_empty_when_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
     assert paper_scout._auth_params(None) == ""
+
+
+def test_auth_params_url_encodes_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    # api_key / mailto の特殊文字（+ など）がエンコードされる
+    monkeypatch.setenv("OPENALEX_API_KEY", "a+b/c")
+    assert paper_scout._auth_params(None) == "&api_key=a%2Bb%2Fc"
+    monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+    assert paper_scout._auth_params("me+tag@example.com") == "&mailto=me%2Btag%40example.com"
 
 
 def test_redact_hides_api_key() -> None:
@@ -224,7 +233,7 @@ def test_scout_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
         if "filter=doi:" in url:
             return {"results": [start_work]}
-        if "filter=openalex_id:" in url:
+        if "filter=ids.openalex:" in url:
             return {"results": [backward_work]}
         if "filter=cites:" in url:
             return {"results": [forward_work], "meta": {"next_cursor": None}}

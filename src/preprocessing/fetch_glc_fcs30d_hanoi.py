@@ -699,6 +699,7 @@ def build_summary(
     tile_names: list[str],
     zip_name: str,
     member_name: str,
+    record_id: str,
     roi_path: Path,
     roi_bounds: tuple[float, float, float, float],
     raster_profile: dict[str, Any],
@@ -709,11 +710,16 @@ def build_summary(
 ) -> dict[str, Any]:
     """取得サマリーの辞書を組み立てる。
 
+    版に依存する情報（`dataset_version`・`doi`）は、既定のレコードを使った場合のみ
+    値を入れる。`--record-id` で別のレコードを指定した場合、その版の DOI は
+    分からないため None とし、誤った出典を記録しないようにする。
+
     Args:
         year (int): 取得対象年。
         tile_names (list[str]): 使用したタイル名。
         zip_name (str): 取得元 ZIP ファイル名。
         member_name (str): ZIP 内メンバーパス。
+        record_id (str): 実際に使用した Zenodo のレコード ID。
         roi_path (Path): ROI ファイルパス。
         roi_bounds (tuple[float, float, float, float]): ROI の BBOX。
         raster_profile (dict[str, Any]): 出力ラスタの諸元。
@@ -725,11 +731,13 @@ def build_summary(
     Returns:
         dict[str, Any]: サマリー辞書。
     """
+    is_default_record = record_id == DEFAULT_ZENODO_RECORD_ID
     return {
         "dataset": DATASET_NAME,
-        "dataset_version": DATASET_VERSION,
-        "doi": DATASET_DOI,
-        "source": ZENODO_API_URL_TEMPLATE.format(record_id=DEFAULT_ZENODO_RECORD_ID),
+        "dataset_version": DATASET_VERSION if is_default_record else None,
+        "doi": DATASET_DOI if is_default_record else None,
+        "record_id": record_id,
+        "source": ZENODO_API_URL_TEMPLATE.format(record_id=record_id),
         "license": "CC BY 4.0",
         "license_note": (
             "User Guides の Data Use Policy により、科学論文での利用時は"
@@ -879,6 +887,7 @@ def run(
         tile_names=tile_names,
         zip_name=zip_name,
         member_name=member_name,
+        record_id=record_id,
         roi_path=roi_path,
         roi_bounds=roi_bounds,
         raster_profile=raster_profile,

@@ -249,7 +249,7 @@ class TestBuildSummary:
     """build_summary のテスト。"""
 
     @staticmethod
-    def _build(tmp_path: Any) -> dict[str, Any]:
+    def _build(tmp_path: Any, record_id: str = target.DEFAULT_ZENODO_RECORD_ID) -> dict[str, Any]:
         """テスト用のサマリーを生成する。"""
         raster_profile = {
             "crs": "EPSG:4326",
@@ -268,6 +268,7 @@ class TestBuildSummary:
             tile_names=["E105N25"],
             zip_name="GLC_FCS30D_19852022maps_E100-E105.zip",
             member_name="dir/member.tif",
+            record_id=record_id,
             roi_path=tmp_path / "roi.shp",
             roi_bounds=HANOI_ROI_BOUNDS,
             raster_profile=raster_profile,
@@ -291,6 +292,32 @@ class TestBuildSummary:
 
         assert summary["year"] == 2022
         assert summary["band_index"] == 23
+
+    def test_source_reflects_given_record_id(self, tmp_path: Any) -> None:
+        """既定以外のレコードIDを指定すると、source と record_id がその値を反映する。"""
+        summary = self._build(tmp_path, record_id="8239305")
+
+        assert summary["record_id"] == "8239305"
+        assert summary["source"].endswith("/8239305")
+
+    def test_version_and_doi_are_none_for_non_default_record(self, tmp_path: Any) -> None:
+        """既定以外のレコードでは、版に依存する情報を記録しない。
+
+        別の版のDOIは分からないため、既定値をそのまま書くと誤った出典になる。
+        """
+        summary = self._build(tmp_path, record_id="8239305")
+
+        assert summary["dataset_version"] is None
+        assert summary["doi"] is None
+
+    def test_version_and_doi_are_recorded_for_default_record(self, tmp_path: Any) -> None:
+        """既定のレコードでは、版とDOIを記録する。"""
+        summary = self._build(tmp_path)
+
+        assert summary["record_id"] == target.DEFAULT_ZENODO_RECORD_ID
+        assert summary["dataset_version"] == target.DATASET_VERSION
+        assert summary["doi"] == target.DATASET_DOI
+        assert summary["source"].endswith(f"/{target.DEFAULT_ZENODO_RECORD_ID}")
 
     def test_records_pixel_stats_consistent_with_distribution(self, tmp_path: Any) -> None:
         """pixel_stats がクラス分布の集計と整合する。"""

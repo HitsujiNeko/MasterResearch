@@ -120,7 +120,7 @@
 |---|---|
 | GeoTIFF | `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（Git管理外） |
 | サマリーJSON | `data/output/open_gis/glc_fcs30d_hanoi_2022_summary.json` |
-| QGISスタイル | `QGIS/styles/lulc_glc_fcs30d.qml`（35クラスの公式配色・凡例は日英併記） |
+| QGISスタイル | `qgis/styles/lulc_glc_fcs30d.qml`（35クラスの公式配色・凡例は日英併記） |
 | CRS / 型 | EPSG:4326 / uint8 |
 | サイズ / 解像度 | 2717 × 3046 画素 / 0.00026949458523586°（≒30m） |
 

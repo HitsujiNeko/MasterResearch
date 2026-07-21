@@ -1,0 +1,148 @@
+{
+  "dataset": "GLC_FCS30D",
+  "dataset_version": "v2",
+  "doi": "10.5281/zenodo.15063683",
+  "source": "https://zenodo.org/api/records/15063683",
+  "license": "CC BY 4.0",
+  "license_note": "User Guides の Data Use Policy により、科学論文での利用時は提供者への事前連絡と謝辞・共著の検討が推奨されている。",
+  "retrieved_at": "2026-07-21T11:57:30.925485+00:00",
+  "year": 2022,
+  "year_note": "GLC_FCS30D の年次マップは 2000-2022 年のみ提供される。本研究の Landsat 観測年（2023年前後）とは最大で数年のずれがある。",
+  "band_index": 23,
+  "tiles": [
+    "E105N25"
+  ],
+  "source_zip": "GLC_FCS30D_19852022maps_E100-E105.zip",
+  "source_member": "GLC_FCS30D_19852022maps_E100-E105/GLC_FCS30D_20002022_E105N25_Annual_V1.1.tif",
+  "roi_path": "data\\gis\\boundaries\\hanoi\\hanoi_ROI_EPSG4326.shp",
+  "roi_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "crs": "EPSG:4326",
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "uint8",
+    "width": 2717,
+    "height": 3046,
+    "resolution": [
+      0.00026949458523585663,
+      0.0002694945852358564
+    ],
+    "bounds": {
+      "minx": 105.28808971161713,
+      "miny": 20.564388621603037,
+      "maxx": 106.02030649970295,
+      "maxy": 21.385269128231457
+    },
+    "nodata": 0.0
+  },
+  "pixel_stats": {
+    "total_pixels": 8275982,
+    "roi_pixels": 4015086,
+    "outside_roi_pixels": 4260896,
+    "valid_pixels": 4015086,
+    "filled_pixels": 0,
+    "valid_pixel_ratio": 1.0
+  },
+  "class_distribution": [
+    {
+      "value": 20,
+      "label": "Irrigated cropland",
+      "pixel_count": 2079643,
+      "ratio": 0.5179572741405788
+    },
+    {
+      "value": 190,
+      "label": "Impervious surfaces",
+      "pixel_count": 802422,
+      "ratio": 0.19985175909058983
+    },
+    {
+      "value": 10,
+      "label": "Rainfed cropland",
+      "pixel_count": 552026,
+      "ratio": 0.1374879641432338
+    },
+    {
+      "value": 52,
+      "label": "Closed evergreen broadleaved forest",
+      "pixel_count": 256249,
+      "ratio": 0.06382154703535615
+    },
+    {
+      "value": 210,
+      "label": "Water body",
+      "pixel_count": 220886,
+      "ratio": 0.055014014643771016
+    },
+    {
+      "value": 182,
+      "label": "Marsh",
+      "pixel_count": 44239,
+      "ratio": 0.011018194878017556
+    },
+    {
+      "value": 183,
+      "label": "Flooded flat",
+      "pixel_count": 26543,
+      "ratio": 0.006610817302543457
+    },
+    {
+      "value": 72,
+      "label": "Closed evergreen needle-leaved forest",
+      "pixel_count": 11542,
+      "ratio": 0.00287465822649876
+    },
+    {
+      "value": 130,
+      "label": "Grassland",
+      "pixel_count": 9099,
+      "ratio": 0.0022662030153276914
+    },
+    {
+      "value": 120,
+      "label": "Shrubland",
+      "pixel_count": 5867,
+      "ratio": 0.0014612389373477928
+    },
+    {
+      "value": 121,
+      "label": "Evergreen shrubland",
+      "pixel_count": 5007,
+      "ratio": 0.0012470467631328444
+    },
+    {
+      "value": 11,
+      "label": "Herbaceous cover cropland",
+      "pixel_count": 759,
+      "ratio": 0.00018903704677807647
+    },
+    {
+      "value": 62,
+      "label": "Closed deciduous broadleaved forest",
+      "pixel_count": 511,
+      "ratio": 0.00012727000119051
+    },
+    {
+      "value": 181,
+      "label": "Swamp",
+      "pixel_count": 247,
+      "ratio": 6.151798491987469e-05
+    },
+    {
+      "value": 51,
+      "label": "Open evergreen broadleaved forest",
+      "pixel_count": 46,
+      "ratio": 1.1456790713822818e-05
+    }
+  ],
+  "unknown_class_values": [],
+  "coverage_note": "ROI ポリゴンで真にクリップしているため、出力は ROI の BBOX 矩形となり、ROI 外の余白は nodata（0）で埋まる。有効カバレッジは ROI 内のみで評価し、valid_pixel_ratio の分母は roi_pixels（ROI 内画素数）である。ROI 内の無効値（Filled value 0/250）は filled_pixels として別に集計する。",
+  "outputs": {
+    "geotiff": "data\\gis\\lulc\\glc_fcs30d\\glc_fcs30d_hanoi_2022.tif",
+    "summary": "data\\output\\open_gis\\glc_fcs30d_hanoi_2022_summary.json"
+  }
+}

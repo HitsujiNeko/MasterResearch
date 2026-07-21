@@ -26,6 +26,8 @@ from __future__ import annotations
 import argparse
 import io
 import logging
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
@@ -110,6 +112,8 @@ CLASS_LABELS: dict[int, str] = {
 
 REQUEST_TIMEOUT_SECONDS = 300
 DOWNLOAD_CHUNK_BYTES = 8 * 1024 * 1024
+MAX_RETRY_COUNT = 3
+RETRY_WAIT_SECONDS = 10
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -133,6 +137,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--year",
         type=int,
+        choices=range(ANNUAL_FIRST_YEAR, ANNUAL_LAST_YEAR + 1),
+        metavar=f"{{{ANNUAL_FIRST_YEAR}..{ANNUAL_LAST_YEAR}}}",
         default=DEFAULT_YEAR,
         help=f"取得対象年（{ANNUAL_FIRST_YEAR}-{ANNUAL_LAST_YEAR}）。デフォルト {DEFAULT_YEAR}。",
     )
@@ -174,30 +180,48 @@ class HttpRangeReader(io.RawIOBase):
     中央ディレクトリと必要なメンバーだけを読み取れる。
     """
 
-    def __init__(self, url: str, timeout: int = REQUEST_TIMEOUT_SECONDS) -> None:
-        """リモートファイルのサイズを取得して初期化する。
+    def __init__(
+        self,
+        url: str,
+        timeout: int = REQUEST_TIMEOUT_SECONDS,
+        max_retry_count: int = MAX_RETRY_COUNT,
+        retry_wait_seconds: int = RETRY_WAIT_SECONDS,
+    ) -> None:
+        """リモートファイルのサイズと Range 対応可否を確認して初期化する。
+
+        Range 非対応のサーバーは、長時間のダウンロードに入る前に検出して失敗させる。
 
         Args:
             url (str): 対象ファイルの URL。
             timeout (int): タイムアウト秒数。
+            max_retry_count (int): 読み取り失敗時の最大リトライ回数。
+            retry_wait_seconds (int): リトライ待機秒数の起点。
 
         Raises:
             ValueError: url が http/https 以外のスキームの場合。
-            RuntimeError: サーバーが Range リクエストに対応していない場合。
+            RuntimeError: Content-Length を取得できない場合、または
+                サーバーが Range リクエストに対応していない場合。
         """
         if not url.startswith(("http://", "https://")):
             raise ValueError(f"許可されていない URL スキームです: {url}")
 
         self.url = url
         self.timeout = timeout
+        self.max_retry_count = max_retry_count
+        self.retry_wait_seconds = retry_wait_seconds
         self._position = 0
         self.request_count = 0
 
         request = urllib.request.Request(url, method="HEAD")
         with urllib.request.urlopen(request, timeout=timeout) as response:
             content_length = response.headers.get("Content-Length")
+            accept_ranges = (response.headers.get("Accept-Ranges") or "").lower()
         if content_length is None:
             raise RuntimeError(f"Content-Length を取得できませんでした: {url}")
+        # Zenodo は HEAD で Accept-Ranges を返さない（Range 付き GET には 206 を返す）ため、
+        # 「bytes を名乗ること」ではなく「none と明示的に拒否していないこと」を条件にする。
+        if accept_ranges == "none":
+            raise RuntimeError(f"サーバーが Range リクエストに対応していません: {url}")
         self.size = int(content_length)
 
     def seekable(self) -> bool:
@@ -237,6 +261,10 @@ class HttpRangeReader(io.RawIOBase):
     def read(self, size: int = -1) -> bytes:
         """現在位置から指定バイト数を Range リクエストで読み取る。
 
+        約200MBの取得では数十回のリクエストを数分〜十数分かけて行うため、
+        一過性の接続エラーで全体が失敗しないようリトライする。読み取り位置は
+        リクエスト前に進めないので、同じ範囲を安全に再取得できる。
+
         Args:
             size (int): 読み取るバイト数。負値または None の場合は末尾まで。
 
@@ -244,7 +272,8 @@ class HttpRangeReader(io.RawIOBase):
             bytes: 読み取ったバイト列。
 
         Raises:
-            RuntimeError: サーバーが部分応答（206）を返さない場合。
+            RuntimeError: サーバーが部分応答（206）を返さない場合、または
+                リトライ上限を超えても読み取れない場合。
         """
         if size is None or size < 0:
             size = self.size - self._position
@@ -256,17 +285,39 @@ class HttpRangeReader(io.RawIOBase):
             self.url,
             headers={"Range": f"bytes={self._position}-{end_position}"},
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
-            if response.status != 206:
-                raise RuntimeError(
-                    f"サーバーが Range リクエストに対応していません（status={response.status}）: "
-                    f"{self.url}"
-                )
-            data = response.read()
 
-        self.request_count += 1
-        self._position += len(data)
-        return data
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_retry_count + 2):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    if response.status != 206:
+                        raise RuntimeError(
+                            "サーバーが Range リクエストに対応していません"
+                            f"（status={response.status}）: {self.url}"
+                        )
+                    data = response.read()
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                last_error = error
+                if attempt > self.max_retry_count:
+                    break
+                logger.warning(
+                    "Range 取得に失敗しました（試行 %d/%d、範囲 %d-%d）: %s",
+                    attempt,
+                    self.max_retry_count,
+                    self._position,
+                    end_position,
+                    error,
+                )
+                time.sleep(self.retry_wait_seconds)
+                continue
+
+            self.request_count += 1
+            self._position += len(data)
+            return data
+
+        raise RuntimeError(
+            f"Range 取得が{self.max_retry_count}回リトライしても失敗しました: {last_error}"
+        ) from last_error
 
     def readall(self) -> bytes:
         """現在位置から末尾まで読み取る。"""
@@ -524,16 +575,23 @@ def extract_tile_member(
         # 途中で失敗した場合に不完全なキャッシュを残さないよう一時ファイルへ書く
         temporary_path = cache_path.with_suffix(cache_path.suffix + ".part")
         written_bytes = 0
-        with zip_file.open(member_name) as member_stream, temporary_path.open("wb") as output_file:
-            while chunk := member_stream.read(DOWNLOAD_CHUNK_BYTES):
-                output_file.write(chunk)
-                written_bytes += len(chunk)
-                logger.info(
-                    "  ダウンロード中: %.1f / %.1f MB",
-                    written_bytes / 1e6,
-                    member_info.file_size / 1e6,
-                )
-        temporary_path.replace(cache_path)
+        try:
+            with (
+                zip_file.open(member_name) as member_stream,
+                temporary_path.open("wb") as output_file,
+            ):
+                while chunk := member_stream.read(DOWNLOAD_CHUNK_BYTES):
+                    output_file.write(chunk)
+                    written_bytes += len(chunk)
+                    logger.info(
+                        "  ダウンロード中: %.1f / %.1f MB",
+                        written_bytes / 1e6,
+                        member_info.file_size / 1e6,
+                    )
+            temporary_path.replace(cache_path)
+        finally:
+            # 失敗時に中途半端な .part を残さない（成功時は replace 済みで存在しない）
+            temporary_path.unlink(missing_ok=True)
 
     logger.info("タイルを保存しました: %s", cache_path)
     return cache_path
@@ -832,11 +890,13 @@ def run(
     resolved_output_path, resolved_summary_path = resolve_output_paths(
         year=year, output_path=output_path, summary_path=summary_path
     )
-    if resolved_output_path.exists() and not overwrite:
-        raise FileExistsError(
-            f"出力ファイルが既に存在します: {resolved_output_path}。"
-            "上書きする場合は --overwrite を指定してください。"
-        )
+    # GeoTIFF とサマリーJSONは対で更新するため、どちらか一方でも既存なら止める
+    for existing_path in (resolved_output_path, resolved_summary_path):
+        if existing_path.exists() and not overwrite:
+            raise FileExistsError(
+                f"出力ファイルが既に存在します: {existing_path}。"
+                "上書きする場合は --overwrite を指定してください。"
+            )
 
     roi_gdf, _ = load_roi_geometry(roi_path)
     roi_bounds = tuple(float(value) for value in roi_gdf.total_bounds)
@@ -854,7 +914,9 @@ def run(
     member_name = member_name_for_tile(zip_name, tile_name)
 
     download_url = resolve_zip_download_url(record_id=record_id, zip_name=zip_name)
-    cache_path = cache_dir / f"{DATASET_NAME}_20002022_{tile_name}_Annual_V1.1.tif"
+    # レコードIDを階層に含める。別レコードを指定したときに、前のレコードのタイルが
+    # 黙って再利用されると、サマリーに記録する取得元と実データが食い違うため。
+    cache_path = cache_dir / record_id / f"{DATASET_NAME}_20002022_{tile_name}_Annual_V1.1.tif"
     tile_path = extract_tile_member(
         download_url=download_url, member_name=member_name, cache_path=cache_path
     )
@@ -905,6 +967,13 @@ def run(
         class_distribution["roi_pixels"],
         class_distribution["total_pixels"],
     )
+    if class_distribution["unknown_class_values"]:
+        # 分類体系にない値は、バンド指定の誤りなど読み違いの一次シグナルになる
+        logger.warning(
+            "分類体系（35クラス）にないクラス値を検出しました: %s。"
+            "バンド指定や取得元データを確認してください。",
+            class_distribution["unknown_class_values"],
+        )
     for class_entry in class_distribution["classes"][:10]:
         logger.info(
             "  %3d %-40s %10d 画素 (%.2f%%)",

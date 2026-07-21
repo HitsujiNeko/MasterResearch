@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import io
+import urllib.error
 from pathlib import Path
 from typing import Any
 
@@ -249,7 +251,7 @@ class TestBuildSummary:
     """build_summary のテスト。"""
 
     @staticmethod
-    def _build(tmp_path: Any, record_id: str = target.DEFAULT_ZENODO_RECORD_ID) -> dict[str, Any]:
+    def _build(tmp_path: Path, record_id: str = target.DEFAULT_ZENODO_RECORD_ID) -> dict[str, Any]:
         """テスト用のサマリーを生成する。"""
         raster_profile = {
             "crs": "EPSG:4326",
@@ -278,7 +280,7 @@ class TestBuildSummary:
             retrieved_at="2026-07-21T00:00:00+00:00",
         )
 
-    def test_contains_required_keys(self, tmp_path: Any) -> None:
+    def test_contains_required_keys(self, tmp_path: Path) -> None:
         """サマリーJSONの標準項目が揃う。"""
         summary = self._build(tmp_path)
 
@@ -286,21 +288,21 @@ class TestBuildSummary:
             assert key in summary
         assert summary["outputs"].keys() == {"geotiff", "summary"}
 
-    def test_records_year_and_band_index(self, tmp_path: Any) -> None:
+    def test_records_year_and_band_index(self, tmp_path: Path) -> None:
         """対象年と対応するバンド番号を記録する。"""
         summary = self._build(tmp_path)
 
         assert summary["year"] == 2022
         assert summary["band_index"] == 23
 
-    def test_source_reflects_given_record_id(self, tmp_path: Any) -> None:
+    def test_source_reflects_given_record_id(self, tmp_path: Path) -> None:
         """既定以外のレコードIDを指定すると、source と record_id がその値を反映する。"""
         summary = self._build(tmp_path, record_id="8239305")
 
         assert summary["record_id"] == "8239305"
         assert summary["source"].endswith("/8239305")
 
-    def test_version_and_doi_are_none_for_non_default_record(self, tmp_path: Any) -> None:
+    def test_version_and_doi_are_none_for_non_default_record(self, tmp_path: Path) -> None:
         """既定以外のレコードでは、版に依存する情報を記録しない。
 
         別の版のDOIは分からないため、既定値をそのまま書くと誤った出典になる。
@@ -310,7 +312,7 @@ class TestBuildSummary:
         assert summary["dataset_version"] is None
         assert summary["doi"] is None
 
-    def test_version_and_doi_are_recorded_for_default_record(self, tmp_path: Any) -> None:
+    def test_version_and_doi_are_recorded_for_default_record(self, tmp_path: Path) -> None:
         """既定のレコードでは、版とDOIを記録する。"""
         summary = self._build(tmp_path)
 
@@ -319,13 +321,181 @@ class TestBuildSummary:
         assert summary["doi"] == target.DATASET_DOI
         assert summary["source"].endswith(f"/{target.DEFAULT_ZENODO_RECORD_ID}")
 
-    def test_records_pixel_stats_consistent_with_distribution(self, tmp_path: Any) -> None:
+    def test_records_pixel_stats_consistent_with_distribution(self, tmp_path: Path) -> None:
         """pixel_stats がクラス分布の集計と整合する。"""
         summary = self._build(tmp_path)
 
         assert summary["pixel_stats"]["total_pixels"] == 3
         assert summary["pixel_stats"]["valid_pixels"] == 2
         assert summary["pixel_stats"]["filled_pixels"] == 1
+
+
+class FakeHttpResponse:
+    """`urllib.request.urlopen` の戻り値を模したテスト用オブジェクト。"""
+
+    def __init__(self, status: int, headers: dict[str, str], body: bytes = b"") -> None:
+        """応答の状態・ヘッダ・本文を保持する。"""
+        self.status = status
+        self.headers = headers
+        self._body = body
+
+    def read(self) -> bytes:
+        """本文を返す。"""
+        return self._body
+
+    def __enter__(self) -> FakeHttpResponse:
+        """コンテキストマネージャとして自身を返す。"""
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """後処理は不要。"""
+        return None
+
+
+class TestHttpRangeReader:
+    """HttpRangeReader のテスト（ネットワークはモックする）。"""
+
+    CONTENT = bytes(range(256)) * 4  # 1024 バイトのテストデータ
+
+    def _install_fake_urlopen(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        head_headers: dict[str, str] | None = None,
+        range_status: int = 206,
+        fail_times: int = 0,
+    ) -> dict[str, int]:
+        """HEAD と Range GET に応答する urlopen の差し替えを仕込む。
+
+        Args:
+            monkeypatch: pytest の monkeypatch フィクスチャ。
+            head_headers: HEAD 応答のヘッダ。
+            range_status: Range GET で返す HTTP ステータス。
+            fail_times: Range GET を先頭から何回失敗させるか。
+
+        Returns:
+            呼び出し回数を記録する辞書（キー: head / get / failed）。
+        """
+        counters = {"head": 0, "get": 0, "failed": 0}
+        headers = (
+            head_headers
+            if head_headers is not None
+            else {"Content-Length": str(len(self.CONTENT)), "Accept-Ranges": "bytes"}
+        )
+
+        def fake_urlopen(request: Any, timeout: int = 0) -> FakeHttpResponse:
+            if request.get_method() == "HEAD":
+                counters["head"] += 1
+                return FakeHttpResponse(200, headers)
+
+            counters["get"] += 1
+            if counters["failed"] < fail_times:
+                counters["failed"] += 1
+                raise urllib.error.URLError("一時的な接続エラー")
+
+            range_header = request.headers.get("Range")
+            start, end = (int(part) for part in range_header.removeprefix("bytes=").split("-"))
+            return FakeHttpResponse(range_status, headers, self.CONTENT[start : end + 1])
+
+        monkeypatch.setattr(target.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(target.time, "sleep", lambda seconds: None)
+        return counters
+
+    def test_rejects_non_http_scheme(self) -> None:
+        """http/https 以外のURLスキームは ValueError になる。"""
+        with pytest.raises(ValueError, match="URL スキーム"):
+            target.HttpRangeReader("file:///etc/passwd")
+
+    def test_raises_when_content_length_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Content-Length が得られない場合は RuntimeError になる。"""
+        self._install_fake_urlopen(monkeypatch, head_headers={})
+
+        with pytest.raises(RuntimeError, match="Content-Length"):
+            target.HttpRangeReader("https://example.invalid/a.zip")
+
+    def test_raises_when_server_denies_ranges(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Accept-Ranges: none のサーバーは、長時間の取得に入る前に弾く。"""
+        self._install_fake_urlopen(
+            monkeypatch,
+            head_headers={"Content-Length": "1024", "Accept-Ranges": "none"},
+        )
+
+        with pytest.raises(RuntimeError, match="Range リクエストに対応していません"):
+            target.HttpRangeReader("https://example.invalid/a.zip")
+
+    def test_accepts_server_without_accept_ranges_header(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Accept-Ranges を返さないサーバー（Zenodo等）は拒否しない。"""
+        self._install_fake_urlopen(monkeypatch, head_headers={"Content-Length": "1024"})
+
+        reader = target.HttpRangeReader("https://example.invalid/a.zip")
+
+        assert reader.size == 1024
+
+    def test_reads_requested_range(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """指定バイト数を現在位置から読み取る。"""
+        self._install_fake_urlopen(monkeypatch)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip")
+
+        assert reader.read(10) == self.CONTENT[:10]
+        assert reader.tell() == 10
+        assert reader.read(5) == self.CONTENT[10:15]
+
+    def test_seek_from_end_reads_tail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """末尾基準のシークで終端を読める（ZIP中央ディレクトリ探索に相当）。"""
+        self._install_fake_urlopen(monkeypatch)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip")
+
+        reader.seek(-100, io.SEEK_END)
+
+        assert reader.tell() == len(self.CONTENT) - 100
+        assert reader.read(100) == self.CONTENT[-100:]
+
+    def test_seek_is_clamped_to_file_range(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """範囲外へのシークはファイル内に丸められる。"""
+        self._install_fake_urlopen(monkeypatch)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip")
+
+        assert reader.seek(-10) == 0
+        assert reader.seek(99999) == len(self.CONTENT)
+        assert reader.read(10) == b""
+
+    def test_read_negative_size_reads_to_end(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """負のサイズ指定は末尾まで読み取る。"""
+        self._install_fake_urlopen(monkeypatch)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip")
+        reader.seek(1000)
+
+        assert reader.read(-1) == self.CONTENT[1000:]
+
+    def test_retries_transient_error_then_succeeds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """一過性の接続エラーはリトライして回復する（同じ範囲を再取得する）。"""
+        counters = self._install_fake_urlopen(monkeypatch, fail_times=2)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip", retry_wait_seconds=0)
+
+        data = reader.read(10)
+
+        assert data == self.CONTENT[:10]
+        assert counters["failed"] == 2
+        assert reader.tell() == 10
+
+    def test_raises_after_retry_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """リトライ上限を超えた場合は RuntimeError になる。"""
+        self._install_fake_urlopen(monkeypatch, fail_times=99)
+        reader = target.HttpRangeReader(
+            "https://example.invalid/a.zip", max_retry_count=2, retry_wait_seconds=0
+        )
+
+        with pytest.raises(RuntimeError, match="リトライ"):
+            reader.read(10)
+
+    def test_raises_when_response_is_not_partial(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """206 以外の応答はリトライせず即座に失敗する。"""
+        self._install_fake_urlopen(monkeypatch, range_status=200)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip", retry_wait_seconds=0)
+
+        with pytest.raises(RuntimeError, match="Range リクエストに対応していません"):
+            reader.read(10)
 
 
 class TestClipBandToRoi:
@@ -442,6 +612,83 @@ class TestResolveZipDownloadUrl:
             target.resolve_zip_download_url(record_id="1", zip_name="missing.zip")
 
 
+class TestRunGuards:
+    """run() の事前チェック分岐のテスト（ネットワークには到達しない）。"""
+
+    @staticmethod
+    def _roi_path(tmp_path: Path) -> Path:
+        """単一タイルに収まる ROI（Hanoi 相当）を書き出す。"""
+        roi_path = tmp_path / "roi.shp"
+        gpd.GeoDataFrame(
+            geometry=[box(*HANOI_ROI_BOUNDS)],
+            crs="EPSG:4326",
+        ).to_file(roi_path)
+        return roi_path
+
+    def test_raises_when_geotiff_exists_without_overwrite(self, tmp_path: Path) -> None:
+        """出力 GeoTIFF が既存で --overwrite なしなら FileExistsError になる。"""
+        output_path = tmp_path / "out.tif"
+        output_path.write_bytes(b"")
+
+        with pytest.raises(FileExistsError, match="out.tif"):
+            target.run(
+                roi_path=self._roi_path(tmp_path),
+                year=2022,
+                output_path=output_path,
+                summary_path=tmp_path / "out.json",
+                cache_dir=tmp_path / "cache",
+                record_id="1",
+                overwrite=False,
+            )
+
+    def test_raises_when_summary_exists_without_overwrite(self, tmp_path: Path) -> None:
+        """サマリーJSONだけが既存の場合も、上書きせずに止まる。"""
+        summary_path = tmp_path / "out.json"
+        summary_path.write_text("{}", encoding="utf-8")
+
+        with pytest.raises(FileExistsError, match="out.json"):
+            target.run(
+                roi_path=self._roi_path(tmp_path),
+                year=2022,
+                output_path=tmp_path / "out.tif",
+                summary_path=summary_path,
+                cache_dir=tmp_path / "cache",
+                record_id="1",
+                overwrite=False,
+            )
+
+    def test_raises_for_year_outside_dataset_range(self, tmp_path: Path) -> None:
+        """データセットが提供しない年は、取得に入る前に ValueError になる。"""
+        with pytest.raises(ValueError, match="年次マップ"):
+            target.run(
+                roi_path=self._roi_path(tmp_path),
+                year=2023,
+                output_path=tmp_path / "out.tif",
+                summary_path=tmp_path / "out.json",
+                cache_dir=tmp_path / "cache",
+                record_id="1",
+                overwrite=False,
+            )
+
+    def test_raises_when_roi_spans_multiple_tiles(self, tmp_path: Path) -> None:
+        """ROI が複数タイルにまたがる場合は NotImplementedError になる。"""
+        roi_path = tmp_path / "wide_roi.shp"
+        gpd.GeoDataFrame(geometry=[box(104.5, 19.5, 106.5, 21.0)], crs="EPSG:4326").to_file(
+            roi_path
+        )
+
+        with pytest.raises(NotImplementedError, match="複数タイル"):
+            target.run(
+                roi_path=roi_path,
+                year=2022,
+                output_path=tmp_path / "out.tif",
+                summary_path=tmp_path / "out.json",
+                cache_dir=tmp_path / "cache",
+                record_id="1",
+                overwrite=False,
+            )
+
+
 class TestResolveOutputPaths:
     """resolve_output_paths のテスト。"""
 
@@ -452,7 +699,7 @@ class TestResolveOutputPaths:
         assert output_path.name == "glc_fcs30d_hanoi_2022.tif"
         assert summary_path.name == "glc_fcs30d_hanoi_2022_summary.json"
 
-    def test_explicit_paths_take_precedence(self, tmp_path: Any) -> None:
+    def test_explicit_paths_take_precedence(self, tmp_path: Path) -> None:
         """明示指定したパスが優先される。"""
         output_path, summary_path = target.resolve_output_paths(
             2022, tmp_path / "a.tif", tmp_path / "b.json"

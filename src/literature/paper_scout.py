@@ -29,6 +29,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from src.common.http_fetch import fetch_json_with_retry
 from src.common.paths import prepare_output_path, resolve_existing_path
@@ -383,7 +384,7 @@ def resolve_start_work(
         logger.info("DOI で解決できませんでした（タイトル検索へ）: %s", doi)
     if not title:
         return None
-    quoted = title.replace(" ", "%20")
+    quoted = quote(title)
     url = _build_url(f"search={quoted}&per-page=5", mailto, select=_SELECT_START)
     result = _safe_fetch(url, timeout)
     works = (result or {}).get("results") or []
@@ -430,7 +431,7 @@ def fetch_backward(work: dict[str, Any], mailto: str | None, timeout: int) -> li
     for start in range(0, len(short_ids), _ID_BATCH_SIZE):
         batch = short_ids[start : start + _ID_BATCH_SIZE]
         joined = "|".join(batch)
-        url = _build_url(f"filter=openalex_id:{joined}&per-page={_ID_BATCH_SIZE}", mailto)
+        url = _build_url(f"filter=ids.openalex:{joined}&per-page={_ID_BATCH_SIZE}", mailto)
         result = _safe_fetch(url, timeout)
         if result:
             collected.extend(result.get("results") or [])
@@ -586,7 +587,8 @@ def filter_by_min_score(candidates: list[Candidate], min_score: float) -> list[C
 
 def write_candidates_csv(candidates: list[Candidate], output_path: Path) -> None:
     """全候補を CSV に書き出す。"""
-    with output_path.open("w", encoding="utf-8", newline="") as handle:
+    # utf-8-sig（BOM 付き）で書き出し、Windows 版 Excel での日本語文字化けを防ぐ
+    with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["スコア", "タイトル", "年", "掲載誌", "DOI", "経由", "方向", "マッチKW"])
         for cand in candidates:
@@ -612,9 +614,12 @@ def format_table(candidates: list[Candidate], top: int) -> str:
     ]
     for index, cand in enumerate(candidates[:top], start=1):
         title = cand.title if len(cand.title) <= 80 else cand.title[:77] + "..."
+        # セル内の | は表の区切りと衝突するためエスケープする
+        title = title.replace("|", "\\|")
+        venue = (cand.venue or "").replace("|", "\\|")
         lines.append(
             f"| {index} | {cand.score:.1f} | {title} | {cand.year or ''} | "
-            f"{cand.venue or ''} | {cand.doi or ''} | "
+            f"{venue} | {cand.doi or ''} | "
             f"{';'.join(sorted(cand.via_papers))} | "
             f"{';'.join(sorted(cand.directions))} |"
         )

@@ -332,6 +332,54 @@ def test_filter_by_min_score_zero_returns_all() -> None:
     assert paper_scout.filter_by_min_score(cands, 0.0) == cands
 
 
+def test_fetch_backward_uses_documented_filter_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 後方引用取得の URL は文書化された filter=ids.openalex を使う
+    captured: list[str] = []
+
+    def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:
+        captured.append(url)
+        return {"results": []}
+
+    monkeypatch.setattr(paper_scout, "_safe_fetch", fake_safe_fetch)
+    work = {"referenced_works": ["https://openalex.org/W1", "https://openalex.org/W2"]}
+    paper_scout.fetch_backward(work, None, timeout=5)
+    assert captured
+    assert "filter=ids.openalex:W1|W2" in captured[0]
+
+
+def test_resolve_start_work_encodes_special_chars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # タイトルの & や # がクエリを壊さないよう URL エンコードされる
+    captured: list[str] = []
+
+    def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:
+        captured.append(url)
+        return {"results": []}
+
+    monkeypatch.setattr(paper_scout, "_safe_fetch", fake_safe_fetch)
+    paper_scout.resolve_start_work("Heat & Cities #1", None, None, timeout=5)
+    assert captured
+    # 生の & / # がタイトル由来でクエリに現れない（%26 / %23 にエンコード）
+    assert "search=Heat%20%26%20Cities%20%231" in captured[0]
+
+
+def test_format_table_escapes_pipe() -> None:
+    cand = paper_scout.Candidate(
+        openalex_id="W1",
+        title="A|B study",
+        year=2021,
+        venue="J|X",
+        doi="10.1/x",
+        score=10.0,
+    )
+    table = paper_scout.format_table([cand], top=5)
+    assert "A\\|B study" in table
+    assert "J\\|X" in table
+
+
 def test_fetch_forward_paginates(monkeypatch: pytest.MonkeyPatch) -> None:
     pages = [
         {"results": [_work("W1")], "meta": {"next_cursor": "c2"}},

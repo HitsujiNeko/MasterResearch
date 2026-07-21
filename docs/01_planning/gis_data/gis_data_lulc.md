@@ -1,6 +1,6 @@
 # 土地利用データ（LULC）の調査・評価
 
-**最終更新**: 2026-07-05  
+**最終更新**: 2026-07-21  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義（NDVI/NDBI等の衛星由来指標との違い）
 
@@ -10,7 +10,7 @@
 
 本研究では都市構造パラメータとしてNDVI（植生量）・NDBI（市街化）といった衛星由来指標を既に算出しているが、これらは連続値の指標であり、「土地利用の分類（住宅地・商業地・農地・緑地等のカテゴリ）」そのものは表現できない。本資料では、Landsat由来指標を補完する**分類済み土地利用/土地被覆（LULC）データ**のオープンソース候補を調査する。
 
-Hanoi ROIでの実データ取得・採用可否は未判断（[task-workflow](../../../.github/task-workflow.md)の運用に従い、必要に応じて取得スクリプト作成タスクを起票する）。
+主候補の`GLC_FCS30D`はHanoi ROIでの実データ取得・確認を完了している（Section 5）。比較候補（`Dynamic World` / `Esri Sentinel-2 10m LULC`）の取得とクラス体系の対応関係の確認は未実施。
 
 ---
 
@@ -98,26 +98,96 @@ Hanoi ROIでの実データ取得・採用可否は未判断（[task-workflow](.
 - **副候補（時間解像度が必要な場合）**: `Dynamic World`（Landsat観測日に近いSentinel-2シーンから取得、準リアルタイム）または`Esri Sentinel-2 10m LULC`（年次コンポジットで扱いやすい）。いずれも10mのためGLC_FCS30Dとのクロスチェック用に位置づける。
 - **参考データ**: `ESA WorldCover`（静的だが分類が安定、妥当性確認用）。`OSM landuse`は面的な網羅性が未確認のため、特定施設の位置確認等の補助用途に留める。
 - **不採用**: `Copernicus Global Land Cover`（解像度100mが粗すぎる）、`GlobeLand30`（アクセス手段がスクリプト化困難でライセンスも不明瞭）。
-- `GLC_FCS30D` / `Dynamic World` / `Esri Sentinel-2 10m LULC` はいずれもPythonスクリプト経由で取得可能なため、**取得スクリプト作成タスクとして別Issueを起票**する（本資料の完成後、優先度をユーザーに確認の上で起票）。
+- `GLC_FCS30D` の取得スクリプトは作成済みで、Hanoi ROIでのデータ取得・確認も完了している（Section 5）。`Dynamic World` / `Esri Sentinel-2 10m LULC` の取得とクラス体系の対応関係の確認は、別タスクとして切り出す。
 
 ---
 
-## 5. 注意点
+## 5. Hanoi ROIでの取得結果（GLC_FCS30D）
+
+**取得日**: 2026-07-21 / **取得スクリプト**: `src/preprocessing/fetch_glc_fcs30d_hanoi.py`
+
+### 5.1 取得元と取得方法
+
+- **使用レコード**: Zenodo **v2**（DOI: 10.5281/zenodo.15063683、2025-03-21公開）。本資料 Section 3.3 に記載の DOI 10.5281/zenodo.8239305 は初版であり、Zenodo API で `is_last: false` を確認した。収録内容（36 ZIP）は同一だがファイルサイズが異なる
+- **配布構造**: 経度10度帯ごとの36 ZIP。ZIP内のタイルは**5度四方で、タイル名は左上隅の座標**を表す（実測により確認: `E105N20` の bounds は経度105–110・緯度15–20）
+- **使用タイル**: `E105N25`（経度105–110・緯度20–25）。Hanoi ROI（105.288–106.020°E, 20.564–21.385°N）は**このタイル1枚に完全に収まる**
+- **取得量の削減**: 対象 ZIP は約6.39GBあるが、Zenodo が HTTP Range（206応答）に対応するため、ZIP の中央ディレクトリのみを読んで**対象メンバー（約197MB）だけを取り出す**方式とした。GDAL の `/vsizip//vsicurl/` は Zenodo の配信URLが拡張子を持たないため利用できない
+- **対象年**: 2022年（年次版の最新年）。年次版は23バンドで、バンド1から順に2000〜2022年に対応する。**2023年以降のマップは存在しない**ため、本研究の Landsat 観測年（2023年前後）とは最大で数年のずれがある
+
+### 5.2 出力
+
+| 項目 | 内容 |
+|---|---|
+| GeoTIFF | `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（Git管理外） |
+| サマリーJSON | `data/output/open_gis/glc_fcs30d_hanoi_2022_summary.json` |
+| QGISスタイル | `qgis/styles/lulc_glc_fcs30d.qml`（35クラスの公式配色・凡例は日英併記） |
+| CRS / 型 | EPSG:4326 / uint8 |
+| サイズ / 解像度 | 2717 × 3046 画素 / 0.00026949458523586°（≒30m） |
+
+### 5.3 カバレッジ
+
+| 指標 | 値 |
+|---|---|
+| ROI内画素数 | 4,015,086 |
+| ROI内の有効画素数 | 4,015,086 |
+| ROI内の無効値（Filled value: 0・250） | **0** |
+| **ROI内の有効画素率** | **1.0000（欠測なし）** |
+
+ROIポリゴンでクリップした出力は ROI の BBOX 矩形（8,275,982画素）となり、ROI外の余白（4,260,896画素）は nodata で埋まる。**この余白は欠測ではない**ため、有効カバレッジは ROI 内のみで評価している（余白を含めて計算すると有効画素率は約48.5%となり、実態を大きく誤る）。
+
+### 5.4 クラス分布（2022年・ROI内）
+
+| クラスID | クラス名 | 画素数 | 割合 |
+|---|---|---|---|
+| 20 | 灌漑農地（Irrigated cropland） | 2,079,643 | 51.80% |
+| 190 | 不透水面（Impervious surfaces） | 802,422 | 19.99% |
+| 10 | 天水農地（Rainfed cropland） | 552,026 | 13.75% |
+| 52 | 常緑広葉樹林・密（Closed evergreen broadleaved forest） | 256,249 | 6.38% |
+| 210 | 水域（Water body） | 220,886 | 5.50% |
+| 182 | 湿原（Marsh） | 44,239 | 1.10% |
+| 183 | 冠水低地（Flooded flat） | 26,543 | 0.66% |
+| 72 | 常緑針葉樹林・密（Closed evergreen needle-leaved forest） | 11,542 | 0.29% |
+| 130 | 草地（Grassland） | 9,099 | 0.23% |
+| 120 | 低木林（Shrubland） | 5,867 | 0.15% |
+| 121 | 常緑低木林（Evergreen shrubland） | 5,007 | 0.12% |
+| 11 | 草本被覆農地（Herbaceous cover cropland） | 759 | 0.02% |
+| 62 | 落葉広葉樹林・密（Closed deciduous broadleaved forest） | 511 | 0.01% |
+| 181 | 沼沢（Swamp） | 247 | 0.01% |
+| 51 | 常緑広葉樹林・疎（Open evergreen broadleaved forest） | 46 | 0.00% |
+
+出現クラスは15種で、すべて User Guides の35クラス体系に含まれる（体系外の値は検出されなかった）。クラス名の**「疎/密」は原語の Open/Closed の訳**であり、植被率（fc）の閾値に対応する（**疎: 0.15 < fc < 0.4、密: fc > 0.4**）。
+
+### 5.5 検証結果
+
+- **バンドと年の対応**: 実データで検証済み。不透水面が13.67%（バンド1）→20.68%（バンド19）と単調増加し、灌漑農地が57.97%→51.68%と単調減少した。ハノイの都市化の傾向と整合し、**バンド1 = 2000年**が正しいことを確認した
+- **QGISとの突合**: `native:rasterlayeruniquevaluesreport` による独立集計と、Pythonでの集計が**完全一致**（総画素数8,275,982・NoData 4,260,896・15クラスすべての画素数が一致、不一致ゼロ）
+- **空間的妥当性**: ROI形状に正確にクリップされ、都心部の不透水面の集中と紅河の形状が視覚的に整合することを確認した
+
+### 5.6 利用上の注意
+
+- **Data Use Policy**: ライセンスは CC BY 4.0 だが、User Guides に「**科学論文で利用する場合は事前に提供者へ連絡し、謝辞または共著を検討することを推奨する**」との記載がある。論文執筆時の対応要否は研究者が判断すること
+- **時系列の揺らぎ**: 不透水面率は2018年の20.68%をピークに2022年には19.99%へ減少し、同期間に水域が4.94%→5.50%へ増加している。分類の年次変動の可能性があり、**時系列比較に用いる際は注意が必要**
+- **分析シナリオ上の位置づけ**: 公開GISデータであるため Limited・Full シナリオに含め、Satellite Only には含めない（QGISプロジェクトの Map Theme も同様に設定済み）
+
+---
+
+## 6. 注意点
 
 - Dynamic Worldはタイルごとに更新頻度が異なるため、Hanoi ROI全域を同一時期のコンポジットで揃えるには、対象期間内の中央値合成（median composite）などの前処理が必要になる。
 - ESA WorldCover・Dynamic World・Esri 10m LULC・GLC_FCS30Dはそれぞれクラス体系が異なる（9〜35クラス）ため、比較する際はクラスマッピング表を作成する必要がある。
-- GLC_FCS30Dはファイルサイズが大きい（経度帯別ZIP、194.4GB全体）ため、Hanoi ROIを含むタイルのみを特定してダウンロードする方針を取得スクリプトで明確にする。
-- いずれのデータセットも実際のHanoi ROIでの取得・クラス分布確認は未実施。取得スクリプト作成時に、GBA建物データ取得時のような欠測・カバレッジ確認（[gis_data_buildings.md](gis_data_buildings.md) 参照）を行うこと。
+- GLC_FCS30Dはファイルサイズが大きい（経度帯別ZIP、全体で194.4GB）。取得スクリプトでは、HTTP RangeでZIPの必要メンバーのみを取り出す方式で対処済み（Section 5.1）。
+- GLC_FCS30D以外のデータセットは、Hanoi ROIでの取得・クラス分布確認が未実施。取得時には、GBA建物データ取得時と同様の欠測・カバレッジ確認（[gis_data_buildings.md](gis_data_buildings.md) 参照）を行うこと。
 
 ---
 
-## 6. 参考ソース
+## 7. 参考ソース
 
 - ESA WorldCover: <https://esa-worldcover.org/en>
 - ESA WorldCover GEEカタログ（v200）: <https://developers.google.com/earth-engine/datasets/catalog/ESA_WorldCover_v200>
 - Dynamic World: <https://dynamicworld.app/about/>
 - Dynamic World論文（Brown et al., 2022, Scientific Data）: <https://www.nature.com/articles/s41597-022-01307-4>
-- GLC_FCS30D（Zenodo）: <https://zenodo.org/records/8239305>
+- GLC_FCS30D（Zenodo v2・最新版、本研究で使用）: <https://zenodo.org/records/15063683>
+- GLC_FCS30D（Zenodo 初版）: <https://zenodo.org/records/8239305>
 - GLC_FCS30D論文（Zhang et al., 2024, ESSD）: <https://essd.copernicus.org/articles/16/1353/2024/>
 - Esri Sentinel-2 10m LULC（AWS Open Data Registry）: <https://registry.opendata.aws/io-lulc/>
 - Esri Sentinel-2 Land Cover Explorer: <https://livingatlas.arcgis.com/landcoverexplorer/>

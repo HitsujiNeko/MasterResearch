@@ -1,6 +1,6 @@
 # 利用可能な公開GISデータ候補
 
-**最終更新**: 2026-07-05  
+**最終更新**: 2026-07-21  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [CodingRule.md](../02_methods/CodingRule.md)  
 **前提知識**: RQ1-RQ3、都市構造パラメータの定義、GISデータのCRS・解像度・ライセンス差
 
@@ -36,11 +36,14 @@
 
 都市構造パラメータの算出候補として採用したデータを以下に示す。各データの詳細な調査結果・比較検討・注意点はカテゴリ別ドキュメント（Section 4）を参照。
 
+なお `GLC_FCS30D` は CC BY 4.0 だが、提供元の User Guides に「科学論文で利用する場合は事前に提供者へ連絡し、謝辞または共著を検討することを推奨する」との Data Use Policy がある（詳細は [gis_data_lulc.md](gis_data/gis_data_lulc.md) Section 5.6）。
+
 | データセット | カテゴリ | 主な用途 | 形式 | 空間解像度 | ライセンス | URL |
 |---|---|---|---|---|---|---|
 | OpenStreetMap / Geofabrik Vietnam extract | 道路 | 道路密度指標の算出 | `.osm.pbf`, `.gpkg` | 道路中心線（ベクタ） | ODbL | <https://download.geofabrik.de/asia/vietnam.html> |
 | GlobalBuildingAtlas (GBA) v1.0.0 | 建物 | 建物面積率・建物密度・建物高さの算出 | ポリゴン（WFS / GeoJSON） | 建物ポリゴン（ベクタ） | CC BY-NC 4.0 | <https://github.com/zhu-xlab/GlobalBuildingAtlas> |
 | FABDEM v1.2 | 標高（DEM） | 地形高度の算出（準DTM） | ラスタ `TIF` | 約30m（1 arc-second） | CC BY-NC-SA 4.0 | <https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn> |
+| GLC_FCS30D v2（2022年） | 土地利用（LULC） | 土地利用カテゴリ別面積率の算出 | ラスタ `TIF` | 30m | CC BY 4.0（利用時の注意は下記） | <https://zenodo.org/records/15063683> |
 
 ---
 

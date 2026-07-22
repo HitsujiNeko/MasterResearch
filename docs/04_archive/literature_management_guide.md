@@ -86,8 +86,3 @@ URL のみで PDF が手元にない論文は、アクセス制限・ペイウ�
 2. **重複を作らない**: 要約テンプレートの正本は [structured_summary_template.md](templates/structured_summary_template.md)。本ガイドや個別ファイルにテンプレート全文を再掲しない。
 3. **照合を省かない**: 書誌・数値は Crossref 照合と原典（PDF）で裏取りし、推測で数値を埋めない。読み取れない値は「未確認」と明記する。
 4. **単位・言語**: LST は必ず摂氏（°C）。論文タイトル・著者名は原語のまま扱う。
-
----
-
-**作成日**: 2026-02-26  
-**関連**: [previous_studies_report.md](previous_studies_report.md)

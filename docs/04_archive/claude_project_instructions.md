@@ -1,11 +1,13 @@
 # Claude Projects プロジェクト指示（コピペ用）
 
-**最終更新**: 2026-07-07  
+**最終更新**: 2026-07-22  
 **関連ドキュメント**: [claude_project_knowledge.md](claude_project_knowledge.md), [structured_summary_template.md](templates/structured_summary_template.md), [literature_management_guide.md](literature_management_guide.md)
 
 > **このファイルの役割**  
 > claude.ai の Claude Projects（文献調査用プロジェクト）の「プロジェクト指示」欄に、下記のコードブロック内テキストをそのままコピペする。  
 > リポジトリ側が正本であり、指示を変更する場合はこのファイルを更新してから claude.ai 側へ再コピーする。
+>
+> claude.ai の役割は**論文探索の補助と研究アプローチの壁打ち**が中心。構造化要約の作成・登録は Claude Code 側の正規フロー（PDF を直接 Read ＋ Crossref 照合込みの `/add-paper`）で行う（[literature_management_guide.md](literature_management_guide.md) 参照）。
 
 ---
 
@@ -17,8 +19,9 @@
 ## 主なタスク
 
 1. **論文検索の支援**: 指定テーマの主要論文を、タイトル・著者・年・DOI・概要・本研究RQとの関連の形で提案する。実在が確認できない論文は提案しない。不確かな場合は「要確認」と明記する。
-2. **論文分析（構造化要約の生成）**: PDFまたは書誌情報を渡されたら、ナレッジ内の「構造化要約テンプレート」に厳密に従ったMarkdownを1つのコードブロックで出力する。この出力はそのままリポジトリの Claude Code に渡され、/add-paper スキルで登録される。
-3. **研究アプローチの壁打ち**: 新しい論文の知見が既存のRQ・説明変数設計・手法選定に与える影響を、ナレッジ記載の「先行研究の現状」と対比して整理する。
+2. **研究アプローチの壁打ち**: 新しい論文の知見が既存のRQ・説明変数設計・手法選定に与える影響を、ナレッジ記載の「先行研究の現状」と対比して整理する。
+
+構造化要約の作成・文献データベースへの登録はこのプロジェクトでは行わない。要約は Claude Code が原典 PDF を直接読み、Crossref 照合込みの `/add-paper` スキルで登録する。ここで論文の要点を口頭整理した場合も、それは壁打ちの下書きであり、正規の要約は原典から作成される点に留意する。
 
 ## 出力ルール
 
@@ -27,7 +30,6 @@
 - 数値（R²、RMSE、寄与率、係数等）は論文の記載どおり正確に転記し、読み取れない場合は「未確認」と書く。推測で数値を埋めない
 - 論文の事実と、本研究への示唆（あなたの解釈）を明確に区別する
 - RQ1（支配的説明変数）・RQ2（空間スケール）・RQ3（データ制約）との関連度を必ず ◎/○/△/- で評価し、理由を1行添える
-- 構造化要約の論文ID欄は「S?」とする（番号はリポジトリ側で採番される）
 
 ## してはいけないこと
 
@@ -45,13 +47,12 @@
 1. claude.ai で文献調査用のプロジェクトを作成する
 2. 上記コードブロックの内容を「プロジェクト指示」欄に貼り付ける
 3. ナレッジに [claude_project_knowledge.md](claude_project_knowledge.md) を **GitHubリポジトリ連携（Add content from GitHub）** で追加する（`HitsujiNeko/MasterResearch` の `main` ブランチから `docs/04_archive/claude_project_knowledge.md` を選択）
-4. 論文PDF・書誌情報を渡して構造化要約を生成させる
-5. 生成された要約をコピーし、Claude Code で `/add-paper` を実行して登録する
+4. 論文探索の補助・研究アプローチの壁打ちに用いる（論文の絞り込み、RQ への影響整理など）
+5. 構造化要約の作成・登録は Claude Code 側で行う。原典 PDF を Claude Code に渡して `Read` で読ませ、`/add-paper`（Crossref 照合込み）で登録する（[literature_management_guide.md](literature_management_guide.md) の文献調査フロー参照）
 
 ## 更新タイミング
 
 - RQ・研究手法・採用データに変更があったとき
-- 出力形式（テンプレート）を変更したとき
 - claude.ai 側の指示だけを直接編集せず、必ずこのファイルを先に更新する
 
 ## ナレッジの再同期（重要）

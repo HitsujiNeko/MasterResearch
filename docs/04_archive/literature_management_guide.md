@@ -1,382 +1,88 @@
-# 先行研究管理・活用ガイド（AI活用最適化版）
+# 先行研究管理・活用ガイド
 
-**最終更新**: 2026-07-07  
+**最終更新**: 2026-07-22  
 **関連ドキュメント**: [structured_summary_template.md](templates/structured_summary_template.md), [previous_studies_report.md](previous_studies_report.md), [claude_project_instructions.md](claude_project_instructions.md)
 
-## 📋 現状分析
+> **このファイルの役割**  
+> 実装済みの3層構造による文献データベースの思想と、Claude Code を中心とした文献調査フローの運用ガイド。個別の登録手順は `/add-paper`・`/paper-scout` スキルが正本であり、本ガイドは全体像と役割分担を示す。
 
-### 課題
+## 📋 現状
 
-1. **PDF形式の論文**: AIが直接参照できない（4ファイル： `既往研究PDF/`）
-2. **Web論文**: URLはあるが、AIが常にアクセスできるとは限らない
-3. **情報の分散**: 重要な知見が論文に埋もれている
+### 文献データベースの資産
 
-### 現在の資産
+- `docs/04_archive/previous_studies_report.md`: 事実整理のマスター（S1〜S8）
+- `docs/04_archive/01_metadata/papers_database.csv`: 全論文の基本情報（検索・フィルタリング用）
+- `docs/04_archive/02_structured_summaries/`: 個別論文の構造化要約（S1〜S8）
+- `docs/04_archive/04_pdfs/`: 元の PDF ファイル（S1〜S8、`S{番号}_{著者}_{年}.pdf`）
 
-- ✅ `docs/04_archive/previous_studies_report.md`: 事実整理済み（S1〜S8）
-- ✅ `既往研究PDF/`: 主要論文4本（Ermida, Le Ngoc Hanh, Onačillová, Sun）
+### 前提
 
----
-
-## 🎯 AIが先行研究を効果的に活用するための戦略
-
-### 原則
-
-**「AIが読める形で構造化情報を整備する」**
-
-AIは以下の形式なら確実に参照可能：
-
-- ✅ Markdownファイル（`.md`）
-- ✅ CSVファイル（`.csv`）
-- ✅ Pythonコード内のコメント
-- ❌ PDFファイル（直接読めない）
-- △ Web論文（アクセス制限、変更の可能性）
+Claude Code は PDF を `Read` で直接読み取れる。したがって「PDF を人手で Markdown 化しないと AI が参照できない」という制約は存在しない。構造化要約は、AI が読めるようにするためではなく、**論文の要点を横断検索・比較・引用しやすい形で残す**ために作成する。
 
 ---
 
-## 🗂️ 提案1: 多層構造の文献データベース
+## 🗂️ 3層構造の思想
 
-### 推奨ディレクトリ構造
+情報の粒度を3層に分け、目的に応じて参照先を使い分ける。
+
+| 層 | 実体 | 粒度 | 主な用途 |
+|----|------|------|----------|
+| **メタデータ** | `01_metadata/papers_database.csv` | 1行で概要 | 「RQ1 関連の重要度 A を抽出」等の検索・集計 |
+| **構造化要約** | `02_structured_summaries/S*.md` | 5分で全体像 | 個別論文の深掘り、要点・引用候補の確認 |
+| **PDF（原典）** | `04_pdfs/S*.pdf` | 全文 | 一次確認、数値・図表の精読（Claude Code が直接 Read） |
+
+`previous_studies_report.md` は概要把握・一覧のマスターとして維持し、`02_structured_summaries/` が個別論文の詳細を担う。
+
+### 命名規則
+
+- **論文 ID**: `S1`, `S2`…（既存に準拠）
+- **ファイル名**: `S{番号}_{筆頭著者姓}_{出版年}`（例: `S1_Ermida_2020`）
+- **フォルダ**: `01_`, `02_`, `04_`（順序を明示）
+
+> **補足**: `03_key_findings/`（テーマ別に複数論文の知見を横断整理する層）は未実装。NDVI・建物被覆率などパラメータ横断の比較整理が必要になった段階で任意に追加する拡張であり、現時点では既定の層ではない。
+
+---
+
+## 🔄 文献調査フロー（Claude Code 中心）
+
+論文の探索から登録までは Claude Code 上で完結する。claude.ai の役割は壁打ち・アイデア出しに限定する。
 
 ```text
-docs/04_archive/
-├── README.md                           # 現状
-│
-├── previous_studies_report.md          # 現状：事実整理（S1〜S8）
-│
-├── 01_metadata/                        # 【新規】論文メタデータ
-│   ├── papers_database.csv             # 全論文の基本情報
-│   └── citation_guide.md               # 引用ガイド
-│
-├── 02_structured_summaries/            # 【新規】構造化要約
-│   ├── S1_ermida_2020.md               # 詳細要約
-│   ├── S2_le_ngoc_hanh_2025.md
-│   ├── S3_onacillova_2022.md
-│   └── ...
-│
-├── 03_key_findings/                    # 【新規】重要知見の抽出
-│   ├── lst_methods_comparison.md      # LST算出手法の比較
-│   ├── urban_parameters_catalog.md    # 都市構造パラメータ一覧
-│   └── machine_learning_approaches.md # ML手法の整理
-│
-└── 04_pdfs/                            # 【改名】元のPDFファイル
-    ├── S1_ermida_2020.pdf              # リネーム推奨
-    ├── S2_le_ngoc_hanh_2025.pdf
-    └── ...
+1. 探索      /paper-scout … 登録済み論文の引用関係から未登録候補を提示
+2. 精読      PDF を Claude Code に渡し Read で直接読む
+3. 登録      /add-paper  … Crossref 書誌照合 → S番号採番 → 要約作成 → CSV追記 → previous_studies_report.md・README更新
 ```
 
----
+### 各ステップ
 
-## 📄 提案2: 論文メタデータベース（CSV）
+1. **探索（`/paper-scout`）**: `papers_database.csv` の起点論文から OpenAlex で前方・後方引用をたどり、RQ キーワードでスコアリングした候補リストを得る。採否・精読・登録は研究者が判断する。
+2. **精読**: 入手した PDF を `04_pdfs/` に置くか直接 Claude Code に渡し、`Read` で全文を読む。要約の作成は Claude Code が [structured_summary_template.md](templates/structured_summary_template.md) に沿って行う。
+3. **登録（`/add-paper`）**: S番号採番の前に Crossref で書誌を機械照合し、転記誤りを防ぐ。要約ファイル作成・`papers_database.csv` 追記・`previous_studies_report.md`（先行研究一覧）・README 更新・コミット案提示までを一体実行する（詳細は `/add-paper` スキルが正本）。
 
-### `01_metadata/papers_database.csv`
+### claude.ai の位置づけ
 
-AIが検索・フィルタリングしやすい形式で整理：
-
-| ID | 著者 | 年 | タイトル | 主目的 | データ | 手法 | 対象地域 | URL | PDF有無 | 重要度 | RQ関連 |
-|----|------|-----|---------|--------|------|------|----------|-----|---------|--------|--------|
-| S1 | Ermida et al. | 2020 | GEE open-source LST | LST算出手法 | Landsat | SMW法 | グローバル | https://... | ✓ | A | 手法 |
-| S2 | Le et al. | 2025 | Temp Change Da Nang | 都市化とLST | Landsat | GEE | ダナン | https://... | ✓ | B | 途上国 |
-
-**利点**:
-
-- AIがPandas/CSVツールで検索・集計可能
-- 「RQ1に関連する論文を抽出」などの指示が可能
+claude.ai（Claude Projects）は、新しい論文の知見が RQ・説明変数設計・手法選定に与える影響を整理する**壁打ち**に用いる。要点を渡して要約を整形させるような使い方は、Crossref 照合工程を通らず誤情報が混入しうるため行わない。要約の生成・登録は必ず上記フロー（Claude Code が PDF を読む＋Crossref 照合）を経る。セットアップは [claude_project_instructions.md](claude_project_instructions.md) を参照。
 
 ---
 
-## 📝 提案3: 構造化要約テンプレート
+## 🤖 効果的な AI 対話例
 
-### `02_structured_summaries/[論文ID].md` の標準フォーマット
+構造化された資産を指定すると、横断的な照会に即答できる。
 
-```markdown
-# S1: Ermida et al. (2020)
+- **横断比較**: 「`02_structured_summaries/` を参照して、建物被覆率を使用している研究とその算出方法を一覧化して」
+- **RQ 関連の抽出**: 「`papers_database.csv` から RQ1 に関連する重要度 A の研究を抽出し、手法を比較表にして」
+- **引用文の作成**: 「S1〜S3 の情報から、SMW 法の利点を説明する段落を論文用に作成して」
+- **原典の確認**: 「`04_pdfs/S1_Ermida_2020.pdf` を読んで、係数 A・B・C の一覧（Table 2）を転記して」
 
-## 📌 基本情報
-- **著者**: Ermida, S.L., Soares, P., Mantas, V., et al.
-- **年**: 2020
-- **タイトル**: Google Earth Engine open-source code for Land Surface Temperature estimation from the Landsat series
-- **掲載誌**: Remote Sensing, 12(9), 1471
-- **DOI/URL**: https://doi.org/10.3390/rs12091471
-- **PDF**: `04_pdfs/S1_ermida_2020.pdf`
+### Web 論文の扱い
 
----
-
-## 🎯 研究目的（1行）
-Landsat LSTをSMW法でGEE上に実装し、再現性を確保
-
----
-
-## 📊 使用データ
-- Landsat 4–8（熱赤外バンド）
-- ASTER GED（放射率）
-- NCEP/NCAR（TPW）
-
----
-
-## 🔬 手法
-### 主要手法
-- SMW（Statistical Mono-Window）法
-- NDVIベース動的放射率補正
-
-### アルゴリズム概要
-1. Landsat TOA B10から輝度温度（Tb）算出
-2. ASTERから放射率推定
-3. NCEPからTPW取得・補間
-4. SMW式でLST算出: LST = A×(Tb/ε) + B/ε + C
-
----
-
-## 📈 主な結果
-- SMW法は従来手法より大気条件変動に安定
-- GEEでの広域・長期解析が可能
-
----
-
-## 🔍 本研究との関連性
-### RQとの対応
-- **RQ全般**: 本研究のLST算出手法として採用
-
-### 活用方法
-- SMW法の実装参考
-- パラメータ設定の根拠
-
-### 差別化ポイント
-- Ermida: 手法開発
-- 本研究: 都市構造との関係性評価
-
----
-
-## 💡 重要な知見・引用候補
-> "SMW法は大気水蒸気量の変動に対してロバスト"（p.5）
-
-> "ASTER放射率とNDVI補正の組み合わせが有効"（p.8）
-
----
-
-## 📎 補足情報
-### 使用した図表
-- Figure 3: SMW法のフローチャート → 論文執筆時に参照
-- Table 2: 係数A, B, Cの一覧 → 実装時に使用
-
-### キーワード
-`SMW`, `Landsat`, `LST`, `emissivity`, `Google Earth Engine`
-
----
-
-**作成日**: 2026-02-26  
-**最終更新**: 2026-02-26
-```
-
-**利点**:
-
-- AIが論文全体を理解できる
-- 「S1とS4のLST算出手法を比較して」などの指示が可能
-- RQとの関連が明確
-
----
-
-## 📚 提案4: 重要知見の横断整理
-
-### `03_key_findings/urban_parameters_catalog.md`
-
-研究テーマ別に複数論文の知見を統合：
-
-```markdown
-# 都市構造パラメータ一覧（先行研究横断整理）
-
-## 📊 パラメータ比較表
-
-| パラメータ | S1 | S2 | S4 | S5 | 定義 | 算出方法 |
-|-----------|----|----|----|----|------|----------|
-| **NDVI** | ✓ | ✓ | ✓ | ✓ | 正規化植生指数 | (NIR-Red)/(NIR+Red) |
-| **NDBI** | - | ✓ | - | - | 正規化建物指数 | (SWIR-NIR)/(SWIR+NIR) |
-| **建物被覆率** | - | - | ✓ | ✓ | グリッド内建物面積割合 | GISデータから算出 |
-| **道路密度** | - | - | ✓ | - | グリッド内道路延長 | 道路データから算出 |
-
-## 🔍 詳細
-
-### NDVI（植生指数）
-**使用研究**: S1, S2, S4, S5
-
-**定義の違い**:
-- S1: 放射率補正に使用（0.2〜0.86で線形補間）
-- S2: 都市化指標として使用
-- S4: 説明変数として直接投入
-
-**本研究での活用方針**:
-- 説明変数として使用（S4, S5に準拠）
-- 放射率補正にも使用（S1に準拠）
-```
-
-**利点**:
-
-- 「NDVIの定義を各研究で確認」などの指示が不要
-- AIが横断的な知見を即座に提供
-
----
-
-## 🤖 提案5: AIとの対話最適化
-
-### A. 論文要約の作成方法
-
-#### 推奨: claude.ai → Claude Code 連携
-
-1. claude.ai（Claude Projects）に論文PDF・書誌情報を渡して構造化要約を生成する（セットアップは [claude_project_instructions.md](claude_project_instructions.md) と [claude_project_knowledge.md](claude_project_knowledge.md) を参照）
-2. Claude Code で `/add-paper` を実行し、要約をペーストする（採番・ファイル作成・CSV追記・README更新まで自動。コミット案を提示し、承認後にコミット）
-
-#### 方法1: 手動作成
-
-1. PDFを読んで重要情報を抽出
-2. テンプレートに沿ってMarkdownで記述
-3. `02_structured_summaries/` に保存
-
-#### 方法2: AIアシスト作成
-
-```text
-# 対話例
-ユーザー: 「Ermida et al. 2020のPDFを読んだので、重要ポイントを教えます。
-         以下の情報を02_structured_summaries/S1_ermida_2020.mdのテンプレートに整形してください：
-         
-         - 目的: SMW法をGEEで実装
-         - データ: Landsat 4-8, ASTER, NCEP
-         - 手法: 動的放射率補正を使用
-         - 結果: 大気変動に安定
-         ...」
-
-AI: 「承知しました。テンプレートに沿って整形します」
-```
-
-### B. Web論文の活用
-
-**Web検索可能な論文の場合**:
-
-- AIに「この論文のURLにアクセスして要約して」は**不確実**
-- **推奨**: 手動で要約を作成し、Markdown化
-
-**理由**:
-
-- アクセス制限、ペイウォール
-- サイト構造の変更
-- 安定性・再現性の問題
-
-### C. 効果的なAI対話例
-
-#### 例1: 横断比較
-
-```text
-「urban_parameters_catalog.mdを参照して、
- 建物被覆率を使用している研究とその算出方法を一覧化」
-```
-
-#### 例2: RQ関連研究の抽出
-
-```text
-「papers_database.csvから、RQ1に関連する研究（重要度A）を抽出して、
- それぞれの手法を比較表にして」
-```
-
-#### 例3: 引用文作成
-
-```text
-「S1〜S3の情報から、SMW法の利点を説明する段落を論文用に作成」
-```
-
----
-
-## 🚀 実装ロードマップ
-
-### Phase 1: 基盤整備（優先度：高）
-
-- [ ] フォルダ構造の作成（`01_metadata/`, `02_structured_summaries/`, `03_key_findings/`, `04_pdfs/`）
-- [ ] `papers_database.csv` の作成（S1〜S8の基本情報）
-- [ ] PDFファイルのリネーム（S1_ermida_2020.pdf など）
-
-### Phase 2: 構造化要約（優先度：高）
-
-- [ ] テンプレートの作成
-- [ ] 主要4論文（PDF有）の要約作成
-  - [ ] S1: Ermida et al. (2020)
-  - [ ] S2: Le Ngoc Hanh (2025)
-  - [ ] S3: Onačillová et al. (2022)
-  - [ ] S4: Sun et al. (2019)（PDFがあれば）
-
-### Phase 3: 知見の統合（優先度：中）
-
-- [ ] `urban_parameters_catalog.md` 作成
-- [ ] `lst_methods_comparison.md` 作成
-- [ ] `machine_learning_approaches.md` 作成
-
-### Phase 4: 継続的更新（優先度：低）
-
-- [ ] 新しい論文の追加
-- [ ] RQとの関連性の更新
+URL のみで PDF が手元にない論文は、アクセス制限・ペイウォール・サイト構造変更により安定的に参照できないことがある。可能な限り PDF を入手して `04_pdfs/` に置き、原典から要約・引用する。
 
 ---
 
 ## 💡 ベストプラクティス
 
-### 1. 情報の粒度
-
-- **メタデータ**: 1行で概要が分かる（CSV）
-- **要約**: 5分で全体像が分かる（構造化Markdown）
-- **詳細**: 必要時にPDFを参照
-
-### 2. 命名規則
-
-- **論文ID**: `S1`, `S2`...（既存に準拠）
-- **ファイル名**: `S1_ermida_2020.md`（著者名_年）
-- **フォルダ**: `01_`, `02_`（順序を明示）
-
-### 3. AI活用の鉄則
-
-- ❌ 「このPDFを読んで」→ 不可能
-- ✅ 「S1_ermida_2020.mdを参照して」→ 確実
-- ✅ 「papers_database.csvから抽出して」→ 効率的
-
----
-
-## 🔄 既存ファイルとの統合
-
-### `previous_studies_report.md` との関係
-
-- **既存ファイル**: 事実整理の**マスター**として維持
-- **新規ファイル**: より詳細・構造化された情報
-- **役割分担**:
-  - `previous_studies_report.md`: 概要把握、一覧表示
-  - `02_structured_summaries/`: 個別論文の深掘り
-  - `03_key_findings/`: テーマ別知見の統合
-
----
-
-## 📊 期待される効果
-
-| 項目 | Before | After | 効果 |
-|-----|--------|-------|------|
-| **AI参照性** | PDFは不可 | Markdownで確実 | **100%参照可能** |
-| **検索効率** | 手動でPDF検索 | CSV/MD検索 | **秒単位で情報取得** |
-| **横断比較** | 手動で整理 | AI自動集計 | **大幅な時間短縮** |
-| **論文執筆** | PDFから手動引用 | MD参照で自動生成 | **品質向上** |
-
----
-
-## 🎯 まとめ
-
-### 最優先で実装すべきこと
-
-1. **`papers_database.csv`** の作成（30分）
-2. **主要4論文の構造化要約**（各1時間）
-3. **フォルダ構造の整備**（10分）
-
-### AI活用の鍵
-
-**「PDF → Markdown変換」の労力を惜しまない**
-
-- 一度構造化すれば、AIが永続的に活用可能
-- 論文執筆時の効率が劇的に向上
-- 研究の再現性・引用精度が向上
-
----
-
-**作成日**: 2026-02-26  
-**関連**: [previous_studies_report.md](previous_studies_report.md)
+1. **粒度の使い分け**: 概要は CSV、全体像は構造化要約、精読は PDF。目的に応じて最小限の層を参照する。
+2. **重複を作らない**: 要約テンプレートの正本は [structured_summary_template.md](templates/structured_summary_template.md)。本ガイドや個別ファイルにテンプレート全文を再掲しない。
+3. **照合を省かない**: 書誌・数値は Crossref 照合と原典（PDF）で裏取りし、推測で数値を埋めない。読み取れない値は「未確認」と明記する。
+4. **単位・言語**: LST は必ず摂氏（°C）。論文タイトル・著者名は原語のまま扱う。

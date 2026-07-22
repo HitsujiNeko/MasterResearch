@@ -313,6 +313,28 @@ def filter_by_min_score(candidates: list[Candidate], min_score: float) -> list[C
     return [cand for cand in candidates if cand.score >= min_score]
 
 
+# CSV 数式インジェクションの起点となりうる先頭文字（Excel 等で数式として解釈される）
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@")
+
+
+def sanitize_csv_cell(value: object) -> str:
+    """CSV セルを数式インジェクションから保護する。
+
+    OpenAlex 由来の外部文字列（タイトル・掲載誌・DOI 等）が ``=``/``+``/``-``/``@`` で
+    始まる場合、表計算ソフトが数式として実行しないよう先頭に ``'`` を付ける。
+    それ以外の値はそのまま返す。
+
+    Args:
+        value: セルの値（None・数値も許容する）。
+    Returns:
+        無害化済みの文字列。
+    """
+    text = "" if value is None else str(value)
+    if text and text[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + text
+    return text
+
+
 def write_candidates_csv(candidates: list[Candidate], output_path: Path) -> None:
     """全候補を CSV に書き出す。"""
     # utf-8-sig（BOM 付き）で書き出し、Windows 版 Excel での日本語文字化けを防ぐ
@@ -323,10 +345,11 @@ def write_candidates_csv(candidates: list[Candidate], output_path: Path) -> None
             writer.writerow(
                 [
                     f"{cand.score:.1f}",
-                    cand.title,
+                    # 外部由来の文字列は数式インジェクションを無害化する
+                    sanitize_csv_cell(cand.title),
                     cand.year or "",
-                    cand.venue or "",
-                    cand.doi or "",
+                    sanitize_csv_cell(cand.venue or ""),
+                    sanitize_csv_cell(cand.doi or ""),
                     ";".join(sorted(cand.via_papers)),
                     ";".join(sorted(cand.directions)),
                     ";".join(sorted(cand.matched_keywords)),

@@ -266,6 +266,24 @@ def test_write_watch_candidates_csv_omits_scout_only_columns(tmp_path: Path) -> 
     assert "lst;urban heat island" in text
 
 
+def test_write_watch_candidates_csv_sanitizes_formula_cells(tmp_path: Path) -> None:
+    cand = openalex.Candidate(
+        openalex_id="W1",
+        title="=1+2 injection",
+        year=2026,
+        venue="@evil",
+        doi="10.1000/x",
+        score=6.0,
+        matched_keywords={"lst"},
+    )
+    output = tmp_path / "watch.csv"
+    paper_watch.write_watch_candidates_csv([cand], output)
+    text = output.read_text(encoding="utf-8-sig")
+    # 数式起点の外部文字列は先頭に ' が付与されて無害化される
+    assert "'=1+2 injection" in text
+    assert "'@evil" in text
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------

@@ -245,10 +245,11 @@ def write_watch_candidates_csv(candidates: list[Candidate], output_path: Path) -
             writer.writerow(
                 [
                     f"{cand.score:.1f}",
-                    cand.title,
+                    # 外部由来の文字列は数式インジェクションを無害化する
+                    openalex.sanitize_csv_cell(cand.title),
                     cand.year or "",
-                    cand.venue or "",
-                    cand.doi or "",
+                    openalex.sanitize_csv_cell(cand.venue or ""),
+                    openalex.sanitize_csv_cell(cand.doi or ""),
                     ";".join(sorted(cand.matched_keywords)),
                 ]
             )

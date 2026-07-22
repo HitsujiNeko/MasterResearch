@@ -168,6 +168,47 @@ def test_candidate_key_falls_back_to_title() -> None:
     assert openalex.candidate_key(work) == "title:urban heat island study"
 
 
+# ---------------------------------------------------------------------------
+# CSV 数式インジェクション対策
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("=SUM(A1:A2)", "'=SUM(A1:A2)"),
+        ("+1", "'+1"),
+        ("-1", "'-1"),
+        ("@cmd", "'@cmd"),
+        ("10.3390/rs13214256", "10.3390/rs13214256"),
+        ("Normal Title", "Normal Title"),
+        ("", ""),
+        (None, ""),
+        (2026, "2026"),
+    ],
+)
+def test_sanitize_csv_cell(value: object, expected: str) -> None:
+    assert openalex.sanitize_csv_cell(value) == expected
+
+
+def test_write_candidates_csv_sanitizes_and_writes_header(tmp_path: Path) -> None:
+    cand = openalex.Candidate(
+        openalex_id="W1",
+        title="=HYPERLINK(evil)",
+        year=2026,
+        venue="Journal",
+        doi="10.1000/x",
+        score=6.0,
+        matched_keywords={"lst"},
+        via_papers={"S1"},
+        directions={"前方"},
+    )
+    output = tmp_path / "scout.csv"
+    openalex.write_candidates_csv([cand], output)
+    text = output.read_text(encoding="utf-8-sig")
+    assert text.splitlines()[0] == "スコア,タイトル,年,掲載誌,DOI,経由,方向,マッチKW"
+    # 数式起点のタイトルは先頭に ' が付与されて無害化される
+    assert "'=HYPERLINK(evil)" in text
+
+
 def _candidate(work_id: str, score: float) -> openalex.Candidate:
     """スコアだけを指定した候補を作るテスト用ヘルパー。"""
     return openalex.Candidate(

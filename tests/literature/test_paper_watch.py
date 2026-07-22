@@ -13,16 +13,16 @@ from typing import Any
 
 import pytest
 
-from src.literature import paper_scout, paper_watch
+from src.literature import openalex, paper_watch
 
 
 # ---------------------------------------------------------------------------
 # 語彙共有の保証
 # ---------------------------------------------------------------------------
 def test_core_search_terms_are_shared_vocabulary() -> None:
-    # 検索の中核語はすべて paper_scout の KEYWORD_WEIGHTS に定義されている（ドリフト防止）
+    # 中核語はすべて openalex の KEYWORD_WEIGHTS に定義されている（語彙のドリフト防止）
     for term in paper_watch.CORE_SEARCH_TERMS:
-        assert term in paper_scout.KEYWORD_WEIGHTS
+        assert term in openalex.KEYWORD_WEIGHTS
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ def test_fetch_recent_paginates_until_cursor_exhausted(
         calls.append(url)
         return pages.pop(0)
 
-    monkeypatch.setattr(paper_scout, "_safe_fetch", fake_safe_fetch)
+    monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
     works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
     assert ok is True
     assert [w["id"] for w in works] == [
@@ -91,7 +91,7 @@ def test_fetch_recent_respects_max_results(monkeypatch: pytest.MonkeyPatch) -> N
             "meta": {"next_cursor": None},
         }
 
-    monkeypatch.setattr(paper_scout, "_safe_fetch", fake_safe_fetch)
+    monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
     works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=2)
     assert ok is True
     assert len(works) == 2
@@ -107,7 +107,7 @@ def test_fetch_recent_stops_on_empty_results_page(
         calls.append(url)
         return {"results": [], "meta": {"next_cursor": "never-ends"}}
 
-    monkeypatch.setattr(paper_scout, "_safe_fetch", fake_safe_fetch)
+    monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
     works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
     # 取得自体は成功（=セクションはスキップせず0件扱い）だが、無限ループせず1回で止まる
     assert works == []
@@ -118,7 +118,7 @@ def test_fetch_recent_stops_on_empty_results_page(
 def test_fetch_recent_reports_failure_when_first_page_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(paper_scout, "_safe_fetch", lambda url, timeout: None)
+    monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: None)
     works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
     assert works == []
     assert ok is False
@@ -184,7 +184,7 @@ def test_watch_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
         assert "from_publication_date:2026-07-15" in url
         return {"results": [known, fresh], "meta": {"next_cursor": None}}
 
-    monkeypatch.setattr(paper_scout, "_safe_fetch", fake_safe_fetch)
+    monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
     candidates, from_date, ok = paper_watch.watch(
         csv_path=csv_path,
         days=7,
@@ -202,7 +202,7 @@ def test_watch_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
 def test_watch_returns_not_ok_on_fetch_failure(
     monkeypatch: pytest.MonkeyPatch, csv_path: Path
 ) -> None:
-    monkeypatch.setattr(paper_scout, "_safe_fetch", lambda url, timeout: None)
+    monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: None)
     candidates, from_date, ok = paper_watch.watch(
         csv_path=csv_path,
         days=7,
@@ -221,7 +221,7 @@ def test_watch_returns_not_ok_on_fetch_failure(
 # ---------------------------------------------------------------------------
 def test_format_watch_table_escapes_pipes_and_limits_rows() -> None:
     cands = [
-        paper_scout.Candidate(
+        openalex.Candidate(
             openalex_id="W1",
             title="A | B study",
             year=2026,
@@ -230,7 +230,7 @@ def test_format_watch_table_escapes_pipes_and_limits_rows() -> None:
             score=6.0,
             matched_keywords={"urban heat island", "lst"},
         ),
-        paper_scout.Candidate(
+        openalex.Candidate(
             openalex_id="W2", title="Second", year=2026, venue=None, doi=None, score=1.0
         ),
     ]
@@ -244,13 +244,35 @@ def test_format_watch_table_escapes_pipes_and_limits_rows() -> None:
     assert "lst;urban heat island" in table
 
 
+def test_write_watch_candidates_csv_omits_scout_only_columns(tmp_path: Path) -> None:
+    cand = openalex.Candidate(
+        openalex_id="W1",
+        title="LST Study",
+        year=2026,
+        venue="Remote Sensing",
+        doi="10.1000/x",
+        score=6.0,
+        matched_keywords={"lst", "urban heat island"},
+    )
+    output = tmp_path / "watch.csv"
+    paper_watch.write_watch_candidates_csv([cand], output)
+    text = output.read_text(encoding="utf-8-sig")
+    header = text.splitlines()[0]
+    # 表示テーブルと同じ列構成。scout 専用の「経由」「方向」列は持たない
+    assert header == "スコア,タイトル,年,掲載誌,DOI,マッチKW"
+    assert "経由" not in header
+    assert "方向" not in header
+    assert "10.1000/x" in text
+    assert "lst;urban heat island" in text
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 def test_main_prints_skip_message_on_failure(
     monkeypatch: pytest.MonkeyPatch, csv_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(paper_scout, "_safe_fetch", lambda url, timeout: None)
+    monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: None)
     exit_code = paper_watch.main(["--csv", str(csv_path)])
     assert exit_code == 0
     captured = capsys.readouterr()
@@ -267,8 +289,8 @@ def test_main_writes_csv_and_table(
         "W2", doi="https://doi.org/10.1000/fresh", title="New Land Surface Temperature Study"
     )
     monkeypatch.setattr(
-        paper_scout,
-        "_safe_fetch",
+        openalex,
+        "safe_fetch",
         lambda url, timeout: {"results": [fresh], "meta": {"next_cursor": None}},
     )
     output = tmp_path / "out.csv"
@@ -277,4 +299,7 @@ def test_main_writes_csv_and_table(
     captured = capsys.readouterr()
     assert "新着の未登録候補" in captured.out
     assert output.exists()
-    assert "10.1000/fresh" in output.read_text(encoding="utf-8-sig")
+    csv_text = output.read_text(encoding="utf-8-sig")
+    assert "10.1000/fresh" in csv_text
+    # CLI 経由でも watch 用の列構成（経由/方向なし）で書き出される
+    assert csv_text.splitlines()[0] == "スコア,タイトル,年,掲載誌,DOI,マッチKW"

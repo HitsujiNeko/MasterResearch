@@ -4,9 +4,9 @@
 `papers_database.csv` と突合して**未登録のみ**をスコア降順で提示する。
 `/weekly-digest` スキルの「📚 新着文献候補」セクションの素材を生成する。
 
-引用スノーボーリング（起点論文からの前方/後方引用）を担う ``paper_scout`` の姉妹スクリプトで、
-OpenAlex アクセス・スコアリング・DOI/タイトル突合・整形の各処理を ``paper_scout`` から再利用する。
-キーワード語彙（``KEYWORD_WEIGHTS``）も ``paper_scout`` を単一の正本として共有する。
+引用スノーボーリング（起点論文からの前方/後方引用）を担う ``paper_scout`` の姉妹スクリプト。
+OpenAlex アクセス・スコアリング・DOI/タイトル突合・整形の各処理と、キーワード語彙
+（``KEYWORD_WEIGHTS``）は共有ツールキット [openalex](openalex.py) から再利用する。
 
 OpenAlex アクセス方針:
 - 認証は任意。環境変数 ``OPENALEX_API_KEY`` があればクエリに付与し無料枠が10倍になる。
@@ -23,6 +23,7 @@ OpenAlex アクセス方針:
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import logging
 import sys
@@ -31,8 +32,8 @@ from typing import Any
 from urllib.parse import quote
 
 from src.common.paths import prepare_output_path, resolve_existing_path
-from src.literature import paper_scout
-from src.literature.paper_scout import Candidate
+from src.literature import openalex
+from src.literature.openalex import Candidate
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ _DEFAULT_DAYS = 7
 # 1回の実行で取得する新着 work の上限（暴走防止）
 _DEFAULT_MAX_RESULTS = 400
 
-_missing_terms = [term for term in CORE_SEARCH_TERMS if term not in paper_scout.KEYWORD_WEIGHTS]
+_missing_terms = [term for term in CORE_SEARCH_TERMS if term not in openalex.KEYWORD_WEIGHTS]
 if _missing_terms:
     raise RuntimeError(
         f"CORE_SEARCH_TERMS が KEYWORD_WEIGHTS に未定義です（語彙のドリフト）: {_missing_terms}"
@@ -111,8 +112,8 @@ def fetch_recent(
     encoded_filter = quote(build_search_filter(from_date), safe=":,")
     while cursor and len(collected) < max_results:
         query = f"filter={encoded_filter}&per-page=200&cursor={cursor}"
-        url = paper_scout._build_url(query, mailto)
-        result = paper_scout._safe_fetch(url, timeout)
+        url = openalex.build_url(query, mailto)
+        result = openalex.safe_fetch(url, timeout)
         if result is None:
             break
         any_success = True
@@ -130,15 +131,15 @@ def fetch_recent(
 # ---------------------------------------------------------------------------
 def _build_candidate(work: dict[str, Any]) -> Candidate:
     """OpenAlex work から候補（スコア・マッチキーワード付き）を構築する。"""
-    doi = paper_scout.normalize_doi(work.get("doi"))
-    title = paper_scout._work_title(work)
-    abstract = paper_scout.reconstruct_abstract(work.get("abstract_inverted_index"))
-    score, matched = paper_scout.score_text(title, abstract)
+    doi = openalex.normalize_doi(work.get("doi"))
+    title = openalex.work_title(work)
+    abstract = openalex.reconstruct_abstract(work.get("abstract_inverted_index"))
+    score, matched = openalex.score_text(title, abstract)
     return Candidate(
         openalex_id=work.get("id") or "",
         title=title,
         year=work.get("publication_year"),
-        venue=paper_scout._extract_venue(work),
+        venue=openalex.extract_venue(work),
         doi=doi,
         score=score,
         matched_keywords=matched,
@@ -161,13 +162,13 @@ def collect_candidates(
     """
     candidates: dict[str, Candidate] = {}
     for work in works:
-        doi = paper_scout.normalize_doi(work.get("doi"))
-        norm_title = paper_scout.normalize_title(paper_scout._work_title(work))
+        doi = openalex.normalize_doi(work.get("doi"))
+        norm_title = openalex.normalize_title(openalex.work_title(work))
         if doi and doi in registered_dois:
             continue
         if norm_title and norm_title in registered_titles:
             continue
-        key = paper_scout._candidate_key(work)
+        key = openalex.candidate_key(work)
         if key is None or key in candidates:
             continue
         candidates[key] = _build_candidate(work)
@@ -200,7 +201,7 @@ def watch(
         取得失敗時は候補が空・``fetched_ok=False``（呼び出し側でセクションをスキップする）。
     """
     from_date = default_from_date(days, today)
-    registered_dois, registered_titles = paper_scout.load_registered(csv_path)
+    registered_dois, registered_titles = openalex.load_registered(csv_path)
     works, fetched_ok = fetch_recent(from_date, mailto, timeout, max_results)
     if not fetched_ok:
         return [], from_date, False
@@ -228,6 +229,29 @@ def format_watch_table(candidates: list[Candidate], top: int) -> str:
             f"{venue} | {cand.doi or ''} | {matched} |"
         )
     return "\n".join(lines)
+
+
+def write_watch_candidates_csv(candidates: list[Candidate], output_path: Path) -> None:
+    """新着候補を CSV に書き出す（表示テーブルと同じ列構成）。
+
+    scout 用の ``経由``/``方向`` 列は新着ウォッチでは常に空になるため持たず、
+    ``format_watch_table`` と揃えて ``スコア・タイトル・年・掲載誌・DOI・マッチKW`` を出力する。
+    """
+    # utf-8-sig（BOM 付き）で書き出し、Windows 版 Excel での日本語文字化けを防ぐ
+    with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["スコア", "タイトル", "年", "掲載誌", "DOI", "マッチKW"])
+        for cand in candidates:
+            writer.writerow(
+                [
+                    f"{cand.score:.1f}",
+                    cand.title,
+                    cand.year or "",
+                    cand.venue or "",
+                    cand.doi or "",
+                    ";".join(sorted(cand.matched_keywords)),
+                ]
+            )
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -268,14 +292,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--output",
         default=None,
-        help="全候補 CSV の出力先（省略時は標準出力のみ）",
+        help="候補 CSV の出力先（--min-score 適用後の候補・省略時は標準出力のみ）",
     )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     """CLI エントリポイント。"""
-    paper_scout._force_utf8_output()
+    openalex.force_utf8_output()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _parse_args(argv)
     csv_path = resolve_existing_path(Path(args.csv))
@@ -296,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     total = len(candidates)
-    filtered = paper_scout.filter_by_min_score(candidates, args.min_score)
+    filtered = openalex.filter_by_min_score(candidates, args.min_score)
     if args.min_score > 0.0:
         print(
             f"新着の未登録候補: {len(filtered)} 件"
@@ -312,7 +336,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.output:
         output_path = prepare_output_path(Path(args.output))
-        paper_scout.write_candidates_csv(filtered, output_path)
+        write_watch_candidates_csv(filtered, output_path)
         print(f"\n候補を書き出しました: {output_path}")
     return 0
 

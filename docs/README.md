@@ -195,9 +195,8 @@ docs/
 
 ## 💡 文献管理ワークフロー
 
-先行研究の追加は、claude.ai（Claude Projects）で構造化要約を生成し、Claude Code の `/add-paper` スキルでプロジェクトへ統合する2段構成をとる。
-探索の起点には `/paper-scout` スキルを用いる。登録済み文献（S番号）の引用関係を OpenAlex でたどり、RQ1-3 キーワードでスコアリングした未登録の文献候補を提示する（探索と提示まで。採否・精読・登録は研究者が `/add-paper` で行う）。
-手順・ツール使い分けの詳細は [04_archive/README.md](04_archive/README.md) を正本として参照する。
+先行研究の追加は、Claude Code 上で完結する（探索 → 精読 → 登録）。探索の起点には `/paper-scout` スキルを用いる。登録済み文献（S番号）の引用関係を OpenAlex でたどり、RQ1-3 キーワードでスコアリングした未登録の文献候補を提示する（探索と提示まで。採否・精読・登録は研究者が判断する）。精読は原典 PDF を Claude Code に渡し `Read` で直接読む。登録は `/add-paper` スキルが Crossref 書誌照合込みで行う。claude.ai（Claude Projects）は壁打ち・探索補助に限定し、構造化要約の生成・登録には用いない。
+手順・思想の詳細は [literature_management_guide.md](04_archive/literature_management_guide.md) を正本として参照する。
 Claude Projects のセットアップは [claude_project_instructions.md](04_archive/claude_project_instructions.md)（プロジェクト指示）・[claude_project_knowledge.md](04_archive/claude_project_knowledge.md)（ナレッジ）を正本とする。
 
 ---

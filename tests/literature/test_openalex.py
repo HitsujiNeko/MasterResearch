@@ -7,7 +7,9 @@ inverted-index 復元・スコアリング・突合・認証パラメータ付�
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -125,6 +127,40 @@ def test_build_url_includes_select_and_auth(monkeypatch: pytest.MonkeyPatch) -> 
     assert url.startswith(openalex.OPENALEX_BASE_URL)
     assert "select=" in url
     assert "api_key=k" in url
+
+
+def test_safe_fetch_returns_payload_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {"results": [{"id": "W1"}]}
+    monkeypatch.setattr(openalex, "fetch_json_with_retry", lambda url, **kwargs: payload)
+    assert openalex.safe_fetch("https://example.org", 5) is payload
+
+
+@pytest.mark.parametrize("exc", [RuntimeError("429"), ValueError("bad json")])
+def test_safe_fetch_returns_none_on_error(monkeypatch: pytest.MonkeyPatch, exc: Exception) -> None:
+    # fetch_json_with_retry が失敗（429 のリトライ超過・JSON 破損）しても例外を握り、None を返す
+    def raising(url: str, **kwargs: Any) -> dict[str, Any]:
+        raise exc
+
+    monkeypatch.setattr(openalex, "fetch_json_with_retry", raising)
+    assert openalex.safe_fetch("https://example.org", 5) is None
+
+
+class _RaisingReconfigure:
+    """reconfigure が例外を投げるダミーストリーム。"""
+
+    def reconfigure(self, *args: Any, **kwargs: Any) -> None:
+        raise ValueError("reconfigure unsupported")
+
+
+class _NoReconfigure:
+    """reconfigure 属性を持たないダミーストリーム。"""
+
+
+def test_force_utf8_output_swallows_stream_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    # reconfigure が ValueError/AttributeError を投げても握り潰して継続する
+    monkeypatch.setattr(sys, "stdout", _RaisingReconfigure())
+    monkeypatch.setattr(sys, "stderr", _NoReconfigure())
+    openalex.force_utf8_output()  # 例外を送出しないこと
 
 
 # ---------------------------------------------------------------------------

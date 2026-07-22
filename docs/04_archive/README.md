@@ -46,7 +46,7 @@
 | [claude_project_knowledge.md](claude_project_knowledge.md) | claude.ai プロジェクトナレッジにアップロードする凝縮版（研究概要・RQ・先行研究サマリー） |
 | [01_metadata/papers_database.csv](01_metadata/papers_database.csv) | 全論文の基本情報（検索・集計用） |
 | [02_structured_summaries/](02_structured_summaries/) | 個別論文の構造化要約（S1〜S8）。詳細比較・引用候補抽出に使用 |
-| [04_pdfs/](04_pdfs/) | 論文 PDF 原本（S1〜S8）。Claude Code が `Read` で直接精読 |
+| `04_pdfs/` | 論文 PDF 原本（S1〜S8、Git管理外）。Claude Code が `Read` で直接精読 |
 | [templates/structured_summary_template.md](templates/structured_summary_template.md) | 構造化要約の標準フォーマット（正本） |
 
 ## 🎯 このフォルダの目的

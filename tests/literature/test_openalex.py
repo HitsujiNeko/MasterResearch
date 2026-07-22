@@ -39,6 +39,12 @@ def test_normalize_title_removes_symbols_and_collapses_space() -> None:
     assert openalex.normalize_title(title) == "urban heat island a multi scale study 2021"
 
 
+def test_normalize_title_preserves_non_ascii_letters() -> None:
+    # アクセント付き・非ラテン文字は除去せず保持する（記号のみ空白化）
+    assert openalex.normalize_title("Zürich café, São Paulo!") == "zürich café são paulo"
+    assert openalex.normalize_title("都市の熱環境 2021") == "都市の熱環境 2021"
+
+
 # ---------------------------------------------------------------------------
 # アブストラクト復元
 # ---------------------------------------------------------------------------

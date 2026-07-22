@@ -137,7 +137,10 @@ def normalize_title(value: str | None) -> str:
     if not value:
         return ""
     text = value.lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    # 記号のみを空白へ。``\w`` は Unicode 対応（str の re は既定で Unicode 認識）のため、
+    # 非 ASCII の文字・数字（アクセント付き・非ラテン文字など）は保持し、除去による
+    # タイトルの欠落・別語への衝突を防ぐ。
+    text = re.sub(r"[^\w\s]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 

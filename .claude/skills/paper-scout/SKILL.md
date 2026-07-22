@@ -67,6 +67,6 @@ python -m src.literature.paper_scout \
 
 ## 注意事項
 
-- スコアリングのキーワード・重みは [paper_scout.py](../../../src/literature/paper_scout.py) の `KEYWORD_WEIGHTS` で定義。研究の関心に応じて調整してよい（変更時はテストを更新する）。
+- スコアリングのキーワード・重みは共有ツールキット [openalex.py](../../../src/literature/openalex.py) の `KEYWORD_WEIGHTS` で定義（`/paper-scout` と `/weekly-digest` の新着ウォッチが共有する）。研究の関心に応じて調整してよい（変更時はテストを更新する）。
 - 候補の関連性・採否は研究者が判断する。スキルは探索と提示にとどまる。
 - 起点 DOI が非DOI形式（一部の掲載誌 URL）や未記載の場合、スクリプトはタイトル検索で解決を試みる。曖昧な起点はスキップされ、標準エラーに記録される。

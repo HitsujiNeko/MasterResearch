@@ -60,7 +60,7 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 1. **小範囲bbox**(ROIの一部)で試行実行し、動作を確認する
 2. [reference.md](reference.md) の検証チェックリスト(CRS・件数・カバレッジ・値域・欠損)を実施する
-3. QGIS 表示時に [qgis_operation_guidelines.md の判定表](../../../docs/02_methods/qgis_operation_guidelines.md#スタイル作成要否の判定表)でスタイル(`.qml`)作成の要否を判定する。**必須**の場合(カテゴリ値ラスタ・コード値属性ベクタ)は分類スタイルを適用し `qgis/styles/{カテゴリ}_{データセット}.qml` に保存する。保存後は同ガイドラインの確認手順(プロジェクトを開き直して凡例を確認。ラスタは `nan` 破損チェックを含む)を実施する
+3. スタイル(`.qml`)作成の要否を [qgis_operation_guidelines.md の判定表](../../../docs/02_methods/qgis_operation_guidelines.md#スタイル作成要否の判定表)で判定する。**必須と判定された場合は QGIS 表示の有無に関わらず**分類スタイルを適用し `qgis/styles/{カテゴリ}_{データセット}.qml` に保存する。保存後は同ガイドラインの確認手順(プロジェクトを開き直して凡例を確認)を実施する
 4. ベクタ集計値の妥当性検証が必要な場合は、QGIS MCP 突合(同一入力を QGIS ネイティブアルゴリズムに渡して結果を突き合わせる)を提案する
 5. 検証結果の数値は実行出力から転記し、Issue コメントまたは PR 本文に記録する
 
@@ -68,7 +68,7 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 1. `docs/01_planning/gis_data/gis_data_{カテゴリ}.md` に取得結果(件数・カバレッジ・注意点)を追記する
 2. `docs/02_methods/CodingRule.md` の「実装前後チェックリスト」を完了する
-3. 成果物: 取得スクリプト・テスト・サマリーJSON・調査ドキュメント追記。Step 6 でスタイルを作成した場合は `qgis/styles/{カテゴリ}_{データセット}.qml` も含める(`.qgz` は完了条件に含めない — [判定表の後段](../../../docs/02_methods/qgis_operation_guidelines.md#qgis-プロジェクトqgzへの追加は完了条件に含めない)参照)
+3. 成果物: 取得スクリプト・テスト・サマリーJSON・調査ドキュメント追記。判定表で**必須と判定されるデータ型**では `qgis/styles/{カテゴリ}_{データセット}.qml` を必須成果物に含める(任意判定で作成した場合も同様に含める。`.qgz` は完了条件に含めない — [判定表の後段](../../../docs/02_methods/qgis_operation_guidelines.md#qgis-プロジェクトqgzへの追加は完了条件に含めない)参照)
 4. `ruff check` / `ruff format`・markdownlint を実行し、セルフレビュー(`/self-review`)の所見つきレビューを提示のうえ、ユーザー承認後にコミットする
 
 ## 注意事項

@@ -35,8 +35,8 @@ gh pr list --head "$current_branch" --json number,url,state
 |---|---|---|
 | `main` | — | **単一実行** → Step 3 へ |
 | `main` 以外 | このセッションが当該ブランチの Issue に会話内で着手済み、かつ指示と同じ Issue | **単一実行（継続）** → Step 3 へ |
-| `main` 以外 | 着手済みだが指示は別の Issue | **並列実行** → [parallel-workflow.md](../../.github/parallel-workflow.md) の「セッション中に並列指示を受けた場合」に従う |
-| `main` 以外 | 着手記録なし（新規セッションが他セッションの作業ブランチに遭遇） | **並列実行** → parallel-workflow.md の「方式 B」に従い、このセッション自身を worktree で隔離して着手する。他セッションに委ねない |
+| `main` 以外 | 着手済みだが指示は別の Issue | **並列実行** → [parallel-workflow.md](../../.github/parallel-workflow.md) の「最初の分岐」で Yes（分岐①）に該当。Tier 1 は方式 A（自動実行）、Tier 2 のみ方式 A／方式 B を選択する |
+| `main` 以外 | 着手記録なし（新規セッションが他セッションの作業ブランチに遭遇） | **並列実行** → parallel-workflow.md の「最初の分岐」で No（分岐②）に該当。方式メニューは出さず、このセッション自身を worktree で隔離して着手する。他セッションに委ねない |
 
 ブランチ名の一致・不一致だけでは判定せず、「このセッション自身の着手記録」で判定する。
 

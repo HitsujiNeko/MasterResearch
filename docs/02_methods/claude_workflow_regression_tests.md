@@ -1,6 +1,6 @@
 # Claude Code運用ルール 回帰テスト項目書
 
-**最終更新**: 2026-07-16
+**最終更新**: 2026-07-22
 **関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [task-workflow.md](../../.github/task-workflow.md), [parallel-workflow.md](../../.github/parallel-workflow.md), [skill_operation_rules.md](skill_operation_rules.md)
 **前提知識**: PR #96（Claude Code運用ルール再設計: denyガードレール・カスタムコマンド化・sharedスキル共通化）
 
@@ -45,8 +45,8 @@ PR #96 で再設計した Claude Code の運用ルール（deny ガードレー�
 |---|---|---|
 | `/task-start` | 単一実行判定（ブランチ=main） | Step3へ進む |
 | `/task-start` | 単一実行（継続）判定（同一セッションが同一Issueの作業ブランチに戻る） | Step3へ進む |
-| `/task-start` | 並列実行判定（同一セッションが別Issueを指示される） | parallel-workflow.md「セッション中に並列指示」に従う |
-| `/task-start` | 並列実行判定（新規セッションが他セッションの作業ブランチに遭遇） | parallel-workflow.md「方式B」（worktree隔離）に従う |
+| `/task-start` | 並列実行判定（同一セッションが別Issueを指示される） | parallel-workflow.md「最初の分岐」で Yes（分岐①）→ Tier 1 は方式 A、Tier 2 のみ方式 A／方式 B を選択 |
+| `/task-start` | 並列実行判定（新規セッションが他セッションの作業ブランチに遭遇） | parallel-workflow.md「最初の分岐」で No（分岐②）→ 方式メニューを出さず worktree 隔離着手 |
 | `/task-done` | MERGED 検証ハードゲート | PR が MERGED でない場合、後処理を実行せず中断する |
 | `/task-done` | マージ後処理の無確認実行 | MERGED 検証後、追加確認なしでブランチ・計画書を削除する |
 | `/coderabbit` | 返信方式 | 対応した指摘＝個別返信、見送った指摘＝一括コメント |

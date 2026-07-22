@@ -50,14 +50,14 @@ Claude Code は PDF を `Read` で直接読み取れる。したがって「PDF 
 ```text
 1. 探索      /paper-scout … 登録済み論文の引用関係から未登録候補を提示
 2. 精読      PDF を Claude Code に渡し Read で直接読む
-3. 登録      /add-paper  … Crossref 書誌照合 → S番号採番 → 要約作成 → CSV追記 → README更新
+3. 登録      /add-paper  … Crossref 書誌照合 → S番号採番 → 要約作成 → CSV追記 → previous_studies_report.md・README更新
 ```
 
 ### 各ステップ
 
 1. **探索（`/paper-scout`）**: `papers_database.csv` の起点論文から OpenAlex で前方・後方引用をたどり、RQ キーワードでスコアリングした候補リストを得る。採否・精読・登録は研究者が判断する。
 2. **精読**: 入手した PDF を `04_pdfs/` に置くか直接 Claude Code に渡し、`Read` で全文を読む。要約の作成は Claude Code が [structured_summary_template.md](templates/structured_summary_template.md) に沿って行う。
-3. **登録（`/add-paper`）**: S番号採番の前に Crossref で書誌を機械照合し、転記誤りを防ぐ。要約ファイル作成・`papers_database.csv` 追記・README 更新・コミット案提示までを一体実行する（詳細は `/add-paper` スキルが正本）。
+3. **登録（`/add-paper`）**: S番号採番の前に Crossref で書誌を機械照合し、転記誤りを防ぐ。要約ファイル作成・`papers_database.csv` 追記・`previous_studies_report.md`（先行研究一覧）・README 更新・コミット案提示までを一体実行する（詳細は `/add-paper` スキルが正本）。
 
 ### claude.ai の位置づけ
 

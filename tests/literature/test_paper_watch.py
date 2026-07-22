@@ -97,6 +97,25 @@ def test_fetch_recent_respects_max_results(monkeypatch: pytest.MonkeyPatch) -> N
     assert len(works) == 2
 
 
+def test_fetch_recent_keeps_partial_results_when_later_page_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 1ページ目成功・2ページ目失敗（None）でも、取得済みの1ページ目結果を破棄しない
+    pages: list[dict[str, Any] | None] = [
+        {"results": [_work("W1")], "meta": {"next_cursor": "c2"}},
+        None,  # 2ページ目で取得失敗
+    ]
+
+    def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
+        return pages.pop(0)
+
+    monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
+    works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
+    # 部分取得成功: 1件目は保持され、1回でも成功したため ok=True
+    assert [w["id"] for w in works] == ["https://openalex.org/W1"]
+    assert ok is True
+
+
 def test_fetch_recent_stops_on_empty_results_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

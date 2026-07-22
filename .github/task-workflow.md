@@ -127,17 +127,14 @@ git branch -D {Issue番号}/{タスク要約英文}
 
 未承認の場合は改善事項を Claude に伝え、①に戻る。
 
-**③ push・PR作成**（Claude）
+**③ push・PR作成 ＋ ローカル自動レビュー**（Claude）
 
-承認後に実行する。
+承認後に `/create-pr` を実行する。`git push` ＋ `gh pr create` に続けて、レビュー用サブエージェントを起動し、**PR 全体をローカルでレビュー**して結果を**深刻度順の箇条書き要約**でメイン会話に取り込む。
 
-```bash
-git push -u origin {Issue番号}/{タスク要約英文}
-gh pr create --title "{type}: {変更内容の要約} (#{Issue番号})" --head {Issue番号}/{タスク要約英文} --body-file {PR本文ファイル}
-```
-
-- PR タイトルは `{type}: {変更内容の要約} (#{Issue番号})` の形式に統一する
-- `gh pr create` には `--head` を必ず明示する（意図しないブランチが head になることを防ぐため）
+- レビュー結果は**メイン会話に返すのみで、PR には投稿しない**（`/coderabbit`（後述④・外部レビュー）との二重投稿を避ける。両者は観点が異なり相補的）
+- 適用範囲: **Tier 1 並列タスクは自動レビュー必須**。単一タスクは PR 作成前にレビュー実行の要否をユーザーに確認する
+- PR タイトルは `{type}: {変更内容の要約} (#{Issue番号})` の形式に統一し、`gh pr create` には `--head` を必ず明示する（意図しないブランチが head になることを防ぐため）
+- 詳細手順は [create-pr.md](../.claude/commands/create-pr.md) を参照する
 
 **④ CodeRabbit 対応**（Claude）
 
@@ -162,7 +159,7 @@ PR をレビューし、問題なければ GitHub 上で squash merge する。�
 | 実装・段階的コミット | 実装 → lint → `/self-review` → 所見つきレビュー提示 → コミット | コミット単位でレビュー・承認（ゲート②）。所見の採否を判断 |
 | 保留・キャンセルの記録 | Issue コメント + ステータス更新 | 判断 |
 | 完了確認・PR本文の提示 | 共通条件 + Issue 固有条件 + PR本文案を一括提示 | レビュー・動作確認・承認（ゲート③） |
-| push・PR作成 | `git push` + `gh pr create` | — |
+| push・PR作成 ＋ ローカル自動レビュー | `/create-pr` で実行（`git push` + `gh pr create` + サブエージェントのローカルレビュー・PR非投稿） | 単一タスクはレビュー要否を判断。所見の採否を判断 |
 | CodeRabbit 対応 | `/coderabbit` で実行 | 対応要否を判断 |
 | squash merge | —（deny により実行不可） | レビュー・merge |
 | マージ後処理 | `/task-done` で実行 | 「マージしました」と連絡 |

@@ -58,10 +58,12 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 ### Step 6: 試行実行と検証
 
+QGIS-MCP を使う工程（下記 3・4）に入る前に、**[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) と [qgis_mcp_usage_guide.md](../../../docs/02_methods/qgis_mcp_usage_guide.md) を読み込む**（スタイル作成の注意・クロスチェック手順・各ツールの落とし穴・検証時のプロジェクト衛生を含む）。
+
 1. **小範囲bbox**(ROIの一部)で試行実行し、動作を確認する
 2. [reference.md](reference.md) の検証チェックリスト(CRS・件数・カバレッジ・値域・欠損)を実施する
 3. スタイル(`.qml`)作成の要否を [qgis_operation_guidelines.md の判定表](../../../docs/02_methods/qgis_operation_guidelines.md#スタイル作成要否の判定表)で判定する。**必須と判定された場合は QGIS 表示の有無に関わらず**分類スタイルを適用し `qgis/styles/{カテゴリ}_{データセット}.qml` に保存する。保存後は同ガイドラインの確認手順(プロジェクトを開き直して凡例を確認)を実施する
-4. ベクタ集計値の妥当性検証が必要な場合は、QGIS MCP 突合(同一入力を QGIS ネイティブアルゴリズムに渡して結果を突き合わせる)を提案する
+4. ベクタ集計値の妥当性検証が必要な場合は、QGIS MCP 突合を提案する。実施する場合は [qgis_operation_guidelines.md のクロスチェック定型手順](../../../docs/02_methods/qgis_operation_guidelines.md#python-自前実装と-qgis-ネイティブアルゴリズムの突合クロスチェック)に従う(同一入力を QGIS ネイティブアルゴリズムに渡し、結果を実ファイル出力のうえ突き合わせる)
 5. 検証結果の数値は実行出力から転記し、Issue コメントまたは PR 本文に記録する
 
 ### Step 7: ドキュメント更新・チェックリスト・コミット

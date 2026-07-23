@@ -43,8 +43,10 @@ description: "新規取得・受領したGISデータ1ファイルの定型確�
 
 ### Step 2: QGIS 表示（ROI と重ね合わせ）
 
-QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。命名規則・CRS 方針は
-[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) に従う。
+QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QGIS-MCP 操作を始める前に
+[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) と
+[qgis_mcp_usage_guide.md](../../../docs/02_methods/qgis_mcp_usage_guide.md) を読み込む**
+（命名規則・CRS 方針・クラッシュ対策・検証時のプロジェクト衛生・各ツールの落とし穴を含む）。
 操作の詳細は [reference.md](reference.md) の「QGIS 操作対応表」を参照する。
 
 1. `ping` で QGIS 接続を確認する

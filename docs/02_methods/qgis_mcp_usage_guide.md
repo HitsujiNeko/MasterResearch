@@ -66,7 +66,7 @@ QGIS Processingアルゴリズムを対話的に実行したい場合。
 
 `list_processing_algorithms`でアルゴリズムを検索し、`get_algorithm_help`でパラメータを確認したうえで`execute_processing`を実行する。複数レイヤーへの一括処理は`execute_processing_batch`を使う。
 
-**注意**: `execute_processing`の`OUTPUT` / `OUTPUT_TABLE`に`memory:...`を指定すると、処理は成功しても出力レイヤが`get_layers()`に現れず`get_layer_features()`で参照できない（`Layer not found`）。後続で結果を検証・比較する場合は出力先に実ファイル（`.gpkg`等）を指定する（[qgis_operation_guidelines.md](qgis_operation_guidelines.md)の「execute_processing の出力先は実ファイルにする」を参照）。
+**注意**: `execute_processing`の`OUTPUT` / `OUTPUT_TABLE`に`memory:...`を指定すると、処理は成功しても出力レイヤが`get_layers()`に現れず`get_layer_features()`で参照できない（`Layer not found`）。後続で結果を検証・比較する場合は出力先に実ファイル（`.gpkg`等）を指定する（[qgis_operation_guidelines.md の「execute_processing の出力先は実ファイルにする」](qgis_operation_guidelines.md#execute_processing-の出力先は実ファイルにする)を参照）。
 
 ## ユースケース6: 地図の確認・出力
 

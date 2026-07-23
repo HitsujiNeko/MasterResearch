@@ -58,7 +58,7 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 ### Step 6: 試行実行と検証
 
-QGIS-MCP を使う工程（下記 3・4）に入る前に、**[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) と [qgis_mcp_usage_guide.md](../../../docs/02_methods/qgis_mcp_usage_guide.md) を読み込む**（スタイル作成の注意・クロスチェック手順・各ツールの落とし穴・検証時のプロジェクト衛生を含む）。
+QGIS-MCP を使う工程（下記 3〜5）に入る前に、**[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) と [qgis_mcp_usage_guide.md](../../../docs/02_methods/qgis_mcp_usage_guide.md) を読み込む**（スタイル作成の注意・クロスチェック手順・各ツールの落とし穴・検証時のプロジェクト衛生を含む）。
 
 1. **小範囲bbox**(ROIの一部)で試行実行し、動作を確認する
 2. [reference.md](reference.md) の検証チェックリスト(CRS・件数・カバレッジ・値域・欠損)を実施する

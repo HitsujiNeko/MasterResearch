@@ -71,6 +71,7 @@
 1. タスク実行前に関連ファイル・`docs/` 配下の関連ドキュメントを確認する
 2. コード変更時は [CodingRule.md](docs/02_methods/CodingRule.md) の規約・テスト方針・「15. 実装前後チェックリスト」に従う
 3. 長時間・大規模処理では中間結果の保存・進捗表示・ログ出力を行う
+4. QGIS-MCP を使う作業では [qgis_operation_guidelines.md](docs/02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](docs/02_methods/qgis_mcp_usage_guide.md) を読み込んでから操作する
 
 ### 禁止事項
 
@@ -105,4 +106,4 @@
 - 研究の進行に応じて随時更新し、変更時は日付を記録する
 - 詳細手順はここに書かず、参照先（task-workflow.md・CodingRule.md・コマンド・スキル）に置く
 
-**最終更新**: 2026-07-22
+**最終更新**: 2026-07-23

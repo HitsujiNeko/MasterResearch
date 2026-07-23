@@ -42,7 +42,7 @@ bibliography_consistency.py・freshness.py）。**判定ロジックはスクリ
 |---|---|---|---|
 | 1 | シナリオ定義（Satellite Only / Limited / Full の構成データ） | `CLAUDE.md` 最小用語集 | `docs/02_methods/analysis_workflow.md`（**同一ファイル内に複数箇所。行単位で照合**）、`docs/01_planning/research_guide.md`、`docs/02_methods/calc_urban_params_guide.md`、`docs/03_results/satellite_only_analysis_results.md`、`docs/04_archive/claude_project_knowledge.md` |
 | 2 | 採用データ選定結果（DEM=FABDEM、建物=GBA、道路=OSM、LULC=GLC_FCS30D 等） | `docs/01_planning/gis_data/gis_data_*.md`（カテゴリ別詳細） | `docs/01_planning/available_gis_data.md`（§2 結論の要点・§3 採用データ一覧）、`docs/02_methods/analysis_workflow.md`、`docs/02_methods/calc_urban_params_guide.md`、`docs/04_archive/claude_project_knowledge.md` |
-| 3-a | `EPSG:4326`（WGS84）＝ 入出力の基準 CRS | `CLAUDE.md` 最小用語集 | 全 docs の EPSG/CRS 記述箇所（`analysis_workflow.md`、`qgis_operation_guidelines.md`、`gee_calc_satellite_indices.md`、`claude_project_knowledge.md` 等） |
+| 3-a | `EPSG:4326`（WGS84）＝ 入出力の基準 CRS | `CLAUDE.md` 最小用語集 | Grep で `EPSG:` を列挙した全箇所（`analysis_workflow.md`、`qgis_operation_guidelines.md`、`gee_calc_satellite_indices.md`、`claude_project_knowledge.md` 等） |
 | 3-b | `EPSG:5897`（VN-2000 / TM-3 zone 482）＝ 測量データの正本 CRS | `docs/01_planning/gis_data/gis_data_dem.md` | `docs/02_methods/calc_urban_params_guide.md`、`docs/03_results/survey_gis_data_preparation_status.md`、`docs/02_methods/analysis_workflow.md` |
 | 4 | RQ1-3 の文言（**RQ の定義文のみ**を対象。`[RQ1参考]`・`RQ3◎` 等の関連度タグは対象外） | `docs/01_planning/research_guide.md` | `CLAUDE.md`、`docs/04_archive/claude_project_knowledge.md`、ルート `README.md` |
 | 5 | ROI 定義（対象都市＝ハノイ行政区画／BBOX 座標） | `docs/02_methods/analysis_workflow.md`（`analyze_spatial_extents.py` 由来の値） | `docs/01_planning/gis_data/gis_data_buildings.md`、`docs/01_planning/gis_data/gis_data_lulc.md` |
@@ -53,9 +53,10 @@ bibliography_consistency.py・freshness.py）。**判定ロジックはスクリ
   写しのうち `analysis_workflow.md` は同一ファイル内で複数回シナリオを定義しうるため、
   行単位照合が必須（片方のみ公開GIS欠落等の型を検出するため）。
 - **#2**: 正本は情報量の多いカテゴリ別詳細（`gis_data_*.md`）に置く。
-  `available_gis_data.md` は索引であり、§2 が保持する具体値（建物件数等）は写しとして照合する。
-  ただし**件数などの数値そのものの表記揺れは機械照合（スクリプト側）が担う**ため、本 spec は
-  「どのデータセットを採用したか」という選定結果の意味一致を対象とする。
+  `available_gis_data.md` は索引であり、§2 が保持する具体値は写しとして照合する。
+  照合対象は「どのデータセットを採用したか」という選定結果に加え、正本が明示する
+  代表的な件数（例: GBA 建物件数）を含める。**これらの件数を文書間で照合する機械スクリプトは
+  存在しない**ため、本 spec の意味照合側で扱う（`docs/03_results/` 内の数値は §2 の再突合が別途担う）。
 - **#3**: 「4326 の用途」と「5897 の定義」は正本が異なるため別項目とする。
   `CLAUDE.md` は測量データを「VN-2000 を含む」としか述べず、具体コード `EPSG:5897` は
   `gis_data_dem.md` 側が正本である点に注意する。

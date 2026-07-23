@@ -69,7 +69,7 @@ docs/
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
 | [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 作成・変更の承認ルール（行為ベース）、`shared/` 共通リファレンス運用、プロジェクト固有ルール | `.claude/skills/` |
 | [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) | QGIS MCP活用ガイド | データ確認・レイヤー操作・スタイル適用・Map Theme切り替え・Processing実行のユースケース別操作例 | `qgis/` |
-| [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max）、大規模レイヤーのクラッシュ対策 | `qgis/` |
+| [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max）、大規模レイヤーのクラッシュ対策、execute_code/Processing実行時の注意、Python×QGISネイティブのクロスチェック手順、検証時のプロジェクト衛生 | `qgis/` |
 | [claude_workflow_regression_tests.md](02_methods/claude_workflow_regression_tests.md) | Claude Code運用ルール回帰テスト項目書 | deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点のテスト項目書（正本・再利用）と実施結果記録 | `.claude/settings.json`, `.claude/commands/`, `.claude/skills/shared/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
 
@@ -228,5 +228,5 @@ MasterResearch/
 
 ---
 
-**最終更新**: 2026-07-18  
+**最終更新**: 2026-07-23  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）

@@ -44,6 +44,10 @@ qgis/
 
 ```python
 import json
+
+# layer は対象のレイヤー。例では現在のアクティブレイヤーを取得する
+# （名前で取得する場合は QgsProject.instance().mapLayersByName("レイヤー名")[0]）
+layer = iface.activeLayer()
 result = {"count": layer.featureCount(), "crs": layer.crs().authid()}
 print(json.dumps(result, ensure_ascii=False))  # これで stdout 経由で取得できる
 ```
@@ -77,7 +81,10 @@ Map Theme に含まれるレイヤを追加・変更する際に`apply_map_theme
 テーマを**適用せず**に、`execute_code`でテーマのレコードを直接操作すれば、描画を伴わず安全・高速にレイヤを追加できる。
 
 ```python
-from qgis.core import QgsMapThemeCollection
+from qgis.core import QgsProject, QgsMapThemeCollection
+
+# target_layer はテーマに追加する対象レイヤー（例: 名前で取得）
+target_layer = QgsProject.instance().mapLayersByName("レイヤー名")[0]
 
 collection = QgsProject.instance().mapThemeCollection()
 record = collection.mapThemeState("Full")          # テーマのレコードを取得（描画なし）

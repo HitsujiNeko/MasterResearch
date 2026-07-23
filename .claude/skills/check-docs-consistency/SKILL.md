@@ -16,15 +16,17 @@ description: "docs/配下のドキュメントの意味的な整合性（同一�
 ## チェック項目
 
 1. **機械的チェック（CI結果の確認）** — `python -m src.doc_checks.run_all` を実行し、カタログ差分・リンク切れ・メタ情報・表記揺れ・書誌整合・鮮度の検出結果を取得する
-2. **内容の不一致** — 同一対象（EPSGコード等）の文書間での記述差異。判定基準は `references/check_spec.md` を参照
+2. **事実レジストリの逐件照合** — 複数文書に分散する重要事実（シナリオ定義・採用データ選定結果・CRS用途・RQ文言・ROI定義）を、正本と写しで行（箇所）単位に照合する。レジストリと判定基準は `references/check_spec.md` を参照
+3. **結果数値の再突合** — `docs/03_results/` の各文書の数値を、生成元データ（各文書本文の出力ファイル節が指す JSON/CSV）と再照合する。手順は `references/check_spec.md` を参照
 
 ---
 
 ## 実行手順
 
 1. `python -m src.doc_checks.run_all` を実行する
-2. 内容の不一致チェックを実施する（Grep / Glob を活用し、不要な全文 Read は避ける）
-3. 両方の結果を統合して報告する
+2. 事実レジストリの逐件照合を実施する（`references/check_spec.md` の 1 章。Grep / Glob を活用し、不要な全文 Read は避ける）
+3. 結果数値の再突合を実施する（`references/check_spec.md` の 2 章）
+4. すべての結果を統合して報告する
 
 ### 問題なしの場合
 

@@ -1,21 +1,99 @@
 # チェック仕様詳細
 
-各チェック項目の対象・判定基準・例外を定義する。
+本スキルが担う意味的整合性チェックの対象・判定基準・手順を定義する。
 
-機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報の有無・用語の表記揺れ）は
-`src/doc_checks/` へスクリプト化された（catalog_diff.py・broken_links.py・
-metadata_presence.py・terminology.py）。判定ロジックはスクリプト側が正本であり、
-本ドキュメントには記載しない。書誌整合（bibliography_consistency.py）・
-鮮度チェック（freshness.py）も同様にスクリプト側で実施する。
+機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報の有無・用語の表記揺れ・
+書誌整合・鮮度）は `src/doc_checks/` へスクリプト化され、CI で実行される
+（catalog_diff.py・broken_links.py・metadata_presence.py・terminology.py・
+bibliography_consistency.py・freshness.py）。**判定ロジックはスクリプト側が正本**であり、
+本ドキュメントには記載しない。本 spec は**スクリプトでは拾えない「意味判断を伴う照合」のみ**を
+「列挙されたリストの逐件照合」として定義する。判定を実行者の裁量に委ねる曖昧な指定
+（「可能な範囲で」等）は用いず、照合対象は本 spec の表・手順で必ず列挙する。
+
+チェックは次の 2 種類からなる。
+
+1. 事実レジストリの逐件照合（複数文書に分散する同一事実の整合）
+2. 結果数値の再突合（結果ドキュメントの数値と生成元データの整合）
 
 ---
 
-## 1. 内容レベルの整合性チェック
+## 1. 事実レジストリの逐件照合
 
-文書間で同一対象が異なる値で記載されていないかを確認する。
+複数文書に登場する重要事実について、「正本 → 写しの所在」を下表に列挙する。
+スキルは**レジストリを1件ずつ**、写しを正本と照合する。網羅ではなく再現性を優先し、
+価値の高い事実（ドリフトが下流に波及する／過去に見逃しが発生した型）に絞る。
 
-- **EPSG/CRS コード**: `EPSG:\d+` を検索し、各コードに付随するゾーン名・用途説明を文書間で比較する（必須）
-- **データセット名・ファイル名の不一致**: 同じデータソースの異なる表記（ベストエフォート）
-- **数値・選定結果の不一致**: 選定結果の伝播漏れ（ベストエフォート）
+レジストリの追加・変更は**本ファイルのみ**を更新すれば全体に反映される。
 
-検出した不一致は「どちらが正しいか」を断定せず、両方の記載箇所と内容を提示する。
+### 1.1 照合の原則
+
+- **行（箇所）単位で照合する**: ファイル単位で「1箇所一致したので合格」とはしない。
+  事実が登場する各箇所を逐件で正本と突き合わせる。
+  （例: 同一ファイル内に定義が2箇所あり片方だけ誤っている型を取りこぼさないため）
+- **表記差は値の意味で判定する**: 写しごとに書式が異なりうる
+  （例: 座標が `105.288125, ...` / `105.288–106.020°E` / `[105.2881, ...]`）。
+  文字列一致ではなく、値・構成の意味が一致するかで判定する。
+- **どちらが正しいかを断定しない**: 不一致は正本・写し双方の記載箇所（ファイル:行）と
+  内容を提示し、修正判断は研究者に委ねる。
+
+### 1.2 事実レジストリ
+
+| # | 事実 | 正本 | 写しの所在（照合先） |
+|---|---|---|---|
+| 1 | シナリオ定義（Satellite Only / Limited / Full の構成データ） | `CLAUDE.md` 最小用語集 | `docs/02_methods/analysis_workflow.md`（**同一ファイル内に複数箇所。行単位で照合**）、`docs/01_planning/research_guide.md`、`docs/02_methods/calc_urban_params_guide.md`、`docs/03_results/satellite_only_analysis_results.md`、`docs/04_archive/claude_project_knowledge.md` |
+| 2 | 採用データ選定結果（DEM=FABDEM、建物=GBA、道路=OSM、LULC=GLC_FCS30D 等） | `docs/01_planning/gis_data/gis_data_*.md`（カテゴリ別詳細） | `docs/01_planning/available_gis_data.md`（§2 結論の要点・§3 採用データ一覧）、`docs/02_methods/analysis_workflow.md`、`docs/02_methods/calc_urban_params_guide.md`、`docs/04_archive/claude_project_knowledge.md` |
+| 3-a | `EPSG:4326`（WGS84）＝ 入出力の基準 CRS | `CLAUDE.md` 最小用語集 | 全 docs の EPSG/CRS 記述箇所（`analysis_workflow.md`、`qgis_operation_guidelines.md`、`gee_calc_satellite_indices.md`、`claude_project_knowledge.md` 等） |
+| 3-b | `EPSG:5897`（VN-2000 / TM-3 zone 482）＝ 測量データの正本 CRS | `docs/01_planning/gis_data/gis_data_dem.md` | `docs/02_methods/calc_urban_params_guide.md`、`docs/03_results/survey_gis_data_preparation_status.md`、`docs/02_methods/analysis_workflow.md` |
+| 4 | RQ1-3 の文言（**RQ の定義文のみ**を対象。`[RQ1参考]`・`RQ3◎` 等の関連度タグは対象外） | `docs/01_planning/research_guide.md` | `CLAUDE.md`、`docs/04_archive/claude_project_knowledge.md`、ルート `README.md` |
+| 5 | ROI 定義（対象都市＝ハノイ行政区画／BBOX 座標） | `docs/02_methods/analysis_workflow.md`（`analyze_spatial_extents.py` 由来の値） | `docs/01_planning/gis_data/gis_data_buildings.md`、`docs/01_planning/gis_data/gis_data_lulc.md` |
+
+補足:
+
+- **#1**: `CLAUDE.md` 最小用語集の定義（Full＝衛星データ・公開GIS・測量GIS）を基準とする。
+  写しのうち `analysis_workflow.md` は同一ファイル内で複数回シナリオを定義しうるため、
+  行単位照合が必須（片方のみ公開GIS欠落等の型を検出するため）。
+- **#2**: 正本は情報量の多いカテゴリ別詳細（`gis_data_*.md`）に置く。
+  `available_gis_data.md` は索引であり、§2 が保持する具体値（建物件数等）は写しとして照合する。
+  ただし**件数などの数値そのものの表記揺れは機械照合（スクリプト側）が担う**ため、本 spec は
+  「どのデータセットを採用したか」という選定結果の意味一致を対象とする。
+- **#3**: 「4326 の用途」と「5897 の定義」は正本が異なるため別項目とする。
+  `CLAUDE.md` は測量データを「VN-2000 を含む」としか述べず、具体コード `EPSG:5897` は
+  `gis_data_dem.md` 側が正本である点に注意する。
+- **#4**: 照合対象は RQ の定義文に限る。文献要約（`S*_*.md`）や `papers_database.csv` の
+  関連度タグは対象に含めない（過剰診断を避けるため）。
+
+### 1.3 照合手順
+
+1. 各レジストリ項目について、正本の該当箇所を Read し基準となる内容を確定する。
+2. 写しの所在を Grep で列挙し、登場する各箇所（ファイル:行）を逐件で正本と照合する。
+3. 意味が一致しない箇所を、正本・写し双方の記載（ファイル:行＋内容）とともに記録する。
+4. 写しの所在が本 spec の記載と実態でずれている場合（ファイル追加・削除等）は、
+   その旨も報告する（レジストリ自体の陳腐化検出）。
+
+---
+
+## 2. 結果数値の再突合
+
+`docs/03_results/` の各文書について、本文中の数値（R²・RMSE・件数・LST 平均・SHAP 等）が
+生成元データと一致するかを再照合する。作成時のファクトチェックと同じ原理を定期検証にも適用する。
+
+### 2.1 照合手順
+
+1. 対象文書内の「出力ファイル」節（例: `satellite_only_analysis_results.md` §3.5）に
+   記載された生成元 JSON/CSV を照合キーとする。
+   （`docs/README.md` カタログの `自動生成元` 列はスクリプト名・ディレクトリを指すため、
+   数値の照合には**各文書本文の出力ファイル節**を用いる。）
+2. 生成元に**複数ラン（タイムスタンプ別ディレクトリ等）**がある場合は、
+   観測日横断の要約（`multidate/` の summary）を正とする。
+3. 生成元ファイルを Read し、本文の数値と再照合する（丸め桁の差は許容し、値の一致を確認）。
+4. 対象文書に「出力ファイル」節が無い場合は、照合キーを特定できないため対象外とし、
+   その旨を報告する（節の追加要否は研究者に委ねる）。
+5. 出力ファイル節はあるが生成元ファイルが存在しない場合は、その旨を報告する（数値の正否は断定しない）。
+
+---
+
+## 3. 報告
+
+検出した不一致は「どちらが正しいか」を断定せず、正本・写し（または本文・生成元）双方の
+記載箇所（ファイル:行）と内容を提示する。報告形式は SKILL.md および
+`.github/ISSUE_TEMPLATE/docs-consistency-report.md` に従う。

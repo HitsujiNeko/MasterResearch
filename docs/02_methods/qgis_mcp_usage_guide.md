@@ -1,6 +1,6 @@
 # QGIS MCP 活用ガイド
 
-**最終更新**: 2026-07-01
+**最終更新**: 2026-07-23
 **関連ドキュメント**: [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [qgis_operation_guidelines.md](qgis_operation_guidelines.md), [data_management_guide.md](data_management_guide.md)
 **前提知識**: QGIS MCPのセットアップ完了（[qgis_mcp_setup.md](../setup/qgis_mcp_setup.md)）、QGISの基本操作
 
@@ -66,11 +66,15 @@ QGIS Processingアルゴリズムを対話的に実行したい場合。
 
 `list_processing_algorithms`でアルゴリズムを検索し、`get_algorithm_help`でパラメータを確認したうえで`execute_processing`を実行する。複数レイヤーへの一括処理は`execute_processing_batch`を使う。
 
+**注意**: `execute_processing`の`OUTPUT` / `OUTPUT_TABLE`に`memory:...`を指定すると、処理は成功しても出力レイヤが`get_layers()`に現れず`get_layer_features()`で参照できない（`Layer not found`）。後続で結果を検証・比較する場合は出力先に実ファイル（`.gpkg`等）を指定する（[qgis_operation_guidelines.md](qgis_operation_guidelines.md)の「execute_processing の出力先は実ファイルにする」を参照）。
+
 ## ユースケース6: 地図の確認・出力
 
 - 簡易確認: `get_canvas_screenshot`（現在のキャンバス描画を高速に取得、再レンダリングなし）
 - 高品質レンダリング: `render_map`
 - 印刷レイアウト出力: `qgis/templates/standard_a4_map.qpt`をベースにしたレイアウトを`export_layout`でPDF/画像として書き出す
+
+**注意: `render_map`はレイヤー可視性変更を反映しないことがある**。`set_layer_visibility()`で表示/非表示を切り替え、`refreshAllLayers()`で強制リフレッシュしても、`render_map()`の出力画像が変化しない事例がある（キャッシュされた合成結果を返している可能性）。一方、`get_canvas_screenshot`や`execute_code`での`iface.mapCanvas().saveAsImage(path)`は可視性変更を正しく反映する。**特定レイヤーのみを表示した画像が必要な場合は`render_map`を使わず後者を用いる**（どうしても`render_map`を使う場合は、可視性変更が画像に反映されているか毎回目視確認する）。
 
 ---
 

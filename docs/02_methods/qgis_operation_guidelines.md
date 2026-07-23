@@ -1,6 +1,6 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-07-22
+**最終更新**: 2026-07-23
 **関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
@@ -34,6 +34,32 @@ qgis/
 - 面積・距離計算やバッファ処理など投影座標系が必要な処理では、都度適切なUTM等の投影座標系に変換する（データを恒久的に再投影しない。プロジェクトCRSはEPSG:4326のまま維持する）
 - ベトナム測量データ（VN-2000）を読み込む場合は、レイヤーのCRSがVN-2000のまま正しく認識されているか`get_layer_crs`で確認し、必要に応じて`transform_coordinates`でEPSG:4326に変換して重ね合わせる
 
+## execute_code / execute_processing の値取得
+
+### execute_code の戻り値は stdout のみ
+
+`execute_code`は実行したコード内の変数（例: `result`）に値を代入しても、その値を返却しない。戻り値は `{"executed": true, "stdout": "", "stderr": ""}` の形式で、変数の中身は含まれない。**計算結果・レイヤー情報などを取得したい場合は、`print`で標準出力に書き出す必要がある**。
+
+日本語やネストした構造を安全に受け渡すため、`json.dumps(..., ensure_ascii=False)` で出力する。
+
+```python
+import json
+result = {"count": layer.featureCount(), "crs": layer.crs().authid()}
+print(json.dumps(result, ensure_ascii=False))  # これで stdout 経由で取得できる
+```
+
+`print`を書かずに変数へ代入するだけだと、`stdout`が空のまま返り、値を取得できない。
+
+### execute_processing の出力先は実ファイルにする
+
+`execute_processing()`の`OUTPUT` / `OUTPUT_TABLE`に`memory:...`を指定すると、**処理自体は成功するが、出力レイヤが`get_layers()`に現れず、`get_layer_features()`でも参照できない**（`Layer not found`となる）。後続で検証・比較する用途では、出力先に実ファイル（`.gpkg`等）を指定する。
+
+```text
+OUTPUT: <ABS_PATH>/data/tmp/buffer_result.gpkg   # 実ファイルを指定（memory: は使わない）
+```
+
+一時的な検証結果でも、参照するなら実ファイルに書き出す。片付けは[検証時のプロジェクト衛生](#検証時のプロジェクト衛生場面別のsave方針)の方針に従う。
+
 ## 大規模レイヤーの取り扱い（クラッシュ対策）
 
 GBA建物データ（約307万件）や測量データ複数レイヤー（数十万件規模）を同時に可視化状態にした際、QGIS本体がクラッシュする事例が確認された。
@@ -43,6 +69,33 @@ GBA建物データ（約307万件）や測量データ複数レイヤー（数�
 1. **レイヤー・グループ追加のたびに`save_project`でこまめに保存する**。クラッシュ時に未保存の作業（レイヤー構成・グループ・Map Theme設定等）がすべて失われるため
 2. 全レイヤーを同時に可視化する操作（`Full`テーマの確認など）を行う前に、直前の状態を保存しておく
 3. クラッシュ後は`ping`で再接続を確認し、`get_project_info`・`get_layer_tree`で状態を確認してから作業を再開する
+
+### 大規模レイヤーを含むテーマへのレイヤ追加は描画を伴わない方式で行う
+
+Map Theme に含まれるレイヤを追加・変更する際に`apply_map_theme()`を呼ぶと、そのテーマに含まれる大規模レイヤ（GBA建物 約307万地物 等）の描画が発生し、クラッシュ・長い待ち時間のリスクがある。
+
+テーマを**適用せず**に、`execute_code`でテーマのレコードを直接操作すれば、描画を伴わず安全・高速にレイヤを追加できる。
+
+```python
+from qgis.core import QgsMapThemeCollection
+
+collection = QgsProject.instance().mapThemeCollection()
+record = collection.mapThemeState("Full")          # テーマのレコードを取得（描画なし）
+layer_record = QgsMapThemeCollection.MapThemeLayerRecord(target_layer)
+record.addLayerRecord(layer_record)                # レコードにレイヤを追加
+collection.update("Full", record)                  # テーマを更新（描画なし）
+```
+
+`apply_map_theme()`はテーマの内容を確認・確定したい最終段階でのみ使い、レイヤ構成の編集中は上記の方式を用いる。
+
+### 検証時のプロジェクト衛生（場面別のsave方針）
+
+QGIS-MCP は「現在開いているプロジェクト」に対して操作する設計のため、検証用に追加した一時レイヤや可視性変更が、ユーザーの作業中プロジェクトを汚したり誤って保存されたりするリスクがある。上記「クラッシュ対策」の「こまめに`save_project`」と場面が異なるため、以下のように切り分ける。
+
+- **プロジェクトを意図して構築中**（レイヤ順・グループ・Map Theme を整えている）: 上記のとおり、レイヤ・グループ追加のたびに`save_project`でこまめに保存する（クラッシュ対策を優先）
+- **一時的な検証・作図中**（アルゴリズムの突合や特定レイヤーの作図など、プロジェクトの永続構成を変えるつもりがない）: `save_project()`は**明示的に指示されない限り呼ばない**。可視性変更・テーマ適用・一時レイヤ追加を行った場合は、元の状態（テーマの再適用等）に戻し、追加した一時レイヤを`remove_layer()`で片付けてからセッションを終える
+
+両者は排他ではなく「今どちらの場面か」で判断する。判断に迷う場合は、プロジェクトの永続構成を変える意図があるかで切り分ける。
 
 ## データ取得タスクにおけるスタイル成果物（.qml）の扱い
 
@@ -76,6 +129,8 @@ GBA建物データ（約307万件）や測量データ複数レイヤー（数�
 
 **理由**: この設定を省略すると、実行中のQGISセッションでは正しく表示されるが（`legendSymbologyItems()`で検証しても正しい値が返る）、`.qml`・`.qgz`への保存時に`classificationMin`/`classificationMax`が`nan`としてシリアライズされ、**プロジェクトを閉じて再度開くとスタイルが破損し、すべての値が`nan`表示になる**。実行中セッションの見た目だけでは検知できない不具合のため注意する。
 
+**対象レンダラー**: この`nan`化問題は、連続値の疑似カラーを扱う`QgsSingleBandPseudoColorRenderer`**固有**である。カテゴリ分類の`QgsPalettedRasterRenderer`（LULC 等のクラス値ラスタで使う）では`classificationMin`/`classificationMax`を持たないため発生しないことを確認済み。したがって`setClassificationMin`/`setClassificationMax`の明示設定が必要なのは`QgsSingleBandPseudoColorRenderer`のときに限られる。
+
 **実装例**:
 
 ```python
@@ -103,4 +158,31 @@ layer.setRenderer(renderer)
 Select-String -Path "qgis/styles/*.qml" -Pattern 'classificationM(in|ax)="nan"'
 ```
 
-このコマンドで該当箇所がヒットした場合はスタイルが破損している。
+このコマンドで該当箇所がヒットした場合はスタイルが破損している（`QgsSingleBandPseudoColorRenderer`の場合）。
+
+**レンダラー種別によらない往復検証手順**: `nan`化に限らずスタイルの保存・復元が正しく機能するかは、以下の往復（スタイル保存 → 別レイヤへ再適用 → 復元確認）で検証できる。カテゴリ分類（`QgsPalettedRasterRenderer`）でも連続値疑似カラーでも有効である。
+
+1. スタイルを設定したレイヤで`save_style_qml()`（または`.qml`書き出し）を行う
+2. 同じ元データを別レイヤとして読み込む
+3. その別レイヤに`apply_style_qml()`で 1 の`.qml`を再適用する
+4. **クラス数・各クラスの値・色・ラベルが元と一致して復元されるか**を確認する（カテゴリ分類ならクラス欠落がないか、疑似カラーなら値域が`nan`化していないか）
+
+## Python 自前実装と QGIS ネイティブアルゴリズムの突合（クロスチェック）
+
+Python での自前集計・幾何計算の正しさは、同一入力を QGIS ネイティブアルゴリズムにも通し、結果を突き合わせることで検証できる。実タスクで、ベクタ（線長集計）・ラスタ（クラス別画素数集計）の双方で有効性を確認済みである。
+
+**実証例**:
+
+- **ベクタ（線長集計）**: グリッドセルごとの道路線長を、Python 自前実装と`native:sumlinelengths`で算出し突合したところ、49セル中49セルが一致し、最大絶対誤差は約 1.3cm に収まった
+- **ラスタ（クラス別画素数集計）**: 土地利用ラスタのクラス別画素数を、Python 自前集計と`native:rasterlayeruniquevaluesreport`で算出し突合したところ、総画素数・NoData・全15クラスで完全一致した
+
+### 定型手順
+
+1. Python で自前実装し、結果を得る
+2. 同一入力を QGIS 処理系にも渡す
+3. `get_algorithm_help()`でアルゴリズムのパラメータ・戻り値を事前確認する
+4. `execute_processing()`を実行し、結果を**実ファイル**（`.gpkg`等）に出力する（`memory:`は使わない。理由は[execute_processing の出力先は実ファイルにする](#execute_processing-の出力先は実ファイルにする)を参照）
+5. 両者を突合する（数値・件数・クラス構成などタスクに応じた観点で一致を確認する）
+6. 検証のために現在のプロジェクトへ追加した一時レイヤは、検証後に必ず`remove_layer()`で片付ける（[検証時のプロジェクト衛生](#検証時のプロジェクト衛生場面別のsave方針)の方針に従う）
+
+この手順は、自前実装の妥当性を確認したい任意のベクタ・ラスタ処理に適用できる。

@@ -72,7 +72,7 @@ QGIS-MCP を使う工程（下記 3〜5）に入る前に、**[qgis_operation_gu
 1. `docs/01_planning/gis_data/gis_data_{カテゴリ}.md` に取得結果(件数・カバレッジ・注意点)を追記する
 2. `docs/02_methods/CodingRule.md` の「実装前後チェックリスト」を完了する
 3. 成果物: 取得スクリプト・テスト・サマリーJSON・調査ドキュメント追記。
-   - **空間データを取得した場合は QGIS スクリーンショット（`images/gis_data/{カテゴリ}/*.png`）を必須成果物に含める**（データ型で分岐しない。非空間データは対象外 — [「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)参照）
+   - **空間データを取得した場合は QGIS スクリーンショット（`images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`。複数枚の場合のみ `_overview` / `_detail` 等の接尾辞を許可）を必須成果物に含める**（データ型で分岐しない。非空間データは対象外 — [「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)参照）
    - 判定表で**必須と判定されるデータ型**では `qgis/styles/{カテゴリ}_{データセット}.qml` を必須成果物に含める(任意判定で作成した場合も同様に含める。`.qgz` は完了条件に含めない — [判定表の後段](../../../docs/02_methods/qgis_operation_guidelines.md#qgis-プロジェクトqgzへの追加は完了条件に含めない)参照)
 4. `ruff check` / `ruff format`・markdownlint を実行し、セルフレビュー(`/self-review`)の所見つきレビューを提示のうえ、ユーザー承認後にコミットする
 

@@ -12,7 +12,7 @@
 
 ## Research Questions
 
-本研究は 3 つの問い（RQ）を軸に進めています（正本 [research_guide.md](docs/01_planning/research_guide.md) からの転記。文言は正本と一致させる）。
+本研究は 3 つの問い（RQ）を軸に進めています（正本: [research_guide.md](docs/01_planning/research_guide.md)）。
 
 - **RQ1**: Landsat 8（30m）LSTと都市構造データを組み合わせた場合、どの説明変数がLSTに対して支配的か？
 - **RQ2**: 都市構造パラメータとLSTの関係性は、空間集計単位や解析スケールの違いによってどのように変化するか？

@@ -1,6 +1,6 @@
 # Claude Projects ナレッジ（アップロード用）
 
-**最終更新**: 2026-07-07  
+**最終更新**: 2026-07-24  
 **関連ドキュメント**: [claude_project_instructions.md](claude_project_instructions.md), [research_guide.md](../01_planning/research_guide.md), [previous_studies_report.md](previous_studies_report.md)
 
 > **このファイルの役割**  
@@ -20,7 +20,7 @@
 
 - **RQ1**: Landsat 8（30m）LSTと都市構造データを組み合わせた場合、どの説明変数がLSTに対して支配的か？
 - **RQ2**: 都市構造パラメータとLSTの関係性は、空間集計単位や解析スケールの違いによってどのように変化するか？
-- **RQ3**: 測量データが限定的な条件下でも、衛星データおよび公開データによりLST分布の説明はどの程度可能か？
+- **RQ3**: 詳細な測量データが限定的な条件下においても、衛星データおよび公開データを用いた都市構造パラメータにより、LST分布の説明はどの程度可能か？
 
 ## 3. 用語集
 

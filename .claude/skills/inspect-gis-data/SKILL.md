@@ -63,7 +63,11 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QG
      （データは恒久再投影しない。プロジェクト CRS は EPSG:4326 のまま維持）
 5. **ROI レイヤにズーム**して `get_canvas_screenshot` で描画を取得し、カバレッジを目視提示する。
    対象レイヤ全体にズームすると、外れ値ジオメトリがある場合に実データが1点に潰れて見えないため、
-   まず ROI 基準で重なりを確認する（下記 Step 3 のジオメトリ確認と連動）
+   まず ROI 基準で重なりを確認する（下記 Step 3 のジオメトリ確認と連動）。
+   **データ取得タスクの検証としてスクリーンショットをコミットする場合**は、この描画を
+   [reference.md](reference.md) の「スクリーンショットの保存先・命名規則」に従って
+   `images/gis_data/{カテゴリ}/` に保存する（対象範囲・目的の詳細は
+   [qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照）
 6. データ確認は一時的な検証にあたるため、**`save_project` は明示指示がない限り呼ばない**
    （[qgis_operation_guidelines.md の「検証時のプロジェクト衛生」](../../../docs/02_methods/qgis_operation_guidelines.md#検証時のプロジェクト衛生場面別のsave方針)）。
    確認用に追加したレイヤをプロジェクトに残さない場合は `remove_layer` で片付ける。

@@ -214,6 +214,7 @@ MasterResearch/
 ├── tests/          # pytestテスト
 ├── data/           # 研究データ（衛星・GIS・入出力。Git管理外を含む）
 ├── qgis/           # QGISワークスペース（プロジェクト・スタイル・テンプレート）
+├── images/         # 視覚的記録（データ取得タスクのGISスクリーンショット等。Git追跡）
 └── 整備データ/     # ベトナム測量データ（統合GeoPackage）
 ```
 
@@ -224,6 +225,7 @@ MasterResearch/
 | `src/`・`tests/` | [CodingRule.md](02_methods/CodingRule.md)・`02_methods/` の各仕様書 |
 | `data/` | [data_management_guide.md](02_methods/data_management_guide.md) |
 | `qgis/` | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) |
+| `images/` | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md)（スクリーンショットの扱い・保存先・命名規則） |
 | `整備データ/` | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) |
 
 ---

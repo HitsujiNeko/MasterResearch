@@ -98,6 +98,26 @@ def test_page_size_rejects_unknown_kind() -> None:
         page_size(180.0, 202.0, "bogus")
 
 
+@pytest.mark.parametrize(
+    ("frame_w", "map_h", "kind", "legend_h"),
+    [
+        (0.0, 202.0, LEGEND_NONE, 55.0),
+        (180.0, 0.0, LEGEND_NONE, 55.0),
+        (180.0, 202.0, LEGEND_ITEMS, 0.0),
+    ],
+)
+def test_page_size_rejects_nonpositive_dimensions(frame_w, map_h, kind, legend_h) -> None:
+    """フレーム幅・地図高さ・凡例帯高さが 0 以下なら ValueError。"""
+    with pytest.raises(ValueError):
+        page_size(frame_w, map_h, kind, legend_h)
+
+
+def test_layout_geometry_rejects_unknown_kind() -> None:
+    """layout_geometry も未知の legend_kind を弾く。"""
+    with pytest.raises(ValueError):
+        layout_geometry(HANOI_EXTENT, legend_kind="bogus")
+
+
 def test_layout_geometry_none_has_no_legend() -> None:
     """凡例なしでは legend は None、page は page_size と一致する。"""
     geom = layout_geometry(HANOI_EXTENT, frame_width_mm=180.0, legend_kind=LEGEND_NONE)
@@ -143,6 +163,18 @@ def test_present_class_values_keeps_all_without_nodata() -> None:
     """nodata=None なら全クラスを残す。"""
     values = np.array([0, 0, 5, 5, 12])
     assert present_class_values(values, nodata=None) == [0, 5, 12]
+
+
+def test_present_class_values_skips_nan() -> None:
+    """NaN は nodata 指定の有無に関わらず除外される。"""
+    values = np.array([10.0, np.nan, 20.0, np.nan])
+    assert present_class_values(values, nodata=None) == [10, 20]
+
+
+def test_present_class_values_rounds_floats() -> None:
+    """浮動小数のクラス値は四捨五入して整数化する。"""
+    values = np.array([9.6, 9.6, 20.4])
+    assert present_class_values(values, nodata=None) == [10, 20]
 
 
 def test_shorten_label_removes_english_parenthetical() -> None:

@@ -11,6 +11,8 @@ PyQGIS に依存せず、レイアウトの寸法・位置（mm）だけを算�
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 # レイアウト定数（mm）。全図で共通の体裁を保つための基準値。
@@ -167,11 +169,13 @@ def layout_geometry(
     return geometry
 
 
-def present_class_values(values, nodata: float | None = None) -> list[int]:
+def present_class_values(
+    values: Sequence[float] | np.ndarray, nodata: float | None = None
+) -> list[int]:
     """ラスタ値の配列から、実在するクラス値（整数）を昇順で返す。
 
     カテゴリ値ラスタの凡例を「実際にデータへ現れるクラス」だけに絞るために使う。
-    ``nodata`` は除外する。
+    ``nodata`` と ``NaN`` は除外する。
 
     Args:
         values: ラスタ画素値の配列（``numpy`` 配列や任意の数値イテラブル）。
@@ -183,9 +187,12 @@ def present_class_values(values, nodata: float | None = None) -> list[int]:
     unique = np.unique(np.asarray(values))
     result: list[int] = []
     for value in unique:
+        fvalue = float(value)
+        if np.isnan(fvalue):
+            continue
         if nodata is not None and value == nodata:
             continue
-        result.append(int(round(float(value))))
+        result.append(int(round(fvalue)))
     return result
 
 

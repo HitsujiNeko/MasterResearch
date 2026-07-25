@@ -24,6 +24,7 @@ from osgeo import gdal
 
 from qgis.core import (
     QgsColorRampLegendNodeSettings,
+    QgsCoordinateReferenceSystem,
     QgsFillSymbol,
     QgsLayoutExporter,
     QgsLayoutItemLabel,
@@ -33,11 +34,14 @@ from qgis.core import (
     QgsLayoutPoint,
     QgsLayoutSize,
     QgsLegendStyle,
+    QgsMapLayer,
     QgsPalettedRasterRenderer,
     QgsPrintLayout,
     QgsProject,
+    QgsRasterLayer,
     QgsRectangle,
     QgsUnitTypes,
+    QgsVectorLayer,
 )
 from qgis.PyQt.QtGui import QColor, QFont
 from src.visualization import figure_layout as fl
@@ -50,7 +54,43 @@ def _project(project: QgsProject | None) -> QgsProject:
     return project if project is not None else QgsProject.instance()
 
 
-def style_roi_outline(roi_layer, color: str = "255,0,0,255", width: str = "0.6") -> None:
+def _require_layer(project: QgsProject, name: str) -> QgsMapLayer:
+    """名前でレイヤを取得する。見つからなければ分かりやすいエラーを送出する。"""
+    layers = project.mapLayersByName(name)
+    if not layers:
+        raise ValueError(f"レイヤが見つかりません: {name!r}")
+    return layers[0]
+
+
+def _set_legend_font(
+    legend: QgsLayoutItemLegend, style_enum, point_size: int, bold: bool = False
+) -> None:
+    """凡例スタイルのフォントサイズ・太字を設定する（QGIS 新旧 API 対応）。
+
+    QGIS 3.40 で ``QgsLayoutItemLegend.setStyleFont`` 系が非推奨化されたため、
+    まず ``QgsLegendStyle.textFormat`` / ``setTextFormat`` を用い、当該 API が無い
+    古い環境では従来の ``setStyleFont`` にフォールバックする。
+    """
+    style = legend.style(style_enum)
+    try:
+        text_format = style.textFormat()
+        font = text_format.font()
+        font.setBold(bold)
+        text_format.setFont(font)
+        text_format.setSize(point_size)
+        text_format.setSizeUnit(QgsUnitTypes.RenderPoints)
+        style.setTextFormat(text_format)
+        legend.setStyle(style_enum, style)
+    except AttributeError:
+        font = style.font()
+        font.setPointSize(point_size)
+        font.setBold(bold)
+        legend.setStyleFont(style_enum, font)
+
+
+def style_roi_outline(
+    roi_layer: QgsVectorLayer, color: str = "255,0,0,255", width: str = "0.6"
+) -> None:
     """ROI レイヤを塗りつぶしなし・指定色の外枠だけで表示する。"""
     symbol = QgsFillSymbol.createSimple(
         {"color": "0,0,0,0", "outline_color": color, "outline_width": width}
@@ -59,11 +99,14 @@ def style_roi_outline(roi_layer, color: str = "255,0,0,255", width: str = "0.6")
     roi_layer.triggerRepaint()
 
 
-def filter_paletted_to_present(layer, nodata: float | None = None) -> int:
+def filter_paletted_to_present(layer: QgsRasterLayer, nodata: float | None = None) -> int:
     """カテゴリ値ラスタを、データに実在するクラスだけの凡例に作り直す。
 
     全クラス（未使用クラス含む）を凡例に出すと巨大化するため、``gdal`` で実際の
     画素値を調べ、現れたクラスのみを残す。ラベルは英語括弧を除いた日本語のみにする。
+
+    実在クラスはラスタ全体の画素から判定する（ROI でクリップしない）。本研究のラスタは
+    概ね ROI 範囲に収まっているため、凡例と地図の内容は実用上一致する。
 
     Args:
         layer: ``QgsRasterLayer``（``QgsPalettedRasterRenderer`` を持つこと）。
@@ -71,12 +114,20 @@ def filter_paletted_to_present(layer, nodata: float | None = None) -> int:
 
     Returns:
         残したクラス数。
+
+    Raises:
+        ValueError: ラスタソースを開けないとき。
     """
     dataset = gdal.Open(layer.source())
-    band = dataset.GetRasterBand(1)
-    if nodata is None:
-        nodata = band.GetNoDataValue()
-    present = set(fl.present_class_values(band.ReadAsArray(), nodata))
+    if dataset is None:
+        raise ValueError(f"ラスタを開けません: {layer.source()!r}")
+    try:
+        band = dataset.GetRasterBand(1)
+        if nodata is None:
+            nodata = band.GetNoDataValue()
+        present = set(fl.present_class_values(band.ReadAsArray(), nodata))
+    finally:
+        dataset = None  # gdal データセットを明示的に解放する
 
     renderer = layer.renderer()
     kept = [
@@ -89,7 +140,7 @@ def filter_paletted_to_present(layer, nodata: float | None = None) -> int:
     return len(kept)
 
 
-def set_raster_itemized_legend(layer) -> None:
+def set_raster_itemized_legend(layer: QgsRasterLayer) -> None:
     """連続値疑似カラーラスタの凡例を、連続グラデーションから項目表示に切り替える。
 
     地図は INTERPOLATED のまま滑らかに描画しつつ、凡例だけ ``.qml`` 定義済みの
@@ -123,6 +174,9 @@ def build_gis_figure(
     ページを縦に伸ばし、地図の下に凡例帯を置く。凡例には対象データレイヤのみを残す
     （ROI 枠は除外）。
 
+    一時レイアウトはエクスポート成否に関わらず片付け、プロジェクトの ellipsoid も
+    元の値へ復元する（呼び出し側のプロジェクト状態を汚さないため）。
+
     Args:
         data_layer_name: 主題データレイヤ名（読み込み・スタイル適用済みであること）。
         roi_layer_name: ROI レイヤ名（描画範囲の基準）。
@@ -139,12 +193,13 @@ def build_gis_figure(
 
     Returns:
         ``{"ok": bool, "path": str}``。
+
+    Raises:
+        ValueError: データレイヤ・ROI レイヤが見つからないとき。
     """
     prj = _project(project)
-    prj.setEllipsoid("WGS84")  # 地理座標系でのスケールバー距離計算を有効化
-
-    data_layer = prj.mapLayersByName(data_layer_name)[0]
-    roi_layer = prj.mapLayersByName(roi_layer_name)[0]
+    data_layer = _require_layer(prj, data_layer_name)
+    roi_layer = _require_layer(prj, roi_layer_name)
     roi_ext = roi_layer.extent()
     extent = fl.roi_extent_with_margin(
         (roi_ext.xMinimum(), roi_ext.yMinimum(), roi_ext.xMaximum(), roi_ext.yMaximum()),
@@ -153,10 +208,12 @@ def build_gis_figure(
     geom = fl.layout_geometry(extent, frame_width_mm, legend_kind, legend_h_mm)
 
     manager = prj.layoutManager()
-    for layout in list(manager.printLayouts()):
-        if layout.name() == _TMP_LAYOUT_NAME:
-            manager.removeLayout(layout)
+    for existing in list(manager.printLayouts()):
+        if existing.name() == _TMP_LAYOUT_NAME:
+            manager.removeLayout(existing)
 
+    previous_ellipsoid = prj.ellipsoid()
+    prj.setEllipsoid("WGS84")  # 地理座標系でのスケールバー距離計算を有効化
     layout = QgsPrintLayout(prj)
     layout.initializeDefaults()
     layout.setName(_TMP_LAYOUT_NAME)
@@ -165,23 +222,30 @@ def build_gis_figure(
         QgsLayoutSize(page_w, page_h, QgsUnitTypes.LayoutMillimeters)
     )
 
-    # ROI を上、対象データを下に。プロジェクトの他の可視レイヤは描画しない
-    _add_map(layout, geom, extent, roi_layer.crs(), [roi_layer, data_layer])
-    _add_title(layout, geom, title_text)
-    _add_scalebar(layout, geom)
-    if legend_kind == fl.LEGEND_ITEMS:
-        _add_legend(layout, geom, data_layer, legend_cols, legend_font_pt)
+    try:
+        # ROI を上、対象データを下に。プロジェクトの他の可視レイヤは描画しない
+        _add_map(layout, geom, extent, roi_layer.crs(), [roi_layer, data_layer])
+        _add_title(layout, geom, title_text)
+        _add_scalebar(layout, geom)
+        if legend_kind == fl.LEGEND_ITEMS:
+            _add_legend(layout, geom, data_layer, legend_cols, legend_font_pt)
 
-    exporter = QgsLayoutExporter(layout)
-    settings = QgsLayoutExporter.ImageExportSettings()
-    settings.dpi = dpi
-    result = exporter.exportToImage(out_path, settings)
-    manager.removeLayout(layout)
+        exporter = QgsLayoutExporter(layout)
+        settings = QgsLayoutExporter.ImageExportSettings()
+        settings.dpi = dpi
+        result = exporter.exportToImage(out_path, settings)
+    finally:
+        manager.removeLayout(layout)
+        prj.setEllipsoid(previous_ellipsoid)
     return {"ok": int(result) == 0, "path": out_path}
 
 
 def _add_map(
-    layout: QgsPrintLayout, geom: dict, extent: tuple, crs, layers: list
+    layout: QgsPrintLayout,
+    geom: dict,
+    extent: tuple,
+    crs: QgsCoordinateReferenceSystem,
+    layers: list[QgsMapLayer],
 ) -> QgsLayoutItemMap:
     """ROI 範囲を表示する地図アイテムを追加する。
 
@@ -247,7 +311,7 @@ def _add_scalebar(layout: QgsPrintLayout, geom: dict) -> None:
 def _add_legend(
     layout: QgsPrintLayout,
     geom: dict,
-    data_layer,
+    data_layer: QgsMapLayer,
     legend_cols: int,
     legend_font_pt: int,
 ) -> None:
@@ -268,13 +332,8 @@ def _add_legend(
     root = legend.model().rootGroup()
     root.clear()
     root.addLayer(data_layer)
-    symbol_font = legend.style(QgsLegendStyle.SymbolLabel).font()
-    symbol_font.setPointSize(legend_font_pt)
-    legend.setStyleFont(QgsLegendStyle.SymbolLabel, symbol_font)
-    title_font = legend.style(QgsLegendStyle.Title).font()
-    title_font.setPointSize(10)
-    title_font.setBold(True)
-    legend.setStyleFont(QgsLegendStyle.Title, title_font)
+    _set_legend_font(legend, QgsLegendStyle.SymbolLabel, legend_font_pt)
+    _set_legend_font(legend, QgsLegendStyle.Title, 10, bold=True)
     legend.setBackgroundColor(QColor(255, 255, 255, 255))
     legend.setBackgroundEnabled(True)
     legend.setFrameEnabled(True)

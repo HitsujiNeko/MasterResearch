@@ -126,7 +126,8 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | ラスタ値域確認 | `get_raster_info` | min/max/バンド数/extent |
 | グループ作成・移動 | `create_layer_group` → `move_layer_to_group` | ROI は `ROI` グループへ |
 | 範囲へズーム | `zoom_to_layer` | |
-| 描画取得 | `get_canvas_screenshot` | 再レンダリングなしの高速確認。ROI 基準でズーム |
+| 描画取得（目視用） | `get_canvas_screenshot` | 再レンダリングなしの高速確認。**ファイル保存はしない**。ROI 基準でズーム |
+| 図の生成（コミット用） | `src/visualization/qgis_figure.py` の `build_gis_figure` / `render_map` | タイトル・スケールバー・凡例つき PNG を出力・保存 |
 | 保存 | `save_project` | 明示指示がある時のみ。大規模レイヤはこまめに（クラッシュ対策） |
 
 ### スクリーンショットの保存先・命名規則
@@ -139,8 +140,8 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | 保存先パス | `images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`（英小文字スネークケース） |
 | 例 | `images/gis_data/roads/roads_osm_hanoi.png` |
 | 複数枚 | `_overview` / `_detail` 等の接尾辞を付す |
-| 取得方法 | 原則 `get_canvas_screenshot`（容量抑制）。高解像度 `render_map` は必要時のみ |
-| 構図 | ROI 基準でズームし、カバレッジ・CRS 整合・分布/外れ値が判読できること |
+| 取得方法 | 再利用ヘルパー `build_gis_figure`（印刷レイアウト export）または `render_map(path=)`。`get_canvas_screenshot` はファイル保存不可の目視用 |
+| 構図 | 地図フレームは ROI 比率で固定（見切れ防止）。タイトル・スケールバーは常時、凡例はラスタに付す（単一シンボルはタイトルのみ）。ROI 基準でカバレッジ・CRS 整合・分布/外れ値が判読できること |
 | 対象範囲 | 空間データ（ラスタ・ベクタ）全般。非空間データ（統計 CSV 等）は対象外 |
 
 ### 命名規則（qgis_operation_guidelines.md より）

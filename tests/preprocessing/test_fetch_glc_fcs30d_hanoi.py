@@ -18,6 +18,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
+from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_glc_fcs30d_hanoi as target
 
 # ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX
@@ -155,96 +156,38 @@ class TestMemberNameForTile:
         )
 
 
-class TestBuildClassDistribution:
-    """build_class_distribution のテスト。"""
+class TestClassScheme:
+    """GLC_FCS30D のクラス体系の定数（CLASS_LABELS・FILLED_VALUES）のテスト。
 
-    def test_counts_classes_and_excludes_filled_values(self) -> None:
+    集計ロジック自体は `tests/common/test_raster_classes.py` で検証する。
+    """
+
+    def test_treats_filled_values_as_invalid(self) -> None:
         """Filled value（0・250）を有効画素から除外して集計する。"""
         array = np.array([[190, 190, 210], [10, 0, 250]], dtype=np.uint8)
 
-        result = target.build_class_distribution(array)
+        result = build_class_distribution(
+            array, target.CLASS_LABELS, filled_values=target.FILLED_VALUES
+        )
 
-        assert result["total_pixels"] == 6
-        assert result["roi_pixels"] == 6
-        assert result["outside_roi_pixels"] == 0
-        assert result["valid_pixels"] == 4
         assert result["filled_pixels"] == 2
+        assert result["valid_pixels"] == 4
         assert result["valid_pixel_ratio"] == pytest.approx(4 / 6)
 
-    def test_roi_mask_excludes_clip_margin_from_coverage(self) -> None:
-        """ROI 外のクリップ余白を欠測と数えず、有効画素率の分母も ROI 内画素数になる。
-
-        余白（ROI 外）は nodata=0 で Filled value と同値になるため、マスクなしでは
-        有効カバレッジを過小評価してしまう。
-        """
-        array = np.array([[190, 210, 0], [10, 0, 0]], dtype=np.uint8)
-        # 左2列が ROI 内、右1列は ROI 外の余白
-        roi_mask = np.array([[True, True, False], [True, True, False]])
-
-        result = target.build_class_distribution(array, roi_mask=roi_mask)
-
-        assert result["total_pixels"] == 6
-        assert result["roi_pixels"] == 4
-        assert result["outside_roi_pixels"] == 2
-        # ROI 内の Filled value は1画素のみ（余白の2画素は含めない）
-        assert result["filled_pixels"] == 1
-        assert result["valid_pixels"] == 3
-        assert result["valid_pixel_ratio"] == pytest.approx(3 / 4)
-
-    def test_roi_mask_excludes_outside_classes_from_distribution(self) -> None:
-        """ROI 外のクラス値はクラス分布に含めない。"""
-        array = np.array([[190, 220], [10, 220]], dtype=np.uint8)
-        roi_mask = np.array([[True, False], [True, False]])
-
-        result = target.build_class_distribution(array, roi_mask=roi_mask)
-
-        assert [entry["value"] for entry in result["classes"]] == [10, 190]
-
-    def test_rejects_roi_mask_with_mismatched_shape(self) -> None:
-        """形状が一致しない roi_mask は ValueError になる。"""
-        array = np.array([[190, 210]], dtype=np.uint8)
-        roi_mask = np.array([[True, True, True]])
-
-        with pytest.raises(ValueError, match="形状が"):
-            target.build_class_distribution(array, roi_mask=roi_mask)
-
-    def test_ratios_sum_to_one_and_sorted_by_pixel_count(self) -> None:
-        """クラス別比率の合計は1になり、画素数の降順で並ぶ。"""
-        array = np.array([[190, 190, 190], [210, 210, 10]], dtype=np.uint8)
-
-        classes = target.build_class_distribution(array)["classes"]
-
-        assert [entry["value"] for entry in classes] == [190, 210, 10]
-        assert sum(entry["ratio"] for entry in classes) == pytest.approx(1.0)
-        assert classes[0]["label"] == "Impervious surfaces"
+    def test_labels_impervious_surfaces(self) -> None:
+        """不透水面（190）のラベルが分類体系どおりである。"""
+        assert target.CLASS_LABELS[190] == "Impervious surfaces"
 
     def test_reports_unknown_class_values(self) -> None:
         """分類体系にないクラス値は unknown_class_values に記録する。"""
         array = np.array([[190, 99]], dtype=np.uint8)
 
-        result = target.build_class_distribution(array)
+        result = build_class_distribution(
+            array, target.CLASS_LABELS, filled_values=target.FILLED_VALUES
+        )
 
         assert result["unknown_class_values"] == [99]
         assert any(entry["label"] == "Unknown" for entry in result["classes"])
-
-    def test_all_filled_array_yields_zero_ratio_without_error(self) -> None:
-        """全画素が Filled value でも例外にならず、有効画素率は0になる。"""
-        array = np.zeros((3, 3), dtype=np.uint8)
-
-        result = target.build_class_distribution(array)
-
-        assert result["valid_pixels"] == 0
-        assert result["valid_pixel_ratio"] == 0.0
-        assert result["classes"] == []
-
-    def test_empty_array_yields_zero_ratio_without_error(self) -> None:
-        """画素が1つもない配列でもゼロ除算にならない。"""
-        array = np.array([], dtype=np.uint8)
-
-        result = target.build_class_distribution(array)
-
-        assert result["total_pixels"] == 0
-        assert result["valid_pixel_ratio"] == 0.0
 
 
 class TestBuildSummary:
@@ -262,8 +205,10 @@ class TestBuildSummary:
             "bounds": {"minx": 105.0, "miny": 20.0, "maxx": 106.0, "maxy": 21.0},
             "nodata": 0.0,
         }
-        class_distribution = target.build_class_distribution(
-            np.array([[190, 210, 0]], dtype=np.uint8)
+        class_distribution = build_class_distribution(
+            np.array([[190, 210, 0]], dtype=np.uint8),
+            target.CLASS_LABELS,
+            filled_values=target.FILLED_VALUES,
         )
         return target.build_summary(
             year=2022,

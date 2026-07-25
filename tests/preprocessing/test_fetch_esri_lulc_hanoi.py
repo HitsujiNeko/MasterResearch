@@ -14,6 +14,7 @@ import pytest
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
+from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_esri_lulc_hanoi as target
 
 # ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX
@@ -158,57 +159,38 @@ class TestPaddedWindow:
             )
 
 
-class TestBuildClassDistribution:
-    """build_class_distribution のテスト。"""
+class TestClassScheme:
+    """Esri 9クラス体系の定数（CLASS_LABELS・FILLED_VALUES）のテスト。
 
-    def test_counts_only_inside_roi(self) -> None:
-        """ROI 外のクリップ余白は欠測に数えず、有効画素率の分母にも入れない。"""
-        array = np.array([[7, 7], [0, 0]], dtype=np.uint8)
-        roi_mask = np.array([[True, True], [False, False]])
-
-        result = target.build_class_distribution(array, roi_mask=roi_mask)
-
-        assert result["total_pixels"] == 4
-        assert result["roi_pixels"] == 2
-        assert result["outside_roi_pixels"] == 2
-        assert result["valid_pixels"] == 2
-        assert result["valid_pixel_ratio"] == pytest.approx(1.0)
+    集計ロジック自体は `tests/common/test_raster_classes.py` で検証する。
+    """
 
     def test_treats_nodata_and_clouds_as_filled(self) -> None:
-        """ROI 内の No Data(0)・Clouds(10) は無効値として集計する。"""
+        """No Data(0)・Clouds(10) は無効値として扱う。"""
         array = np.array([[1, 0], [10, 7]], dtype=np.uint8)
 
-        result = target.build_class_distribution(array)
+        result = build_class_distribution(
+            array, target.CLASS_LABELS, filled_values=target.FILLED_VALUES
+        )
 
         assert result["filled_pixels"] == 2
         assert result["valid_pixels"] == 2
-        assert result["valid_pixel_ratio"] == pytest.approx(0.5)
         assert {entry["value"] for entry in result["classes"]} == {1, 7}
 
-    def test_sorts_classes_by_pixel_count_descending(self) -> None:
-        """クラス内訳は画素数の降順で並ぶ。"""
-        array = np.array([[7, 7, 7], [1, 1, 2]], dtype=np.uint8)
-
-        result = target.build_class_distribution(array)
-
-        assert [entry["value"] for entry in result["classes"]] == [7, 1, 2]
-        assert result["classes"][0]["label"] == "Built area"
-        assert result["classes"][0]["ratio"] == pytest.approx(0.5)
+    def test_labels_cover_the_nine_class_scheme(self) -> None:
+        """9クラス（1〜11、3・6 は欠番）に No Data(0) を加えたラベルを持つ。"""
+        assert set(target.CLASS_LABELS) == {0, 1, 2, 4, 5, 7, 8, 9, 10, 11}
+        assert target.CLASS_LABELS[7] == "Built area"
 
     def test_reports_values_outside_class_scheme(self) -> None:
         """9クラス体系に無い値は unknown_class_values として報告する。"""
         array = np.array([[7, 200]], dtype=np.uint8)
 
-        result = target.build_class_distribution(array)
+        result = build_class_distribution(
+            array, target.CLASS_LABELS, filled_values=target.FILLED_VALUES
+        )
 
         assert result["unknown_class_values"] == [200]
-
-    def test_rejects_roi_mask_with_mismatched_shape(self) -> None:
-        """roi_mask の形状が合わなければ ValueError になる。"""
-        with pytest.raises(ValueError, match="形状"):
-            target.build_class_distribution(
-                np.zeros((2, 2), dtype=np.uint8), roi_mask=np.ones((3, 3), dtype=bool)
-            )
 
 
 class TestResolveOutputPaths:
@@ -237,7 +219,11 @@ class TestBuildSummary:
     def test_records_source_without_signed_url(self) -> None:
         """有効期限つきの署名済み URL は記録せず、署名前の href を記録する。"""
         item = _make_item("48Q-2022", 2022)
-        class_distribution = target.build_class_distribution(np.array([[7, 1]], dtype=np.uint8))
+        class_distribution = build_class_distribution(
+            np.array([[7, 1]], dtype=np.uint8),
+            target.CLASS_LABELS,
+            filled_values=target.FILLED_VALUES,
+        )
 
         summary = target.build_summary(
             year=2022,

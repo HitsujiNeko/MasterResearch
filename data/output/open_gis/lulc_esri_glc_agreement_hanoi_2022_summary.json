@@ -1,6 +1,6 @@
 {
   "comparison": "GLC_FCS30D vs Esri Sentinel-2 10m Annual LULC",
-  "generated_at": "2026-07-25T13:46:51.964557+00:00",
+  "generated_at": "2026-07-25T14:49:50.743389+00:00",
   "inputs": {
     "glc_raster": "data\\gis\\lulc\\glc_fcs30d\\glc_fcs30d_hanoi_2022.tif",
     "esri_raster": "data\\gis\\lulc\\esri_10m\\esri_lulc_hanoi_2022.tif",
@@ -47,7 +47,7 @@
       "agreement_given_glc": 0.6059784487441603,
       "agreement_given_esri": 0.9460103307377997,
       "iou": 0.585721991245698,
-      "esri_to_glc_area_ratio": 0.6405621894969727
+      "esri_to_glc_pixel_count_ratio": 0.6405621894969727
     },
     {
       "common_class": 4,
@@ -58,7 +58,7 @@
       "agreement_given_glc": 0.979594278322379,
       "agreement_given_esri": 0.4982303128644592,
       "iou": 0.4931125294375222,
-      "esri_to_glc_area_ratio": 1.966147488478631
+      "esri_to_glc_pixel_count_ratio": 1.966147488478631
     },
     {
       "common_class": 2,
@@ -69,7 +69,7 @@
       "agreement_given_glc": 0.8336929423470357,
       "agreement_given_esri": 0.7107425151222487,
       "iou": 0.6224860599450188,
-      "esri_to_glc_area_ratio": 1.1729887049231034
+      "esri_to_glc_pixel_count_ratio": 1.1729887049231034
     },
     {
       "common_class": 1,
@@ -80,7 +80,7 @@
       "agreement_given_glc": 0.7828200972447326,
       "agreement_given_esri": 0.44723494616285897,
       "iou": 0.3978683896263469,
-      "esri_to_glc_area_ratio": 1.7503553869416804
+      "esri_to_glc_pixel_count_ratio": 1.7503553869416804
     },
     {
       "common_class": 7,
@@ -91,7 +91,7 @@
       "agreement_given_glc": 0.00030973264441284547,
       "agreement_given_esri": 0.00881057268722467,
       "iou": 0.00029930343926861124,
-      "esri_to_glc_area_ratio": 0.03515465514085796
+      "esri_to_glc_pixel_count_ratio": 0.03515465514085796
     },
     {
       "common_class": 5,
@@ -102,7 +102,7 @@
       "agreement_given_glc": 0.04681319781705302,
       "agreement_given_esri": 0.022735009483052085,
       "iou": 0.015540854996343329,
-      "esri_to_glc_area_ratio": 2.0590797576728583
+      "esri_to_glc_pixel_count_ratio": 2.0590797576728583
     },
     {
       "common_class": 6,
@@ -113,7 +113,7 @@
       "agreement_given_glc": null,
       "agreement_given_esri": 0.0,
       "iou": 0.0,
-      "esri_to_glc_area_ratio": null
+      "esri_to_glc_pixel_count_ratio": null
     },
     {
       "common_class": 8,
@@ -124,7 +124,7 @@
       "agreement_given_glc": null,
       "agreement_given_esri": null,
       "iou": null,
-      "esri_to_glc_area_ratio": null
+      "esri_to_glc_pixel_count_ratio": null
     }
   ],
   "built_up_agreement": {
@@ -136,7 +136,7 @@
     "agreement_given_glc": 0.979594278322379,
     "agreement_given_esri": 0.4982303128644592,
     "iou": 0.4931125294375222,
-    "esri_to_glc_area_ratio": 1.966147488478631
+    "esri_to_glc_pixel_count_ratio": 1.966147488478631
   },
   "class_correspondence": [
     {

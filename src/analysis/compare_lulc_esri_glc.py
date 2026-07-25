@@ -32,6 +32,7 @@ from rasterio.features import geometry_mask
 from rasterio.warp import reproject
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.paths import to_project_relative_string
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
 from src.preprocessing.fetch_esri_lulc_hanoi import CLASS_LABELS as ESRI_CLASS_LABELS
@@ -366,6 +367,8 @@ def summarize_classes(confusion: np.ndarray, class_values: list[int]) -> list[di
     どちらのデータも真値ではないため、精度ではなく一致度として扱う。
     「GLC 基準の一致率」は GLC がそのクラスとした画素のうち Esri も同じクラスとした割合、
     「Esri 基準の一致率」はその逆である。IoU は両者の和集合に対する共通部分の割合。
+    `esri_to_glc_pixel_count_ratio` は同一グリッド上の画素数比（Esri ÷ GLC）であり、
+    両者は同じ解像度・同じグリッドに揃えてあるため面積比と同値の指標として読める。
 
     Args:
         confusion (np.ndarray): 混同行列（行: GLC、列: Esri）。
@@ -390,7 +393,9 @@ def summarize_classes(confusion: np.ndarray, class_values: list[int]) -> list[di
                 "agreement_given_glc": (agreed / glc_pixels) if glc_pixels > 0 else None,
                 "agreement_given_esri": (agreed / esri_pixels) if esri_pixels > 0 else None,
                 "iou": (agreed / union) if union > 0 else None,
-                "esri_to_glc_area_ratio": (esri_pixels / glc_pixels) if glc_pixels > 0 else None,
+                "esri_to_glc_pixel_count_ratio": (
+                    (esri_pixels / glc_pixels) if glc_pixels > 0 else None
+                ),
             }
         )
     results.sort(key=lambda item: item["glc_pixels"], reverse=True)
@@ -419,22 +424,6 @@ def save_confusion_csv(
         for index, class_value in enumerate(class_values):
             row_label = f"glc_{class_value}_{COMMON_CLASS_LABELS[class_value]}"
             writer.writerow([row_label] + [int(value) for value in confusion[index, :]])
-
-
-def to_project_relative_string(path: Path) -> str:
-    """可能ならプロジェクト相対パスへ変換する。
-
-    Args:
-        path (Path): 変換対象パス。
-
-    Returns:
-        str: プロジェクト相対パス、または絶対パス文字列。
-    """
-    resolved_path = path.resolve()
-    try:
-        return str(resolved_path.relative_to(PROJECT_ROOT))
-    except ValueError:
-        return str(resolved_path)
 
 
 def build_class_correspondence() -> list[dict[str, Any]]:

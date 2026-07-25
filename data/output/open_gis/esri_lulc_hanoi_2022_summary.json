@@ -1,0 +1,98 @@
+{
+  "dataset": "Esri Sentinel-2 10m Annual LULC",
+  "stac_collection": "io-lulc-annual-v02",
+  "stac_item_id": "48Q-2022",
+  "source": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/io-lulc-annual-v02",
+  "asset_href": "https://ai4edataeuwest.blob.core.windows.net/io-lulc/io-annual-lulc-v02/48Q_20220101-20230101.tif",
+  "asset_note": "アセットの Blob URL は直アクセスできない（HTTP 409）。Planetary Computer の SAS 署名エンドポイントで署名してから読み取る。署名済み URL は有効期限つきのため記録しない。",
+  "license": "CC BY 4.0",
+  "retrieved_at": "2026-07-25T13:46:32.384669+00:00",
+  "year": 2022,
+  "item_start_datetime": "2022-01-01T00:00:00Z",
+  "item_end_datetime": "2023-01-01T00:00:00Z",
+  "native_crs": "EPSG:32648",
+  "resampling_note": "ネイティブ CRS（UTM）から EPSG:4326 への再投影は、カテゴリ値のため最近傍（nearest）で行う。線形補間は使わない。",
+  "roi_path": "data\\gis\\boundaries\\hanoi\\hanoi_ROI_EPSG4326.shp",
+  "roi_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "crs": "EPSG:4326",
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "uint8",
+    "width": 7890,
+    "height": 8846,
+    "resolution": [
+      9.278841925654954e-05,
+      9.278841925654954e-05
+    ],
+    "bounds": {
+      "minx": 105.28803908759234,
+      "miny": 20.564416317305113,
+      "maxx": 106.02013971552651,
+      "maxy": 21.38522267404855
+    },
+    "nodata": 0.0
+  },
+  "pixel_stats": {
+    "total_pixels": 69794940,
+    "roi_pixels": 33868965,
+    "outside_roi_pixels": 35925975,
+    "valid_pixels": 33868169,
+    "filled_pixels": 796,
+    "valid_pixel_ratio": 0.9999764976579592
+  },
+  "class_distribution": [
+    {
+      "value": 5,
+      "label": "Crops",
+      "pixel_count": 14222145,
+      "ratio": 0.41992659833485535
+    },
+    {
+      "value": 7,
+      "label": "Built area",
+      "pixel_count": 13301197,
+      "ratio": 0.39273445812792535
+    },
+    {
+      "value": 1,
+      "label": "Water",
+      "pixel_count": 3260319,
+      "ratio": 0.0962649914732621
+    },
+    {
+      "value": 2,
+      "label": "Trees",
+      "pixel_count": 2657364,
+      "ratio": 0.07846199184845215
+    },
+    {
+      "value": 11,
+      "label": "Rangeland",
+      "pixel_count": 353328,
+      "ratio": 0.010432450599853803
+    },
+    {
+      "value": 8,
+      "label": "Bare ground",
+      "pixel_count": 52054,
+      "ratio": 0.0015369593791739967
+    },
+    {
+      "value": 4,
+      "label": "Flooded vegetation",
+      "pixel_count": 21762,
+      "ratio": 0.0006425502364772067
+    }
+  ],
+  "unknown_class_values": [],
+  "coverage_note": "ROI ポリゴンで真にクリップしているため、出力は ROI の BBOX 矩形となり、ROI 外の余白は nodata（0）で埋まる。有効カバレッジは ROI 内のみで評価し、valid_pixel_ratio の分母は roi_pixels（ROI 内画素数）である。ROI 内の無効値（0: No Data、10: Clouds）は filled_pixels として別に集計する。",
+  "outputs": {
+    "geotiff": "data\\gis\\lulc\\esri_10m\\esri_lulc_hanoi_2022.tif",
+    "summary": "data\\output\\open_gis\\esri_lulc_hanoi_2022_summary.json"
+  }
+}

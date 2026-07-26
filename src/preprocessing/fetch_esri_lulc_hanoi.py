@@ -387,14 +387,16 @@ def fetch_native_subset(
             nodata=OUTPUT_NODATA,
         )
 
-    # 途中で失敗した不完全なキャッシュを残さないよう一時ファイルへ書く
+    # 途中で失敗した不完全なキャッシュを残さないよう一時ファイルへ書き、
+    # 完成後に置き換える。後始末は失敗時のみ行う（成功時は replace 済みで残らない）
     temporary_path = cache_path.with_suffix(cache_path.suffix + ".part")
     try:
         with rasterio.open(temporary_path, "w", **profile) as destination:
             destination.write(subset, 1)
         temporary_path.replace(cache_path)
-    finally:
+    except BaseException:
         temporary_path.unlink(missing_ok=True)
+        raise
 
     logger.info("サブセットを保存しました: %s", cache_path)
     return cache_path

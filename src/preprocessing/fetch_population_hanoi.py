@@ -41,8 +41,6 @@ import ee
 import geopandas as gpd
 import numpy as np
 import rasterio
-from affine import Affine
-from pyproj import Geod
 from rasterio.crs import CRS
 from rasterio.features import geometry_mask
 from rasterio.mask import mask
@@ -52,6 +50,7 @@ from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.http_fetch import fetch_bytes_with_retry
 from src.common.paths import prepare_output_path, to_project_relative_string
+from src.common.raster_grid import compute_cell_area_km2, compute_density_array
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
 
@@ -399,75 +398,6 @@ def download_raster(download_url: str, destination_path: Path) -> Path:
     return destination_path
 
 
-def compute_cell_area_km2(transform: Affine, height: int, width: int) -> np.ndarray:
-    """EPSG:4326 グリッドの各行のセル面積（km²）を求める。
-
-    経度方向に等間隔な格子ではセル面積は緯度のみに依存するため、行ごとに 1 回だけ
-    WGS84 楕円体上の面積を計算し、列方向はブロードキャストで扱う。
-
-    Args:
-        transform (Affine): ラスタのアフィン変換（EPSG:4326）。
-        height (int): 行数。
-        width (int): 列数（引数の妥当性検証にのみ使う）。
-
-    Returns:
-        np.ndarray: 形状 (height, 1) のセル面積（km²）。
-
-    Raises:
-        ValueError: 行数・列数が正でない場合、またはグリッドが north-up でない場合。
-    """
-    if height <= 0 or width <= 0:
-        raise ValueError(f"ラスタの寸法が不正です: height={height}, width={width}")
-    # 回転・スキューのあるグリッドでは「行＝一定緯度」が成り立たず、行単位の面積計算が
-    # 破綻する。GEE 出力は常に north-up だが、前提が崩れたら黙って誤った値を返さない
-    if transform.b != 0.0 or transform.d != 0.0:
-        raise ValueError(
-            "回転・スキューのあるグリッドには対応していません"
-            f"（transform.b={transform.b}, transform.d={transform.d}）。"
-        )
-
-    geodesic = Geod(ellps="WGS84")
-    pixel_width_deg = abs(transform.a)
-    row_indices = np.arange(height)
-    top_latitudes = transform.f + transform.e * row_indices
-    bottom_latitudes = transform.f + transform.e * (row_indices + 1)
-
-    cell_areas_km2 = np.empty((height, 1), dtype=np.float64)
-    for row_index, (top_latitude, bottom_latitude) in enumerate(
-        zip(top_latitudes, bottom_latitudes)
-    ):
-        longitudes = [0.0, pixel_width_deg, pixel_width_deg, 0.0]
-        latitudes = [top_latitude, top_latitude, bottom_latitude, bottom_latitude]
-        area_m2, _ = geodesic.polygon_area_perimeter(longitudes, latitudes)
-        cell_areas_km2[row_index, 0] = abs(area_m2) / 1_000_000.0
-    return cell_areas_km2
-
-
-def compute_density_array(
-    count_array: np.ndarray,
-    cell_area_km2: np.ndarray,
-    nodata: float = OUTPUT_NODATA,
-) -> np.ndarray:
-    """人口カウントから人口密度（人/km²）を求める。
-
-    nodata 画素は密度側でも nodata のまま残す。
-
-    Args:
-        count_array (np.ndarray): 人口カウント（人／セル）の 2 次元配列。
-        cell_area_km2 (np.ndarray): 形状 (height, 1) のセル面積（km²）。
-        nodata (float): 無効値。
-
-    Returns:
-        np.ndarray: 人口密度（人/km²）の 2 次元配列（float32）。
-    """
-    valid_mask = count_array != nodata
-    density_array = np.full(count_array.shape, nodata, dtype=np.float32)
-    density_array[valid_mask] = (
-        count_array.astype(np.float64) / np.broadcast_to(cell_area_km2, count_array.shape)
-    )[valid_mask].astype(np.float32)
-    return density_array
-
-
 def build_band_statistics(values: np.ndarray) -> dict[str, float] | None:
     """有効画素の記述統計を求める。
 
@@ -626,7 +556,7 @@ def clip_and_write(
     count_array = count_array[0].astype(np.float32)
     height, width = count_array.shape
     cell_area_km2 = compute_cell_area_km2(clipped_transform, height, width)
-    density_array = compute_density_array(count_array, cell_area_km2)
+    density_array = compute_density_array(count_array, cell_area_km2, OUTPUT_NODATA)
 
     profile.update(
         driver="GTiff",

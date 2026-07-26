@@ -330,13 +330,21 @@ def build_confusion_matrix(
     Args:
         glc_common (np.ndarray): GLC の共通クラス値（1次元）。
         esri_common (np.ndarray): Esri の共通クラス値（1次元）。
+            2 つの配列とも **`class_values` に含まれる値のみ**を渡すこと（下記 Note 参照）。
         class_values (list[int]): 集計対象の共通クラス値（並び順が行・列に対応する）。
 
     Returns:
         np.ndarray: 混同行列（形状は (len(class_values), len(class_values))）。
+
+    Note:
+        引き当て表は `class_values` に無い値（無効値の 0 など）に対して 0 を返すため、
+        そのまま先頭クラスの行・列へ黙って誤集計される。呼び出し側で無効値を
+        除外してから渡すこと（`run` では `comparable_mask` で除外済み）。
     """
     size = len(class_values)
     # クラス値から行・列インデックスへの引き当て表。要素ごとの dict 参照より大幅に速い
+    # 注意: class_values に無い値は 0（先頭クラス）に落ちる。前提条件は docstring を参照
+
     lookup = np.zeros(max(class_values) + 1, dtype=np.int64)
     for index, value in enumerate(class_values):
         lookup[value] = index

@@ -1,7 +1,8 @@
 """compare_lulc_esri_glc.py（LULC 一致度比較スクリプト）のテスト。
 
 解像度の揃え方（細分グリッド・多数決）、共通クラスへの写像、一致度指標といった
-純粋関数を対象とする。ラスタ入出力を伴う処理はテスト対象外とする。
+純粋関数を対象とする。ラスタ入出力を伴う細分グリッドへの再投影は、合成した
+小さな GeoTIFF を用いたスモークテストで出力の形状・値域・無効値を確認する。
 """
 
 from __future__ import annotations
@@ -12,7 +13,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import rasterio
 from affine import Affine
+from rasterio.crs import CRS
+from rasterio.transform import from_origin
 
 from src.analysis import compare_lulc_esri_glc as target
 
@@ -186,6 +190,110 @@ class TestMapToCommonClasses:
         esri = target.map_to_common_classes(np.array([7], dtype=np.uint8), target.ESRI_TO_COMMON)
 
         assert int(glc[0]) == int(esri[0]) == target.COMMON_BUILT
+
+
+class TestResampleEsriToSubgridSmoke:
+    """resample_esri_to_subgrid のスモークテスト（ラスタ入出力を伴う処理）。
+
+    合成した小さな GeoTIFF を細分グリッドへ再投影し、出力の形状・値域・
+    無効値の扱いが期待どおりかを確認する。
+    """
+
+    REFERENCE_CRS = CRS.from_epsg(4326)
+    REFERENCE_WIDTH = 4
+    REFERENCE_HEIGHT = 3
+    CELL_SIZE = 0.003
+    FACTOR = 3
+
+    def _reference_transform(self) -> Affine:
+        """基準グリッド（粗い側）のアフィン変換を返す。"""
+        return from_origin(105.0, 21.0, self.CELL_SIZE, self.CELL_SIZE)
+
+    def _write_fine_raster(self, path: Path, value: int) -> None:
+        """基準グリッドと同じ範囲を覆う、細かい格子の合成ラスタを書き出す。"""
+        fine_size = self.CELL_SIZE / self.FACTOR
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            width=self.REFERENCE_WIDTH * self.FACTOR,
+            height=self.REFERENCE_HEIGHT * self.FACTOR,
+            count=1,
+            dtype="uint8",
+            crs=self.REFERENCE_CRS,
+            transform=from_origin(105.0, 21.0, fine_size, fine_size),
+            nodata=0,
+        ) as destination:
+            destination.write(
+                np.full(
+                    (self.REFERENCE_HEIGHT * self.FACTOR, self.REFERENCE_WIDTH * self.FACTOR),
+                    value,
+                    dtype=np.uint8,
+                ),
+                1,
+            )
+
+    def test_output_shape_is_reference_grid_times_factor(self, tmp_path: Path) -> None:
+        """出力は基準グリッドを factor 倍した形状になる。"""
+        esri_path = tmp_path / "esri.tif"
+        self._write_fine_raster(esri_path, value=7)
+
+        result = target.resample_esri_to_subgrid(
+            esri_path=esri_path,
+            reference_transform=self._reference_transform(),
+            reference_crs=self.REFERENCE_CRS,
+            reference_width=self.REFERENCE_WIDTH,
+            reference_height=self.REFERENCE_HEIGHT,
+            factor=self.FACTOR,
+            nodata=0,
+        )
+
+        assert result.shape == (
+            self.REFERENCE_HEIGHT * self.FACTOR,
+            self.REFERENCE_WIDTH * self.FACTOR,
+        )
+        assert result.dtype == np.uint8
+
+    def test_preserves_categorical_values(self, tmp_path: Path) -> None:
+        """最近傍のため、元のクラス値以外の中間値が現れない。"""
+        esri_path = tmp_path / "esri.tif"
+        self._write_fine_raster(esri_path, value=7)
+
+        result = target.resample_esri_to_subgrid(
+            esri_path=esri_path,
+            reference_transform=self._reference_transform(),
+            reference_crs=self.REFERENCE_CRS,
+            reference_width=self.REFERENCE_WIDTH,
+            reference_height=self.REFERENCE_HEIGHT,
+            factor=self.FACTOR,
+            nodata=0,
+        )
+
+        assert set(np.unique(result).tolist()) <= {0, 7}
+
+    def test_area_outside_source_is_filled_with_nodata(self, tmp_path: Path) -> None:
+        """ソースが覆わない範囲は nodata のまま残る。"""
+        esri_path = tmp_path / "esri.tif"
+        self._write_fine_raster(esri_path, value=7)
+
+        # 基準グリッドをソースの右下側へずらし、重ならない領域を作る
+        shifted_transform = from_origin(
+            105.0 + self.CELL_SIZE * self.REFERENCE_WIDTH,
+            21.0,
+            self.CELL_SIZE,
+            self.CELL_SIZE,
+        )
+        result = target.resample_esri_to_subgrid(
+            esri_path=esri_path,
+            reference_transform=shifted_transform,
+            reference_crs=self.REFERENCE_CRS,
+            reference_width=self.REFERENCE_WIDTH,
+            reference_height=self.REFERENCE_HEIGHT,
+            factor=self.FACTOR,
+            nodata=0,
+        )
+
+        assert (result == 0).all()
 
 
 class TestBuildConfusionMatrix:

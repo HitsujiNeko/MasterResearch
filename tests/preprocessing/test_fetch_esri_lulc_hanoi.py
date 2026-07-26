@@ -1,7 +1,8 @@
 """fetch_esri_lulc_hanoi.py（Esri 10m LULC 取得スクリプト）のテスト。
 
 ネットワークアクセスを伴わない純粋関数を対象とする。STAC API・SAS 署名の
-呼び出しはモックに差し替えて検証する。
+呼び出しはモックに差し替えて検証する。ラスタ入出力を伴う再投影・ROI クリップは、
+合成した小さな GeoTIFF を用いたスモークテストで出力の CRS・nodata・解像度を確認する。
 """
 
 from __future__ import annotations
@@ -9,11 +10,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
+from shapely.geometry import box
 
 from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_esri_lulc_hanoi as target
@@ -268,6 +271,127 @@ class TestCacheCoversBounds:
         cache_path.write_text("not a raster", encoding="utf-8")
 
         assert target.cache_covers_bounds(cache_path, (105.0, 20.0, 106.0, 21.0)) is False
+
+
+class TestRasterPipelineSmoke:
+    """再投影・ROI クリップのスモークテスト（GIS 処理の出力形式を確認する）。
+
+    ネットワークは使わず、UTM の小さな合成ラスタから
+    `reproject_to_wgs84` → `clip_to_roi` を通し、出力の CRS・nodata・
+    解像度・dtype が期待どおりかを確認する。
+    """
+
+    # ハノイ周辺（UTM 48N）の 10m 画素・50x50 の合成ラスタ
+    UTM_CRS = CRS.from_epsg(32648)
+    ORIGIN_X = 570000.0
+    ORIGIN_Y = 2360000.0
+    PIXEL_SIZE = 10.0
+    SIZE = 50
+
+    def _write_utm_raster(self, path: Path) -> None:
+        """クラス値を持つ UTM の合成 GeoTIFF を書き出す。"""
+        transform = from_origin(self.ORIGIN_X, self.ORIGIN_Y, self.PIXEL_SIZE, self.PIXEL_SIZE)
+        # 左半分を市街地(7)、右半分を農地(5) にして、再投影後も値が保たれるか見る
+        array = np.full((self.SIZE, self.SIZE), 5, dtype=np.uint8)
+        array[:, : self.SIZE // 2] = 7
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            width=self.SIZE,
+            height=self.SIZE,
+            count=1,
+            dtype="uint8",
+            crs=self.UTM_CRS,
+            transform=transform,
+            nodata=target.OUTPUT_NODATA,
+        ) as destination:
+            destination.write(array, 1)
+
+    def test_reproject_outputs_wgs84_preserving_class_values(self, tmp_path: Path) -> None:
+        """再投影の出力は EPSG:4326・uint8 で、クラス値が補間で崩れない。"""
+        source_path = tmp_path / "utm.tif"
+        output_path = tmp_path / "wgs84.tif"
+        self._write_utm_raster(source_path)
+
+        target.reproject_to_wgs84(subset_path=source_path, output_path=output_path)
+
+        with rasterio.open(output_path) as reprojected:
+            assert reprojected.crs.to_string() == "EPSG:4326"
+            assert reprojected.dtypes[0] == "uint8"
+            assert reprojected.nodata == target.OUTPUT_NODATA
+            assert reprojected.width > 0 and reprojected.height > 0
+            values = set(np.unique(reprojected.read(1)).tolist())
+        # 最近傍のため、元の 5・7（と余白の nodata 0）以外の中間値が現れない
+        assert values <= {0, 5, 7}
+
+    def test_clip_to_roi_returns_expected_profile(self, tmp_path: Path) -> None:
+        """ROI クリップの返り値が EPSG:4326・nodata=0・10m 相当の諸元を持つ。"""
+        source_path = tmp_path / "utm.tif"
+        reprojected_path = tmp_path / "wgs84.tif"
+        clipped_path = tmp_path / "clipped.tif"
+        self._write_utm_raster(source_path)
+        target.reproject_to_wgs84(subset_path=source_path, output_path=reprojected_path)
+
+        with rasterio.open(reprojected_path) as reprojected:
+            bounds = reprojected.bounds
+        # ラスタ内部に収まる ROI を作り、クリップが効いていることを確認する
+        margin_x = (bounds.right - bounds.left) / 4
+        margin_y = (bounds.top - bounds.bottom) / 4
+        roi_gdf = gpd.GeoDataFrame(
+            geometry=[
+                box(
+                    bounds.left + margin_x,
+                    bounds.bottom + margin_y,
+                    bounds.right - margin_x,
+                    bounds.top - margin_y,
+                )
+            ],
+            crs="EPSG:4326",
+        )
+
+        profile = target.clip_to_roi(
+            raster_path=reprojected_path, roi_gdf=roi_gdf, output_path=clipped_path
+        )
+
+        assert profile["crs"] == "EPSG:4326"
+        assert profile["dtype"] == "uint8"
+        assert profile["nodata"] == float(target.OUTPUT_NODATA)
+        assert profile["width"] > 0 and profile["height"] > 0
+        # 出力解像度は元の 10m 相当（度）を保つ
+        assert profile["resolution"][0] == pytest.approx(profile["resolution"][1], rel=1e-6)
+        # ROI で切り取ったぶん、再投影直後より小さくなる
+        with rasterio.open(reprojected_path) as reprojected:
+            assert profile["width"] < reprojected.width
+            assert profile["height"] < reprojected.height
+
+    def test_clip_to_roi_fills_outside_roi_with_nodata(self, tmp_path: Path) -> None:
+        """ROI 外のクリップ余白は nodata で埋まる（有効カバレッジ判定の前提）。"""
+        source_path = tmp_path / "utm.tif"
+        reprojected_path = tmp_path / "wgs84.tif"
+        clipped_path = tmp_path / "clipped.tif"
+        self._write_utm_raster(source_path)
+        target.reproject_to_wgs84(subset_path=source_path, output_path=reprojected_path)
+
+        with rasterio.open(reprojected_path) as reprojected:
+            bounds = reprojected.bounds
+        # 三角形の ROI にすると BBOX 矩形との差分が必ず余白として残る
+        roi_gdf = gpd.GeoDataFrame(
+            geometry=[
+                box(bounds.left, bounds.bottom, bounds.right, bounds.top).intersection(
+                    box(bounds.left, bounds.bottom, bounds.right, bounds.top).centroid.buffer(
+                        (bounds.right - bounds.left) / 3
+                    )
+                )
+            ],
+            crs="EPSG:4326",
+        )
+
+        target.clip_to_roi(raster_path=reprojected_path, roi_gdf=roi_gdf, output_path=clipped_path)
+
+        with rasterio.open(clipped_path) as clipped:
+            array = clipped.read(1)
+        assert (array == target.OUTPUT_NODATA).any()
 
 
 class TestClassScheme:

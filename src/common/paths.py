@@ -1,8 +1,8 @@
 """相対パスの解決と入出力パスの検証処理を集約する。
 
-`src/preprocessing/` 配下の複数スクリプトで重複していた
-「相対パスをプロジェクトルート基準で解決し、存在確認・ディレクトリ作成を行う」
-処理をここに集約する。
+複数の取得・分析スクリプトで重複していた
+「相対パスをプロジェクトルート基準で解決し、存在確認・ディレクトリ作成を行う」処理と、
+「サマリー出力用にプロジェクト相対パスの文字列へ変換する」処理をここに集約する。
 """
 
 from __future__ import annotations
@@ -40,3 +40,24 @@ def prepare_output_path(path: Path, project_root: Path = PROJECT_ROOT) -> Path:
     resolved = path if path.is_absolute() else (project_root / path)
     resolved.parent.mkdir(parents=True, exist_ok=True)
     return resolved.resolve()
+
+
+def to_project_relative_string(path: Path, project_root: Path = PROJECT_ROOT) -> str:
+    """可能ならプロジェクト相対パスの文字列へ変換する。
+
+    サマリー JSON へ絶対パスを残さないための変換で、
+    プロジェクトルート外のパスは絶対パスのまま返す。
+    区切り文字は実行 OS によらず `/` に統一する（Windows で生成したサマリーを
+    他環境で読んだときにパスが解釈できなくなるのを避けるため）。
+
+    Args:
+        path: 変換対象パス。
+        project_root: 相対化の基準ディレクトリ。
+    Returns:
+        プロジェクト相対パス、またはルート外の場合は絶対パスの文字列。
+    """
+    resolved_path = path.resolve()
+    try:
+        return resolved_path.relative_to(project_root).as_posix()
+    except ValueError:
+        return resolved_path.as_posix()

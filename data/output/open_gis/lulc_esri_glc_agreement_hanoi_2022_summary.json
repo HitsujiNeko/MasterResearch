@@ -1,0 +1,393 @@
+{
+  "comparison": "GLC_FCS30D vs Esri Sentinel-2 10m Annual LULC",
+  "generated_at": "2026-07-26T02:43:48.338673+00:00",
+  "inputs": {
+    "glc_raster": "data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif",
+    "esri_raster": "data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif",
+    "roi": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp"
+  },
+  "reference_grid": {
+    "source": "GLC_FCS30D",
+    "crs": "EPSG:4326",
+    "width": 2717,
+    "height": 3046,
+    "resolution": [
+      0.00026949458523585663,
+      0.0002694945852358564
+    ]
+  },
+  "resolution_alignment": {
+    "method": "subdivide_and_majority_vote",
+    "subdivision_factor": 3,
+    "resampling": "nearest",
+    "tie_break_rule": "同数最頻の場合は Esri のクラス値の小さい方を採用する",
+    "tied_cells_in_roi": 2397,
+    "note": "GLC の 30m セルを 3x3 に分割した細分グリッド（原点・分割数とも GLC と厳密に一致）へ Esri を最近傍で再投影し、9 サブセルの多数決で 30m へ集約した。ただし Esri 出力の画素は細分セルより約 3.3% 粗いため、Esri のソース画素と細分セルは 1 対 1 に対応しない。一部のサブセルが隣接サブセルと同じソース画素を複製するため票の重みは完全には均一ではなく、集約は近似である（1 ブロックが参照する実 Esri 画素は平均約 8.4 個）。また 10m でしか現れない少数クラスは集約により失われる。"
+  },
+  "pixel_stats": {
+    "roi_pixels": 4015086,
+    "comparable_pixels": 4015079,
+    "comparable_ratio": 0.9999982565753261,
+    "glc_unmapped_pixels_in_roi": 0,
+    "esri_unmapped_pixels_in_roi": 7
+  },
+  "agreement": {
+    "overall_agreement": 0.6920982127624388,
+    "agreed_pixels": 2778829,
+    "cohens_kappa": 0.5155134596903027,
+    "note": "どちらのデータも真値ではないため、精度（accuracy）ではなく一致度として扱う。"
+  },
+  "class_agreement": [
+    {
+      "common_class": 3,
+      "label": "農地",
+      "glc_pixels": 2632422,
+      "esri_pixels": 1686230,
+      "agreed_pixels": 1595191,
+      "agreement_given_glc": 0.6059784487441603,
+      "agreement_given_esri": 0.9460103307377997,
+      "iou": 0.585721991245698,
+      "esri_to_glc_pixel_count_ratio": 0.6405621894969727
+    },
+    {
+      "common_class": 4,
+      "label": "市街地（不透水面）",
+      "glc_pixels": 802422,
+      "esri_pixels": 1577680,
+      "agreed_pixels": 786048,
+      "agreement_given_glc": 0.979594278322379,
+      "agreement_given_esri": 0.4982303128644592,
+      "iou": 0.4931125294375222,
+      "esri_to_glc_pixel_count_ratio": 1.966147488478631
+    },
+    {
+      "common_class": 2,
+      "label": "樹林",
+      "glc_pixels": 268347,
+      "esri_pixels": 314768,
+      "agreed_pixels": 223719,
+      "agreement_given_glc": 0.8336929423470357,
+      "agreement_given_esri": 0.7107425151222487,
+      "iou": 0.6224860599450188,
+      "esri_to_glc_pixel_count_ratio": 1.1729887049231034
+    },
+    {
+      "common_class": 1,
+      "label": "水域",
+      "glc_pixels": 220886,
+      "esri_pixels": 386629,
+      "agreed_pixels": 172914,
+      "agreement_given_glc": 0.7828200972447326,
+      "agreement_given_esri": 0.44723494616285897,
+      "iou": 0.3978683896263469,
+      "esri_to_glc_pixel_count_ratio": 1.7503553869416804
+    },
+    {
+      "common_class": 7,
+      "label": "湿地",
+      "glc_pixels": 71029,
+      "esri_pixels": 2497,
+      "agreed_pixels": 22,
+      "agreement_given_glc": 0.00030973264441284547,
+      "agreement_given_esri": 0.00881057268722467,
+      "iou": 0.00029930343926861124,
+      "esri_to_glc_pixel_count_ratio": 0.03515465514085796
+    },
+    {
+      "common_class": 5,
+      "label": "草地・低木",
+      "glc_pixels": 19973,
+      "esri_pixels": 41126,
+      "agreed_pixels": 935,
+      "agreement_given_glc": 0.04681319781705302,
+      "agreement_given_esri": 0.022735009483052085,
+      "iou": 0.015540854996343329,
+      "esri_to_glc_pixel_count_ratio": 2.0590797576728583
+    },
+    {
+      "common_class": 6,
+      "label": "裸地",
+      "glc_pixels": 0,
+      "esri_pixels": 6149,
+      "agreed_pixels": 0,
+      "agreement_given_glc": null,
+      "agreement_given_esri": 0.0,
+      "iou": 0.0,
+      "esri_to_glc_pixel_count_ratio": null
+    },
+    {
+      "common_class": 8,
+      "label": "雪氷",
+      "glc_pixels": 0,
+      "esri_pixels": 0,
+      "agreed_pixels": 0,
+      "agreement_given_glc": null,
+      "agreement_given_esri": null,
+      "iou": null,
+      "esri_to_glc_pixel_count_ratio": null
+    }
+  ],
+  "built_up_agreement": {
+    "common_class": 4,
+    "label": "市街地（不透水面）",
+    "glc_pixels": 802422,
+    "esri_pixels": 1577680,
+    "agreed_pixels": 786048,
+    "agreement_given_glc": 0.979594278322379,
+    "agreement_given_esri": 0.4982303128644592,
+    "iou": 0.4931125294375222,
+    "esri_to_glc_pixel_count_ratio": 1.966147488478631
+  },
+  "class_correspondence": [
+    {
+      "common_class": 1,
+      "label": "水域",
+      "glc_classes": [
+        {
+          "value": 210,
+          "label": "Water body"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 1,
+          "label": "Water"
+        }
+      ]
+    },
+    {
+      "common_class": 2,
+      "label": "樹林",
+      "glc_classes": [
+        {
+          "value": 51,
+          "label": "Open evergreen broadleaved forest"
+        },
+        {
+          "value": 52,
+          "label": "Closed evergreen broadleaved forest"
+        },
+        {
+          "value": 61,
+          "label": "Open deciduous broadleaved forest"
+        },
+        {
+          "value": 62,
+          "label": "Closed deciduous broadleaved forest"
+        },
+        {
+          "value": 71,
+          "label": "Open evergreen needle-leaved forest"
+        },
+        {
+          "value": 72,
+          "label": "Closed evergreen needle-leaved forest"
+        },
+        {
+          "value": 81,
+          "label": "Open deciduous needle-leaved forest"
+        },
+        {
+          "value": 82,
+          "label": "Closed deciduous needle-leaved forest"
+        },
+        {
+          "value": 91,
+          "label": "Open mixed leaf forest"
+        },
+        {
+          "value": 92,
+          "label": "Closed mixed leaf forest"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 2,
+          "label": "Trees"
+        }
+      ]
+    },
+    {
+      "common_class": 3,
+      "label": "農地",
+      "glc_classes": [
+        {
+          "value": 10,
+          "label": "Rainfed cropland"
+        },
+        {
+          "value": 11,
+          "label": "Herbaceous cover cropland"
+        },
+        {
+          "value": 12,
+          "label": "Tree or shrub cover (Orchard) cropland"
+        },
+        {
+          "value": 20,
+          "label": "Irrigated cropland"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 5,
+          "label": "Crops"
+        }
+      ]
+    },
+    {
+      "common_class": 4,
+      "label": "市街地（不透水面）",
+      "glc_classes": [
+        {
+          "value": 190,
+          "label": "Impervious surfaces"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 7,
+          "label": "Built area"
+        }
+      ]
+    },
+    {
+      "common_class": 5,
+      "label": "草地・低木",
+      "glc_classes": [
+        {
+          "value": 120,
+          "label": "Shrubland"
+        },
+        {
+          "value": 121,
+          "label": "Evergreen shrubland"
+        },
+        {
+          "value": 122,
+          "label": "Deciduous shrubland"
+        },
+        {
+          "value": 130,
+          "label": "Grassland"
+        },
+        {
+          "value": 140,
+          "label": "Lichens and mosses"
+        },
+        {
+          "value": 150,
+          "label": "Sparse vegetation"
+        },
+        {
+          "value": 152,
+          "label": "Sparse shrubland"
+        },
+        {
+          "value": 153,
+          "label": "Sparse herbaceous"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 11,
+          "label": "Rangeland"
+        }
+      ]
+    },
+    {
+      "common_class": 6,
+      "label": "裸地",
+      "glc_classes": [
+        {
+          "value": 200,
+          "label": "Bare areas"
+        },
+        {
+          "value": 201,
+          "label": "Consolidated bare areas"
+        },
+        {
+          "value": 202,
+          "label": "Unconsolidated bare areas"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 8,
+          "label": "Bare ground"
+        }
+      ]
+    },
+    {
+      "common_class": 7,
+      "label": "湿地",
+      "glc_classes": [
+        {
+          "value": 181,
+          "label": "Swamp"
+        },
+        {
+          "value": 182,
+          "label": "Marsh"
+        },
+        {
+          "value": 183,
+          "label": "Flooded flat"
+        },
+        {
+          "value": 184,
+          "label": "Saline"
+        },
+        {
+          "value": 185,
+          "label": "Mangrove"
+        },
+        {
+          "value": 186,
+          "label": "Salt marsh"
+        },
+        {
+          "value": 187,
+          "label": "Tidal flat"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 4,
+          "label": "Flooded vegetation"
+        }
+      ]
+    },
+    {
+      "common_class": 8,
+      "label": "雪氷",
+      "glc_classes": [
+        {
+          "value": 220,
+          "label": "Permanent ice and snow"
+        }
+      ],
+      "esri_classes": [
+        {
+          "value": 9,
+          "label": "Snow/ice"
+        }
+      ]
+    }
+  ],
+  "invalid_values": {
+    "glc": [
+      0,
+      250
+    ],
+    "esri": [
+      0,
+      10
+    ]
+  },
+  "outputs": {
+    "summary": "data/output/open_gis/lulc_esri_glc_agreement_hanoi_2022_summary.json",
+    "confusion_matrix": "data/output/open_gis/lulc_esri_glc_confusion_hanoi_2022.csv"
+  }
+}

@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from src.common.paths import prepare_output_path, resolve_existing_path
+from src.common.paths import (
+    prepare_output_path,
+    resolve_existing_path,
+    to_project_relative_string,
+)
 
 
 def test_resolve_existing_path_returns_absolute_path_for_existing_file(tmp_path: Path) -> None:
@@ -62,3 +66,33 @@ def test_prepare_output_path_resolves_relative_path_against_project_root(
     assert resolved == (tmp_path / "nested" / "output.csv").resolve()
     assert resolved.parent.exists()
     assert resolved.parent.is_dir()
+
+
+def test_to_project_relative_string_returns_relative_path(tmp_path: Path) -> None:
+    """project_root 配下のパスは相対パス文字列へ変換する。"""
+    target = tmp_path / "data" / "output" / "summary.json"
+
+    result = to_project_relative_string(target, project_root=tmp_path)
+
+    assert Path(result) == Path("data/output/summary.json")
+
+
+def test_to_project_relative_string_uses_forward_slashes(tmp_path: Path) -> None:
+    """区切り文字は実行 OS によらず `/` に統一する。"""
+    target = tmp_path / "data" / "output" / "summary.json"
+
+    result = to_project_relative_string(target, project_root=tmp_path)
+
+    assert result == "data/output/summary.json"
+    assert "\\" not in result
+
+
+def test_to_project_relative_string_keeps_absolute_path_outside_root(tmp_path: Path) -> None:
+    """project_root 外のパスは絶対パス文字列のまま返す。"""
+    outside_root = tmp_path / "root"
+    outside_root.mkdir()
+    target = tmp_path / "elsewhere" / "summary.json"
+
+    result = to_project_relative_string(target, project_root=outside_root)
+
+    assert Path(result) == target.resolve()

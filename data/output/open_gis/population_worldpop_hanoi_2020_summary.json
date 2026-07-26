@@ -1,0 +1,96 @@
+{
+  "dataset": "WorldPop Global Project Population Data (100m)",
+  "dataset_key": "worldpop",
+  "gee_asset_id": "WorldPop/GP/100m/pop",
+  "source": "https://developers.google.com/earth-engine/datasets/catalog/WorldPop_GP_100m_pop",
+  "license": "CC BY 4.0",
+  "license_note": "出典表記は WorldPop（University of Southampton）に対して行う。",
+  "population_concept": "居住人口（夜間人口）。2019年ベトナム国勢調査を基準に、各年のUNPD推計へ合わせて Random Forest により空間按分した推計値。",
+  "retrieved_at": "2026-07-26T08:48:45.213765+00:00",
+  "year": 2020,
+  "year_note": "WorldPop Global Project Population Data (100m) の提供年は 2000-2020 年。本研究の Landsat 観測年（2023年）に対応する年次が存在しないため、取得可能な最新年 2020 年との時間差がある。",
+  "native_projection": {
+    "crs": "EPSG:4326",
+    "transform": [
+      0.0008333333299579025,
+      0,
+      102.145416273,
+      0,
+      -0.0008333333300179816,
+      23.392916775
+    ],
+    "nominal_scale_m": 92.7662419568716
+  },
+  "resampling_note": "ネイティブの crs / crs_transform を指定して取得しており、リサンプリングは行っていない。人口カウントは合計保存量のため、再投影すると範囲内総人口が変わる点に注意する。",
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "is_trial_run": false,
+  "area_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "crs": "EPSG:4326",
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "float32",
+    "band_count": 2,
+    "width": 879,
+    "height": 986,
+    "resolution": [
+      0.0008333333299579025,
+      0.0008333333300179816
+    ],
+    "bounds": {
+      "minx": 105.28791626027125,
+      "miny": 20.563750119588953,
+      "maxx": 106.02041625730425,
+      "maxy": 21.38541678298668
+    },
+    "nodata": -9999.0
+  },
+  "bands": {
+    "1": {
+      "name": "population_count",
+      "unit": "人／セル",
+      "description": "セルあたり人口"
+    },
+    "2": {
+      "name": "population_density_per_km2",
+      "unit": "人/km²",
+      "description": "人口カウントを WGS84 楕円体上のセル実面積で割った密度。セル面積は緯度により変わるため行ごとに算出している。"
+    }
+  },
+  "pixel_stats": {
+    "total_pixels": 866694,
+    "roi_pixels": 419914,
+    "outside_roi_pixels": 446780,
+    "valid_pixels": 408266,
+    "valid_pixel_ratio": 0.9722609867734822,
+    "total_population": 8441385.0,
+    "total_area_km2": 3263.680050363639,
+    "population_count": {
+      "min": 0.2690567970275879,
+      "max": 548.0111694335938,
+      "mean": 20.676189422607422,
+      "std": 43.60091781616211,
+      "median": 9.85562801361084,
+      "p95": 59.8408088684082,
+      "p99": 266.04953765869016
+    },
+    "population_density_per_km2": {
+      "min": 33.61465835571289,
+      "max": 68565.5546875,
+      "mean": 2586.6142578125,
+      "std": 5454.72998046875,
+      "median": 1232.43359375,
+      "p95": 7486.04931640625,
+      "p99": 33280.61874999976
+    }
+  },
+  "coverage_note": "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は nodata（-9999.0）で埋まる。valid_pixel_ratio の分母は roi_pixels（ROI 内画素数）である。",
+  "outputs": {
+    "geotiff": "data/gis/population/worldpop/worldpop_hanoi_2020.tif",
+    "summary": "data/output/open_gis/population_worldpop_hanoi_2020_summary.json"
+  }
+}

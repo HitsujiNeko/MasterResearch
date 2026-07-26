@@ -1,7 +1,11 @@
-"""リトライ付きHTTP JSON取得処理。
+"""リトライ付きHTTP取得処理。
 
-WFS等のリモートAPIから一時的なエラー時にリトライしつつJSONレスポンスを
-取得する処理を集約する。標準ライブラリの urllib のみに依存し、requests は使わない。
+WFS等のリモートAPIやGEEのダウンロードURLから、一時的なエラー時にリトライしつつ
+レスポンスを取得する処理を集約する。標準ライブラリの urllib のみに依存し、
+requests は使わない。
+
+バイト列を返す `fetch_bytes_with_retry` が基本形で、`fetch_json_with_retry` は
+その結果をJSONとして解釈する薄いラッパーである（リトライ方針を一箇所に保つため）。
 """
 
 from __future__ import annotations
@@ -16,15 +20,15 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def fetch_json_with_retry(
+def fetch_bytes_with_retry(
     url: str,
     timeout: int,
     max_retry_count: int = 3,
     retry_wait_seconds: int = 10,
     rate_limit_max_retry_count: int = 6,
     rate_limit_base_wait_seconds: int = 60,
-) -> dict[str, Any]:
-    """リトライ付きでURLからJSONレスポンスを取得する。
+) -> bytes:
+    """リトライ付きでURLからレスポンス本文をバイト列として取得する。
 
     通常のエラー（接続エラー・HTTP 429以外のHTTPエラー）は max_retry_count 回まで
     retry_wait_seconds 秒間隔でリトライする。
@@ -41,7 +45,7 @@ def fetch_json_with_retry(
         rate_limit_base_wait_seconds: HTTP 429時の指数バックオフ起点秒数。
 
     Returns:
-        JSONレスポンスをパースした辞書。
+        レスポンス本文のバイト列。
 
     Raises:
         ValueError: url が http/https 以外のスキームの場合。
@@ -57,7 +61,7 @@ def fetch_json_with_retry(
     while True:
         try:
             with urllib.request.urlopen(url, timeout=timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
 
@@ -103,3 +107,42 @@ def fetch_json_with_retry(
 
         logger.info("%d秒後にリトライします…", retry_wait_seconds)
         time.sleep(retry_wait_seconds)
+
+
+def fetch_json_with_retry(
+    url: str,
+    timeout: int,
+    max_retry_count: int = 3,
+    retry_wait_seconds: int = 10,
+    rate_limit_max_retry_count: int = 6,
+    rate_limit_base_wait_seconds: int = 60,
+) -> dict[str, Any]:
+    """リトライ付きでURLからJSONレスポンスを取得する。
+
+    リトライ方針は `fetch_bytes_with_retry` に委ね、本関数はその結果を
+    JSONとして解釈するだけにする。
+
+    Args:
+        url: リクエストURL。
+        timeout: タイムアウト秒数。
+        max_retry_count: 通常エラー時の最大リトライ回数。
+        retry_wait_seconds: 通常エラー時のリトライ待機秒数。
+        rate_limit_max_retry_count: HTTP 429時の最大リトライ回数。
+        rate_limit_base_wait_seconds: HTTP 429時の指数バックオフ起点秒数。
+
+    Returns:
+        JSONレスポンスをパースした辞書。
+
+    Raises:
+        ValueError: url が http/https 以外のスキームの場合。
+        RuntimeError: リトライ上限を超えてもエラーが解消しない場合。
+    """
+    response_body = fetch_bytes_with_retry(
+        url=url,
+        timeout=timeout,
+        max_retry_count=max_retry_count,
+        retry_wait_seconds=retry_wait_seconds,
+        rate_limit_max_retry_count=rate_limit_max_retry_count,
+        rate_limit_base_wait_seconds=rate_limit_base_wait_seconds,
+    )
+    return json.loads(response_body.decode("utf-8"))

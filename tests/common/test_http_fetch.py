@@ -1,4 +1,9 @@
-"""http_fetch.py（リトライ付きHTTP JSON取得）のテスト。"""
+"""http_fetch.py（リトライ付きHTTP取得）のテスト。
+
+バイト列取得（`fetch_bytes_with_retry`）とJSON取得（`fetch_json_with_retry`）の双方を
+対象とする。リトライ方針はバイト列側に集約されているため、JSON側のテストは
+その委譲が壊れていないことも兼ねて確認する。
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,85 @@ class _FakeResponse:
 
     def read(self) -> bytes:
         return self._body
+
+
+class _FakeBytesResponse:
+    """`urllib.request.urlopen` の戻り値を模した、任意バイト列を返すレスポンス。"""
+
+    def __init__(self, body: bytes) -> None:
+        self._body = body
+
+    def __enter__(self) -> "_FakeBytesResponse":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self._body
+
+
+def test_fetch_bytes_with_retry_rejects_non_http_scheme() -> None:
+    """http/https以外のURLスキームはValueErrorになる。"""
+    with pytest.raises(ValueError):
+        http_fetch.fetch_bytes_with_retry("file:///etc/passwd", timeout=10)
+
+
+def test_fetch_bytes_with_retry_returns_binary_body_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """バイナリ（GeoTIFF・ZIP等）をデコードせずそのまま返す。"""
+    binary_body = b"PK\x03\x04\x00\xff\xfe"
+    monkeypatch.setattr(
+        http_fetch.urllib.request,
+        "urlopen",
+        lambda url, timeout: _FakeBytesResponse(binary_body),
+    )
+
+    result = http_fetch.fetch_bytes_with_retry("https://example.com/x.zip", timeout=10)
+
+    assert result == binary_body
+
+
+def test_fetch_bytes_with_retry_succeeds_after_transient_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """一時的な接続エラーの後に成功した場合、リトライして結果を返す。"""
+    attempt_count = {"value": 0}
+    sleep_calls: list[float] = []
+
+    def fake_urlopen(url: str, timeout: int) -> _FakeBytesResponse:
+        attempt_count["value"] += 1
+        if attempt_count["value"] < 2:
+            raise urllib.error.URLError("temporary failure")
+        return _FakeBytesResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://example.com", timeout=10, max_retry_count=3, retry_wait_seconds=5
+    )
+
+    assert result == b"OK"
+    assert sleep_calls == [5]
+
+
+def test_fetch_bytes_with_retry_raises_after_max_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """リトライ上限を超えても失敗し続ける場合はRuntimeErrorになる。"""
+
+    def fake_urlopen(url: str, timeout: int) -> _FakeBytesResponse:
+        raise urllib.error.URLError("always fails")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(RuntimeError):
+        http_fetch.fetch_bytes_with_retry(
+            "https://example.com", timeout=10, max_retry_count=2, retry_wait_seconds=1
+        )
 
 
 def test_fetch_json_with_retry_rejects_non_http_scheme() -> None:

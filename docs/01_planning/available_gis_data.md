@@ -1,6 +1,6 @@
 # 利用可能な公開GISデータ候補
 
-**最終更新**: 2026-07-21  
+**最終更新**: 2026-07-26  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [CodingRule.md](../02_methods/CodingRule.md)  
 **前提知識**: RQ1-RQ3、都市構造パラメータの定義、GISデータのCRS・解像度・ライセンス差
 
@@ -28,7 +28,8 @@
 - `GHSL` と `World Settlement Footprint` は建物フットプリントの代替ではなく、粗い built-up / settlement extent の補助・妥当性確認用として扱う。
 - `Limited` シナリオの建物データソースは GBA に移行済み（`config.py`）。Microsoft 時代のカバレッジ欠落問題は解消されたが、建物パラメータ（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>`）の算出方法自体は別Issue（#7）で設計確定予定。
 - 標高データは `FABDEM v1.2`（Copernicus DEM 派生の準DTM）を `Limited` シナリオの主採用候補とする（BSHorizon との比較で全指標最良）。
-- 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースデータセット候補の調査を完了した。各カテゴリの候補比較・推奨方針は Section 4 のカテゴリ別詳細ドキュメントを参照。実データの取得・採用可否は未判断。
+- 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の8カテゴリについて、オープンソースデータセット候補の調査を完了した。各カテゴリの候補比較・推奨方針は Section 4 のカテゴリ別詳細ドキュメントを参照。土地利用以外は実データの取得・採用可否が未判断。
+- 土地利用は `GLC_FCS30D`（30m）を主ソースとして採用済み。加えて比較候補の `Esri Sentinel-2 10m LULC` を取得し、一致度を評価した（全体一致率 0.6921・kappa 0.5155）。**不透水面（市街地）の面積は Esri が GLC の約1.97倍**で、GLC の不透水面はほぼ Esri の部分集合（GLC基準の一致率 97.96%）である。差の主因は郊外の農地と散在市街地の境界にある。Esri は主ソースを置き換えるのではなく、**不透水面率の解釈幅を確認する感度分析用**として採用する（詳細は [gis_data_lulc.md](gis_data/gis_data_lulc.md) Section 7）。
 
 ---
 
@@ -43,7 +44,8 @@
 | OpenStreetMap / Geofabrik Vietnam extract | 道路 | 道路密度指標の算出 | `.osm.pbf`, `.gpkg` | 道路中心線（ベクタ） | ODbL | <https://download.geofabrik.de/asia/vietnam.html> |
 | GlobalBuildingAtlas (GBA) v1.0.0 | 建物 | 建物面積率・建物密度・建物高さの算出 | ポリゴン（WFS / GeoJSON） | 建物ポリゴン（ベクタ） | CC BY-NC 4.0 | <https://github.com/zhu-xlab/GlobalBuildingAtlas> |
 | FABDEM v1.2 | 標高（DEM） | 地形高度の算出（準DTM） | ラスタ `TIF` | 約30m（1 arc-second） | CC BY-NC-SA 4.0 | <https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn> |
-| GLC_FCS30D v2（2022年） | 土地利用（LULC） | 土地利用カテゴリ別面積率の算出 | ラスタ `TIF` | 30m | CC BY 4.0（利用時の注意は下記） | <https://zenodo.org/records/15063683> |
+| GLC_FCS30D v2（2022年） | 土地利用（LULC） | 土地利用カテゴリ別面積率の算出（主ソース） | ラスタ `TIF` | 30m | CC BY 4.0（利用時の注意は下記） | <https://zenodo.org/records/15063683> |
+| Esri Sentinel-2 10m Annual LULC（2022年） | 土地利用（LULC） | 不透水面率の解釈幅を確認する感度分析（主ソースの代替ではない） | ラスタ `TIF`（COG） | 10m | CC BY 4.0 | <https://planetarycomputer.microsoft.com/dataset/io-lulc-annual-v02> |
 
 ---
 

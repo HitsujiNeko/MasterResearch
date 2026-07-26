@@ -1,10 +1,10 @@
 {
   "comparison": "GLC_FCS30D vs Esri Sentinel-2 10m Annual LULC",
-  "generated_at": "2026-07-25T14:49:50.743389+00:00",
+  "generated_at": "2026-07-26T02:43:48.338673+00:00",
   "inputs": {
-    "glc_raster": "data\\gis\\lulc\\glc_fcs30d\\glc_fcs30d_hanoi_2022.tif",
-    "esri_raster": "data\\gis\\lulc\\esri_10m\\esri_lulc_hanoi_2022.tif",
-    "roi": "data\\gis\\boundaries\\hanoi\\hanoi_ROI_EPSG4326.shp"
+    "glc_raster": "data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif",
+    "esri_raster": "data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif",
+    "roi": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp"
   },
   "reference_grid": {
     "source": "GLC_FCS30D",
@@ -20,9 +20,9 @@
     "method": "subdivide_and_majority_vote",
     "subdivision_factor": 3,
     "resampling": "nearest",
-    "tie_break_rule": "同数最頻の場合はクラス値の小さい方を採用する",
+    "tie_break_rule": "同数最頻の場合は Esri のクラス値の小さい方を採用する",
     "tied_cells_in_roi": 2397,
-    "note": "GLC の 30m セルを 3x3 に分割した細分グリッド（≒10m、原点は GLC と一致）へ Esri を最近傍で再投影し、9 サブセルの多数決で 30m へ集約した。GLC セルと Esri サブセルが厳密に対応するためグリッド境界のズレは生じないが、10m でしか現れない少数クラスは集約により失われる。"
+    "note": "GLC の 30m セルを 3x3 に分割した細分グリッド（原点・分割数とも GLC と厳密に一致）へ Esri を最近傍で再投影し、9 サブセルの多数決で 30m へ集約した。ただし Esri 出力の画素は細分セルより約 3.3% 粗いため、Esri のソース画素と細分セルは 1 対 1 に対応しない。一部のサブセルが隣接サブセルと同じソース画素を複製するため票の重みは完全には均一ではなく、集約は近似である（1 ブロックが参照する実 Esri 画素は平均約 8.4 個）。また 10m でしか現れない少数クラスは集約により失われる。"
   },
   "pixel_stats": {
     "roi_pixels": 4015086,
@@ -387,7 +387,7 @@
     ]
   },
   "outputs": {
-    "summary": "data\\output\\open_gis\\lulc_esri_glc_agreement_hanoi_2022_summary.json",
-    "confusion_matrix": "data\\output\\open_gis\\lulc_esri_glc_confusion_hanoi_2022.csv"
+    "summary": "data/output/open_gis/lulc_esri_glc_agreement_hanoi_2022_summary.json",
+    "confusion_matrix": "data/output/open_gis/lulc_esri_glc_confusion_hanoi_2022.csv"
   }
 }

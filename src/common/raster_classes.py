@@ -41,7 +41,8 @@ def build_class_distribution(
             - total_pixels: ラスタ全体（ROI の BBOX 矩形）の画素数
             - roi_pixels: ROI 内の画素数
             - outside_roi_pixels: ROI 外（クリップ余白）の画素数
-            - filled_pixels: ROI 内の無効値画素数
+            - filled_pixels: ROI 内の無効値画素数（合計）
+            - filled_value_counts: 無効値ごとの画素数（出現しなかった値も 0 で残す）
             - valid_pixels: ROI 内の有効画素数
             - valid_pixel_ratio: ROI 内での有効画素率（ROI 内画素が0の場合は0.0）
             - classes: クラスごとの value / label / pixel_count / ratio のリスト
@@ -64,9 +65,18 @@ def build_class_distribution(
     roi_pixels = int(roi_values.size)
     values, counts = np.unique(roi_values, return_counts=True)
 
-    filled_pixels = int(
-        sum(int(count) for value, count in zip(values, counts) if int(value) in filled_values)
-    )
+    # 無効値ごとの内訳を残す。合計だけだと「nodata が何画素で雲が何画素か」を
+    # サマリーから再現できず、カバレッジの記述を成果物で検証できなくなる。
+    filled_value_counts = {
+        int(value): 0
+        for value in filled_values  # 出現しなかった無効値も 0 として残す
+    }
+    for value, count in zip(values, counts):
+        class_value = int(value)
+        if class_value in filled_value_counts:
+            filled_value_counts[class_value] += int(count)
+
+    filled_pixels = sum(filled_value_counts.values())
     valid_pixels = roi_pixels - filled_pixels
 
     classes: list[dict[str, Any]] = []
@@ -92,6 +102,9 @@ def build_class_distribution(
         "roi_pixels": roi_pixels,
         "outside_roi_pixels": total_pixels - roi_pixels,
         "filled_pixels": filled_pixels,
+        "filled_value_counts": {
+            str(value): count for value, count in sorted(filled_value_counts.items())
+        },
         "valid_pixels": valid_pixels,
         "valid_pixel_ratio": (valid_pixels / roi_pixels) if roi_pixels > 0 else 0.0,
         "classes": classes,

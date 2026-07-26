@@ -82,6 +82,9 @@ OUTPUT_NODATA = 0
 REQUEST_TIMEOUT_SECONDS = 300
 # window 読み出し時に BBOX の外側へ足す余白画素数。再投影時の端の欠けを防ぐ。
 WINDOW_PAD_PIXELS = 8
+# STAC 検索の 1 ページあたり件数と、辿る最大ページ数（無限ループの保険）
+SEARCH_PAGE_SIZE = 50
+SEARCH_MAX_PAGES = 20
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -136,6 +139,45 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def collect_search_features(
+    search_url: str,
+    timeout: int = REQUEST_TIMEOUT_SECONDS,
+    max_pages: int = SEARCH_MAX_PAGES,
+) -> list[dict[str, Any]]:
+    """STAC 検索を `next` リンクを辿って最後まで読み、全アイテムを集める。
+
+    1 ページ目だけを見ると、対象年のアイテムが 2 ページ目以降にある場合に
+    「見つからない」と誤判定してしまうため、ページを辿って収集する。
+
+    Args:
+        search_url (str): 検索 URL（1 ページ目）。
+        timeout (int): タイムアウト秒数。
+        max_pages (int): 辿る最大ページ数（無限ループの保険）。
+
+    Returns:
+        list[dict[str, Any]]: 収集した STAC アイテムのリスト。
+    """
+    features: list[dict[str, Any]] = []
+    next_url: str | None = search_url
+    for _ in range(max_pages):
+        if next_url is None:
+            break
+        result = fetch_json_with_retry(next_url, timeout=timeout)
+        features.extend(result.get("features", []))
+        next_url = next(
+            (
+                link.get("href")
+                for link in result.get("links", [])
+                if link.get("rel") == "next" and link.get("href")
+            ),
+            None,
+        )
+    else:
+        if next_url is not None:
+            logger.warning("STAC 検索のページ数が上限 %d に達しました。", max_pages)
+    return features
+
+
 def search_annual_item(
     year: int,
     bounds: tuple[float, float, float, float],
@@ -163,18 +205,18 @@ def search_annual_item(
         "collections": STAC_COLLECTION_ID,
         "bbox": ",".join(str(value) for value in bounds),
         "datetime": f"{year}-01-01T00:00:00Z/{year}-12-31T23:59:59Z",
-        "limit": "50",
+        "limit": str(SEARCH_PAGE_SIZE),
     }
     search_url = f"{STAC_SEARCH_URL}?{urllib.parse.urlencode(query)}"
-    result = fetch_json_with_retry(search_url, timeout=timeout)
 
+    features = collect_search_features(search_url, timeout=timeout)
     matched = [
         feature
-        for feature in result.get("features", [])
+        for feature in features
         if str(feature.get("properties", {}).get("start_datetime", "")).startswith(f"{year}-")
     ]
     if not matched:
-        available = sorted(str(f.get("id")) for f in result.get("features", []))
+        available = sorted(str(feature.get("id")) for feature in features)
         raise RuntimeError(
             f"{year} 年のアイテムが見つかりません（検索で返ったアイテム: {available}）。"
         )
@@ -261,6 +303,35 @@ def padded_window(
     )
 
 
+def cache_covers_bounds(cache_path: Path, bounds: tuple[float, float, float, float]) -> bool:
+    """キャッシュ済みサブセットが要求 BBOX を覆っているかを判定する。
+
+    キャッシュ名にはアイテム ID しか含まれないため、別の ROI で作られた
+    サブセットが同名で残り得る。範囲を検証せずに再利用すると、ROI 外が
+    nodata で埋まった出力を正常な結果として返してしまう。
+
+    Args:
+        cache_path (Path): 判定対象のキャッシュファイル。
+        bounds (tuple[float, float, float, float]): 要求 BBOX（EPSG:4326）。
+
+    Returns:
+        bool: 覆っていれば True。読めない場合も False（作り直す）。
+    """
+    try:
+        with rasterio.open(cache_path) as cached:
+            cached_bounds = transform_bounds(cached.crs, WGS84_CRS, *cached.bounds)
+    except rasterio.errors.RasterioIOError:
+        return False
+
+    min_lon, min_lat, max_lon, max_lat = bounds
+    return (
+        cached_bounds[0] <= min_lon
+        and cached_bounds[1] <= min_lat
+        and cached_bounds[2] >= max_lon
+        and cached_bounds[3] >= max_lat
+    )
+
+
 def fetch_native_subset(
     signed_url: str,
     bounds: tuple[float, float, float, float],
@@ -268,7 +339,7 @@ def fetch_native_subset(
 ) -> Path:
     """COG から ROI の BBOX 相当の window のみを読み、ネイティブ CRS のまま保存する。
 
-    キャッシュが既に存在する場合は再取得しない。タイル全体（約232MB）は読まない。
+    キャッシュが要求範囲を覆う場合のみ再利用する。タイル全体（約232MB）は読まない。
 
     Args:
         signed_url (str): 署名済みの COG URL。
@@ -279,8 +350,15 @@ def fetch_native_subset(
         Path: 保存したファイルのパス。
     """
     if cache_path.exists():
-        logger.info("キャッシュ済みのサブセットを使います: %s", cache_path)
-        return cache_path
+        if cache_covers_bounds(cache_path, bounds):
+            logger.info("キャッシュ済みのサブセットを使います: %s", cache_path)
+            return cache_path
+        # 別の ROI で作られたキャッシュを黙って使うと、範囲外が nodata で埋まった
+        # 出力を正常な結果として返してしまうため、作り直す
+        logger.warning(
+            "キャッシュが要求範囲を覆っていないため取得し直します: %s",
+            cache_path,
+        )
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with rasterio.open(f"/vsicurl/{signed_url}") as source:
@@ -476,6 +554,7 @@ def build_summary(
             "outside_roi_pixels": class_distribution["outside_roi_pixels"],
             "valid_pixels": class_distribution["valid_pixels"],
             "filled_pixels": class_distribution["filled_pixels"],
+            "filled_value_counts": class_distribution["filled_value_counts"],
             "valid_pixel_ratio": class_distribution["valid_pixel_ratio"],
         },
         "class_distribution": class_distribution["classes"],

@@ -128,6 +128,30 @@ def test_all_filled_array_yields_zero_ratio_without_error() -> None:
     assert result["classes"] == []
 
 
+def test_reports_filled_value_counts_per_value() -> None:
+    """無効値ごとの内訳を返し、出現しなかった無効値も 0 として残す。"""
+    array = np.array([[0, 0, 1], [2, 3, 3]], dtype=np.uint8)
+
+    result = build_class_distribution(array, CLASS_LABELS, filled_values=(0, 99))
+
+    assert result["filled_value_counts"] == {"0": 2, "99": 0}
+    assert result["filled_pixels"] == 2
+
+
+def test_filled_value_counts_respects_roi_mask() -> None:
+    """無効値の内訳も ROI 内のみを数える。"""
+    array = np.array([[0, 0], [1, 0]], dtype=np.uint8)
+    roi_mask = np.array([[True, False], [True, False]])
+
+    result = build_class_distribution(
+        array, CLASS_LABELS, filled_values=FILLED_VALUES, roi_mask=roi_mask
+    )
+
+    # ROI 外の 0 が 2 画素あるが、内訳に含めない
+    assert result["filled_value_counts"] == {"0": 1, "99": 0}
+    assert result["filled_pixels"] == 1
+
+
 def test_empty_array_yields_zero_ratio_without_error() -> None:
     """画素が1つもない配列でもゼロ除算にならない。"""
     array = np.array([], dtype=np.uint8)

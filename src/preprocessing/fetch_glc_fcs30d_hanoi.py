@@ -42,6 +42,7 @@ from rasterio.mask import mask
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
 from src.common.http_fetch import fetch_json_with_retry
+from src.common.paths import to_project_relative_string
 from src.common.raster_classes import build_class_distribution
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
@@ -656,22 +657,6 @@ def clip_band_to_roi(
         }
 
 
-def to_project_relative_string(path: Path) -> str:
-    """可能ならプロジェクト相対パスへ変換する。
-
-    Args:
-        path (Path): 変換対象パス。
-
-    Returns:
-        str: プロジェクト相対パス、または絶対パス文字列。
-    """
-    resolved_path = path.resolve()
-    try:
-        return str(resolved_path.relative_to(PROJECT_ROOT))
-    except ValueError:
-        return str(resolved_path)
-
-
 def build_summary(
     year: int,
     tile_names: list[str],
@@ -741,6 +726,7 @@ def build_summary(
             "outside_roi_pixels": class_distribution["outside_roi_pixels"],
             "valid_pixels": class_distribution["valid_pixels"],
             "filled_pixels": class_distribution["filled_pixels"],
+            "filled_value_counts": class_distribution["filled_value_counts"],
             "valid_pixel_ratio": class_distribution["valid_pixel_ratio"],
         },
         "class_distribution": class_distribution["classes"],

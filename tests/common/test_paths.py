@@ -77,6 +77,16 @@ def test_to_project_relative_string_returns_relative_path(tmp_path: Path) -> Non
     assert Path(result) == Path("data/output/summary.json")
 
 
+def test_to_project_relative_string_uses_forward_slashes(tmp_path: Path) -> None:
+    """区切り文字は実行 OS によらず `/` に統一する。"""
+    target = tmp_path / "data" / "output" / "summary.json"
+
+    result = to_project_relative_string(target, project_root=tmp_path)
+
+    assert result == "data/output/summary.json"
+    assert "\\" not in result
+
+
 def test_to_project_relative_string_keeps_absolute_path_outside_root(tmp_path: Path) -> None:
     """project_root 外のパスは絶対パス文字列のまま返す。"""
     outside_root = tmp_path / "root"

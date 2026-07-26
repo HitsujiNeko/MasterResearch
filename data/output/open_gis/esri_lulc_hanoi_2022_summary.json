@@ -6,13 +6,13 @@
   "asset_href": "https://ai4edataeuwest.blob.core.windows.net/io-lulc/io-annual-lulc-v02/48Q_20220101-20230101.tif",
   "asset_note": "アセットの Blob URL は直アクセスできない（HTTP 409）。Planetary Computer の SAS 署名エンドポイントで署名してから読み取る。署名済み URL は有効期限つきのため記録しない。",
   "license": "CC BY 4.0",
-  "retrieved_at": "2026-07-25T13:46:32.384669+00:00",
+  "retrieved_at": "2026-07-26T01:16:06.947909+00:00",
   "year": 2022,
   "item_start_datetime": "2022-01-01T00:00:00Z",
   "item_end_datetime": "2023-01-01T00:00:00Z",
   "native_crs": "EPSG:32648",
   "resampling_note": "ネイティブ CRS（UTM）から EPSG:4326 への再投影は、カテゴリ値のため最近傍（nearest）で行う。線形補間は使わない。",
-  "roi_path": "data\\gis\\boundaries\\hanoi\\hanoi_ROI_EPSG4326.shp",
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
   "roi_bbox": [
     105.28812456270636,
     20.564469161724375,
@@ -43,6 +43,10 @@
     "outside_roi_pixels": 35925975,
     "valid_pixels": 33868169,
     "filled_pixels": 796,
+    "filled_value_counts": {
+      "0": 0,
+      "10": 796
+    },
     "valid_pixel_ratio": 0.9999764976579592
   },
   "class_distribution": [
@@ -92,7 +96,7 @@
   "unknown_class_values": [],
   "coverage_note": "ROI ポリゴンで真にクリップしているため、出力は ROI の BBOX 矩形となり、ROI 外の余白は nodata（0）で埋まる。有効カバレッジは ROI 内のみで評価し、valid_pixel_ratio の分母は roi_pixels（ROI 内画素数）である。ROI 内の無効値（0: No Data、10: Clouds）は filled_pixels として別に集計する。",
   "outputs": {
-    "geotiff": "data\\gis\\lulc\\esri_10m\\esri_lulc_hanoi_2022.tif",
-    "summary": "data\\output\\open_gis\\esri_lulc_hanoi_2022_summary.json"
+    "geotiff": "data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif",
+    "summary": "data/output/open_gis/esri_lulc_hanoi_2022_summary.json"
   }
 }

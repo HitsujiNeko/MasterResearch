@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+import rasterio
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
@@ -82,6 +83,70 @@ class TestSearchAnnualItem:
 
         assert target.STAC_COLLECTION_ID in captured["url"]
         assert "105.28812456270636" in captured["url"]
+
+
+class TestCollectSearchFeatures:
+    """collect_search_features（STAC 検索のページネーション）のテスト。"""
+
+    def test_follows_next_links_across_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """next リンクを辿り、2ページ目以降のアイテムも収集する。"""
+        pages = {
+            "page1": {
+                "features": [_make_item("48Q-2021", 2021)],
+                "links": [{"rel": "next", "href": "page2"}],
+            },
+            "page2": {"features": [_make_item("48Q-2022", 2022)], "links": []},
+        }
+        monkeypatch.setattr(target, "fetch_json_with_retry", lambda url, **kwargs: pages[url])
+
+        features = target.collect_search_features("page1")
+
+        assert [feature["id"] for feature in features] == ["48Q-2021", "48Q-2022"]
+
+    def test_stops_when_no_next_link(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """next リンクが無ければ1ページで終了する。"""
+        calls: list[str] = []
+
+        def fake_fetch(url: str, **kwargs: Any) -> dict[str, Any]:
+            calls.append(url)
+            return {"features": [_make_item("48Q-2022", 2022)], "links": []}
+
+        monkeypatch.setattr(target, "fetch_json_with_retry", fake_fetch)
+        target.collect_search_features("page1")
+
+        assert calls == ["page1"]
+
+    def test_stops_at_max_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """next が途切れない場合も max_pages で打ち切る（無限ループ防止）。"""
+        calls: list[str] = []
+
+        def fake_fetch(url: str, **kwargs: Any) -> dict[str, Any]:
+            calls.append(url)
+            return {"features": [], "links": [{"rel": "next", "href": "same"}]}
+
+        monkeypatch.setattr(target, "fetch_json_with_retry", fake_fetch)
+        target.collect_search_features("page1", max_pages=3)
+
+        assert len(calls) == 3
+
+    def test_search_annual_item_finds_item_on_second_page(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """対象年のアイテムが2ページ目にあっても見つけられる。"""
+        pages = [
+            {
+                "features": [_make_item("48Q-2021", 2021)],
+                "links": [{"rel": "next", "href": "page2"}],
+            },
+            {"features": [_make_item("48Q-2022", 2022)], "links": []},
+        ]
+        monkeypatch.setattr(
+            target, "fetch_json_with_retry", lambda url, **kwargs: pages.pop(0) if pages else {}
+        )
+
+        item = target.search_annual_item(2022, HANOI_ROI_BOUNDS)
+
+        assert item["id"] == "48Q-2022"
 
 
 class TestSignAssetHref:
@@ -157,6 +222,52 @@ class TestPaddedWindow:
                 source_width=self.SOURCE_WIDTH,
                 source_height=self.SOURCE_HEIGHT,
             )
+
+
+class TestCacheCoversBounds:
+    """cache_covers_bounds（キャッシュ再利用の範囲検証）のテスト。"""
+
+    @staticmethod
+    def _write_raster(path: Path, bounds: tuple[float, float, float, float]) -> None:
+        """指定 BBOX（EPSG:4326）を持つ最小のラスタを書き出す。"""
+        min_lon, min_lat, max_lon, max_lat = bounds
+        width = height = 10
+        transform = from_origin(
+            min_lon, max_lat, (max_lon - min_lon) / width, (max_lat - min_lat) / height
+        )
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            width=width,
+            height=height,
+            count=1,
+            dtype="uint8",
+            crs=CRS.from_epsg(4326),
+            transform=transform,
+        ) as destination:
+            destination.write(np.ones((height, width), dtype=np.uint8), 1)
+
+    def test_accepts_cache_that_covers_requested_bounds(self, tmp_path: Path) -> None:
+        """要求範囲を覆うキャッシュは再利用できる。"""
+        cache_path = tmp_path / "cache.tif"
+        self._write_raster(cache_path, (105.0, 20.0, 107.0, 22.0))
+
+        assert target.cache_covers_bounds(cache_path, (105.5, 20.5, 106.5, 21.5)) is True
+
+    def test_rejects_cache_that_does_not_cover_requested_bounds(self, tmp_path: Path) -> None:
+        """別 ROI で作られた狭いキャッシュは再利用しない。"""
+        cache_path = tmp_path / "cache.tif"
+        self._write_raster(cache_path, (105.5, 20.5, 106.0, 21.0))
+
+        assert target.cache_covers_bounds(cache_path, (105.0, 20.0, 107.0, 22.0)) is False
+
+    def test_rejects_unreadable_cache(self, tmp_path: Path) -> None:
+        """壊れたキャッシュは読めないため再取得させる。"""
+        cache_path = tmp_path / "broken.tif"
+        cache_path.write_text("not a raster", encoding="utf-8")
+
+        assert target.cache_covers_bounds(cache_path, (105.0, 20.0, 106.0, 21.0)) is False
 
 
 class TestClassScheme:

@@ -41,6 +41,7 @@ from rasterio.mask import mask
 from rasterio.warp import calculate_default_transform, reproject
 
 from src.common.config import PROJECT_ROOT
+from src.common.paths import to_project_relative_string
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
@@ -219,22 +220,6 @@ def parse_arguments() -> argparse.Namespace:
         help="既存ファイルを上書きする。",
     )
     return parser.parse_args()
-
-
-def to_project_relative_string(path: Path) -> str:
-    """可能ならプロジェクト相対パスへ変換する。
-
-    Args:
-        path (Path): 変換対象パス。
-
-    Returns:
-        str: プロジェクト相対パス、または絶対パス文字列。
-    """
-    resolved_path = path.resolve()
-    try:
-        return str(resolved_path.relative_to(PROJECT_ROOT))
-    except ValueError:
-        return str(resolved_path)
 
 
 def resolve_output_paths(

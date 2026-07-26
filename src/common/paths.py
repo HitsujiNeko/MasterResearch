@@ -47,6 +47,8 @@ def to_project_relative_string(path: Path, project_root: Path = PROJECT_ROOT) ->
 
     サマリー JSON へ絶対パスを残さないための変換で、
     プロジェクトルート外のパスは絶対パスのまま返す。
+    区切り文字は実行 OS によらず `/` に統一する（Windows で生成したサマリーを
+    他環境で読んだときにパスが解釈できなくなるのを避けるため）。
 
     Args:
         path: 変換対象パス。
@@ -56,6 +58,6 @@ def to_project_relative_string(path: Path, project_root: Path = PROJECT_ROOT) ->
     """
     resolved_path = path.resolve()
     try:
-        return str(resolved_path.relative_to(project_root))
+        return resolved_path.relative_to(project_root).as_posix()
     except ValueError:
-        return str(resolved_path)
+        return resolved_path.as_posix()

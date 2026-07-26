@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -284,13 +285,55 @@ class TestSaveConfusionCsv:
 
         target.save_confusion_csv(np.array([[1, 2], [3, 4]]), [1, 4], confusion_path)
 
-        with confusion_path.open(encoding="utf-8") as csv_file:
+        with confusion_path.open(encoding="utf-8-sig") as csv_file:
             rows = list(csv.reader(csv_file))
 
         assert rows[0][0] == "glc_common_class"
         assert rows[1][0].startswith("glc_1_")
         assert rows[1][1:] == ["1", "2"]
         assert rows[2][1:] == ["3", "4"]
+
+    def test_writes_bom_for_excel_compatibility(self, tmp_path: Path) -> None:
+        """日本語ヘッダを含むため BOM 付き UTF-8 で書き出す。"""
+        confusion_path = tmp_path / "confusion.csv"
+
+        target.save_confusion_csv(np.array([[1, 2], [3, 4]]), [1, 4], confusion_path)
+
+        assert confusion_path.read_bytes().startswith(b"\xef\xbb\xbf")
+
+
+class TestYearMismatch:
+    """extract_year / warn_on_year_mismatch のテスト。"""
+
+    def test_extracts_year_from_filename(self) -> None:
+        """ファイル名末尾の4桁年を取り出す。"""
+        assert target.extract_year(Path("glc_fcs30d_hanoi_2022.tif")) == 2022
+        assert target.extract_year(Path("esri_lulc_hanoi_2018.tif")) == 2018
+
+    def test_returns_none_when_no_year(self) -> None:
+        """年が読み取れなければ None を返す。"""
+        assert target.extract_year(Path("lulc.tif")) is None
+
+    def test_warns_when_years_differ(self, caplog: pytest.LogCaptureFixture) -> None:
+        """対象年が食い違えば警告する。"""
+        with caplog.at_level(logging.WARNING):
+            target.warn_on_year_mismatch(Path("glc_2020.tif"), Path("esri_2022.tif"))
+
+        assert "対象年が一致していない" in caplog.text
+
+    def test_does_not_warn_when_years_match(self, caplog: pytest.LogCaptureFixture) -> None:
+        """対象年が一致していれば警告しない。"""
+        with caplog.at_level(logging.WARNING):
+            target.warn_on_year_mismatch(Path("glc_2022.tif"), Path("esri_2022.tif"))
+
+        assert caplog.text == ""
+
+    def test_does_not_warn_when_year_is_unknown(self, caplog: pytest.LogCaptureFixture) -> None:
+        """片方でも年が読めなければ判定できないため警告しない。"""
+        with caplog.at_level(logging.WARNING):
+            target.warn_on_year_mismatch(Path("glc.tif"), Path("esri_2022.tif"))
+
+        assert caplog.text == ""
 
 
 class TestClassMappings:

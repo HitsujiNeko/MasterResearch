@@ -8,8 +8,14 @@
   GLC のセルを縦横 3 分割した細分グリッド（≒10m 相当・原点は GLC と一致）へ Esri を
   **最近傍**で再投影し、各 GLC セルに対応する 3x3 = 9 サブセルの**多数決**で集約する。
   カテゴリ値のため線形補間は使わない。
-- GLC セルと Esri サブセルが厳密に 3x3 対応するため、グリッド境界のズレによる誤差が入らない。
-  一方でダウンサンプリングにより、10m でしか現れない少数クラスは失われる。
+- 細分グリッドは GLC グリッドと厳密に 3x3 対応する（原点一致・整数分割）。ただし
+  **Esri のソース画素と細分セルは一致しない**。Esri 出力の画素サイズは
+  `calculate_default_transform` が決めた 10m 相当の度数（約 9.279e-05 度）で、
+  細分セル（GLC の 1/3、約 8.983e-05 度）より約 3.3% 粗い。そのため一部のサブセルが
+  隣接サブセルと同じソース画素を複製し、多数決の票の重みは完全には均一にならない
+  （1 ブロックが参照する実 Esri 画素は平均約 8.4 個）。系統的にどれかのクラスへ
+  偏る性質のものではないが、集約は近似である。
+- ダウンサンプリングにより、10m でしか現れない少数クラスは失われる。
 - 両者はクラス体系の粒度が異なる（35 対 9）ため、直接比較せず共通クラスへ写像して比較する。
 - どちらも真値ではないため、精度（accuracy）ではなく**一致度（agreement）**として扱い、
   一方を基準にした指標には「GLC 基準」「Esri 基準」と明示した名前を使う。
@@ -20,6 +26,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -367,8 +374,10 @@ def summarize_classes(confusion: np.ndarray, class_values: list[int]) -> list[di
     どちらのデータも真値ではないため、精度ではなく一致度として扱う。
     「GLC 基準の一致率」は GLC がそのクラスとした画素のうち Esri も同じクラスとした割合、
     「Esri 基準の一致率」はその逆である。IoU は両者の和集合に対する共通部分の割合。
-    `esri_to_glc_pixel_count_ratio` は同一グリッド上の画素数比（Esri ÷ GLC）であり、
-    両者は同じ解像度・同じグリッドに揃えてあるため面積比と同値の指標として読める。
+    `esri_to_glc_pixel_count_ratio` は同一グリッド上の画素数比（Esri ÷ GLC）である。
+    基準グリッドは地理座標系（EPSG:4326）で画素の地上面積が緯度により変わるため、
+    厳密な面積比ではない。ROI（北緯 20.6-21.4 度）内での差は 1% 未満だが、
+    面積として扱う場合は投影座標系で算出し直すこと。
 
     Args:
         confusion (np.ndarray): 混同行列（行: GLC、列: Esri）。
@@ -402,12 +411,52 @@ def summarize_classes(confusion: np.ndarray, class_values: list[int]) -> list[di
     return results
 
 
+def extract_year(path: Path) -> int | None:
+    """ファイル名から 4 桁の西暦年を取り出す（見つからなければ None）。
+
+    Args:
+        path (Path): 対象パス。
+
+    Returns:
+        int | None: 抽出した年。複数ある場合は最後のものを返す。
+    """
+    years = re.findall(r"(?<!\d)(19|20)(\d{2})(?!\d)", path.stem)
+    if not years:
+        return None
+    return int(years[-1][0] + years[-1][1])
+
+
+def warn_on_year_mismatch(glc_path: Path, esri_path: Path) -> None:
+    """入力ファイル名から読める対象年が食い違う場合に警告する。
+
+    年の異なるマップを突き合わせると、一致率の低下が土地被覆の実変化なのか
+    分類の差なのか区別できなくなる。ファイル名からの推定にすぎないため、
+    処理は止めず警告に留める。
+
+    Args:
+        glc_path (Path): GLC_FCS30D の GeoTIFF パス。
+        esri_path (Path): Esri 10m LULC の GeoTIFF パス。
+    """
+    glc_year = extract_year(glc_path)
+    esri_year = extract_year(esri_path)
+    if glc_year is not None and esri_year is not None and glc_year != esri_year:
+        logger.warning(
+            "入力の対象年が一致していない可能性があります（GLC: %d / Esri: %d）。"
+            "一致率の低下が土地被覆の実変化を含む点に注意してください。",
+            glc_year,
+            esri_year,
+        )
+
+
 def save_confusion_csv(
     confusion: np.ndarray,
     class_values: list[int],
     confusion_path: Path,
 ) -> None:
     """混同行列を CSV として保存する（行: GLC、列: Esri）。
+
+    ヘッダー・行ラベルに日本語のクラス名を含むため、BOM 付き UTF-8 で書き出す。
+    BOM が無いと日本語環境の Excel で開いたときに文字化けする。
 
     Args:
         confusion (np.ndarray): 混同行列。
@@ -418,7 +467,7 @@ def save_confusion_csv(
     header = ["glc_common_class"] + [
         f"esri_{value}_{COMMON_CLASS_LABELS[value]}" for value in class_values
     ]
-    with confusion_path.open("w", encoding="utf-8", newline="") as csv_file:
+    with confusion_path.open("w", encoding="utf-8-sig", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(header)
         for index, class_value in enumerate(class_values):
@@ -484,6 +533,8 @@ def run(
     for input_path in (glc_path, esri_path):
         if not input_path.exists():
             raise FileNotFoundError(f"入力ラスタが見つかりません: {input_path}")
+
+    warn_on_year_mismatch(glc_path, esri_path)
 
     resolved_summary_path = summary_path or (
         DEFAULT_OUTPUT_DIR / f"lulc_esri_glc_agreement_{label}_summary.json"
@@ -574,13 +625,16 @@ def run(
             "method": "subdivide_and_majority_vote",
             "subdivision_factor": SUBDIVISION_FACTOR,
             "resampling": "nearest",
-            "tie_break_rule": "同数最頻の場合はクラス値の小さい方を採用する",
+            "tie_break_rule": "同数最頻の場合は Esri のクラス値の小さい方を採用する",
             "tied_cells_in_roi": tied_cells_in_roi,
             "note": (
-                "GLC の 30m セルを 3x3 に分割した細分グリッド（≒10m、原点は GLC と一致）へ "
-                "Esri を最近傍で再投影し、9 サブセルの多数決で 30m へ集約した。"
-                "GLC セルと Esri サブセルが厳密に対応するためグリッド境界のズレは生じないが、"
-                "10m でしか現れない少数クラスは集約により失われる。"
+                "GLC の 30m セルを 3x3 に分割した細分グリッド（原点・分割数とも GLC と厳密に一致）"
+                "へ Esri を最近傍で再投影し、9 サブセルの多数決で 30m へ集約した。"
+                "ただし Esri 出力の画素は細分セルより約 3.3% 粗いため、Esri のソース画素と"
+                "細分セルは 1 対 1 に対応しない。一部のサブセルが隣接サブセルと同じソース画素を"
+                "複製するため票の重みは完全には均一ではなく、集約は近似である"
+                "（1 ブロックが参照する実 Esri 画素は平均約 8.4 個）。"
+                "また 10m でしか現れない少数クラスは集約により失われる。"
             ),
         },
         "pixel_stats": {

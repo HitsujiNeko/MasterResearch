@@ -24,7 +24,7 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
-from src.common.config import PROJECT_ROOT
+from src.common.paths import to_project_relative_string
 
 DIFF_NODATA = -9999.0
 
@@ -67,22 +67,6 @@ def parse_arguments() -> argparse.Namespace:
         help="再投影時の補間方法。",
     )
     return parser.parse_args()
-
-
-def to_project_relative_string(path: Path) -> str:
-    """可能ならプロジェクト相対パスへ変換する。
-
-    Args:
-        path (Path): 変換対象パス。
-
-    Returns:
-        str: プロジェクト相対パス、または絶対パス文字列。
-    """
-    resolved_path = path.resolve()
-    try:
-        return str(resolved_path.relative_to(PROJECT_ROOT))
-    except ValueError:
-        return str(resolved_path)
 
 
 def resolve_resampling(resampling_name: str) -> Resampling:

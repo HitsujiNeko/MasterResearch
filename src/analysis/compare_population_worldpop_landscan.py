@@ -201,6 +201,28 @@ def expected_source_pixels_per_cell(source_transform: Any, reference_transform: 
     return max(1, int(round(columns_per_cell * rows_per_cell)))
 
 
+def build_contributing_pixel_summary(contributing_pixels: np.ndarray) -> dict[str, Any] | None:
+    """比較対象セルごとの寄与ソース画素数の要約を作る。
+
+    ROI と WorldPop の有効画素が全く重ならない場合、対象セルが 0 件になりうる。
+    空配列に `np.min` / `np.max` を掛けると ValueError になるため、
+    `build_paired_statistics` と同様に空を明示的にガードする。
+
+    Args:
+        contributing_pixels: 比較対象セルの寄与画素数（1 次元）。
+
+    Returns:
+        min / max / median を含む辞書。対象セルが無い場合は None。
+    """
+    if contributing_pixels.size == 0:
+        return None
+    return {
+        "min": int(np.min(contributing_pixels)),
+        "max": int(np.max(contributing_pixels)),
+        "median": float(np.median(contributing_pixels)),
+    }
+
+
 def build_paired_statistics(
     reference_values: np.ndarray,
     comparison_values: np.ndarray,
@@ -399,11 +421,9 @@ def compare_on_reference_grid(
         "partially_covered_cells": int(
             np.count_nonzero(comparable_mask & (contributing_pixels < expected_pixels_per_cell))
         ),
-        "contributing_pixels_per_cell": {
-            "min": int(np.min(contributing_pixels[comparable_mask])),
-            "max": int(np.max(contributing_pixels[comparable_mask])),
-            "median": float(np.median(contributing_pixels[comparable_mask])),
-        },
+        "contributing_pixels_per_cell": build_contributing_pixel_summary(
+            contributing_pixels[comparable_mask]
+        ),
         "total_population_on_reference_grid": {
             "worldpop": total_worldpop_on_reference_grid,
             "landscan": total_landscan_on_reference_grid,
@@ -559,28 +579,43 @@ def run(
         worldpop_stats["total_area_km2"],
         landscan_base_stats["total_area_km2"],
     )
-    count_agreement = comparison["count_agreement"]
-    logger.info(
-        "LandScan グリッド %d セルでの一致度: Pearson r = %.4f / Spearman ρ = %.4f",
-        count_agreement["cell_count"],
-        count_agreement["pearson_r"],
-        count_agreement["spearman_rho"],
-    )
-    fully_covered = comparison["count_agreement_fully_covered_cells"]
-    logger.info(
-        "うち完全被覆 %d セルに限ると: Pearson r = %.4f / 平均バイアス %.1f 人 / 中央値 %.1f 人",
-        fully_covered["cell_count"],
-        fully_covered["pearson_r"],
-        fully_covered["mean_bias"],
-        fully_covered["median_bias"],
-    )
-    logger.info(
-        "セルあたり人口の差（WorldPop − LandScan）: 平均 %.1f 人 / 中央値 %.1f 人 / RMSE %.1f 人",
-        count_agreement["mean_bias"],
-        count_agreement["median_bias"],
-        count_agreement["root_mean_squared_error"],
-    )
+    log_agreement("LandScan グリッド全体", comparison["count_agreement"])
+    log_agreement("うち完全被覆セル", comparison["count_agreement_fully_covered_cells"])
     return resolved_summary_path
+
+
+def log_agreement(label: str, agreement: dict[str, Any]) -> None:
+    """一致度統計をログへ出す。
+
+    比較対象セルが無い場合や相関が定義できない場合は該当項目が欠落・None になるため、
+    書式指定でそのまま参照せず、有無を確認してから出力する。
+
+    Args:
+        label: 対象の説明（ログの先頭に付ける）。
+        agreement: `build_paired_statistics` の戻り値。
+    """
+    cell_count = agreement.get("cell_count", 0)
+    if cell_count == 0:
+        logger.warning("%s: 比較対象セルがありません。", label)
+        return
+
+    correlation_note = agreement.get("correlation_note")
+    if correlation_note is not None:
+        correlation_text = correlation_note
+    else:
+        correlation_text = (
+            f"Pearson r = {agreement['pearson_r']:.4f} / "
+            f"Spearman ρ = {agreement['spearman_rho']:.4f}"
+        )
+    logger.info(
+        "%s %d セル: %s / 平均バイアス %.1f 人 / 中央値 %.1f 人 / RMSE %.1f 人",
+        label,
+        cell_count,
+        correlation_text,
+        agreement["mean_bias"],
+        agreement["median_bias"],
+        agreement["root_mean_squared_error"],
+    )
 
 
 def main() -> None:

@@ -152,6 +152,20 @@ class TestExpectedSourcePixelsPerCell:
             )
 
 
+class TestBuildContributingPixelSummary:
+    """build_contributing_pixel_summary のテスト。"""
+
+    def test_returns_none_for_empty_input(self) -> None:
+        """比較対象セルが 0 件でも np.min/np.max でクラッシュしない。"""
+        assert target.build_contributing_pixel_summary(np.array([], dtype=np.int64)) is None
+
+    def test_summarizes_min_max_median(self) -> None:
+        """寄与画素数の min / max / median を返す。"""
+        result = target.build_contributing_pixel_summary(np.array([11, 100, 100, 50]))
+
+        assert result == {"min": 11, "max": 100, "median": 75.0}
+
+
 class TestBuildPairedStatistics:
     """build_paired_statistics のテスト。"""
 
@@ -367,6 +381,42 @@ class TestCompareOnReferenceGrid:
         # ROI は 3x3 セル中 2x2 しか覆わないため、必ず自グリッド合計より小さくなる
         assert totals["worldpop"] < fine_total_everywhere
         assert totals["worldpop"] > 0
+
+    def test_survives_roi_with_no_overlapping_source_pixels(self, tmp_path: Path) -> None:
+        """ROI と WorldPop 有効画素が重ならなくてもクラッシュしない。"""
+        # 基準グリッドを 4x4 にし、細かい側は左上 3x3 セル分しか覆わないようにする
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        fine_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+        fine_counts = np.ones((30, 30), dtype=np.float32)
+        coarse_counts = np.full((4, 4), 100.0, dtype=np.float32)
+
+        fine_path = tmp_path / "fine_partial.tif"
+        coarse_path = tmp_path / "coarse_wide.tif"
+        _write_population_raster(fine_path, fine_counts, fine_counts, fine_transform)
+        _write_population_raster(coarse_path, coarse_counts, coarse_counts, coarse_transform)
+        fine = target.load_population_raster(fine_path)
+        coarse = target.load_population_raster(coarse_path)
+
+        # 細かい側が届かない 4 列目・4 行目のセルだけを ROI にする
+        far_roi = gpd.GeoDataFrame(
+            geometry=[
+                box(
+                    105.0 + 3 * COARSE_PIXEL_DEG,
+                    21.0 - 4 * COARSE_PIXEL_DEG,
+                    105.0 + 4 * COARSE_PIXEL_DEG,
+                    21.0 - 3 * COARSE_PIXEL_DEG,
+                )
+            ],
+            crs="EPSG:4326",
+        )
+        roi_mask = target.build_roi_mask(coarse, far_roi)
+
+        result = target.compare_on_reference_grid(fine, coarse, roi_mask)
+
+        assert result["roi_cells"] > 0
+        assert result["comparable_cells"] == 0
+        assert result["contributing_pixels_per_cell"] is None
+        assert result["count_agreement"] == {"cell_count": 0}
 
     def test_result_is_json_serializable_without_nan(self, tmp_path: Path) -> None:
         """比較結果をそのまま save_summary に渡しても NaN ガードに掛からない。"""

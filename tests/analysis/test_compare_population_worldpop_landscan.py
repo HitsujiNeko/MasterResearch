@@ -136,12 +136,23 @@ class TestExpectedSourcePixelsPerCell:
 
         assert target.expected_source_pixels_per_cell(fine_transform, coarse_transform) == 100
 
-    def test_never_returns_zero(self) -> None:
-        """ソースが基準より粗い場合でも 1 以上を返す（除算の破綻を避ける）。"""
-        fine_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
-        coarse_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+    def test_allows_identical_grids(self) -> None:
+        """同一グリッド（比 1.0）は 1 画素として許容する。"""
+        transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
 
-        assert target.expected_source_pixels_per_cell(fine_transform, coarse_transform) == 1
+        assert target.expected_source_pixels_per_cell(transform, transform) == 1
+
+    def test_rejects_reference_grid_finer_than_source(self) -> None:
+        """引数を逆に渡した場合（基準が細かい）は弾く。
+
+        以前は max(1, ...) で 1 に丸めており、各セルが 0〜1 画素でも「完全被覆」と
+        判定され、結果が無意味なまま JSON に残る状態だった。
+        """
+        source_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        reference_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+
+        with pytest.raises(ValueError, match="同等以上に粗い"):
+            target.expected_source_pixels_per_cell(source_transform, reference_transform)
 
     def test_rejects_zero_sized_source_cells(self) -> None:
         """ソースのセル寸法が 0 なら例外にする。"""

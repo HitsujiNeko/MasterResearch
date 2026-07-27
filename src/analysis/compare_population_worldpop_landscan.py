@@ -57,6 +57,8 @@ DEFAULT_SUMMARY_PATH = (
 NODATA = -9999.0
 COUNT_BAND = 1
 DENSITY_BAND = 2
+# グリッド寸法比の判定で許容する浮動小数点誤差（実データの刻みは厳密な整数倍ではない）
+GRID_RATIO_TOLERANCE = 1e-6
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -184,22 +186,33 @@ def expected_source_pixels_per_cell(source_transform: Any, reference_transform: 
     「完全被覆セル」と「部分被覆セル」を切り分けるための基準値。セル寸法の比から
     求めるため、グリッドが厳密な整数倍でなくても近い整数値になる。
 
+    引数を逆に渡す（細かい側を基準グリッドにする）と、比が 1 未満になって期待画素数が
+    意味を失う。集約自体は例外を出さず完走してしまい、結果が無意味なまま残るため、
+    ここで「基準グリッドはソースと同等以上に粗い」ことを明示的に検証する。
+
     Args:
         source_transform: ソースのアフィン変換。
-        reference_transform: 基準グリッドのアフィン変換。
+        reference_transform: 基準グリッドのアフィン変換（ソースと同等以上に粗いこと）。
 
     Returns:
         1 セルあたりの期待ソース画素数（1 以上）。
 
     Raises:
-        ValueError: ソースのセル寸法が 0 の場合。
+        ValueError: ソースのセル寸法が 0 の場合、または基準グリッドがソースより細かい場合。
     """
     if source_transform.a == 0 or source_transform.e == 0:
         raise ValueError("ソースのセル寸法が 0 です。")
 
     columns_per_cell = abs(reference_transform.a / source_transform.a)
     rows_per_cell = abs(reference_transform.e / source_transform.e)
-    return max(1, int(round(columns_per_cell * rows_per_cell)))
+    # 同一グリッド（比 1.0）は許容する。浮動小数点誤差を吸収する分だけ下限を緩める
+    if columns_per_cell < 1.0 - GRID_RATIO_TOLERANCE or rows_per_cell < 1.0 - GRID_RATIO_TOLERANCE:
+        raise ValueError(
+            "基準グリッドはソースと同等以上に粗い必要があります"
+            f"（列方向の比: {columns_per_cell:.4f}, 行方向の比: {rows_per_cell:.4f}）。"
+            "引数の順序が逆になっていないか確認してください。"
+        )
+    return int(round(columns_per_cell * rows_per_cell))
 
 
 def build_contributing_pixel_summary(contributing_pixels: np.ndarray) -> dict[str, Any] | None:

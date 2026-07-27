@@ -280,6 +280,33 @@ def resolve_output_paths(
     )
 
 
+def validate_bbox(bbox: list[float]) -> None:
+    """試行実行用 BBOX の妥当性を検証する。
+
+    min と max を逆に渡すと `shapely.box` は不正なポリゴンを作り、例外ではなく
+    「空の結果」として処理が進んでしまう。取得結果が 0 件でも気づきにくいため、
+    ここで弾く。
+
+    Args:
+        bbox: (min_lon, min_lat, max_lon, max_lat)。
+
+    Raises:
+        ValueError: 要素数が 4 でない場合、最小値が最大値以上の場合、
+            または経緯度の値域を外れる場合。
+    """
+    if len(bbox) != 4:
+        raise ValueError(f"BBOX は (min_lon, min_lat, max_lon, max_lat) の 4 要素です: {bbox}")
+
+    min_lon, min_lat, max_lon, max_lat = bbox
+    if min_lon >= max_lon or min_lat >= max_lat:
+        raise ValueError(
+            "BBOX の最小値は最大値より小さい必要があります"
+            f"（経度: {min_lon} < {max_lon}、緯度: {min_lat} < {max_lat}）。"
+        )
+    if not (-180.0 <= min_lon and max_lon <= 180.0 and -90.0 <= min_lat and max_lat <= 90.0):
+        raise ValueError(f"BBOX が経緯度の値域を外れています: {bbox}")
+
+
 def build_target_area(
     roi_path: Path,
     bbox: list[float] | None,
@@ -304,6 +331,7 @@ def build_target_area(
         roi_gdf, _ = load_roi_geometry(resolved_roi_path)
         return roi_gdf, False, resolved_roi_path
 
+    validate_bbox(bbox)
     trial_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs=WGS84_CRS)
     logger.warning("試行実行モードです（BBOX: %s）。ROI 全域ではありません。", bbox)
     # 試行実行では ROI を読まないが、記録の一貫性のため同じ解決を通す

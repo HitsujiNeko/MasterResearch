@@ -356,6 +356,39 @@ class TestCoversRequestedArea:
         )
 
 
+class TestValidateBbox:
+    """validate_bbox のテスト。"""
+
+    def test_accepts_valid_bbox(self) -> None:
+        """正しい BBOX は通す。"""
+        target.validate_bbox([105.8, 21.0, 105.9, 21.06])
+
+    def test_rejects_reversed_longitude(self) -> None:
+        """経度の min > max は空の結果になるため弾く。"""
+        with pytest.raises(ValueError, match="最小値は最大値より小さい"):
+            target.validate_bbox([105.9, 21.0, 105.8, 21.06])
+
+    def test_rejects_reversed_latitude(self) -> None:
+        """緯度の min > max も同様に弾く。"""
+        with pytest.raises(ValueError, match="最小値は最大値より小さい"):
+            target.validate_bbox([105.8, 21.06, 105.9, 21.0])
+
+    def test_rejects_zero_extent(self) -> None:
+        """幅または高さが 0 の BBOX も弾く。"""
+        with pytest.raises(ValueError, match="最小値は最大値より小さい"):
+            target.validate_bbox([105.8, 21.0, 105.8, 21.06])
+
+    def test_rejects_out_of_range_coordinates(self) -> None:
+        """経緯度の値域を外れる指定を弾く。"""
+        with pytest.raises(ValueError, match="値域"):
+            target.validate_bbox([105.8, 21.0, 185.0, 21.06])
+
+    def test_rejects_wrong_length(self) -> None:
+        """要素数が 4 でない場合は弾く。"""
+        with pytest.raises(ValueError, match="4 要素"):
+            target.validate_bbox([105.8, 21.0, 105.9])
+
+
 class TestBuildTargetArea:
     """build_target_area のテスト。"""
 

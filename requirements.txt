@@ -8,3 +8,4 @@ numpy
 tqdm
 rasterio
 requests
+scipy

@@ -413,13 +413,15 @@ class TestBuildTargetArea:
         monkeypatch.setattr(
             target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
         )
-        relative_roi_path = Path("data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp")
+        # 検証対象はパス解決だけで、読み込みはモックしている。実 ROI（Git 管理外）に
+        # 依存させないため、リポジトリに常在する追跡ファイルを相対パスとして使う
+        relative_path = Path("pyproject.toml")
 
-        _, _, resolved_roi_path = target.build_target_area(relative_roi_path, None)
+        _, _, resolved_roi_path = target.build_target_area(relative_path, None)
 
         assert resolved_roi_path.is_absolute()
         assert resolved_roi_path.is_relative_to(target.PROJECT_ROOT)
-        assert resolved_roi_path.name == "hanoi_ROI_EPSG4326.shp"
+        assert resolved_roi_path == target.PROJECT_ROOT / "pyproject.toml"
 
     def test_roi_path_is_used_when_bbox_is_absent(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

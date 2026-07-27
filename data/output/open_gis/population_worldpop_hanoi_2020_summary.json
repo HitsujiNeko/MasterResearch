@@ -6,9 +6,9 @@
   "license": "CC BY 4.0",
   "license_note": "出典表記は WorldPop（University of Southampton）に対して行う。",
   "population_concept": "居住人口（夜間人口）。2019年ベトナム国勢調査を基準に、各年のUNPD推計へ合わせて Random Forest により空間按分した推計値。",
-  "retrieved_at": "2026-07-27T06:24:58.051246+00:00",
+  "retrieved_at": "2026-07-27T07:03:08.879556+00:00",
   "year": 2020,
-  "year_note": "WorldPop Global Project Population Data (100m) の提供年は 2000-2020 年。本研究の Landsat 観測年（2023年）に対応する年次が存在しないため、取得可能な最新年 2020 年との間に3 年の時間差がある。",
+  "year_note": "WorldPop Global Project Population Data (100m) の提供年は 2000-2020 年。本研究の Landsat 観測年（2023年）に対応する年次が存在しないため、取得可能な最新年 2020 年との間に 3 年の時間差がある。",
   "native_projection": {
     "crs": "EPSG:4326",
     "transform": [

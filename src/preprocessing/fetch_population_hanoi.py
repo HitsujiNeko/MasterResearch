@@ -283,7 +283,7 @@ def resolve_output_paths(
 def build_target_area(
     roi_path: Path,
     bbox: list[float] | None,
-) -> tuple[gpd.GeoDataFrame, bool]:
+) -> tuple[gpd.GeoDataFrame, bool, Path]:
     """取得対象範囲の GeoDataFrame を作る。
 
     `bbox` を指定した場合は試行実行用の矩形を、未指定の場合は ROI を返す。
@@ -293,16 +293,21 @@ def build_target_area(
         bbox (list[float] | None): (min_lon, min_lat, max_lon, max_lat)。
 
     Returns:
-        tuple[gpd.GeoDataFrame, bool]: (対象範囲, 試行実行かどうか)。
+        tuple[gpd.GeoDataFrame, bool, Path]:
+            (対象範囲, 試行実行かどうか, 解決済み ROI パス)。
+            サマリーへ記録するパスは、読み込みに使ったものと同一にするため
+            解決済みのものを返す（実行時のカレントディレクトリに依存させない）。
     """
     if bbox is None:
         # 相対パスを実行時のカレントディレクトリに依存させないため、先に解決する
-        roi_gdf, _ = load_roi_geometry(resolve_existing_path(roi_path))
-        return roi_gdf, False
+        resolved_roi_path = resolve_existing_path(roi_path)
+        roi_gdf, _ = load_roi_geometry(resolved_roi_path)
+        return roi_gdf, False, resolved_roi_path
 
     trial_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs=WGS84_CRS)
     logger.warning("試行実行モードです（BBOX: %s）。ROI 全域ではありません。", bbox)
-    return trial_gdf, True
+    # 試行実行では ROI を読まないが、記録の一貫性のため同じ解決を通す
+    return trial_gdf, True, resolve_existing_path(roi_path)
 
 
 def select_population_image(dataset_config: PopulationDatasetConfig, year: int) -> ee.Image:
@@ -558,7 +563,7 @@ def build_summary(
     if dataset_config.last_year < LANDSAT_OBSERVATION_YEAR:
         year_note += (
             f"本研究の Landsat 観測年（{LANDSAT_OBSERVATION_YEAR}年）に対応する年次が"
-            f"存在しないため、取得可能な最新年 {dataset_config.last_year} 年との間に"
+            f"存在しないため、取得可能な最新年 {dataset_config.last_year} 年との間に "
             f"{LANDSAT_OBSERVATION_YEAR - dataset_config.last_year} 年の時間差がある。"
         )
     return {
@@ -755,7 +760,7 @@ def run(
     dataset_config = DATASET_CONFIGS[dataset_key]
     resolved_year = resolve_year(dataset_config, year)
     # 出力先の決定に試行実行かどうかが要るため、ROI の読み込みを先に行う
-    area_gdf, is_trial = build_target_area(roi_path=roi_path, bbox=bbox)
+    area_gdf, is_trial, resolved_roi_path = build_target_area(roi_path=roi_path, bbox=bbox)
     area_bounds = tuple(float(value) for value in area_gdf.total_bounds)
     logger.info("取得対象範囲の BBOX: %s", area_bounds)
 
@@ -804,7 +809,7 @@ def run(
     summary = build_summary(
         dataset_config=dataset_config,
         year=resolved_year,
-        roi_path=roi_path,
+        roi_path=resolved_roi_path,
         is_trial=is_trial,
         area_bounds=area_bounds,
         projection_info=projection_info,

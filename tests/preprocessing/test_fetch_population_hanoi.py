@@ -359,15 +359,34 @@ class TestCoversRequestedArea:
 class TestBuildTargetArea:
     """build_target_area のテスト。"""
 
-    def test_bbox_produces_trial_area(self) -> None:
+    def test_bbox_produces_trial_area(self, tmp_path: Path) -> None:
         """BBOX 指定時は試行実行フラグが立つ。"""
-        area_gdf, is_trial = target.build_target_area(
-            Path("dummy.shp"), [105.8, 21.0, 105.9, 21.06]
-        )
+        roi_path = tmp_path / "dummy.shp"
+        roi_path.write_bytes(b"")
+
+        area_gdf, is_trial, _ = target.build_target_area(roi_path, [105.8, 21.0, 105.9, 21.06])
 
         assert is_trial is True
         assert area_gdf.crs.to_string() == "EPSG:4326"
         assert tuple(area_gdf.total_bounds) == (105.8, 21.0, 105.9, 21.06)
+
+    def test_returns_resolved_roi_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """記録用に、読み込みへ使ったのと同じ解決済みパスを返す。
+
+        生の引数を記録すると、プロジェクトルート以外から相対パスで実行したときに
+        「読み込みは成功したのに記録されたパスは別物」という状態になる。
+        """
+        roi_gdf = gpd.GeoDataFrame(geometry=[box(*HANOI_ROI_BOUNDS)], crs="EPSG:4326")
+        monkeypatch.setattr(
+            target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
+        )
+        relative_roi_path = Path("data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp")
+
+        _, _, resolved_roi_path = target.build_target_area(relative_roi_path, None)
+
+        assert resolved_roi_path.is_absolute()
+        assert resolved_roi_path.is_relative_to(target.PROJECT_ROOT)
+        assert resolved_roi_path.name == "hanoi_ROI_EPSG4326.shp"
 
     def test_roi_path_is_used_when_bbox_is_absent(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -380,7 +399,7 @@ class TestBuildTargetArea:
         roi_path = tmp_path / "roi.shp"
         roi_path.write_bytes(b"")
 
-        area_gdf, is_trial = target.build_target_area(roi_path, None)
+        area_gdf, is_trial, _ = target.build_target_area(roi_path, None)
 
         assert is_trial is False
         assert tuple(area_gdf.total_bounds) == pytest.approx(HANOI_ROI_BOUNDS)

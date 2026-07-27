@@ -309,6 +309,48 @@ class TestLoadPopulationRaster:
         with pytest.raises(ValueError, match="2 バンド"):
             target.load_population_raster(raster_path)
 
+    def test_rejects_projected_crs(self, tmp_path: Path) -> None:
+        """投影座標系のラスタは、度前提のセル面積計算が破綻するため弾く。"""
+        raster_path = tmp_path / "projected.tif"
+        counts = np.ones((2, 2), dtype=np.float32)
+        profile = {
+            "driver": "GTiff",
+            "height": 2,
+            "width": 2,
+            "count": 2,
+            "dtype": "float32",
+            "crs": CRS.from_epsg(32648),  # UTM Zone 48N（メートル単位）
+            "transform": from_origin(580000.0, 2330000.0, 100.0, 100.0),
+            "nodata": target.NODATA,
+        }
+        with rasterio.open(raster_path, "w", **profile) as destination:
+            destination.write(counts, 1)
+            destination.write(counts, 2)
+
+        with pytest.raises(ValueError, match="地理座標系"):
+            target.load_population_raster(raster_path)
+
+    def test_rejects_missing_crs(self, tmp_path: Path) -> None:
+        """CRS が未定義のラスタは位置が確定しないため弾く。"""
+        raster_path = tmp_path / "no_crs.tif"
+        counts = np.ones((2, 2), dtype=np.float32)
+        profile = {
+            "driver": "GTiff",
+            "height": 2,
+            "width": 2,
+            "count": 2,
+            "dtype": "float32",
+            "crs": None,
+            "transform": from_origin(105.0, 21.0, 0.01, 0.01),
+            "nodata": target.NODATA,
+        }
+        with rasterio.open(raster_path, "w", **profile) as destination:
+            destination.write(counts, 1)
+            destination.write(counts, 2)
+
+        with pytest.raises(ValueError, match="CRS が未定義"):
+            target.load_population_raster(raster_path)
+
 
 class TestSummarizeDataset:
     """summarize_dataset のテスト。"""
@@ -528,6 +570,15 @@ class TestCompareOnReferenceGrid:
         assert result["comparable_cells"] == 3
         assert totals["worldpop"] == pytest.approx(300.0)
         assert totals["landscan"] == pytest.approx(300.0)
+
+    def test_rejects_rasters_with_different_crs(self, tmp_path: Path) -> None:
+        """CRS が異なるラスタ同士は、座標の対応付けが無意味になるため弾く。"""
+        fine, coarse, roi_mask = self._build_rasters(tmp_path)
+        # 集約は座標値をそのまま基準グリッドへ代入するため、CRS 不一致は静かに壊れる
+        coarse["crs"] = CRS.from_epsg(4269)  # NAD83（同じ度単位だが別の CRS）
+
+        with pytest.raises(ValueError, match="CRS が一致しません"):
+            target.compare_on_reference_grid(fine, coarse, roi_mask)
 
     def test_result_is_json_serializable_without_nan(self, tmp_path: Path) -> None:
         """比較結果をそのまま save_summary に渡しても NaN ガードに掛からない。"""

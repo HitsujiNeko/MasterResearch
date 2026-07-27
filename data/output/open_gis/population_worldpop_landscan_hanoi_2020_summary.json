@@ -1,6 +1,6 @@
 {
   "comparison": "WorldPop（居住人口）vs LandScan Global（実効人口）",
-  "generated_at": "2026-07-27T06:25:20.116436+00:00",
+  "generated_at": "2026-07-27T07:02:22.972342+00:00",
   "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
   "reference_grid": {
     "source": "LandScan Global",

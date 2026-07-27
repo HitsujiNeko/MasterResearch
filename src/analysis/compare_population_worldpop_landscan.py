@@ -31,6 +31,7 @@ from typing import Any
 import geopandas as gpd
 import numpy as np
 import rasterio
+from rasterio.crs import CRS
 from rasterio.features import geometry_mask
 from scipy import stats
 
@@ -291,13 +292,23 @@ def load_population_raster(raster_path: Path) -> dict[str, Any]:
         dict[str, Any]: 配列・変換・CRS・形状を含む辞書。
 
     Raises:
-        ValueError: バンド数が 2 未満の場合。
+        ValueError: バンド数が 2 未満の場合、CRS が未定義の場合、
+            または地理座標系でない場合。
     """
     with rasterio.open(raster_path) as source:
         if source.count < 2:
             raise ValueError(
                 "カウントと密度の 2 バンドが必要です"
                 f"（{raster_path.name} のバンド数: {source.count}）。"
+            )
+        if source.crs is None:
+            raise ValueError(f"ラスタの CRS が未定義です: {raster_path.name}")
+        # セル面積の計算は「セルの辺が度」前提の測地計算を行う。投影座標系のラスタを
+        # 渡すとメートル値を度として扱い、例外にならないまま誤った面積・密度になる
+        if not CRS.from_user_input(source.crs).is_geographic:
+            raise ValueError(
+                "地理座標系（度単位）のラスタのみに対応しています"
+                f"（{raster_path.name} の CRS: {source.crs.to_string()}）。"
             )
         return {
             "path": raster_path,
@@ -370,7 +381,18 @@ def compare_on_reference_grid(
 
     Returns:
         dict[str, Any]: 集約結果と一致度統計。
+
+    Raises:
+        ValueError: 2 つのラスタの CRS が一致しない場合。
     """
+    # 集約はソース画素の中心座標を基準グリッドのアフィン変換へ直接代入する。CRS が
+    # 違うと例外にならないまま無意味な対応付けになるため、ここで弾く
+    if worldpop["crs"] != landscan["crs"]:
+        raise ValueError(
+            "2 つのラスタの CRS が一致しません"
+            f"（{worldpop['crs'].to_string()} vs {landscan['crs'].to_string()}）。"
+        )
+
     aggregated_counts, contributing_pixels = aggregate_counts_to_reference_grid(
         source_counts=worldpop["counts"],
         source_transform=worldpop["transform"],
@@ -545,7 +567,10 @@ def run(
     Returns:
         Path: 出力したサマリー JSON パス。
     """
-    roi_gdf, _ = load_roi_geometry(resolve_existing_path(roi_path))
+    # サマリーへ記録するパスは、読み込みに使ったものと同一にする
+    # （生の引数を渡すと、実行時のカレントディレクトリ次第で記録が実体とずれる）
+    resolved_roi_path = resolve_existing_path(roi_path)
+    roi_gdf, _ = load_roi_geometry(resolved_roi_path)
 
     worldpop = load_population_raster(resolve_existing_path(worldpop_path))
     landscan_base = load_population_raster(resolve_existing_path(landscan_base_path))
@@ -567,7 +592,7 @@ def run(
         landscan_base_stats=landscan_base_stats,
         landscan_recent_stats=landscan_recent_stats,
         comparison=comparison,
-        roi_path=roi_path,
+        roi_path=resolved_roi_path,
         summary_path=resolved_summary_path,
         generated_at=datetime.now(timezone.utc).isoformat(),
     )

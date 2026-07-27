@@ -8,8 +8,11 @@
   LandScan グリッドを基準グリッドとし、WorldPop のカウントを合計集約して突き合わせる。
   人口カウントは合計保存量なので、平均や最近傍ではなく合計で集約する。
 - 集約は「WorldPop 画素の中心が入る LandScan セルへ全量を足す」方式とする。各画素が
-  必ず 1 セルにだけ寄与するため、**ROI 内の総人口が集約の前後で厳密に保存される**。
+  必ず 1 セルにだけ寄与するため、**基準グリッド全体では総人口が厳密に保存される**。
   代償として、セル境界をまたぐ画素は面積按分されない（近似である）。
+  なお ROI マスクを掛けた後の合計は、**中心が ROI 外の基準セルへ落ちた画素の分だけ
+  自グリッド合計より小さくなる**。そのため総人口比は「各データセットの自グリッド基準」と
+  「基準グリッド基準」の 2 通りを分けて記録する（母数を混同しないため）。
 - **年の違いと人口概念の違いを混同しない**ため、同年（2020年）同士の比較を主指標とし、
   Landsat 観測年に対応する LandScan 2023 は参考として並べる。
 
@@ -128,6 +131,14 @@ def aggregate_counts_to_reference_grid(
     """
     if source_counts.ndim != 2:
         raise ValueError(f"ソース配列は 2 次元である必要があります: shape={source_counts.shape}")
+    # 回転・スキューがあると「行＝一定緯度・列＝一定経度」が崩れ、行列インデックスだけで
+    # 中心座標を求める以下の計算が破綻する。黙って誤った集約を返さないよう弾く
+    for label, transform in (("ソース", source_transform), ("基準グリッド", reference_transform)):
+        if transform.b != 0.0 or transform.d != 0.0:
+            raise ValueError(
+                f"{label}に回転・スキューがあるグリッドには対応していません"
+                f"（transform.b={transform.b}, transform.d={transform.d}）。"
+            )
 
     reference_height, reference_width = reference_shape
     source_height, source_width = source_counts.shape
@@ -166,6 +177,30 @@ def aggregate_counts_to_reference_grid(
     return aggregated_counts, contributing_pixels
 
 
+def expected_source_pixels_per_cell(source_transform: Any, reference_transform: Any) -> int:
+    """基準グリッド 1 セルを完全に覆うのに必要なソース画素数を求める。
+
+    「完全被覆セル」と「部分被覆セル」を切り分けるための基準値。セル寸法の比から
+    求めるため、グリッドが厳密な整数倍でなくても近い整数値になる。
+
+    Args:
+        source_transform: ソースのアフィン変換。
+        reference_transform: 基準グリッドのアフィン変換。
+
+    Returns:
+        1 セルあたりの期待ソース画素数（1 以上）。
+
+    Raises:
+        ValueError: ソースのセル寸法が 0 の場合。
+    """
+    if source_transform.a == 0 or source_transform.e == 0:
+        raise ValueError("ソースのセル寸法が 0 です。")
+
+    columns_per_cell = abs(reference_transform.a / source_transform.a)
+    rows_per_cell = abs(reference_transform.e / source_transform.e)
+    return max(1, int(round(columns_per_cell * rows_per_cell)))
+
+
 def build_paired_statistics(
     reference_values: np.ndarray,
     comparison_values: np.ndarray,
@@ -177,7 +212,8 @@ def build_paired_statistics(
         comparison_values: 比較側の 1 次元配列（同じ長さ）。
 
     Returns:
-        dict[str, Any]: 相関・誤差・バイアスの統計。
+        dict[str, Any]: 相関・誤差・バイアスの統計。相関が定義できない場合は
+        `pearson_r` / `spearman_rho` が None になり、`correlation_note` に理由が入る。
 
     Raises:
         ValueError: 2 系列の長さが異なる場合。
@@ -190,17 +226,37 @@ def build_paired_statistics(
         return {"cell_count": 0}
 
     differences = comparison_values - reference_values
-    pearson = stats.pearsonr(reference_values, comparison_values)
-    spearman = stats.spearmanr(reference_values, comparison_values)
-    return {
+    statistics: dict[str, Any] = {
         "cell_count": int(reference_values.size),
-        "pearson_r": float(pearson.statistic),
-        "spearman_rho": float(spearman.statistic),
-        "mean_absolute_error": float(np.mean(np.abs(differences))),
-        "root_mean_squared_error": float(np.sqrt(np.mean(differences**2))),
-        "mean_bias": float(np.mean(differences)),
+        "mean_absolute_error": float(np.mean(np.abs(differences), dtype=np.float64)),
+        "root_mean_squared_error": float(np.sqrt(np.mean(differences**2, dtype=np.float64))),
+        "mean_bias": float(np.mean(differences, dtype=np.float64)),
         "median_bias": float(np.median(differences)),
     }
+
+    # 相関は 2 点以上かつ両系列が非定数でなければ定義できない。scipy は前者で例外送出、
+    # 後者で nan 返却と振る舞いが分かれるため、ここで先に判定して None に統一する
+    # （nan をそのまま JSON へ書くと RFC 8259 非準拠の裸の NaN になる）
+    if reference_values.size < 2:
+        statistics.update(
+            pearson_r=None,
+            spearman_rho=None,
+            correlation_note="比較対象セルが 1 件のため相関を計算できない。",
+        )
+        return statistics
+    if np.ptp(reference_values) == 0 or np.ptp(comparison_values) == 0:
+        statistics.update(
+            pearson_r=None,
+            spearman_rho=None,
+            correlation_note="いずれかの系列が定数のため相関を計算できない。",
+        )
+        return statistics
+
+    statistics["pearson_r"] = float(stats.pearsonr(reference_values, comparison_values).statistic)
+    statistics["spearman_rho"] = float(
+        stats.spearmanr(reference_values, comparison_values).statistic
+    )
+    return statistics
 
 
 def load_population_raster(raster_path: Path) -> dict[str, Any]:
@@ -264,8 +320,9 @@ def summarize_dataset(raster: dict[str, Any], roi_mask: np.ndarray) -> dict[str,
     valid_mask = roi_mask & (raster["counts"] != NODATA)
     cell_area_km2 = compute_cell_area_km2(raster["transform"], *raster["shape"])
     broadcast_area = np.broadcast_to(cell_area_km2, raster["shape"])
-    total_area_km2 = float(np.sum(broadcast_area[valid_mask]))
-    total_population = float(np.sum(raster["counts"][valid_mask]))
+    # float32 のまま累算すると 800 万人規模で刻みが 1.0 になるため float64 で足す
+    total_area_km2 = float(np.sum(broadcast_area[valid_mask], dtype=np.float64))
+    total_population = float(np.sum(raster["counts"][valid_mask], dtype=np.float64))
     return {
         "path": to_project_relative_string(raster["path"]),
         "resolution_deg": raster["resolution"],
@@ -311,17 +368,36 @@ def compare_on_reference_grid(
     landscan_densities = landscan["densities"][comparable_mask].astype(np.float64)
     worldpop_densities = aggregated_densities[comparable_mask].astype(np.float64)
 
-    total_worldpop_in_roi = float(np.sum(aggregated_counts[roi_mask & (contributing_pixels > 0)]))
+    total_worldpop_on_reference_grid = float(
+        np.sum(aggregated_counts[roi_mask & (contributing_pixels > 0)], dtype=np.float64)
+    )
+    total_landscan_on_reference_grid = float(
+        np.sum(landscan["counts"][roi_mask & (landscan["counts"] != NODATA)], dtype=np.float64)
+    )
+
+    # セル境界・ROI 外周・水域マスクで WorldPop 画素が欠けたセルは、比較の母数が
+    # 他セルより小さい。一致度が部分被覆セルに引きずられていないかを確認できるよう、
+    # 完全被覆セルだけに絞った統計も併記する
+    expected_pixels_per_cell = expected_source_pixels_per_cell(
+        source_transform=worldpop["transform"], reference_transform=landscan["transform"]
+    )
+    fully_covered_mask = comparable_mask & (contributing_pixels >= expected_pixels_per_cell)
+
     return {
         "aggregation_method": (
             "WorldPop 画素の中心が入る LandScan セルへカウントを全量加算する（合計集約）。"
-            "1 画素は 1 セルにのみ寄与するため総人口は保存されるが、セル境界をまたぐ画素の"
-            "面積按分は行わない近似である。"
+            "1 画素は 1 セルにのみ寄与するため基準グリッド全体では総人口が保存されるが、"
+            "セル境界をまたぐ画素の面積按分は行わない近似である。"
         ),
         "comparable_cells": int(np.count_nonzero(comparable_mask)),
         "roi_cells": int(np.count_nonzero(roi_mask)),
         "cells_without_worldpop_pixels": int(
             np.count_nonzero(roi_mask & (contributing_pixels == 0))
+        ),
+        "expected_source_pixels_per_cell": expected_pixels_per_cell,
+        "fully_covered_cells": int(np.count_nonzero(fully_covered_mask)),
+        "partially_covered_cells": int(
+            np.count_nonzero(comparable_mask & (contributing_pixels < expected_pixels_per_cell))
         ),
         "contributing_pixels_per_cell": {
             "min": int(np.min(contributing_pixels[comparable_mask])),
@@ -329,13 +405,23 @@ def compare_on_reference_grid(
             "median": float(np.median(contributing_pixels[comparable_mask])),
         },
         "total_population_on_reference_grid": {
-            "worldpop": total_worldpop_in_roi,
-            "landscan": float(
-                np.sum(landscan["counts"][roi_mask & (landscan["counts"] != NODATA)])
+            "worldpop": total_worldpop_on_reference_grid,
+            "landscan": total_landscan_on_reference_grid,
+            "note": (
+                "基準グリッド上で ROI マスクを掛けた後の合計。WorldPop 側は、中心が ROI 外の"
+                "基準セルへ落ちた画素の分だけ、WorldPop 自グリッドでの ROI 内総人口より小さくなる。"
             ),
         },
         "count_agreement": build_paired_statistics(landscan_counts, worldpop_counts),
+        "count_agreement_fully_covered_cells": build_paired_statistics(
+            landscan["counts"][fully_covered_mask].astype(np.float64),
+            aggregated_counts[fully_covered_mask],
+        ),
         "density_agreement": build_paired_statistics(landscan_densities, worldpop_densities),
+        "density_agreement_note": (
+            "密度は同一行では面積で割る単調変換のため、count_agreement とほぼ同値になる。"
+            "分析で用いる単位（人/km²）での値を確認する目的で併記している。"
+        ),
     }
 
 
@@ -362,9 +448,15 @@ def build_summary(
     Returns:
         dict[str, Any]: サマリー辞書。
     """
-    population_ratio = (
-        worldpop_stats["total_population"] / landscan_base_stats["total_population"]
-        if landscan_base_stats["total_population"] > 0
+    landscan_total = landscan_base_stats["total_population"]
+    # 母数を混同しないよう、自グリッド基準と基準グリッド基準の 2 通りを分けて記録する
+    ratio_on_own_grids = (
+        worldpop_stats["total_population"] / landscan_total if landscan_total > 0 else None
+    )
+    reference_grid_totals = comparison["total_population_on_reference_grid"]
+    ratio_on_reference_grid = (
+        reference_grid_totals["worldpop"] / reference_grid_totals["landscan"]
+        if reference_grid_totals["landscan"] > 0
         else None
     )
     return {
@@ -389,7 +481,14 @@ def build_summary(
                 "年の違いと人口概念の違いを混同しないため、同年同士を主指標とする。"
                 "LandScan 2023 は Landsat 観測年に対応する参考値である。"
             ),
-            "worldpop_to_landscan_population_ratio": population_ratio,
+            "worldpop_to_landscan_population_ratio_on_own_grids": ratio_on_own_grids,
+            "worldpop_to_landscan_population_ratio_on_reference_grid": ratio_on_reference_grid,
+            "population_ratio_note": (
+                "on_own_grids は各データセットを自身のグリッドで ROI クリップした総人口の比"
+                "（「各データセットが ROI に何人置いているか」の比較）。"
+                "on_reference_grid は LandScan グリッド上で ROI マスクを掛けた後の比で、"
+                "中心が ROI 外のセルへ落ちた WorldPop 画素が除かれるぶん小さくなる。"
+            ),
             **comparison,
         },
         "interpretation_note": (
@@ -466,6 +565,14 @@ def run(
         count_agreement["cell_count"],
         count_agreement["pearson_r"],
         count_agreement["spearman_rho"],
+    )
+    fully_covered = comparison["count_agreement_fully_covered_cells"]
+    logger.info(
+        "うち完全被覆 %d セルに限ると: Pearson r = %.4f / 平均バイアス %.1f 人 / 中央値 %.1f 人",
+        fully_covered["cell_count"],
+        fully_covered["pearson_r"],
+        fully_covered["mean_bias"],
+        fully_covered["median_bias"],
     )
     logger.info(
         "セルあたり人口の差（WorldPop − LandScan）: 平均 %.1f 人 / 中央値 %.1f 人 / RMSE %.1f 人",

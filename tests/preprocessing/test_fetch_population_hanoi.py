@@ -231,6 +231,34 @@ class TestBuildBandStatistics:
         assert stats["p95"] == pytest.approx(95.05, rel=1e-3)
 
 
+class TestCoversRequestedArea:
+    """covers_requested_area のテスト。"""
+
+    def test_returns_true_when_raster_contains_requested_bounds(self) -> None:
+        """要求範囲を完全に含んでいれば True。"""
+        assert target.covers_requested_area(
+            raster_bounds=(105.0, 20.0, 106.0, 21.0),
+            requested_bounds=(105.1, 20.1, 105.9, 20.9),
+            pixel_size=(0.001, 0.001),
+        )
+
+    def test_returns_false_when_raster_is_short_on_one_side(self) -> None:
+        """1 辺でも覆えていなければ False（欠測が有効率に現れないため別途検知する）。"""
+        assert not target.covers_requested_area(
+            raster_bounds=(105.5, 20.0, 106.0, 21.0),
+            requested_bounds=(105.0, 20.0, 106.0, 21.0),
+            pixel_size=(0.001, 0.001),
+        )
+
+    def test_allows_one_pixel_of_rounding_slack(self) -> None:
+        """クリップは画素境界に丸められるため、1 画素分のずれは許容する。"""
+        assert target.covers_requested_area(
+            raster_bounds=(105.0005, 20.0005, 105.9995, 20.9995),
+            requested_bounds=(105.0, 20.0, 106.0, 21.0),
+            pixel_size=(0.001, 0.001),
+        )
+
+
 class TestBuildTargetArea:
     """build_target_area のテスト。"""
 
@@ -244,17 +272,26 @@ class TestBuildTargetArea:
         assert area_gdf.crs.to_string() == "EPSG:4326"
         assert tuple(area_gdf.total_bounds) == (105.8, 21.0, 105.9, 21.06)
 
-    def test_roi_path_is_used_when_bbox_is_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_roi_path_is_used_when_bbox_is_absent(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """BBOX 未指定なら ROI を読み込み、試行実行フラグは立たない。"""
         roi_gdf = gpd.GeoDataFrame(geometry=[box(*HANOI_ROI_BOUNDS)], crs="EPSG:4326")
         monkeypatch.setattr(
             target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
         )
+        roi_path = tmp_path / "roi.shp"
+        roi_path.write_bytes(b"")
 
-        area_gdf, is_trial = target.build_target_area(Path("roi.shp"), None)
+        area_gdf, is_trial = target.build_target_area(roi_path, None)
 
         assert is_trial is False
         assert tuple(area_gdf.total_bounds) == pytest.approx(HANOI_ROI_BOUNDS)
+
+    def test_missing_roi_file_raises_before_any_download(self, tmp_path: Path) -> None:
+        """存在しない ROI パスは読み込み前に検知する（cwd 依存の取り違えを防ぐ）。"""
+        with pytest.raises(FileNotFoundError):
+            target.build_target_area(tmp_path / "does_not_exist.shp", None)
 
 
 class _FakeProjectionImage:
@@ -565,6 +602,8 @@ class TestRunOverwriteGuard:
         """既存の出力があり --overwrite が無ければ、取得を始める前に止める。"""
         existing_output = tmp_path / "existing.tif"
         existing_output.write_bytes(b"IMPORTANT")
+        roi_path = tmp_path / "roi.shp"
+        roi_path.write_bytes(b"")
         roi_gdf = gpd.GeoDataFrame(geometry=[box(*HANOI_ROI_BOUNDS)], crs="EPSG:4326")
         monkeypatch.setattr(
             target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
@@ -579,7 +618,7 @@ class TestRunOverwriteGuard:
             target.run(
                 dataset_key="worldpop",
                 year=2020,
-                roi_path=Path("roi.shp"),
+                roi_path=roi_path,
                 bbox=None,
                 output_path=existing_output,
                 summary_path=tmp_path / "summary.json",

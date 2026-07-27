@@ -12,6 +12,7 @@ import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
+from affine import Affine
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 from shapely.geometry import box
@@ -81,6 +82,32 @@ class TestAggregateCountsToReferenceGrid:
         assert aggregated.sum() == 0.0
         assert contributing.sum() == 0
 
+    def test_ignores_pixels_beyond_east_and_south_edges(self) -> None:
+        """基準グリッドの東・南（インデックス上限側）へ出る画素も無視する。"""
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        # 基準グリッドは 1x1 セル。その南東隣のセルにあたる位置へソースを置く
+        fine_transform = from_origin(
+            105.0 + COARSE_PIXEL_DEG, 21.0 - COARSE_PIXEL_DEG, FINE_PIXEL_DEG, FINE_PIXEL_DEG
+        )
+        fine_counts = np.ones((10, 10), dtype=np.float32)
+
+        aggregated, contributing = target.aggregate_counts_to_reference_grid(
+            fine_counts, fine_transform, coarse_transform, (1, 1)
+        )
+
+        assert aggregated.sum() == 0.0
+        assert contributing.sum() == 0
+
+    def test_rejects_rotated_transform(self) -> None:
+        """回転・スキューのあるグリッドは行列インデックス計算が破綻するため弾く。"""
+        rotated = Affine(FINE_PIXEL_DEG, 0.0001, 105.0, 0.0001, -FINE_PIXEL_DEG, 21.0)
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+
+        with pytest.raises(ValueError, match="回転・スキュー"):
+            target.aggregate_counts_to_reference_grid(
+                np.ones((10, 10), dtype=np.float32), rotated, coarse_transform, (1, 1)
+            )
+
     def test_rejects_non_2d_source(self) -> None:
         """3 次元配列（バンド軸つき）を渡した場合は例外にする。"""
         fine_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
@@ -89,6 +116,39 @@ class TestAggregateCountsToReferenceGrid:
         with pytest.raises(ValueError, match="2 次元"):
             target.aggregate_counts_to_reference_grid(
                 np.ones((1, 10, 10), dtype=np.float32), fine_transform, coarse_transform, (1, 1)
+            )
+
+
+class TestExpectedSourcePixelsPerCell:
+    """expected_source_pixels_per_cell のテスト。"""
+
+    def test_returns_ratio_of_cell_areas(self) -> None:
+        """10倍解像度差なら 1 セルあたり 100 画素になる。"""
+        fine_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+
+        assert target.expected_source_pixels_per_cell(fine_transform, coarse_transform) == 100
+
+    def test_tolerates_non_integer_grid_ratio(self) -> None:
+        """刻みが厳密な整数倍でなくても最も近い整数を返す（実データは微小にずれる）。"""
+        fine_transform = from_origin(105.0, 21.0, 0.0008333333299579025, 0.0008333333300179816)
+        coarse_transform = from_origin(105.0, 21.0, 0.008333333333, 0.008333333333)
+
+        assert target.expected_source_pixels_per_cell(fine_transform, coarse_transform) == 100
+
+    def test_never_returns_zero(self) -> None:
+        """ソースが基準より粗い場合でも 1 以上を返す（除算の破綻を避ける）。"""
+        fine_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        coarse_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+
+        assert target.expected_source_pixels_per_cell(fine_transform, coarse_transform) == 1
+
+    def test_rejects_zero_sized_source_cells(self) -> None:
+        """ソースのセル寸法が 0 なら例外にする。"""
+        with pytest.raises(ValueError, match="セル寸法"):
+            target.expected_source_pixels_per_cell(
+                Affine(0.0, 0.0, 105.0, 0.0, -COARSE_PIXEL_DEG, 21.0),
+                from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG),
             )
 
 
@@ -129,6 +189,38 @@ class TestBuildPairedStatistics:
         """長さの異なる系列はセルの対応が崩れているため例外にする。"""
         with pytest.raises(ValueError, match="要素数が一致しません"):
             target.build_paired_statistics(np.array([1.0, 2.0]), np.array([1.0]))
+
+    def test_single_cell_returns_none_correlation_instead_of_raising(self) -> None:
+        """1 件では相関を定義できないため、例外や nan ではなく None を返す。"""
+        result = target.build_paired_statistics(np.array([10.0]), np.array([12.0]))
+
+        assert result["cell_count"] == 1
+        assert result["pearson_r"] is None
+        assert result["spearman_rho"] is None
+        assert "1 件" in result["correlation_note"]
+        # 誤差系の統計は 1 件でも意味があるため計算する
+        assert result["mean_bias"] == pytest.approx(2.0)
+
+    def test_constant_series_returns_none_correlation_instead_of_nan(self) -> None:
+        """定数系列では相関が nan になるため None に統一する（JSON へ nan を書かない）。"""
+        result = target.build_paired_statistics(
+            np.array([5.0, 5.0, 5.0]), np.array([1.0, 2.0, 3.0])
+        )
+
+        assert result["pearson_r"] is None
+        assert result["spearman_rho"] is None
+        assert "定数" in result["correlation_note"]
+
+    def test_statistics_contain_no_nan(self) -> None:
+        """どの経路でも nan を含む値を返さない（save_summary の NaN ガードに掛からないこと）。"""
+        for reference, comparison in (
+            (np.array([1.0]), np.array([2.0])),
+            (np.array([5.0, 5.0]), np.array([5.0, 5.0])),
+            (np.array([1.0, 2.0, 3.0]), np.array([2.0, 4.0, 6.0])),
+        ):
+            result = target.build_paired_statistics(reference, comparison)
+            numeric_values = [v for v in result.values() if isinstance(v, float)]
+            assert not any(np.isnan(value) for value in numeric_values)
 
 
 def _write_population_raster(
@@ -219,3 +311,69 @@ class TestSummarizeDataset:
         assert summary["mean_density_per_km2"] == pytest.approx(
             summary["total_population"] / summary["total_area_km2"]
         )
+
+
+class TestCompareOnReferenceGrid:
+    """compare_on_reference_grid の end-to-end テスト。"""
+
+    @staticmethod
+    def _build_rasters(tmp_path: Path) -> tuple[dict, dict, np.ndarray]:
+        """細かい側・粗い側のラスタと ROI マスクを作る。
+
+        粗い側は 3x3 セル。ROI は中央寄りの 2x2 セルだけを覆う。
+        """
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        fine_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+
+        rng = np.random.default_rng(seed=7)
+        fine_counts = rng.uniform(1.0, 50.0, size=(30, 30)).astype(np.float32)
+        coarse_counts = rng.uniform(100.0, 5000.0, size=(3, 3)).astype(np.float32)
+
+        fine_path = tmp_path / "fine.tif"
+        coarse_path = tmp_path / "coarse.tif"
+        _write_population_raster(fine_path, fine_counts, fine_counts * 10.0, fine_transform)
+        _write_population_raster(coarse_path, coarse_counts, coarse_counts * 2.0, coarse_transform)
+
+        fine = target.load_population_raster(fine_path)
+        coarse = target.load_population_raster(coarse_path)
+
+        roi_gdf = gpd.GeoDataFrame(
+            geometry=[box(105.0, 21.0 - 2 * COARSE_PIXEL_DEG, 105.0 + 2 * COARSE_PIXEL_DEG, 21.0)],
+            crs="EPSG:4326",
+        )
+        roi_mask = target.build_roi_mask(coarse, roi_gdf)
+        return fine, coarse, roi_mask
+
+    def test_reports_consistent_cell_counts(self, tmp_path: Path) -> None:
+        """比較可能セル数と、完全被覆・部分被覆の内訳が整合する。"""
+        fine, coarse, roi_mask = self._build_rasters(tmp_path)
+
+        result = target.compare_on_reference_grid(fine, coarse, roi_mask)
+
+        assert result["roi_cells"] == 4
+        assert result["comparable_cells"] == 4
+        assert result["expected_source_pixels_per_cell"] == 100
+        assert result["fully_covered_cells"] + result["partially_covered_cells"] == 4
+        assert result["count_agreement"]["cell_count"] == result["comparable_cells"]
+
+    def test_reference_grid_total_excludes_cells_outside_roi(self, tmp_path: Path) -> None:
+        """基準グリッド基準の合計は、ROI 外のセルへ落ちた画素を含まない。"""
+        fine, coarse, roi_mask = self._build_rasters(tmp_path)
+
+        result = target.compare_on_reference_grid(fine, coarse, roi_mask)
+
+        totals = result["total_population_on_reference_grid"]
+        fine_total_everywhere = float(np.sum(fine["counts"], dtype=np.float64))
+        # ROI は 3x3 セル中 2x2 しか覆わないため、必ず自グリッド合計より小さくなる
+        assert totals["worldpop"] < fine_total_everywhere
+        assert totals["worldpop"] > 0
+
+    def test_result_is_json_serializable_without_nan(self, tmp_path: Path) -> None:
+        """比較結果をそのまま save_summary に渡しても NaN ガードに掛からない。"""
+        import json
+
+        fine, coarse, roi_mask = self._build_rasters(tmp_path)
+
+        result = target.compare_on_reference_grid(fine, coarse, roi_mask)
+
+        json.dumps(result, ensure_ascii=False, allow_nan=False)

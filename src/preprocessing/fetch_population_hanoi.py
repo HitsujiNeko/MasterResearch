@@ -44,12 +44,17 @@ import rasterio
 from rasterio.crs import CRS
 from rasterio.features import geometry_mask
 from rasterio.mask import mask
+from rasterio.transform import array_bounds
 from shapely.geometry import box
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.http_fetch import fetch_bytes_with_retry
-from src.common.paths import prepare_output_path, to_project_relative_string
+from src.common.paths import (
+    prepare_output_path,
+    resolve_existing_path,
+    to_project_relative_string,
+)
 from src.common.raster_grid import compute_cell_area_km2, compute_density_array
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
@@ -287,7 +292,8 @@ def build_target_area(
         tuple[gpd.GeoDataFrame, bool]: (対象範囲, 試行実行かどうか)。
     """
     if bbox is None:
-        roi_gdf, _ = load_roi_geometry(roi_path)
+        # 相対パスを実行時のカレントディレクトリに依存させないため、先に解決する
+        roi_gdf, _ = load_roi_geometry(resolve_existing_path(roi_path))
         return roi_gdf, False
 
     trial_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs=WGS84_CRS)
@@ -398,6 +404,35 @@ def download_raster(download_url: str, destination_path: Path) -> Path:
     return destination_path
 
 
+def covers_requested_area(
+    raster_bounds: tuple[float, float, float, float],
+    requested_bounds: tuple[float, float, float, float],
+    pixel_size: tuple[float, float],
+) -> bool:
+    """出力ラスタが、要求した範囲の BBOX を覆いきれているかを判定する。
+
+    `valid_pixel_ratio` の分母はクリップ後の窓に含まれる画素だけを数えるため、
+    データソースが要求範囲を覆っていない場合でも 1.0 になりうる。覆えていない
+    ぶんは出力にも分母にも現れず、欠測として検知できないためこの判定を併記する。
+
+    Args:
+        raster_bounds: 出力ラスタの (minx, miny, maxx, maxy)。
+        requested_bounds: 要求範囲の (minx, miny, maxx, maxy)。同じ CRS であること。
+        pixel_size: (画素幅, 画素高)。境界の丸め誤差を吸収する許容量に使う。
+
+    Returns:
+        覆いきれていれば True。
+    """
+    # クリップは画素境界に丸められるため、1 画素分の許容を持たせる
+    tolerance_x, tolerance_y = pixel_size
+    return (
+        raster_bounds[0] <= requested_bounds[0] + tolerance_x
+        and raster_bounds[1] <= requested_bounds[1] + tolerance_y
+        and raster_bounds[2] >= requested_bounds[2] - tolerance_x
+        and raster_bounds[3] >= requested_bounds[3] - tolerance_y
+    )
+
+
 def build_band_statistics(values: np.ndarray) -> dict[str, float] | None:
     """有効画素の記述統計を求める。
 
@@ -409,11 +444,12 @@ def build_band_statistics(values: np.ndarray) -> dict[str, float] | None:
     """
     if values.size == 0:
         return None
+    # float32 のまま累算すると平均・標準偏差が丸め誤差を拾うため float64 で集計する
     return {
         "min": float(np.min(values)),
         "max": float(np.max(values)),
-        "mean": float(np.mean(values)),
-        "std": float(np.std(values)),
+        "mean": float(np.mean(values, dtype=np.float64)),
+        "std": float(np.std(values, dtype=np.float64)),
         "median": float(np.median(values)),
         "p95": float(np.percentile(values, 95)),
         "p99": float(np.percentile(values, 99)),
@@ -484,6 +520,8 @@ def build_summary(
         "roi_path": to_project_relative_string(roi_path),
         "is_trial_run": is_trial,
         "area_bbox": list(area_bounds),
+        # サマリーJSONの標準項目として最上位に置く。実体は raster_profile 側が正で、
+        # ここはファイルから読み直した値をそのまま写している
         "crs": raster_profile["crs"],
         "raster_profile": raster_profile,
         "bands": {
@@ -500,8 +538,11 @@ def build_summary(
         "pixel_stats": pixel_stats,
         "coverage_note": (
             "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は "
-            f"nodata（{OUTPUT_NODATA}）で埋まる。valid_pixel_ratio の分母は roi_pixels"
-            "（ROI 内画素数）である。"
+            f"nodata（{OUTPUT_NODATA}）で埋まる。valid_pixel_ratio の分母 roi_pixels は"
+            "**クリップ後の出力に含まれる ROI 内画素**であり、ROI 全体ではない。"
+            "データソースが ROI を覆いきれていない場合、覆えていない領域は出力にも分母にも"
+            "現れず有効率に反映されないため、範囲を覆えているかは covers_requested_area で"
+            "別に判定する。"
         ),
         "outputs": {
             "geotiff": to_project_relative_string(output_path),
@@ -594,9 +635,15 @@ def clip_and_write(
         "valid_pixel_ratio": (
             valid_pixel_count / area_pixel_count if area_pixel_count > 0 else 0.0
         ),
-        "total_population": float(np.sum(count_array[valid_mask])),
+        "covers_requested_area": covers_requested_area(
+            raster_bounds=array_bounds(height, width, clipped_transform),
+            requested_bounds=tuple(float(value) for value in area_in_source_crs.total_bounds),
+            pixel_size=(abs(clipped_transform.a), abs(clipped_transform.e)),
+        ),
+        # float32 のまま累算すると 800 万人規模で刻みが 1.0 になるため float64 で足す
+        "total_population": float(np.sum(count_array[valid_mask], dtype=np.float64)),
         "total_area_km2": float(
-            np.sum(np.broadcast_to(cell_area_km2, count_array.shape)[valid_mask])
+            np.sum(np.broadcast_to(cell_area_km2, count_array.shape)[valid_mask], dtype=np.float64)
         ),
         BAND_COUNT_NAME: build_band_statistics(count_array[valid_mask]),
         BAND_DENSITY_NAME: build_band_statistics(density_array[valid_mask]),
@@ -745,6 +792,12 @@ def run(
         logger.warning(
             "範囲内に無効画素があります（有効率 %.4f）。データ提供範囲の限界を確認してください。",
             pixel_stats["valid_pixel_ratio"],
+        )
+    if not pixel_stats["covers_requested_area"]:
+        # 覆えていない領域は出力にも有効率の分母にも現れないため、別途警告する
+        logger.warning(
+            "出力が要求範囲を覆いきれていません。有効率は覆えた範囲内でしか評価されていない"
+            "ため、データソースの提供範囲を確認してください。"
         )
 
     return resolved_output_path, resolved_summary_path

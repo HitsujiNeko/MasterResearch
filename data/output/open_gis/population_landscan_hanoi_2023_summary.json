@@ -6,7 +6,7 @@
   "license": "CC BY 4.0",
   "license_note": "出典表記は ORNL（Oak Ridge National Laboratory）に対して行う。GEE コミュニティカタログがホストする複製のため、ORNL 公式配布物とのビット単位一致は保証されない。",
   "population_concept": "実効人口（アンビエント人口）。通勤・通学等の昼間の人口移動を考慮した「その時間帯に実際にそこにいる人口」を多変量dasymetricモデルと専門家による手動補正で推計した値。",
-  "retrieved_at": "2026-07-26T08:48:54.936370+00:00",
+  "retrieved_at": "2026-07-26T12:18:10.336734+00:00",
   "year": 2023,
   "year_note": "LandScan Global (1km) の提供年は 2000-2024 年。",
   "native_projection": {
@@ -67,13 +67,14 @@
     "outside_roi_pixels": 4702,
     "valid_pixels": 4198,
     "valid_pixel_ratio": 1.0,
+    "covers_requested_area": true,
     "total_population": 8798380.0,
     "total_area_km2": 3355.8634595392023,
     "population_count": {
       "min": 0.0,
       "max": 77514.0,
-      "mean": 2095.850341796875,
-      "std": 5085.30419921875,
+      "mean": 2095.8504049547405,
+      "std": 5085.304323060308,
       "median": 826.0,
       "p95": 6123.899999999998,
       "p99": 29893.199999999837
@@ -81,14 +82,14 @@
     "population_density_per_km2": {
       "min": 0.0,
       "max": 96947.2890625,
-      "mean": 2621.950439453125,
-      "std": 6361.912109375,
+      "mean": 2621.9505476246795,
+      "std": 6361.91193054104,
       "median": 1033.930419921875,
       "p95": 7664.810131835935,
       "p99": 37395.5933203123
     }
   },
-  "coverage_note": "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は nodata（-9999.0）で埋まる。valid_pixel_ratio の分母は roi_pixels（ROI 内画素数）である。",
+  "coverage_note": "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は nodata（-9999.0）で埋まる。valid_pixel_ratio の分母 roi_pixels は**クリップ後の出力に含まれる ROI 内画素**であり、ROI 全体ではない。データソースが ROI を覆いきれていない場合、覆えていない領域は出力にも分母にも現れず有効率に反映されないため、範囲を覆えているかは covers_requested_area で別に判定する。",
   "outputs": {
     "geotiff": "data/gis/population/landscan/landscan_hanoi_2023.tif",
     "summary": "data/output/open_gis/population_landscan_hanoi_2023_summary.json"

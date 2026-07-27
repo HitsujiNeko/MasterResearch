@@ -1,6 +1,6 @@
 {
   "comparison": "WorldPop（居住人口）vs LandScan Global（実効人口）",
-  "generated_at": "2026-07-26T09:34:47.309622+00:00",
+  "generated_at": "2026-07-26T12:18:14.294136+00:00",
   "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
   "reference_grid": {
     "source": "LandScan Global",
@@ -15,9 +15,9 @@
       ],
       "valid_cells": 408266,
       "roi_cells": 419914,
-      "total_population": 8441385.0,
+      "total_population": 8441385.020765722,
       "total_area_km2": 3263.680050363639,
-      "mean_density_per_km2": 2586.4621745196687
+      "mean_density_per_km2": 2586.4621808823395
     },
     "landscan_2020": {
       "path": "data/gis/population/landscan/landscan_hanoi_2020.tif",
@@ -47,11 +47,16 @@
   "same_year_comparison": {
     "year": 2020,
     "note": "年の違いと人口概念の違いを混同しないため、同年同士を主指標とする。LandScan 2023 は Landsat 観測年に対応する参考値である。",
-    "worldpop_to_landscan_population_ratio": 1.017214617192999,
-    "aggregation_method": "WorldPop 画素の中心が入る LandScan セルへカウントを全量加算する（合計集約）。1 画素は 1 セルにのみ寄与するため総人口は保存されるが、セル境界をまたぐ画素の面積按分は行わない近似である。",
+    "worldpop_to_landscan_population_ratio_on_own_grids": 1.0172146196953367,
+    "worldpop_to_landscan_population_ratio_on_reference_grid": 1.0117971927486014,
+    "population_ratio_note": "on_own_grids は各データセットを自身のグリッドで ROI クリップした総人口の比（「各データセットが ROI に何人置いているか」の比較）。on_reference_grid は LandScan グリッド上で ROI マスクを掛けた後の比で、中心が ROI 外のセルへ落ちた WorldPop 画素が除かれるぶん小さくなる。",
+    "aggregation_method": "WorldPop 画素の中心が入る LandScan セルへカウントを全量加算する（合計集約）。1 画素は 1 セルにのみ寄与するため基準グリッド全体では総人口が保存されるが、セル境界をまたぐ画素の面積按分は行わない近似である。",
     "comparable_cells": 4197,
     "roi_cells": 4198,
     "cells_without_worldpop_pixels": 1,
+    "expected_source_pixels_per_cell": 100,
+    "fully_covered_cells": 3008,
+    "partially_covered_cells": 1189,
     "contributing_pixels_per_cell": {
       "min": 11,
       "max": 100,
@@ -59,26 +64,37 @@
     },
     "total_population_on_reference_grid": {
       "worldpop": 8396428.346142858,
-      "landscan": 8298529.0
+      "landscan": 8298529.0,
+      "note": "基準グリッド上で ROI マスクを掛けた後の合計。WorldPop 側は、中心が ROI 外の基準セルへ落ちた画素の分だけ、WorldPop 自グリッドでの ROI 内総人口より小さくなる。"
     },
     "count_agreement": {
       "cell_count": 4197,
-      "pearson_r": 0.812956908767504,
-      "spearman_rho": 0.6919508794832773,
       "mean_absolute_error": 1339.0619337400751,
       "root_mean_squared_error": 2916.0082787457522,
       "mean_bias": 23.328888764083455,
-      "median_bias": 369.14204120635986
+      "median_bias": 369.14204120635986,
+      "pearson_r": 0.812956908767504,
+      "spearman_rho": 0.6919508794832773
+    },
+    "count_agreement_fully_covered_cells": {
+      "cell_count": 3008,
+      "mean_absolute_error": 1402.1477396673365,
+      "root_mean_squared_error": 3089.6339111715033,
+      "mean_bias": 13.601276121092365,
+      "median_bias": 382.44548416137695,
+      "pearson_r": 0.8099383149359962,
+      "spearman_rho": 0.6858661230679349
     },
     "density_agreement": {
       "cell_count": 4197,
-      "pearson_r": 0.8129752853113277,
-      "spearman_rho": 0.6920701183675563,
       "mean_absolute_error": 1675.109619955662,
       "root_mean_squared_error": 3647.823563955338,
       "mean_bias": 29.158720095753527,
-      "median_bias": 461.6384582519531
-    }
+      "median_bias": 461.6384582519531,
+      "pearson_r": 0.8129752853113277,
+      "spearman_rho": 0.6920701183675563
+    },
+    "density_agreement_note": "密度は同一行では面積で割る単調変換のため、count_agreement とほぼ同値になる。分析で用いる単位（人/km²）での値を確認する目的で併記している。"
   },
   "interpretation_note": "WorldPop は居住人口（夜間人口）、LandScan は実効人口（昼間の人口移動を考慮）を推計しており、測っている対象が異なる。差分は精度の優劣ではなく概念差として解釈する。また WorldPop は水域等をマスクするため有効面積が LandScan より小さく、面積あたりの平均密度の比較には有効面積の違いを考慮する必要がある。",
   "outputs": {

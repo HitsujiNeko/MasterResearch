@@ -23,20 +23,35 @@ class _FakeResponse:
     """
 
     def __init__(self, body: bytes) -> None:
+        """レスポンス本文となるバイト列を保持する。
+
+        Args:
+            body: `read()` がそのまま返すバイト列。
+        """
         self._body = body
 
     @classmethod
     def from_json(cls, payload: dict[str, Any]) -> "_FakeResponse":
-        """辞書をJSONバイト列に変換したレスポンスを作る。"""
+        """辞書をJSONバイト列に変換したレスポンスを作る。
+
+        Args:
+            payload: JSONへ変換する辞書。
+
+        Returns:
+            UTF-8でエンコード済みの本文を持つレスポンス。
+        """
         return cls(json.dumps(payload).encode("utf-8"))
 
     def __enter__(self) -> "_FakeResponse":
+        """`with` 文で自身を返す（urlopen のコンテキストマネージャを模す）。"""
         return self
 
     def __exit__(self, *exc_info: object) -> None:
+        """後始末は不要なため何もしない。"""
         return None
 
     def read(self) -> bytes:
+        """保持しているレスポンス本文を返す。"""
         return self._body
 
 
@@ -70,6 +85,11 @@ def test_fetch_bytes_with_retry_succeeds_after_transient_error(
     sleep_calls: list[float] = []
 
     def fake_urlopen(url: str, timeout: int) -> _FakeResponse:
+        """初回だけ接続エラーを送出し、2回目以降は成功レスポンスを返す。
+
+        Raises:
+            urllib.error.URLError: 初回呼び出し時。
+        """
         attempt_count["value"] += 1
         if attempt_count["value"] < 2:
             raise urllib.error.URLError("temporary failure")
@@ -92,6 +112,11 @@ def test_fetch_bytes_with_retry_raises_after_max_retries(
     """リトライ上限を超えても失敗し続ける場合はRuntimeErrorになる。"""
 
     def fake_urlopen(url: str, timeout: int) -> _FakeResponse:
+        """常に接続エラーを送出する。
+
+        Raises:
+            urllib.error.URLError: 毎回。
+        """
         raise urllib.error.URLError("always fails")
 
     monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)

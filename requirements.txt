@@ -8,4 +8,4 @@ numpy
 tqdm
 rasterio
 requests
-scipy
+scipy>=1.9

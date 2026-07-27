@@ -838,6 +838,11 @@ class TestRunEndToEnd:
         self._install_fakes(monkeypatch, tuple(bbox))
         roi_path = tmp_path / "roi.shp"
         roi_path.write_bytes(b"")
+        # 既定の出力ルートは data/gis/population/ で、そのまま実行すると
+        # リポジトリ配下の実成果物ディレクトリへ書き込み、既存の試行成果物を
+        # 上書きしてしまう。テストの副作用を tmp_path 内に閉じる
+        output_root = tmp_path / "gis" / "population"
+        monkeypatch.setattr(target, "DEFAULT_OUTPUT_ROOT", output_root)
 
         output_path, summary_path = target.run(
             dataset_key="landscan",
@@ -852,9 +857,9 @@ class TestRunEndToEnd:
         )
 
         assert output_path.name == "landscan_hanoi_2023_trial.tif"
+        assert output_path.is_relative_to(tmp_path)
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         assert summary["is_trial_run"] is True
-        output_path.unlink()
 
 
 class TestRunOverwriteGuard:

@@ -1,6 +1,6 @@
 {
   "comparison": "WorldPop（居住人口）vs LandScan Global（実効人口）",
-  "generated_at": "2026-07-27T06:12:48.854254+00:00",
+  "generated_at": "2026-07-27T06:25:20.116436+00:00",
   "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
   "reference_grid": {
     "source": "LandScan Global",
@@ -48,7 +48,7 @@
     "year": 2020,
     "note": "年の違いと人口概念の違いを混同しないため、同年同士を主指標とする。LandScan 2023 は Landsat 観測年に対応する参考値である。",
     "worldpop_to_landscan_population_ratio_on_own_grids": 1.0172146196953367,
-    "worldpop_to_landscan_population_ratio_on_reference_grid": 1.0117971927486014,
+    "worldpop_to_landscan_population_ratio_on_reference_grid": 1.0117986558493353,
     "population_ratio_note": "on_own_grids は各データセットを自身のグリッドで ROI クリップした総人口の比（「各データセットが ROI に何人置いているか」の比較）。on_reference_grid は LandScan グリッド上で ROI マスクを掛けた後の比で、中心が ROI 外のセルへ落ちた WorldPop 画素が除かれるぶん小さくなる。",
     "aggregation_method": "WorldPop 画素の中心が入る LandScan セルへカウントを全量加算する（合計集約）。1 画素は 1 セルにのみ寄与するため基準グリッド全体では総人口が保存されるが、セル境界をまたぐ画素の面積按分は行わない近似である。",
     "comparable_cells": 4197,
@@ -64,8 +64,8 @@
     },
     "total_population_on_reference_grid": {
       "worldpop": 8396428.346142858,
-      "landscan": 8298529.0,
-      "note": "基準グリッド上で ROI マスクを掛けた後の合計。WorldPop 側は、中心が ROI 外の基準セルへ落ちた画素の分だけ、WorldPop 自グリッドでの ROI 内総人口より小さくなる。"
+      "landscan": 8298517.0,
+      "note": "比較対象セル（comparable_cells）での合計。分子と分母を同一セル集合に揃えるため、両者とも同じマスクで集計している。WorldPop 側は、中心が比較対象外の基準セルへ落ちた画素の分だけ、WorldPop 自グリッドでのROI 内総人口より小さくなる。"
     },
     "count_agreement": {
       "cell_count": 4197,
@@ -94,7 +94,7 @@
       "pearson_r": 0.8129752853113277,
       "spearman_rho": 0.6920701183675563
     },
-    "density_agreement_note": "密度は同一行では面積で割る単調変換のため、count_agreement とほぼ同値になる。分析で用いる単位（人/km²）での値を確認する目的で併記している。"
+    "density_agreement_note": "密度はセルごとの面積で割った値で、セル面積は緯度により変わる。したがってcount_agreement と相関が一致する保証はなく、両者の差はセル面積の分布に依存する。分析で用いる単位（人/km²）での一致度を確認するために併記している。"
   },
   "interpretation_note": "WorldPop は居住人口（夜間人口）、LandScan は実効人口（昼間の人口移動を考慮）を推計しており、測っている対象が異なる。差分は精度の優劣ではなく概念差として解釈する。また WorldPop は水域等をマスクするため有効面積が LandScan より小さく、面積あたりの平均密度の比較には有効面積の違いを考慮する必要がある。",
   "outputs": {

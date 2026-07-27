@@ -6,7 +6,7 @@
   "license": "CC BY 4.0",
   "license_note": "出典表記は ORNL（Oak Ridge National Laboratory）に対して行う。GEE コミュニティカタログがホストする複製のため、ORNL 公式配布物とのビット単位一致は保証されない。",
   "population_concept": "実効人口（アンビエント人口）。通勤・通学等の昼間の人口移動を考慮した「その時間帯に実際にそこにいる人口」を多変量dasymetricモデルと専門家による手動補正で推計した値。",
-  "retrieved_at": "2026-07-27T06:12:39.316825+00:00",
+  "retrieved_at": "2026-07-27T06:25:08.093834+00:00",
   "year": 2020,
   "year_note": "LandScan Global (1km) の提供年は 2000-2024 年。",
   "native_projection": {

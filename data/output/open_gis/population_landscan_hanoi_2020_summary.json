@@ -1,0 +1,97 @@
+{
+  "dataset": "LandScan Global (1km)",
+  "dataset_key": "landscan",
+  "gee_asset_id": "projects/sat-io/open-datasets/ORNL/LANDSCAN_GLOBAL",
+  "source": "https://gee-community-catalog.org/projects/landscan/",
+  "license": "CC BY 4.0",
+  "license_note": "出典表記は ORNL（Oak Ridge National Laboratory）に対して行う。GEE コミュニティカタログがホストする複製のため、ORNL 公式配布物とのビット単位一致は保証されない。",
+  "population_concept": "実効人口（アンビエント人口）。通勤・通学等の昼間の人口移動を考慮した「その時間帯に実際にそこにいる人口」を多変量dasymetricモデルと専門家による手動補正で推計した値。",
+  "retrieved_at": "2026-07-27T07:02:11.927268+00:00",
+  "year": 2020,
+  "year_note": "LandScan Global (1km) の提供年は 2000-2024 年。",
+  "native_projection": {
+    "crs": "EPSG:4326",
+    "transform": [
+      0.0083333333333333,
+      0,
+      -180,
+      0,
+      -0.0083333333333333,
+      89.99999999999929
+    ],
+    "nominal_scale_m": 927.6624232401731
+  },
+  "resampling_note": "ネイティブの crs / crs_transform を指定して取得しており、リサンプリングは行っていない。人口カウントは合計保存量のため、再投影すると範囲内総人口が変わる点に注意する。",
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "is_trial_run": false,
+  "area_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "crs": "EPSG:4326",
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "float32",
+    "band_count": 2,
+    "width": 89,
+    "height": 100,
+    "resolution": [
+      0.0083333333333333,
+      0.0083333333333333
+    ],
+    "bounds": {
+      "minx": 105.28333333333222,
+      "miny": 20.558333333332897,
+      "maxx": 106.02499999999888,
+      "maxy": 21.391666666666225
+    },
+    "nodata": -9999.0
+  },
+  "bands": {
+    "1": {
+      "name": "population_count",
+      "unit": "人／セル",
+      "description": "セルあたり人口"
+    },
+    "2": {
+      "name": "population_density_per_km2",
+      "unit": "人/km²",
+      "description": "人口カウントを WGS84 楕円体上のセル実面積で割った密度。セル面積は緯度により変わるため行ごとに算出している。"
+    }
+  },
+  "pixel_stats": {
+    "total_pixels": 8900,
+    "roi_pixels": 4198,
+    "outside_roi_pixels": 4702,
+    "valid_pixels": 4198,
+    "valid_pixel_ratio": 1.0,
+    "covers_requested_area": true,
+    "total_population": 8298529.0,
+    "total_area_km2": 3355.863459868237,
+    "population_count": {
+      "min": 0.0,
+      "max": 66441.0,
+      "mean": 1976.7815626488805,
+      "std": 5006.3330633302885,
+      "median": 534.0,
+      "p95": 6830.15,
+      "p99": 27736.51999999998
+    },
+    "population_density_per_km2": {
+      "min": 0.0,
+      "max": 83098.21875,
+      "mean": 2473.00779711016,
+      "std": 6263.021039579967,
+      "median": 667.8145751953125,
+      "p95": 8544.626220703123,
+      "p99": 34692.542851562466
+    }
+  },
+  "coverage_note": "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は nodata（-9999.0）で埋まる。valid_pixel_ratio の分母 roi_pixels は**クリップ後の出力に含まれる ROI 内画素**であり、ROI 全体ではない。データソースが ROI を覆いきれていない場合、覆えていない領域は出力にも分母にも現れず有効率に反映されないため、範囲を覆えているかは covers_requested_area で別に判定する。",
+  "outputs": {
+    "geotiff": "data/gis/population/landscan/landscan_hanoi_2020.tif",
+    "summary": "data/output/open_gis/population_landscan_hanoi_2020_summary.json"
+  }
+}

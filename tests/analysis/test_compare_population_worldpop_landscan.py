@@ -276,6 +276,19 @@ class TestLoadPopulationRaster:
         assert raster["counts"].tolist() == counts.tolist()
         assert raster["densities"].tolist() == densities.tolist()
         assert raster["shape"] == (2, 2)
+        # CRS を落とすと後段の build_roi_mask が誤った位置でマスクを作る
+        assert raster["crs"].to_epsg() == 4326
+
+    def test_reads_non_square_raster_with_correct_shape(self, tmp_path: Path) -> None:
+        """行数と列数が異なるラスタでも (行, 列) の順で保持する。"""
+        raster_path = tmp_path / "non_square.tif"
+        counts = np.arange(6, dtype=np.float32).reshape(2, 3)
+        _write_population_raster(raster_path, counts, counts, from_origin(105.0, 21.0, 0.01, 0.01))
+
+        raster = target.load_population_raster(raster_path)
+
+        assert raster["shape"] == (2, 3)
+        assert raster["counts"].shape == (2, 3)
 
     def test_rejects_single_band_raster(self, tmp_path: Path) -> None:
         """単バンドのラスタは密度バンドを持たないため弾く。"""
@@ -322,6 +335,40 @@ class TestSummarizeDataset:
         assert summary["total_population"] == pytest.approx(70.0)
         assert summary["valid_cells"] == 3
         # 有効面積は 3 セル分。平均密度は総人口 ÷ 有効面積と整合する
+        assert summary["mean_density_per_km2"] == pytest.approx(
+            summary["total_population"] / summary["total_area_km2"]
+        )
+
+    def test_handles_non_square_raster(self, tmp_path: Path) -> None:
+        """行数と列数が異なる場合も、セル面積のブロードキャストが破綻しない。"""
+        raster_path = tmp_path / "non_square.tif"
+        counts = np.full((2, 3), 10.0, dtype=np.float32)
+        _write_population_raster(
+            raster_path,
+            counts,
+            counts,
+            from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG),
+        )
+        raster = target.load_population_raster(raster_path)
+        roi_gdf = gpd.GeoDataFrame(
+            geometry=[
+                box(
+                    105.0,
+                    21.0 - 2 * COARSE_PIXEL_DEG,
+                    105.0 + 3 * COARSE_PIXEL_DEG,
+                    21.0,
+                )
+            ],
+            crs="EPSG:4326",
+        )
+        roi_mask = target.build_roi_mask(raster, roi_gdf)
+
+        summary = target.summarize_dataset(raster, roi_mask)
+
+        assert summary["valid_cells"] == 6
+        assert summary["total_population"] == pytest.approx(60.0)
+        # 6 セル分の面積が積み上がっていること（行数と列数を取り違えていたら合わない）
+        assert summary["total_area_km2"] > 0
         assert summary["mean_density_per_km2"] == pytest.approx(
             summary["total_population"] / summary["total_area_km2"]
         )

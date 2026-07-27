@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,11 @@ class _FakeFilter:
 
 
 class _FakeCollection:
-    """ee.ImageCollection を模し、適用されたフィルタと件数を記録する。"""
+    """ee.ImageCollection を模し、適用されたフィルタと件数を記録する。
+
+    `filter()` はチェーンされるため、適用条件は呼び出し元と共有するリストへ
+    追記する（新しいインスタンスを返しても記録が失われないようにするため）。
+    """
 
     def __init__(self, asset_id: str, matched_count: int, applied: list[_FakeFilter]) -> None:
         self.asset_id = asset_id
@@ -43,8 +48,9 @@ class _FakeCollection:
         self.applied = applied
 
     def filter(self, fake_filter: _FakeFilter) -> _FakeCollection:
-        """フィルタ適用を記録した新しいコレクションを返す。"""
-        return _FakeCollection(self.asset_id, self.matched_count, [*self.applied, fake_filter])
+        """フィルタ適用を共有リストへ記録し、同じ記録を持つコレクションを返す。"""
+        self.applied.append(fake_filter)
+        return _FakeCollection(self.asset_id, self.matched_count, self.applied)
 
     def size(self) -> _FakeValue:
         """件数を返す。"""
@@ -94,7 +100,9 @@ def _install_fake_ee(
 
     def fake_image_collection(asset_id: str) -> _FakeCollection:
         recorded["asset_id"] = asset_id
-        return _FakeCollection(asset_id, matched_count, [])
+        applied: list[_FakeFilter] = []
+        recorded["filters"] = applied
+        return _FakeCollection(asset_id, matched_count, applied)
 
     def fake_image(source: str) -> _FakeImage:
         image = _FakeImage(source)
@@ -180,11 +188,14 @@ class TestSelectPopulationImage:
     """select_population_image のテスト。"""
 
     def test_worldpop_filters_by_year_and_country(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """WorldPop は国別コレクションのため year と country の両方で絞る。"""
+        """WorldPop は国別×年次のコレクションのため year と country の両方で絞る。"""
         recorded = _install_fake_ee(monkeypatch, matched_count=1)
 
         target.select_population_image(target.DATASET_CONFIGS["worldpop"], 2020)
 
+        applied = {f.property_name: f.value for f in recorded["filters"]}
+        # country を落とすと他国の同年画像を掴むため、両方の適用を固定する
+        assert applied == {"year": 2020, "country": "VNM"}
         image = recorded["image"]
         assert image.selected_band == "population"
         assert image.renamed_to == target.BAND_COUNT_NAME
@@ -195,8 +206,19 @@ class TestSelectPopulationImage:
 
         target.select_population_image(target.DATASET_CONFIGS["landscan"], 2023)
 
+        applied = {f.property_name: f.value for f in recorded["filters"]}
+        assert applied == {"system:index": "landscan-global-2023"}
         assert recorded["asset_id"].endswith("LANDSCAN_GLOBAL")
         assert recorded["image"].selected_band == "b1"
+
+    def test_year_is_reflected_in_the_filter_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """指定年がそのままフィルタ値になる（年の取り違えを検出する）。"""
+        recorded = _install_fake_ee(monkeypatch, matched_count=1)
+
+        target.select_population_image(target.DATASET_CONFIGS["landscan"], 2020)
+
+        applied = {f.property_name: f.value for f in recorded["filters"]}
+        assert applied["system:index"] == "landscan-global-2020"
 
     def test_raises_when_no_image_matches(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """該当が 0 枚なら取り違えを防ぐため例外にする。"""
@@ -229,6 +251,68 @@ class TestBuildBandStatistics:
         assert stats["max"] == pytest.approx(100.0)
         assert stats["median"] == pytest.approx(50.5)
         assert stats["p95"] == pytest.approx(95.05, rel=1e-3)
+
+
+class TestBuildPixelStatistics:
+    """build_pixel_statistics のテスト（ラスタ入出力を伴わない）。"""
+
+    @staticmethod
+    def _inputs(height: int = 2, width: int = 3) -> dict[str, np.ndarray]:
+        """非正方形の入力一式を作る（行・列の取り違えを検出するため）。"""
+        count_array = np.arange(height * width, dtype=np.float32).reshape(height, width)
+        cell_area_km2 = np.full((height, 1), 0.5)
+        density_array = target.compute_density_array(
+            count_array, cell_area_km2, target.OUTPUT_NODATA
+        )
+        return {
+            "count_array": count_array,
+            "density_array": density_array,
+            "cell_area_km2": cell_area_km2,
+            "area_mask": np.ones((height, width), dtype=bool),
+        }
+
+    def test_handles_non_square_rasters(self) -> None:
+        """行数と列数が異なっても集計できる（ブロードキャストの向きの検証）。"""
+        stats = target.build_pixel_statistics(**self._inputs(height=2, width=3), covers_area=True)
+
+        assert stats["total_pixels"] == 6
+        assert stats["roi_pixels"] == 6
+        # 0..5 の合計
+        assert stats["total_population"] == pytest.approx(15.0)
+        assert stats["total_area_km2"] == pytest.approx(6 * 0.5)
+
+    def test_excludes_nodata_and_outside_area(self) -> None:
+        """nodata と範囲外は有効画素・総人口から外れる。"""
+        inputs = self._inputs(height=2, width=3)
+        inputs["count_array"][0, 0] = target.OUTPUT_NODATA
+        inputs["density_array"][0, 0] = target.OUTPUT_NODATA
+        inputs["area_mask"][1, :] = False  # 2 行目を範囲外にする
+
+        stats = target.build_pixel_statistics(**inputs, covers_area=True)
+
+        assert stats["roi_pixels"] == 3
+        assert stats["valid_pixels"] == 2
+        assert stats["outside_roi_pixels"] == 3
+        assert stats["valid_pixel_ratio"] == pytest.approx(2 / 3)
+        # 1 行目の値 1, 2 のみが残る
+        assert stats["total_population"] == pytest.approx(3.0)
+
+    def test_ratio_is_zero_when_area_is_empty(self) -> None:
+        """範囲内画素が 0 でもゼロ除算にならない。"""
+        inputs = self._inputs()
+        inputs["area_mask"][:] = False
+
+        stats = target.build_pixel_statistics(**inputs, covers_area=True)
+
+        assert stats["roi_pixels"] == 0
+        assert stats["valid_pixel_ratio"] == 0.0
+        assert stats[target.BAND_COUNT_NAME] is None
+
+    def test_records_coverage_flag(self) -> None:
+        """カバレッジ判定の結果をそのまま保持する。"""
+        stats = target.build_pixel_statistics(**self._inputs(), covers_area=False)
+
+        assert stats["covers_requested_area"] is False
 
 
 class TestCoversRequestedArea:
@@ -459,6 +543,9 @@ class TestClipAndWrite:
         assert raster_profile["crs"] == "EPSG:4326"
         assert raster_profile["band_count"] == 2
         assert raster_profile["nodata"] == target.OUTPUT_NODATA
+        # dtype・解像度が壊れると密度値と面積計算が静かにずれる
+        assert raster_profile["dtype"] == "float32"
+        assert raster_profile["resolution"] == pytest.approx([1.0 / 120.0, 1.0 / 120.0])
         with rasterio.open(tmp_path / "out.tif") as destination:
             assert destination.descriptions == (
                 target.BAND_COUNT_NAME,
@@ -591,6 +678,116 @@ class TestBuildSummary:
         """居住人口と実効人口の違いをサマリーに残す。"""
         assert "居住人口" in self._build("worldpop", 2020)["population_concept"]
         assert "実効人口" in self._build("landscan", 2023)["population_concept"]
+
+
+class TestRunEndToEnd:
+    """run の統合テスト（GEE・ネットワークはモックする）。"""
+
+    @staticmethod
+    def _install_fakes(monkeypatch: pytest.MonkeyPatch, roi_bounds: tuple) -> None:
+        """GEE 認証・画像選択・ダウンロードを差し替える。"""
+        roi_gdf = gpd.GeoDataFrame(geometry=[box(*roi_bounds)], crs="EPSG:4326")
+        monkeypatch.setattr(
+            target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
+        )
+        monkeypatch.setattr(target, "load_gee_project_id", lambda **kwargs: "fake-project")
+        monkeypatch.setattr(target, "authenticate_gee", lambda project_id: None)
+        monkeypatch.setattr(
+            target, "select_population_image", lambda dataset_config, year: object()
+        )
+        monkeypatch.setattr(
+            target,
+            "build_download_url",
+            lambda population_image, region_geojson: (
+                "https://example.invalid/download",
+                {"crs": "EPSG:4326", "transform": [0.01, 0, 105.0, 0, -0.01, 21.4]},
+            ),
+        )
+
+        def fake_download(download_url: str, destination_path: Path) -> Path:
+            """ROI を覆う合成 GeoTIFF を書き出す。"""
+            pixel_size = 0.01
+            width = int(round((roi_bounds[2] - roi_bounds[0]) / pixel_size)) + 2
+            height = int(round((roi_bounds[3] - roi_bounds[1]) / pixel_size)) + 2
+            profile = {
+                "driver": "GTiff",
+                "height": height,
+                "width": width,
+                "count": 1,
+                "dtype": "float32",
+                "crs": CRS.from_epsg(4326),
+                "transform": from_origin(
+                    roi_bounds[0] - pixel_size, roi_bounds[3] + pixel_size, pixel_size, pixel_size
+                ),
+                "nodata": target.OUTPUT_NODATA,
+            }
+            with rasterio.open(destination_path, "w", **profile) as destination:
+                destination.write(np.full((height, width), 20.0, dtype=np.float32), 1)
+            return destination_path
+
+        monkeypatch.setattr(target, "download_raster", fake_download)
+
+    def test_writes_two_band_raster_and_summary(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """取得から保存までを通しで実行し、GeoTIFF とサマリーが揃う。"""
+        roi_bounds = (105.3, 21.0, 105.5, 21.2)
+        self._install_fakes(monkeypatch, roi_bounds)
+        roi_path = tmp_path / "roi.shp"
+        roi_path.write_bytes(b"")
+
+        output_path, summary_path = target.run(
+            dataset_key="worldpop",
+            year=2020,
+            roi_path=roi_path,
+            bbox=None,
+            output_path=tmp_path / "out.tif",
+            summary_path=tmp_path / "out_summary.json",
+            config_path=tmp_path / "config.csv",
+            gee_project_id="fake-project",
+            overwrite=True,
+        )
+
+        with rasterio.open(output_path) as destination:
+            assert destination.count == 2
+            assert destination.crs.to_epsg() == 4326
+            assert destination.descriptions == (
+                target.BAND_COUNT_NAME,
+                target.BAND_DENSITY_NAME,
+            )
+
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        assert summary["dataset_key"] == "worldpop"
+        assert summary["year"] == 2020
+        assert summary["pixel_stats"]["valid_pixel_ratio"] == pytest.approx(1.0)
+        assert summary["pixel_stats"]["covers_requested_area"] is True
+        assert summary["pixel_stats"]["total_population"] > 0
+
+    def test_trial_run_marks_summary_and_uses_distinct_path(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """BBOX 指定時は試行実行として記録され、既定パスに _trial が付く。"""
+        bbox = [105.3, 21.0, 105.4, 21.1]
+        self._install_fakes(monkeypatch, tuple(bbox))
+        roi_path = tmp_path / "roi.shp"
+        roi_path.write_bytes(b"")
+
+        output_path, summary_path = target.run(
+            dataset_key="landscan",
+            year=2023,
+            roi_path=roi_path,
+            bbox=bbox,
+            output_path=None,
+            summary_path=tmp_path / "trial_summary.json",
+            config_path=tmp_path / "config.csv",
+            gee_project_id="fake-project",
+            overwrite=True,
+        )
+
+        assert output_path.name == "landscan_hanoi_2023_trial.tif"
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        assert summary["is_trial_run"] is True
+        output_path.unlink()
 
 
 class TestRunOverwriteGuard:

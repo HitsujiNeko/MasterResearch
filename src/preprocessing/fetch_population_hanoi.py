@@ -66,6 +66,8 @@ DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
 REQUEST_TIMEOUT_SECONDS = 300
 # 出力 GeoTIFF の nodata。DEM 取得スクリプトと同じ値に揃える。
 OUTPUT_NODATA = -9999.0
+# 本研究の Landsat 観測年。データセットの提供年がこれに届くかの判定と注記に使う。
+LANDSAT_OBSERVATION_YEAR = 2023
 # 出力バンドの並び（1始まりのバンド番号に対応）
 BAND_COUNT_NAME = "population_count"
 BAND_DENSITY_NAME = "population_density_per_km2"
@@ -397,11 +399,68 @@ def download_raster(download_url: str, destination_path: Path) -> Path:
             ]
             if not tif_members:
                 raise ValueError(f"ZIP 内に GeoTIFF がありません: {archive.namelist()}")
+            if len(tif_members) > 1:
+                # 単一バンドへ rename して要求しているため通常は 1 枚。複数返るのは
+                # 前提が崩れたサインなので、黙って先頭を採用せず記録に残す
+                logger.warning(
+                    "ZIP 内に GeoTIFF が %d 枚あります。先頭 %s のみ使用します（全件: %s）。",
+                    len(tif_members),
+                    tif_members[0],
+                    tif_members,
+                )
             destination_path.write_bytes(archive.read(tif_members[0]))
         return destination_path
 
     destination_path.write_bytes(response_body)
     return destination_path
+
+
+def build_pixel_statistics(
+    count_array: np.ndarray,
+    density_array: np.ndarray,
+    cell_area_km2: np.ndarray,
+    area_mask: np.ndarray,
+    covers_area: bool,
+) -> dict[str, Any]:
+    """出力ラスタの画素統計を集計する。
+
+    ラスタ入出力から切り離した純粋な配列計算にしてあり、GeoTIFF を書き出さずに
+    直接テストできる。
+
+    有効画素は「対象範囲内」かつ「nodata でない」画素とし、`valid_pixel_ratio` の
+    分母は対象範囲内の画素数（ROI 全体ではない）である。
+
+    Args:
+        count_array: 人口カウント（人／セル）の 2 次元配列。
+        density_array: 人口密度（人/km²）の 2 次元配列。
+        cell_area_km2: 形状 (height, 1) のセル面積（km²）。
+        area_mask: 対象範囲内を True とする 2 次元マスク。
+        covers_area: 出力が要求範囲を覆えているか。
+
+    Returns:
+        画素数・総人口・面積・バンド別統計を含む辞書。
+    """
+    valid_mask = area_mask & (count_array != OUTPUT_NODATA)
+    area_pixel_count = int(np.count_nonzero(area_mask))
+    valid_pixel_count = int(np.count_nonzero(valid_mask))
+
+    return {
+        "total_pixels": int(count_array.size),
+        "roi_pixels": area_pixel_count,
+        "outside_roi_pixels": int(count_array.size) - area_pixel_count,
+        "valid_pixels": valid_pixel_count,
+        "valid_pixel_ratio": (
+            valid_pixel_count / area_pixel_count if area_pixel_count > 0 else 0.0
+        ),
+        "covers_requested_area": covers_area,
+        # float32 のまま累算すると 800 万人規模で刻みが 1.0 になるため float64 で足す
+        "total_population": float(np.sum(count_array[valid_mask], dtype=np.float64)),
+        "total_area_km2": float(
+            np.sum(np.broadcast_to(cell_area_km2, count_array.shape)[valid_mask], dtype=np.float64)
+        ),
+        BAND_COUNT_NAME: build_band_statistics(count_array[valid_mask]),
+        BAND_DENSITY_NAME: build_band_statistics(density_array[valid_mask]),
+    }
 
 
 def covers_requested_area(
@@ -491,10 +550,11 @@ def build_summary(
         f"{dataset_config.dataset_name} の提供年は "
         f"{dataset_config.first_year}-{dataset_config.last_year} 年。"
     )
-    if dataset_config.last_year < 2023:
+    if dataset_config.last_year < LANDSAT_OBSERVATION_YEAR:
         year_note += (
-            "本研究の Landsat 観測年（2023年）に対応する年次が存在しないため、"
-            f"取得可能な最新年 {dataset_config.last_year} 年との時間差がある。"
+            f"本研究の Landsat 観測年（{LANDSAT_OBSERVATION_YEAR}年）に対応する年次が"
+            f"存在しないため、取得可能な最新年 {dataset_config.last_year} 年との間に"
+            f"{LANDSAT_OBSERVATION_YEAR - dataset_config.last_year} 年の時間差がある。"
         )
     return {
         "dataset": dataset_config.dataset_name,
@@ -559,6 +619,8 @@ def clip_and_write(
     """ダウンロードしたラスタを対象範囲でクリップし、2 バンド GeoTIFF として保存する。
 
     第1バンドに人口カウント、第2バンドに導出した人口密度（人/km²）を書き込む。
+    密度の導出は `src.common.raster_grid`、画素統計の集計は `build_pixel_statistics` に
+    委ね、本関数はラスタ入出力とその前後の座標系の整合に専念する。
 
     Args:
         source_path (Path): ダウンロードした GeoTIFF パス。
@@ -623,31 +685,17 @@ def clip_and_write(
         transform=clipped_transform,
         invert=True,
     )
-    valid_mask = area_mask & (count_array != OUTPUT_NODATA)
-    area_pixel_count = int(np.count_nonzero(area_mask))
-    valid_pixel_count = int(np.count_nonzero(valid_mask))
-
-    pixel_stats = {
-        "total_pixels": int(count_array.size),
-        "roi_pixels": area_pixel_count,
-        "outside_roi_pixels": int(count_array.size) - area_pixel_count,
-        "valid_pixels": valid_pixel_count,
-        "valid_pixel_ratio": (
-            valid_pixel_count / area_pixel_count if area_pixel_count > 0 else 0.0
-        ),
-        "covers_requested_area": covers_requested_area(
+    pixel_stats = build_pixel_statistics(
+        count_array=count_array,
+        density_array=density_array,
+        cell_area_km2=cell_area_km2,
+        area_mask=area_mask,
+        covers_area=covers_requested_area(
             raster_bounds=array_bounds(height, width, clipped_transform),
             requested_bounds=tuple(float(value) for value in area_in_source_crs.total_bounds),
             pixel_size=(abs(clipped_transform.a), abs(clipped_transform.e)),
         ),
-        # float32 のまま累算すると 800 万人規模で刻みが 1.0 になるため float64 で足す
-        "total_population": float(np.sum(count_array[valid_mask], dtype=np.float64)),
-        "total_area_km2": float(
-            np.sum(np.broadcast_to(cell_area_km2, count_array.shape)[valid_mask], dtype=np.float64)
-        ),
-        BAND_COUNT_NAME: build_band_statistics(count_array[valid_mask]),
-        BAND_DENSITY_NAME: build_band_statistics(density_array[valid_mask]),
-    }
+    )
 
     with rasterio.open(output_path) as destination:
         bounds = destination.bounds

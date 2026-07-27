@@ -17,28 +17,20 @@ from src.common import http_fetch
 
 
 class _FakeResponse:
-    """`urllib.request.urlopen` の戻り値を模したダミーレスポンス。"""
+    """`urllib.request.urlopen` の戻り値を模したダミーレスポンス。
 
-    def __init__(self, payload: dict[str, Any]) -> None:
-        self._body = json.dumps(payload).encode("utf-8")
-
-    def __enter__(self) -> "_FakeResponse":
-        return self
-
-    def __exit__(self, *exc_info: object) -> None:
-        return None
-
-    def read(self) -> bytes:
-        return self._body
-
-
-class _FakeBytesResponse:
-    """`urllib.request.urlopen` の戻り値を模した、任意バイト列を返すレスポンス。"""
+    本体はバイト列を返すだけ。JSON を返したい場合は `from_json` を使う。
+    """
 
     def __init__(self, body: bytes) -> None:
         self._body = body
 
-    def __enter__(self) -> "_FakeBytesResponse":
+    @classmethod
+    def from_json(cls, payload: dict[str, Any]) -> "_FakeResponse":
+        """辞書をJSONバイト列に変換したレスポンスを作る。"""
+        return cls(json.dumps(payload).encode("utf-8"))
+
+    def __enter__(self) -> "_FakeResponse":
         return self
 
     def __exit__(self, *exc_info: object) -> None:
@@ -62,7 +54,7 @@ def test_fetch_bytes_with_retry_returns_binary_body_unchanged(
     monkeypatch.setattr(
         http_fetch.urllib.request,
         "urlopen",
-        lambda url, timeout: _FakeBytesResponse(binary_body),
+        lambda url, timeout: _FakeResponse(binary_body),
     )
 
     result = http_fetch.fetch_bytes_with_retry("https://example.com/x.zip", timeout=10)
@@ -77,11 +69,11 @@ def test_fetch_bytes_with_retry_succeeds_after_transient_error(
     attempt_count = {"value": 0}
     sleep_calls: list[float] = []
 
-    def fake_urlopen(url: str, timeout: int) -> _FakeBytesResponse:
+    def fake_urlopen(url: str, timeout: int) -> _FakeResponse:
         attempt_count["value"] += 1
         if attempt_count["value"] < 2:
             raise urllib.error.URLError("temporary failure")
-        return _FakeBytesResponse(b"OK")
+        return _FakeResponse(b"OK")
 
     monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: sleep_calls.append(seconds))
@@ -99,7 +91,7 @@ def test_fetch_bytes_with_retry_raises_after_max_retries(
 ) -> None:
     """リトライ上限を超えても失敗し続ける場合はRuntimeErrorになる。"""
 
-    def fake_urlopen(url: str, timeout: int) -> _FakeBytesResponse:
+    def fake_urlopen(url: str, timeout: int) -> _FakeResponse:
         raise urllib.error.URLError("always fails")
 
     monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
@@ -122,7 +114,7 @@ def test_fetch_json_with_retry_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         http_fetch.urllib.request,
         "urlopen",
-        lambda url, timeout: _FakeResponse({"ok": True}),
+        lambda url, timeout: _FakeResponse.from_json({"ok": True}),
     )
 
     result = http_fetch.fetch_json_with_retry("https://example.com", timeout=10)
@@ -141,7 +133,7 @@ def test_fetch_json_with_retry_succeeds_after_transient_error(
         attempt_count["value"] += 1
         if attempt_count["value"] < 2:
             raise urllib.error.URLError("temporary failure")
-        return _FakeResponse({"ok": True})
+        return _FakeResponse.from_json({"ok": True})
 
     monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: sleep_calls.append(seconds))
@@ -165,7 +157,7 @@ def test_fetch_json_with_retry_succeeds_after_http_500(
         attempt_count["value"] += 1
         if attempt_count["value"] < 2:
             raise urllib.error.HTTPError(url, 500, "Internal Server Error", hdrs=None, fp=None)
-        return _FakeResponse({"ok": True})
+        return _FakeResponse.from_json({"ok": True})
 
     monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: sleep_calls.append(seconds))
@@ -225,7 +217,7 @@ def test_fetch_json_with_retry_rate_limit_backoff(monkeypatch: pytest.MonkeyPatc
         attempt_count["value"] += 1
         if attempt_count["value"] <= 3:
             raise urllib.error.HTTPError(url, 429, "Too Many Requests", hdrs=None, fp=None)
-        return _FakeResponse({"ok": True})
+        return _FakeResponse.from_json({"ok": True})
 
     monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: sleep_calls.append(seconds))

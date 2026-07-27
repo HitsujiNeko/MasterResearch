@@ -390,11 +390,13 @@ def compare_on_reference_grid(
     landscan_densities = landscan["densities"][comparable_mask].astype(np.float64)
     worldpop_densities = aggregated_densities[comparable_mask].astype(np.float64)
 
+    # 両者とも comparable_mask（＝同一セル集合）で合計する。片方だけ別条件で絞ると
+    # 比の分子と分母が違うセル群になり、「同一セル群で比較する」という目的が崩れる
     total_worldpop_on_reference_grid = float(
-        np.sum(aggregated_counts[roi_mask & (contributing_pixels > 0)], dtype=np.float64)
+        np.sum(aggregated_counts[comparable_mask], dtype=np.float64)
     )
     total_landscan_on_reference_grid = float(
-        np.sum(landscan["counts"][roi_mask & (landscan["counts"] != NODATA)], dtype=np.float64)
+        np.sum(landscan["counts"][comparable_mask], dtype=np.float64)
     )
 
     # セル境界・ROI 外周・水域マスクで WorldPop 画素が欠けたセルは、比較の母数が
@@ -428,8 +430,10 @@ def compare_on_reference_grid(
             "worldpop": total_worldpop_on_reference_grid,
             "landscan": total_landscan_on_reference_grid,
             "note": (
-                "基準グリッド上で ROI マスクを掛けた後の合計。WorldPop 側は、中心が ROI 外の"
-                "基準セルへ落ちた画素の分だけ、WorldPop 自グリッドでの ROI 内総人口より小さくなる。"
+                "比較対象セル（comparable_cells）での合計。分子と分母を同一セル集合に"
+                "揃えるため、両者とも同じマスクで集計している。WorldPop 側は、中心が"
+                "比較対象外の基準セルへ落ちた画素の分だけ、WorldPop 自グリッドでの"
+                "ROI 内総人口より小さくなる。"
             ),
         },
         "count_agreement": build_paired_statistics(landscan_counts, worldpop_counts),
@@ -439,8 +443,9 @@ def compare_on_reference_grid(
         ),
         "density_agreement": build_paired_statistics(landscan_densities, worldpop_densities),
         "density_agreement_note": (
-            "密度は同一行では面積で割る単調変換のため、count_agreement とほぼ同値になる。"
-            "分析で用いる単位（人/km²）での値を確認する目的で併記している。"
+            "密度はセルごとの面積で割った値で、セル面積は緯度により変わる。したがって"
+            "count_agreement と相関が一致する保証はなく、両者の差はセル面積の分布に依存する。"
+            "分析で用いる単位（人/km²）での一致度を確認するために併記している。"
         ),
     }
 

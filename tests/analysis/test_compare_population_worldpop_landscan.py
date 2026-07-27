@@ -465,6 +465,70 @@ class TestCompareOnReferenceGrid:
         assert result["contributing_pixels_per_cell"] is None
         assert result["count_agreement"] == {"cell_count": 0}
 
+    def test_handles_partially_covered_cells_only(self, tmp_path: Path) -> None:
+        """全セルが部分被覆でも完全被覆側の統計が壊れない（空入力のガード）。"""
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        fine_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+        # 1 セルを埋めるには 10x10 必要なところへ 5x5 しか置かない
+        fine_counts = np.ones((5, 5), dtype=np.float32)
+        coarse_counts = np.full((1, 1), 100.0, dtype=np.float32)
+
+        fine_path = tmp_path / "fine_partial_only.tif"
+        coarse_path = tmp_path / "coarse_single.tif"
+        _write_population_raster(fine_path, fine_counts, fine_counts, fine_transform)
+        _write_population_raster(coarse_path, coarse_counts, coarse_counts, coarse_transform)
+        fine = target.load_population_raster(fine_path)
+        coarse = target.load_population_raster(coarse_path)
+
+        roi_gdf = gpd.GeoDataFrame(
+            geometry=[box(105.0, 21.0 - COARSE_PIXEL_DEG, 105.0 + COARSE_PIXEL_DEG, 21.0)],
+            crs="EPSG:4326",
+        )
+        roi_mask = target.build_roi_mask(coarse, roi_gdf)
+
+        result = target.compare_on_reference_grid(fine, coarse, roi_mask)
+
+        assert result["comparable_cells"] == 1
+        assert result["fully_covered_cells"] == 0
+        assert result["partially_covered_cells"] == 1
+        assert result["contributing_pixels_per_cell"]["max"] == 25
+        # 完全被覆セルが 0 件でも統計側が例外にならないこと
+        assert result["count_agreement_fully_covered_cells"] == {"cell_count": 0}
+
+    def test_reference_grid_totals_use_the_same_cell_set(self, tmp_path: Path) -> None:
+        """基準グリッド合計の分子と分母が同一セル集合になっている。
+
+        片方だけ別条件で絞ると比の母数がずれるため、LandScan 側に nodata を混ぜて
+        両者が同じセルだけを数えていることを確かめる。
+        """
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        fine_transform = from_origin(105.0, 21.0, FINE_PIXEL_DEG, FINE_PIXEL_DEG)
+        fine_counts = np.ones((20, 20), dtype=np.float32)  # 2x2 セル分を満たす
+        coarse_counts = np.full((2, 2), 100.0, dtype=np.float32)
+        coarse_counts[0, 1] = target.NODATA  # LandScan 側だけ欠測のセルを作る
+
+        fine_path = tmp_path / "fine_full.tif"
+        coarse_path = tmp_path / "coarse_with_nodata.tif"
+        _write_population_raster(fine_path, fine_counts, fine_counts, fine_transform)
+        _write_population_raster(coarse_path, coarse_counts, coarse_counts, coarse_transform)
+        fine = target.load_population_raster(fine_path)
+        coarse = target.load_population_raster(coarse_path)
+
+        roi_gdf = gpd.GeoDataFrame(
+            geometry=[box(105.0, 21.0 - 2 * COARSE_PIXEL_DEG, 105.0 + 2 * COARSE_PIXEL_DEG, 21.0)],
+            crs="EPSG:4326",
+        )
+        roi_mask = target.build_roi_mask(coarse, roi_gdf)
+
+        result = target.compare_on_reference_grid(fine, coarse, roi_mask)
+
+        totals = result["total_population_on_reference_grid"]
+        # LandScan が欠測のセルは双方から除かれる: WorldPop は 3 セル分(=300)、
+        # LandScan も 3 セル分(=300)。除外が片側だけなら WorldPop は 400 になる
+        assert result["comparable_cells"] == 3
+        assert totals["worldpop"] == pytest.approx(300.0)
+        assert totals["landscan"] == pytest.approx(300.0)
+
     def test_result_is_json_serializable_without_nan(self, tmp_path: Path) -> None:
         """比較結果をそのまま save_summary に渡しても NaN ガードに掛からない。"""
         import json

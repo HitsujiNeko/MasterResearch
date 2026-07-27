@@ -68,6 +68,8 @@ REQUEST_TIMEOUT_SECONDS = 300
 OUTPUT_NODATA = -9999.0
 # 本研究の Landsat 観測年。データセットの提供年がこれに届くかの判定と注記に使う。
 LANDSAT_OBSERVATION_YEAR = 2023
+# 被覆判定で許容する座標のずれ（度）。約 0.1mm 相当で、実質的に浮動小数点誤差のみを吸収する。
+COVERAGE_TOLERANCE_DEG = 1e-9
 # 出力バンドの並び（1始まりのバンド番号に対応）
 BAND_COUNT_NAME = "population_count"
 BAND_DENSITY_NAME = "population_density_per_km2"
@@ -466,7 +468,7 @@ def build_pixel_statistics(
 def covers_requested_area(
     raster_bounds: tuple[float, float, float, float],
     requested_bounds: tuple[float, float, float, float],
-    pixel_size: tuple[float, float],
+    tolerance: float = COVERAGE_TOLERANCE_DEG,
 ) -> bool:
     """出力ラスタが、要求した範囲の BBOX を覆いきれているかを判定する。
 
@@ -474,21 +476,24 @@ def covers_requested_area(
     データソースが要求範囲を覆っていない場合でも 1.0 になりうる。覆えていない
     ぶんは出力にも分母にも現れず、欠測として検知できないためこの判定を併記する。
 
+    `mask(crop=True)` は要求範囲を含むように画素境界へ外向きに丸めるため、
+    ソースが範囲を覆っていれば出力 BBOX は要求範囲を必ず包含する。したがって
+    許容するのは座標計算の浮動小数点誤差だけでよい。画素サイズを許容量にすると、
+    1 画素分の実際の欠損を「覆えている」と誤判定する。
+
     Args:
         raster_bounds: 出力ラスタの (minx, miny, maxx, maxy)。
         requested_bounds: 要求範囲の (minx, miny, maxx, maxy)。同じ CRS であること。
-        pixel_size: (画素幅, 画素高)。境界の丸め誤差を吸収する許容量に使う。
+        tolerance: 許容する座標のずれ（CRS の単位。既定は度）。
 
     Returns:
         覆いきれていれば True。
     """
-    # クリップは画素境界に丸められるため、1 画素分の許容を持たせる
-    tolerance_x, tolerance_y = pixel_size
     return (
-        raster_bounds[0] <= requested_bounds[0] + tolerance_x
-        and raster_bounds[1] <= requested_bounds[1] + tolerance_y
-        and raster_bounds[2] >= requested_bounds[2] - tolerance_x
-        and raster_bounds[3] >= requested_bounds[3] - tolerance_y
+        raster_bounds[0] <= requested_bounds[0] + tolerance
+        and raster_bounds[1] <= requested_bounds[1] + tolerance
+        and raster_bounds[2] >= requested_bounds[2] - tolerance
+        and raster_bounds[3] >= requested_bounds[3] - tolerance
     )
 
 
@@ -693,7 +698,6 @@ def clip_and_write(
         covers_area=covers_requested_area(
             raster_bounds=array_bounds(height, width, clipped_transform),
             requested_bounds=tuple(float(value) for value in area_in_source_crs.total_bounds),
-            pixel_size=(abs(clipped_transform.a), abs(clipped_transform.e)),
         ),
     )
 

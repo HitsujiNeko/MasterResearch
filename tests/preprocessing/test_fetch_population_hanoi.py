@@ -323,7 +323,6 @@ class TestCoversRequestedArea:
         assert target.covers_requested_area(
             raster_bounds=(105.0, 20.0, 106.0, 21.0),
             requested_bounds=(105.1, 20.1, 105.9, 20.9),
-            pixel_size=(0.001, 0.001),
         )
 
     def test_returns_false_when_raster_is_short_on_one_side(self) -> None:
@@ -331,15 +330,29 @@ class TestCoversRequestedArea:
         assert not target.covers_requested_area(
             raster_bounds=(105.5, 20.0, 106.0, 21.0),
             requested_bounds=(105.0, 20.0, 106.0, 21.0),
-            pixel_size=(0.001, 0.001),
         )
 
-    def test_allows_one_pixel_of_rounding_slack(self) -> None:
-        """クリップは画素境界に丸められるため、1 画素分のずれは許容する。"""
-        assert target.covers_requested_area(
-            raster_bounds=(105.0005, 20.0005, 105.9995, 20.9995),
+    def test_rejects_one_pixel_shortfall(self) -> None:
+        """1 画素分の未被覆は実際の欠損なので False にする。"""
+        pixel_size = 0.001
+        assert not target.covers_requested_area(
+            raster_bounds=(105.0 + pixel_size, 20.0, 106.0, 21.0),
             requested_bounds=(105.0, 20.0, 106.0, 21.0),
-            pixel_size=(0.001, 0.001),
+        )
+
+    def test_rejects_half_pixel_shortfall(self) -> None:
+        """半画素の未被覆も見逃さない。"""
+        assert not target.covers_requested_area(
+            raster_bounds=(105.0, 20.0, 106.0 - 0.0005, 21.0),
+            requested_bounds=(105.0, 20.0, 106.0, 21.0),
+        )
+
+    def test_allows_only_floating_point_error(self) -> None:
+        """座標計算の浮動小数点誤差のみを許容する。"""
+        epsilon = 1e-12
+        assert target.covers_requested_area(
+            raster_bounds=(105.0 + epsilon, 20.0 + epsilon, 106.0 - epsilon, 21.0 - epsilon),
+            requested_bounds=(105.0, 20.0, 106.0, 21.0),
         )
 
 

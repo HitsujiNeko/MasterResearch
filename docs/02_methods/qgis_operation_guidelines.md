@@ -32,7 +32,8 @@ qgis/
 
 - プロジェクトのCRSは**EPSG:4326（WGS84）を基準**とする（[CLAUDE.md](../../CLAUDE.md)の用語集に準拠）
 - 面積・距離計算やバッファ処理など投影座標系が必要な処理では、都度適切なUTM等の投影座標系に変換する（データを恒久的に再投影しない。プロジェクトCRSはEPSG:4326のまま維持する）
-- ベトナム測量データ（VN-2000）を読み込む場合は、レイヤーのCRSがVN-2000のまま正しく認識されているか`get_layer_crs`で確認し、必要に応じて`transform_coordinates`でEPSG:4326に変換して重ね合わせる
+- ベトナム測量データ（VN-2000）を読み込む場合は、レイヤーのCRSがVN-2000のまま正しく認識されているかを確認し、必要に応じて`transform_coordinates`でEPSG:4326に変換して重ね合わせる
+- **CRSの判定に`get_layer_crs`の`authid`・`is_geographic`を根拠として使わない**。空文字列・`srsid=0`・`is_geographic=false`を返す事例が実測されている。判定はrasterio / GeoPandas側で行い、QGISは描画確認に限定する（[qgis_mcp_usage_guide.md の「CRSの確認手順」](qgis_mcp_usage_guide.md#crsの確認手順)を参照）
 
 ## execute_code / execute_processing の値取得
 

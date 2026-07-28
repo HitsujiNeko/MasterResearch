@@ -45,6 +45,9 @@ MasterResearch/
     ├── roads/
     ├── boundaries/
     ├── dem/
+    ├── lulc/
+    ├── population/
+    ├── nighttime_lights/
     ├── survey/
     ├── maps/
     └── raw/
@@ -127,7 +130,21 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 - `data/output/satellite_only/*/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 - `data/output/satellite_only/*/*_sample_100000.csv` も同様に大容量のため、Git管理外とする
 
-### 7.2 既追跡の大容量出力の扱い
+### 7.2 認証情報（APIトークン）の扱い
+
+外部データ配布サービスのAPIトークン等の秘密情報は、**リポジトリ直下の `.env`（Git管理外）に集約する**。
+
+| ファイル | 追跡 | 内容 |
+|---|---|---|
+| `.env` | **しない**（`.gitignore` で除外） | 実際のトークン値 |
+| `.env.example` | する | 変数名と取得手順のみ。**値は書かない** |
+
+- 読み込みは `src/common/env_file.py`（標準ライブラリのみ。外部依存を追加しない）。**`os.environ` は書き換えない**
+- 優先順位は「コマンドライン引数での明示指定 → 環境変数 → `.env`」。環境変数を`.env`より優先することで、CIや一時的な上書きが`.env`を書き換えずに効く
+- **`data/input/` には置かない**。同ディレクトリは「配下のファイルはGit追跡する」運用のため、秘密情報を置くと`.gitignore`の1行だけが漏洩を防ぐ状態になり、取り違えが起きやすい
+- 現在の登録変数: `EARTHDATA_TOKEN`（NASA Earthdata。LAADS DAACからのBlack Marble取得に使用）
+
+### 7.3 既追跡の大容量出力の扱い
 
 以下コマンドで、ローカルファイルは残したまま index から除外する。
 
@@ -145,7 +162,7 @@ git commit -m "Stop tracking generated outputs"
 
 ---
 
-## 7.3 データインベントリの自動生成
+## 7.4 データインベントリの自動生成
 
 `data/` は Git 管理外のため、リポジトリだけでは手元にどのデータがあるか分からない。
 そこで `data/gis/` と `data/satellite/` を走査し、各ファイルのメタデータを

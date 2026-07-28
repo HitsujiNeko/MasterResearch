@@ -13,7 +13,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | 項目 | 値の例 | 備考 |
 |---|---|---|
 | ファイル | `data/gis/survey/merge_DH.gpkg` | 相対パス・サイズ・更新日時 |
-| CRS | `EPSG:4326` / 空文字 | 空文字時は Step 2 の `get_layer_crs` で確定 |
+| CRS | `EPSG:4326` / 空文字 | 空文字は「データ側に CRS 未定義」を意味する。Step 2 で想定 CRS を設定し重なりで確定 |
 | レイヤ | `elements` | 複数レイヤなら各行に展開 |
 | ジオメトリ種別 | `Point` / `Unknown` | `Unknown` は混在の可能性（DGN 由来等） |
 | 地物数 | 104,317 | レイヤごと |
@@ -52,9 +52,10 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 
 ### 3. CRS
 
-- [ ] `get_layer_crs` で CRS は正しく認識されているか（`authid` が空でも proj4/description で判断する）
-- [ ] CRS 未定義（`authid`・`proj4` 空）の場合、想定 CRS を `set_layer_crs` で設定したか
-      （ベトナム測量データは VN-2000 / UTM zone 48N = `EPSG:3405`）
+- [ ] Step 1 の `build_data_inventory` 出力で CRS は正しく認識されているか
+      （**`get_layer_crs` の `authid`・`is_geographic` を根拠にしない**）
+- [ ] CRS 未定義（Step 1 の `crs` が空文字）の場合、想定 CRS を `set_layer_crs` で設定したか
+      （ベトナム測量データの `merge_*.gpkg` は VN-2000 / TM-3 zone 482 = `EPSG:5897`）
 - [ ] 設定後、代表点を `transform_coordinates` で EPSG:4326 に変換し ROI 域内に落ちるか確認したか
 - [ ] VN-2000 等の投影座標系の場合、ROI（EPSG:4326）と正しく重なるか
 
@@ -119,8 +120,8 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | 接続確認 | `ping` | クラッシュ後は `get_project_info` で状態確認 |
 | ベクタ読み込み | `add_vector_layer` | **絶対パス**指定 |
 | ラスタ読み込み | `add_raster_layer` | **絶対パス**指定 |
-| CRS 確認 | `get_layer_crs` | `authid` 空でも proj4/description で判断 |
-| CRS 設定（未定義時） | `set_layer_crs` | 再投影せず解釈を変える。測量データは `EPSG:3405` |
+| CRS 確認 | （QGIS では行わない） | Step 1 の `build_data_inventory` 出力で判定する |
+| CRS 設定（未定義時） | `set_layer_crs` | 再投影せず解釈を変える。測量データは `EPSG:5897` |
 | 座標変換で妥当性確認 | `transform_coordinates` | 代表点を EPSG:4326 化し ROI 域内か確認 |
 | 属性・件数確認 | `get_layer_features` | |
 | ラスタ値域確認 | `get_raster_info` | min/max/バンド数/extent |
@@ -155,6 +156,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 - プロジェクト CRS は **EPSG:4326（WGS84）** を基準とする
 - 面積・距離計算は都度 UTM 等の投影座標系へ変換（データを恒久再投影しない）
 - VN-2000 データは CRS が正しく認識されているか確認し、必要に応じ EPSG:4326 に変換して重ねる
+  （`merge_*.gpkg` の正本 CRS は `EPSG:5897`）
 
 ---
 

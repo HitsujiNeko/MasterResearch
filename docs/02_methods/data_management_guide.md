@@ -142,7 +142,15 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 - 読み込みは `src/common/env_file.py`（標準ライブラリのみ。外部依存を追加しない）。**`os.environ` は書き換えない**
 - 優先順位は「コマンドライン引数での明示指定 → 環境変数 → `.env`」。環境変数を`.env`より優先することで、CIや一時的な上書きが`.env`を書き換えずに効く
 - **`data/input/` には置かない**。同ディレクトリは「配下のファイルはGit追跡する」運用のため、秘密情報を置くと`.gitignore`の1行だけが漏洩を防ぐ状態になり、取り違えが起きやすい
-- 現在の登録変数: `EARTHDATA_TOKEN`（NASA Earthdata。LAADS DAACからのBlack Marble取得に使用）
+
+#### 登録変数と有効期限
+
+| 変数 | 用途 | 発行・再発行 | 有効期限 |
+|---|---|---|---|
+| `EARTHDATA_TOKEN` | NASA Earthdata。LAADS DAACからのBlack Marble（VNP46A4）取得 | [LAADS DAAC プロフィール](https://ladsweb.modaps.eosdis.nasa.gov/profile/#generate-token)（事前に [Earthdata アカウント](https://urs.earthdata.nasa.gov/)が必要） | **2026-09-25 08:41 EDT に失効**。同ページで `Expires at` を確認し、失効後は再発行して `.env` を差し替える |
+
+- **トークンの失効は取得の 401 として現れる**。取得スクリプトは「トークンが無効・期限切れの可能性」を示すメッセージを出すので、まず有効期限を疑う
+- **トークンとは別に、対象プロダクトのデータ利用許諾への同意が要る**。未同意だと 401 ではなくライセンス同意ページへ 303 されるため、症状が似ていて紛らわしい。同意はブラウザで Earthdata にログインした状態で当該ページを開いて行う
 
 ### 7.3 既追跡の大容量出力の扱い
 

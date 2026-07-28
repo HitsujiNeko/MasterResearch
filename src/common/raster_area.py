@@ -124,6 +124,190 @@ def covers_requested_area(
 
 
 @dataclass(frozen=True)
+class ClippedArea:
+    """`read_clipped_float_array` の結果をまとめて返す。
+
+    Attributes:
+        array: クリップ後の 3 次元配列（バンド, 行, 列）。float32 で、無効値は
+            すべて `nodata` に統一済み。
+        transform: クリップ後のアフィン変換。
+        crs: ソースの CRS（出力もこれに合わせる）。
+        area_mask: 対象範囲内を True とする 2 次元マスク。
+        covers_area: ソースが要求範囲を覆えていたか。
+    """
+
+    array: np.ndarray
+    transform: Any
+    crs: Any
+    area_mask: np.ndarray
+    covers_area: bool
+
+
+def read_clipped_float_array(
+    source_path: Path,
+    area_gdf: gpd.GeoDataFrame,
+    nodata: float = DEFAULT_RASTER_NODATA,
+    coverage_tolerance: float = COVERAGE_TOLERANCE_DEG,
+) -> ClippedArea:
+    """ラスタを対象範囲でクリップし、無効値を統一した float32 配列として読む。
+
+    書き出しは行わない。取得スクリプトによって出力バンドの構成が異なる
+    （そのまま出す／派生バンドを足す）ため、**読み取りと書き出しを分けて**
+    読み取り側だけを共有する。
+
+    「宣言した無効値がすべての無効画素を覆う」ことをここで保証する。
+
+    - **無効値の埋め込みは float32 へ変換した後に行う**。`rasterio.mask.mask` に
+      `nodata` を渡すと、ソースの dtype のまま埋めてしまう。整数のソースへ -9999 を
+      渡すと環り込んで（uint16 なら 55537）別の値になり、宣言した無効値がファイル内に
+      一切存在しない状態になる。統計は `area_mask` で絞るため `valid_pixel_ratio` は
+      1.0 のままで、サマリーからは検知できない。
+    - **ソースに含まれる NaN も `nodata` へ置き換える**。NaN を残すと `x != nodata` の
+      判定をすり抜けて「有効画素」に数えられ、統計が NaN になる。その NaN はサマリー
+      保存時にようやく例外になるため、GeoTIFF だけ書き終えた中途半端な状態で止まる。
+
+    ROI ポリゴンで真にクリップするため結果は BBOX 矩形となり、範囲外の余白は nodata
+    で埋まる。その余白を欠測と数えないよう、範囲内を示すマスクを併せて返す。
+
+    Args:
+        source_path: 入力 GeoTIFF パス。
+        area_gdf: 取得対象範囲（CRS はソースへ変換して用いる）。
+        nodata: 無効値。
+        coverage_tolerance: 被覆判定で許容する座標のずれ。**単位はソースの CRS に従う**
+            ため、投影座標系のソースを扱う場合は既定値（度想定）を見直すこと。
+
+    Returns:
+        クリップ後の配列と、統計計算に必要なマスク・被覆判定。
+
+    Raises:
+        ValueError: ソースの CRS が未定義の場合。
+    """
+    with rasterio.open(source_path) as source:
+        if source.crs is None:
+            raise ValueError(f"ソースラスタの CRS が未定義です: {source_path}")
+        source_crs = source.crs
+        area_in_source_crs = area_gdf.to_crs(source_crs)
+        shapes = [geometry.__geo_interface__ for geometry in area_in_source_crs.geometry]
+        # filled=False でマスク配列のまま受け取り、float32 化してから埋める。
+        # rasterio 側は ROI 外に加えてソース自身の nodata もマスクしてくれるため、
+        # 両者をまとめて出力の nodata へ統一できる。
+        clipped_masked, clipped_transform = mask(source, shapes=shapes, crop=True, filled=False)
+
+    clipped_array = np.ma.filled(clipped_masked.astype(np.float32), np.float32(nodata))
+    # ソース由来の NaN も無効値として扱う（有効画素の判定をすり抜けさせない）
+    clipped_array[np.isnan(clipped_array)] = np.float32(nodata)
+    _, height, width = clipped_array.shape
+
+    # ジオメトリは clipped_transform と同じソース CRS のものを使う（座標系がずれると
+    # 範囲内画素数・有効率が静かに壊れるため）
+    area_mask = geometry_mask(
+        geometries=shapes,
+        out_shape=(height, width),
+        transform=clipped_transform,
+        invert=True,
+    )
+    covers_area = covers_requested_area(
+        raster_bounds=array_bounds(height, width, clipped_transform),
+        requested_bounds=tuple(float(value) for value in area_in_source_crs.total_bounds),
+        tolerance=coverage_tolerance,
+    )
+    return ClippedArea(
+        array=clipped_array,
+        transform=clipped_transform,
+        crs=source_crs,
+        area_mask=area_mask,
+        covers_area=covers_area,
+    )
+
+
+def build_raster_profile_record(raster_path: Path) -> dict[str, Any]:
+    """書き出した GeoTIFF の諸元を、サマリー記録用の辞書として読み直す。
+
+    書き出し時の値をそのまま写すのではなくファイルから読み直すのは、
+    実際に保存された内容を記録するため。
+
+    Args:
+        raster_path: 対象 GeoTIFF パス。
+
+    Returns:
+        CRS・dtype・バンド数・寸法・解像度・範囲・nodata を含む辞書。
+    """
+    with rasterio.open(raster_path) as raster:
+        bounds = raster.bounds
+        return {
+            "crs": raster.crs.to_string() if raster.crs is not None else None,
+            "dtype": str(raster.dtypes[0]),
+            "band_count": int(raster.count),
+            "width": int(raster.width),
+            "height": int(raster.height),
+            "resolution": [float(raster.res[0]), float(raster.res[1])],
+            "bounds": {
+                "minx": float(bounds.left),
+                "miny": float(bounds.bottom),
+                "maxx": float(bounds.right),
+                "maxy": float(bounds.top),
+            },
+            "nodata": None if raster.nodata is None else float(raster.nodata),
+        }
+
+
+def write_float_raster(
+    output_path: Path,
+    band_arrays: dict[str, np.ndarray],
+    transform: Any,
+    crs: Any,
+    nodata: float = DEFAULT_RASTER_NODATA,
+) -> None:
+    """バンド名つきの float32 GeoTIFF を書き出す。
+
+    ソースの profile を引き継がず、**保存形式をここで明示的に決める**。引き継ぐと、
+    バンド数・dtype を変えた出力とソース由来のタイル設定や photometric が
+    噛み合わないことがある。一方でまったく指定しないと、ソースが圧縮されていた
+    場合に出力だけ無圧縮になり、研究データが不必要に大きくなる。
+
+    圧縮は可逆の DEFLATE に、`predictor=3`（浮動小数点用）を併用する。研究データは
+    Drive 同期の対象で容量が効いてくるため、値を変えずに縮む設定を既定にする。
+
+    Args:
+        output_path: 出力パス。
+        band_arrays: バンド名 -> 2 次元配列（辞書の順序がバンド順になる）。
+        transform: アフィン変換。
+        crs: 出力の CRS。
+        nodata: 無効値。
+
+    Raises:
+        ValueError: バンドが空の場合、またはバンド間で配列の形状が揃っていない場合。
+    """
+    if not band_arrays:
+        raise ValueError("書き出すバンドがありません。")
+    # 形状が揃っていないと、先頭バンドの寸法で profile を組んだまま書き込みが失敗するか、
+    # 通ってしまった場合にバンドごとに意味の違う範囲を持つ成果物になる
+    shapes = {name: array.shape for name, array in band_arrays.items()}
+    if len(set(shapes.values())) != 1:
+        raise ValueError(f"バンド間で配列の形状が揃っていません: {shapes}")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    height, width = next(iter(shapes.values()))
+    profile = {
+        "driver": "GTiff",
+        "count": len(band_arrays),
+        "dtype": "float32",
+        "height": height,
+        "width": width,
+        "crs": crs,
+        "transform": transform,
+        "nodata": nodata,
+        "compress": "deflate",
+        # 浮動小数点向けの予測子。可逆で、隣接画素が近い値のラスタでよく縮む
+        "predictor": 3,
+    }
+    with rasterio.open(output_path, "w", **profile) as destination:
+        for index, (name, array) in enumerate(band_arrays.items(), start=1):
+            destination.write(array, index)
+            destination.set_band_description(index, name)
+
+
+@dataclass(frozen=True)
 class ClipResult:
     """`clip_multiband_to_area` の結果をまとめて返す。
 
@@ -150,25 +334,15 @@ def clip_multiband_to_area(
 ) -> ClipResult:
     """多バンドラスタを対象範囲でクリップし、バンド名つきの GeoTIFF として保存する。
 
-    出力は常に float32 で、無効値は `nodata` に統一する。ROI 外の余白と、ソースが
-    自身の nodata として持っていた画素の両方が対象になる。
+    ソースのバンドをそのまま出力する場合の定型処理。派生バンドを足す場合は
+    `read_clipped_float_array` と `write_float_raster` を個別に使う。
 
-    **無効値の埋め込みは float32 へ変換した後に行う**。`rasterio.mask.mask` に
-    `nodata` を渡すと、ソースの dtype のまま埋めてしまう。整数のソースへ -9999 を
-    渡すと環り込んで（uint16 なら 55537）別の値になり、宣言した無効値がファイル内に
-    一切存在しない状態になる。統計は `area_mask` で絞るため `valid_pixel_ratio` は
-    1.0 のままで、サマリーからは検知できない。
-
-    **ソースに含まれる NaN も `nodata` へ置き換える**。NaN を残すと `x != nodata` の
-    判定をすり抜けて「有効画素」に数えられ、統計が NaN になる。その NaN はサマリー
-    保存時にようやく例外になるため、GeoTIFF だけ書き終えた中途半端な状態で止まる。
+    無効値の扱い（float32 化してから埋める・NaN も統一する）は
+    `read_clipped_float_array` に委ねている。
 
     入力のバンド数と `band_names` の要素数が一致すること、および `band_names` に
     重複が無いことを要求する。どちらも、崩れるとバンド名の割り当てがずれたまま
     例外にならず、単位の異なる値に別の名前が付いた成果物が黙って出来上がるため。
-
-    ROI ポリゴンで真にクリップするため出力は BBOX 矩形となり、範囲外の余白は nodata
-    で埋まる。その余白を欠測と数えないよう、範囲内を示すマスクを併せて返す。
 
     Args:
         source_path: 入力 GeoTIFF パス。
@@ -193,82 +367,30 @@ def clip_multiband_to_area(
             "重複するとバンドと名前の対応が崩れるため停止します。"
         )
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with rasterio.open(source_path) as source:
-        if source.crs is None:
-            raise ValueError(f"ソースラスタの CRS が未定義です: {source_path}")
-        if source.count != len(band_names):
-            raise ValueError(
-                "ソースラスタのバンド数が想定と異なります"
-                f"（想定 {len(band_names)}、実際 {source.count}）: {source_path}"
-            )
-        source_crs = source.crs
-        area_in_source_crs = area_gdf.to_crs(source_crs)
-        shapes = [geometry.__geo_interface__ for geometry in area_in_source_crs.geometry]
-        # filled=False でマスク配列のまま受け取り、float32 化してから埋める。
-        # rasterio 側は ROI 外に加えてソース自身の nodata もマスクしてくれるため、
-        # 両者をまとめて出力の nodata へ統一できる。
-        clipped_masked, clipped_transform = mask(source, shapes=shapes, crop=True, filled=False)
-
-    clipped_array = np.ma.filled(clipped_masked.astype(np.float32), np.float32(nodata))
-    # ソース由来の NaN も無効値として扱う（有効画素の判定をすり抜けさせない）
-    clipped_array[np.isnan(clipped_array)] = np.float32(nodata)
-    _, height, width = clipped_array.shape
-    band_arrays = {name: clipped_array[index] for index, name in enumerate(band_names)}
-
-    # ソース由来のタイル設定や photometric を引き継ぐと、バンド数・dtype を変えた
-    # 出力と噛み合わないことがあるため、必要な項目だけで profile を組み立てる
-    profile = {
-        "driver": "GTiff",
-        "count": len(band_names),
-        "dtype": "float32",
-        "height": height,
-        "width": width,
-        "crs": source_crs,
-        "transform": clipped_transform,
-        "nodata": nodata,
-    }
-    with rasterio.open(output_path, "w", **profile) as destination:
-        for index, name in enumerate(band_names, start=1):
-            destination.write(band_arrays[name], index)
-            destination.set_band_description(index, name)
-
-    # ジオメトリは clipped_transform と同じソース CRS のものを使う（座標系がずれると
-    # 範囲内画素数・有効率が静かに壊れるため）
-    area_mask = geometry_mask(
-        geometries=shapes,
-        out_shape=(height, width),
-        transform=clipped_transform,
-        invert=True,
+    clipped = read_clipped_float_array(
+        source_path=source_path,
+        area_gdf=area_gdf,
+        nodata=nodata,
+        coverage_tolerance=coverage_tolerance,
     )
-    covers_area = covers_requested_area(
-        raster_bounds=array_bounds(height, width, clipped_transform),
-        requested_bounds=tuple(float(value) for value in area_in_source_crs.total_bounds),
-        tolerance=coverage_tolerance,
-    )
+    if clipped.array.shape[0] != len(band_names):
+        raise ValueError(
+            "ソースラスタのバンド数が想定と異なります"
+            f"（想定 {len(band_names)}、実際 {clipped.array.shape[0]}）: {source_path}"
+        )
 
-    with rasterio.open(output_path) as destination:
-        bounds = destination.bounds
-        raster_profile = {
-            "crs": destination.crs.to_string() if destination.crs is not None else None,
-            "dtype": str(destination.dtypes[0]),
-            "band_count": int(destination.count),
-            "width": int(destination.width),
-            "height": int(destination.height),
-            "resolution": [float(destination.res[0]), float(destination.res[1])],
-            "bounds": {
-                "minx": float(bounds.left),
-                "miny": float(bounds.bottom),
-                "maxx": float(bounds.right),
-                "maxy": float(bounds.top),
-            },
-            "nodata": float(nodata),
-        }
+    band_arrays = {name: clipped.array[index] for index, name in enumerate(band_names)}
+    write_float_raster(
+        output_path=output_path,
+        band_arrays=band_arrays,
+        transform=clipped.transform,
+        crs=clipped.crs,
+        nodata=nodata,
+    )
 
     return ClipResult(
-        raster_profile=raster_profile,
+        raster_profile=build_raster_profile_record(output_path),
         band_arrays=band_arrays,
-        area_mask=area_mask,
-        covers_area=covers_area,
+        area_mask=clipped.area_mask,
+        covers_area=clipped.covers_area,
     )

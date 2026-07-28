@@ -20,9 +20,7 @@ from shapely.geometry import box
 
 from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_glc_fcs30d_hanoi as target
-
-# ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX
-HANOI_ROI_BOUNDS = (105.28812456270636, 20.564469161724375, 106.02005052860555, 21.385222290909635)
+from tests.conftest import HANOI_ROI_BOUNDS
 
 
 class TestBandIndexForYear:

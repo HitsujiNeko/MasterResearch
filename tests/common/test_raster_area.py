@@ -17,9 +17,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import Polygon, box
 
 from src.common import raster_area as target
-
-# ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX
-HANOI_ROI_BOUNDS = (105.28812456270636, 20.564469161724375, 106.02005052860555, 21.385222290909635)
+from tests.conftest import HANOI_ROI_BOUNDS
 
 
 class TestValidateBbox:
@@ -375,3 +373,171 @@ class TestClipMultibandToArea:
         band = result.band_arrays["a"]
         assert not np.isnan(band).any()
         assert band[0, 0] == target.DEFAULT_RASTER_NODATA
+
+    def test_output_is_compressed(self, tmp_path: Path) -> None:
+        """出力を圧縮して保存する。
+
+        ソースの profile を引き継がない方針にした結果、指定を忘れると圧縮が
+        外れて研究データが不必要に大きくなる（実測で約2.3倍）。値は変えずに
+        縮む設定なので既定で有効にしておく。
+        """
+        source_path = tmp_path / "source.tif"
+        _write_source_raster(source_path, band_count=2)
+
+        target.clip_multiband_to_area(
+            source_path, self._full_area(), tmp_path / "out.tif", ["a", "b"]
+        )
+
+        with rasterio.open(tmp_path / "out.tif") as raster:
+            assert raster.profile["compress"] == "deflate"
+
+    def test_does_not_inherit_source_storage_options(self, tmp_path: Path) -> None:
+        """ソースのタイル設定を引き継がない（バンド数・dtype を変える出力と噛み合わない）。"""
+        source_path = tmp_path / "source.tif"
+        with rasterio.open(
+            source_path,
+            "w",
+            driver="GTiff",
+            height=512,
+            width=512,
+            count=2,
+            dtype="float32",
+            crs=CRS.from_epsg(4326),
+            transform=from_origin(105.0, 21.1, 0.01, 0.01),
+            tiled=True,
+            blockxsize=256,
+            blockysize=256,
+        ) as destination:
+            for index in (1, 2):
+                destination.write(np.full((512, 512), index * 100, dtype="float32"), index)
+
+        # ソースより十分小さい範囲でクリップする（ブロックサイズが出力寸法を超える）
+        area = gpd.GeoDataFrame(geometry=[box(105.0, 21.05, 105.02, 21.1)], crs="EPSG:4326")
+        target.clip_multiband_to_area(source_path, area, tmp_path / "out.tif", ["a", "b"])
+
+        with rasterio.open(tmp_path / "out.tif") as raster:
+            assert raster.width < 256
+            assert raster.read(1).max() == pytest.approx(100.0)
+
+
+class TestReadClippedFloatArray:
+    """read_clipped_float_array のテスト（書き出しを伴わない読み取り）。"""
+
+    def test_returns_float32_with_unified_nodata(self, tmp_path: Path) -> None:
+        """整数ソースでも float32 で返し、余白は指定した無効値になる。"""
+        source_path = tmp_path / "source.tif"
+        _write_source_raster(source_path, band_count=1, dtype="uint16")
+        triangle = gpd.GeoDataFrame(
+            geometry=[Polygon([(105.0, 21.0), (105.1, 21.0), (105.0, 21.1)])], crs="EPSG:4326"
+        )
+
+        clipped = target.read_clipped_float_array(source_path, triangle)
+
+        assert clipped.array.dtype == np.float32
+        assert set(np.unique(clipped.array).tolist()) == {target.DEFAULT_RASTER_NODATA, 100.0}
+
+    def test_does_not_write_any_file(self, tmp_path: Path) -> None:
+        """読み取りのみで、ファイルは作らない（書き出しは呼び出し側の責務）。"""
+        source_path = tmp_path / "source.tif"
+        _write_source_raster(source_path, band_count=1)
+        before = set(tmp_path.iterdir())
+
+        target.read_clipped_float_array(
+            source_path, gpd.GeoDataFrame(geometry=[box(105.0, 21.0, 105.1, 21.1)], crs="EPSG:4326")
+        )
+
+        assert set(tmp_path.iterdir()) == before
+
+    def test_keeps_all_source_bands(self, tmp_path: Path) -> None:
+        """バンド名の指定なしに、ソースの全バンドをそのまま返す。"""
+        source_path = tmp_path / "source.tif"
+        _write_source_raster(source_path, band_count=3)
+
+        clipped = target.read_clipped_float_array(
+            source_path, gpd.GeoDataFrame(geometry=[box(105.0, 21.0, 105.1, 21.1)], crs="EPSG:4326")
+        )
+
+        assert clipped.array.shape[0] == 3
+
+    def test_rejects_source_without_crs(self, tmp_path: Path) -> None:
+        """CRS 未定義のソースは範囲を変換できないため止める。"""
+        source_path = tmp_path / "source.tif"
+        with rasterio.open(
+            source_path,
+            "w",
+            driver="GTiff",
+            height=10,
+            width=10,
+            count=1,
+            dtype="float32",
+            transform=from_origin(105.0, 21.1, 0.01, 0.01),
+        ) as destination:
+            destination.write(np.ones((10, 10), dtype="float32"), 1)
+
+        with pytest.raises(ValueError, match="CRS が未定義"):
+            target.read_clipped_float_array(
+                source_path,
+                gpd.GeoDataFrame(geometry=[box(105.0, 21.0, 105.1, 21.1)], crs="EPSG:4326"),
+            )
+
+
+class TestWriteFloatRaster:
+    """write_float_raster のテスト。"""
+
+    def test_writes_bands_in_dict_order_with_names(self, tmp_path: Path) -> None:
+        """辞書の順序がバンド順になり、名前が説明として入る。"""
+        transform = from_origin(105.0, 21.1, 0.01, 0.01)
+        band_arrays = {
+            "first": np.full((4, 5), 1.0, dtype=np.float32),
+            "second": np.full((4, 5), 2.0, dtype=np.float32),
+        }
+
+        target.write_float_raster(tmp_path / "out.tif", band_arrays, transform, CRS.from_epsg(4326))
+
+        with rasterio.open(tmp_path / "out.tif") as raster:
+            assert raster.descriptions == ("first", "second")
+            assert raster.read(1).max() == pytest.approx(1.0)
+            assert raster.read(2).max() == pytest.approx(2.0)
+            assert raster.nodata == target.DEFAULT_RASTER_NODATA
+            assert raster.profile["compress"] == "deflate"
+
+    def test_creates_parent_directory(self, tmp_path: Path) -> None:
+        """出力先の親ディレクトリが無ければ作る。"""
+        target.write_float_raster(
+            tmp_path / "sub" / "out.tif",
+            {"a": np.zeros((2, 2), dtype=np.float32)},
+            from_origin(105.0, 21.1, 0.01, 0.01),
+            CRS.from_epsg(4326),
+        )
+
+        assert (tmp_path / "sub" / "out.tif").exists()
+
+    def test_rejects_empty_band_arrays(self, tmp_path: Path) -> None:
+        """バンドが空なら、寸法を決められないため止める。"""
+        with pytest.raises(ValueError, match="書き出すバンドがありません"):
+            target.write_float_raster(
+                tmp_path / "out.tif", {}, from_origin(105.0, 21.1, 0.01, 0.01), CRS.from_epsg(4326)
+            )
+
+        assert not (tmp_path / "out.tif").exists()
+
+    def test_rejects_mismatched_band_shapes(self, tmp_path: Path) -> None:
+        """バンド間で形状が違えば止める。
+
+        先頭バンドの寸法で profile を組むため、揃っていないと書き込みが失敗するか、
+        通った場合にバンドごとに意味の違う範囲を持つ成果物になる。
+        """
+        band_arrays = {
+            "a": np.zeros((4, 5), dtype=np.float32),
+            "b": np.zeros((3, 5), dtype=np.float32),
+        }
+
+        with pytest.raises(ValueError, match="形状が揃っていません"):
+            target.write_float_raster(
+                tmp_path / "out.tif",
+                band_arrays,
+                from_origin(105.0, 21.1, 0.01, 0.01),
+                CRS.from_epsg(4326),
+            )
+
+        assert not (tmp_path / "out.tif").exists()

@@ -20,9 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 
 from src.preprocessing import fetch_viirs_dnb_hanoi as target
-
-# ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX
-HANOI_ROI_BOUNDS = (105.28812456270636, 20.564469161724375, 106.02005052860555, 21.385222290909635)
+from tests.conftest import HANOI_ROI_BOUNDS, make_fake_build_target_area
 
 # VIIRS DNB 年次コンポジットの実測ネイティブ投影（GEE の projection().getInfo() の戻り値）
 VIIRS_PROJECTION = {
@@ -111,28 +109,6 @@ def _install_fake_ee(monkeypatch: pytest.MonkeyPatch, matched_count: int) -> dic
     monkeypatch.setattr(target.ee, "Image", fake_image)
     monkeypatch.setattr(target.ee, "Filter", _FakeEeFilter)
     return recorded
-
-
-def _fake_build_target_area(roi_bounds: tuple) -> Any:
-    """`build_target_area` の代替を作る（ROI 読み込みを伴わせない）。
-
-    BBOX 指定時に試行実行フラグが立つ分岐は本物と同じに保つ。
-
-    Args:
-        roi_bounds: BBOX 未指定時に ROI として返す (minx, miny, maxx, maxy)。
-
-    Returns:
-        `build_target_area` と同じシグネチャの関数。
-    """
-
-    def fake(roi_path: Path, bbox: list[float] | None) -> tuple[gpd.GeoDataFrame, bool, Path]:
-        if bbox is None:
-            roi_gdf = gpd.GeoDataFrame(geometry=[box(*roi_bounds)], crs="EPSG:4326")
-            return roi_gdf, False, Path(roi_path)
-        trial_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs="EPSG:4326")
-        return trial_gdf, True, Path(roi_path)
-
-    return fake
 
 
 class TestBandDefinitions:
@@ -548,7 +524,7 @@ class TestRunEndToEnd:
     @staticmethod
     def _install_fakes(monkeypatch: pytest.MonkeyPatch, roi_bounds: tuple) -> None:
         """範囲組み立て・GEE 認証・画像選択・ダウンロードを差し替える。"""
-        monkeypatch.setattr(target, "build_target_area", _fake_build_target_area(roi_bounds))
+        monkeypatch.setattr(target, "build_target_area", make_fake_build_target_area(roi_bounds))
         monkeypatch.setattr(target, "load_gee_project_id", lambda **kwargs: "fake-project")
         monkeypatch.setattr(target, "authenticate_gee", lambda project_id: None)
         monkeypatch.setattr(target, "select_annual_image", lambda config, year: object())
@@ -679,7 +655,9 @@ class TestRunOverwriteGuard:
         existing_output.write_bytes(b"IMPORTANT")
         roi_path = tmp_path / "roi.shp"
         roi_path.write_bytes(b"")
-        monkeypatch.setattr(target, "build_target_area", _fake_build_target_area(HANOI_ROI_BOUNDS))
+        monkeypatch.setattr(
+            target, "build_target_area", make_fake_build_target_area(HANOI_ROI_BOUNDS)
+        )
 
         def fail_if_called(*args: Any, **kwargs: Any) -> None:
             raise AssertionError("既存ファイルがある場合は GEE 認証まで進んではいけない")

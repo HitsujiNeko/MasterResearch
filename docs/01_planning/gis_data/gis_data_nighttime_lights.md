@@ -1,6 +1,6 @@
 # 夜間光データの調査・評価
 
-**最終更新**: 2026-07-05  
+**最終更新**: 2026-07-28  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -10,7 +10,7 @@
 
 `research_guide.md`では夜間光強度（VIIRS等）が「人口・人間活動指標」の追加候補として言及されている。また先行研究S8（Lin et al., 2024, 中国・武漢）では夜間光データとして`Luojia 1-01`を利用しており、夜間光は人口密度・経済活動の代理指標として都市構造パラメータに組み込まれる例がある。本資料ではオープンソースの夜間光データ候補を調査する。
 
-Hanoi ROIでの実データ取得・採用可否は未判断。
+Hanoi ROIでの実データ取得結果は5章に記載する（採用可否は未判断）。
 
 なお、Jilin-1（92cm解像度、中国の商用衛星コンステレーション）も調査したが、商用データ（有料）であるため本調査の対象外とする（有料データは対象外とする方針のため）。
 
@@ -37,7 +37,8 @@ Hanoi ROIでの実データ取得・採用可否は未判断。
 - **提供機関**: NOAA/NCEI（処理は Colorado School of Mines の Earth Observation Group）
 - **データソース**: Suomi NPP衛星のVIIRS Day/Night Band（DNB）。現地時間午前1時ごろの通過軌道。
 - **提供時期**: 2012年〜現在。月次コンポジット（雲なし平均放射輝度）を積み上げて年次コンポジットを作成。
-- **配布形式**: NOAA EOGポータル（<https://eogdata.mines.edu/products/vnl/>）、GEEカタログ（`NOAA/VIIRS/DNB_ANNUAL_V22`等）
+- **配布形式**: NOAA EOGポータル（<https://eogdata.mines.edu/products/vnl/>）、GEEカタログ
+  - **GEEのアセットIDは `NOAA/VIIRS/DNB/ANNUAL_V22`**（2022-2025年）／`NOAA/VIIRS/DNB/ANNUAL_V21`（2013-2021年）。カタログページのURLに現れる `NOAA_VIIRS_DNB_ANNUAL_V22` は**ページのスラッグであってアセットIDではない**。`NOAA/VIIRS/DNB_ANNUAL_V22`（`DNB`の後がアンダースコア）を指定すると `not found` になる（2026-07-27 実行確認）
 - **利点**: 継続的に更新される現行データセットであり、本研究のLandsat観測期間（2023年前後）と対応する年次コンポジットを選べる。取得実績・研究利用例が最も豊富。
 
 ### 3.2 NASA Black Marble（VNP46A シリーズ）
@@ -45,8 +46,14 @@ Hanoi ROIでの実データ取得・採用可否は未判断。
 - **提供機関**: NASA（VIIRS Land Team）
 - **データソース**: VIIRS DNBと同じセンサーだが、月光・BRDF（双方向反射率）補正を加えた高次プロダクト。日次（VNP46A1/A2）、月次（VNP46A3）、年次（VNP46A4）が提供される。
 - **提供時期**: 2012年〜現在、継続更新。
+- **配布形式**: LAADS DAAC の ArchiveSet 5200（Black Marble Collection 2.0）。HDF-EOS5（`.h5`）、10°×10°タイル単位。h28v06の2023年版は**実測 約120MB**（製品ページ記載の「92MB」より大きい）。
 - **利点**: 月光の影響やセンサー角度の影響を補正済みであるため、VIIRS DNBの生データより品質が高い可能性がある。
-- **懸念点**: HDF-EOS5形式でのダウンロード・前処理がVIIRS DNBの年次コンポジットに比べてやや煩雑になる可能性がある。
+- **懸念点**（2026-07-28 実行確認）:
+  - **年次プロダクト`VNP46A4`はGEEに存在しない**。GEEで利用できるのは日次の`NASA/VIIRS/002/VNP46A2`（BRDF・月光補正済み、2012-01-19〜、7バンド）と`NOAA/VIIRS/001/VNP46A1`（補正前の生ラジアンス）のみ。年次を使うにはLAADS DAACから直接取得する必要がある
+  - **Earthdataアカウントの Bearer トークンが必須**。ファイル一覧APIの時点でEarthdataのOAuthへリダイレクト（HTTP 302）される
+  - **データ利用許諾への同意が別途必要**。未同意だと401ではなく`/profiles/licenses/...`へ303され、リダイレクトを辿った先のEarthdata OAuthで401になるため、原因が分かりにくい。同意はブラウザでEarthdataにログインした状態で当該ページを開いて行う
+  - **ダウンロードURLは自前で組み立てられない**。公開パス（`/archive/allData/...`）はライセンス同意ページへ303されるため、一覧APIが返す`downloadsLink`（`/api/v2/content/archives/allData/...`）を使う必要がある
+  - HDF-EOS5形式のため読み込みに`h5py`が要る（本プロジェクトの実行環境のGDALはHDF5ドライバなしでビルドされている）
 
 ### 3.3 NPP-VIIRS-like nighttime light dataset（Chen et al.）
 
@@ -90,16 +97,63 @@ Hanoi ROIでの実データ取得・採用可否は未判断。
 
 ---
 
-## 5. 注意点
+## 5. Hanoi ROI での取得結果
+
+取得スクリプト: `src/preprocessing/fetch_viirs_dnb_hanoi.py`（VIIRS DNB）/ `src/preprocessing/fetch_black_marble_hanoi.py`（Black Marble）
+
+### 5.1 VIIRS DNB 年次コンポジット V2.2（2023年）
+
+取得日: 2026-07-27。アセット `NOAA/VIIRS/DNB/ANNUAL_V22`、`system:index = 20230101`。
+
+**本研究のLandsat観測年（2023年）の年次コンポジットが直接取得できた**（人口データ（WorldPop）のような提供年の不足による時間差は生じない）。
+
+| 項目 | 結果 |
+|---|---|
+| 出力CRS | EPSG:4326 |
+| 解像度 | 0.0041666667°（約463.83m、15 arc-sec） |
+| 出力サイズ | 177 × 198 画素（4バンド）、ROI内 16,796 画素 |
+| 有効画素率 | **1.0000**（全バンド。ROI内に欠測なし） |
+| ROI被覆 | `covers_requested_area = True`（要求範囲を完全に包含） |
+
+バンド別の値域（ROI内有効画素、単位は放射輝度バンドが nW·cm⁻²·sr⁻¹）:
+
+| バンド | 由来 | min | median | p95 | p99 | max | mean |
+|---|---|---|---|---|---|---|---|
+| `avg_radiance` | `average` | 0.506 | 2.717 | 21.348 | 33.644 | 96.100 | 5.407 |
+| `avg_radiance_masked` | `average_masked` | 0.000 | 2.714 | 21.348 | 33.644 | 96.100 | 5.307 |
+| `cf_cvg` | `cf_cvg` | 51 | 74 | 85 | 91 | 96 | 73.29 |
+| `max_radiance` | `maximum` | 0.647 | 4.387 | 30.825 | 51.719 | 230.595 | 8.371 |
+
+**カバレッジ**: ROI全域に欠測なし。雲なし観測数（`cf_cvg`）はROI内で最小51回・中央値74回あり、年次合成の基礎となる観測は十分に確保されている。
+
+**背景除去バンドの挙動**: `average_masked` はROI内で欠測（nodata）にはならず、背景と判定された画素が **0** に置き換わる形で現れた（有効画素数は `average` と同じ16,796、最小値のみ 0.506 → 0.000 に変化）。したがって本データセットでは、`average_masked` の低値域は「データ無し」ではなく「電力由来の光が検出されなかった」と読む。
+
+**飽和状況**: **ROI内に飽和は認められない**。
+
+| バンド | p99/max | 最大値と同値の画素数 | 最大値の1%以内の画素数（割合） |
+|---|---|---|---|
+| `avg_radiance` | 0.350 | 1 | 2（0.01%） |
+| `max_radiance` | 0.224 | 1 | 1（0.01%） |
+
+上位分位点（p99）が最大値の1/3〜1/4程度にとどまり、最大値は単独画素にしか現れない。DMSP-OLSで問題となる「都市中心部で値が上限に張り付き、密集市街地内の空間パターンが識別できない」状態には該当しない。ハノイ都心部でも階調が保たれており、都市構造パラメータの説明変数として値の分解能を利用できる。
+
+### 5.2 NASA Black Marble VNP46A4（2023年）
+
+取得スクリプトは実装済み。一覧API・タイル解決（`h28v06`）・`downloadsLink`の取得までは実データで確認済み。**ROIクリップまでの通し実行は未了**（本節は取得後に追記する）。
+
+---
+
+## 6. 注意点
 
 - 夜間光データは都市中心部で値が飽和しやすく、密集市街地内での空間パターンの識別力が限られる可能性がある（DMSP-OLSで特に顕著、VIIRS DNBでも都市中心部では相対的に緩和されるが完全ではない）。
 - VIIRS DNBの月次コンポジットには月明かり・雲・グレア等のノイズが含まれるため、複数月の中央値合成や品質フラグでのフィルタリングが必要になる場合がある。
 - 長期トレンド用データセット（NPP-VIIRS-like, Harmonized Global NTL）は解像度がDMSP水準（約1km）に統一されているため、空間パターンの精緻な分析には向かない点に注意する。
-- いずれのデータセットも実際のHanoi ROIでの取得・値域確認は未実施。取得スクリプト作成時に確認する。
+- VIIRS DNBのHanoi ROIでの取得・値域確認は実施済み（5.1節）。飽和は認められなかった。Black Marbleは未実施（5.2節）。それ以外のデータセットは未取得。
+- VIIRS DNB年次コンポジットのグリッド原点は `-180.00208333335 / 75.00208333335` で、**整数度から半画素ずれる**。Black MarbleのタイルグリッドやLandsat由来のグリッドと画素単位で突き合わせる際は再投影が要る。
 
 ---
 
-## 6. 参考ソース
+## 7. 参考ソース
 
 - VIIRS Nighttime Light（NOAA/NCEI EOG）: <https://eogdata.mines.edu/products/vnl/>
 - VIIRS DNB Annual Composites GEEカタログ: <https://developers.google.com/earth-engine/datasets/catalog/NOAA_VIIRS_DNB_ANNUAL_V22>

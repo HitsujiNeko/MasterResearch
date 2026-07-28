@@ -1,0 +1,167 @@
+{
+  "dataset": "VIIRS Nighttime Day/Night Band Annual Composites V2.2",
+  "dataset_key": "viirs_dnb_v22",
+  "gee_asset_id": "NOAA/VIIRS/DNB/ANNUAL_V22",
+  "source": "https://developers.google.com/earth-engine/datasets/catalog/NOAA_VIIRS_DNB_ANNUAL_V22",
+  "license": "パブリックドメイン",
+  "license_note": "出典表記は Earth Observation Group（Colorado School of Mines）に対して行う。",
+  "retrieved_at": "2026-07-28T10:15:05.924337+00:00",
+  "year": 2023,
+  "year_note": "VIIRS Nighttime Day/Night Band Annual Composites V2.2 の提供年は 2022-2025 年。本研究の Landsat 観測年（2023年）と一致しており、時間差はない。",
+  "native_projection": {
+    "crs": "EPSG:4326",
+    "transform": [
+      0.0041666667,
+      0,
+      -180.00208333335,
+      0,
+      -0.0041666667,
+      75.00208333335
+    ]
+  },
+  "resampling_note": "ネイティブの crs / crs_transform を指定して取得しており、リサンプリングは行っていない。グリッド原点は整数度から半画素ずれるため、他データセットと画素単位で突き合わせる際は再投影が要る。",
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "is_trial_run": false,
+  "area_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "crs": "EPSG:4326",
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "float32",
+    "band_count": 4,
+    "width": 177,
+    "height": 198,
+    "resolution": [
+      0.0041666667,
+      0.0041666667
+    ],
+    "bounds": {
+      "minx": 105.28541894895002,
+      "miny": 20.56041623115,
+      "maxx": 106.02291895485003,
+      "maxy": 21.38541623775
+    },
+    "nodata": -9999.0
+  },
+  "bands": {
+    "1": {
+      "name": "avg_radiance",
+      "source_band": "average",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "description": "年次平均放射輝度（背景・生物発光を除去していない生の合成値）"
+    },
+    "2": {
+      "name": "avg_radiance_masked",
+      "source_band": "average_masked",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "description": "年次平均放射輝度から背景（生物発光・その他の非電力光源）を除いた値。背景と判定された画素の扱いは配布データ側に依存し、0 で現れる場合とマスク（nodata）で現れる場合がある"
+    },
+    "3": {
+      "name": "cf_cvg",
+      "source_band": "cf_cvg",
+      "unit": "観測回数",
+      "description": "合成に用いた雲なし観測の回数。少ない画素は平均値の信頼度が低い"
+    },
+    "4": {
+      "name": "max_radiance",
+      "source_band": "maximum",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "description": "年次の最大放射輝度。都市中心部の飽和状況の確認に用いる"
+    }
+  },
+  "pixel_stats": {
+    "total_pixels": 35046,
+    "roi_pixels": 16796,
+    "outside_roi_pixels": 18250,
+    "valid_pixels": 16796,
+    "valid_pixel_ratio": 1.0,
+    "primary_band": "avg_radiance",
+    "covers_requested_area": true,
+    "avg_radiance": {
+      "min": 0.5056310892105103,
+      "max": 96.09999084472656,
+      "mean": 5.407310119038481,
+      "std": 7.081269256570541,
+      "median": 2.716543197631836,
+      "p95": 21.348230361938477,
+      "p99": 33.643886184692356,
+      "valid_pixels": 16796,
+      "valid_pixel_ratio": 1.0
+    },
+    "avg_radiance_masked": {
+      "min": 0.0,
+      "max": 96.09999084472656,
+      "mean": 5.306994212439554,
+      "std": 7.1483726964011405,
+      "median": 2.713512897491455,
+      "p95": 21.348230361938477,
+      "p99": 33.643886184692356,
+      "valid_pixels": 16796,
+      "valid_pixel_ratio": 1.0
+    },
+    "cf_cvg": {
+      "min": 51.0,
+      "max": 96.0,
+      "mean": 73.29370088116218,
+      "std": 6.889234267648903,
+      "median": 74.0,
+      "p95": 85.0,
+      "p99": 91.0,
+      "valid_pixels": 16796,
+      "valid_pixel_ratio": 1.0
+    },
+    "max_radiance": {
+      "min": 0.647215723991394,
+      "max": 230.59532165527344,
+      "mean": 8.371426238878678,
+      "std": 11.332885967624083,
+      "median": 4.387177467346191,
+      "p95": 30.82539701461792,
+      "p99": 51.71856594085689,
+      "valid_pixels": 16796,
+      "valid_pixel_ratio": 1.0
+    },
+    "saturation": {
+      "avg_radiance": {
+        "max": 96.09999084472656,
+        "p99": 33.643886184692356,
+        "p99_9": 58.14189859390511,
+        "p99_to_max_ratio": 0.3500925014556185,
+        "pixels_at_max": 1,
+        "pixels_near_max": 2,
+        "ratio_near_max": 0.00011907597046915932,
+        "neighborhood_ratio": 0.01
+      },
+      "avg_radiance_masked": {
+        "max": 96.09999084472656,
+        "p99": 33.643886184692356,
+        "p99_9": 58.14189859390511,
+        "p99_to_max_ratio": 0.3500925014556185,
+        "pixels_at_max": 1,
+        "pixels_near_max": 2,
+        "ratio_near_max": 0.00011907597046915932,
+        "neighborhood_ratio": 0.01
+      },
+      "max_radiance": {
+        "max": 230.59532165527344,
+        "p99": 51.71856594085689,
+        "p99_9": 105.01656948089726,
+        "p99_to_max_ratio": 0.22428280664849365,
+        "pixels_at_max": 1,
+        "pixels_near_max": 1,
+        "ratio_near_max": 5.953798523457966e-05,
+        "neighborhood_ratio": 0.01
+      }
+    }
+  },
+  "saturation_note": "飽和指標は放射輝度バンドについてのみ算出している。p99_to_max_ratio が 1 に近く、かつ ratio_near_max が無視できない大きさであれば、上位の値が最大値へ張り付いている（飽和が疑われる）。逆に最大値が少数画素にしか現れずp99 との差が大きい場合、値域内で階調が保たれていると解釈できる。",
+  "coverage_note": "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は nodata（-9999.0）で埋まる。valid_pixel_ratio の分母 roi_pixels は**クリップ後の出力に含まれる ROI 内画素**であり、ROI 全体ではない。有効画素はバンドごとに別々に数えており、最上位の valid_pixels / valid_pixel_ratio はデータ被覆の指標として主バンド avg_radiance で代表させている。バンドごとの valid_pixels が主バンドより少ない場合、それはデータ欠測とは限らず、元データ側のマスク（背景判定など）によることもあるため、バンドの意味に照らして解釈する必要がある。データソースが ROI を覆いきれていない場合は covers_requested_area で別に判定する。",
+  "outputs": {
+    "geotiff": "data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif",
+    "summary": "data/output/open_gis/nighttime_lights_viirs_dnb_hanoi_2023_summary.json"
+  }
+}

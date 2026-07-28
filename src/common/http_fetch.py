@@ -10,6 +10,7 @@ requests は使わない。
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import time
@@ -27,6 +28,7 @@ def fetch_bytes_with_retry(
     retry_wait_seconds: int = 10,
     rate_limit_max_retry_count: int = 6,
     rate_limit_base_wait_seconds: int = 60,
+    headers: dict[str, str] | None = None,
 ) -> bytes:
     """リトライ付きでURLからレスポンス本文をバイト列として取得する。
 
@@ -36,6 +38,9 @@ def fetch_bytes_with_retry(
     rate_limit_base_wait_seconds 秒を起点とした指数バックオフで
     rate_limit_max_retry_count 回までリトライする（通常リトライとは別枠でカウントする）。
 
+    `headers` は Bearer トークン等の認証ヘッダーを要求するAPI（NASA LAADS DAAC 等）の
+    ために用意している。**ヘッダーの内容はログに出力しない**（認証情報の漏洩を避けるため）。
+
     Args:
         url: リクエストURL。
         timeout: タイムアウト秒数。
@@ -43,6 +48,7 @@ def fetch_bytes_with_retry(
         retry_wait_seconds: 通常エラー時のリトライ待機秒数。
         rate_limit_max_retry_count: HTTP 429時の最大リトライ回数。
         rate_limit_base_wait_seconds: HTTP 429時の指数バックオフ起点秒数。
+        headers: リクエストに付与するHTTPヘッダー。未指定時は付与しない。
 
     Returns:
         レスポンス本文のバイト列。
@@ -59,8 +65,14 @@ def fetch_bytes_with_retry(
     rate_limit_attempt = 0
 
     while True:
+        # Request は試行ごとに作り直す。urllib はリダイレクトのループ検出状態
+        # （`redirect_dict`）を Request オブジェクトへ書き込むため、使い回すと
+        # 訪問済み URL が試行をまたいで累積し、リダイレクトを伴う URL では
+        # 数回目のリトライが偽の「infinite loop」エラーで失敗する。
+        # ヘッダーはリダイレクト時に urllib 側が引き継ぐため、作り直しても失われない。
+        request = urllib.request.Request(url, headers=headers or {})
         try:
-            with urllib.request.urlopen(url, timeout=timeout) as response:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
@@ -90,7 +102,15 @@ def fetch_bytes_with_retry(
                 max_retry_count,
                 url[:120],
             )
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        # http.client.HTTPException は OSError 系ではないため個別に挙げる。
+        # 大容量ダウンロードが途中で切れる IncompleteRead がこれに当たり、
+        # 捕捉しないとリトライされないまま呼び出し元へ素通りする。
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            http.client.HTTPException,
+        ) as exc:
             last_error = exc
             generic_attempt += 1
             logger.warning(
@@ -116,6 +136,7 @@ def fetch_json_with_retry(
     retry_wait_seconds: int = 10,
     rate_limit_max_retry_count: int = 6,
     rate_limit_base_wait_seconds: int = 60,
+    headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """リトライ付きでURLからJSONレスポンスを取得する。
 
@@ -129,6 +150,7 @@ def fetch_json_with_retry(
         retry_wait_seconds: 通常エラー時のリトライ待機秒数。
         rate_limit_max_retry_count: HTTP 429時の最大リトライ回数。
         rate_limit_base_wait_seconds: HTTP 429時の指数バックオフ起点秒数。
+        headers: リクエストに付与するHTTPヘッダー。未指定時は付与しない。
 
     Returns:
         JSONレスポンスをパースした辞書。
@@ -144,5 +166,6 @@ def fetch_json_with_retry(
         retry_wait_seconds=retry_wait_seconds,
         rate_limit_max_retry_count=rate_limit_max_retry_count,
         rate_limit_base_wait_seconds=rate_limit_base_wait_seconds,
+        headers=headers,
     )
     return json.loads(response_body.decode("utf-8"))

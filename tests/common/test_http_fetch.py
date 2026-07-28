@@ -128,6 +128,171 @@ def test_fetch_bytes_with_retry_raises_after_max_retries(
         )
 
 
+def test_fetch_bytes_with_retry_attaches_given_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """headers を渡すとリクエストに付与される（Bearer認証を要するAPI向け）。"""
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://example.com/x.h5",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+    )
+
+    assert result == b"OK"
+    assert captured["request"].get_header("Authorization") == "Bearer dummy-token"
+    assert captured["request"].full_url == "https://example.com/x.h5"
+
+
+def test_fetch_bytes_with_retry_without_headers_sends_no_extra_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """headers 未指定時は追加ヘッダーを付けない（既存呼び出しの後方互換）。"""
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+
+    http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10)
+
+    assert captured["request"].headers == {}
+
+
+def test_fetch_bytes_with_retry_keeps_headers_across_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """リトライしてもヘッダーが失われない（認証付きリクエストが2回目で無認証にならない）。"""
+    seen_tokens: list[str | None] = []
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        seen_tokens.append(request.get_header("Authorization"))
+        if len(seen_tokens) < 2:
+            raise urllib.error.URLError("temporary failure")
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://example.com",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+    )
+
+    assert result == b"OK"
+    assert seen_tokens == ["Bearer dummy-token", "Bearer dummy-token"]
+
+
+def test_fetch_bytes_with_retry_uses_a_fresh_request_per_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """試行ごとに Request を作り直す（リダイレクト検出状態を持ち越さない）。
+
+    urllib は訪問済み URL を `redirect_dict` として Request へ書き込む。同じ
+    Request を使い回すと試行をまたいで累積し、リダイレクトを伴う URL では
+    数回目のリトライが偽の「infinite loop」エラーで落ちる。
+    """
+    requests: list[Any] = []
+    carried_redirect_state: list[bool] = []
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        # 受け取った時点で前回の訪問記録を持っていないかを見る
+        carried_redirect_state.append(hasattr(request, "redirect_dict"))
+        requests.append(request)
+        # urllib のリダイレクト処理を模し、Request へ訪問記録を書き込む
+        request.redirect_dict = {"https://example.com/step": 1}
+        if len(requests) < 3:
+            raise urllib.error.URLError("temporary failure")
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    result = http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10)
+
+    assert result == b"OK"
+    assert len(requests) == 3
+    # 使い回していれば 2 回目以降は前回の記録を持ったまま渡される
+    assert carried_redirect_state == [False, False, False]
+    assert len({id(request) for request in requests}) == 3
+
+
+def test_fetch_bytes_with_retry_retries_incomplete_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """途中で切れた読み込み（IncompleteRead）もリトライ対象にする。
+
+    `http.client.IncompleteRead` は `HTTPException` 系で `OSError` ではないため、
+    明示的に捕捉しないと大容量ダウンロードの中断時にリトライされない。
+    """
+    attempt_count = {"value": 0}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        attempt_count["value"] += 1
+        if attempt_count["value"] < 2:
+            raise http_fetch.http.client.IncompleteRead(b"partial", 1000)
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    result = http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10)
+
+    assert result == b"OK"
+    assert attempt_count["value"] == 2
+
+
+def test_fetch_bytes_with_retry_raises_after_repeated_incomplete_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """IncompleteRead が続く場合も、他のエラーと同じ RuntimeError にまとめる。
+
+    呼び出し側（Black Marble の取得）は RuntimeError を捕捉して原因を切り分けるため、
+    ここで別系統の例外が漏れると切り分けを素通りして未処理例外になる。
+    """
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        raise http_fetch.http.client.IncompleteRead(b"partial", 1000)
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(RuntimeError):
+        http_fetch.fetch_bytes_with_retry(
+            "https://example.com", timeout=10, max_retry_count=2, retry_wait_seconds=1
+        )
+
+
+def test_fetch_json_with_retry_forwards_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """JSON取得側から渡した headers がバイト列取得側へ委譲される。"""
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse.from_json({"ok": True})
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+
+    result = http_fetch.fetch_json_with_retry(
+        "https://example.com",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+    )
+
+    assert result == {"ok": True}
+    assert captured["request"].get_header("Authorization") == "Bearer dummy-token"
+
+
 def test_fetch_json_with_retry_rejects_non_http_scheme() -> None:
     """http/https以外のURLスキームはValueErrorになる。"""
     with pytest.raises(ValueError):

@@ -53,11 +53,13 @@ push・PR作成に**先立って**、Agent ツールでレビュー用サブエ�
 ```bash
 git push -u origin {Issue番号}/{タスク要約英文}
 
-# 重複PR防止: 同一 head の既存 PR を確認し、あれば再利用する
-gh pr list --head {Issue番号}/{タスク要約英文} --state open --json number,url
-
-# 既存 PR が無い場合のみ新規作成する
-gh pr create --title "{type}: {変更内容の要約} (#{Issue番号})" --head {Issue番号}/{タスク要約英文} --body-file {PR本文ファイル}
+# 重複PR防止: 同一 head の既存PRを確認し、あれば再利用する
+pr_url="$(gh pr list --head {Issue番号}/{タスク要約英文} --state open --json url --jq '.[0].url')"
+if [ -n "$pr_url" ]; then
+  echo "既存PRを再利用: $pr_url"
+else
+  gh pr create --title "{type}: {変更内容の要約} (#{Issue番号})" --head {Issue番号}/{タスク要約英文} --body-file {PR本文ファイル}
+fi
 ```
 
 - **再実行時の重複PR防止**: `gh pr create` がタイムアウト・部分失敗した後に本コマンドを再実行すると、同一ブランチに重複 PR を作成する恐れがある。`gh pr create` の前に必ず同一 head の既存 PR を確認し、**存在すればそのPRの番号・URLを再利用**して新規作成しない

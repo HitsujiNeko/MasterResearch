@@ -1,5 +1,8 @@
 # 📚 研究ドキュメント管理
 
+**最終更新**: 2026-07-28  
+**管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
+
 > **このドキュメントの役割**  
 > 本ディレクトリ内のすべてのドキュメントを一元管理する**唯一の真実の情報源（Single Source of Truth）**です。  
 > 新しいファイルの追加や構造変更時は、このREADMEのみを更新してください。
@@ -227,8 +230,3 @@ MasterResearch/
 | `qgis/` | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) |
 | `images/` | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md)（スクリーンショットの扱い・保存先・命名規則） |
 | `整備データ/` | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) |
-
----
-
-**最終更新**: 2026-07-28  
-**管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）

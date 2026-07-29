@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 from osgeo import gdal
-
 from qgis.core import (
     QgsColorRampLegendNodeSettings,
     QgsCoordinateReferenceSystem,
@@ -44,6 +43,7 @@ from qgis.core import (
     QgsVectorLayer,
 )
 from qgis.PyQt.QtGui import QColor, QFont
+
 from src.visualization import figure_layout as fl
 
 _TMP_LAYOUT_NAME = "_gis_figure_tmp"

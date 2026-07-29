@@ -1,6 +1,6 @@
 # 並列タスク実行ワークフロー
 
-**最終更新**: 2026-07-22
+**最終更新**: 2026-07-29
 **関連ファイル**: [task-workflow.md](./task-workflow.md), [CLAUDE.md](../CLAUDE.md)
 **前提知識**: [task-workflow.md](./task-workflow.md) の標準ワークフローの理解
 

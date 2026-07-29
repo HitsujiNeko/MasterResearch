@@ -1,6 +1,6 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-07-23
+**最終更新**: 2026-07-28
 **関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
@@ -32,7 +32,8 @@ qgis/
 
 - プロジェクトのCRSは**EPSG:4326（WGS84）を基準**とする（[CLAUDE.md](../../CLAUDE.md)の用語集に準拠）
 - 面積・距離計算やバッファ処理など投影座標系が必要な処理では、都度適切なUTM等の投影座標系に変換する（データを恒久的に再投影しない。プロジェクトCRSはEPSG:4326のまま維持する）
-- ベトナム測量データ（VN-2000）を読み込む場合は、レイヤーのCRSがVN-2000のまま正しく認識されているか`get_layer_crs`で確認し、必要に応じて`transform_coordinates`でEPSG:4326に変換して重ね合わせる
+- **CRSの判定に`get_layer_crs`の`authid`・`is_geographic`を根拠として使わない**。空文字列・`srsid=0`・`is_geographic=false`を返す事例が実測されている。判定はrasterio / GeoPandas側で行い、QGISは描画確認に限定する（手順は[qgis_mcp_usage_guide.md の「CRSの確認手順」](qgis_mcp_usage_guide.md#crsの確認手順)を参照）
+- ベトナム測量データ（VN-2000）を読み込む場合は、上記の手順でCRSがVN-2000のまま正しく認識されているかを確認し、必要に応じて`transform_coordinates`でEPSG:4326に変換して重ね合わせる。**`merge_*.gpkg` の正本CRSは`EPSG:5897`（VN-2000 / TM-3 zone 482）**である（推定根拠は[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)を参照）
 
 ## execute_code / execute_processing の値取得
 
@@ -48,7 +49,8 @@ import json
 # layer は対象のレイヤー。例では現在のアクティブレイヤーを取得する
 # （名前で取得する場合は QgsProject.instance().mapLayersByName("レイヤー名")[0]）
 layer = iface.activeLayer()
-result = {"count": layer.featureCount(), "crs": layer.crs().authid()}
+# CRS の判定に authid() は使わない（空文字列を返す事例がある。CRS統一方針を参照）
+result = {"count": layer.featureCount(), "extent": layer.extent().toString()}
 print(json.dumps(result, ensure_ascii=False))  # これで stdout 経由で取得できる
 ```
 
@@ -66,9 +68,18 @@ OUTPUT: <ABS_PATH>/data/tmp/buffer_result.gpkg   # 実ファイルを指定（me
 
 ## 大規模レイヤーの取り扱い（クラッシュ対策）
 
-GBA建物データ（約307万件）や測量データ複数レイヤー（数十万件規模）を同時に可視化状態にした際、QGIS本体がクラッシュする事例が確認された。
+GBA建物データ（約307万件）や測量データ複数レイヤー（数十万件規模）を**対話キャンバスで同時に可視化状態にした際**、QGIS本体がクラッシュする事例が確認された。一方、描画範囲をROIに固定した単発描画は同規模のデータでも完走している。大規模レイヤーを無条件に避けるのではなく、以下の切り分けに従う。
 
-**必須の対策**:
+### クラッシュ条件の切り分け
+
+| 操作 | 判断 | 根拠 |
+|---|---|---|
+| 対話キャンバスで全件を同時可視化し`save_project`する | **危険** | GBA建物・測量データ複数レイヤーでクラッシュを確認 |
+| 描画範囲をROIに固定した単発描画（`render_map`・印刷レイアウトexport） | **安全** | GBA建物（約307万件）・`測量_DC`（約46万件）でもクラッシュせず完走し、PNG12枚を生成できた |
+
+ROI固定の単発描画が今回のデータ・ROI・描画方式（`render_map`・印刷レイアウトexport）で完走したのは、描画対象がROI内に限られ、全件の同時描画が発生しないためと考えられる。ただし描画方式・空間インデックス・ジオメトリ異常・メモリ使用量などに依存するため、**同規模データ全般での安全性を保証するものではない**。**外れ値ジオメトリによりレイヤーのextentが破綻するデータ**（測量データでは`測量_DH`・`測量_TH`にX=499,999／Y=999,999付近のダミー座標が記録されている。[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)の座標範囲表を参照）でも、今回はROI内の実データのみが描画され問題は生じなかった。それでもクラッシュ・応答なしが発生する場合は、**ROIをさらに縮小する・レイヤーを分割して個別に描画する・単発描画を複数回に分けて実行する**などの代替策を検討する。
+
+**必須の対策**（対話キャンバスで作業する場合）:
 
 1. **レイヤー・グループ追加のたびに`save_project`でこまめに保存する**。クラッシュ時に未保存の作業（レイヤー構成・グループ・Map Theme設定等）がすべて失われるため
 2. 全レイヤーを同時に可視化する操作（`Full`テーマの確認など）を行う前に、直前の状態を保存しておく
@@ -121,6 +132,18 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 - **例外**: 連続値ラスタで、複数データセットに同一の分類区分を適用して図を直接比較したい場合は `{カテゴリ}_{指標}.qml`（例: `population_density.qml`）とする。同じ色が同じ値を意味する図になり、データセット間の比較が可能になるため。既存の `dem_elevation.qml`・`lst_colorramp.qml`・`ndvi_classification.qml` もこの形である（`{データセット}` を含むのは分類がデータセット固有の LULC 2件のみ）
 - 保存後は、プロジェクトを閉じて再度開き直し凡例が正しく表示されることを必ず確認する。**ラスタの疑似カラースタイル**は、これに加えて下記「ラスター疑似カラースタイル作成時の注意」の `classificationMin`/`classificationMax` が `nan` 化する破損チェックも実施する（ベクタの分類レンダラには当該項目はない）
 
+### カテゴリ値ラスタの公式配色の確認順序
+
+カテゴリ値ラスタの公式配色は、配布元のメタデータに含まれない場合がある。以下の順序で確認し、**記憶や一般に流布した値で埋めない**。
+
+1. **配布元のメタデータ**を確認する（STAC配信ならコレクションのmetadata、それ以外なら配布元が提供するメタデータファイル）
+2. **ソースラスタに埋め込まれたカラーテーブル**を確認する。COGなら署名付きURLで`rasterio.open()`し、ヘッダーのみ読めば全体をダウンロードせずに実測できる
+3. **データセットの公開ドキュメント**を確認する
+
+Esri LULC（`io-lulc-annual-v02`）では、STACコレクションの`item_assets.data.file:values`がクラス値とラベル（英語）を持つ一方、配色は含まれていなかった。ソースCOGにはGDALカラーテーブルが埋め込まれており、手順2で公式配色を実測できた。
+
+**注意**: 窓読みで保存したサブセットにはカラーテーブルが引き継がれない。ローカルの取得済みファイルを見ても配色は分からないため、ソース側を確認する。
+
 ### QGIS プロジェクト（.qgz）への追加は完了条件に含めない
 
 `qgis/projects/*.qgz` は Git 管理外のため、プロジェクトへのレイヤ追加・Map Theme 更新・`save_project()` は**完了条件に含めない**。検証のための一時的なレイヤ追加は行い、プロジェクトに残すかは研究者の判断とする。
@@ -149,7 +172,7 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 **構図要件**:
 
 - **地図フレームは ROI と同じ縦横比で固定**し、ROI が見切れないようにする。凡例が必要な図はフレームを縮めず、ページを縦に伸ばして地図の下に凡例帯を置く
-- **タイトル**（データセット＋ROI）と**スケールバー**（地図フレーム左下隅・枠内）は常時付与する
+- **タイトル**（データセット＋ROI）と**スケールバー**（地図フレーム左下隅・枠内）は常時付与する。タイトルは `{データセット} {データ種別} {年} － {ROI}` の書式に統一する（例: `GLC_FCS30D 土地被覆 2022 － Hanoi ROI`）。`build_gis_figure` は `title_text` をそのまま使うため、**書式の統一はヘルパー側では担保されない**
 - **凡例**はデータ型で分岐する:
   - カテゴリ値ラスタ（LULC 等）・連続値ラスタ（DEM 等）: **必須**（前者は実在クラスに絞り、後者は項目表示にすると判読しやすい）
   - 単一シンボル（POI・道路・建物フットプリント等）: 不要（タイトルのみ）
@@ -165,7 +188,8 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 
 - `images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`（英小文字スネークケース）
 - 例: `images/gis_data/roads/roads_osm_hanoi.png`
-- 複数枚必要な場合は `_overview` / `_detail` 等の接尾辞を付す
+- 複数枚必要な場合は接尾辞を付す。`_overview` / `_detail`（空間スケールの違い）、`_{年}`（同一データセットの複数年）が該当する
+- **同一タスク内で並べる図は接尾辞の有無を揃える**。年を付ける図と付けない図を混在させず、複数年ある側に合わせて1枚しかないデータセットにも年を付ける。一方が `population_landscan_hanoi_2023.png` なら、もう一方も `population_worldpop_hanoi_2020.png` とし、`population_worldpop_hanoi.png` のまま並べない。年の有無が不揃いだと図どうしの対応関係が読み取りにくくなるため（すべての図が年を持たない場合はそれで揃っているとみなす）
 - `images/` は Git 追跡対象（`.gitignore` に `*.png` 除外はなく、直下 `images/` も除外対象外）
 
 ### スクリーンショットと `.qml` の関係（2 軸の整理）
@@ -180,6 +204,15 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 - 一方の要否が他方を左右することはない。スクショは空間データなら常に作成し、`.qml` は判定表に従う
 - 保存先・命名の定型は `inspect-gis-data`（スクショ取得を担うスキル）に組み込む
 
+### 統計値と図の役割分担（連続値ラスタ）
+
+連続値ラスタでは「**統計値で異常を検出し、図で原因を特定する**」という役割分担が有効である。統計値だけでは異常の所在が分からず、図だけでは異常の有無を見落とすため、両方を突き合わせる。
+
+実例:
+
+- 人口密度ラスタ（WorldPop）の無効画素は、数値上は「ROI内の2.77%」としか分からなかった。図では紅河の本流と西湖がそのまま白く抜けており、水域であることが一目で判別できた（Esri LULC との突合でも83%がWaterと確認）
+- 都心集中の急峻さ（LandScanがWorldPopより急）は、統計値（平均バイアスがほぼ0なのに中央値バイアスが大きく正）だけでは解釈が定まらなかったが、図が裏付けとなった
+
 ## ラスター疑似カラースタイル作成時の注意（重要）
 
 `execute_code`でPyQGISの`QgsSingleBandPseudoColorRenderer`を使ってLST・NDVI等のラスターに疑似カラースタイルを設定する場合、**`renderer.setClassificationMin()` / `setClassificationMax()` を色ランプの値域と一致させて必ず明示的に設定すること**。
@@ -187,6 +220,10 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 **理由**: この設定を省略すると、実行中のQGISセッションでは正しく表示されるが（`legendSymbologyItems()`で検証しても正しい値が返る）、`.qml`・`.qgz`への保存時に`classificationMin`/`classificationMax`が`nan`としてシリアライズされ、**プロジェクトを閉じて再度開くとスタイルが破損し、すべての値が`nan`表示になる**。実行中セッションの見た目だけでは検知できない不具合のため注意する。
 
 **対象レンダラー**: この`nan`化問題は、連続値の疑似カラーを扱う`QgsSingleBandPseudoColorRenderer`**固有**である。カテゴリ分類の`QgsPalettedRasterRenderer`（LULC 等のクラス値ラスタで使う）では`classificationMin`/`classificationMax`を持たないため発生しないことを確認済み。したがって`setClassificationMin`/`setClassificationMax`の明示設定が必要なのは`QgsSingleBandPseudoColorRenderer`のときに限られる。
+
+**分類方式（Interpolated / Discrete）による差はない**: `QgsSingleBandPseudoColorRenderer`を`Discrete`（離散分類）で使う場合も、`setClassificationMin`/`setClassificationMax`の明示は有効である。9クラスの離散分類で`classificationMin="0"`/`classificationMax="100000"`が正しく保存され`nan`化せず、後述の往復検証でも各クラスの値・色・ラベルが完全に一致した。下記の実装例は`Interpolated`だが、`Discrete`でも同じ扱いでよい。
+
+**マルチバンドラスタでの注意**: `QgsSingleBandPseudoColorRenderer`に渡す`band`引数（下記実装例の`1`）は`.qml`に保存される。バンド構成の異なるラスタへ同じ`.qml`を流用すると意図しないバンドが描画されるため、流用時はバンド構成が一致するかを確認する。
 
 **実装例**:
 

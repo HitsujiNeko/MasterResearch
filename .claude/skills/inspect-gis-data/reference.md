@@ -13,7 +13,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | 項目 | 値の例 | 備考 |
 |---|---|---|
 | ファイル | `data/gis/survey/merge_DH.gpkg` | 相対パス・サイズ・更新日時 |
-| CRS | `EPSG:4326` / 空文字 | 空文字は「データ側に CRS 未定義」を意味する。Step 2 で想定 CRS を設定し重なりで確定 |
+| CRS | `EPSG:4326` / `null` / 空文字 | `null`・空文字はいずれも「データ側に CRS 未定義」を意味する。Step 2 で想定 CRS を設定し重なりで確定 |
 | レイヤ | `elements` | 複数レイヤなら各行に展開 |
 | ジオメトリ種別 | `Point` / `Unknown` | `Unknown` は混在の可能性（DGN 由来等） |
 | 地物数 | 104,317 | レイヤごと |
@@ -54,7 +54,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 
 - [ ] Step 1 の `build_data_inventory` 出力で CRS は正しく認識されているか
       （**`get_layer_crs` の `authid`・`is_geographic` を根拠にしない**）
-- [ ] CRS 未定義（Step 1 の `crs` が空文字）の場合、想定 CRS を `set_layer_crs` で設定したか
+- [ ] CRS 未定義（Step 1 の `crs` が `null` または空文字）の場合、想定 CRS を `set_layer_crs` で設定したか
       （ベトナム測量データの `merge_*.gpkg` は VN-2000 / TM-3 zone 482 = `EPSG:5897`）
 - [ ] 設定後、代表点を `transform_coordinates` で EPSG:4326 に変換し ROI 域内に落ちるか確認したか
 - [ ] VN-2000 等の投影座標系の場合、ROI（EPSG:4326）と正しく重なるか

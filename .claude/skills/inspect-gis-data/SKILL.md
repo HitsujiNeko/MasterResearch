@@ -38,8 +38,9 @@ description: "新規取得・受領したGISデータ1ファイルの定型確�
 
 - 出力される JSON（CRS・レイヤ・ジオメトリ種別・地物数・属性スキーマ・bbox・サイズ）を読み取り、
   ユーザーに要点を表形式で提示する（[reference.md](reference.md) の「メタデータ提示フォーマット」に従う）
-- **注意**: DGN 由来 GPKG など一部データは JSON の `crs` が空文字・`geometry_type` が `Unknown` になる。
-  これは異常ではなくデータの特性である。`crs` が空文字ならデータ側に CRS が未定義ということであり、
+- **注意**: DGN 由来 GPKG など一部データは JSON の `crs` が `null`・空文字（`build_data_inventory`
+  の実装によりいずれもあり得る）・`geometry_type` が `Unknown` になる。
+  これは異常ではなくデータの特性である。`crs` が `null` または空文字ならデータ側に CRS が未定義ということであり、
   Step 2 で想定 CRS を設定したうえで ROI との重なりを目視確認して確定する
   （**QGIS 側の `get_layer_crs` で補わない**。理由は
   [qgis_mcp_usage_guide.md の「CRSの確認手順」](../../../docs/02_methods/qgis_mcp_usage_guide.md#crsの確認手順)）
@@ -60,7 +61,7 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QG
    **`get_layer_crs` の `authid`・`is_geographic` を根拠にしない**（正しい CRS のデータでも
    `authid=''`・`is_geographic=false` を返す事例が実測されている。詳細は
    [qgis_mcp_usage_guide.md の「CRSの確認手順」](../../../docs/02_methods/qgis_mcp_usage_guide.md#crsの確認手順)）。
-   - **CRS が未定義**（Step 1 の `crs` が空文字）の場合、データは正しい位置に描画されず ROI と重ならない。
+   - **CRS が未定義**（Step 1 の `crs` が `null` または空文字）の場合、データは正しい位置に描画されず ROI と重ならない。
      想定される CRS（ベトナム測量データの `merge_*.gpkg` は VN-2000 / TM-3 zone 482 = `EPSG:5897`）を
      `set_layer_crs` で設定してから重ねる（`set_layer_crs` は再投影せず解釈を変えるだけ）。
      設定前に代表点を `transform_coordinates` で EPSG:4326 に変換し、ROI 域内に落ちるかで

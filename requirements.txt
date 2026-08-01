@@ -7,5 +7,6 @@ pandas
 numpy
 tqdm
 rasterio
+h5py
 requests
 scipy>=1.9

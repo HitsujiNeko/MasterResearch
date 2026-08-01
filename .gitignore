@@ -82,6 +82,9 @@ presentations/
 # Claude Code: 個人環境設定（環境依存の許可はここに置く）
 # =========================
 .claude/settings.local.json
+# settings.local.json から呼ぶフック。クライアント側の不具合の回避など
+# 環境依存の内容になるため、共有しない
+.claude/hooks/
 
 # =========================
 # 探索・単発スクリプト（テスト不要領域。再利用時は src/ へ昇格）

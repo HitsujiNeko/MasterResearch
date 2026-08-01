@@ -1,0 +1,223 @@
+{
+  "dataset": "NASA Black Marble VNP46A4（年次・月光/BRDF補正済み）",
+  "dataset_key": "black_marble_vnp46a4",
+  "archive_set": "5200",
+  "source": "https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A4/",
+  "license": "NASA オープンサイエンスポリシー",
+  "license_note": "出典表記は NASA VIIRS Land Science Team（Black Marble）に対して行う。取得には Earthdata アカウントの Bearer トークンが必要。",
+  "retrieved_at": "2026-07-29T11:15:58.936576+00:00",
+  "year": 2023,
+  "year_note": "VNP46A4 の提供は 2012 年から。本研究の Landsat 観測年（2023年）と一致しており、時間差はない。",
+  "access_note": "VNP46A4（年次）は Google Earth Engine に存在せず、LAADS DAAC から直接取得している。GEE で使えるのは日次の VNP46A2 / VNP46A1 のみ。",
+  "tiles": [
+    "h28v06"
+  ],
+  "tile_files": {
+    "h28v06": {
+      "name": "VNP46A4.A2023001.h28v06.002.2025162082259.h5",
+      "download_url": "https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/allData/5200/VNP46A4/2023/001/VNP46A4.A2023001.h28v06.002.2025162082259.h5",
+      "size_bytes": 119818130
+    }
+  },
+  "tile_metadata": {
+    "tile_shape": [
+      2400,
+      2400
+    ],
+    "pixel_size_deg": 0.004166666666666667,
+    "georeference_check": {
+      "tile": "h28v06",
+      "attribute_bounds": {
+        "west": 100.0,
+        "east": 110.0,
+        "north": 30.0,
+        "south": 20.0
+      },
+      "tile_index_bounds": {
+        "west": 100.0,
+        "east": 110.0,
+        "north": 30.0,
+        "south": 20.0
+      }
+    },
+    "band_attributes": {
+      "ntl_near_nadir": {
+        "scale_factor": 1.0,
+        "offset": 0.0,
+        "offset_attribute": "offset",
+        "fill_value": -999.9000244140625,
+        "fill_pixels": 2,
+        "units": "nWatts/(cm^2 sr)",
+        "long_name": "Temporal Radiance Composite Using Near Nadir Angle Observations (View Zenith Angle 0-20 degree) During Snow-free Period",
+        "defaulted_attributes": []
+      },
+      "ntl_all_angle": {
+        "scale_factor": 1.0,
+        "offset": 0.0,
+        "offset_attribute": "offset",
+        "fill_value": -999.9000244140625,
+        "fill_pixels": 2,
+        "units": "nWatts/(cm^2 sr)",
+        "long_name": "Temporal Radiance Composite Using All Observations During Snow-free Period",
+        "defaulted_attributes": []
+      },
+      "near_nadir_num": {
+        "scale_factor": 1.0,
+        "offset": 0.0,
+        "offset_attribute": "offset",
+        "fill_value": 65535,
+        "fill_pixels": 0,
+        "units": "number of observations",
+        "long_name": "Number of Observations of Temporal Radiance Composite Using Near Nadir Angle Observations (View Zenith Angle 0-20 degree) During Snow-free Period",
+        "defaulted_attributes": []
+      },
+      "near_nadir_std": {
+        "scale_factor": 1.0,
+        "offset": 0.0,
+        "offset_attribute": "offset",
+        "fill_value": -999.9000244140625,
+        "fill_pixels": 286,
+        "units": "nWatts/(cm^2 sr)",
+        "long_name": "Standard Deviation of Temporal Radiance Composite Using Near Nadir Angle Observations (View Zenith Angle 0-20 degree) During Snow-free Period",
+        "defaulted_attributes": []
+      }
+    }
+  },
+  "grid_note": "配布は 10°×10° タイル（原点 -180E/90N、15 arc-sec）。ジオリファレンスはタイル番号から組み立て、ファイルの境界座標属性と一致することを検証している。VIIRS DNB 年次コンポジットとはグリッド原点が半画素ずれるため、画素単位の突き合わせには再投影が要る。",
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "is_trial_run": false,
+  "area_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "crs": "EPSG:4326",
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "float32",
+    "band_count": 4,
+    "width": 176,
+    "height": 198,
+    "resolution": [
+      0.004166666666666667,
+      0.004166666666666667
+    ],
+    "bounds": {
+      "minx": 105.2875,
+      "miny": 20.5625,
+      "maxx": 106.02083333333333,
+      "maxy": 21.3875
+    },
+    "nodata": -9999.0
+  },
+  "bands": {
+    "1": {
+      "name": "ntl_near_nadir",
+      "source_sds": "NearNadir_Composite_Snow_Free",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "description": "近直下視（視野角 0-20°）の年次夜間光。月光・大気・BRDF 補正済みで、Black Marble の標準的な代表値"
+    },
+    "2": {
+      "name": "ntl_all_angle",
+      "source_sds": "AllAngle_Composite_Snow_Free",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "description": "全視野角を用いた年次夜間光。観測数が多いぶん安定するが視野角の影響を含む"
+    },
+    "3": {
+      "name": "near_nadir_num",
+      "source_sds": "NearNadir_Composite_Snow_Free_Num",
+      "unit": "観測回数",
+      "description": "近直下視の合成に用いた観測数。少ない画素は値の信頼度が低い"
+    },
+    "4": {
+      "name": "near_nadir_std",
+      "source_sds": "NearNadir_Composite_Snow_Free_Std",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "description": "近直下視の合成に用いた観測値の標準偏差。年内のばらつきの指標"
+    }
+  },
+  "pixel_stats": {
+    "total_pixels": 34848,
+    "roi_pixels": 16797,
+    "outside_roi_pixels": 18051,
+    "valid_pixels": 16797,
+    "valid_pixel_ratio": 1.0,
+    "primary_band": "ntl_near_nadir",
+    "covers_requested_area": true,
+    "ntl_near_nadir": {
+      "min": 0.0,
+      "max": 213.97984313964844,
+      "mean": 6.711721496957607,
+      "std": 9.584129446039064,
+      "median": 3.256925106048584,
+      "p95": 27.022684097289993,
+      "p99": 45.122064971923905,
+      "valid_pixels": 16797,
+      "valid_pixel_ratio": 1.0
+    },
+    "ntl_all_angle": {
+      "min": 0.5308194160461426,
+      "max": 124.3772201538086,
+      "mean": 7.383792221446814,
+      "std": 9.281431491342326,
+      "median": 3.963029146194458,
+      "p95": 28.250776672363262,
+      "p99": 43.88663574218759,
+      "valid_pixels": 16797,
+      "valid_pixel_ratio": 1.0
+    },
+    "near_nadir_num": {
+      "min": 2.0,
+      "max": 31.0,
+      "mean": 13.793832231946181,
+      "std": 2.785125368952938,
+      "median": 13.0,
+      "p95": 19.0,
+      "p99": 22.0,
+      "valid_pixels": 16797,
+      "valid_pixel_ratio": 1.0
+    },
+    "near_nadir_std": {
+      "min": 0.01653430610895157,
+      "max": 161.15032958984375,
+      "mean": 2.2638312502155205,
+      "std": 4.010506505468871,
+      "median": 1.0275906324386597,
+      "p95": 8.5914400100708,
+      "p99": 16.88370903015145,
+      "valid_pixels": 16797,
+      "valid_pixel_ratio": 1.0
+    },
+    "saturation": {
+      "ntl_near_nadir": {
+        "max": 213.97984313964844,
+        "p99": 45.122064971923905,
+        "p99_9": 77.00015444946509,
+        "p99_to_max_ratio": 0.21087063299918465,
+        "pixels_at_max": 1,
+        "pixels_near_max": 1,
+        "ratio_near_max": 5.9534440673929865e-05,
+        "neighborhood_ratio": 0.01
+      },
+      "ntl_all_angle": {
+        "max": 124.3772201538086,
+        "p99": 43.88663574218759,
+        "p99_9": 68.8545383911144,
+        "p99_to_max_ratio": 0.3528510742394473,
+        "pixels_at_max": 1,
+        "pixels_near_max": 1,
+        "ratio_near_max": 5.9534440673929865e-05,
+        "neighborhood_ratio": 0.01
+      }
+    }
+  },
+  "attribute_warnings": [],
+  "scaling_note": "スケール係数・オフセット・欠測値は SDS 属性から実測して適用している（tile_metadata.band_attributes に記録）。コード側では決め打ちしていない。属性が欠けていた場合は attribute_warnings に列挙する。空リストであれば、全バンドの換算がファイルの属性どおりに行われたことを意味する。",
+  "saturation_note": "飽和指標は放射輝度バンドについてのみ算出している。p99_to_max_ratio が 1 に近く、かつ ratio_near_max が無視できない大きさであれば、上位の値が最大値へ張り付いている（飽和が疑われる）。",
+  "coverage_note": "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は nodata（-9999.0）で埋まる。valid_pixel_ratio の分母 roi_pixels は**クリップ後の出力に含まれる ROI 内画素**であり、ROI 全体ではない。有効画素はバンドごとに別々に数えており、最上位の valid_pixels / valid_pixel_ratio はデータ被覆の指標として主バンド ntl_near_nadir で代表させている。",
+  "outputs": {
+    "geotiff": "data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif",
+    "summary": "data/output/open_gis/nighttime_lights_black_marble_vnp46a4_hanoi_2023_summary.json"
+  }
+}

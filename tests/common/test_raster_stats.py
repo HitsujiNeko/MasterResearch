@@ -27,13 +27,14 @@ class TestBuildBandStatistics:
 
     def test_aggregates_in_float64(self) -> None:
         """float32 の丸め誤差を拾わないよう float64 で集計する。"""
-        # float32 のまま累算すると平均が 1.0 からずれる規模の入力
-        values = np.full(10_000_000, 1.0, dtype=np.float32)
+        # float32 の有効桁（約7桁）を超える組み合わせ。float32 のまま累算すると
+        # 小さい側が丸め落ちし、平均が理論値から相対 5e-08 ほどずれる
+        values = np.array([1.0e8] + [1.0] * 1000, dtype=np.float32)
 
         stats = target.build_band_statistics(values)
 
         assert stats is not None
-        assert stats["mean"] == pytest.approx(1.0, abs=1e-12)
+        assert stats["mean"] == pytest.approx((1.0e8 + 1000.0) / 1001, rel=1e-12)
 
 
 class TestBuildSaturationIndicators:

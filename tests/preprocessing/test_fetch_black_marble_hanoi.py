@@ -445,10 +445,17 @@ class TestExtractListingEntries:
 
         assert entries[0].size_bytes == expected
 
-    def test_warns_when_size_cannot_be_parsed(self, caplog: pytest.LogCaptureFixture) -> None:
-        """解釈できないサイズは、検証が無効になることが分かるよう警告する。"""
+    @pytest.mark.parametrize("raw_size", ["unknown", "nan", "inf", "-inf", float("inf")])
+    def test_warns_when_size_cannot_be_parsed(
+        self, raw_size: Any, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """解釈できないサイズは、検証が無効になることが分かるよう警告する。
+
+        `nan` は ValueError、`inf` は OverflowError になる。捕まえ損ねると
+        「解釈できない値は None + 警告に落とす」という方針を素通りしてしまう。
+        """
         entry = self._entry("a.h5")
-        entry["size"] = "unknown"
+        entry["size"] = raw_size
 
         with caplog.at_level(logging.WARNING):
             entries = target.extract_listing_entries({"content": [entry]})

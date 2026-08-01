@@ -534,9 +534,10 @@ def parse_listing_size(raw_size: Any, file_name: str) -> int | None:
             return int(text)
         except ValueError:
             try:
-                # "1.19818130e8" のような表記に備える。整数化は切り捨てで足りる
+                # "1.19818130e8" のような表記に備える。整数化は切り捨てで足りる。
+                # NaN は ValueError、inf は OverflowError になるため両方を捕まえる
                 return int(float(text))
-            except ValueError:
+            except (ValueError, OverflowError):
                 pass
     if raw_size is None:
         return None

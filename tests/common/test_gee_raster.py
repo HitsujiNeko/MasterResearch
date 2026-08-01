@@ -7,6 +7,7 @@ ZIP 応答の取り出しを対象とする。
 from __future__ import annotations
 
 import io
+import logging
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -153,6 +154,32 @@ class TestDownloadGeeRaster:
         )
 
         assert destination.read_bytes() == b"PLAIN-GEOTIFF"
+
+    def test_warns_and_uses_first_when_zip_has_multiple_geotiffs(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """GeoTIFF が複数あれば、先頭を使い警告に全件を残す。
+
+        マルチバンドを1ファイルで要求しているため通常は1枚で、複数返るのは
+        前提が崩れたサインである。黙って先頭を採ると原因追跡ができなくなる。
+        """
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("first.tif", b"FIRST")
+            archive.writestr("second.tif", b"SECOND")
+        monkeypatch.setattr(target, "fetch_bytes_with_retry", lambda *a, **k: buffer.getvalue())
+
+        with caplog.at_level(logging.WARNING):
+            destination = target.download_gee_raster(
+                "https://example.invalid/x", tmp_path / "out.tif", timeout=10
+            )
+
+        assert destination.read_bytes() == b"FIRST"
+        assert "first.tif" in caplog.text
+        assert "second.tif" in caplog.text
 
     def test_raises_when_zip_has_no_geotiff(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

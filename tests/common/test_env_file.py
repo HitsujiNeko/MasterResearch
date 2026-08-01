@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import pytest
@@ -62,13 +63,6 @@ class TestLoadEnvFile:
 
         assert target.load_env_file(env_path) == {"EARTHDATA_TOKEN": "abc123"}
 
-    def test_resolves_secret_from_file_with_utf8_bom(self, tmp_path: Path) -> None:
-        """BOM 付きでも解決経路の端まで通る（回帰の検出点を実利用側にも置く）。"""
-        env_path = tmp_path / ".env"
-        env_path.write_text("EARTHDATA_TOKEN=abc123\n", encoding="utf-8-sig")
-
-        assert target.resolve_secret("EARTHDATA_TOKEN", {}, env_path) == "abc123"
-
     def test_keeps_hash_inside_value(self, tmp_path: Path) -> None:
         """値の途中の # は注釈にしない（トークンに # が含まれても壊さない）。"""
         env_path = tmp_path / ".env"
@@ -108,8 +102,6 @@ class TestLoadEnvFile:
 
         target.load_env_file(env_path)
 
-        import os
-
         assert "EARTHDATA_TOKEN" not in os.environ
 
 
@@ -133,6 +125,13 @@ class TestResolveSecret:
         env_path.write_text("EARTHDATA_TOKEN=from-file\n", encoding="utf-8")
 
         assert target.resolve_secret("EARTHDATA_TOKEN", {}, env_path) == "from-file"
+
+    def test_resolves_secret_from_file_with_utf8_bom(self, tmp_path: Path) -> None:
+        """BOM 付きでも解決経路の端まで通る（回帰の検出点を実利用側にも置く）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=abc123\n", encoding="utf-8-sig")
+
+        assert target.resolve_secret("EARTHDATA_TOKEN", {}, env_path) == "abc123"
 
     def test_blank_environment_variable_falls_back(self, tmp_path: Path) -> None:
         """空白だけの環境変数は未設定として扱い、`.env` へ落とす。"""

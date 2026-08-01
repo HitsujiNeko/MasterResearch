@@ -1,14 +1,16 @@
-"""roi.py（ROI読み込み）のテスト。"""
+"""roi.py（ROI読み込み・ラスタ上のROIマスク生成）のテスト。"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pytest
-from shapely.geometry import Polygon
+from rasterio.transform import from_origin
+from shapely.geometry import Polygon, box
 
-from src.common.roi import load_roi_geometry
+from src.common.roi import build_raster_roi_mask, load_roi_geometry
 
 
 def _make_roi_gdf(crs: str | None) -> gpd.GeoDataFrame:
@@ -51,3 +53,54 @@ def test_load_roi_geometry_crs_undefined_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         load_roi_geometry(roi_path)
+
+
+class TestBuildRasterRoiMask:
+    """build_raster_roi_mask のテスト。"""
+
+    # 1画素0.1度・4×4の格子（左上が経度105.0・緯度21.0）
+    PIXEL_SIZE_DEG = 0.1
+    SHAPE = (4, 4)
+    TRANSFORM = from_origin(105.0, 21.0, PIXEL_SIZE_DEG, PIXEL_SIZE_DEG)
+
+    def test_marks_only_pixels_inside_the_roi(self) -> None:
+        """ROI内の画素だけがTrueになる。"""
+        # 左上2×2画素ぶん（経度105.0-105.2 / 緯度20.8-21.0）を覆うROI
+        roi_gdf = gpd.GeoDataFrame(geometry=[box(105.0, 20.8, 105.2, 21.0)], crs="EPSG:4326")
+
+        mask = build_raster_roi_mask(
+            roi_gdf=roi_gdf, crs="EPSG:4326", shape=self.SHAPE, transform=self.TRANSFORM
+        )
+
+        assert mask.shape == self.SHAPE
+        assert np.count_nonzero(mask) == 4
+        assert mask[0, 0] and mask[1, 1]
+        assert not mask[2, 2]
+
+    def test_reprojects_roi_into_the_raster_crs(self) -> None:
+        """ラスタのCRSが違う場合、ROIを変換してからラスタライズする。
+
+        変換を忘れると例外にならないまま**全く別の場所**にマスクができるため、
+        投影座標系のROIを渡して同じ位置が選ばれることを確かめる。
+        """
+        roi_wgs84 = gpd.GeoDataFrame(geometry=[box(105.0, 20.8, 105.2, 21.0)], crs="EPSG:4326")
+        roi_projected = roi_wgs84.to_crs("EPSG:3857")
+
+        mask_from_projected = build_raster_roi_mask(
+            roi_gdf=roi_projected, crs="EPSG:4326", shape=self.SHAPE, transform=self.TRANSFORM
+        )
+        mask_from_wgs84 = build_raster_roi_mask(
+            roi_gdf=roi_wgs84, crs="EPSG:4326", shape=self.SHAPE, transform=self.TRANSFORM
+        )
+
+        assert np.array_equal(mask_from_projected, mask_from_wgs84)
+
+    def test_returns_all_false_when_roi_is_outside_the_raster(self) -> None:
+        """ラスタ範囲外のROIでは、全画素がFalseになる（例外にはしない）。"""
+        roi_gdf = gpd.GeoDataFrame(geometry=[box(100.0, 10.0, 100.1, 10.1)], crs="EPSG:4326")
+
+        mask = build_raster_roi_mask(
+            roi_gdf=roi_gdf, crs="EPSG:4326", shape=self.SHAPE, transform=self.TRANSFORM
+        )
+
+        assert not np.any(mask)

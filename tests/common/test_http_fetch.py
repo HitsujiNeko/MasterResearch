@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.request
 from typing import Any
 
 import pytest
@@ -428,3 +429,115 @@ def test_fetch_json_with_retry_rate_limit_backoff(monkeypatch: pytest.MonkeyPatc
 
     assert result == {"ok": True}
     assert sleep_calls == [60, 120, 240]
+
+
+class TestRestrictedRedirectHandler:
+    """RestrictedRedirectHandler のテスト。
+
+    `urllib` はリダイレクト時に `Authorization` を落とさない。初回 URL を検証する
+    だけでは、取得元が任意のホストへ 302 を返した時点でトークンが第三者へ渡る。
+    ここはその経路を塞げているかを固定する。
+    """
+
+    @staticmethod
+    def _request() -> urllib.request.Request:
+        """認証ヘッダー付きの元リクエストを作る。"""
+        return urllib.request.Request(
+            "https://allowed.example/x", headers={"Authorization": "Bearer dummy-token"}
+        )
+
+    def test_allows_redirect_to_allowed_host(self) -> None:
+        """許可ホストへのリダイレクトは、既定どおり追跡する。"""
+        handler = http_fetch.RestrictedRedirectHandler(frozenset({"allowed.example"}))
+
+        redirected = handler.redirect_request(
+            self._request(), None, 302, "Found", {}, "https://allowed.example/y"
+        )
+
+        assert redirected is not None
+        assert redirected.full_url == "https://allowed.example/y"
+
+    def test_keeps_authorization_header_within_allowed_host(self) -> None:
+        """許可ホスト内では認証ヘッダーが維持される（正常系を壊さない）。"""
+        handler = http_fetch.RestrictedRedirectHandler(frozenset({"allowed.example"}))
+
+        redirected = handler.redirect_request(
+            self._request(), None, 302, "Found", {}, "https://allowed.example/y"
+        )
+
+        assert redirected is not None
+        assert redirected.get_header("Authorization") == "Bearer dummy-token"
+
+    @pytest.mark.parametrize(
+        "redirect_url",
+        [
+            "https://evil.invalid/y",
+            "https://allowed.example.evil.invalid/y",
+            "http://allowed.example/y",
+        ],
+    )
+    def test_refuses_redirect_to_other_host(self, redirect_url: str) -> None:
+        """許可外ホスト・http への降格は、追跡せず中断する。
+
+        同一ホストでも http へ降格されればトークンが平文で流れるため、
+        スキームもあわせて確かめる。
+        """
+        handler = http_fetch.RestrictedRedirectHandler(frozenset({"allowed.example"}))
+
+        with pytest.raises(ValueError, match="許可していないホスト"):
+            handler.redirect_request(self._request(), None, 302, "Found", {}, redirect_url)
+
+
+def test_fetch_bytes_with_retry_restricts_redirects_when_hosts_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """allowed_redirect_hosts を渡すと、制限付きの opener を通して取得する。"""
+    captured: dict[str, Any] = {}
+
+    class _FakeOpener:
+        """`build_opener` の戻り値を模したダミー。"""
+
+        def open(self, request: Any, timeout: int) -> _FakeResponse:
+            """リクエストを記録し、成功レスポンスを返す。"""
+            captured["request"] = request
+            return _FakeResponse(b"OK")
+
+    def fake_build_opener(*handlers: Any) -> _FakeOpener:
+        """組み込まれたハンドラを記録し、ダミーの opener を返す。"""
+        captured["handlers"] = handlers
+        return _FakeOpener()
+
+    def fail_if_called(*args: Any, **kwargs: Any) -> _FakeResponse:
+        """制限付き取得では素の urlopen を使ってはいけない。"""
+        raise AssertionError("allowed_redirect_hosts 指定時は opener を使うこと")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "build_opener", fake_build_opener)
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fail_if_called)
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://allowed.example/x",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+        allowed_redirect_hosts=frozenset({"allowed.example"}),
+    )
+
+    assert result == b"OK"
+    assert isinstance(captured["handlers"][0], http_fetch.RestrictedRedirectHandler)
+    assert captured["handlers"][0].allowed_hosts == frozenset({"allowed.example"})
+
+
+def test_fetch_bytes_with_retry_uses_plain_urlopen_without_host_restriction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """allowed_redirect_hosts 未指定時は従来どおり urlopen を使う（後方互換）。"""
+
+    def fail_if_called(*args: Any, **kwargs: Any) -> Any:
+        """制限を課さない場合に opener を組んではいけない。"""
+        raise AssertionError("未指定時は build_opener を呼ばないこと")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "build_opener", fail_if_called)
+    monkeypatch.setattr(
+        http_fetch.urllib.request, "urlopen", lambda request, timeout: _FakeResponse(b"OK")
+    )
+
+    assert http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10) == b"OK"

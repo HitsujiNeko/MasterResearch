@@ -15,6 +15,7 @@ import json
 import logging
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -26,6 +27,65 @@ logger = logging.getLogger(__name__)
 PERMANENT_HTTP_STATUS_CODES = (400, 401, 403, 404, 405, 410)
 
 
+class RestrictedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """リダイレクト先を https の許可ホストだけに限るハンドラ。
+
+    `urllib` の既定の `HTTPRedirectHandler` は、リダイレクト時に
+    `Content-Length` と `Content-Type` しか落とさない。**`Authorization` は
+    リダイレクト先へそのまま引き継がれる**ため、取得元が任意のホストへ 302 を
+    返せば、初回 URL をいくら検証していてもトークンが第三者へ渡る。
+
+    認証ヘッダーを付けて取得する場合に、この制限を挟んで送信先を閉じる。
+    ホストに加えて **https であること**も求める。同一ホストでも http へ降格
+    されれば、トークンが平文で流れるため。
+    """
+
+    def __init__(self, allowed_hosts: frozenset[str]) -> None:
+        """許可ホストを保持する。
+
+        Args:
+            allowed_hosts: リダイレクトを許可するホスト名の集合。
+        """
+        super().__init__()
+        self.allowed_hosts = allowed_hosts
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        """リダイレクト先が許可ホストの場合だけ、既定の処理へ委ねる。
+
+        Args:
+            req: 元のリクエスト。
+            fp: レスポンスのファイルオブジェクト。
+            code: HTTP ステータスコード。
+            msg: ステータスメッセージ。
+            headers: レスポンスヘッダー。
+            newurl: リダイレクト先 URL。
+
+        Returns:
+            リダイレクト用のリクエスト。追跡しない場合は None。
+
+        Raises:
+            ValueError: リダイレクト先が https でない、または許可していない
+                ホストの場合。
+        """
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme != "https" or parsed.hostname not in self.allowed_hosts:
+            raise ValueError(
+                "許可していないホストへのリダイレクトを検出しました: "
+                f"{parsed.scheme}://{parsed.hostname}。"
+                "認証ヘッダーが第三者へ渡る・平文で流れるのを避けるため中断します"
+                f"（許可ホスト: {sorted(self.allowed_hosts)}、スキームは https のみ）。"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def fetch_bytes_with_retry(
     url: str,
     timeout: int,
@@ -34,6 +94,7 @@ def fetch_bytes_with_retry(
     rate_limit_max_retry_count: int = 6,
     rate_limit_base_wait_seconds: int = 60,
     headers: dict[str, str] | None = None,
+    allowed_redirect_hosts: frozenset[str] | None = None,
 ) -> bytes:
     """リトライ付きでURLからレスポンス本文をバイト列として取得する。
 
@@ -48,6 +109,10 @@ def fetch_bytes_with_retry(
     `headers` は Bearer トークン等の認証ヘッダーを要求するAPI（NASA LAADS DAAC 等）の
     ために用意している。**ヘッダーの内容はログに出力しない**（認証情報の漏洩を避けるため）。
 
+    認証ヘッダーを付ける場合は `allowed_redirect_hosts` も渡すこと。`urllib` は
+    リダイレクト時に `Authorization` を引き継ぐため、**初回 URL を検証するだけでは
+    リダイレクト先への流出を防げない**（`RestrictedRedirectHandler` 参照）。
+
     Args:
         url: リクエストURL。
         timeout: タイムアウト秒数。
@@ -56,17 +121,27 @@ def fetch_bytes_with_retry(
         rate_limit_max_retry_count: HTTP 429時の最大リトライ回数。
         rate_limit_base_wait_seconds: HTTP 429時の指数バックオフ起点秒数。
         headers: リクエストに付与するHTTPヘッダー。未指定時は付与しない。
+        allowed_redirect_hosts: リダイレクトを許可するホスト名の集合。未指定時は
+            urllib の既定どおり、リダイレクト先を制限しない。
 
     Returns:
         レスポンス本文のバイト列。
 
     Raises:
-        ValueError: url が http/https 以外のスキームの場合。
+        ValueError: url が http/https 以外のスキームの場合、または
+            `allowed_redirect_hosts` の外へリダイレクトされた場合。
         RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
             リトライしても解消しないHTTPステータスが返った場合。
     """
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"許可されていないURLスキームです: {url}")
+
+    # 制限を課すときだけ専用の opener を使う（既存の呼び出しの挙動を変えないため）
+    opener = (
+        None
+        if allowed_redirect_hosts is None
+        else urllib.request.build_opener(RestrictedRedirectHandler(allowed_redirect_hosts))
+    )
 
     last_error: Exception | None = None
     generic_attempt = 0
@@ -80,7 +155,8 @@ def fetch_bytes_with_retry(
         # ヘッダーはリダイレクト時に urllib 側が引き継ぐため、作り直しても失われない。
         request = urllib.request.Request(url, headers=headers or {})
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            open_request = urllib.request.urlopen if opener is None else opener.open
+            with open_request(request, timeout=timeout) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc
@@ -153,6 +229,7 @@ def fetch_json_with_retry(
     rate_limit_max_retry_count: int = 6,
     rate_limit_base_wait_seconds: int = 60,
     headers: dict[str, str] | None = None,
+    allowed_redirect_hosts: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """リトライ付きでURLからJSONレスポンスを取得する。
 
@@ -167,12 +244,15 @@ def fetch_json_with_retry(
         rate_limit_max_retry_count: HTTP 429時の最大リトライ回数。
         rate_limit_base_wait_seconds: HTTP 429時の指数バックオフ起点秒数。
         headers: リクエストに付与するHTTPヘッダー。未指定時は付与しない。
+        allowed_redirect_hosts: リダイレクトを許可するホスト名の集合。未指定時は
+            リダイレクト先を制限しない。
 
     Returns:
         JSONレスポンスをパースした辞書。
 
     Raises:
-        ValueError: url が http/https 以外のスキームの場合。
+        ValueError: url が http/https 以外のスキームの場合、または
+            `allowed_redirect_hosts` の外へリダイレクトされた場合。
         RuntimeError: リトライ上限を超えてもエラーが解消しない場合。
     """
     response_body = fetch_bytes_with_retry(
@@ -183,5 +263,6 @@ def fetch_json_with_retry(
         rate_limit_max_retry_count=rate_limit_max_retry_count,
         rate_limit_base_wait_seconds=rate_limit_base_wait_seconds,
         headers=headers,
+        allowed_redirect_hosts=allowed_redirect_hosts,
     )
     return json.loads(response_body.decode("utf-8"))

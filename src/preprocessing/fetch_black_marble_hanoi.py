@@ -22,6 +22,9 @@ NASA VIIRS Land Science Team（Black Marble）に対して行う。
 - **ダウンロード URL は自前で組み立てない**。公開パス
   （`/archive/allData/...`）はライセンス同意ページへ 303 されるため、
   一覧が返す `downloadsLink`（`/api/v2/content/archives/allData/...`）を使う。
+  ただし一覧の URL は外部由来のため、宛先は `ALLOWED_DOWNLOAD_HOSTS` へ限る。
+  `urllib` は `Authorization` をリダイレクト先へ引き継ぐので、初回 URL の検証
+  だけでは足りず、リダイレクト先も `ALLOWED_REDIRECT_HOSTS` で検証する。
 - 配布形式は HDF-EOS5（`.h5`）、10°×10° のタイル単位。h28v06 の 2023 年版は
   実測 119.8MB（製品ページ記載の「92MB」より大きい）。
   **本環境の GDAL は HDF5 ドライバなしでビルドされている**ため、読み込みには h5py を使う。
@@ -88,6 +91,10 @@ LICENSE_PATH_MARKER = "/profiles/licenses/"
 # Earthdata トークンを付けて叩いてよいホスト。一覧が返す URL は外部由来のため、
 # トークンの送信先をここに固定する。一覧 API と同じホストから導き、二重管理を避ける。
 ALLOWED_DOWNLOAD_HOSTS = frozenset({urllib.parse.urlparse(LAADS_DETAILS_API_BASE).hostname or ""})
+# リダイレクトを追ってよいホスト。未認証・未同意時の LAADS は Earthdata の OAuth へ
+# 転送するため、その正常系を通すには認証ホストも含める必要がある。
+EARTHDATA_OAUTH_HOST = "urs.earthdata.nasa.gov"
+ALLOWED_REDIRECT_HOSTS = ALLOWED_DOWNLOAD_HOSTS | {EARTHDATA_OAUTH_HOST}
 LAADS_ARCHIVE_SET = "5200"
 PRODUCT_NAME = "VNP46A4"
 # 年次プロダクトの day-of-year は常に 001
@@ -445,7 +452,10 @@ def fetch_tile_listing(year: int, headers: dict[str, str]) -> dict[str, Any]:
         RuntimeError: レスポンスが JSON として解釈できない場合。
     """
     response_body = fetch_bytes_with_retry(
-        build_listing_url(year), timeout=LISTING_TIMEOUT_SECONDS, headers=headers
+        build_listing_url(year),
+        timeout=LISTING_TIMEOUT_SECONDS,
+        headers=headers,
+        allowed_redirect_hosts=ALLOWED_REDIRECT_HOSTS,
     )
     try:
         return json.loads(response_body.decode("utf-8"))
@@ -482,10 +492,14 @@ def is_safe_download_url(url: str) -> bool:
     """一覧が返した URL を、認証ヘッダーを付けて叩いてよいか判定する。
 
     ファイル名と同じく、一覧の `downloadsLink` も外部由来の値である。この URL は
-    Earthdata の Bearer トークンを添えて取得する。`urllib` はリダイレクト先へも
-    `Request` のヘッダーを引き継ぐため、URL が別ホストを指しているとトークンが
-    第三者へ送られる。`find_license_gate` の経路は `fetch_bytes_with_retry` の
-    スキーム検証を通らないため、`file://` などもここで弾く。
+    Earthdata の Bearer トークンを添えて取得するため、宛先を許可ホストへ限る。
+    `find_license_gate` の経路は `fetch_bytes_with_retry` のスキーム検証を通らない
+    ため、`file://` などもここで弾く。
+
+    **本関数が見るのは初回 URL だけである**。`urllib` はリダイレクト先へも
+    `Authorization` を引き継ぐため、初回 URL の検証だけではリダイレクト経由の
+    流出を防げない。取得時には `allowed_redirect_hosts` を併せて渡すこと
+    （`ALLOWED_REDIRECT_HOSTS` / `RestrictedRedirectHandler` 参照）。
 
     Args:
         url: 一覧が返した URL。
@@ -777,7 +791,10 @@ def download_tile(
     logger.info("タイルをダウンロードします（%s）: %s", size_text, destination_path.name)
     try:
         response_body = fetch_bytes_with_retry(
-            tile_file.download_url, timeout=DOWNLOAD_TIMEOUT_SECONDS, headers=headers
+            tile_file.download_url,
+            timeout=DOWNLOAD_TIMEOUT_SECONDS,
+            headers=headers,
+            allowed_redirect_hosts=ALLOWED_REDIRECT_HOSTS,
         )
     except RuntimeError as exc:
         license_url = find_license_gate(tile_file.download_url, headers)

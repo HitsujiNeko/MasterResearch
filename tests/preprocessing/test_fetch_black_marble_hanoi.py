@@ -336,12 +336,23 @@ class TestFetchTileListing:
             target.fetch_tile_listing(2023, {})
 
     def test_passes_authorization_header(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """認証ヘッダーを取得処理へ渡す。"""
+        """認証ヘッダーと、リダイレクト先の許可ホストを取得処理へ渡す。
+
+        認証ヘッダーはリダイレクト先へ引き継がれるため、ヘッダーを付ける経路では
+        許可ホストの指定が伴っていないと送信先を閉じられない。
+        """
         recorded: dict[str, Any] = {}
 
-        def fake_fetch(url: str, timeout: int, headers: dict[str, str]) -> bytes:
+        def fake_fetch(
+            url: str,
+            timeout: int,
+            headers: dict[str, str],
+            allowed_redirect_hosts: frozenset[str] | None = None,
+        ) -> bytes:
+            """呼び出し引数を記録し、空の一覧を返す。"""
             recorded["url"] = url
             recorded["headers"] = headers
+            recorded["allowed_redirect_hosts"] = allowed_redirect_hosts
             return b'{"content": []}'
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", fake_fetch)
@@ -350,6 +361,7 @@ class TestFetchTileListing:
 
         assert recorded["headers"] == {"Authorization": "Bearer t"}
         assert "/5200/VNP46A4/2023/001" in recorded["url"]
+        assert recorded["allowed_redirect_hosts"] == target.ALLOWED_REDIRECT_HOSTS
 
 
 class TestExtractListingEntries:
@@ -869,9 +881,16 @@ class TestDownloadTile:
         """一覧が返した URL をそのまま使う（自前で組み立てない）。"""
         recorded: dict[str, Any] = {}
 
-        def fake_fetch(url: str, timeout: int, headers: dict[str, str]) -> bytes:
+        def fake_fetch(
+            url: str,
+            timeout: int,
+            headers: dict[str, str],
+            allowed_redirect_hosts: frozenset[str] | None = None,
+        ) -> bytes:
+            """呼び出し引数を記録し、タイル本体を返す。"""
             recorded["url"] = url
             recorded["headers"] = headers
+            recorded["allowed_redirect_hosts"] = allowed_redirect_hosts
             return self.TILE_BODY
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", fake_fetch)
@@ -885,6 +904,8 @@ class TestDownloadTile:
             == "https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/tile.h5"
         )
         assert recorded["headers"] == {"Authorization": "Bearer t"}
+        # 認証ヘッダーはリダイレクト先へ引き継がれるため、送信先の制限も伴う必要がある
+        assert recorded["allowed_redirect_hosts"] == target.ALLOWED_REDIRECT_HOSTS
 
     def test_refuses_to_cache_non_hdf5_response(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

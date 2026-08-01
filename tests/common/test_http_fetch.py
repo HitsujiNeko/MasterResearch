@@ -135,6 +135,7 @@ def test_fetch_bytes_with_retry_attaches_given_headers(
     captured: dict[str, Any] = {}
 
     def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        """渡された Request を記録し、常に成功レスポンスを返す。"""
         captured["request"] = request
         return _FakeResponse(b"OK")
 
@@ -158,6 +159,7 @@ def test_fetch_bytes_with_retry_without_headers_sends_no_extra_header(
     captured: dict[str, Any] = {}
 
     def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        """渡された Request を記録し、常に成功レスポンスを返す。"""
         captured["request"] = request
         return _FakeResponse(b"OK")
 
@@ -175,6 +177,11 @@ def test_fetch_bytes_with_retry_keeps_headers_across_retries(
     seen_tokens: list[str | None] = []
 
     def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        """Authorization ヘッダーを毎回記録し、初回だけ接続エラーを送出する。
+
+        Raises:
+            urllib.error.URLError: 初回呼び出し時。
+        """
         seen_tokens.append(request.get_header("Authorization"))
         if len(seen_tokens) < 2:
             raise urllib.error.URLError("temporary failure")

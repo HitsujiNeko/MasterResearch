@@ -11,7 +11,9 @@ Mines）に対して行う。
 制約メモ（2026-07-27 確認）:
 - **GEE のアセット ID はカタログページのスラッグと異なる**。カタログ URL は
   `NOAA_VIIRS_DNB_ANNUAL_V22` だが、実アセット ID は `NOAA/VIIRS/DNB/ANNUAL_V22`
-  （`DNB` の後がスラッシュ）。前者を指定すると `not found` になる。
+  （`DNB` の後がスラッシュ）。`NOAA_VIIRS_DNB_ANNUAL_V22` や
+  `NOAA/VIIRS/DNB_ANNUAL_V22`（`DNB` の後がアンダースコア）を指定すると
+  `not found` になる。
 - 提供年は V2.2 が 2022-2025 年（4枚）、V2.1 が 2013-2021 年（9枚）。本研究の Landsat
   観測年（2023年）は V2.2 に含まれるため、年次コンポジットを直接取得できる。
 - 画像の `system:index` は年初日（例 2023 年 → `20230101`）。
@@ -21,7 +23,7 @@ Mines）に対して行う。
 - ダウンロードは `scale` ではなくネイティブの `crs` / `crs_transform` を指定して行う
   （再投影のリサンプリングで放射輝度がならされるのを避けるため）。
 - GEE の GeoTIFF 出力はマスク画素を 0 で書き出すため、「夜間光 0 の場所」と「データ無し」が
-  区別できなくなる。ダウンロード前に `unmask(-9999)` して両者を分離する。
+  区別できなくなる。ダウンロード前に `OUTPUT_NODATA` で `unmask` して両者を分離する。
 """
 
 from __future__ import annotations

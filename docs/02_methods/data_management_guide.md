@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-07-16  
+**最終更新**: 2026-08-02  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -92,13 +92,14 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 1. **入力データと出力データを分離する** — 元データを保護し、再実行を容易にする
 2. **データの分類軸はカテゴリ（用途）で統一する** — ファイル形式やソース名で分けない
 3. **前処理で生成した空間データも、下流分析の入力であれば入力側に配置する** — 出自はファイル命名規則とGoogle Drive MCPでの検索により追跡する
-4. **衛星由来データと GIS データは別カテゴリとして管理する**
+4. **衛星由来データと GIS データは別カテゴリとして管理する** — 分ける基準は「由来が衛星かどうか」ではなく「本研究で自前に処理したかどうか」。センサ由来でも、配布元が完成品として提供するラスタ（夜間光・人口密度等）は公開GISデータとして `data/gis/{category}/` へ置く
 
 ### 6.2 配置先の判定ルール
 
 | データの性質 | 配置先 | 例 |
 |---|---|---|
-| 衛星由来の空間データ | `data/satellite/` | LST GeoTIFF, NDVI, NDWI |
+| 衛星画像から**自前で処理した**空間データ | `data/satellite/` | Landsat 8 の LST GeoTIFF, NDVI, NDWI |
+| **完成品として配布されている**衛星由来ラスタ | `data/gis/{category}/` | 夜間光（VIIRS DNB, VNP46A4）, 人口密度（WorldPop） |
 | GIS 空間データ（由来を問わない） | `data/gis/{category}/` | 建物 GPKG, 道路, DEM, ROI, 地図 |
 | 未加工のソースデータ | `data/gis/raw/` | geofabrik PBF |
 | 軽量な設定・テキスト | `data/input/` | 設定 CSV, テキスト |

@@ -882,6 +882,35 @@ def _to_python(value: Any) -> Any:
     return value
 
 
+def is_fill_value_representable(fill_value: Any, dtype: np.dtype) -> bool:
+    """`_FillValue` を、SDS の型でそのまま表現できるかを判定する。
+
+    欠測判定は生の値どうしの比較で行うため、`_FillValue` を配列の型へ合わせる。
+    このとき **整数型は範囲外の値を例外にせず黙って巻き戻す**（`-999.9` を
+    `uint16` にすると `64537`）。一致が 0 件になるだけで警告も出ないため、
+    配布バージョンが変わって型が食い違うと、`65535` のような番兵値が実測値と
+    して統計・飽和指標に混入する。
+
+    浮動小数点型は丸めが起きるだけで、欠測画素も同じ丸めを経た値を持つため
+    比較は成立する。よって検査は整数型に限る。
+
+    Args:
+        fill_value: 属性から読んだ `_FillValue`。
+        dtype: SDS の配列の型。
+
+    Returns:
+        その型で表現できれば True。
+    """
+    if not np.issubdtype(dtype, np.integer):
+        return True
+    try:
+        cast_value = np.array(fill_value).astype(dtype)
+        return float(cast_value) == float(fill_value)
+    except (TypeError, ValueError, OverflowError):
+        # 配列・文字列など、そもそも数値として扱えない値
+        return False
+
+
 def read_scaled_sds(
     h5_file: h5py.File,
     sds_name: str,
@@ -906,6 +935,9 @@ def read_scaled_sds(
     （実際に `add_offset` の想定は外れていた）。呼び出し側はこれをサマリー最上位へ
     引き上げ、成果物だけを見ても検知できる状態にする。
 
+    属性はあるが配列の型で表現できない `_FillValue`（整数型への範囲外の値は
+    黙って巻き戻る）も、同じく欠測なしとして続行し `unusable_attributes` に残す。
+
     Args:
         h5_file: 開いた HDF5 ファイル。
         sds_name: 読み出す SDS 名。
@@ -914,6 +946,7 @@ def read_scaled_sds(
     Returns:
         (スケール適用済みの 2 次元配列, 適用した属性の記録)。記録の
         `defaulted_attributes` には、属性が無く既定値で代用した項目名が入る。
+        `unusable_attributes` には、属性はあるが適用できなかった項目名が入る。
 
     Raises:
         KeyError: SDS が存在しない場合。
@@ -950,15 +983,25 @@ def read_scaled_sds(
         )
 
     fill_value = attributes.get("_FillValue")
+    unusable_attributes: list[str] = []
     # 欠測判定はスケール適用前の生の値で行う（浮動小数点化で一致しなくなるのを避ける）
-    fill_mask = (
-        np.zeros(raw_values.shape, dtype=bool)
-        if fill_value is None
-        else raw_values == np.array(fill_value, dtype=raw_values.dtype)
-    )
     if fill_value is None:
+        fill_mask = np.zeros(raw_values.shape, dtype=bool)
         defaulted_attributes.append("_FillValue")
         logger.warning("SDS %s に _FillValue 属性がありません。欠測なしとして扱います。", sds_name)
+    elif not is_fill_value_representable(fill_value, raw_values.dtype):
+        # 巻き戻った値で比較しても意味が無いため、欠測なしとして扱ったうえで記録する
+        fill_mask = np.zeros(raw_values.shape, dtype=bool)
+        unusable_attributes.append("_FillValue")
+        logger.warning(
+            "SDS %s の _FillValue（%r）を配列の型（%s）で表現できません。"
+            "欠測なしとして扱います（番兵値が実測値として混入する恐れがあります）。",
+            sds_name,
+            fill_value,
+            raw_values.dtype,
+        )
+    else:
+        fill_mask = raw_values == np.array(fill_value, dtype=raw_values.dtype)
 
     # CF 規約の換算式。add_offset は加算side（減算する製品もあるため docstring 参照）
     scaled_values = raw_values.astype(np.float64) * scale_factor + add_offset
@@ -974,6 +1017,7 @@ def read_scaled_sds(
         "units": attributes.get("units"),
         "long_name": attributes.get("long_name"),
         "defaulted_attributes": defaulted_attributes,
+        "unusable_attributes": unusable_attributes,
     }
     return scaled_values, applied
 
@@ -1107,6 +1151,11 @@ def collect_attribute_warnings(tile_metadata: dict[str, Any]) -> list[str]:
             warnings.append(
                 f"{band_name}: SDS 属性 {attribute_name} が無く既定値で代用した"
                 "（配布側の属性名が変わっていないか確認すること）"
+            )
+        for attribute_name in applied.get("unusable_attributes", []):
+            warnings.append(
+                f"{band_name}: SDS 属性 {attribute_name} は存在するが配列の型で"
+                "表現できず適用できなかった（配布側の型が変わっていないか確認すること）"
             )
     return warnings
 

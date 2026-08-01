@@ -1630,6 +1630,67 @@ class TestReadScaledSdsMissingAttributes:
             _, applied = target.read_scaled_sds(h5_file, "NearNadir_Composite_Snow_Free")
 
         assert applied["defaulted_attributes"] == []
+        assert applied["unusable_attributes"] == []
+
+
+class TestFillValueRepresentability:
+    """`_FillValue` の型不一致の扱いのテスト。
+
+    整数型は範囲外の値を例外にせず巻き戻すため（`-999.9` → `uint16` は `64537`）、
+    型が食い違うと一致 0 件になるだけで警告も出ない。番兵値（`65535` 等）が実測値
+    として統計へ混入する経路を塞げているかを固定する。
+    """
+
+    @pytest.mark.parametrize(
+        ("fill_value", "dtype", "expected"),
+        [
+            (65535, np.dtype(np.uint16), True),
+            (255, np.dtype(np.uint8), True),
+            (-999.9, np.dtype(np.uint16), False),
+            (-999.9, np.dtype(np.uint8), False),
+            (70000, np.dtype(np.uint16), False),
+            (-999.9, np.dtype(np.float32), True),
+            ("bad", np.dtype(np.uint16), False),
+            ([1, 2], np.dtype(np.uint16), False),
+        ],
+    )
+    def test_judges_representability(self, fill_value: Any, dtype: Any, expected: bool) -> None:
+        """整数型では範囲外・非整数を弾き、浮動小数点型は丸めとして許す。"""
+        assert target.is_fill_value_representable(fill_value, dtype) is expected
+
+    @staticmethod
+    def _write_tile_with_mismatched_fill_value(path: Path, tile: target.TileIndex) -> None:
+        """uint16 の SDS に float の _FillValue を付けた合成タイルを書き出す。"""
+        west, south, east, north = target.compute_tile_bounds(tile)
+        bounds = {"west": west, "east": east, "north": north, "south": south}
+        with h5py.File(path, "w") as h5_file:
+            for key, attribute_name in target.BOUNDING_COORD_ATTRIBUTES.items():
+                h5_file.attrs[attribute_name] = np.float64(bounds[key])
+            group = h5_file.create_group(target.SDS_GROUP_PATH)
+            for index, band in enumerate(target.BAND_DEFINITIONS, start=1):
+                dataset = group.create_dataset(
+                    band.sds_name,
+                    data=np.full((FAKE_TILE_PIXELS, FAKE_TILE_PIXELS), index * 10, dtype=np.uint16),
+                )
+                dataset.attrs["scale_factor"] = np.float64(1.0)
+                dataset.attrs["offset"] = np.float64(0.0)
+                # uint16 の配列に対し、表現できない値を _FillValue として与える
+                dataset.attrs["_FillValue"] = np.float64(-999.9)
+
+    def test_records_unusable_fill_value_instead_of_silently_matching_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        """型が合わない _FillValue は適用せず、記録に残す。"""
+        tile_path = tmp_path / "tile.h5"
+        self._write_tile_with_mismatched_fill_value(tile_path, target.TileIndex(28, 6))
+
+        with h5py.File(tile_path, "r") as h5_file:
+            _, applied = target.read_scaled_sds(h5_file, "NearNadir_Composite_Snow_Free")
+
+        assert applied["unusable_attributes"] == ["_FillValue"]
+        # 属性自体は存在するため、欠落側には入れない
+        assert applied["defaulted_attributes"] == []
+        assert applied["fill_pixels"] == 0
 
 
 class TestCollectAttributeWarnings:
@@ -1650,9 +1711,31 @@ class TestCollectAttributeWarnings:
         assert "ntl_near_nadir" in warnings[0]
         assert "scale_factor" in warnings[0]
 
+    def test_lists_unusable_attributes_per_band(self) -> None:
+        """適用できなかった属性も、欠落と区別できる文言で列挙する。"""
+        metadata = {
+            "band_attributes": {
+                "near_nadir_num": {
+                    "defaulted_attributes": [],
+                    "unusable_attributes": ["_FillValue"],
+                }
+            }
+        }
+
+        warnings = target.collect_attribute_warnings(metadata)
+
+        assert len(warnings) == 1
+        assert "near_nadir_num" in warnings[0]
+        assert "_FillValue" in warnings[0]
+        assert "表現できず" in warnings[0]
+
     def test_returns_empty_when_all_attributes_present(self) -> None:
         """欠落が無ければ空リスト（サマリー上で「問題なし」と読める）。"""
-        metadata = {"band_attributes": {"ntl_near_nadir": {"defaulted_attributes": []}}}
+        metadata = {
+            "band_attributes": {
+                "ntl_near_nadir": {"defaulted_attributes": [], "unusable_attributes": []}
+            }
+        }
 
         assert target.collect_attribute_warnings(metadata) == []
 

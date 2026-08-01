@@ -17,7 +17,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import Polygon, box
 
 from src.common import raster_area as target
-from tests.conftest import HANOI_ROI_BOUNDS
+from tests.helpers import HANOI_ROI_BOUNDS
 
 
 class TestValidateBbox:

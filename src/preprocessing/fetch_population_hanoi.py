@@ -38,8 +38,6 @@ from typing import Any
 import ee
 import geopandas as gpd
 import numpy as np
-import rasterio
-from rasterio.crs import CRS
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
 from src.common.gee import authenticate_gee, load_gee_project_id
@@ -484,20 +482,14 @@ def clip_and_write(
         ValueError: ソースラスタの CRS が未定義、地理座標系でない場合、
             またはバンド数が 1 でない場合。
     """
-    with rasterio.open(source_path) as source:
-        source_crs = source.crs
-        if source_crs is None:
-            raise ValueError(f"ソースラスタの CRS が未定義です: {source_path}")
-        # 密度導出は「セルの辺が度で表される」前提の測地計算を行う。投影座標系のラスタを
-        # 渡すとメートル値を度として扱い、例外にならないまま誤った面積になる
-        if not CRS.from_user_input(source_crs).is_geographic:
-            raise ValueError(
-                "地理座標系（度単位）のラスタのみに対応しています"
-                f"（検出した CRS: {source_crs.to_string()}）。"
-            )
-
+    # 密度導出は「セルの辺が度で表される」前提の測地計算を行う。投影座標系のラスタを
+    # 渡すとメートル値を度として扱い、例外にならないまま誤った面積になる。
+    # CRS の検証は読み取り側へ委ね、同じファイルを二度開かないようにする
     clipped = read_clipped_float_array(
-        source_path=source_path, area_gdf=area_gdf, nodata=OUTPUT_NODATA
+        source_path=source_path,
+        area_gdf=area_gdf,
+        nodata=OUTPUT_NODATA,
+        require_geographic=True,
     )
     if clipped.array.shape[0] != 1:
         # 人口カウントは単一バンドで要求している。数が違えば以降のバンドの

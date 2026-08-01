@@ -100,6 +100,16 @@ Hanoi ROIでの実データ取得結果は5章に記載する（採用可否は�
 ## 5. Hanoi ROI での取得結果
 
 取得スクリプト: `src/preprocessing/fetch_viirs_dnb_hanoi.py`（VIIRS DNB）/ `src/preprocessing/fetch_black_marble_hanoi.py`（Black Marble）
+比較スクリプト: `src/analysis/compare_nighttime_lights_viirs_blackmarble.py`
+
+**QGISスタイル**: `qgis/styles/nighttime_lights_radiance.qml`（両データセット共有。「同じ色＝同じ放射輝度」で直接比較できるよう、9区分の分類を共通化している）
+
+**スクリーンショット**:
+
+- `images/gis_data/nighttime_lights/nighttime_lights_viirs_dnb_hanoi_2023.png`
+- `images/gis_data/nighttime_lights/nighttime_lights_black_marble_hanoi_2023.png`
+
+いずれも上記の共有スタイルを適用しており、凡例の色と値域は2枚で一致する。最上位区分（> 100 nW·cm⁻²·sr⁻¹）は VIIRS DNB のROI内には該当画素が無いが、データセット間で色の意味を揃えるため意図的に残している。
 
 ### 5.1 VIIRS DNB 年次コンポジット V2.2（2023年）
 
@@ -144,7 +154,7 @@ Hanoi ROIでの実データ取得結果は5章に記載する（採用可否は�
 | 項目 | 結果 |
 |---|---|
 | 出力CRS | EPSG:4326 |
-| 解像度 | 0.0041666667°（15 arc-sec、タイルは2400×2400） |
+| 解像度 | 0.004166666666666667°（＝1/240、15 arc-sec。タイルは2400×2400） |
 | 出力サイズ | 176 × 198 画素（4バンド）、ROI内 16,797 画素 |
 | 有効画素率 | **1.0000**（全バンド。ROI内に欠測なし） |
 | ROI被覆 | `covers_requested_area = True` |

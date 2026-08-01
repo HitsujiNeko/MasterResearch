@@ -16,6 +16,7 @@ from typing import Any
 import geopandas as gpd
 import numpy as np
 import rasterio
+from rasterio.crs import CRS
 from rasterio.features import geometry_mask
 from rasterio.mask import mask
 from rasterio.transform import array_bounds
@@ -148,6 +149,7 @@ def read_clipped_float_array(
     area_gdf: gpd.GeoDataFrame,
     nodata: float = DEFAULT_RASTER_NODATA,
     coverage_tolerance: float = COVERAGE_TOLERANCE_DEG,
+    require_geographic: bool = False,
 ) -> ClippedArea:
     """ラスタを対象範囲でクリップし、無効値を統一した float32 配列として読む。
 
@@ -159,7 +161,7 @@ def read_clipped_float_array(
 
     - **無効値の埋め込みは float32 へ変換した後に行う**。`rasterio.mask.mask` に
       `nodata` を渡すと、ソースの dtype のまま埋めてしまう。整数のソースへ -9999 を
-      渡すと環り込んで（uint16 なら 55537）別の値になり、宣言した無効値がファイル内に
+      渡すと回り込んで（uint16 なら 55537）別の値になり、宣言した無効値がファイル内に
       一切存在しない状態になる。統計は `area_mask` で絞るため `valid_pixel_ratio` は
       1.0 のままで、サマリーからは検知できない。
     - **ソースに含まれる NaN も `nodata` へ置き換える**。NaN を残すと `x != nodata` の
@@ -175,17 +177,29 @@ def read_clipped_float_array(
         nodata: 無効値。
         coverage_tolerance: 被覆判定で許容する座標のずれ。**単位はソースの CRS に従う**
             ため、投影座標系のソースを扱う場合は既定値（度想定）を見直すこと。
+        require_geographic: True なら地理座標系（度単位）のソースのみ受け付ける。
+            セル面積を「辺が度」として求める処理へ渡す場合に指定する。呼び出し側で
+            別途 `rasterio.open` して検証すると同じファイルを二度開くことになるため、
+            ここで開いているうちに確かめる。
 
     Returns:
         クリップ後の配列と、統計計算に必要なマスク・被覆判定。
 
     Raises:
-        ValueError: ソースの CRS が未定義の場合。
+        ValueError: ソースの CRS が未定義の場合、または `require_geographic` を
+            指定したのにソースが地理座標系でない場合。
     """
     with rasterio.open(source_path) as source:
         if source.crs is None:
             raise ValueError(f"ソースラスタの CRS が未定義です: {source_path}")
         source_crs = source.crs
+        # クリップより前に弾く。後段で気づくと、範囲が重ならない等の分かりにくい
+        # エラーに化けて原因が読めなくなる
+        if require_geographic and not CRS.from_user_input(source_crs).is_geographic:
+            raise ValueError(
+                "地理座標系（度単位）のラスタのみに対応しています"
+                f"（検出した CRS: {source_crs.to_string()}）。"
+            )
         area_in_source_crs = area_gdf.to_crs(source_crs)
         shapes = [geometry.__geo_interface__ for geometry in area_in_source_crs.geometry]
         # filled=False でマスク配列のまま受け取り、float32 化してから埋める。

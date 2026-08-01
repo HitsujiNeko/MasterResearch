@@ -20,7 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 
 from src.preprocessing import fetch_viirs_dnb_hanoi as target
-from tests.conftest import HANOI_ROI_BOUNDS, make_fake_build_target_area
+from tests.helpers import HANOI_ROI_BOUNDS, make_fake_build_target_area
 
 # VIIRS DNB 年次コンポジットの実測ネイティブ投影（GEE の projection().getInfo() の戻り値）
 VIIRS_PROJECTION = {
@@ -368,7 +368,9 @@ class TestBuildPixelStatistics:
             covers_area=True,
         )
 
-        expected = {band.output_name for band in target.BAND_DEFINITIONS if band.is_radiance}
+        expected = {
+            band.output_name for band in target.BAND_DEFINITIONS if band.is_saturation_target
+        }
         assert set(stats["saturation"]) == expected
         assert "cf_cvg" not in stats["saturation"]
 

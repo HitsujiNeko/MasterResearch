@@ -20,7 +20,7 @@ from shapely.geometry import box
 
 from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_glc_fcs30d_hanoi as target
-from tests.conftest import HANOI_ROI_BOUNDS
+from tests.helpers import HANOI_ROI_BOUNDS
 
 
 class TestBandIndexForYear:

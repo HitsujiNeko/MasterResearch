@@ -1,7 +1,7 @@
 """fetch_black_marble_hanoi.py（NASA Black Marble VNP46A4 取得スクリプト）のテスト。
 
 ネットワークアクセスを伴わない純粋関数を中心とする。HDF5 の読み取りは、合成した
-小さな `.h5` を書き出して検証する（配布物の 92MB タイルには依存させない）。
+小さな `.h5` を書き出して検証する（配布物の 119.8MB タイルには依存させない）。
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import pytest
 import rasterio
 
 from src.preprocessing import fetch_black_marble_hanoi as target
-from tests.conftest import HANOI_ROI_BOUNDS, make_fake_build_target_area
+from tests.helpers import HANOI_ROI_BOUNDS, make_fake_build_target_area
 
 # 合成タイルの一辺の画素数（実物は 2400。テストでは小さくして扱いやすくする）
 FAKE_TILE_PIXELS = 20
@@ -410,6 +410,39 @@ class TestExtractListingEntries:
         entries = target.extract_listing_entries({"content": [entry]})
 
         assert entries[0].size_bytes is None
+
+    @pytest.mark.parametrize(
+        ("raw_size", "expected"),
+        [
+            (119818130, 119818130),
+            ("119818130", 119818130),
+            (119818130.0, 119818130),
+            ("  119818130  ", 119818130),
+        ],
+    )
+    def test_accepts_size_in_other_representations(self, raw_size: Any, expected: int) -> None:
+        """サイズが文字列・浮動小数点で返る版でも受け取る。
+
+        int 決め打ちにすると None になり、ダウンロードサイズの検証が例外にも
+        警告にもならず飛ばされる。
+        """
+        entry = self._entry("a.h5")
+        entry["size"] = raw_size
+
+        entries = target.extract_listing_entries({"content": [entry]})
+
+        assert entries[0].size_bytes == expected
+
+    def test_warns_when_size_cannot_be_parsed(self, caplog: pytest.LogCaptureFixture) -> None:
+        """解釈できないサイズは、検証が無効になることが分かるよう警告する。"""
+        entry = self._entry("a.h5")
+        entry["size"] = "unknown"
+
+        with caplog.at_level(logging.WARNING):
+            entries = target.extract_listing_entries({"content": [entry]})
+
+        assert entries[0].size_bytes is None
+        assert "検証を行いません" in caplog.text
 
     @pytest.mark.parametrize(
         "unsafe_name",
@@ -1229,7 +1262,9 @@ class TestRunEndToEnd:
         saturation = json.loads(summary_path.read_text(encoding="utf-8"))["pixel_stats"][
             "saturation"
         ]
-        expected = {band.output_name for band in target.BAND_DEFINITIONS if band.is_radiance}
+        expected = {
+            band.output_name for band in target.BAND_DEFINITIONS if band.is_saturation_target
+        }
         assert set(saturation) == expected
         for indicators in saturation.values():
             # log_results が参照するキーが揃っていること

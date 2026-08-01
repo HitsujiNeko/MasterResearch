@@ -265,8 +265,10 @@ def compute_grid_offset(reference: dict[str, Any], comparison: dict[str, Any]) -
         "longitude_in_pixels": longitude_difference / float(reference_transform.a),
         "latitude_in_pixels": latitude_difference / float(reference_transform.e),
         "note": (
-            "割合が 0.5 前後であれば半画素ずれを意味する。VIIRS DNB は画素中心が"
-            "整数度グリッドに載り、Black Marble はタイル境界が整数度に載るため生じる。"
+            "割合の絶対値が 0.5 前後であれば半画素ずれを意味する。VIIRS DNB は画素中心"
+            "が整数度グリッドに載り、Black Marble はタイル境界が整数度に載るため生じる。"
+            "緯度側は北向きを正とするアフィン変換の係数（transform.e）が負のため、"
+            "北へずれると符号が負になる（例: -0.5）。"
         ),
     }
 
@@ -438,9 +440,12 @@ def build_zone_masks(
             "ROI の重心を使うと市街地の最輝部から外れ、飽和が最も起きやすい場所が"
             "どちらのゾーンにも入らないことがあるため、輝度側から決めている。"
             "距離は経度差に緯度の余弦を掛けて等方に近づけたうえで求め、その四分位で"
-            "都心側・外縁側に分ける。距離は順位付けにのみ用いるため測地距離ではない。"
-            "閾値は基準データセット側で決め、比較側にも同じ距離閾値を適用する"
-            "（ゾーンを地理的に一致させ、母集団の違いを持ち込まないため）。"
+            "都心側・外縁側に分ける。閾値は基準データセット側で決め、比較側にも同じ"
+            "距離閾値を適用する（ゾーンを地理的に一致させ、母集団の違いを持ち込まない"
+            "ため）。**inner_threshold_deg / outer_threshold_deg の単位は度であり、"
+            "投影座標系による測地距離ではない**。本研究は面積・距離の算出に投影座標系"
+            "を用いる方針だが、ここでの距離は画素を重心からの遠近で順位付けし分位点で"
+            "切るためだけに使い、絶対値を解釈しないため度のままとしている。"
         ),
     }
     return inner_mask, outer_mask, zone_note
@@ -479,8 +484,17 @@ def compute_bright_core_anchor(
 
     Returns:
         (経度, 緯度)。
+
+    Raises:
+        ValueError: ROI 内に有効画素が 1 つも無い場合。
     """
     valid_mask = roi_mask & (reference["values"] != NODATA)
+    # ROI 内が全て無効値だと、この先の分位点計算が numpy の空配列エラーになる。
+    # 呼び出し元の「ROI 内の画素がありません」ガードと粒度を揃えて先に弾く
+    if not np.any(valid_mask):
+        raise ValueError(
+            "ROI 内に有効画素がありません。ラスタの無効値と ROI の位置関係を確認してください。"
+        )
     threshold = float(np.percentile(reference["values"][valid_mask], BRIGHT_CORE_PERCENTILE))
     bright_mask = valid_mask & (reference["values"] >= threshold)
     longitude_grid, latitude_grid = pixel_center_coordinates(reference)

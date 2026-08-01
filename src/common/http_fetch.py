@@ -20,6 +20,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# リトライしても解消しないHTTPステータス。認証・権限・不在は待っても直らないため、
+# 待機を挟まず即座に投げ直す。とくに401はトークン失効で頻出し、リトライすると
+# 原因の分かるメッセージが出るまで待たされる（既定では約30秒）。
+PERMANENT_HTTP_STATUS_CODES = (400, 401, 403, 404, 405, 410)
+
 
 def fetch_bytes_with_retry(
     url: str,
@@ -32,11 +37,13 @@ def fetch_bytes_with_retry(
 ) -> bytes:
     """リトライ付きでURLからレスポンス本文をバイト列として取得する。
 
-    通常のエラー（接続エラー・HTTP 429以外のHTTPエラー）は max_retry_count 回まで
+    通常のエラー（接続エラー・一時的なHTTPエラー）は max_retry_count 回まで
     retry_wait_seconds 秒間隔でリトライする。
     HTTP 429（レート制限）はRetry-Afterを返さないサーバーを想定し、
     rate_limit_base_wait_seconds 秒を起点とした指数バックオフで
     rate_limit_max_retry_count 回までリトライする（通常リトライとは別枠でカウントする）。
+    **認証・権限・不在（`PERMANENT_HTTP_STATUS_CODES`）はリトライしない**。待っても
+    解消せず、原因の分かるメッセージが出るまで無駄に待たせるだけのため。
 
     `headers` は Bearer トークン等の認証ヘッダーを要求するAPI（NASA LAADS DAAC 等）の
     ために用意している。**ヘッダーの内容はログに出力しない**（認証情報の漏洩を避けるため）。
@@ -55,7 +62,8 @@ def fetch_bytes_with_retry(
 
     Raises:
         ValueError: url が http/https 以外のスキームの場合。
-        RuntimeError: リトライ上限を超えてもエラーが解消しない場合。
+        RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
+            リトライしても解消しないHTTPステータスが返った場合。
     """
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"許可されていないURLスキームです: {url}")
@@ -93,6 +101,14 @@ def fetch_bytes_with_retry(
                 )
                 time.sleep(wait_seconds)
                 continue
+
+            if exc.code in PERMANENT_HTTP_STATUS_CODES:
+                # 待っても解消しない。トークン失効（401）等の原因を即座に伝える
+                raise RuntimeError(
+                    f"リトライしても解消しないHTTPエラーです（{exc.code}）。"
+                    "認証情報・権限・URLを確認してください。"
+                    f"詳細: {exc}"
+                ) from exc
 
             generic_attempt += 1
             logger.warning(

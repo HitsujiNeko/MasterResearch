@@ -20,7 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 
 from src.preprocessing import fetch_population_hanoi as target
-from tests.conftest import HANOI_ROI_BOUNDS, make_fake_build_target_area
+from tests.helpers import HANOI_ROI_BOUNDS, make_fake_build_target_area
 
 
 class _FakeFilter:

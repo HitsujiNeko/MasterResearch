@@ -15,6 +15,21 @@ import numpy as np
 # 飽和判定で「最大値の近傍」とみなす既定の相対幅。max の 1% 以内を同一水準として数える。
 DEFAULT_SATURATION_NEIGHBORHOOD_RATIO = 0.01
 
+# `build_multiband_pixel_statistics` がバンド別統計と同じ階層に置く固定キー。
+# バンド名がこれらと重なると統計が上書きされるため、事前に弾く。
+RESERVED_STATISTICS_KEYS = frozenset(
+    {
+        "total_pixels",
+        "roi_pixels",
+        "outside_roi_pixels",
+        "valid_pixels",
+        "valid_pixel_ratio",
+        "primary_band",
+        "covers_requested_area",
+        "saturation",
+    }
+)
+
 
 def build_band_statistics(values: np.ndarray) -> dict[str, float] | None:
     """有効画素の記述統計を求める。
@@ -106,6 +121,11 @@ def build_multiband_pixel_statistics(
     最上位の `valid_pixels` / `valid_pixel_ratio` は**データ被覆の指標**として
     `primary_band` で代表させる。分母は対象範囲内の画素数（ROI 全体ではない）。
 
+    出力キー `roi_pixels` は `area_mask` が True の画素数であり、**試行実行
+    （`--bbox` 指定）では ROI ではなく指定 BBOX 内の画素数**になる。名称は既存の
+    サマリー JSON との互換のため据え置いているので、試行実行かどうかは同じ
+    サマリーの `is_trial_run` で判断すること。
+
     Args:
         band_arrays: バンド名 -> 2 次元配列。
         area_mask: 対象範囲内を True とする 2 次元マスク。
@@ -127,6 +147,15 @@ def build_multiband_pixel_statistics(
     missing_saturation_bands = [name for name in saturation_bands if name not in band_arrays]
     if missing_saturation_bands:
         raise KeyError(f"飽和指標の対象バンドが入力に含まれていません: {missing_saturation_bands}")
+    # バンド別統計は固定キーと同じ階層に置くため、名前が衝突すると上書きが起き、
+    # 例外にならないまま統計が静かに壊れる（後段の saturation の代入が典型）。
+    # 階層はサマリー JSON の既存構造なので変えず、衝突を明示的に弾く
+    conflicting_band_names = sorted(set(band_arrays) & RESERVED_STATISTICS_KEYS)
+    if conflicting_band_names:
+        raise ValueError(
+            f"バンド名が統計の予約キーと衝突しています: {conflicting_band_names}。"
+            f"予約キー: {sorted(RESERVED_STATISTICS_KEYS)}"
+        )
 
     # 形状が揃っていないと numpy の不可解な IndexError になるか、
     # 条件次第でブロードキャストされて誤った集計が静かに通る

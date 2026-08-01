@@ -84,7 +84,7 @@ class BandDefinition:
     unit: str
     description: str
     # 飽和評価の対象とするか（放射輝度バンドのみ True）
-    is_radiance: bool
+    is_saturation_target: bool
 
 
 # 新しい年ほど先に並べる（`resolve_collection` は先頭から順に該当を探すため、
@@ -124,7 +124,7 @@ BAND_DEFINITIONS: tuple[BandDefinition, ...] = (
         output_name="avg_radiance",
         unit=RADIANCE_UNIT,
         description="年次平均放射輝度（背景・生物発光を除去していない生の合成値）",
-        is_radiance=True,
+        is_saturation_target=True,
     ),
     BandDefinition(
         source_name="average_masked",
@@ -135,21 +135,21 @@ BAND_DEFINITIONS: tuple[BandDefinition, ...] = (
             "背景と判定された画素の扱いは配布データ側に依存し、0 で現れる場合と"
             "マスク（nodata）で現れる場合がある"
         ),
-        is_radiance=True,
+        is_saturation_target=True,
     ),
     BandDefinition(
         source_name="cf_cvg",
         output_name="cf_cvg",
         unit="観測回数",
         description="合成に用いた雲なし観測の回数。少ない画素は平均値の信頼度が低い",
-        is_radiance=False,
+        is_saturation_target=False,
     ),
     BandDefinition(
         source_name="maximum",
         output_name="max_radiance",
         unit=RADIANCE_UNIT,
         description="年次の最大放射輝度。都市中心部の飽和状況の確認に用いる",
-        is_radiance=True,
+        is_saturation_target=True,
     ),
 )
 
@@ -341,7 +341,9 @@ def build_pixel_statistics(
         covers_area=covers_area,
         primary_band=PRIMARY_BAND_NAME,
         nodata=OUTPUT_NODATA,
-        saturation_bands=[band.output_name for band in BAND_DEFINITIONS if band.is_radiance],
+        saturation_bands=[
+            band.output_name for band in BAND_DEFINITIONS if band.is_saturation_target
+        ],
     )
 
 

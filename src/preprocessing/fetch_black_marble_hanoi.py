@@ -23,7 +23,7 @@ NASA VIIRS Land Science Team（Black Marble）に対して行う。
   （`/archive/allData/...`）はライセンス同意ページへ 303 されるため、
   一覧が返す `downloadsLink`（`/api/v2/content/archives/allData/...`）を使う。
 - 配布形式は HDF-EOS5（`.h5`）、10°×10° のタイル単位。h28v06 の 2023 年版は
-  実測 約 120MB（製品ページの「92MB」より大きい）。
+  実測 119.8MB（製品ページ記載の「92MB」より大きい）。
   **本環境の GDAL は HDF5 ドライバなしでビルドされている**ため、読み込みには h5py を使う。
 - タイルは 10°グリッド（原点 -180E/90N、h は西→東、v は北→南）。Hanoi ROI
   （経度 105.29-106.02、緯度 20.56-21.39）は `h28v06` 1 タイルに収まる。
@@ -77,7 +77,7 @@ from src.common.summary import save_summary
 
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "data" / "gis" / "nighttime_lights" / "black_marble"
 DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
-# ダウンロードした .h5 タイルの保存先。1 タイル約 92MB のため再実行で再取得しない。
+# ダウンロードした .h5 タイルの保存先。1 タイル 100MB 超のため再実行で再取得しない。
 DEFAULT_CACHE_DIR = PROJECT_ROOT / "data" / "gis" / "raw" / "black_marble"
 # トークンの変数名。環境変数またはリポジトリ直下の .env（Git 管理外）から読む。
 EARTHDATA_TOKEN_ENV_VAR = "EARTHDATA_TOKEN"
@@ -90,7 +90,7 @@ PRODUCT_NAME = "VNP46A4"
 # 年次プロダクトの day-of-year は常に 001
 ANNUAL_DAY_OF_YEAR = "001"
 
-# LAADS の一覧取得は軽いが、タイル本体は 92MB 級のため別のタイムアウトを与える
+# LAADS の一覧取得は軽いが、タイル本体は 100MB 超のため別のタイムアウトを与える
 LISTING_TIMEOUT_SECONDS = 120
 DOWNLOAD_TIMEOUT_SECONDS = 1800
 
@@ -173,8 +173,9 @@ class BandDefinition:
     output_name: str
     unit: str
     description: str
-    # 飽和評価の対象とするか（放射輝度バンドのみ True）
-    is_radiance: bool
+    # 飽和評価の対象とするか。放射輝度そのものを表す合成バンドのみ True で、
+    # 同じ単位でも意味が異なるバンド（標準偏差など）や観測回数は対象外にする
+    is_saturation_target: bool
 
 
 # 出力バンドの並び（1始まりのバンド番号に対応）
@@ -187,28 +188,28 @@ BAND_DEFINITIONS: tuple[BandDefinition, ...] = (
             "近直下視（視野角 0-20°）の年次夜間光。月光・大気・BRDF 補正済みで、"
             "Black Marble の標準的な代表値"
         ),
-        is_radiance=True,
+        is_saturation_target=True,
     ),
     BandDefinition(
         sds_name="AllAngle_Composite_Snow_Free",
         output_name="ntl_all_angle",
         unit=RADIANCE_UNIT,
         description="全視野角を用いた年次夜間光。観測数が多いぶん安定するが視野角の影響を含む",
-        is_radiance=True,
+        is_saturation_target=True,
     ),
     BandDefinition(
         sds_name="NearNadir_Composite_Snow_Free_Num",
         output_name="near_nadir_num",
         unit="観測回数",
         description="近直下視の合成に用いた観測数。少ない画素は値の信頼度が低い",
-        is_radiance=False,
+        is_saturation_target=False,
     ),
     BandDefinition(
         sds_name="NearNadir_Composite_Snow_Free_Std",
         output_name="near_nadir_std",
         unit=RADIANCE_UNIT,
         description="近直下視の合成に用いた観測値の標準偏差。年内のばらつきの指標",
-        is_radiance=False,
+        is_saturation_target=False,
     ),
 )
 
@@ -474,6 +475,43 @@ def is_safe_tile_file_name(name: str) -> bool:
     return not any(character in name for character in UNSAFE_FILE_NAME_CHARACTERS)
 
 
+def parse_listing_size(raw_size: Any, file_name: str) -> int | None:
+    """一覧が返すファイルサイズを整数へ変換する。
+
+    サイズは `download_tile` の「転送が途中で切れていないか」の検証に使う唯一の
+    手掛かりで、None にすると**検証が例外にも警告にもならず飛ばされる**。配布側の
+    属性は実際に想定と違っていた前例（`add_offset` ではなく `offset`）があるため、
+    型を int に決め打ちせず、文字列・浮動小数点でも受け取る。解釈できない場合は
+    「検証が無効になる」ことが分かるよう警告を残す。
+
+    Args:
+        raw_size: 一覧の `size` の生の値。
+        file_name: 警告に添えるファイル名。
+
+    Returns:
+        バイト数。解釈できない場合は None。
+    """
+    # bool は int の派生だがサイズとしては無意味なので先に弾く
+    if raw_size is not None and not isinstance(raw_size, bool):
+        text = str(raw_size).strip()
+        try:
+            return int(text)
+        except ValueError:
+            try:
+                # "1.19818130e8" のような表記に備える。整数化は切り捨てで足りる
+                return int(float(text))
+            except ValueError:
+                pass
+    if raw_size is None:
+        return None
+    logger.warning(
+        "一覧の %s のサイズを解釈できません（値: %r）。ダウンロードサイズの検証を行いません。",
+        file_name,
+        raw_size,
+    )
+    return None
+
+
 def extract_listing_entries(listing: dict[str, Any]) -> list[TileFile]:
     """LAADS の一覧レスポンスからファイル情報を取り出す。
 
@@ -516,12 +554,11 @@ def extract_listing_entries(listing: dict[str, Any]) -> list[TileFile]:
             # URL が無いと取得できない。件数だけ合っていても意味がないため落とさず記録する
             logger.warning("一覧の %s に downloadsLink がありません。対象から外します。", name)
             continue
-        size_bytes = entry.get("size")
         tile_files.append(
             TileFile(
                 name=name,
                 download_url=download_url,
-                size_bytes=int(size_bytes) if isinstance(size_bytes, int) else None,
+                size_bytes=parse_listing_size(entry.get("size"), name),
             )
         )
 
@@ -1097,8 +1134,7 @@ def build_summary(
     year_note = f"{PRODUCT_NAME} の提供は {FIRST_AVAILABLE_YEAR} 年から。"
     if year == LANDSAT_OBSERVATION_YEAR:
         year_note += (
-            f"本研究の Landsat 観測年（{LANDSAT_OBSERVATION_YEAR}年）と一致しており、"
-            "時間差はない。"
+            f"本研究の Landsat 観測年（{LANDSAT_OBSERVATION_YEAR}年）と一致しており、時間差はない。"
         )
     else:
         year_note += (
@@ -1167,9 +1203,12 @@ def build_summary(
             "全バンドの換算がファイルの属性どおりに行われたことを意味する。"
         ),
         "saturation_note": (
-            "飽和指標は放射輝度バンドについてのみ算出している。p99_to_max_ratio が 1 に"
-            "近く、かつ ratio_near_max が無視できない大きさであれば、上位の値が"
-            "最大値へ張り付いている（飽和が疑われる）。"
+            "飽和指標は、放射輝度そのものを表す合成バンド（ntl_near_nadir / "
+            "ntl_all_angle）についてのみ算出している。near_nadir_std は単位こそ同じ"
+            "放射輝度だが年内のばらつきを表す量で、上限への張り付きという意味を持た"
+            "ないため対象外とした。near_nadir_num は観測回数で単位が異なる。"
+            "p99_to_max_ratio が 1 に近く、かつ ratio_near_max が無視できない大きさで"
+            "あれば、上位の値が最大値へ張り付いている（飽和が疑われる）。"
         ),
         "coverage_note": (
             "ROI ポリゴンで真にクリップしているため出力は BBOX 矩形となり、ROI 外の余白は "
@@ -1279,7 +1318,9 @@ def run(
         covers_area=clip_result.covers_area,
         primary_band=PRIMARY_BAND_NAME,
         nodata=OUTPUT_NODATA,
-        saturation_bands=[band.output_name for band in BAND_DEFINITIONS if band.is_radiance],
+        saturation_bands=[
+            band.output_name for band in BAND_DEFINITIONS if band.is_saturation_target
+        ],
     )
 
     if clip_result.raster_profile["crs"] != WGS84_CRS:

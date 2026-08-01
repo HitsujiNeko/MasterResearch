@@ -3,6 +3,11 @@
 取得スクリプトはいずれも `src.common.raster_area.build_target_area` で取得範囲を
 組み立てる。テストでは実 ROI（Git 管理外の Shapefile）に依存させたくないため、
 同じシグネチャの代替をここに1つ置いて各テストから使う。
+
+`conftest.py` ではなく通常モジュールとして置くのは、`conftest.py` が pytest に
+自動読み込みされる特別なファイルであり、そこから `import` するとフィクスチャ収集の
+仕組みと通常の import 経路が二重に噛み合うため。共有定数・ヘルパーは素直に
+モジュールとして公開する。
 """
 
 from __future__ import annotations

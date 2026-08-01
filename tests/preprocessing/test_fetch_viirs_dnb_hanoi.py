@@ -191,6 +191,21 @@ class TestResolveCollection:
 class TestResolveOutputPaths:
     """resolve_output_paths のテスト。"""
 
+    @pytest.fixture(autouse=True)
+    def _redirect_default_roots(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """既定の出力ルートを tmp_path へ向ける。
+
+        `resolve_output_paths` は `prepare_output_path` を通り、親ディレクトリを
+        実際に `mkdir` する。差し替えないと、テストが作業ツリーへ成果物用の
+        ディレクトリを作ってしまう。
+
+        Args:
+            monkeypatch: 定数差し替え用のフィクスチャ。
+            tmp_path: 出力先として使う一時ディレクトリ。
+        """
+        monkeypatch.setattr(target, "DEFAULT_OUTPUT_ROOT", tmp_path / "gis" / "viirs_dnb")
+        monkeypatch.setattr(target, "DEFAULT_SUMMARY_DIR", tmp_path / "output" / "open_gis")
+
     def test_builds_default_paths_from_year(self) -> None:
         """既定では年つきのファイル名になる。"""
         output_path, summary_path = target.resolve_output_paths(2023, None, None)

@@ -85,6 +85,9 @@ EARTHDATA_TOKEN_ENV_VAR = "EARTHDATA_TOKEN"
 LAADS_DETAILS_API_BASE = "https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/details/allData"
 # ライセンス未同意時のリダイレクト先に現れるパス断片
 LICENSE_PATH_MARKER = "/profiles/licenses/"
+# Earthdata トークンを付けて叩いてよいホスト。一覧が返す URL は外部由来のため、
+# トークンの送信先をここに固定する。一覧 API と同じホストから導き、二重管理を避ける。
+ALLOWED_DOWNLOAD_HOSTS = frozenset({urllib.parse.urlparse(LAADS_DETAILS_API_BASE).hostname or ""})
 LAADS_ARCHIVE_SET = "5200"
 PRODUCT_NAME = "VNP46A4"
 # 年次プロダクトの day-of-year は常に 001
@@ -475,6 +478,25 @@ def is_safe_tile_file_name(name: str) -> bool:
     return not any(character in name for character in UNSAFE_FILE_NAME_CHARACTERS)
 
 
+def is_safe_download_url(url: str) -> bool:
+    """一覧が返した URL を、認証ヘッダーを付けて叩いてよいか判定する。
+
+    ファイル名と同じく、一覧の `downloadsLink` も外部由来の値である。この URL は
+    Earthdata の Bearer トークンを添えて取得する。`urllib` はリダイレクト先へも
+    `Request` のヘッダーを引き継ぐため、URL が別ホストを指しているとトークンが
+    第三者へ送られる。`find_license_gate` の経路は `fetch_bytes_with_retry` の
+    スキーム検証を通らないため、`file://` などもここで弾く。
+
+    Args:
+        url: 一覧が返した URL。
+
+    Returns:
+        スキームが https で、かつ許可したホストであれば True。
+    """
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme == "https" and parsed.hostname in ALLOWED_DOWNLOAD_HOSTS
+
+
 def parse_listing_size(raw_size: Any, file_name: str) -> int | None:
     """一覧が返すファイルサイズを整数へ変換する。
 
@@ -554,6 +576,14 @@ def extract_listing_entries(listing: dict[str, Any]) -> list[TileFile]:
             # URL が無いと取得できない。件数だけ合っていても意味がないため落とさず記録する
             logger.warning("一覧の %s に downloadsLink がありません。対象から外します。", name)
             continue
+        if not is_safe_download_url(download_url):
+            # トークンを添えて叩く先のため、想定外のホスト・スキームは使わない
+            logger.warning(
+                "一覧の %s の downloadsLink が想定外の宛先です。対象から外します: %r",
+                name,
+                download_url,
+            )
+            continue
         tile_files.append(
             TileFile(
                 name=name,
@@ -618,7 +648,12 @@ def find_license_gate(download_url: str, headers: dict[str, str]) -> str | None:
 
     Returns:
         ライセンス同意ページの URL。ライセンスが原因でなければ None。
+        URL が想定外の宛先の場合も None（トークンを送らずに打ち切る）。
     """
+    if not is_safe_download_url(download_url):
+        # 認証ヘッダーを付けて開くため、想定外の宛先は確認そのものを行わない
+        logger.warning("想定外の宛先のためライセンス確認を行いません: %r", download_url)
+        return None
 
     class _NoRedirect(urllib.request.HTTPRedirectHandler):
         """リダイレクトを追わず、Location をそのまま観察するためのハンドラ。"""
@@ -704,9 +739,17 @@ def download_tile(
         保存したパス。
 
     Raises:
-        RuntimeError: ダウンロードに失敗した場合、または取得した内容が HDF5 で
-            ない・サイズが一覧の値と一致しない場合。
+        RuntimeError: ダウンロードに失敗した場合、取得した内容が HDF5 でない・
+            サイズが一覧の値と一致しない場合、またはダウンロード URL が
+            想定外の宛先の場合。
     """
+    if not is_safe_download_url(tile_file.download_url):
+        # 一覧の解析側でも弾いているが、トークンの送信先はこの関数の入口でも確かめる
+        raise RuntimeError(
+            f"ダウンロード URL が想定外の宛先です（{tile_file.name}）: {tile_file.download_url!r}。"
+            f"許可しているホスト: {sorted(ALLOWED_DOWNLOAD_HOSTS)}"
+        )
+
     if destination_path.exists():
         with destination_path.open("rb") as cached_file:
             cached_head = cached_file.read(len(HDF5_SIGNATURE))

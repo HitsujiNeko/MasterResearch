@@ -360,7 +360,7 @@ class TestExtractListingEntries:
         """LAADS の実レスポンスに合わせたエントリを作る。"""
         return {
             "name": name,
-            "downloadsLink": f"https://example.invalid/api/v2/content/archives/{name}",
+            "downloadsLink": f"https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/{name}",
             "size": 119818130,
             "resourceType": "File",
         }
@@ -469,6 +469,33 @@ class TestExtractListingEntries:
         """実際の配布ファイル名は安全と判定される（過剰な拒否をしない）。"""
         assert target.is_safe_tile_file_name("VNP46A4.A2023001.h28v06.002.2025162082259.h5")
 
+    @pytest.mark.parametrize(
+        "unsafe_url",
+        [
+            "http://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/a.h5",
+            "https://evil.invalid/api/v2/content/archives/a.h5",
+            "https://ladsweb.modaps.eosdis.nasa.gov.evil.invalid/a.h5",
+            "file:///etc/passwd",
+        ],
+    )
+    def test_skips_entry_whose_download_url_points_elsewhere(self, unsafe_url: str) -> None:
+        """想定外の宛先の URL は対象から外す。
+
+        この URL は Earthdata の Bearer トークンを添えて叩く。別ホストを指していると
+        トークンが第三者へ送られる。
+        """
+        entry = self._entry("a.h5")
+        entry["downloadsLink"] = unsafe_url
+
+        with pytest.raises(RuntimeError, match="取り出せませんでした"):
+            target.extract_listing_entries({"content": [entry]})
+
+    def test_accepts_actual_distribution_download_url(self) -> None:
+        """実際の配信 URL は安全と判定される（過剰な拒否をしない）。"""
+        assert target.is_safe_download_url(
+            "https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/allData/5200/a.h5"
+        )
+
     def test_raises_when_content_is_missing(self) -> None:
         """content が無ければ、返ってきたキーを添えて例外にする。"""
         with pytest.raises(RuntimeError, match="content 配列がありません"):
@@ -486,7 +513,10 @@ class TestSelectTileFiles:
     @staticmethod
     def _tile_file(name: str) -> target.TileFile:
         """テスト用のファイル情報を作る。"""
-        return target.TileFile(name=name, download_url=f"https://example.invalid/{name}")
+        return target.TileFile(
+            name=name,
+            download_url=f"https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/{name}",
+        )
 
     def test_selects_file_for_requested_tile(self) -> None:
         """タイル名を含むファイルを選ぶ。"""
@@ -803,7 +833,7 @@ class TestDownloadTile:
         """
         return target.TileFile(
             name="tile.h5",
-            download_url="https://example.invalid/api/v2/content/archives/tile.h5",
+            download_url="https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/tile.h5",
             size_bytes=len(cls.TILE_BODY) if size_bytes is None else size_bytes,
         )
 
@@ -850,7 +880,10 @@ class TestDownloadTile:
             self._tile_file(), tmp_path / "tile.h5", headers={"Authorization": "Bearer t"}
         )
 
-        assert recorded["url"] == "https://example.invalid/api/v2/content/archives/tile.h5"
+        assert (
+            recorded["url"]
+            == "https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/tile.h5"
+        )
         assert recorded["headers"] == {"Authorization": "Bearer t"}
 
     def test_refuses_to_cache_non_hdf5_response(
@@ -905,12 +938,30 @@ class TestDownloadTile:
         """一覧にサイズが無い場合は、サイズ照合を飛ばして保存する。"""
         monkeypatch.setattr(target, "fetch_bytes_with_retry", lambda *a, **k: self.TILE_BODY)
         tile_file = target.TileFile(
-            name="tile.h5", download_url="https://example.invalid/tile.h5", size_bytes=None
+            name="tile.h5",
+            download_url="https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/tile.h5",
+            size_bytes=None,
         )
 
         result = target.download_tile(tile_file, tmp_path / "tile.h5", headers={})
 
         assert result.read_bytes() == self.TILE_BODY
+
+    def test_refuses_download_url_pointing_elsewhere(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """想定外の宛先の URL には、トークンを送らずに例外で止まる。"""
+
+        def fail_if_called(*args: Any, **kwargs: Any) -> bytes:
+            raise AssertionError("想定外の宛先へリクエストしてはいけない")
+
+        monkeypatch.setattr(target, "fetch_bytes_with_retry", fail_if_called)
+        tile_file = target.TileFile(
+            name="tile.h5", download_url="https://evil.invalid/tile.h5", size_bytes=None
+        )
+
+        with pytest.raises(RuntimeError, match="想定外の宛先"):
+            target.download_tile(tile_file, tmp_path / "tile.h5", headers={"Authorization": "t"})
 
     def test_reports_license_gate_with_actionable_url(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -1003,7 +1054,7 @@ class TestBuildSummary:
             tile_files={
                 "h28v06": target.TileFile(
                     name="VNP46A4.A2023001.h28v06.002.x.h5",
-                    download_url="https://example.invalid/api/v2/content/archives/x.h5",
+                    download_url="https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/x.h5",
                     size_bytes=119818130,
                 )
             },
@@ -1185,7 +1236,7 @@ class TestRunEndToEnd:
                 "content": [
                     {
                         "name": file_name,
-                        "downloadsLink": f"https://example.invalid/api/v2/content/archives/{file_name}",
+                        "downloadsLink": f"https://ladsweb.modaps.eosdis.nasa.gov/api/v2/content/archives/{file_name}",
                         "size": 119818130,
                     }
                 ]
@@ -1404,7 +1455,7 @@ class TestFindLicenseGate:
 
         self._install_opener(monkeypatch, raiser)
 
-        assert target.find_license_gate("https://example.invalid/x.h5", {}) is None
+        assert target.find_license_gate("https://ladsweb.modaps.eosdis.nasa.gov/x.h5", {}) is None
 
     def test_returns_none_when_location_is_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Location が無いエラー（401 等）でも落ちずに None を返す。"""
@@ -1414,7 +1465,7 @@ class TestFindLicenseGate:
 
         self._install_opener(monkeypatch, raiser)
 
-        assert target.find_license_gate("https://example.invalid/x.h5", {}) is None
+        assert target.find_license_gate("https://ladsweb.modaps.eosdis.nasa.gov/x.h5", {}) is None
 
     def test_returns_none_when_request_succeeds(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """そもそも成功する URL ならライセンスは原因ではない。"""
@@ -1428,7 +1479,7 @@ class TestFindLicenseGate:
 
         self._install_opener(monkeypatch, lambda: _FakeResponse())
 
-        assert target.find_license_gate("https://example.invalid/x.h5", {}) is None
+        assert target.find_license_gate("https://ladsweb.modaps.eosdis.nasa.gov/x.h5", {}) is None
 
     def test_returns_none_on_connection_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """切り分けの補助なので、ここでの通信失敗は握って元エラーを優先する。"""
@@ -1438,7 +1489,22 @@ class TestFindLicenseGate:
 
         self._install_opener(monkeypatch, raiser)
 
-        assert target.find_license_gate("https://example.invalid/x.h5", {}) is None
+        assert target.find_license_gate("https://ladsweb.modaps.eosdis.nasa.gov/x.h5", {}) is None
+
+    def test_does_not_open_url_pointing_elsewhere(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """想定外の宛先には認証ヘッダーを送らず、確認そのものを行わない。
+
+        この経路は `fetch_bytes_with_retry` のスキーム検証を通らないため、
+        ここで弾かないと `file://` などがそのまま `opener.open` へ渡る。
+        """
+
+        def raiser() -> Any:
+            raise AssertionError("想定外の宛先を開いてはいけない")
+
+        self._install_opener(monkeypatch, raiser)
+
+        assert target.find_license_gate("file:///etc/passwd", {}) is None
+        assert target.find_license_gate("https://evil.invalid/x.h5", {}) is None
 
 
 class TestRunInspection:

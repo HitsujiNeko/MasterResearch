@@ -169,9 +169,7 @@ git commit -m "Stop tracking generated outputs"
 下流パイプラインが要求する形式（ヘッダー有無・改行コード等）を維持したまま
 いつでも再生成できることを確認してから解除する（例: `prepare_bs_horizon_input.py`）。
 
----
-
-## 7.4 データインベントリの自動生成
+### 7.4 データインベントリの自動生成
 
 `data/` は Git 管理外のため、リポジトリだけでは手元にどのデータがあるか分からない。
 そこで `data/gis/` と `data/satellite/` を走査し、各ファイルのメタデータを

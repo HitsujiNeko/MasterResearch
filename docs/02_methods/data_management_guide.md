@@ -148,7 +148,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 
 | 変数 | 用途 | 発行・再発行 | 有効期限 |
 |---|---|---|---|
-| `EARTHDATA_TOKEN` | NASA Earthdata。LAADS DAACからのBlack Marble（VNP46A4）取得 | [LAADS DAAC プロフィール](https://ladsweb.modaps.eosdis.nasa.gov/profile/#generate-token)（事前に [Earthdata アカウント](https://urs.earthdata.nasa.gov/)が必要） | **2026-09-25 08:41 EDT に失効**。同ページで `Expires at` を確認し、失効後は再発行して `.env` を差し替える |
+| `EARTHDATA_TOKEN` | NASA Earthdata。LAADS DAACからのBlack Marble（VNP46A4）取得 | [LAADS DAAC プロフィール](https://ladsweb.modaps.eosdis.nasa.gov/profile/#generate-token)（事前に [Earthdata アカウント](https://urs.earthdata.nasa.gov/)が必要） | **正本は同ページの `Expires at`**。再発行すると変わるため、失効前に確認して `.env` を差し替える（2026-07-29 時点の発行分は 2026-09-25 08:41 EDT 失効） |
 
 - **トークンの失効は取得の 401 として現れる**。取得スクリプトは「トークンが無効・期限切れの可能性」を示すメッセージを出すので、まず有効期限を疑う
 - **トークンとは別に、対象プロダクトのデータ利用許諾への同意が要る**。未同意だと 401 ではなくライセンス同意ページへ 303 されるため、症状が似ていて紛らわしい。同意はブラウザで Earthdata にログインした状態で当該ページを開いて行う

@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-07-16  
+**最終更新**: 2026-08-02  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -45,6 +45,9 @@ MasterResearch/
     ├── roads/
     ├── boundaries/
     ├── dem/
+    ├── lulc/
+    ├── population/
+    ├── nighttime_lights/
     ├── survey/
     ├── maps/
     └── raw/
@@ -89,13 +92,14 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 1. **入力データと出力データを分離する** — 元データを保護し、再実行を容易にする
 2. **データの分類軸はカテゴリ（用途）で統一する** — ファイル形式やソース名で分けない
 3. **前処理で生成した空間データも、下流分析の入力であれば入力側に配置する** — 出自はファイル命名規則とGoogle Drive MCPでの検索により追跡する
-4. **衛星由来データと GIS データは別カテゴリとして管理する**
+4. **衛星由来データと GIS データは別カテゴリとして管理する** — 分ける基準は「由来が衛星かどうか」ではなく「本研究で自前に処理したかどうか」。センサ由来でも、配布元が完成品として提供するラスタ（夜間光・人口密度等）は公開GISデータとして `data/gis/{category}/` へ置く
 
 ### 6.2 配置先の判定ルール
 
 | データの性質 | 配置先 | 例 |
 |---|---|---|
-| 衛星由来の空間データ | `data/satellite/` | LST GeoTIFF, NDVI, NDWI |
+| 衛星画像から**自前で処理した**空間データ | `data/satellite/` | Landsat 8 の LST GeoTIFF, NDVI, NDWI |
+| **完成品として配布されている**衛星由来ラスタ | `data/gis/{category}/` | 夜間光（VIIRS DNB, VNP46A4）, 人口密度（WorldPop） |
 | GIS 空間データ（由来を問わない） | `data/gis/{category}/` | 建物 GPKG, 道路, DEM, ROI, 地図 |
 | 未加工のソースデータ | `data/gis/raw/` | geofabrik PBF |
 | 軽量な設定・テキスト | `data/input/` | 設定 CSV, テキスト |
@@ -127,7 +131,29 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 - `data/output/satellite_only/*/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 - `data/output/satellite_only/*/*_sample_100000.csv` も同様に大容量のため、Git管理外とする
 
-### 7.2 既追跡の大容量出力の扱い
+### 7.2 認証情報（APIトークン）の扱い
+
+外部データ配布サービスのAPIトークン等の秘密情報は、**リポジトリ直下の `.env`（Git管理外）に集約する**。
+
+| ファイル | 追跡 | 内容 |
+|---|---|---|
+| `.env` | **しない**（`.gitignore` で除外） | 実際のトークン値 |
+| `.env.example` | する | 変数名と取得手順のみ。**値は書かない** |
+
+- 読み込みは `src/common/env_file.py`（標準ライブラリのみ。外部依存を追加しない）。**`os.environ` は書き換えない**
+- 優先順位は「コマンドライン引数での明示指定 → 環境変数 → `.env`」。環境変数を`.env`より優先することで、CIや一時的な上書きが`.env`を書き換えずに効く
+- **`data/input/` には置かない**。同ディレクトリは「配下のファイルはGit追跡する」運用のため、秘密情報を置くと`.gitignore`の1行だけが漏洩を防ぐ状態になり、取り違えが起きやすい
+
+#### 登録変数と有効期限
+
+| 変数 | 用途 | 発行・再発行 | 有効期限 |
+|---|---|---|---|
+| `EARTHDATA_TOKEN` | NASA Earthdata。LAADS DAACからのBlack Marble（VNP46A4）取得 | [LAADS DAAC プロフィール](https://ladsweb.modaps.eosdis.nasa.gov/profile/#generate-token)（事前に [Earthdata アカウント](https://urs.earthdata.nasa.gov/)が必要） | **正本は同ページの `Expires at`**。再発行すると変わるため、失効前に確認して `.env` を差し替える（2026-07-29 時点の発行分は 2026-09-25 08:41 EDT 失効） |
+
+- **トークンの失効は取得の 401 として現れる**。取得スクリプトは「トークンが無効・期限切れの可能性」を示すメッセージを出すので、まず有効期限を疑う
+- **トークンとは別に、対象プロダクトのデータ利用許諾への同意が要る**。未同意だと 401 ではなくライセンス同意ページへ 303 されるため、症状が似ていて紛らわしい。同意はブラウザで Earthdata にログインした状態で当該ページを開いて行う
+
+### 7.3 既追跡の大容量出力の扱い
 
 以下コマンドで、ローカルファイルは残したまま index から除外する。
 
@@ -143,9 +169,7 @@ git commit -m "Stop tracking generated outputs"
 下流パイプラインが要求する形式（ヘッダー有無・改行コード等）を維持したまま
 いつでも再生成できることを確認してから解除する（例: `prepare_bs_horizon_input.py`）。
 
----
-
-## 7.3 データインベントリの自動生成
+### 7.4 データインベントリの自動生成
 
 `data/` は Git 管理外のため、リポジトリだけでは手元にどのデータがあるか分からない。
 そこで `data/gis/` と `data/satellite/` を走査し、各ファイルのメタデータを

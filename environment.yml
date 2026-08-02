@@ -17,6 +17,9 @@ dependencies:
   - shap
   - tqdm=4.67
   - rasterio=1.4
+  # NASA Black Marble（VNP46A4）は HDF-EOS5 配布で、本環境の GDAL は HDF5 ドライバ
+  # なしでビルドされているため h5py が必須
+  - h5py=3.16
   - requests=2.32
   - pyyaml
   - ruff

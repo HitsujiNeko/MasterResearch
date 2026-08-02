@@ -7,9 +7,7 @@
 
 from __future__ import annotations
 
-import io
 import json
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -22,9 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 
 from src.preprocessing import fetch_population_hanoi as target
-
-# ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX
-HANOI_ROI_BOUNDS = (105.28812456270636, 20.564469161724375, 106.02005052860555, 21.385222290909635)
+from tests.helpers import HANOI_ROI_BOUNDS, make_fake_build_target_area
 
 
 class _FakeFilter:
@@ -235,24 +231,6 @@ class TestSelectPopulationImage:
             target.select_population_image(target.DATASET_CONFIGS["landscan"], 2023)
 
 
-class TestBuildBandStatistics:
-    """build_band_statistics のテスト。"""
-
-    def test_returns_none_for_empty_input(self) -> None:
-        """有効画素が無ければ None を返す。"""
-        assert target.build_band_statistics(np.array([], dtype=np.float32)) is None
-
-    def test_computes_descriptive_statistics(self) -> None:
-        """記述統計を返す。"""
-        stats = target.build_band_statistics(np.arange(1.0, 101.0, dtype=np.float32))
-
-        assert stats is not None
-        assert stats["min"] == pytest.approx(1.0)
-        assert stats["max"] == pytest.approx(100.0)
-        assert stats["median"] == pytest.approx(50.5)
-        assert stats["p95"] == pytest.approx(95.05, rel=1e-3)
-
-
 class TestBuildPixelStatistics:
     """build_pixel_statistics のテスト（ラスタ入出力を伴わない）。"""
 
@@ -313,262 +291,6 @@ class TestBuildPixelStatistics:
         stats = target.build_pixel_statistics(**self._inputs(), covers_area=False)
 
         assert stats["covers_requested_area"] is False
-
-
-class TestCoversRequestedArea:
-    """covers_requested_area のテスト。"""
-
-    def test_returns_true_when_raster_contains_requested_bounds(self) -> None:
-        """要求範囲を完全に含んでいれば True。"""
-        assert target.covers_requested_area(
-            raster_bounds=(105.0, 20.0, 106.0, 21.0),
-            requested_bounds=(105.1, 20.1, 105.9, 20.9),
-        )
-
-    def test_returns_false_when_raster_is_short_on_one_side(self) -> None:
-        """1 辺でも覆えていなければ False（欠測が有効率に現れないため別途検知する）。"""
-        assert not target.covers_requested_area(
-            raster_bounds=(105.5, 20.0, 106.0, 21.0),
-            requested_bounds=(105.0, 20.0, 106.0, 21.0),
-        )
-
-    def test_rejects_one_pixel_shortfall(self) -> None:
-        """1 画素分の未被覆は実際の欠損なので False にする。"""
-        pixel_size = 0.001
-        assert not target.covers_requested_area(
-            raster_bounds=(105.0 + pixel_size, 20.0, 106.0, 21.0),
-            requested_bounds=(105.0, 20.0, 106.0, 21.0),
-        )
-
-    def test_rejects_half_pixel_shortfall(self) -> None:
-        """半画素の未被覆も見逃さない。"""
-        assert not target.covers_requested_area(
-            raster_bounds=(105.0, 20.0, 106.0 - 0.0005, 21.0),
-            requested_bounds=(105.0, 20.0, 106.0, 21.0),
-        )
-
-    def test_allows_only_floating_point_error(self) -> None:
-        """座標計算の浮動小数点誤差のみを許容する。"""
-        epsilon = 1e-12
-        assert target.covers_requested_area(
-            raster_bounds=(105.0 + epsilon, 20.0 + epsilon, 106.0 - epsilon, 21.0 - epsilon),
-            requested_bounds=(105.0, 20.0, 106.0, 21.0),
-        )
-
-
-class TestValidateBbox:
-    """validate_bbox のテスト。"""
-
-    def test_accepts_valid_bbox(self) -> None:
-        """正しい BBOX は通す。"""
-        target.validate_bbox([105.8, 21.0, 105.9, 21.06])
-
-    def test_rejects_reversed_longitude(self) -> None:
-        """経度の min > max は空の結果になるため弾く。"""
-        with pytest.raises(ValueError, match="最小値は最大値より小さい"):
-            target.validate_bbox([105.9, 21.0, 105.8, 21.06])
-
-    def test_rejects_reversed_latitude(self) -> None:
-        """緯度の min > max も同様に弾く。"""
-        with pytest.raises(ValueError, match="最小値は最大値より小さい"):
-            target.validate_bbox([105.8, 21.06, 105.9, 21.0])
-
-    def test_rejects_zero_extent(self) -> None:
-        """幅または高さが 0 の BBOX も弾く。"""
-        with pytest.raises(ValueError, match="最小値は最大値より小さい"):
-            target.validate_bbox([105.8, 21.0, 105.8, 21.06])
-
-    def test_rejects_out_of_range_coordinates(self) -> None:
-        """経緯度の値域を外れる指定を弾く。"""
-        with pytest.raises(ValueError, match="値域"):
-            target.validate_bbox([105.8, 21.0, 185.0, 21.06])
-
-    def test_rejects_wrong_length(self) -> None:
-        """要素数が 4 でない場合は弾く。"""
-        with pytest.raises(ValueError, match="4 要素"):
-            target.validate_bbox([105.8, 21.0, 105.9])
-
-
-class TestBuildTargetArea:
-    """build_target_area のテスト。"""
-
-    def test_bbox_produces_trial_area(self, tmp_path: Path) -> None:
-        """BBOX 指定時は試行実行フラグが立つ。"""
-        roi_path = tmp_path / "dummy.shp"
-        roi_path.write_bytes(b"")
-
-        area_gdf, is_trial, _ = target.build_target_area(roi_path, [105.8, 21.0, 105.9, 21.06])
-
-        assert is_trial is True
-        assert area_gdf.crs.to_string() == "EPSG:4326"
-        assert tuple(area_gdf.total_bounds) == (105.8, 21.0, 105.9, 21.06)
-
-    def test_returns_resolved_roi_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """記録用に、読み込みへ使ったのと同じ解決済みパスを返す。
-
-        生の引数を記録すると、プロジェクトルート以外から相対パスで実行したときに
-        「読み込みは成功したのに記録されたパスは別物」という状態になる。
-        """
-        roi_gdf = gpd.GeoDataFrame(geometry=[box(*HANOI_ROI_BOUNDS)], crs="EPSG:4326")
-        monkeypatch.setattr(
-            target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
-        )
-        # 検証対象はパス解決だけで、読み込みはモックしている。実 ROI（Git 管理外）に
-        # 依存させないため、リポジトリに常在する追跡ファイルを相対パスとして使う
-        relative_path = Path("pyproject.toml")
-
-        _, _, resolved_roi_path = target.build_target_area(relative_path, None)
-
-        assert resolved_roi_path.is_absolute()
-        assert resolved_roi_path.is_relative_to(target.PROJECT_ROOT)
-        assert resolved_roi_path == target.PROJECT_ROOT / "pyproject.toml"
-
-    def test_roi_path_is_used_when_bbox_is_absent(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        """BBOX 未指定なら ROI を読み込み、試行実行フラグは立たない。"""
-        roi_gdf = gpd.GeoDataFrame(geometry=[box(*HANOI_ROI_BOUNDS)], crs="EPSG:4326")
-        monkeypatch.setattr(
-            target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
-        )
-        roi_path = tmp_path / "roi.shp"
-        roi_path.write_bytes(b"")
-
-        area_gdf, is_trial, _ = target.build_target_area(roi_path, None)
-
-        assert is_trial is False
-        assert tuple(area_gdf.total_bounds) == pytest.approx(HANOI_ROI_BOUNDS)
-
-    def test_missing_roi_file_raises_before_any_download(self, tmp_path: Path) -> None:
-        """存在しない ROI パスは読み込み前に検知する（cwd 依存の取り違えを防ぐ）。"""
-        with pytest.raises(FileNotFoundError):
-            target.build_target_area(tmp_path / "does_not_exist.shp", None)
-
-
-class _FakeProjectionImage:
-    """projection / toFloat / unmask / getDownloadURL を持つ偽の ee.Image。"""
-
-    def __init__(self, projection_info: dict[str, Any], recorded: dict[str, Any]) -> None:
-        self.projection_info = projection_info
-        self.recorded = recorded
-
-    def projection(self) -> _FakeValue:
-        """ネイティブ投影情報を返す。"""
-        return _FakeValue(self.projection_info)
-
-    def toFloat(self) -> _FakeProjectionImage:  # noqa: N802  # GEE API 名に合わせる
-        """float 化されたことを記録する。"""
-        self.recorded["to_float_called"] = True
-        return self
-
-    def unmask(self, value: float) -> _FakeProjectionImage:
-        """unmask に渡された値を記録する。"""
-        self.recorded["unmask_value"] = value
-        return self
-
-    def getDownloadURL(self, params: dict[str, Any]) -> str:  # noqa: N802  # GEE API 名に合わせる
-        """ダウンロードパラメータを記録する。"""
-        self.recorded["params"] = params
-        return "https://example.invalid/download"
-
-
-# WorldPop の実測ネイティブ投影（GEE の projection().getInfo() の戻り値）
-WORLDPOP_PROJECTION = {
-    "crs": "EPSG:4326",
-    "transform": [
-        0.0008333333299579025,
-        0,
-        102.145416273,
-        0,
-        -0.0008333333300179816,
-        23.392916775,
-    ],
-}
-
-
-class TestBuildDownloadUrl:
-    """build_download_url のテスト。"""
-
-    def test_requests_native_grid_instead_of_scale(self) -> None:
-        """scale ではなく crs / crs_transform を渡し、再サンプリングを避ける。"""
-        recorded: dict[str, Any] = {}
-        image = _FakeProjectionImage(WORLDPOP_PROJECTION, recorded)
-
-        _, projection_info = target.build_download_url(
-            image, {"type": "Polygon", "coordinates": []}
-        )
-
-        params = recorded["params"]
-        assert "scale" not in params, "scale 指定は再投影を招き、カウントの総和が保存されない"
-        assert params["crs"] == "EPSG:4326"
-        assert params["crs_transform"] == WORLDPOP_PROJECTION["transform"]
-        assert params["format"] == "GEO_TIFF"
-        assert projection_info == WORLDPOP_PROJECTION
-
-    def test_unmasks_with_output_nodata_before_download(self) -> None:
-        """マスク画素を明示的な nodata へ置き換えてから取得する。"""
-        recorded: dict[str, Any] = {}
-        image = _FakeProjectionImage(WORLDPOP_PROJECTION, recorded)
-
-        target.build_download_url(image, {"type": "Polygon", "coordinates": []})
-
-        assert recorded["to_float_called"] is True
-        # 0 のままだと「人口 0 の場所」と「データ無し」が区別できなくなる
-        assert recorded["unmask_value"] == target.OUTPUT_NODATA
-
-
-class TestDownloadRaster:
-    """download_raster のテスト。"""
-
-    def test_extracts_geotiff_from_zip_response(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        """ZIP で返った場合は中の GeoTIFF を取り出す。"""
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w") as archive:
-            archive.writestr("readme.txt", "ignored")
-            archive.writestr("download.tif", b"GEOTIFF-BYTES")
-        monkeypatch.setattr(target, "fetch_bytes_with_retry", lambda *a, **k: buffer.getvalue())
-
-        destination = target.download_raster("https://example.invalid/x", tmp_path / "out.tif")
-
-        assert destination.read_bytes() == b"GEOTIFF-BYTES"
-
-    def test_writes_plain_geotiff_response_as_is(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        """ZIP でなければレスポンス本文をそのまま保存する。"""
-        monkeypatch.setattr(target, "fetch_bytes_with_retry", lambda *a, **k: b"PLAIN-GEOTIFF")
-
-        destination = target.download_raster("https://example.invalid/x", tmp_path / "out.tif")
-
-        assert destination.read_bytes() == b"PLAIN-GEOTIFF"
-
-    def test_raises_when_zip_has_no_geotiff(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        """ZIP 内に GeoTIFF が無ければ例外にする。"""
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w") as archive:
-            archive.writestr("readme.txt", "no raster here")
-        monkeypatch.setattr(target, "fetch_bytes_with_retry", lambda *a, **k: buffer.getvalue())
-
-        with pytest.raises(ValueError, match="GeoTIFF がありません"):
-            target.download_raster("https://example.invalid/x", tmp_path / "out.tif")
-
-    def test_propagates_network_failure(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        """リトライ上限に達した失敗は握りつぶさず呼び出し元へ伝え、空ファイルも残さない。"""
-
-        def raise_runtime_error(*args: Any, **kwargs: Any) -> bytes:
-            raise RuntimeError("リクエストが3回失敗しました")
-
-        monkeypatch.setattr(target, "fetch_bytes_with_retry", raise_runtime_error)
-
-        with pytest.raises(RuntimeError, match="3回失敗"):
-            target.download_raster("https://example.invalid/x", tmp_path / "out.tif")
-        assert not (tmp_path / "out.tif").exists()
 
 
 class TestClipAndWrite:
@@ -752,11 +474,8 @@ class TestRunEndToEnd:
 
     @staticmethod
     def _install_fakes(monkeypatch: pytest.MonkeyPatch, roi_bounds: tuple) -> None:
-        """GEE 認証・画像選択・ダウンロードを差し替える。"""
-        roi_gdf = gpd.GeoDataFrame(geometry=[box(*roi_bounds)], crs="EPSG:4326")
-        monkeypatch.setattr(
-            target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
-        )
+        """範囲組み立て・GEE 認証・画像選択・ダウンロードを差し替える。"""
+        monkeypatch.setattr(target, "build_target_area", make_fake_build_target_area(roi_bounds))
         monkeypatch.setattr(target, "load_gee_project_id", lambda **kwargs: "fake-project")
         monkeypatch.setattr(target, "authenticate_gee", lambda project_id: None)
         monkeypatch.setattr(
@@ -764,14 +483,14 @@ class TestRunEndToEnd:
         )
         monkeypatch.setattr(
             target,
-            "build_download_url",
-            lambda population_image, region_geojson: (
+            "build_native_download_url",
+            lambda image, region_geojson, nodata: (
                 "https://example.invalid/download",
                 {"crs": "EPSG:4326", "transform": [0.01, 0, 105.0, 0, -0.01, 21.4]},
             ),
         )
 
-        def fake_download(download_url: str, destination_path: Path) -> Path:
+        def fake_download(download_url: str, destination_path: Path, timeout: int) -> Path:
             """ROI を覆う合成 GeoTIFF を書き出す。"""
             pixel_size = 0.01
             width = int(round((roi_bounds[2] - roi_bounds[0]) / pixel_size)) + 2
@@ -792,7 +511,7 @@ class TestRunEndToEnd:
                 destination.write(np.full((height, width), 20.0, dtype=np.float32), 1)
             return destination_path
 
-        monkeypatch.setattr(target, "download_raster", fake_download)
+        monkeypatch.setattr(target, "download_gee_raster", fake_download)
 
     def test_writes_two_band_raster_and_summary(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -873,9 +592,8 @@ class TestRunOverwriteGuard:
         existing_output.write_bytes(b"IMPORTANT")
         roi_path = tmp_path / "roi.shp"
         roi_path.write_bytes(b"")
-        roi_gdf = gpd.GeoDataFrame(geometry=[box(*HANOI_ROI_BOUNDS)], crs="EPSG:4326")
         monkeypatch.setattr(
-            target, "load_roi_geometry", lambda path: (roi_gdf, roi_gdf.geometry.iloc[0])
+            target, "build_target_area", make_fake_build_target_area(HANOI_ROI_BOUNDS)
         )
 
         def fail_if_called(*args: Any, **kwargs: Any) -> None:

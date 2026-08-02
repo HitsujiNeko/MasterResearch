@@ -1,0 +1,329 @@
+{
+  "comparison": "VIIRS DNB 年次コンポジット vs NASA Black Marble VNP46A4",
+  "generated_at": "2026-08-01T22:31:19.549121+00:00",
+  "year": 2023,
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "unit": "nW·cm⁻²·sr⁻¹",
+  "reference_grid": {
+    "source": "VIIRS DNB",
+    "reason": "解像度は両者とも 15 arc-sec で等しく、粗い側へ寄せる必要がない。原点が半画素ずれるだけなので、片方を基準にして再投影で重ねる。VIIRS DNB を基準にしたのは、Black Marble が VIIRS DNB 観測の補正版であり、素の観測側を基準に置くほうが解釈しやすいため。"
+  },
+  "grid_offset": {
+    "longitude_deg": 0.0020810510499700285,
+    "latitude_deg": 0.002083762249998955,
+    "longitude_in_pixels": 0.49945224799718885,
+    "latitude_in_pixels": -0.5001029359989257,
+    "note": "割合の絶対値が 0.5 前後であれば半画素ずれを意味する。VIIRS DNB は画素中心が整数度グリッドに載り、Black Marble はタイル境界が整数度に載るため生じる。緯度側は北向きを正とするアフィン変換の係数（transform.e）が負のため、北へずれると符号が負になる（例: -0.5）。"
+  },
+  "datasets": {
+    "viirs_dnb": {
+      "path": "data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif",
+      "band": "avg_radiance",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "shape": [
+        198,
+        177
+      ],
+      "resolution_deg": [
+        0.0041666667,
+        0.0041666667
+      ],
+      "origin": [
+        105.28541894895002,
+        21.38541623775
+      ],
+      "roi_pixels": 16796,
+      "valid_pixels": 16796,
+      "statistics": {
+        "min": 0.5056310892105103,
+        "max": 96.09999084472656,
+        "mean": 5.407310119038481,
+        "std": 7.081269256570541,
+        "median": 2.7165430784225464,
+        "p95": 21.348230361938477,
+        "p99": 33.643886184692356
+      },
+      "saturation": {
+        "max": 96.09999084472656,
+        "p99": 33.643886184692356,
+        "p99_9": 58.14189859390511,
+        "p99_to_max_ratio": 0.3500925014556185,
+        "pixels_at_max": 1,
+        "pixels_near_max": 2,
+        "ratio_near_max": 0.00011907597046915932,
+        "neighborhood_ratio": 0.01
+      }
+    },
+    "black_marble_vnp46a4": {
+      "path": "data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif",
+      "band": "ntl_near_nadir",
+      "unit": "nW·cm⁻²·sr⁻¹",
+      "shape": [
+        198,
+        176
+      ],
+      "resolution_deg": [
+        0.004166666666666667,
+        0.004166666666666667
+      ],
+      "origin": [
+        105.2875,
+        21.3875
+      ],
+      "roi_pixels": 16797,
+      "valid_pixels": 16797,
+      "statistics": {
+        "min": 0.0,
+        "max": 213.97984313964844,
+        "mean": 6.711721496957607,
+        "std": 9.584129446039064,
+        "median": 3.256925106048584,
+        "p95": 27.022684097289993,
+        "p99": 45.122064971923905
+      },
+      "saturation": {
+        "max": 213.97984313964844,
+        "p99": 45.122064971923905,
+        "p99_9": 77.00015444946509,
+        "p99_to_max_ratio": 0.21087063299918465,
+        "pixels_at_max": 1,
+        "pixels_near_max": 1,
+        "ratio_near_max": 5.9534440673929865e-05,
+        "neighborhood_ratio": 0.01
+      }
+    }
+  },
+  "primary_comparison": {
+    "method": "reproject_bilinear",
+    "method_note": "Black Marble を VIIRS グリッドへ双一次内挿で再投影する（主指標）。解像度が等しいため、実質は原点の半画素ずれの補正である。",
+    "comparable_pixels": 16579,
+    "roi_pixels": 16796,
+    "excluded_pixels": 217,
+    "agreement": {
+      "cell_count": 16579,
+      "mean_absolute_error": 1.4868011264179628,
+      "root_mean_squared_error": 3.114371025134254,
+      "mean_bias": 1.3150641490788062,
+      "median_bias": 0.4638953820687286,
+      "pearson_r": 0.9761734971694521,
+      "spearman_rho": 0.9830613751349359
+    },
+    "quantiles": {
+      "p50": {
+        "reference": 2.7274463176727295,
+        "comparison": 3.327406247832621
+      },
+      "p90": {
+        "reference": 13.226218986511233,
+        "comparison": 16.740749227531882
+      },
+      "p95": {
+        "reference": 21.427788352966303,
+        "comparison": 26.80091027930047
+      },
+      "p99": {
+        "reference": 33.780828475952184,
+        "comparison": 44.24084650263731
+      },
+      "max": {
+        "reference": 96.09999084472656,
+        "comparison": 150.4131396965776
+      }
+    }
+  },
+  "sensitivity_comparisons": [
+    {
+      "method": "reproject_nearest",
+      "method_note": "同じ再投影を最近傍で行う。内挿による平滑化が結論へ影響していないかを見る。",
+      "comparable_pixels": 16579,
+      "roi_pixels": 16796,
+      "excluded_pixels": 217,
+      "agreement": {
+        "cell_count": 16579,
+        "mean_absolute_error": 1.8069720795627842,
+        "root_mean_squared_error": 4.098748789867792,
+        "mean_bias": 1.316259762451886,
+        "median_bias": 0.2904164791107178,
+        "pearson_r": 0.9361814921529447,
+        "spearman_rho": 0.9532345431055596
+      },
+      "quantiles": {
+        "p50": {
+          "reference": 2.7274463176727295,
+          "comparison": 3.27691912651062
+        },
+        "p90": {
+          "reference": 13.226218986511233,
+          "comparison": 16.75323677062989
+        },
+        "p95": {
+          "reference": 21.427788352966303,
+          "comparison": 27.232348823547362
+        },
+        "p99": {
+          "reference": 33.780828475952184,
+          "comparison": 45.25532058715823
+        },
+        "max": {
+          "reference": 96.09999084472656,
+          "comparison": 213.97984313964844
+        }
+      }
+    },
+    {
+      "method": "pixel_index_without_reprojection",
+      "method_note": "再投影せず行列の索引だけで重ねる。半画素ずれを無視した誤った対応付けで、採用しない方法の影響を数値で示すために置いている。",
+      "comparable_pixels": 16575,
+      "roi_pixels": 16796,
+      "excluded_pixels": 221,
+      "agreement": {
+        "cell_count": 16575,
+        "mean_absolute_error": 1.8954406037086096,
+        "root_mean_squared_error": 4.278967230015837,
+        "mean_bias": 1.3372334361292117,
+        "median_bias": 0.29737305641174316,
+        "pearson_r": 0.925492116706463,
+        "spearman_rho": 0.9496528295905631
+      },
+      "quantiles": {
+        "p50": {
+          "reference": 2.7192513942718506,
+          "comparison": 3.285395860671997
+        },
+        "p90": {
+          "reference": 13.23722496032715,
+          "comparison": 16.80698928833008
+        },
+        "p95": {
+          "reference": 21.4284646987915,
+          "comparison": 27.23261089324951
+        },
+        "p99": {
+          "reference": 33.782052993774364,
+          "comparison": 45.25620681762692
+        },
+        "max": {
+          "reference": 96.09999084472656,
+          "comparison": 213.97984313964844
+        }
+      }
+    }
+  ],
+  "method_sensitivity_note": "載せ替え方法を変えた結果を併記している。双一次内挿と最近傍の差が小さければ、結論は再投影方法に依存しない。索引対応（再投影なし）は半画素ずれを無視した誤った対応付けで、採用しない方法の影響を示すために置いている。",
+  "saturation_by_zone": {
+    "definition": {
+      "anchor_lonlat": [
+        105.79476915143754,
+        21.07509877495
+      ],
+      "anchor_percentile": 99,
+      "inner_percentile": 25,
+      "outer_percentile": 75,
+      "inner_threshold_deg": 0.14853643989202048,
+      "outer_threshold_deg": 0.3372829327808824,
+      "note": "基準点は、基準データセットの ROI 内で放射輝度が上位 1% に入る画素の重心（＝最輝部の中心）。ROI の重心を使うと市街地の最輝部から外れ、飽和が最も起きやすい場所がどちらのゾーンにも入らないことがあるため、輝度側から決めている。距離は経度差に緯度の余弦を掛けて等方に近づけたうえで求め、その四分位で都心側・外縁側に分ける。閾値は基準データセット側で決め、比較側にも同じ距離閾値を適用する（ゾーンを地理的に一致させ、母集団の違いを持ち込まないため）。**inner_threshold_deg / outer_threshold_deg の単位は度であり、投影座標系による測地距離ではない**。本研究は面積・距離の算出に投影座標系を用いる方針だが、ここでの距離は画素を重心からの遠近で順位付けし分位点で切るためだけに使い、絶対値を解釈しないため度のままとしている。"
+    },
+    "inner": {
+      "viirs_dnb": {
+        "pixels": 4199,
+        "statistics": {
+          "min": 1.574423909187317,
+          "max": 96.09999084472656,
+          "mean": 13.223432009860032,
+          "std": 10.050777580836261,
+          "median": 9.782820701599121,
+          "p95": 31.70586948394775,
+          "p99": 44.492641296386694
+        },
+        "saturation": {
+          "max": 96.09999084472656,
+          "p99": 44.492641296386694,
+          "p99_9": 79.17927978515695,
+          "p99_to_max_ratio": 0.4629827839242526,
+          "pixels_at_max": 1,
+          "pixels_near_max": 2,
+          "ratio_near_max": 0.0004763038818766373,
+          "neighborhood_ratio": 0.01
+        },
+        "p99_minus_median": 34.70982059478757
+      },
+      "black_marble": {
+        "pixels": 4202,
+        "statistics": {
+          "min": 1.0040069818496704,
+          "max": 213.97984313964844,
+          "mean": 16.694649999791924,
+          "std": 14.05007970604068,
+          "median": 12.083529472351074,
+          "p95": 42.80858402252196,
+          "p99": 59.35934410095209
+        },
+        "saturation": {
+          "max": 213.97984313964844,
+          "p99": 59.35934410095209,
+          "p99_9": 103.60850057220749,
+          "p99_to_max_ratio": 0.27740624177489814,
+          "pixels_at_max": 1,
+          "pixels_near_max": 1,
+          "ratio_near_max": 0.00023798191337458352,
+          "neighborhood_ratio": 0.01
+        },
+        "p99_minus_median": 47.27581462860102
+      }
+    },
+    "outer": {
+      "viirs_dnb": {
+        "pixels": 4199,
+        "statistics": {
+          "min": 0.5056310892105103,
+          "max": 11.023426055908203,
+          "mean": 1.6785000402122827,
+          "std": 1.0088990468095482,
+          "median": 1.4300038814544678,
+          "p95": 3.4450658798217773,
+          "p99": 5.588218469619731
+        },
+        "saturation": {
+          "max": 11.023426055908203,
+          "p99": 5.588218469619731,
+          "p99_9": 8.84007702636747,
+          "p99_to_max_ratio": 0.5069402598863195,
+          "pixels_at_max": 1,
+          "pixels_near_max": 1,
+          "ratio_near_max": 0.00023815194093831864,
+          "neighborhood_ratio": 0.01
+        },
+        "p99_minus_median": 4.158214588165263
+      },
+      "black_marble": {
+        "pixels": 4189,
+        "statistics": {
+          "min": 0.0,
+          "max": 18.957122802734375,
+          "mean": 1.9287981935206504,
+          "std": 1.67743805525655,
+          "median": 1.4591518640518188,
+          "p95": 4.948670101165772,
+          "p99": 8.330182456970201
+        },
+        "saturation": {
+          "max": 18.957122802734375,
+          "p99": 8.330182456970201,
+          "p99_9": 12.98237960815438,
+          "p99_to_max_ratio": 0.43942229755291007,
+          "pixels_at_max": 1,
+          "pixels_near_max": 1,
+          "ratio_near_max": 0.00023872045834328001,
+          "neighborhood_ratio": 0.01
+        },
+        "p99_minus_median": 6.871030592918382
+      }
+    },
+    "evaluated_on": "両データセットとも自身のグリッド上の生データ（再投影なし）。内挿は上位の値を削り、飽和指標を「飽和していない」方向へ歪めるため。",
+    "interpretation_note": "飽和していれば都心側で上位の値が最大値へ張り付き、p99_minus_median が外縁側と比べて相対的に小さくなる（値の広がりが失われる）。"
+  },
+  "interpretation_note": "両者は同じ VIIRS DNB センサーの観測に基づくが、Black Marble は月光・大気・BRDF 補正を施し視野角を近直下視に限定するため、差分はセンサー差ではなく処理の違いとして解釈する。値の大小は「どちらが正しいか」を意味しない。",
+  "outputs": {
+    "summary": "data/output/open_gis/nighttime_lights_viirs_blackmarble_hanoi_2023_summary.json"
+  }
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.request
 from typing import Any
 
 import pytest
@@ -126,6 +127,178 @@ def test_fetch_bytes_with_retry_raises_after_max_retries(
         http_fetch.fetch_bytes_with_retry(
             "https://example.com", timeout=10, max_retry_count=2, retry_wait_seconds=1
         )
+
+
+def test_fetch_bytes_with_retry_attaches_given_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """headers を渡すとリクエストに付与される（Bearer認証を要するAPI向け）。"""
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        """渡された Request を記録し、常に成功レスポンスを返す。"""
+        captured["request"] = request
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://example.com/x.h5",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+    )
+
+    assert result == b"OK"
+    assert captured["request"].get_header("Authorization") == "Bearer dummy-token"
+    assert captured["request"].full_url == "https://example.com/x.h5"
+
+
+def test_fetch_bytes_with_retry_without_headers_sends_no_extra_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """headers 未指定時は追加ヘッダーを付けない（既存呼び出しの後方互換）。"""
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        """渡された Request を記録し、常に成功レスポンスを返す。"""
+        captured["request"] = request
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+
+    http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10)
+
+    assert captured["request"].headers == {}
+
+
+def test_fetch_bytes_with_retry_keeps_headers_across_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """リトライしてもヘッダーが失われない（認証付きリクエストが2回目で無認証にならない）。"""
+    seen_tokens: list[str | None] = []
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        """Authorization ヘッダーを毎回記録し、初回だけ接続エラーを送出する。
+
+        Raises:
+            urllib.error.URLError: 初回呼び出し時。
+        """
+        seen_tokens.append(request.get_header("Authorization"))
+        if len(seen_tokens) < 2:
+            raise urllib.error.URLError("temporary failure")
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://example.com",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+    )
+
+    assert result == b"OK"
+    assert seen_tokens == ["Bearer dummy-token", "Bearer dummy-token"]
+
+
+def test_fetch_bytes_with_retry_uses_a_fresh_request_per_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """試行ごとに Request を作り直す（リダイレクト検出状態を持ち越さない）。
+
+    urllib は訪問済み URL を `redirect_dict` として Request へ書き込む。同じ
+    Request を使い回すと試行をまたいで累積し、リダイレクトを伴う URL では
+    数回目のリトライが偽の「infinite loop」エラーで落ちる。
+    """
+    requests: list[Any] = []
+    carried_redirect_state: list[bool] = []
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        # 受け取った時点で前回の訪問記録を持っていないかを見る
+        carried_redirect_state.append(hasattr(request, "redirect_dict"))
+        requests.append(request)
+        # urllib のリダイレクト処理を模し、Request へ訪問記録を書き込む
+        request.redirect_dict = {"https://example.com/step": 1}
+        if len(requests) < 3:
+            raise urllib.error.URLError("temporary failure")
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    result = http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10)
+
+    assert result == b"OK"
+    assert len(requests) == 3
+    # 使い回していれば 2 回目以降は前回の記録を持ったまま渡される
+    assert carried_redirect_state == [False, False, False]
+    assert len({id(request) for request in requests}) == 3
+
+
+def test_fetch_bytes_with_retry_retries_incomplete_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """途中で切れた読み込み（IncompleteRead）もリトライ対象にする。
+
+    `http.client.IncompleteRead` は `HTTPException` 系で `OSError` ではないため、
+    明示的に捕捉しないと大容量ダウンロードの中断時にリトライされない。
+    """
+    attempt_count = {"value": 0}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        attempt_count["value"] += 1
+        if attempt_count["value"] < 2:
+            raise http_fetch.http.client.IncompleteRead(b"partial", 1000)
+        return _FakeResponse(b"OK")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    result = http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10)
+
+    assert result == b"OK"
+    assert attempt_count["value"] == 2
+
+
+def test_fetch_bytes_with_retry_raises_after_repeated_incomplete_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """IncompleteRead が続く場合も、他のエラーと同じ RuntimeError にまとめる。
+
+    呼び出し側（Black Marble の取得）は RuntimeError を捕捉して原因を切り分けるため、
+    ここで別系統の例外が漏れると切り分けを素通りして未処理例外になる。
+    """
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        raise http_fetch.http.client.IncompleteRead(b"partial", 1000)
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(RuntimeError):
+        http_fetch.fetch_bytes_with_retry(
+            "https://example.com", timeout=10, max_retry_count=2, retry_wait_seconds=1
+        )
+
+
+def test_fetch_json_with_retry_forwards_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """JSON取得側から渡した headers がバイト列取得側へ委譲される。"""
+    captured: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse.from_json({"ok": True})
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+
+    result = http_fetch.fetch_json_with_retry(
+        "https://example.com",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+    )
+
+    assert result == {"ok": True}
+    assert captured["request"].get_header("Authorization") == "Bearer dummy-token"
 
 
 def test_fetch_json_with_retry_rejects_non_http_scheme() -> None:
@@ -256,3 +429,153 @@ def test_fetch_json_with_retry_rate_limit_backoff(monkeypatch: pytest.MonkeyPatc
 
     assert result == {"ok": True}
     assert sleep_calls == [60, 120, 240]
+
+
+class TestRestrictedRedirectHandler:
+    """RestrictedRedirectHandler のテスト。
+
+    `urllib` はリダイレクト時に `Authorization` を落とさない。初回 URL を検証する
+    だけでは、取得元が任意のホストへ 302 を返した時点でトークンが第三者へ渡る。
+    ここはその経路を塞げているかを固定する。
+    """
+
+    @staticmethod
+    def _request() -> urllib.request.Request:
+        """認証ヘッダー付きの元リクエストを作る。"""
+        return urllib.request.Request(
+            "https://allowed.example/x", headers={"Authorization": "Bearer dummy-token"}
+        )
+
+    def test_allows_redirect_to_allowed_host(self) -> None:
+        """許可ホストへのリダイレクトは、既定どおり追跡する。"""
+        handler = http_fetch.RestrictedRedirectHandler(frozenset({"allowed.example"}))
+
+        redirected = handler.redirect_request(
+            self._request(), None, 302, "Found", {}, "https://allowed.example/y"
+        )
+
+        assert redirected is not None
+        assert redirected.full_url == "https://allowed.example/y"
+
+    def test_keeps_authorization_header_within_allowed_host(self) -> None:
+        """許可ホスト内では認証ヘッダーが維持される（正常系を壊さない）。"""
+        handler = http_fetch.RestrictedRedirectHandler(frozenset({"allowed.example"}))
+
+        redirected = handler.redirect_request(
+            self._request(), None, 302, "Found", {}, "https://allowed.example/y"
+        )
+
+        assert redirected is not None
+        assert redirected.get_header("Authorization") == "Bearer dummy-token"
+
+    @pytest.mark.parametrize(
+        "redirect_url",
+        [
+            "https://evil.invalid/y",
+            "https://allowed.example.evil.invalid/y",
+            "http://allowed.example/y",
+        ],
+    )
+    def test_refuses_redirect_to_other_host(self, redirect_url: str) -> None:
+        """許可外ホスト・http への降格は、追跡せず中断する。
+
+        同一ホストでも http へ降格されればトークンが平文で流れるため、
+        スキームもあわせて確かめる。
+        """
+        handler = http_fetch.RestrictedRedirectHandler(frozenset({"allowed.example"}))
+
+        with pytest.raises(ValueError, match="許可していないホスト"):
+            handler.redirect_request(self._request(), None, 302, "Found", {}, redirect_url)
+
+
+def test_fetch_bytes_with_retry_restricts_redirects_when_hosts_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """allowed_redirect_hosts を渡すと、制限付きの opener を通して取得する。"""
+    captured: dict[str, Any] = {}
+
+    class _FakeOpener:
+        """`build_opener` の戻り値を模したダミー。"""
+
+        def open(self, request: Any, timeout: int) -> _FakeResponse:
+            """リクエストを記録し、成功レスポンスを返す。"""
+            captured["request"] = request
+            return _FakeResponse(b"OK")
+
+    def fake_build_opener(*handlers: Any) -> _FakeOpener:
+        """組み込まれたハンドラを記録し、ダミーの opener を返す。"""
+        captured["handlers"] = handlers
+        return _FakeOpener()
+
+    def fail_if_called(*args: Any, **kwargs: Any) -> _FakeResponse:
+        """制限付き取得では素の urlopen を使ってはいけない。"""
+        raise AssertionError("allowed_redirect_hosts 指定時は opener を使うこと")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "build_opener", fake_build_opener)
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fail_if_called)
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://allowed.example/x",
+        timeout=10,
+        headers={"Authorization": "Bearer dummy-token"},
+        allowed_redirect_hosts=frozenset({"allowed.example"}),
+    )
+
+    assert result == b"OK"
+    assert isinstance(captured["handlers"][0], http_fetch.RestrictedRedirectHandler)
+    assert captured["handlers"][0].allowed_hosts == frozenset({"allowed.example"})
+
+
+def test_fetch_bytes_with_retry_uses_plain_urlopen_without_host_restriction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """allowed_redirect_hosts 未指定時は従来どおり urlopen を使う（後方互換）。"""
+
+    def fail_if_called(*args: Any, **kwargs: Any) -> Any:
+        """制限を課さない場合に opener を組んではいけない。"""
+        raise AssertionError("未指定時は build_opener を呼ばないこと")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "build_opener", fail_if_called)
+    monkeypatch.setattr(
+        http_fetch.urllib.request, "urlopen", lambda request, timeout: _FakeResponse(b"OK")
+    )
+
+    assert http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10) == b"OK"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"headers": {"Authorization": "Bearer dummy-token"}},
+        {"allowed_redirect_hosts": frozenset({"example.com"})},
+    ],
+)
+def test_fetch_bytes_with_retry_requires_https_for_protected_requests(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, Any]
+) -> None:
+    """保護つきの取得では、初回 URL にも https を求める。
+
+    リダイレクト先だけ https に限っても、1 回目が http ならトークンは平文で
+    流れる。入口とリダイレクト先で基準を揃える。
+    """
+
+    def fail_if_called(*args: Any, **kwargs: Any) -> Any:
+        """http の URL では通信そのものを始めてはいけない。"""
+        raise AssertionError("https でない URL でリクエストしてはいけない")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fail_if_called)
+    monkeypatch.setattr(http_fetch.urllib.request, "build_opener", fail_if_called)
+
+    with pytest.raises(ValueError, match="https のみ"):
+        http_fetch.fetch_bytes_with_retry("http://example.com/x", timeout=10, **kwargs)
+
+
+def test_fetch_bytes_with_retry_still_allows_http_without_protection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """保護を伴わない取得は、従来どおり http でも通す（後方互換）。"""
+    monkeypatch.setattr(
+        http_fetch.urllib.request, "urlopen", lambda request, timeout: _FakeResponse(b"OK")
+    )
+
+    assert http_fetch.fetch_bytes_with_retry("http://example.com/x", timeout=10) == b"OK"

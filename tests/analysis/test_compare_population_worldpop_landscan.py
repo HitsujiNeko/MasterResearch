@@ -177,75 +177,9 @@ class TestBuildContributingPixelSummary:
         assert result == {"min": 11, "max": 100, "median": 75.0}
 
 
-class TestBuildPairedStatistics:
-    """build_paired_statistics のテスト。"""
-
-    def test_identical_series_have_perfect_correlation_and_no_error(self) -> None:
-        """完全一致なら相関 1・誤差 0 になる。"""
-        values = np.array([1.0, 5.0, 10.0, 50.0, 100.0])
-
-        result = target.build_paired_statistics(values, values)
-
-        assert result["pearson_r"] == pytest.approx(1.0)
-        assert result["spearman_rho"] == pytest.approx(1.0)
-        assert result["root_mean_squared_error"] == pytest.approx(0.0)
-        assert result["mean_bias"] == pytest.approx(0.0)
-
-    def test_bias_sign_follows_comparison_minus_reference(self) -> None:
-        """バイアスは「比較側 − 基準側」の符号になる。"""
-        reference = np.array([10.0, 20.0, 30.0])
-        comparison = reference + 5.0
-
-        result = target.build_paired_statistics(reference, comparison)
-
-        assert result["mean_bias"] == pytest.approx(5.0)
-        assert result["median_bias"] == pytest.approx(5.0)
-        assert result["mean_absolute_error"] == pytest.approx(5.0)
-
-    def test_returns_cell_count_only_for_empty_input(self) -> None:
-        """比較対象セルが無い場合は件数だけを返す（相関を計算しない）。"""
-        empty = np.array([], dtype=np.float64)
-
-        result = target.build_paired_statistics(empty, empty)
-
-        assert result == {"cell_count": 0}
-
-    def test_rejects_length_mismatch(self) -> None:
-        """長さの異なる系列はセルの対応が崩れているため例外にする。"""
-        with pytest.raises(ValueError, match="要素数が一致しません"):
-            target.build_paired_statistics(np.array([1.0, 2.0]), np.array([1.0]))
-
-    def test_single_cell_returns_none_correlation_instead_of_raising(self) -> None:
-        """1 件では相関を定義できないため、例外や nan ではなく None を返す。"""
-        result = target.build_paired_statistics(np.array([10.0]), np.array([12.0]))
-
-        assert result["cell_count"] == 1
-        assert result["pearson_r"] is None
-        assert result["spearman_rho"] is None
-        assert "1 件" in result["correlation_note"]
-        # 誤差系の統計は 1 件でも意味があるため計算する
-        assert result["mean_bias"] == pytest.approx(2.0)
-
-    def test_constant_series_returns_none_correlation_instead_of_nan(self) -> None:
-        """定数系列では相関が nan になるため None に統一する（JSON へ nan を書かない）。"""
-        result = target.build_paired_statistics(
-            np.array([5.0, 5.0, 5.0]), np.array([1.0, 2.0, 3.0])
-        )
-
-        assert result["pearson_r"] is None
-        assert result["spearman_rho"] is None
-        assert "定数" in result["correlation_note"]
-
-    def test_statistics_contain_no_nan(self) -> None:
-        """どの経路でも nan を含む値を返さない（save_summary の NaN ガードに掛からないこと）。"""
-        for reference, comparison in (
-            (np.array([1.0]), np.array([2.0])),
-            (np.array([5.0, 5.0]), np.array([5.0, 5.0])),
-            (np.array([1.0, 2.0, 3.0]), np.array([2.0, 4.0, 6.0])),
-        ):
-            result = target.build_paired_statistics(reference, comparison)
-            numeric_values = [v for v in result.values() if isinstance(v, float)]
-            assert not any(np.isnan(value) for value in numeric_values)
+# `build_paired_statistics` は src/common/paired_stats.py へ移設したため、
+# 単体の検証は tests/common/test_paired_stats.py が持つ。ここでは本スクリプト
+# 固有の使い方（集約後のカウント・密度の一致度）だけを見る。
 
 
 def _write_population_raster(

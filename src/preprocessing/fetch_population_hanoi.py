@@ -28,10 +28,8 @@
 from __future__ import annotations
 
 import argparse
-import io
 import logging
 import tempfile
-import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,23 +38,20 @@ from typing import Any
 import ee
 import geopandas as gpd
 import numpy as np
-import rasterio
-from rasterio.crs import CRS
-from rasterio.features import geometry_mask
-from rasterio.mask import mask
-from rasterio.transform import array_bounds
-from shapely.geometry import box
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
 from src.common.gee import authenticate_gee, load_gee_project_id
-from src.common.http_fetch import fetch_bytes_with_retry
-from src.common.paths import (
-    prepare_output_path,
-    resolve_existing_path,
-    to_project_relative_string,
+from src.common.gee_raster import build_native_download_url, download_gee_raster
+from src.common.paths import prepare_output_path, to_project_relative_string
+from src.common.raster_area import (
+    DEFAULT_RASTER_NODATA,
+    build_raster_profile_record,
+    build_target_area,
+    read_clipped_float_array,
+    write_float_raster,
 )
 from src.common.raster_grid import compute_cell_area_km2, compute_density_array
-from src.common.roi import load_roi_geometry
+from src.common.raster_stats import build_band_statistics
 from src.common.summary import save_summary
 
 DEFAULT_GEE_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
@@ -65,11 +60,9 @@ DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
 
 REQUEST_TIMEOUT_SECONDS = 300
 # 出力 GeoTIFF の nodata。DEM 取得スクリプトと同じ値に揃える。
-OUTPUT_NODATA = -9999.0
+OUTPUT_NODATA = DEFAULT_RASTER_NODATA
 # 本研究の Landsat 観測年。データセットの提供年がこれに届くかの判定と注記に使う。
 LANDSAT_OBSERVATION_YEAR = 2023
-# 被覆判定で許容する座標のずれ（度）。約 0.1mm 相当で、実質的に浮動小数点誤差のみを吸収する。
-COVERAGE_TOLERANCE_DEG = 1e-9
 # 出力バンドの並び（1始まりのバンド番号に対応）
 BAND_COUNT_NAME = "population_count"
 BAND_DENSITY_NAME = "population_density_per_km2"
@@ -280,64 +273,6 @@ def resolve_output_paths(
     )
 
 
-def validate_bbox(bbox: list[float]) -> None:
-    """試行実行用 BBOX の妥当性を検証する。
-
-    min と max を逆に渡すと `shapely.box` は不正なポリゴンを作り、例外ではなく
-    「空の結果」として処理が進んでしまう。取得結果が 0 件でも気づきにくいため、
-    ここで弾く。
-
-    Args:
-        bbox: (min_lon, min_lat, max_lon, max_lat)。
-
-    Raises:
-        ValueError: 要素数が 4 でない場合、最小値が最大値以上の場合、
-            または経緯度の値域を外れる場合。
-    """
-    if len(bbox) != 4:
-        raise ValueError(f"BBOX は (min_lon, min_lat, max_lon, max_lat) の 4 要素です: {bbox}")
-
-    min_lon, min_lat, max_lon, max_lat = bbox
-    if min_lon >= max_lon or min_lat >= max_lat:
-        raise ValueError(
-            "BBOX の最小値は最大値より小さい必要があります"
-            f"（経度: {min_lon} < {max_lon}、緯度: {min_lat} < {max_lat}）。"
-        )
-    if not (-180.0 <= min_lon and max_lon <= 180.0 and -90.0 <= min_lat and max_lat <= 90.0):
-        raise ValueError(f"BBOX が経緯度の値域を外れています: {bbox}")
-
-
-def build_target_area(
-    roi_path: Path,
-    bbox: list[float] | None,
-) -> tuple[gpd.GeoDataFrame, bool, Path]:
-    """取得対象範囲の GeoDataFrame を作る。
-
-    `bbox` を指定した場合は試行実行用の矩形を、未指定の場合は ROI を返す。
-
-    Args:
-        roi_path (Path): ROI の Shapefile パス。
-        bbox (list[float] | None): (min_lon, min_lat, max_lon, max_lat)。
-
-    Returns:
-        tuple[gpd.GeoDataFrame, bool, Path]:
-            (対象範囲, 試行実行かどうか, 解決済み ROI パス)。
-            サマリーへ記録するパスは、読み込みに使ったものと同一にするため
-            解決済みのものを返す（実行時のカレントディレクトリに依存させない）。
-    """
-    if bbox is None:
-        # 相対パスを実行時のカレントディレクトリに依存させないため、先に解決する
-        resolved_roi_path = resolve_existing_path(roi_path)
-        roi_gdf, _ = load_roi_geometry(resolved_roi_path)
-        return roi_gdf, False, resolved_roi_path
-
-    validate_bbox(bbox)
-    trial_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs=WGS84_CRS)
-    logger.warning("試行実行モードです（BBOX: %s）。ROI 全域ではありません。", bbox)
-    # 試行実行では ROI を読まないが、記録の一貫性のため同じ解決を通す
-    return trial_gdf, True, resolve_existing_path(roi_path)
-
-
 def select_population_image(dataset_config: PopulationDatasetConfig, year: int) -> ee.Image:
     """対象年の人口画像を 1 枚に特定する。
 
@@ -374,80 +309,6 @@ def select_population_image(dataset_config: PopulationDatasetConfig, year: int) 
         )
 
     return ee.Image(collection.first()).select(dataset_config.band_name).rename(BAND_COUNT_NAME)
-
-
-def build_download_url(
-    population_image: ee.Image,
-    region_geojson: dict[str, Any],
-) -> tuple[str, dict[str, Any]]:
-    """ネイティブグリッドを保ったままダウンロードする URL を生成する。
-
-    `scale` ではなく画像本来の `crs` / `crs_transform` を渡すことで再投影を避ける。
-    人口カウントは合計保存量であり、リサンプリングすると ROI 内の総人口が変わるため。
-
-    Args:
-        population_image (ee.Image): 対象画像（単一バンド）。
-        region_geojson (dict[str, Any]): 取得範囲の GeoJSON（EPSG:4326）。
-
-    Returns:
-        tuple[str, dict[str, Any]]: (ダウンロード URL, 使用したネイティブ投影情報)。
-    """
-    projection_info = population_image.projection().getInfo()
-    # マスク画素を明示的な nodata に置き換える（GEE は既定で 0 を書き出すため）
-    unmasked_image = population_image.toFloat().unmask(OUTPUT_NODATA)
-    download_url = unmasked_image.getDownloadURL(
-        {
-            "crs": projection_info["crs"],
-            "crs_transform": projection_info["transform"],
-            "region": region_geojson,
-            "format": "GEO_TIFF",
-        }
-    )
-    return download_url, projection_info
-
-
-def download_raster(download_url: str, destination_path: Path) -> Path:
-    """ダウンロード URL から GeoTIFF を取得して保存する。
-
-    GEE は単一バンドでも ZIP で返す場合があるため、ZIP なら中の GeoTIFF を取り出す。
-    一時的な 5xx・接続エラーに備え、共通のリトライ付き取得を使う。
-
-    Args:
-        download_url (str): ダウンロード URL。
-        destination_path (Path): 保存先パス。
-
-    Returns:
-        Path: 保存したパス。
-
-    Raises:
-        ValueError: ZIP 内に GeoTIFF が見つからない場合。
-    """
-    response_body = fetch_bytes_with_retry(download_url, timeout=REQUEST_TIMEOUT_SECONDS)
-
-    buffer = io.BytesIO(response_body)
-    if zipfile.is_zipfile(buffer):
-        with zipfile.ZipFile(buffer) as archive:
-            tif_members = [
-                member
-                for member in archive.namelist()
-                if member.lower().endswith((".tif", ".tiff"))
-            ]
-            if not tif_members:
-                raise ValueError(f"ZIP 内に GeoTIFF がありません: {archive.namelist()}")
-            if len(tif_members) > 1:
-                # 単一バンドへ rename して要求しているため通常は 1 枚。複数返るのは
-                # 前提が崩れたサインなので、黙って先頭を採用せず記録に残す
-                logger.warning(
-                    "ZIP 内に GeoTIFF が %d 枚あります。先頭 %s のみ使用します（全件: %s）。",
-                    len(tif_members),
-                    tif_members[0],
-                    tif_members,
-                )
-            destination_path.write_bytes(archive.read(tif_members[0]))
-        return destination_path
-
-    destination_path.write_bytes(response_body)
-    return destination_path
 
 
 def build_pixel_statistics(
@@ -495,61 +356,6 @@ def build_pixel_statistics(
         ),
         BAND_COUNT_NAME: build_band_statistics(count_array[valid_mask]),
         BAND_DENSITY_NAME: build_band_statistics(density_array[valid_mask]),
-    }
-
-
-def covers_requested_area(
-    raster_bounds: tuple[float, float, float, float],
-    requested_bounds: tuple[float, float, float, float],
-    tolerance: float = COVERAGE_TOLERANCE_DEG,
-) -> bool:
-    """出力ラスタが、要求した範囲の BBOX を覆いきれているかを判定する。
-
-    `valid_pixel_ratio` の分母はクリップ後の窓に含まれる画素だけを数えるため、
-    データソースが要求範囲を覆っていない場合でも 1.0 になりうる。覆えていない
-    ぶんは出力にも分母にも現れず、欠測として検知できないためこの判定を併記する。
-
-    `mask(crop=True)` は要求範囲を含むように画素境界へ外向きに丸めるため、
-    ソースが範囲を覆っていれば出力 BBOX は要求範囲を必ず包含する。したがって
-    許容するのは座標計算の浮動小数点誤差だけでよい。画素サイズを許容量にすると、
-    1 画素分の実際の欠損を「覆えている」と誤判定する。
-
-    Args:
-        raster_bounds: 出力ラスタの (minx, miny, maxx, maxy)。
-        requested_bounds: 要求範囲の (minx, miny, maxx, maxy)。同じ CRS であること。
-        tolerance: 許容する座標のずれ（CRS の単位。既定は度）。
-
-    Returns:
-        覆いきれていれば True。
-    """
-    return (
-        raster_bounds[0] <= requested_bounds[0] + tolerance
-        and raster_bounds[1] <= requested_bounds[1] + tolerance
-        and raster_bounds[2] >= requested_bounds[2] - tolerance
-        and raster_bounds[3] >= requested_bounds[3] - tolerance
-    )
-
-
-def build_band_statistics(values: np.ndarray) -> dict[str, float] | None:
-    """有効画素の記述統計を求める。
-
-    Args:
-        values (np.ndarray): 有効画素の 1 次元配列。
-
-    Returns:
-        dict[str, float] | None: 記述統計。有効画素が無い場合は None。
-    """
-    if values.size == 0:
-        return None
-    # float32 のまま累算すると平均・標準偏差が丸め誤差を拾うため float64 で集計する
-    return {
-        "min": float(np.min(values)),
-        "max": float(np.max(values)),
-        "mean": float(np.mean(values, dtype=np.float64)),
-        "std": float(np.std(values, dtype=np.float64)),
-        "median": float(np.median(values)),
-        "p95": float(np.percentile(values, 95)),
-        "p99": float(np.percentile(values, 99)),
     }
 
 
@@ -657,102 +463,63 @@ def clip_and_write(
     """ダウンロードしたラスタを対象範囲でクリップし、2 バンド GeoTIFF として保存する。
 
     第1バンドに人口カウント、第2バンドに導出した人口密度（人/km²）を書き込む。
-    密度の導出は `src.common.raster_grid`、画素統計の集計は `build_pixel_statistics` に
-    委ね、本関数はラスタ入出力とその前後の座標系の整合に専念する。
+
+    クリップと無効値の統一は `src.common.raster_area` に委ねる。ソースのバンドを
+    そのまま出す取得スクリプトと違い、こちらは密度バンドを導出して足すため、
+    読み取り（`read_clipped_float_array`）と書き出し（`write_float_raster`）を
+    個別に呼び、その間に導出を挟む。密度の導出は `src.common.raster_grid`、
+    画素統計の集計は `build_pixel_statistics` が担う。
 
     Args:
-        source_path (Path): ダウンロードした GeoTIFF パス。
-        area_gdf (gpd.GeoDataFrame): 取得対象範囲（EPSG:4326）。
-        output_path (Path): 出力 GeoTIFF パス。
+        source_path: ダウンロードした GeoTIFF パス。
+        area_gdf: 取得対象範囲（EPSG:4326）。
+        output_path: 出力 GeoTIFF パス。
 
     Returns:
-        tuple[dict[str, Any], dict[str, Any]]: (出力ラスタの諸元, 画素統計)。
+        (出力ラスタの諸元, 画素統計)。
 
     Raises:
-        ValueError: ソースラスタの CRS が未定義、または地理座標系でない場合。
+        ValueError: ソースラスタの CRS が未定義、地理座標系でない場合、
+            またはバンド数が 1 でない場合。
     """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with rasterio.open(source_path) as source:
-        source_crs = source.crs
-        if source_crs is None:
-            raise ValueError(f"ソースラスタの CRS が未定義です: {source_path}")
-        # 密度導出は「セルの辺が度で表される」前提の測地計算を行う。投影座標系のラスタを
-        # 渡すとメートル値を度として扱い、例外にならないまま誤った面積になる
-        if not CRS.from_user_input(source_crs).is_geographic:
-            raise ValueError(
-                "地理座標系（度単位）のラスタのみに対応しています"
-                f"（検出した CRS: {source_crs.to_string()}）。"
-            )
-        area_in_source_crs = area_gdf.to_crs(source_crs)
-        count_array, clipped_transform = mask(
-            source,
-            shapes=[geometry.__geo_interface__ for geometry in area_in_source_crs.geometry],
-            crop=True,
-            indexes=[1],
-            nodata=OUTPUT_NODATA,
+    # 密度導出は「セルの辺が度で表される」前提の測地計算を行う。投影座標系のラスタを
+    # 渡すとメートル値を度として扱い、例外にならないまま誤った面積になる。
+    # CRS の検証は読み取り側へ委ね、同じファイルを二度開かないようにする
+    clipped = read_clipped_float_array(
+        source_path=source_path,
+        area_gdf=area_gdf,
+        nodata=OUTPUT_NODATA,
+        require_geographic=True,
+    )
+    if clipped.array.shape[0] != 1:
+        # 人口カウントは単一バンドで要求している。数が違えば以降のバンドの
+        # 意味づけが崩れるため、黙って先頭を使わず止める
+        raise ValueError(
+            "人口ラスタは単一バンドを想定しています"
+            f"（実際: {clipped.array.shape[0]} バンド）: {source_path}"
         )
-        profile = source.profile.copy()
 
-    count_array = count_array[0].astype(np.float32)
+    count_array = clipped.array[0]
     height, width = count_array.shape
-    cell_area_km2 = compute_cell_area_km2(clipped_transform, height, width)
+    cell_area_km2 = compute_cell_area_km2(clipped.transform, height, width)
     density_array = compute_density_array(count_array, cell_area_km2, OUTPUT_NODATA)
 
-    profile.update(
-        driver="GTiff",
-        count=2,
-        dtype="float32",
-        height=height,
-        width=width,
-        transform=clipped_transform,
+    write_float_raster(
+        output_path=output_path,
+        band_arrays={BAND_COUNT_NAME: count_array, BAND_DENSITY_NAME: density_array},
+        transform=clipped.transform,
+        crs=clipped.crs,
         nodata=OUTPUT_NODATA,
     )
-    with rasterio.open(output_path, "w", **profile) as destination:
-        destination.write(count_array, 1)
-        destination.write(density_array, 2)
-        destination.set_band_description(1, BAND_COUNT_NAME)
-        destination.set_band_description(2, BAND_DENSITY_NAME)
 
-    # クリップ余白（範囲外）を欠測と数えないよう、対象範囲内のマスクを別に作る。
-    # ジオメトリは clipped_transform と同じソース CRS のものを使う（座標系がずれると
-    # roi_pixels・valid_pixel_ratio・総人口が静かに壊れるため）
-    area_mask = geometry_mask(
-        geometries=[geometry.__geo_interface__ for geometry in area_in_source_crs.geometry],
-        out_shape=(height, width),
-        transform=clipped_transform,
-        invert=True,
-    )
     pixel_stats = build_pixel_statistics(
         count_array=count_array,
         density_array=density_array,
         cell_area_km2=cell_area_km2,
-        area_mask=area_mask,
-        covers_area=covers_requested_area(
-            raster_bounds=array_bounds(height, width, clipped_transform),
-            requested_bounds=tuple(float(value) for value in area_in_source_crs.total_bounds),
-        ),
+        area_mask=clipped.area_mask,
+        covers_area=clipped.covers_area,
     )
-
-    with rasterio.open(output_path) as destination:
-        bounds = destination.bounds
-        raster_profile = {
-            "crs": destination.crs.to_string() if destination.crs is not None else None,
-            "dtype": str(destination.dtypes[0]),
-            "band_count": int(destination.count),
-            "width": int(destination.width),
-            "height": int(destination.height),
-            "resolution": [float(destination.res[0]), float(destination.res[1])],
-            "bounds": {
-                "minx": float(bounds.left),
-                "miny": float(bounds.bottom),
-                "maxx": float(bounds.right),
-                "maxy": float(bounds.top),
-            },
-            "nodata": float(OUTPUT_NODATA),
-        }
-
-    return raster_profile, pixel_stats
+    return build_raster_profile_record(output_path), pixel_stats
 
 
 def run(
@@ -812,8 +579,8 @@ def run(
 
     population_image = select_population_image(dataset_config, resolved_year)
     region_geojson = area_gdf.geometry.union_all().__geo_interface__
-    download_url, projection_info = build_download_url(
-        population_image=population_image, region_geojson=region_geojson
+    download_url, projection_info = build_native_download_url(
+        image=population_image, region_geojson=region_geojson, nodata=OUTPUT_NODATA
     )
     logger.info(
         "ネイティブ投影で取得します（crs=%s, transform=%s）",
@@ -824,7 +591,7 @@ def run(
     retrieved_at = datetime.now(timezone.utc).isoformat()
     with tempfile.TemporaryDirectory(prefix="population_download_") as temporary_dir:
         downloaded_path = Path(temporary_dir) / f"{dataset_key}_{resolved_year}_raw.tif"
-        download_raster(download_url, downloaded_path)
+        download_gee_raster(download_url, downloaded_path, timeout=REQUEST_TIMEOUT_SECONDS)
         raster_profile, pixel_stats = clip_and_write(
             source_path=downloaded_path,
             area_gdf=area_gdf,

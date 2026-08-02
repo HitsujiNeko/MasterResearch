@@ -864,6 +864,11 @@ class TestDownloadTile:
         cached.write_bytes(self.TILE_BODY)
 
         def fail_if_called(*args: Any, **kwargs: Any) -> bytes:
+            """呼ばれた時点で失敗させる（キャッシュ利用時は取得しない）。
+
+            Raises:
+                AssertionError: 呼ばれた場合。
+            """
             raise AssertionError("キャッシュがある場合はダウンロードしてはいけない")
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", fail_if_called)
@@ -981,6 +986,11 @@ class TestDownloadTile:
         """想定外の宛先の URL には、トークンを送らずに例外で止まる。"""
 
         def fail_if_called(*args: Any, **kwargs: Any) -> bytes:
+            """呼ばれた時点で失敗させる（想定外の宛先へは通信しない）。
+
+            Raises:
+                AssertionError: 呼ばれた場合。
+            """
             raise AssertionError("想定外の宛先へリクエストしてはいけない")
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", fail_if_called)
@@ -1000,6 +1010,11 @@ class TestDownloadTile:
         """
 
         def raise_runtime_error(*args: Any, **kwargs: Any) -> bytes:
+            """未認証時に相当する 401 の失敗を模す。
+
+            Raises:
+                RuntimeError: 毎回。
+            """
             raise RuntimeError("リクエストが3回失敗しました: HTTP Error 401: Unauthorized")
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", raise_runtime_error)
@@ -1018,6 +1033,11 @@ class TestDownloadTile:
         """ライセンスが原因でなければ、元のエラーを言い換えずに伝える。"""
 
         def raise_runtime_error(*args: Any, **kwargs: Any) -> bytes:
+            """ライセンス以外の原因による失敗を模す。
+
+            Raises:
+                RuntimeError: 毎回。
+            """
             raise RuntimeError("リクエストが3回失敗しました")
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", raise_runtime_error)
@@ -1032,6 +1052,11 @@ class TestDownloadTile:
         """途中で失敗したとき、壊れたファイルをキャッシュに残さない。"""
 
         def raise_runtime_error(*args: Any, **kwargs: Any) -> bytes:
+            """ダウンロード途中での失敗を模す。
+
+            Raises:
+                RuntimeError: 毎回。
+            """
             raise RuntimeError("リクエストが3回失敗しました")
 
         monkeypatch.setattr(target, "fetch_bytes_with_retry", raise_runtime_error)
@@ -1156,6 +1181,11 @@ class TestRunGuards:
         """提供年外の指定は、トークン解決より前に弾く。"""
 
         def fail_if_called(*args: Any, **kwargs: Any) -> str:
+            """呼ばれた時点で失敗させる（提供年の検証は前段で終わる）。
+
+            Raises:
+                AssertionError: 呼ばれた場合。
+            """
             raise AssertionError("提供年外の指定でトークン解決まで進んではいけない")
 
         monkeypatch.setattr(target, "resolve_earthdata_token", fail_if_called)
@@ -1183,6 +1213,11 @@ class TestRunGuards:
         )
 
         def fail_if_called(*args: Any, **kwargs: Any) -> str:
+            """呼ばれた時点で失敗させる（上書き拒否は前段で終わる）。
+
+            Raises:
+                AssertionError: 呼ばれた場合。
+            """
             raise AssertionError("既存ファイルがある場合はトークン解決まで進んではいけない")
 
         monkeypatch.setattr(target, "resolve_earthdata_token", fail_if_called)
@@ -1210,6 +1245,11 @@ class TestRunGuards:
         )
 
         def fail_if_called(*args: Any, **kwargs: Any) -> str:
+            """呼ばれた時点で失敗させる（複数タイル判定は前段で終わる）。
+
+            Raises:
+                AssertionError: 呼ばれた場合。
+            """
             raise AssertionError("タイル結合が必要な場合はトークン解決まで進んではいけない")
 
         monkeypatch.setattr(target, "resolve_earthdata_token", fail_if_called)
@@ -1444,7 +1484,10 @@ class TestFindLicenseGate:
         """`build_opener` を差し替え、`open` の挙動を差し込む。"""
 
         class _FakeOpener:
+            """`build_opener` の戻り値を模したダミー。"""
+
             def open(self, request: Any, timeout: int) -> Any:
+                """渡された挙動をそのまま呼び出して返す。"""
                 return raiser()
 
         monkeypatch.setattr(target.urllib.request, "build_opener", lambda *handlers: _FakeOpener())
@@ -1464,6 +1507,11 @@ class TestFindLicenseGate:
         relative = "/profiles/licenses/api/v2/content/archives/allData/5200/x.h5"
 
         def raiser() -> Any:
+            """ライセンス同意ページへの 303 を模した HTTPError を送出する。
+
+            Raises:
+                urllib.error.HTTPError: 毎回。
+            """
             raise self._http_error(relative)
 
         self._install_opener(monkeypatch, raiser)
@@ -1479,6 +1527,11 @@ class TestFindLicenseGate:
         """ライセンス以外のリダイレクトでは None を返し、元エラーを優先させる。"""
 
         def raiser() -> Any:
+            """ライセンスと無関係なリダイレクトを模した HTTPError を送出する。
+
+            Raises:
+                urllib.error.HTTPError: 毎回。
+            """
             raise self._http_error("/oauth/login?redirect=%2Fx")
 
         self._install_opener(monkeypatch, raiser)
@@ -1489,6 +1542,11 @@ class TestFindLicenseGate:
         """Location が無いエラー（401 等）でも落ちずに None を返す。"""
 
         def raiser() -> Any:
+            """Location を持たない 401 を模した HTTPError を送出する。
+
+            Raises:
+                urllib.error.HTTPError: 毎回。
+            """
             raise self._http_error(None, code=401)
 
         self._install_opener(monkeypatch, raiser)
@@ -1499,10 +1557,14 @@ class TestFindLicenseGate:
         """そもそも成功する URL ならライセンスは原因ではない。"""
 
         class _FakeResponse:
+            """成功レスポンスを模したダミー（本文は使わない）。"""
+
             def __enter__(self) -> "_FakeResponse":
+                """`with` 文で自身を返す。"""
                 return self
 
             def __exit__(self, *exc_info: object) -> None:
+                """後始末は不要なため何もしない。"""
                 return None
 
         self._install_opener(monkeypatch, lambda: _FakeResponse())
@@ -1513,6 +1575,11 @@ class TestFindLicenseGate:
         """切り分けの補助なので、ここでの通信失敗は握って元エラーを優先する。"""
 
         def raiser() -> Any:
+            """接続そのものの失敗を模す。
+
+            Raises:
+                urllib.error.URLError: 毎回。
+            """
             raise target.urllib.error.URLError("unreachable")
 
         self._install_opener(monkeypatch, raiser)
@@ -1527,6 +1594,11 @@ class TestFindLicenseGate:
         """
 
         def raiser() -> Any:
+            """呼ばれた時点で失敗させる（想定外の宛先は開かない）。
+
+            Raises:
+                AssertionError: 呼ばれた場合。
+            """
             raise AssertionError("想定外の宛先を開いてはいけない")
 
         self._install_opener(monkeypatch, raiser)

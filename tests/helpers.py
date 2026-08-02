@@ -40,6 +40,16 @@ def make_fake_build_target_area(
     """
 
     def fake(roi_path: Path, bbox: list[float] | None) -> tuple[gpd.GeoDataFrame, bool, Path]:
+        """BBOX 指定なら BBOX を、無指定なら ROI を対象範囲として返す。
+
+        Args:
+            roi_path: ROI ファイルのパス（読み込みは行わず、そのまま返す）。
+            bbox: 対象範囲の (minx, miny, maxx, maxy)。未指定なら ROI を使う。
+
+        Returns:
+            (対象範囲の GeoDataFrame, 試行実行フラグ, ROI パス)。
+            試行実行フラグは BBOX を指定した場合に True。
+        """
         geometry = box(*(bbox if bbox is not None else roi_bounds))
         return (
             gpd.GeoDataFrame(geometry=[geometry], crs="EPSG:4326"),

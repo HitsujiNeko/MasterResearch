@@ -128,13 +128,21 @@ def fetch_bytes_with_retry(
         レスポンス本文のバイト列。
 
     Raises:
-        ValueError: url が http/https 以外のスキームの場合、または
-            `allowed_redirect_hosts` の外へリダイレクトされた場合。
+        ValueError: url が http/https 以外のスキームの場合、保護つきの取得
+            （`headers` または `allowed_redirect_hosts` を指定）で url が
+            https でない場合、または `allowed_redirect_hosts` の外へ
+            リダイレクトされた場合。
         RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
             リトライしても解消しないHTTPステータスが返った場合。
     """
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"許可されていないURLスキームです: {url}")
+    # リダイレクト先に https を求める以上、初回 URL にも同じ基準を課す。入口が
+    # http のままだと、リダイレクトを経ずに 1 回目でトークンが平文で流れる。
+    if (headers or allowed_redirect_hosts is not None) and not url.startswith("https://"):
+        raise ValueError(
+            f"認証ヘッダーまたはリダイレクト制限を伴う取得では、URL は https のみ許可します: {url}"
+        )
 
     # 制限を課すときだけ専用の opener を使う（既存の呼び出しの挙動を変えないため）
     opener = (

@@ -541,3 +541,41 @@ def test_fetch_bytes_with_retry_uses_plain_urlopen_without_host_restriction(
     )
 
     assert http_fetch.fetch_bytes_with_retry("https://example.com", timeout=10) == b"OK"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"headers": {"Authorization": "Bearer dummy-token"}},
+        {"allowed_redirect_hosts": frozenset({"example.com"})},
+    ],
+)
+def test_fetch_bytes_with_retry_requires_https_for_protected_requests(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, Any]
+) -> None:
+    """保護つきの取得では、初回 URL にも https を求める。
+
+    リダイレクト先だけ https に限っても、1 回目が http ならトークンは平文で
+    流れる。入口とリダイレクト先で基準を揃える。
+    """
+
+    def fail_if_called(*args: Any, **kwargs: Any) -> Any:
+        """http の URL では通信そのものを始めてはいけない。"""
+        raise AssertionError("https でない URL でリクエストしてはいけない")
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fail_if_called)
+    monkeypatch.setattr(http_fetch.urllib.request, "build_opener", fail_if_called)
+
+    with pytest.raises(ValueError, match="https のみ"):
+        http_fetch.fetch_bytes_with_retry("http://example.com/x", timeout=10, **kwargs)
+
+
+def test_fetch_bytes_with_retry_still_allows_http_without_protection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """保護を伴わない取得は、従来どおり http でも通す（後方互換）。"""
+    monkeypatch.setattr(
+        http_fetch.urllib.request, "urlopen", lambda request, timeout: _FakeResponse(b"OK")
+    )
+
+    assert http_fetch.fetch_bytes_with_retry("http://example.com/x", timeout=10) == b"OK"

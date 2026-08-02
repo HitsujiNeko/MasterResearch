@@ -263,6 +263,39 @@ class TestBuildMultibandPixelStatistics:
                 saturation_bands=["absent"],
             )
 
+    @pytest.mark.parametrize("reserved_name", ["valid_pixels", "saturation", "primary_band"])
+    def test_raises_when_band_name_collides_with_reserved_key(self, reserved_name: str) -> None:
+        """予約キーと同名のバンドは、集計値を静かに上書きする前に止める。
+
+        バンド別統計は集計値と同じ階層に置くため、名前が衝突すると例外にならず
+        サマリー JSON の値だけが壊れる。
+        """
+        band_arrays = {
+            "primary": np.zeros((2, 3), dtype=np.float32),
+            reserved_name: np.zeros((2, 3), dtype=np.float32),
+        }
+
+        with pytest.raises(ValueError, match="予約キーと衝突"):
+            target.build_multiband_pixel_statistics(
+                band_arrays=band_arrays,
+                area_mask=np.ones((2, 3), dtype=bool),
+                covers_area=True,
+                primary_band="primary",
+                nodata=self.NODATA,
+            )
+
+    def test_accepts_band_names_that_do_not_collide(self) -> None:
+        """予約キー以外のバンド名は、これまでどおり受け付ける（過剰な拒否をしない）。"""
+        statistics = target.build_multiband_pixel_statistics(
+            band_arrays=self._band_arrays(),
+            area_mask=np.ones((2, 3), dtype=bool),
+            covers_area=True,
+            primary_band="primary",
+            nodata=self.NODATA,
+        )
+
+        assert "primary" in statistics
+
     def test_raises_when_band_shapes_differ(self) -> None:
         """バンド間で形状が違えば、numpy の不可解なエラーになる前に止める。"""
         band_arrays = {

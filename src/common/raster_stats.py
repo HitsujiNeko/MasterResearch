@@ -139,7 +139,8 @@ def build_multiband_pixel_statistics(
 
     Raises:
         KeyError: `primary_band` または `saturation_bands` が `band_arrays` に無い場合。
-        ValueError: バンド間で配列の形状が揃っていない場合、
+        ValueError: バンド名が `RESERVED_STATISTICS_KEYS` と衝突する場合、
+            バンド間で配列の形状が揃っていない場合、
             または `area_mask` の形状がバンドと一致しない場合。
     """
     if primary_band not in band_arrays:

@@ -547,6 +547,23 @@ class TestBuildZoneMasks:
         with pytest.raises(ValueError, match="ROI 内の画素がありません"):
             target.build_zone_masks(reference, np.zeros(GRID_SHAPE, dtype=bool))
 
+    def test_raises_when_roi_has_no_valid_pixels(self, tmp_path: Path) -> None:
+        """ROI 内が全て無効値なら、分位点計算へ進まず例外にする。
+
+        `roi_mask` が非空でも有効画素は 0 件になりうる（ROI から外れた年・範囲の
+        ラスタを渡した場合）。numpy の空配列エラーで止まると、ROI とラスタの
+        位置関係が原因だと読み取れない。
+        """
+        reference = target.load_radiance_raster(
+            _write_raster(
+                tmp_path / "nodata.tif",
+                np.full(GRID_SHAPE, target.NODATA, dtype=np.float32),
+            )
+        )
+
+        with pytest.raises(ValueError, match="ROI 内に有効画素がありません"):
+            target.build_zone_masks(reference, np.ones(GRID_SHAPE, dtype=bool))
+
 
 class TestCompareSaturationByZone:
     """compare_saturation_by_zone のテスト。"""

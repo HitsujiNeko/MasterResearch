@@ -122,8 +122,8 @@ def edge_building_resource(tmp_path: Path) -> LayerResource:
 def multipolygon_building_resource(tmp_path: Path) -> LayerResource:
     """MultiPolygon の建物1件を持つレイヤ。
 
-    coarseセル(0, 0) と (1, 1) にそれぞれ 1/4 セル分のパートを持つ。
-    重心は2パートの中間 (15, 55) にあり、セル(1, 0) へ帰属する。
+    coarseセル(0, 0) と (1, 1) にそれぞれ 1/4 セル分の同面積パートを持つ。
+    重心は2パートの中間 (15, 60) で、セル境界（y=60）上にあり、セル(1, 0) へ帰属する。
     """
     gpkg_path = tmp_path / "multipolygon.gpkg"
     schema = {"geometry": "MultiPolygon", "properties": {"height": "float", "var": "float"}}

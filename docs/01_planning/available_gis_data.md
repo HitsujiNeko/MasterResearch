@@ -1,6 +1,6 @@
 # 利用可能な公開GISデータ候補
 
-**最終更新**: 2026-07-26  
+**最終更新**: 2026-08-03  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [CodingRule.md](../02_methods/CodingRule.md)  
 **前提知識**: RQ1-RQ3、都市構造パラメータの定義、GISデータのCRS・解像度・ライセンス差
 
@@ -26,7 +26,7 @@
 - `Microsoft GlobalMLBuildingFootprints` は建物フットプリント候補だが、Hanoi ROI 西側で明確なカバレッジ欠落が確認されたため、ROI 全域の建物主ソースとして単独採用しない。
 - 建物データの主ソースとして `GlobalBuildingAtlas`（GBA）を WFS 経由で Hanoi ROI 全域から取得済み（2026-06-09）。行政区画ポリゴンクリップ済みで 3,071,511 件。Microsoft 欠落域（105.29–105.47°E）で 273,742 件（面積率 1.25%）を確認し、カバレッジ欠落問題を解消した。GBA を `Limited` シナリオの建物主ソースとして確定した。`Google Open Buildings`, `OSM building=*` は比較・妥当性確認候補として残す。
 - `GHSL` と `World Settlement Footprint` は建物フットプリントの代替ではなく、粗い built-up / settlement extent の補助・妥当性確認用として扱う。
-- `Limited` シナリオの建物データソースは GBA に移行済み（`config.py`）。Microsoft 時代のカバレッジ欠落問題は解消されたが、建物パラメータ（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>`）の算出方法自体は別Issue（#7）で設計確定予定。
+- `Limited` シナリオの建物データソースは GBA に移行済み（`config.py`）。Microsoft 時代のカバレッジ欠落問題は解消された。建物パラメータは `BUILD_COV`（被覆率）・`BUILD_DEN`（棟/ha）・`BUILD_H_MEAN` / `BUILD_H_MAX`（m）の4種で算出方法を確定済み。棟数密度と高さは重心が属するセルへ帰属させる centroid 方式、被覆率は fine グリッドへのラスタ化と平均集約による。**被覆率は 30m スケールでは離散化により10段階の値しか取らず、回帰係数が約2割縮む見積り**である点に解釈上の注意を要する（詳細は [gis_data_buildings.md](gis_data/gis_data_buildings.md) Section 3）。
 - 標高データは `FABDEM v1.2`（Copernicus DEM 派生の準DTM）を `Limited` シナリオの主採用候補とする（BSHorizon との比較で全指標最良）。
 - 土地利用・人口密度・夜間光・水域（近接距離・面積率）・POI密度・不透水面率・公園近接距離の7カテゴリについて、オープンソースデータセット候補の調査を完了した。各カテゴリの候補比較・推奨方針は Section 4 のカテゴリ別詳細ドキュメントを参照。土地利用・人口密度以外は実データの取得・採用可否が未判断。
 - 土地利用は `GLC_FCS30D`（30m）を主ソースとして採用済み。加えて比較候補の `Esri Sentinel-2 10m LULC` を取得し、一致度を評価した（全体一致率 0.6921・kappa 0.5155）。**不透水面（市街地）と判定される画素数は Esri が GLC の約1.97倍**で、GLC の不透水面はほぼ Esri の部分集合（GLC基準の一致率 97.96%）である。差の主因は郊外の農地と散在市街地の境界にあるが、**解像度差だけでなくクラス定義の差も含む**（GLC の Impervious surfaces は人工被覆、Esri の Built area は建造環境）。Esri は主ソースを置き換えるのではなく、**市街地・不透水面として抽出される範囲の解釈幅を確認する感度分析用**として採用する（詳細は [gis_data_lulc.md](gis_data/gis_data_lulc.md) Section 7）。

@@ -293,6 +293,56 @@ def count_polygon_centroids(
     return counts.astype(np.float32)
 
 
+def centroid_cell_indices(
+    xs: np.ndarray,
+    ys: np.ndarray,
+    grid_spec: GridSpec,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """重心座標の配列から、属するcoarseセルの行・列添字を一括算出する。
+
+    ``count_polygon_centroids()`` が1件ずつ行う「逆アフィン変換 → 切り捨て →
+    範囲判定」と同じ処理を、NumPyのベクトル演算で一括に行う。件数が多い
+    レイヤでの逐次処理のオーバーヘッドを避けるために用いる。
+
+    Args:
+        xs: 重心のX座標配列（解析用CRS上）。
+        ys: 重心のY座標配列（解析用CRS上）。``xs`` と同じ形状であること。
+        grid_spec: fine/coarseグリッドの仕様。
+
+    Returns:
+        (行添字, 列添字, 有効マスク) の組。有効マスクは、座標が有限値で
+        かつ添字がcoarseグリッドの範囲内である要素を ``True`` とする。
+        マスクが ``False`` の要素の添字は意味を持たないため、集計前に
+        マスクで絞り込む必要がある。
+
+    Raises:
+        ValueError: ``xs`` と ``ys`` の形状が一致しない場合。
+    """
+    x_array = np.asarray(xs, dtype=np.float64)
+    y_array = np.asarray(ys, dtype=np.float64)
+    if x_array.shape != y_array.shape:
+        raise ValueError(
+            f"xs と ys は同じ形状で指定してください: xs={x_array.shape}, ys={y_array.shape}"
+        )
+
+    # 非有限値は逆変換の前に0へ置換し、有効マスク側で除外する
+    # （np.floor(nan) の整数変換が未定義になるのを避けるため）。
+    finite_mask = np.isfinite(x_array) & np.isfinite(y_array)
+    safe_x = np.where(finite_mask, x_array, 0.0)
+    safe_y = np.where(finite_mask, y_array, 0.0)
+
+    inverse_transform = ~grid_spec.coarse_transform
+    col_float = inverse_transform.a * safe_x + inverse_transform.b * safe_y + inverse_transform.c
+    row_float = inverse_transform.d * safe_x + inverse_transform.e * safe_y + inverse_transform.f
+
+    rows = np.floor(row_float).astype(np.int64)
+    cols = np.floor(col_float).astype(np.int64)
+
+    n_rows, n_cols = grid_spec.coarse_shape
+    inside_mask = finite_mask & (rows >= 0) & (rows < n_rows) & (cols >= 0) & (cols < n_cols)
+    return rows, cols, inside_mask
+
+
 _CELL_EPS = 1e-9
 
 

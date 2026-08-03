@@ -8,13 +8,16 @@ import fiona
 import numpy as np
 import pytest
 import rasterio
+from pyproj import CRS, Transformer
 from rasterio.transform import from_origin
 
 from src.analysis.urban_params import io as urban_params_io
 from src.analysis.urban_params.io import (
+    LayerResource,
     _covers_layer_extent,
     find_satellite_rasters,
     iter_feature_records,
+    read_layer_dataframe,
     resolve_layer_name,
 )
 from src.common.geo_metadata import BBox
@@ -146,6 +149,124 @@ def test_iter_feature_records_empty_layer(tmp_path: Path) -> None:
     resource = _make_layer_resource(gpkg, "data")
 
     assert list(iter_feature_records(resource, ANALYSIS_BBOX)) == []
+
+
+# ---------------------------------------------------------------------------
+# read_layer_dataframe
+# ---------------------------------------------------------------------------
+
+
+def _write_attributed_points_layer(gpkg: Path, crs: CRS) -> None:
+    """属性2列を持つポイントレイヤを指定CRSで書き出す。"""
+    schema = {"geometry": "Point", "properties": {"height": "float", "var": "float"}}
+    with fiona.open(gpkg, "w", driver="GPKG", layer="data", crs=crs, schema=schema) as dst:
+        for x, y, height, variance in ((10.0, 70.0, 5.0, 1.0), (30.0, 30.0, 9.0, -1.0)):
+            dst.write(
+                {
+                    "geometry": {"type": "Point", "coordinates": (x, y)},
+                    "properties": {"height": height, "var": variance},
+                }
+            )
+
+
+def test_read_layer_dataframe_reads_all_features(tmp_path: Path) -> None:
+    """全フィーチャ・全属性列が読み込まれ、解析用CRSが設定される。"""
+    gpkg = tmp_path / "points.gpkg"
+    _write_attributed_points_layer(gpkg, ANALYSIS_CRS)
+    resource = _make_layer_resource(gpkg, "data")
+
+    gdf = read_layer_dataframe(resource)
+
+    assert len(gdf) == 2
+    assert {"height", "var"} <= set(gdf.columns)
+    assert gdf.crs == ANALYSIS_CRS
+    assert gdf.geometry.iloc[0].x == pytest.approx(10.0)
+
+
+def test_read_layer_dataframe_columns_subset(tmp_path: Path) -> None:
+    """columns 指定時は指定した属性列のみを読み込む（ジオメトリは常に読む）。"""
+    gpkg = tmp_path / "points.gpkg"
+    _write_attributed_points_layer(gpkg, ANALYSIS_CRS)
+    resource = _make_layer_resource(gpkg, "data")
+
+    gdf = read_layer_dataframe(resource, columns=["height"])
+
+    assert "height" in gdf.columns
+    assert "var" not in gdf.columns
+    assert not gdf.geometry.isna().any()
+
+
+def test_read_layer_dataframe_uses_source_crs_over_file_crs(tmp_path: Path) -> None:
+    """ファイル記載のCRSではなく resource.source_crs が優先される。"""
+    gpkg = tmp_path / "points.gpkg"
+    # ファイルにはEPSG:4326と記録するが、設定上はEPSG:3857として扱う。
+    _write_attributed_points_layer(gpkg, CRS.from_epsg(4326))
+    resource = _make_layer_resource(gpkg, "data")
+
+    gdf = read_layer_dataframe(resource)
+
+    # source_crs と analysis_crs が一致するため再投影は起こらない。
+    assert gdf.crs == ANALYSIS_CRS
+    assert gdf.geometry.iloc[0].x == pytest.approx(10.0)
+    assert gdf.geometry.iloc[0].y == pytest.approx(70.0)
+
+
+def test_read_layer_dataframe_empty_layer(tmp_path: Path) -> None:
+    """空レイヤでも例外を出さず、解析用CRS設定済みの空GeoDataFrameを返す。"""
+    gpkg = tmp_path / "empty.gpkg"
+    schema = {"geometry": "Point", "properties": {"height": "float", "var": "float"}}
+    with fiona.open(gpkg, "w", driver="GPKG", layer="data", crs=ANALYSIS_CRS, schema=schema):
+        pass
+
+    gdf = read_layer_dataframe(_make_layer_resource(gpkg, "data"))
+
+    assert len(gdf) == 0
+    assert gdf.crs == ANALYSIS_CRS
+
+
+def test_read_layer_dataframe_keeps_null_geometry_as_nan_centroid(tmp_path: Path) -> None:
+    """NULLジオメトリは保持され、重心座標がNaNになる（添字算出側で除外できる）。"""
+    gpkg = tmp_path / "with_null.gpkg"
+    schema = {"geometry": "Point", "properties": {"height": "float"}}
+    with fiona.open(gpkg, "w", driver="GPKG", layer="data", crs=ANALYSIS_CRS, schema=schema) as dst:
+        dst.write(
+            {
+                "geometry": {"type": "Point", "coordinates": (10.0, 70.0)},
+                "properties": {"height": 5.0},
+            }
+        )
+        dst.write({"geometry": None, "properties": {"height": 9.0}})
+
+    gdf = read_layer_dataframe(_make_layer_resource(gpkg, "data"))
+    centroid_x = gdf.geometry.centroid.x.to_numpy()
+
+    assert len(gdf) == 2
+    assert centroid_x[0] == pytest.approx(10.0)
+    assert np.isnan(centroid_x[1])
+
+
+def test_read_layer_dataframe_reprojects_to_analysis_crs(tmp_path: Path) -> None:
+    """source_crs と analysis_crs が異なる場合は解析用CRSへ投影される。"""
+    source_crs = CRS.from_epsg(4326)
+    gpkg = tmp_path / "points.gpkg"
+    _write_attributed_points_layer(gpkg, source_crs)
+
+    to_analysis = Transformer.from_crs(source_crs, ANALYSIS_CRS, always_xy=True)
+    resource = LayerResource(
+        path=gpkg,
+        layer_name="data",
+        source_crs=source_crs,
+        analysis_crs=ANALYSIS_CRS,
+        to_analysis=to_analysis,
+        from_analysis=Transformer.from_crs(ANALYSIS_CRS, source_crs, always_xy=True),
+    )
+
+    gdf = read_layer_dataframe(resource)
+
+    expected_x, expected_y = to_analysis.transform(10.0, 70.0)
+    assert gdf.crs == ANALYSIS_CRS
+    assert gdf.geometry.iloc[0].x == pytest.approx(expected_x)
+    assert gdf.geometry.iloc[0].y == pytest.approx(expected_y)
 
 
 # ---------------------------------------------------------------------------

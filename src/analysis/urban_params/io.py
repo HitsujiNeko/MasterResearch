@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import fiona
+import geopandas as gpd
 from pyproj import CRS, Transformer
 
 from src.common.geo_metadata import BBox, transform_bbox
@@ -202,6 +203,46 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
             if feature.get("geometry") is None:
                 continue
             yield feature
+
+
+def read_layer_dataframe(
+    resource: LayerResource,
+    columns: list[str] | None = None,
+) -> gpd.GeoDataFrame:
+    """レイヤ全体をGeoDataFrameとして一括読み込みし、解析用CRSへ投影する。
+
+    フィーチャ数が多いレイヤでは、1件ずつの読み込み・投影がオーバーヘッドの
+    支配項になる。一括読み込みと ``to_crs()`` による一括投影で、同じ結果を
+    大幅に短い時間で得るための関数である。
+
+    CRSは、ファイルに記載された値ではなく ``resource.source_crs``
+    （都市設定の ``crs_epsg``）を優先して明示する。逐次読み込み経路
+    （``iter_feature_records()`` + ``project_geometry_safe()``）と
+    同じCRSの意味論を保つためである。
+
+    空間フィルタは適用せず全件を読み込む。呼び出し側はラスタ化・セル添字
+    判定の時点でグリッド範囲外を除外するため、ここで絞り込む必要はない。
+    ただしcoarseグリッドは解析BBoxを最大1セル分だけ外側（+X側・-Y側）まで
+    含むため、その帯に入る地物の扱いのみ、空間フィルタを適用する逐次経路
+    （``iter_feature_records()``）と異なる。
+
+    Args:
+        resource: 読み込む対象レイヤ。
+        columns: 読み込む属性列の一覧。``None`` の場合は全列を読み込む。
+            ジオメトリ列は指定に関わらず常に読み込まれる。
+
+    Returns:
+        解析用CRSへ投影済みのGeoDataFrame。
+    """
+    read_kwargs: dict[str, Any] = {"layer": resource.layer_name}
+    if columns is not None:
+        read_kwargs["columns"] = columns
+
+    gdf = gpd.read_file(resource.path, **read_kwargs)
+    gdf = gdf.set_crs(resource.source_crs, allow_override=True)
+    if resource.source_crs != resource.analysis_crs:
+        gdf = gdf.to_crs(resource.analysis_crs)
+    return gdf
 
 
 def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:

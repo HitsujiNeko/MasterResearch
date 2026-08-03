@@ -53,6 +53,17 @@
     またLoD1（フットプリントを単一の代表高さで押し出した箱型）モデルのため、
     屋根形状や階別の形状変化は表現しない。高さ由来のパラメータを定量指標として
     解釈する際は、この精度限界を前提とする必要がある。
+
+    実データには ``height`` が 1m 未満の建物が 2.6%（最小 0.0062m）含まれる。
+    建物高さとして物理的に成立しない値だが、機械学習推定のアーティファクトと
+    実在の平屋を判別する閾値を決められないため、本モジュールは負値のみを除外し
+    小さな正値はそのまま集計する。閾値を設けるかは分析側の判断に委ねる。
+
+    被覆率と棟数密度は、データの有効域外でも 0.0 を返す。「真に建物がない」
+    状態と「データが無い」状態を区別しないため、``BUILD_COV = 0`` を建物の
+    不存在と解釈する前に、対象セルが有効カバレッジ内かを別途確認する必要が
+    ある（特に測量GISを使う ``full`` シナリオでは整備範囲がROIより狭い）。
+    高さのみ、この区別のためにNaNを用いている。
 """
 
 from __future__ import annotations
@@ -63,16 +74,18 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from ..geometry import aggregate_mean_from_fine_mask, centroid_cell_indices, rasterize_binary_mask
+from ..geometry import (
+    POLYGON_GEOM_TYPES,
+    aggregate_mean_from_fine_mask,
+    centroid_cell_indices,
+    rasterize_binary_mask,
+)
 from ..grid import BBox, GridSpec, cell_area_ha
 from ..io import LayerResource, list_layer_fields, read_layer_dataframe
 
 # 建物高さと、その推定分散を保持する属性列の名前。
 HEIGHT_FIELD = "height"
 HEIGHT_VARIANCE_FIELD = "var"
-
-# 被覆率・重心の対象とするジオメトリ種別（``geometry_is_polygon()`` と同じ判定）。
-POLYGON_GEOM_TYPES = ("Polygon", "MultiPolygon")
 
 
 def _filter_usable_polygons(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -94,17 +107,20 @@ def _filter_usable_polygons(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         ジオメトリが有効なポリゴン系である行のみを残したGeoDataFrame。
     """
     geometries = gdf.geometry
-    is_polygon_mask = geometries.notna() & geometries.geom_type.isin(POLYGON_GEOM_TYPES)
+    present_mask = geometries.notna()
+    is_polygon_mask = present_mask & geometries.geom_type.isin(POLYGON_GEOM_TYPES)
     usable_mask = is_polygon_mask & ~geometries.is_empty & geometries.is_valid
 
-    non_polygon_count = int((~is_polygon_mask).sum())
+    # ジオメトリは存在するがポリゴン系でないもの（測量GISでは正常な内訳）。
+    non_polygon_count = int((present_mask & ~is_polygon_mask).sum())
     if non_polygon_count:
         warnings.warn(
             f"ポリゴン以外の建物ジオメトリを除外しました: {non_polygon_count} 件",
             stacklevel=2,
         )
 
-    broken_count = int((is_polygon_mask & ~usable_mask).sum())
+    # NULL・空・自己交差などのデータ品質の問題（NULLは正常な内訳ではない）。
+    broken_count = int((~present_mask).sum()) + int((is_polygon_mask & ~usable_mask).sum())
     if broken_count:
         warnings.warn(
             f"不正または空の建物ジオメトリを除外しました: {broken_count} 件",

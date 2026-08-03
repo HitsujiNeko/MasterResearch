@@ -79,6 +79,11 @@ def project_geometry_safe(
     return projected
 
 
+# ポリゴン系とみなすジオメトリ種別。1件ずつの判定（``geometry_is_polygon()``）と
+# GeoSeries への一括判定の双方から参照し、判定基準が分岐しないようにする。
+POLYGON_GEOM_TYPES = frozenset({"Polygon", "MultiPolygon"})
+
+
 def geometry_is_polygon(projected_geom: Any) -> bool:
     """ポリゴン系ジオメトリかを判定する。
 
@@ -88,7 +93,7 @@ def geometry_is_polygon(projected_geom: Any) -> bool:
     Returns:
         ``Polygon`` または ``MultiPolygon`` であれば ``True``。
     """
-    return projected_geom.geom_type in {"Polygon", "MultiPolygon"}
+    return projected_geom.geom_type in POLYGON_GEOM_TYPES
 
 
 def geometry_is_line(projected_geom: Any) -> bool:

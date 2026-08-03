@@ -119,6 +119,32 @@ def edge_building_resource(tmp_path: Path) -> LayerResource:
 
 
 @pytest.fixture()
+def mixed_geometry_building_resource(tmp_path: Path) -> LayerResource:
+    """ポリゴン1件とライン1件を持つ建物レイヤ（測量GIS由来の構成を模す）。"""
+    gpkg_path = tmp_path / "mixed_geometry.gpkg"
+    schema = {"geometry": "Unknown", "properties": {"height": "float", "var": "float"}}
+    with fiona.open(
+        gpkg_path, "w", driver="GPKG", layer="data", crs=ANALYSIS_CRS, schema=schema
+    ) as dst:
+        dst.write(
+            {
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[(0, 60), (20, 60), (20, 80), (0, 80), (0, 60)]],
+                },
+                "properties": {"height": 10.0, "var": 1.0},
+            }
+        )
+        dst.write(
+            {
+                "geometry": {"type": "LineString", "coordinates": [(20, 20), (40, 40)]},
+                "properties": {"height": 7.0, "var": 1.0},
+            }
+        )
+    return _make_layer_resource(gpkg_path, "data")
+
+
+@pytest.fixture()
 def empty_building_resource(tmp_path: Path) -> LayerResource:
     """建物が1件も無い建物レイヤ。"""
     gpkg_path = tmp_path / "empty_buildings.gpkg"

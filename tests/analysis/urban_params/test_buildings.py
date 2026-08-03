@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -176,11 +178,28 @@ def test_compute_empty_layer(empty_building_resource) -> None:
     assert np.all(np.isnan(result["BUILD_H_MAX"]))
 
 
-def test_compute_excludes_null_geometry(null_geometry_building_resource) -> None:
-    """NULLジオメトリは警告つきで除外され、正常な建物のみが集計される。"""
+def test_compute_reports_non_polygon_separately(mixed_geometry_building_resource) -> None:
+    """ポリゴン以外の混在は「不正」ではなく別カテゴリの警告として報告される。"""
     grid_spec = _build_test_grid()
 
-    with pytest.warns(UserWarning, match="ポリゴン以外の建物ジオメトリ"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = buildings.compute(mixed_geometry_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    messages = [str(record.message) for record in caught]
+    assert any("ポリゴン以外の建物ジオメトリを除外しました: 1 件" in m for m in messages)
+    # 正常な内訳なので、データ品質の問題としては報告しない。
+    assert not any("不正または空" in m for m in messages)
+    assert result["BUILD_COV"][0, 0] == pytest.approx(1.0)
+    assert result["BUILD_DEN"].sum() == pytest.approx(1.0 / cell_area_ha(grid_spec))
+
+
+def test_compute_excludes_null_geometry(null_geometry_building_resource) -> None:
+    """NULLジオメトリはデータ品質の問題として警告され、正常な建物のみが集計される。"""
+    grid_spec = _build_test_grid()
+
+    # NULLは「ポリゴン以外」（測量GISでは正常な内訳）ではなく不正側に数える。
+    with pytest.warns(UserWarning, match="不正または空の建物ジオメトリ"):
         result = buildings.compute(null_geometry_building_resource, ANALYSIS_BBOX, grid_spec)
 
     assert result["BUILD_COV"][0, 0] == pytest.approx(1.0)

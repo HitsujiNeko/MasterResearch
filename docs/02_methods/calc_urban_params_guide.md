@@ -153,7 +153,7 @@
 
 #### 確定済みパラメータ
 
-- **`ROAD_DEN_<scale>`（道路密度, m/ha）**: Issue #21で設計確定・実装済
+- **`ROAD_DEN_<scale>`（道路密度, m/ha）**: 設計確定・実装済
   - **入力**: `data/gis/roads/hanoi_osm_roads.gpkg`（OSM Geofabrik 由来）
   - **フィルタリング**: ホワイトリスト方式。motorway〜living_street + service を含め、非車道（footway, steps, path 等）・track・construction・proposed・特殊用途を除外。z_order < 0（トンネル・地下道）も除外
   - **算出方法**: `compute_line_length()` でセル内ライン総延長（m/cell）を算出し、`cell_area_ha()` で面積正規化
@@ -191,7 +191,7 @@
 | `VALID_SATELLITE_MASK` | `run.build_satellite_quality()` | 確定・実装済 |
 | `DATA_SOURCE`, `SCENARIO` | `run.run_for_scale()` | 確定・実装済 |
 | `BUILD_COV_<scale>`, `BUILD_DEN_<scale>`, `BUILD_H_MEAN_<scale>`, `BUILD_H_MAX_<scale>` | `params/buildings.py: compute()` | 確定・実装済（`limited` / `full` シナリオのみ） |
-| `ROAD_DEN_<scale>` | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済**（Issue #21） |
+| `ROAD_DEN_<scale>` | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
 | `ELEV_MEAN_<scale>`, `ELEV_COUNT_<scale>` | `params/elevation.py: compute()`（現状stub・空dict） | 未確定。別Issueで設計・実装予定 |
 | `WATER_COV_<scale>`, `GREEN_COV_<scale>` | （未割当） | 未確定。stubモジュールも未作成。入力源確定後にサブIssue起案が必要 |
 
@@ -326,7 +326,7 @@ python -m src.analysis.urban_params --city hanoi \
 
 ### 10.1 現在の実装状況（2026-08-03）
 
-- **`params/roads.py`（`ROAD_DEN`）**: Issue #21 で設計確定・実装済み。`limited` シナリオで `hanoi_osm_roads.gpkg` から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
+- **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_osm_roads.gpkg` から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
 - **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_gba_buildings.gpkg`（GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`full` シナリオの `merge_DC.gpkg` は高さ属性を持たないため、高さ列は NaN になる。
 - `params/elevation.py`（`ELEV_MEAN` / `ELEV_COUNT`）: stub（空dict）。別途設計・実装予定。
 - `satellite_only` はGIS入力を使用せず、衛星指標と品質管理列のみを出力する。

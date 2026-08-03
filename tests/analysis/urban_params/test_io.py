@@ -10,11 +10,14 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from src.analysis.urban_params import io as urban_params_io
 from src.analysis.urban_params.io import (
+    _covers_layer_extent,
     find_satellite_rasters,
     iter_feature_records,
     resolve_layer_name,
 )
+from src.common.geo_metadata import BBox
 
 from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS, _make_layer_resource
 
@@ -90,6 +93,59 @@ def test_iter_feature_records_excludes_out_of_bbox(tmp_path: Path) -> None:
 
     assert len(features) == 1
     assert features[0]["properties"]["val"] == 1
+
+
+def _write_points_layer(gpkg: Path, coordinates: list[tuple[float, float]]) -> None:
+    """指定座標のポイントのみを持つ単一レイヤのGPKGを書き出す。"""
+    schema = {"geometry": "Point", "properties": {"val": "int"}}
+    with fiona.open(gpkg, "w", driver="GPKG", layer="data", crs=ANALYSIS_CRS, schema=schema) as dst:
+        for index, (x, y) in enumerate(coordinates, start=1):
+            dst.write(
+                {"geometry": {"type": "Point", "coordinates": (x, y)}, "properties": {"val": index}}
+            )
+
+
+def test_covers_layer_extent(tmp_path: Path) -> None:
+    """レイヤ全域を覆う場合のみTrueを返し、範囲不明の空レイヤではFalseを返す。"""
+    gpkg = tmp_path / "points.gpkg"
+    _write_points_layer(gpkg, [(10.0, 70.0), (75.0, 5.0)])
+    with fiona.open(gpkg, layer="data") as src:
+        assert _covers_layer_extent(src, ANALYSIS_BBOX) is True
+        # レイヤ範囲（maxx=75）をわずかに下回るBBoxでは覆いきれない。
+        assert _covers_layer_extent(src, BBox(0.0, 0.0, 74.0, 80.0)) is False
+
+    empty_gpkg = tmp_path / "empty.gpkg"
+    _write_points_layer(empty_gpkg, [])
+    with fiona.open(empty_gpkg, layer="data") as src:
+        assert _covers_layer_extent(src, ANALYSIS_BBOX) is False
+
+
+def test_iter_feature_records_same_count_with_and_without_spatial_filter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """同一BBoxに対し、空間フィルタを省略しても返すフィーチャが変わらない。"""
+    gpkg = tmp_path / "points.gpkg"
+    _write_points_layer(gpkg, [(10.0, 70.0), (30.0, 30.0), (75.0, 5.0)])
+    resource = _make_layer_resource(gpkg, "data")
+
+    # ANALYSIS_BBOX はレイヤ全域を覆うため、既定ではフィルタ省略の経路を通る。
+    skipped = [f["properties"]["val"] for f in iter_feature_records(resource, ANALYSIS_BBOX)]
+
+    # 判定を強制的に偽にして、従来どおり空間フィルタを適用する経路と比較する。
+    monkeypatch.setattr(urban_params_io, "_covers_layer_extent", lambda src, query_bbox: False)
+    filtered = [f["properties"]["val"] for f in iter_feature_records(resource, ANALYSIS_BBOX)]
+
+    assert skipped == [1, 2, 3]
+    assert skipped == filtered
+
+
+def test_iter_feature_records_empty_layer(tmp_path: Path) -> None:
+    """範囲を計算できない空レイヤでも例外を出さず0件を返す。"""
+    gpkg = tmp_path / "empty.gpkg"
+    _write_points_layer(gpkg, [])
+    resource = _make_layer_resource(gpkg, "data")
+
+    assert list(iter_feature_records(resource, ANALYSIS_BBOX)) == []
 
 
 # ---------------------------------------------------------------------------

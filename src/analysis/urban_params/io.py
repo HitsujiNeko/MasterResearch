@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -134,8 +135,50 @@ def bbox_from_layer(resource: LayerResource, analysis_crs: CRS) -> BBox:
     return transform_bbox(bbox, resource.to_analysis)
 
 
+def _covers_layer_extent(src: fiona.Collection, query_bbox: BBox) -> bool:
+    """検索BBoxがレイヤ全体の範囲を覆いきるかを判定する。
+
+    覆いきる場合は空間フィルタを適用しても結果が変わらないため、
+    フィルタを省略して読み込みを高速化できる。
+
+    判定はレイヤが記録している範囲（``src.bounds``）に基づく。この値が
+    実データの範囲より狭い破損データでは判定が成立しないが、解析範囲
+    そのものを決める ``bbox_from_layer()`` も同じ値を信頼しているため、
+    本関数が新たに前提を追加するものではない。
+
+    Args:
+        src: オープン済みのFionaコレクション。
+        query_bbox: レイヤ本来のCRS上の検索範囲。
+
+    Returns:
+        検索BBoxがレイヤ全体を覆う場合は ``True``。範囲を取得できない
+        （空レイヤ等）場合や有限値でない場合は、安全側に倒して ``False``
+        を返す（＝従来どおり空間フィルタを適用する）。
+    """
+    try:
+        minx, miny, maxx, maxy = src.bounds
+    except Exception:
+        # 空レイヤなどで範囲を計算できない場合はフィルタ省略の判断ができない。
+        return False
+
+    if not all(math.isfinite(value) for value in (minx, miny, maxx, maxy)):
+        return False
+
+    return (
+        query_bbox.minx <= minx
+        and query_bbox.miny <= miny
+        and query_bbox.maxx >= maxx
+        and query_bbox.maxy >= maxy
+    )
+
+
 def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterable[dict[str, Any]]:
     """指定BBox内のフィーチャを逐次返す。
+
+    検索BBoxがレイヤ全体の範囲を覆う場合は、空間フィルタを適用しても
+    全フィーチャが該当するため、フィルタを省略して読み込む。空間索引の
+    参照コストを避けるための最適化であり、レイヤの記録範囲が正しい限り
+    返すフィーチャ集合は変わらない。
 
     Args:
         resource: フィーチャを読み込む対象レイヤ。
@@ -150,7 +193,12 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
         query_bbox = transform_bbox(bbox_analysis, resource.from_analysis)
 
     with fiona.open(resource.path, layer=resource.layer_name) as src:
-        for feature in src.filter(bbox=query_bbox.to_tuple()):
+        if _covers_layer_extent(src, query_bbox):
+            features: Iterable[dict[str, Any]] = src
+        else:
+            features = src.filter(bbox=query_bbox.to_tuple())
+
+        for feature in features:
             if feature.get("geometry") is None:
                 continue
             yield feature

@@ -205,6 +205,23 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
             yield feature
 
 
+def list_layer_fields(resource: LayerResource) -> list[str]:
+    """レイヤが持つ属性列名の一覧を返す。
+
+    読み込む列を絞り込む前に、対象レイヤに実在する列を確認するために使う。
+    シナリオによってレイヤのスキーマが異なる（公開GISと測量GISで属性が
+    揃っていない）ため、存在しない列を指定して読み込みが失敗するのを避ける。
+
+    Args:
+        resource: 対象レイヤ。
+
+    Returns:
+        属性列名のリスト。ジオメトリ列は含まない。
+    """
+    with fiona.open(resource.path, layer=resource.layer_name) as src:
+        return list(src.schema["properties"])
+
+
 def read_layer_dataframe(
     resource: LayerResource,
     columns: list[str] | None = None,

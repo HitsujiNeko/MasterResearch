@@ -17,6 +17,7 @@ from src.analysis.urban_params.io import (
     _covers_layer_extent,
     find_satellite_rasters,
     iter_feature_records,
+    list_layer_fields,
     read_layer_dataframe,
     resolve_layer_name,
 )
@@ -167,6 +168,33 @@ def _write_attributed_points_layer(gpkg: Path, crs: CRS) -> None:
                     "properties": {"height": height, "var": variance},
                 }
             )
+
+
+def test_list_layer_fields(tmp_path: Path) -> None:
+    """属性列名の一覧が返り、ジオメトリ列は含まれない。"""
+    gpkg = tmp_path / "points.gpkg"
+    _write_attributed_points_layer(gpkg, ANALYSIS_CRS)
+
+    fields = list_layer_fields(_make_layer_resource(gpkg, "data"))
+
+    assert set(fields) == {"height", "var"}
+    assert "geometry" not in fields
+
+
+def test_list_layer_fields_without_properties(tmp_path: Path) -> None:
+    """属性列を持たないレイヤでは空リストを返す。"""
+    schema_only = tmp_path / "geometry_only.gpkg"
+    with fiona.open(
+        schema_only,
+        "w",
+        driver="GPKG",
+        layer="data",
+        crs=ANALYSIS_CRS,
+        schema={"geometry": "Point", "properties": {}},
+    ) as dst:
+        dst.write({"geometry": {"type": "Point", "coordinates": (10.0, 70.0)}, "properties": {}})
+
+    assert list_layer_fields(_make_layer_resource(schema_only, "data")) == []
 
 
 def test_read_layer_dataframe_reads_all_features(tmp_path: Path) -> None:

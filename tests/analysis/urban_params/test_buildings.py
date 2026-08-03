@@ -232,17 +232,38 @@ def test_compute_warns_when_variance_field_missing(height_without_variance_resou
     assert result["BUILD_H_MAX"][0, 0] == pytest.approx(10.0)
 
 
-def test_compute_excludes_invalid_geometry(invalid_building_resource) -> None:
-    """不正ジオメトリは警告つきで除外され、正常な建物のみが集計される。"""
+def test_compute_repairs_invalid_geometry(invalid_building_resource) -> None:
+    """不正ジオメトリは警告つきで修復され、逐次経路と同じ被覆率になる。"""
     grid_spec = _build_test_grid()
 
-    with pytest.warns(UserWarning, match="不正または空の建物ジオメトリ"):
+    with pytest.warns(UserWarning, match="不正な建物ジオメトリを修復しました"):
         result = buildings.compute(invalid_building_resource, ANALYSIS_BBOX, grid_spec)
 
+    # 修復により自己交差ポリゴンも面積を持ち、逐次経路と一致する。
+    expected = compute_polygon_coverage(invalid_building_resource, ANALYSIS_BBOX, grid_spec)
+    np.testing.assert_allclose(result["BUILD_COV"], expected)
     assert result["BUILD_COV"][0, 0] == pytest.approx(1.0)
-    # 自己交差ポリゴンが占める領域は集計されない。
-    assert result["BUILD_COV"][1, 1] == pytest.approx(0.0)
+    assert result["BUILD_COV"][1, 1] > 0
+    # 修復された建物も1棟として計上される。
+    assert result["BUILD_DEN"].sum() == pytest.approx(2.0 / cell_area_ha(grid_spec))
+
+
+def test_compute_handles_multipolygon(multipolygon_building_resource) -> None:
+    """MultiPolygon も被覆率・棟数・高さに正しく反映される。"""
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(multipolygon_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    expected = compute_polygon_coverage(multipolygon_building_resource, ANALYSIS_BBOX, grid_spec)
+    np.testing.assert_allclose(result["BUILD_COV"], expected)
+    # 2つのパートがそれぞれ 1/4 セル分を覆う。
+    assert result["BUILD_COV"][0, 0] == pytest.approx(0.25)
+    assert result["BUILD_COV"][1, 1] == pytest.approx(0.25)
+    # MultiPolygon 全体で1棟として、重心が属するセルへ帰属する。
     assert result["BUILD_DEN"].sum() == pytest.approx(1.0 / cell_area_ha(grid_spec))
+    counts = count_polygon_centroids(multipolygon_building_resource, ANALYSIS_BBOX, grid_spec)
+    np.testing.assert_allclose(result["BUILD_DEN"], counts / cell_area_ha(grid_spec))
+    assert np.nanmax(result["BUILD_H_MEAN"]) == pytest.approx(12.0)
 
 
 def test_compute_without_height_fields(polygon_resource) -> None:

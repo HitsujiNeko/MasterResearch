@@ -119,6 +119,29 @@ def edge_building_resource(tmp_path: Path) -> LayerResource:
 
 
 @pytest.fixture()
+def multipolygon_building_resource(tmp_path: Path) -> LayerResource:
+    """MultiPolygon の建物1件を持つレイヤ。
+
+    coarseセル(0, 0) と (1, 1) にそれぞれ 1/4 セル分のパートを持つ。
+    重心は2パートの中間 (15, 55) にあり、セル(1, 0) へ帰属する。
+    """
+    gpkg_path = tmp_path / "multipolygon.gpkg"
+    schema = {"geometry": "MultiPolygon", "properties": {"height": "float", "var": "float"}}
+    part_a = [[(0.0, 70.0), (10.0, 70.0), (10.0, 80.0), (0.0, 80.0), (0.0, 70.0)]]
+    part_b = [[(20.0, 40.0), (30.0, 40.0), (30.0, 50.0), (20.0, 50.0), (20.0, 40.0)]]
+    with fiona.open(
+        gpkg_path, "w", driver="GPKG", layer="data", crs=ANALYSIS_CRS, schema=schema
+    ) as dst:
+        dst.write(
+            {
+                "geometry": {"type": "MultiPolygon", "coordinates": [part_a, part_b]},
+                "properties": {"height": 12.0, "var": 1.0},
+            }
+        )
+    return _make_layer_resource(gpkg_path, "data")
+
+
+@pytest.fixture()
 def mixed_geometry_building_resource(tmp_path: Path) -> LayerResource:
     """ポリゴン1件とライン1件を持つ建物レイヤ（測量GIS由来の構成を模す）。"""
     gpkg_path = tmp_path / "mixed_geometry.gpkg"

@@ -40,8 +40,9 @@
 
 高さの扱い:
     高さ推定の分散が負の建物は、推定の信頼度が無いことを示す番兵値とみなして
-    高さ集計から除外する。分散は物理的に負にならないためである。フットプリント
-    自体は有効なので、被覆率・棟数密度からは除外しない。
+    高さ集計から除外する。分散は物理的に負にならないためである。高さ自体が
+    負の建物、および高さ・分散のいずれかが欠測（NaN）の建物も同じ基準で除外
+    する。フットプリント自体は有効なので、被覆率・棟数密度からは除外しない。
 
     セル内に有効な高さの建物が1棟も無い場合、平均・最大高さは 0.0 ではなく NaN
     とする。0.0 では「建物が無い」と「高さが不明」を区別できず、回帰分析で偽の
@@ -89,38 +90,57 @@ HEIGHT_VARIANCE_FIELD = "var"
 
 
 def _filter_usable_polygons(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """ポリゴンとして扱える行のみを残す。
+    """ポリゴンとして扱える行のみを残す。不正ジオメトリは修復を試みる。
 
-    一括読み込み経路では ``project_geometry_safe()`` による ``make_valid``
-    フォールバックを経ないため、不正ジオメトリをここで除外する。除外が
-    発生した場合は件数を警告し、静かなデータ欠落にならないようにする。
+    逐次経路の ``project_geometry_safe()`` は不正ジオメトリを ``make_valid``
+    で修復してから採用する。同じ意味論を保つため本関数でも修復を先に行い、
+    修復しても使えない行だけを除外する。修復せずに除外すると、同じレイヤに
+    対して ``compute_polygon_coverage()`` と異なる被覆率を返してしまう。
 
     除外理由は「ポリゴン以外」と「不正・空」に分けて数える。測量GIS由来の
     レイヤはポイント・ラインを含むことがあり正常な内訳である一方、不正・空の
     ジオメトリはデータ品質の問題を示すため、前者の件数に後者が埋もれると
-    問題を見落とすためである。
+    問題を見落とすためである。件数は警告として出し、静かなデータ欠落に
+    ならないようにする。
 
     Args:
         gdf: 解析用CRSへ投影済みの建物レイヤ。
 
     Returns:
-        ジオメトリが有効なポリゴン系である行のみを残したGeoDataFrame。
+        ポリゴン系として使える行のみを残し、修復済みジオメトリを反映した
+        GeoDataFrame。
     """
     geometries = gdf.geometry
     present_mask = geometries.notna()
-    is_polygon_mask = present_mask & geometries.geom_type.isin(POLYGON_GEOM_TYPES)
-    usable_mask = is_polygon_mask & ~geometries.is_empty & geometries.is_valid
+    # 修復でジオメトリ種別が変わりうるため、ポリゴン系かの判定は修復前の型で行う。
+    was_polygon_mask = present_mask & geometries.geom_type.isin(POLYGON_GEOM_TYPES)
+
+    invalid_mask = was_polygon_mask & ~geometries.is_valid
+    repaired_count = int(invalid_mask.sum())
+    if repaired_count:
+        geometries = geometries.copy()
+        geometries.loc[invalid_mask] = geometries.loc[invalid_mask].make_valid()
+        gdf = gdf.set_geometry(geometries)
+        warnings.warn(
+            f"不正な建物ジオメトリを修復しました: {repaired_count} 件",
+            stacklevel=2,
+        )
+
+    # 修復結果がGeometryCollection等になる場合があるため、修復後に再判定する。
+    usable_mask = (
+        was_polygon_mask & geometries.geom_type.isin(POLYGON_GEOM_TYPES) & ~geometries.is_empty
+    )
 
     # ジオメトリは存在するがポリゴン系でないもの（測量GISでは正常な内訳）。
-    non_polygon_count = int((present_mask & ~is_polygon_mask).sum())
+    non_polygon_count = int((present_mask & ~was_polygon_mask).sum())
     if non_polygon_count:
         warnings.warn(
             f"ポリゴン以外の建物ジオメトリを除外しました: {non_polygon_count} 件",
             stacklevel=2,
         )
 
-    # NULL・空・自己交差などのデータ品質の問題（NULLは正常な内訳ではない）。
-    broken_count = int((~present_mask).sum()) + int((is_polygon_mask & ~usable_mask).sum())
+    # NULL・空・修復できなかったジオメトリ（NULLは正常な内訳ではない）。
+    broken_count = int((~present_mask).sum()) + int((was_polygon_mask & ~usable_mask).sum())
     if broken_count:
         warnings.warn(
             f"不正または空の建物ジオメトリを除外しました: {broken_count} 件",

@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-08-03  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -133,8 +133,9 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 | GHSL / WSF | 粗い built-up 補助指標 | 補助候補 | 精密な建物輪郭の代替ではない |
 
 > 根拠は [available_gis_data.md](../01_planning/available_gis_data.md) に整理している。  
-> Microsoft 建物データは、Hanoi ROI 西側で `105.46875E` 付近を境に欠落が確認された。  
-> `BUILD_COV_0 = 0` / `BUILD_DEN_0 = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。
+> Microsoft 建物データは、Hanoi ROI 西側で `105.46875E` 付近を境に欠落が確認された（現在の主ソースは GBA）。  
+> `BUILD_COV_<scale> = 0` / `BUILD_DEN_<scale> = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。  
+> **`BUILD_COV = 0` はカバレッジが十分な領域でも建物の不存在を意味しない**。ラスタ化の解像度より小さい建物は被覆率に寄与しないため、建物の有無は `BUILD_DEN` で判定する（詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3.5）。
 
 ---
 
@@ -236,8 +237,10 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 
 | パラメータ名 | 変数名 | 算出方法 | データソース | 根拠文献 |
 |------------|--------|---------|------------|---------|
-| 建物被覆率 | `BUILD_COV` | グリッド内建物面積 / グリッド面積 | 建物ポリゴン（Microsoft / OSM / DC） | S4 |
-| 建物密度 | `BUILD_DEN` | グリッド内建物ポリゴン数 | 建物ポリゴン（Microsoft / OSM / DC） | S4 |
+| 建物被覆率 | `BUILD_COV` | グリッド内建物面積 / グリッド面積（0-1） | 建物ポリゴン（GBA / DC） | S4 |
+| 建物密度 | `BUILD_DEN` | グリッド内建物棟数 / グリッド面積（棟/ha） | 建物ポリゴン（GBA / DC） | S4 |
+| 建物平均高さ | `BUILD_H_MEAN` | グリッド内建物の平均高さ（m） | 建物ポリゴン（GBA） | S4 |
+| 建物最大高さ | `BUILD_H_MAX` | グリッド内建物の最大高さ（m） | 建物ポリゴン（GBA） | S4 |
 | 道路密度 | `ROAD_DEN` | グリッド内道路延長（m） | 道路ライン（OSM / GT） | S4 |
 | 主要道路距離 | `ROAD_DIST` | 最近接幹線道路までの距離（m） | 道路ライン（OSM / GT） | S4 |
 | 水域率 | `WATER_COV` | グリッド内水域面積 / グリッド面積 | 水域ポリゴン（OSM / TH / DH） | S6 |
@@ -264,6 +267,11 @@ LSTの空間解像度に合わせ、**30m × 30m グリッド**を基本単位�
 
 Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2019.md)）の近傍リング設計を参考に、  
 各パラメータを**複数の空間スケール**で算出し、空間スケール依存性を評価する。
+
+> **本節は未実装の設計案である（採否・詳細は未確定）。** 以下の `_0` / `_30_60` 等のリング型
+> サフィックスは現行の出力仕様ではない。実装済みの出力列は `_<scale>`（30/90/300m のグリッド
+> 解像度）方式であり、正本は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章である。
+> 4章のデータセット構造・5章の分析ケースに現れるリング型の列名も同様に設計案として読むこと。
 
 | スケール名 | 範囲 | 変数名サフィックス | 例（建物被覆率） |
 |----------|------|-----------------|---------------|

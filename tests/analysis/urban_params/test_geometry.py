@@ -13,6 +13,7 @@ from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from src.analysis.urban_params.geometry import (
     aggregate_mean_from_fine_mask,
     aggregate_sum_from_fine_mask,
+    centroid_cell_indices,
     compute_line_length,
     compute_polygon_coverage,
     count_polygon_centroids,
@@ -23,6 +24,7 @@ from src.analysis.urban_params.geometry import (
     rasterize_binary_mask,
 )
 from src.analysis.urban_params.grid import build_grid
+from src.analysis.urban_params.io import read_layer_dataframe
 
 from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
 
@@ -104,6 +106,50 @@ def test_compute_polygon_coverage_and_centroid_count(polygon_resource) -> None:
 
     assert centroid_counts[0, 0] == pytest.approx(1.0)
     assert centroid_counts.sum() == pytest.approx(1.0)
+
+
+def test_centroid_cell_indices_maps_known_points() -> None:
+    """既知座標が期待どおりのcoarseセル添字へ写り、範囲外・非有限値は除外される。"""
+    grid_spec = build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0)
+
+    xs = np.array([10.0, 30.0, 20.0, 0.0, -1.0, 85.0, 40.0, np.nan])
+    ys = np.array([70.0, 30.0, 60.0, 80.0, 40.0, 40.0, 85.0, 40.0])
+
+    rows, cols, inside = centroid_cell_indices(xs, ys, grid_spec)
+
+    # 通常セル・セル境界上（20, 60）・左上端（0, 80）は範囲内。
+    np.testing.assert_array_equal(inside, [True, True, True, True, False, False, False, False])
+    np.testing.assert_array_equal(rows[:4], [0, 2, 1, 0])
+    np.testing.assert_array_equal(cols[:4], [0, 1, 1, 0])
+
+
+def test_centroid_cell_indices_rejects_shape_mismatch() -> None:
+    """xs と ys の形状が一致しない場合はValueErrorになる。"""
+    grid_spec = build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0)
+
+    # ブロードキャストで黙って通ってしまう組み合わせも拒否する。
+    with pytest.raises(ValueError):
+        centroid_cell_indices(np.array([10.0, 30.0]), np.array([70.0]), grid_spec)
+
+
+def test_centroid_cell_indices_matches_count_polygon_centroids(centroid_polygon_resource) -> None:
+    """ベクトル化した重心帰属が既存のcount_polygon_centroids()と一致する。"""
+    grid_spec = build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0)
+
+    expected = count_polygon_centroids(centroid_polygon_resource, ANALYSIS_BBOX, grid_spec)
+
+    gdf = read_layer_dataframe(centroid_polygon_resource)
+    centroids = gdf.geometry.centroid
+    rows, cols, inside = centroid_cell_indices(
+        centroids.x.to_numpy(), centroids.y.to_numpy(), grid_spec
+    )
+    n_rows, n_cols = grid_spec.coarse_shape
+    flat_index = rows[inside] * n_cols + cols[inside]
+    actual = np.bincount(flat_index, minlength=n_rows * n_cols).reshape(grid_spec.coarse_shape)
+
+    np.testing.assert_array_equal(actual.astype(np.float32), expected)
+    # 範囲内の4件のみが計上され、範囲外の1件は両者とも除外される。
+    assert expected.sum() == pytest.approx(4.0)
 
 
 def test_compute_line_length_horizontal(line_resource) -> None:

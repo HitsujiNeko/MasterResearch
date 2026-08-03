@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
 import fiona
+import geopandas as gpd
 from pyproj import CRS, Transformer
 
 from src.common.geo_metadata import BBox, transform_bbox
@@ -134,8 +136,51 @@ def bbox_from_layer(resource: LayerResource, analysis_crs: CRS) -> BBox:
     return transform_bbox(bbox, resource.to_analysis)
 
 
+def _covers_layer_extent(src: fiona.Collection, query_bbox: BBox) -> bool:
+    """検索BBoxがレイヤ全体の範囲を覆いきるかを判定する。
+
+    覆いきる場合は空間フィルタを適用しても結果が変わらないため、
+    フィルタを省略して読み込みを高速化できる。
+
+    判定はレイヤが記録している範囲（``src.bounds``）に基づく。この値が実データ
+    の範囲より狭い破損データではフィルタを省略しても該当しない地物が返るが、
+    呼び出し側はいずれもグリッド範囲でクリップするため結果は変わらず、処理量
+    だけが増える。なお ``bbox_from_layer()`` も同じ値を信頼しているものの、
+    そちらは解析範囲を決める基準レイヤ1つに限られる点で適用範囲が異なる。
+
+    Args:
+        src: オープン済みのFionaコレクション。
+        query_bbox: レイヤ本来のCRS上の検索範囲。
+
+    Returns:
+        検索BBoxがレイヤ全体を覆う場合は ``True``。範囲を取得できない
+        （空レイヤ等）場合や有限値でない場合は、安全側に倒して ``False``
+        を返す（＝従来どおり空間フィルタを適用する）。
+    """
+    try:
+        minx, miny, maxx, maxy = src.bounds
+    except Exception:
+        # 空レイヤなどで範囲を計算できない場合はフィルタ省略の判断ができない。
+        return False
+
+    if not all(math.isfinite(value) for value in (minx, miny, maxx, maxy)):
+        return False
+
+    return (
+        query_bbox.minx <= minx
+        and query_bbox.miny <= miny
+        and query_bbox.maxx >= maxx
+        and query_bbox.maxy >= maxy
+    )
+
+
 def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterable[dict[str, Any]]:
     """指定BBox内のフィーチャを逐次返す。
+
+    検索BBoxがレイヤ全体の範囲を覆う場合は、空間フィルタを適用しても
+    全フィーチャが該当するため、フィルタを省略して読み込む。空間索引の
+    参照コストを避けるための最適化であり、レイヤの記録範囲が正しい限り
+    返すフィーチャ集合は変わらない。
 
     Args:
         resource: フィーチャを読み込む対象レイヤ。
@@ -150,10 +195,77 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
         query_bbox = transform_bbox(bbox_analysis, resource.from_analysis)
 
     with fiona.open(resource.path, layer=resource.layer_name) as src:
-        for feature in src.filter(bbox=query_bbox.to_tuple()):
+        if _covers_layer_extent(src, query_bbox):
+            features: Iterable[dict[str, Any]] = src
+        else:
+            features = src.filter(bbox=query_bbox.to_tuple())
+
+        for feature in features:
             if feature.get("geometry") is None:
                 continue
             yield feature
+
+
+def list_layer_fields(resource: LayerResource) -> list[str]:
+    """レイヤが持つ属性列名の一覧を返す。
+
+    読み込む列を絞り込む前に、対象レイヤに実在する列を確認するために使う。
+    シナリオによってレイヤのスキーマが異なる（公開GISと測量GISで属性が
+    揃っていない）ため、存在しない列を指定して読み込みが失敗するのを避ける。
+
+    Args:
+        resource: 対象レイヤ。
+
+    Returns:
+        属性列名のリスト。ジオメトリ列は含まない。
+    """
+    with fiona.open(resource.path, layer=resource.layer_name) as src:
+        return list(src.schema["properties"])
+
+
+def read_layer_dataframe(
+    resource: LayerResource,
+    columns: list[str] | None = None,
+) -> gpd.GeoDataFrame:
+    """レイヤ全体をGeoDataFrameとして一括読み込みし、解析用CRSへ投影する。
+
+    フィーチャ数が多いレイヤでは、1件ずつの読み込み・投影がオーバーヘッドの
+    支配項になる。一括読み込みと ``to_crs()`` による一括投影で、同じ結果を
+    大幅に短い時間で得るための関数である。
+
+    CRSは、ファイルに記載された値ではなく ``resource.source_crs``
+    （都市設定の ``crs_epsg``）を優先して明示する。逐次読み込み経路
+    （``iter_feature_records()`` + ``project_geometry_safe()``）と
+    同じCRSの意味論を保つためである。
+
+    空間フィルタは適用せず全件を読み込む。呼び出し側はラスタ化・セル添字
+    判定の時点でグリッド範囲外を除外するため、ここで絞り込む必要はない。
+    ただしcoarseグリッドは解析BBoxを最大1セル分だけ外側（+X側・-Y側）まで
+    含むため、その帯に入る地物の扱いのみ、空間フィルタを適用する逐次経路
+    （``iter_feature_records()``）と異なる。
+
+    全件読み込みが妥当なのは、現行の入力レイヤがいずれもROIへクリップ済みで
+    解析範囲を大きく超えないためである。ROIより広いレイヤへ差し替える場合は
+    メモリ使用量がレイヤ全体に比例するため、``gpd.read_file()`` の ``bbox``
+    引数で絞り込む形へ変更する（逐次経路と範囲の意味論も揃う）。
+
+    Args:
+        resource: 読み込む対象レイヤ。
+        columns: 読み込む属性列の一覧。``None`` の場合は全列を読み込む。
+            ジオメトリ列は指定に関わらず常に読み込まれる。
+
+    Returns:
+        解析用CRSへ投影済みのGeoDataFrame。
+    """
+    read_kwargs: dict[str, Any] = {"layer": resource.layer_name}
+    if columns is not None:
+        read_kwargs["columns"] = columns
+
+    gdf = gpd.read_file(resource.path, **read_kwargs)
+    gdf = gdf.set_crs(resource.source_crs, allow_override=True)
+    if resource.source_crs != resource.analysis_crs:
+        gdf = gdf.to_crs(resource.analysis_crs)
+    return gdf
 
 
 def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:

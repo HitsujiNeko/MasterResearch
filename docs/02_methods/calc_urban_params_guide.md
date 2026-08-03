@@ -236,15 +236,21 @@ def compute(
 - ROI / 公開GIS は必要時のみ解析用投影座標（既定: EPSG:5897）へ投影
 - `--scales` で指定した各スケールについて、coarseグリッド（既定10m補助グリッド付き）を作成
 
-### 7.2 Step B: GIS由来指標（検討中、6.4節参照）
+### 7.2 Step B: GIS由来指標（水域・植生・標高のみ検討中、6.4節参照）
 
-> 本節の `BUILD_COV` 等の列名・入力源はいずれも検討中の案であり、6.4節の通り設計未確定である。各パラメータは別Issueで個別に確定する。
+> 建物と道路は6.4節の通り**設計確定・実装済み**である。本節の水域・植生・標高の列名・入力源は検討中の案であり、6.4節の通り設計未確定である。各パラメータは別途個別に確定する。
 
-- 建物（Google Open Buildings / OSM / GlobalBuildingAtlas / DC）
-  - `BUILD_COV`: ポリゴン被覆率（fine→coarse平均）
-  - `BUILD_DEN`: 棟数密度（棟数/ha）
+**設計確定・実装済み**
+
+- 建物（GBA / DC）
+  - `BUILD_COV`: ポリゴン被覆率（fine→coarse平均、0-1）
+  - `BUILD_DEN`: 棟数密度（棟/ha）
+  - `BUILD_H_MEAN` / `BUILD_H_MAX`: セル内建物の平均・最大高さ（m）
 - 道路（OSM / GT）
   - `ROAD_DEN`: 道路密度（m/ha）
+
+**検討中**
+
 - 水系（OSM water / TH / DH）
   - `WATER_COV`: 水域被覆率
 - 植生（TV / OSM landuse 等）

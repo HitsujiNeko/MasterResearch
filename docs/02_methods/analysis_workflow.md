@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-08-03  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -236,8 +236,10 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 
 | パラメータ名 | 変数名 | 算出方法 | データソース | 根拠文献 |
 |------------|--------|---------|------------|---------|
-| 建物被覆率 | `BUILD_COV` | グリッド内建物面積 / グリッド面積 | 建物ポリゴン（Microsoft / OSM / DC） | S4 |
-| 建物密度 | `BUILD_DEN` | グリッド内建物ポリゴン数 | 建物ポリゴン（Microsoft / OSM / DC） | S4 |
+| 建物被覆率 | `BUILD_COV` | グリッド内建物面積 / グリッド面積（0-1） | 建物ポリゴン（GBA / DC） | S4 |
+| 建物密度 | `BUILD_DEN` | グリッド内建物棟数 / グリッド面積（棟/ha） | 建物ポリゴン（GBA / DC） | S4 |
+| 建物平均高さ | `BUILD_H_MEAN` | グリッド内建物の平均高さ（m） | 建物ポリゴン（GBA） | S4 |
+| 建物最大高さ | `BUILD_H_MAX` | グリッド内建物の最大高さ（m） | 建物ポリゴン（GBA） | S4 |
 | 道路密度 | `ROAD_DEN` | グリッド内道路延長（m） | 道路ライン（OSM / GT） | S4 |
 | 主要道路距離 | `ROAD_DIST` | 最近接幹線道路までの距離（m） | 道路ライン（OSM / GT） | S4 |
 | 水域率 | `WATER_COV` | グリッド内水域面積 / グリッド面積 | 水域ポリゴン（OSM / TH / DH） | S6 |

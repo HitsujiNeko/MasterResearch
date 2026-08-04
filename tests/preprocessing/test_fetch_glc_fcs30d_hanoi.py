@@ -18,7 +18,6 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
-from src.common.config import LANDSAT_OBSERVATION_YEAR
 from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_glc_fcs30d_hanoi as target
 from tests.helpers import HANOI_ROI_BOUNDS
@@ -239,16 +238,23 @@ class TestBuildSummary:
         assert summary["year"] == 2022
         assert summary["band_index"] == 23
 
-    def test_year_note_mentions_provision_range_and_time_gap(self, tmp_path: Path) -> None:
+    def test_year_note_mentions_provision_range_and_time_gap(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """提供年の範囲と、Landsat 観測年との時間差の注記を記録する。
 
         GLC_FCS30D の年次マップは観測年に届かないため、この注記が
-        時間差を明示する唯一の手がかりとなる。
+        時間差を明示する唯一の手がかりとなる。観測年は共通定数から取り込むため、
+        実装側の値を差し替えて注記がその値を反映することまで確認する
+        （リテラルで直書きされた場合に検出できるようにする）。観測年そのものの
+        値は tests/common/test_config.py が担保する。
         """
+        monkeypatch.setattr(target, "LANDSAT_OBSERVATION_YEAR", 1999)
+
         year_note = self._build(tmp_path)["year_note"]
 
         assert f"{target.ANNUAL_FIRST_YEAR}-{target.ANNUAL_LAST_YEAR} 年" in year_note
-        assert f"Landsat 観測年（{LANDSAT_OBSERVATION_YEAR}年前後）" in year_note
+        assert "Landsat 観測年（1999年前後）" in year_note
         assert "ずれがある" in year_note
 
     def test_source_reflects_given_record_id(self, tmp_path: Path) -> None:

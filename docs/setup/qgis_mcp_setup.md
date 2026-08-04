@@ -145,6 +145,6 @@ Test-NetConnection -ComputerName 127.0.0.1 -Port 9876
 | `get_canvas_screenshot` | キャンバスのスクリーンショット |
 | `execute_code` | 任意の PyQGIS コード実行 |
 
-全ツール一覧は [nkarasiak/qgis-mcp README](https://github.com/nkarasiak/qgis-mcp) を参照（ツール数は上流の更新で増えるため本ガイドには記載しない）。
+全ツール一覧は上流 README を参照する。ただし**`.mcp.json` の参照タグと同じタグの README を開くこと**（[タグ一覧](https://github.com/nkarasiak/qgis-mcp/tags)から選ぶ）。既定ブランチの README は固定版に存在しないツールを含みうるため、そのまま使うと操作が失敗する。ツール数は上流の更新で増えるため本ガイドには記載しない。
 
 上流由来の制約・使えるようになった機能の採否は [qgis_operation_guidelines.md の「QGIS-MCP の既知の制約と回避策」](../02_methods/qgis_operation_guidelines.md#qgis-mcp-の既知の制約と回避策)を参照。

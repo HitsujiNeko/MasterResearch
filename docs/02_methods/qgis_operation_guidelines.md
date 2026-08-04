@@ -23,7 +23,7 @@ Claude Code経由でQGISを操作する際に守るべきルールを定義す�
 | `render_map` | 可視性の変更が出力画像に反映されないことがあった（キャッシュされた合成結果を返している可能性を推定していた） | **不要（解消済み）**。可視性を切り替えた直後の`render_map`をそのまま使ってよい | 可視レイヤを`set_layer_visibility(visible=false)`にして`render_map`し、そのレイヤが消えているかを見る | v0.9.3（解消を実測） |
 | `execute_processing` | `OUTPUT` / `OUTPUT_TABLE`に`memory:`を指定すると、処理は成功するが出力レイヤが`get_layers`に現れない | 出力先に実ファイル（`.gpkg`等）を指定する。詳細は[execute_processing の出力先は実ファイルにする](#execute_processing-の出力先は実ファイルにする) | `OUTPUT`に`memory:tmp`を指定してバッファを実行し、`get_layers`に現れるかを見る | v0.9.3（未解消を実測） |
 | `execute_code` | 変数へ代入した値は返却されず、戻り値は`executed` / `stdout` / `stderr`のみ | `print(json.dumps(..., ensure_ascii=False))`で標準出力へ書き出す。詳細は[execute_code の戻り値は stdout のみ](#execute_code-の戻り値は-stdout-のみ) | `result = 1`だけのコードを実行し、`stdout`が空で返ることを見る | v0.9.3 |
-| 破壊的ツール（`remove_layer` / `delete_features` / `execute_code` / `set_setting` / `delete_field` / `remove_layout` / `rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`） | 上流は実行前の確認要求を実装しているが、**Claude Code では確認プロンプトが出ないまま即時実行される** | 確認が入る前提で運用しない。取り消せない即時実行として扱い、対象レイヤIDを実行前に確認する | 一時レイヤに対し`remove_layer`を実行し、プロンプトの有無を見る | v0.9.3（プロンプト非出現を実測） |
+| 破壊的ツール（`remove_layer` / `delete_features` / `execute_code` / `set_setting` / `delete_field` / `remove_layout` / `rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`） | 上流は実行前の確認要求（elicitation）を実装しているが、**本環境では確認なしで即時実行される場合がある**（原因は上流側に特定できていない。[運用注意](#運用注意)を参照） | 確認が入る前提で運用しない。取り消せない即時実行として扱い、対象レイヤIDを実行前に確認する | **前提**: 検証対象ツールが`.claude/settings.local.json`の`permissions.allow`に登録されていないことを確認する（登録済みだとClaude Code側で自動承認され、上流の挙動を判定できない）。そのうえで一時レイヤに対し`remove_layer`を実行し、プロンプトの有無を見る | v0.9.3（`remove_layer`で非出現を実測） |
 
 「確認バージョン」は**その行の内容を最後に実機確認した版数**であり、台帳全体の「対応済みバージョン」とは一致しないことがある。差が開いている行ほど再検証の優先度が高い。
 
@@ -37,19 +37,19 @@ MCPのバージョンと無関係な制約は台帳に載せず、現行の記�
 
 ### 運用注意
 
-- **破壊的ツールの確認プロンプトを当てにしない**: 上流は v0.8.1 で確認要求を実際に機能させ、v0.9.0 で対象に`rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`（上書き時）を加えた。ただし本環境（Claude Code + v0.9.3）では`remove_layer`・`execute_code`のいずれも確認なしで実行された。確認は最後の砦にならないため、`remove_layer`の対象IDや`execute_code`の副作用は呼び出す前に自分で確認する
+- **破壊的ツールの確認プロンプトを当てにしない**: 上流は v0.8.1 で確認要求を実際に機能させ、v0.9.0 で対象に`rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`（上書き時）を加えた。ただし本環境（Claude Code + v0.9.3）では`remove_layer`・`execute_code`のいずれも確認なしで実行された。ここで言う「確認」には**上流の確認要求（elicitation）**と**Claude Code の許可プロンプト**の2系統があり、両者は独立している。`execute_code`は`.claude/settings.local.json`の`permissions.allow`に登録済みであり、非出現は後者だけで説明がつくため上流の挙動の根拠にならない。`remove_layer`は未登録のまま非出現だったが、上流の確認要求が本環境に届いていないのか許可モード側の要因かは**未確認**である。いずれにせよ確認は最後の砦にならないため、`remove_layer`の対象IDや`execute_code`の副作用は呼び出す前に自分で確認する
 - **Windowsで別ウィンドウがポートを保持している場合、サーバー起動が拒否される**: v0.9.0 以降、既に他のQGISウィンドウが 9876 を掴んでいると、後から起動したウィンドウでのサーバー起動は失敗する（従来は2窓とも同じポートを掴み、一方が無言で全接続を受けていた）。接続先が不定にならなくなる代わりに起動失敗が明示されるため、**QGISを複数開いている場合は接続したいウィンドウ以外のサーバーを停止する**。本プロジェクトはWindows環境のため該当する
 
 ### 新規機能の採否記録
 
-一度判定した機能は**次回以降のバージョン更新で再検討しない**。運用を変える場合のみ見直す。
+一度判定した機能は**次回以降のバージョン更新で再検討しない**。運用を変える場合のみ見直す。ただし**不採用の理由が上流の実装に由来する場合は例外**とし、その理由が解消されたときに限り再判定する（どの理由が上流依存かは理由欄に明記する）。
 
 | 機能 | 採否 | 理由 |
 |---|---|---|
 | `execute_sql` | **採用** | v0.8.0 以前はラスタが1枚でも読み込まれていると全クエリが失敗したが、ラスタ6枚を含む本プロジェクトで`SELECT COUNT(*)`の成功を実測。レイヤー横断の集計・結合を`execute_code`なしで書ける |
 | `batch_commands` | **条件付き採用** | 読み取り操作を1往復にまとめる用途に使う。破壊的ツール（`execute_code` / `remove_layer` / `delete_features` / `set_setting` / `reload_plugin`）はバッチに含められないため、本研究で頻度の高いPyQGIS実行・片付けは個別呼び出しのまま |
 | `get_layer_extent` | **採用（範囲確認のみ）** | 範囲の取得は軽量で有用。地物ゼロのレイヤーでは`{"empty": true}`を返す。ただし`crs`フィールドが空文字を返す実測があるため、**CRS判定には使わない**（[CRS統一方針](#crs統一方針)に従う） |
-| `set_raster_style` | **不採用（単バンド疑似カラー用途）** | (1) `color_ramp`はQGISの名前付きランプのみで、任意の値・色・ラベルの組（`20°C=#2166ac` … `50°C=#b2182b`）を指定できず、生成されるのは等間隔アイテム・ラベルは数値のみ (2) `min_value` / `max_value`を明示しても`classificationMin` / `classificationMax`が`nan`になる（Interpolated・Discrete・min/max未指定の3ケースで実測）。既存の`execute_code`手順を正本のまま残す。単バンドグレー・マルチバンドRGB・陰影起伏は疑似カラーほど配色仕様を要求しないため、必要が生じた時点で個別に判断する |
+| `set_raster_style` | **不採用（単バンド疑似カラー用途）** | (1) `color_ramp`はQGISの名前付きランプのみで、任意の値・色・ラベルの組（`20°C=#2166ac` … `50°C=#b2182b`）を指定できず、生成されるのは等間隔アイテム・ラベルは数値のみ (2) `min_value` / `max_value`を明示しても`classificationMin` / `classificationMax`が`nan`になる（Interpolated・Discrete・min/max未指定の3ケースで実測）。**(1)が恒久的な根拠**であり、(2)は上流の実装依存で変わりうるため、再判定は(1)が解消されたときに限る。既存の`execute_code`手順を正本のまま残す。単バンドグレー・マルチバンドRGB・陰影起伏は疑似カラーほど配色仕様を要求しないため、必要が生じた時点で個別に判断する |
 | データベース接続系（`list_connections` / `list_connection_tables` / `add_layer_from_connection` / `import_layer_to_connection` / `execute_connection_sql`） | **不採用（現時点）** | `list_connections`が0件であることを実測。本研究はGeoPackageを保存済み接続として登録せず絶対パスで直接読み込むため、利点がない。接続を登録する運用に変えた場合に再検討する |
 | 編集セッション系（`start_editing` / `commit_edits` / `rollback_edits` / `undo_edits` / `redo_edits` / `update_feature_geometry`） | **不採用（現時点）** | 本研究のGISデータはPython側で生成・加工し、QGISは描画確認に用いる方針のため、QGIS上で地物を編集する場面がない |
 
@@ -63,7 +63,8 @@ v0.9.2 で修正された「非空間テーブルを含むプロジェクトで`
 
 1. 台帳に登録済みの制約に対応する修正が上流に入ったとき（台帳の「対象ツール」列を上流の変更内容と突合して判定する）
 2. 本研究で必要な機能・不具合修正が入ったとき
-3. 大きなQGIS作業セッションの前（定期確認。目安として月1回）
+
+上流の更新を**見に行く**タイミングは、大きなQGIS作業セッションの前（目安として月1回）とする。これは確認の契機であって更新トリガではなく、1・2 に該当しなければ版数は据え置く。
 
 トリガに該当しないリリース（他MCPクライアント向けの対応、上流のリリース手続き都合による版数上げ、本研究で使わないツールのみの変更など）は、リリースノートを読んだ時点で「無関係」として切り、記録も残さない。
 
@@ -72,7 +73,7 @@ v0.9.2 で修正された「非空間テーブルを含むプロジェクトで`
 ### 更新チェックリスト
 
 - [ ] 上記トリガに該当するかを判定する（該当しなければ更新しない）
-- [ ] `.mcp.json`の参照タグを更新する（**バージョン記述の正本はこのファイル**。ドキュメントに版数を書かない）
+- [ ] `.mcp.json`の参照タグを更新する（**使用中バージョンの正本はこのファイル**。セットアップ・運用手順に「使用中の版数」を書かない。台帳の「確認バージョン」「対応済みバージョン」および採否記録の実測時の版数は、検証履歴として残す）
 - [ ] QGISプラグインを同一バージョンへ入れ替える
 - [ ] Claude Codeを再起動する（**再起動するまでMCPサーバーは旧バージョンのまま**で、新ツールは一覧に現れない）
 - [ ] `diagnose`で`version_match`が`ok`・`status: healthy`であることを確認する

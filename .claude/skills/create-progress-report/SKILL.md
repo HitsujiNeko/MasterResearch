@@ -72,7 +72,7 @@ Step 1 で取得済みの Project アイテムから、**Status が「未着手�
 
 1. 選択された進捗の内容から、表示すべき地図画像（レイヤー・範囲・テーマ）を推測して提案する（リポジトリ内に既存の出力画像はほぼ無いため、都度生成を基本とする）
 2. ユーザーの承認・修正を得てから QGIS-MCP で生成する
-3. 生成手順・注意事項（`render_map` の制約、`save_project` 禁止、状態復元）は [reference.md](reference.md) の「QGIS画像生成ガイド」に**必ず従う**
+3. 生成手順・注意事項（画像保存の方法、`save_project` 禁止、状態復元）は [reference.md](reference.md) の「QGIS画像生成ガイド」に**必ず従う**
 4. 生成画像は `presentations/assets/` に保存する（Git管理外）
 
 QGIS-MCP が利用できない場合は、既存PNG（`data/output/satellite_only/**/*.png` 等）の利用をユーザーに提案する。

@@ -128,7 +128,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | グループ作成・移動 | `create_layer_group` → `move_layer_to_group` | ROI は `ROI` グループへ |
 | 範囲へズーム | `zoom_to_layer` | |
 | 描画取得（目視用） | `get_canvas_screenshot` | 再レンダリングなしの高速確認。**ファイル保存はしない**。ROI 基準でズーム |
-| 図の生成（コミット用） | `src/visualization/qgis_figure.py` の `build_gis_figure` / `render_map` | タイトル・スケールバー・凡例つき PNG を出力・保存 |
+| 図の生成（コミット用） | `src/visualization/qgis_figure.py` の `build_gis_figure`、または MCP ツール `render_map(path=)` | タイトル・スケールバー・凡例つき PNG を出力・保存 |
 | 保存 | `save_project` | 明示指示がある時のみ。大規模レイヤはこまめに（クラッシュ対策） |
 
 ### スクリーンショットの保存先・命名規則

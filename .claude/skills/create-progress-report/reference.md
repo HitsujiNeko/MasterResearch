@@ -62,10 +62,9 @@ QGIS-MCP で報告用の地図画像を生成する際は、以下に**必ず従
 1. **プロジェクトを開く**: `load_project()` で対象都市のプロジェクト（例: `qgis/projects/hanoi.qgz`）を開く
 2. **軽量テーマを適用**: `apply_map_theme()` では大規模レイヤーを含むテーマ（`Full` 等）を避け、`Limited` など軽量なテーマを選ぶ（クラッシュ対策）
 3. **表示調整**: `set_layer_visibility()` で必要なレイヤーのみ表示する
-4. **画像保存の方法に注意**:
-   - `render_map()` は**レイヤーの表示/非表示切り替えを反映しないことがある**（キャッシュされた合成結果を返す場合がある）
-   - 可視性を切り替えた場合は `get_canvas_screenshot()` または `execute_code` で `iface.mapCanvas().saveAsImage(path)` を使う
-   - `render_map()` を使う場合は、出力画像に可視性変更が反映されているか毎回目視確認する
+4. **画像保存の方法**:
+   - ファイルへ保存するには `render_map(path=...)` を使う。`get_canvas_screenshot()` は画像をインライン返却するのみでファイル保存しない
+   - QGIS-MCP 由来の制約は [qgis_operation_guidelines.md の「QGIS-MCP の既知の制約と回避策」](../../../docs/02_methods/qgis_operation_guidelines.md#qgis-mcp-の既知の制約と回避策)を正本とする
 5. **後片付け（必須）**:
    - `save_project()` は**明示的に指示されない限り絶対に呼ばない**（ユーザーの作業中プロジェクトを壊さない）
    - 検証・調整で追加した一時レイヤーは `remove_layer()` で削除する

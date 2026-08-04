@@ -40,7 +40,12 @@ import rasterio
 from rasterio.features import geometry_mask
 from rasterio.mask import mask
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
+from src.common.config import (
+    DEFAULT_HANOI_ROI_PATH,
+    LANDSAT_OBSERVATION_YEAR,
+    PROJECT_ROOT,
+    WGS84_CRS,
+)
 from src.common.http_fetch import fetch_json_with_retry
 from src.common.paths import to_project_relative_string
 from src.common.raster_classes import build_class_distribution
@@ -710,7 +715,8 @@ def build_summary(
         "year": year,
         "year_note": (
             f"GLC_FCS30D の年次マップは {ANNUAL_FIRST_YEAR}-{ANNUAL_LAST_YEAR} 年のみ提供される。"
-            "本研究の Landsat 観測年（2023年前後）とは最大で数年のずれがある。"
+            f"本研究の Landsat 観測年（{LANDSAT_OBSERVATION_YEAR}年前後）とは"
+            "最大で数年のずれがある。"
         ),
         "band_index": band_index_for_year(year),
         "tiles": tile_names,

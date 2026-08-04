@@ -52,7 +52,7 @@ from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, LANDSAT_OBSERVATION_YEAR, PROJECT_ROOT
 from src.common.paired_stats import build_paired_statistics
 from src.common.paths import prepare_output_path, resolve_existing_path, to_project_relative_string
 from src.common.raster_area import DEFAULT_RASTER_NODATA
@@ -69,7 +69,6 @@ NODATA = DEFAULT_RASTER_NODATA
 # 主バンド（放射輝度）は両データセットとも第1バンド
 RADIANCE_BAND = 1
 RADIANCE_UNIT = "nW·cm⁻²·sr⁻¹"
-LANDSAT_OBSERVATION_YEAR = 2023
 
 # 分位点対応表に載せる分位点
 COMPARISON_PERCENTILES = (50, 90, 95, 99)

@@ -65,7 +65,12 @@ import numpy as np
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
+from src.common.config import (
+    DEFAULT_HANOI_ROI_PATH,
+    LANDSAT_OBSERVATION_YEAR,
+    PROJECT_ROOT,
+    WGS84_CRS,
+)
 from src.common.env_file import DEFAULT_ENV_FILE_PATH, resolve_secret
 from src.common.http_fetch import fetch_bytes_with_retry
 from src.common.paths import prepare_output_path, to_project_relative_string
@@ -136,7 +141,6 @@ BOUNDING_COORD_ATTRIBUTES = {
 GEOREFERENCE_TOLERANCE_DEG = 1e-5
 
 OUTPUT_NODATA = DEFAULT_RASTER_NODATA
-LANDSAT_OBSERVATION_YEAR = 2023
 FIRST_AVAILABLE_YEAR = 2012
 
 RADIANCE_UNIT = "nW·cm⁻²·sr⁻¹"

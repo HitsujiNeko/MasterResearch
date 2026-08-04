@@ -40,7 +40,12 @@ import ee
 import geopandas as gpd
 import numpy as np
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
+from src.common.config import (
+    DEFAULT_HANOI_ROI_PATH,
+    LANDSAT_OBSERVATION_YEAR,
+    PROJECT_ROOT,
+    WGS84_CRS,
+)
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.gee_raster import build_native_download_url, download_gee_raster
 from src.common.paths import prepare_output_path, to_project_relative_string
@@ -58,8 +63,6 @@ DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
 
 REQUEST_TIMEOUT_SECONDS = 300
 OUTPUT_NODATA = DEFAULT_RASTER_NODATA
-# 本研究の Landsat 観測年。既定の取得年であり、時間差の判定にも使う。
-LANDSAT_OBSERVATION_YEAR = 2023
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

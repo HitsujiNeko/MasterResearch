@@ -39,7 +39,12 @@ import ee
 import geopandas as gpd
 import numpy as np
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT, WGS84_CRS
+from src.common.config import (
+    DEFAULT_HANOI_ROI_PATH,
+    LANDSAT_OBSERVATION_YEAR,
+    PROJECT_ROOT,
+    WGS84_CRS,
+)
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.gee_raster import build_native_download_url, download_gee_raster
 from src.common.paths import prepare_output_path, to_project_relative_string
@@ -61,8 +66,6 @@ DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
 REQUEST_TIMEOUT_SECONDS = 300
 # 出力 GeoTIFF の nodata。DEM 取得スクリプトと同じ値に揃える。
 OUTPUT_NODATA = DEFAULT_RASTER_NODATA
-# 本研究の Landsat 観測年。データセットの提供年がこれに届くかの判定と注記に使う。
-LANDSAT_OBSERVATION_YEAR = 2023
 # 出力バンドの並び（1始まりのバンド番号に対応）
 BAND_COUNT_NAME = "population_count"
 BAND_DENSITY_NAME = "population_density_per_km2"
@@ -136,7 +139,8 @@ DATASET_CONFIGS: dict[str, PopulationDatasetConfig] = {
         ),
         first_year=2000,
         last_year=2024,
-        default_year=2023,
+        # Landsat 観測年に対応する年次を直接取得できるため、既定年を観測年に合わせる。
+        default_year=LANDSAT_OBSERVATION_YEAR,
         native_scale_m=927.6624232401731,
         output_subdir="landscan",
         output_prefix="landscan_hanoi",

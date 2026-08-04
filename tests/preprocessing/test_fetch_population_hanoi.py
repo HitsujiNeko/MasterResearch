@@ -19,6 +19,7 @@ from rasterio.crs import CRS
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
+from src.common.config import LANDSAT_OBSERVATION_YEAR
 from src.preprocessing import fetch_population_hanoi as target
 from tests.helpers import HANOI_ROI_BOUNDS, make_fake_build_target_area
 
@@ -123,6 +124,17 @@ class TestResolveYear:
         """未指定ならデータセットごとの既定年を返す。"""
         assert target.resolve_year(target.DATASET_CONFIGS["worldpop"], None) == 2020
         assert target.resolve_year(target.DATASET_CONFIGS["landscan"], None) == 2023
+
+    def test_landscan_default_year_matches_landsat_observation_year(self) -> None:
+        """LandScan の既定年が共通の Landsat 観測年と一致し、提供年の範囲に収まる。
+
+        LandScan を既定年で取得する意図は「観測年に対応する年次を直接得ること」に
+        あるため、観測年を変更した結果が提供年の範囲を外れると意図が崩れる。
+        """
+        dataset_config = target.DATASET_CONFIGS["landscan"]
+
+        assert dataset_config.default_year == LANDSAT_OBSERVATION_YEAR
+        assert dataset_config.first_year <= dataset_config.default_year <= dataset_config.last_year
 
     def test_accepts_year_within_available_range(self) -> None:
         """提供年の範囲内なら指定年をそのまま返す。"""

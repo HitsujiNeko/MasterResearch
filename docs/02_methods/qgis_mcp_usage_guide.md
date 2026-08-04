@@ -1,6 +1,6 @@
 # QGIS MCP 活用ガイド
 
-**最終更新**: 2026-07-28
+**最終更新**: 2026-08-04
 **関連ドキュメント**: [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [qgis_operation_guidelines.md](qgis_operation_guidelines.md), [data_management_guide.md](data_management_guide.md)
 **前提知識**: QGIS MCPのセットアップ完了（[qgis_mcp_setup.md](../setup/qgis_mcp_setup.md)）、QGISの基本操作
 
@@ -76,7 +76,7 @@ QGIS Processingアルゴリズムを対話的に実行したい場合。
 - 高品質レンダリング: `render_map`
 - 印刷レイアウト出力: `qgis/templates/standard_a4_map.qpt`をベースにしたレイアウトを`export_layout`でPDF/画像として書き出す
 
-**注意: `render_map`はレイヤー可視性変更を反映しないことがある**。`set_layer_visibility()`で表示/非表示を切り替え、`refreshAllLayers()`で強制リフレッシュしても、`render_map()`の出力画像が変化しない事例がある（キャッシュされた合成結果を返している可能性）。一方、`get_canvas_screenshot`や`execute_code`での`iface.mapCanvas().saveAsImage(path)`は可視性変更を正しく反映する。**特定レイヤーのみを表示した画像が必要な場合は`render_map`を使わず後者を用いる**（どうしても`render_map`を使う場合は、可視性変更が画像に反映されているか毎回目視確認する）。
+`set_layer_visibility()`で表示/非表示を切り替えた直後の状態は`render_map`に反映される。上流由来の制約は[qgis_operation_guidelines.md の「QGIS-MCP の既知の制約と回避策」](qgis_operation_guidelines.md#qgis-mcp-の既知の制約と回避策)を正本とする。
 
 ---
 

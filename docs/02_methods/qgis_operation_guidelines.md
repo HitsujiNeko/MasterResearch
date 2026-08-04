@@ -287,6 +287,8 @@ Esri LULC（`io-lulc-annual-v02`）では、STACコレクションの`item_asset
 
 `execute_code`でPyQGISの`QgsSingleBandPseudoColorRenderer`を使ってLST・NDVI等のラスターに疑似カラースタイルを設定する場合、**`renderer.setClassificationMin()` / `setClassificationMax()` を色ランプの値域と一致させて必ず明示的に設定すること**。
 
+**`set_raster_style`では代替できない**: QGIS-MCPの`set_raster_style`（`style_type="singleband_pseudocolor"`）は名前付きカラーランプしか受け付けず、任意の値・色・ラベルの組（`20°C=#2166ac` … `50°C=#b2182b`）を指定できない。さらに`min_value` / `max_value`を明示しても`classificationMin` / `classificationMax`が`nan`になるため、下記の`nan`回避も果たせない。判定の根拠は[新規機能の採否記録](#新規機能の採否記録)を参照。**本節の`execute_code`手順が正本である。**
+
 **理由**: この設定を省略すると、実行中のQGISセッションでは正しく表示されるが（`legendSymbologyItems()`で検証しても正しい値が返る）、`.qml`・`.qgz`への保存時に`classificationMin`/`classificationMax`が`nan`としてシリアライズされ、**プロジェクトを閉じて再度開くとスタイルが破損し、すべての値が`nan`表示になる**。実行中セッションの見た目だけでは検知できない不具合のため注意する。
 
 **対象レンダラー**: この`nan`化問題は、連続値の疑似カラーを扱う`QgsSingleBandPseudoColorRenderer`**固有**である。カテゴリ分類の`QgsPalettedRasterRenderer`（LULC 等のクラス値ラスタで使う）では`classificationMin`/`classificationMax`を持たないため発生しないことを確認済み。したがって`setClassificationMin`/`setClassificationMax`の明示設定が必要なのは`QgsSingleBandPseudoColorRenderer`のときに限られる。

@@ -24,6 +24,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from ..grid import BBox, GridSpec
@@ -56,5 +58,14 @@ def compute(
 
     elev_mean = aggregate_raster_to_grid(resource.path, grid_spec, resource.band_index)
     valid_ratio = aggregate_valid_ratio_to_grid(resource.path, grid_spec, resource.band_index)
+
+    # 都市とDEMの取り違えや切り出し範囲の誤りでは、ファイルが存在するため入力解決
+    # （io.get_optional_raster_resource）を素通りし、全セルNaNの列が黙って出力される。
+    # 列が残るぶん欠損に気づきにくいため、ここで警告する。
+    if not np.isfinite(elev_mean).any():
+        warnings.warn(
+            f"DEMが解析グリッドと重なりません。標高列は全セルNaNになります: {resource.path}",
+            stacklevel=2,
+        )
 
     return {"ELEV_MEAN": elev_mean, "ELEV_VALID_RATIO": valid_ratio}

@@ -12,6 +12,26 @@ from rasterio.warp import reproject
 from ..grid import GridSpec
 
 
+def _validate_band_index(src: rasterio.DatasetReader, band_index: int, raster_path: Path) -> None:
+    """バンド番号がラスタの実在バンドの範囲内かを検証する。
+
+    範囲外のまま処理を進めると、素の ``IndexError`` になり原因が読み取れない。
+
+    Args:
+        src: オープン済みのrasterioデータセット。
+        band_index: 対象バンド番号（1始まり）。
+        raster_path: 入力ラスタのパス（エラーメッセージに含める）。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
+    """
+    if not 1 <= band_index <= src.count:
+        raise ValueError(
+            f"バンド番号が範囲外です（このラスタのバンド数は {src.count}）:"
+            f" band={band_index}, path={raster_path}"
+        )
+
+
 def _resolve_nodata(src: rasterio.DatasetReader, band_index: int) -> float | None:
     """ラスタのnodata値を決定する。
 
@@ -71,10 +91,14 @@ def aggregate_raster_to_grid(
     Returns:
         coarseグリッド (``grid_spec.coarse_shape``) へ平均再投影したセル値配列。
         入力ラスタのnodata・範囲外セルは ``NaN``。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
     """
     dst_array = np.full(grid_spec.coarse_shape, np.nan, dtype=np.float32)
 
     with rasterio.open(raster_path) as src:
+        _validate_band_index(src, band_index, raster_path)
         nodata = _resolve_nodata(src, band_index)
 
         reproject(
@@ -117,10 +141,14 @@ def aggregate_valid_ratio_to_grid(
     Returns:
         coarseグリッド (``grid_spec.coarse_shape``) の有効画素率配列（0-1）。
         ラスタ範囲外のセルは ``0.0``（``NaN`` ではない）。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
     """
     dst_array = np.zeros(grid_spec.coarse_shape, dtype=np.float32)
 
     with rasterio.open(raster_path) as src:
+        _validate_band_index(src, band_index, raster_path)
         nodata = _resolve_nodata(src, band_index)
         valid_mask = _valid_pixel_mask(src.read(band_index), nodata).astype(np.float32)
 

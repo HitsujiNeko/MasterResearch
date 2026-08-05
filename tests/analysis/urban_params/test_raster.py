@@ -11,7 +11,10 @@ from pyproj import CRS
 from rasterio.transform import from_origin
 
 from src.analysis.urban_params.grid import build_grid
-from src.analysis.urban_params.params.raster import aggregate_raster_to_grid
+from src.analysis.urban_params.params.raster import (
+    aggregate_raster_to_grid,
+    aggregate_valid_ratio_to_grid,
+)
 from src.common.geo_metadata import BBox
 
 
@@ -80,3 +83,23 @@ def test_aggregate_raster_all_nan_cell_stays_nan(tmp_path: Path) -> None:
     assert not np.isnan(result[0, 0])
     assert np.isnan(result[0, 1])
     assert np.isnan(result[1, 1])
+
+
+@pytest.mark.parametrize(
+    "aggregate_function", [aggregate_raster_to_grid, aggregate_valid_ratio_to_grid]
+)
+@pytest.mark.parametrize("band_index", [0, 2])
+def test_aggregate_rejects_out_of_range_band(
+    tmp_path: Path, aggregate_function, band_index: int
+) -> None:
+    """バンド数を超える指定は、素のIndexErrorではなく日本語のValueErrorになる。"""
+    tif_path = tmp_path / "single_band.tif"
+    transform = from_origin(0, 40, 10, 10)
+    _write_test_raster(tif_path, np.ones((4, 4), dtype=np.float32), transform)
+
+    grid_spec = build_grid(
+        BBox(0.0, 0.0, 40.0, 40.0), CRS.from_epsg(3857), coarse_res_m=20.0, fine_res_m=10.0
+    )
+
+    with pytest.raises(ValueError, match="バンド番号"):
+        aggregate_function(tif_path, grid_spec, band_index)

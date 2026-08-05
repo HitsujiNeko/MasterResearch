@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -223,6 +224,45 @@ def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
     assert result["ELEV_VALID_RATIO"][0, 3] == pytest.approx(0.0, abs=1e-5)
     assert not np.isnan(result["ELEV_VALID_RATIO"]).any()
     assert np.isnan(result["ELEV_MEAN"][0, 3])
+
+
+def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path) -> None:
+    """DEMが解析グリッドとまったく重ならない場合は警告する。
+
+    都市とDEMの取り違え・切り出し範囲の誤りではファイルが存在するため入力解決を
+    素通りし、全セルNaNの列が黙って出力される。列が残るぶん欠損に気づきにくい。
+    """
+    # 解析範囲（0-80m四方）から大きく離れた位置のDEMを書き出す。
+    dem_path = tmp_path / "dem_far.tif"
+    with rasterio.open(
+        dem_path,
+        "w",
+        driver="GTiff",
+        height=8,
+        width=8,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(100000, 100000, FINE_RES_M, FINE_RES_M),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((8, 8), 20.0, dtype=np.float32), 1)
+
+    with pytest.warns(UserWarning, match="重なりません"):
+        result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    assert np.isnan(result["ELEV_MEAN"]).all()
+    np.testing.assert_allclose(result["ELEV_VALID_RATIO"], 0.0, atol=1e-5)
+
+
+def test_compute_does_not_warn_when_dem_overlaps_grid(tmp_path: Path) -> None:
+    """DEMがグリッドと重なる通常の入力では警告しない。"""
+    dem_path = tmp_path / "dem_overlap.tif"
+    _write_dem(dem_path, _gradient_dem(), nodata=-9999.0)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
 
 
 def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:

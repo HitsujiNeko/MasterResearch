@@ -154,7 +154,8 @@ def get_optional_raster_resource(
         それ以外は解決済みのパスとバンド番号を保持する ``RasterResource``。
 
     Raises:
-        ValueError: ``raster_key`` が ``city_cfg["rasters"]`` に存在しない場合。
+        ValueError: ``raster_key`` が ``city_cfg["rasters"]`` に存在しない場合、
+            または設定に ``path`` / ``band`` が欠けている場合。
         FileNotFoundError: 設定されたラスタファイルが存在しない場合。
     """
     if raster_key is None:
@@ -163,6 +164,10 @@ def get_optional_raster_resource(
     raster_cfg = city_cfg.get("rasters", {}).get(raster_key)
     if raster_cfg is None:
         raise ValueError(f"都市設定にラスタがありません: {raster_key}")
+
+    for required_key in ("path", "band"):
+        if required_key not in raster_cfg:
+            raise ValueError(f"ラスタ設定に {required_key} がありません: {raster_key}")
 
     raster_path = PROJECT_ROOT / raster_cfg["path"]
     if not raster_path.exists():

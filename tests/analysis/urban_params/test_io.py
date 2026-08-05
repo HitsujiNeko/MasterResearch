@@ -412,3 +412,13 @@ def test_get_optional_raster_resource_unknown_key_raises() -> None:
     """都市設定に無いキーを指定した場合はValueErrorを送出する。"""
     with pytest.raises(ValueError):
         get_optional_raster_resource(_raster_city_cfg("data/dem/dem.tif"), "unknown")
+
+
+@pytest.mark.parametrize("missing_key", ["path", "band"])
+def test_get_optional_raster_resource_missing_config_key_raises(missing_key: str) -> None:
+    """設定にpath/bandが無い場合は、素のKeyErrorではなく日本語のValueErrorになる。"""
+    city_cfg = _raster_city_cfg("data/dem/dem.tif")
+    del city_cfg["rasters"]["dem"][missing_key]
+
+    with pytest.raises(ValueError, match=missing_key):
+        get_optional_raster_resource(city_cfg, "dem")

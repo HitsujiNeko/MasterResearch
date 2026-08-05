@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import rasterio
@@ -74,6 +75,40 @@ def _valid_pixel_mask(band: np.ndarray, nodata: float | None) -> np.ndarray:
     return valid
 
 
+def _prepare_reproject_source(
+    src: rasterio.DatasetReader, band_index: int, nodata: float | None
+) -> Any:
+    """再投影の入力（バンド参照、または実値NaNをnodataへ寄せた配列）を返す。
+
+    GDALは ``src_nodata`` に単一値しか取れないため、nodataタグが値（非NaN）の
+    ラスタに実値NaNが混じると、NaNが欠損として扱われず平均へ伝播し、1画素でも
+    NaNがあるとセル平均が丸ごとNaNになる。有効画素率側（``_valid_pixel_mask()``）
+    は実値NaNを無効画素として数えるため、そのままでは「有効画素」の定義が両者で
+    食い違う。NaNをnodata値へ寄せることで定義を揃える。
+
+    Args:
+        src: オープン済みのrasterioデータセット。
+        band_index: 対象バンド番号（1始まり）。
+        nodata: ``_resolve_nodata()`` が返したnodata値。
+
+    Returns:
+        寄せる必要が無い場合はバンド参照（GDAL側のストリーミング読み）、
+        必要な場合は読み込み済みの配列。
+    """
+    if nodata is None or np.isnan(nodata):
+        # nodataがNaNの場合、実値NaNはそのままnodataとして扱われる。
+        return rasterio.band(src, band_index)
+    if not np.issubdtype(src.dtypes[band_index - 1], np.floating):
+        # 整数型ラスタは実値NaNを持ち得ない。
+        return rasterio.band(src, band_index)
+
+    band = src.read(band_index)
+    nan_mask = np.isnan(band)
+    if nan_mask.any():
+        band[nan_mask] = nodata
+    return band
+
+
 def aggregate_raster_to_grid(
     raster_path: Path, grid_spec: GridSpec, band_index: int = 1
 ) -> np.ndarray:
@@ -82,6 +117,9 @@ def aggregate_raster_to_grid(
     平均はセル内の**有効画素のみ**で取る。そのため、セルの一部しかラスタに
     覆われていない場合でも、完全に覆われたセルと同じ実数が返る。両者を
     区別するには ``aggregate_valid_ratio_to_grid()`` を併用する。
+
+    無効画素の判定は ``aggregate_valid_ratio_to_grid()`` と揃えており、
+    nodataタグの値に加えて実値のNaNも欠損として扱う。
 
     Args:
         raster_path: 入力ラスタファイルの絶対パス。
@@ -102,7 +140,7 @@ def aggregate_raster_to_grid(
         nodata = _resolve_nodata(src, band_index)
 
         reproject(
-            source=rasterio.band(src, band_index),
+            source=_prepare_reproject_source(src, band_index, nodata),
             destination=dst_array,
             src_transform=src.transform,
             src_crs=src.crs,

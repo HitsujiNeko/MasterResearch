@@ -226,6 +226,60 @@ def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
     assert np.isnan(result["ELEV_MEAN"][0, 3])
 
 
+def test_valid_ratio_matches_mean_for_nan_pixels_with_nodata_tag(tmp_path: Path) -> None:
+    """nodataタグ付きラスタに実値NaNが混じっても、平均と有効画素率の定義が揃う。
+
+    GDALは ``src_nodata`` に単一値しか取れないため、対策が無いとNaNが平均へ伝播し、
+    1画素のNaNでセル平均が丸ごとNaNになる一方、有効画素率は0.75を返して両列の
+    整合（片方がNaNなら他方は0）が崩れる。
+    """
+    data = np.full((8, 8), 10.0, dtype=np.float32)
+    # nodataタグ（-9999）ではなく実値NaNを1画素だけ置く。
+    data[0, 0] = np.nan
+    dem_path = tmp_path / "dem_nan_with_tag.tif"
+    _write_dem(dem_path, data, nodata=-9999.0)
+
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    # NaNは欠損として平均から除外され、残り3画素の平均が入る。
+    assert result["ELEV_MEAN"][0, 0] == pytest.approx(10.0, abs=0.5)
+    assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(0.75, abs=0.05)
+    # 片方がNaNなら他方は0、という整合が全セルで保たれる。
+    nan_cells = np.isnan(result["ELEV_MEAN"])
+    np.testing.assert_allclose(result["ELEV_VALID_RATIO"][nan_cells], 0.0, atol=1e-5)
+    assert (result["ELEV_VALID_RATIO"][~nan_cells] > 0.0).all()
+
+
+def test_valid_ratio_overestimates_cells_crossing_raster_edge(tmp_path: Path) -> None:
+    """ラスタ外周をまたぐセルでは、有効画素率が実被覆より高くなる（既知の制限）。
+
+    比率は「有効画素を1・nodataを0とした配列の平均」で得るため、画素が1つも無い
+    領域が占める分は反映されない。ROIでcrop済みの現行DEMでは解析BBox最外周の
+    セルに限られるが、仕様として固定しておく。
+    """
+    # セル(0, 0)（0-20m四方）の左半分（x: 0-10m）だけを覆うDEMを書き出す。
+    dem_path = tmp_path / "dem_edge.tif"
+    with rasterio.open(
+        dem_path,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=1,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0, 80, FINE_RES_M, FINE_RES_M),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((2, 1), 5.0, dtype=np.float32), 1)
+
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    # 実際の被覆は0.5だが、画素の無い領域は分母に含まれないため1.0になる。
+    assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert result["ELEV_MEAN"][0, 0] == pytest.approx(5.0, abs=0.5)
+
+
 def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path) -> None:
     """DEMが解析グリッドとまったく重ならない場合は警告する。
 
@@ -289,12 +343,15 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
     ) as dst:
         dst.write(np.full((10, 10), 55.0, dtype=np.float32), 1)
 
-    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
-        "ELEV_MEAN"
-    ]
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
 
+    elev_mean = result["ELEV_MEAN"]
     assert not np.isnan(elev_mean).any()
     np.testing.assert_allclose(elev_mean, np.full((4, 4), 55.0, dtype=np.float32), rtol=1e-5)
+    # 有効画素率も同じ再投影経路を通るため、あわせて検証する（実運用は必ずこの経路）。
+    np.testing.assert_allclose(
+        result["ELEV_VALID_RATIO"], np.ones((4, 4), dtype=np.float32), atol=1e-5
+    )
 
 
 def test_compute_uses_specified_band(tmp_path: Path) -> None:

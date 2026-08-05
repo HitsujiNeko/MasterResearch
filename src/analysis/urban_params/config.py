@@ -58,6 +58,9 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 "layer": "elements",
                 "crs_epsg": 5897,
             },
+            # 現在どのシナリオからも参照していない。full シナリオの標高を
+            # 測量DH（点・等高線）で算出するかFABDEMの暫定適用とするかが
+            # 未決のため、データカタログとして残置している。
             "dh": {
                 "path": "整備データ/merge/merge_DH.gpkg",
                 "layer": "elements",

@@ -136,7 +136,7 @@ Landsatシリーズ（4–8）からLSTを一貫して算出可能なGoogle Eart
 
 **Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach**
 
-**注記**: 発表年2025はPDF全文（#94監査, 2026-07-15）で確定（Published August 2025）
+**注記**: 発表年2025はPDF全文（PDF突合監査, 2026-07-15）で確定（Published August 2025）
 
 ### 3.1 研究目的
 

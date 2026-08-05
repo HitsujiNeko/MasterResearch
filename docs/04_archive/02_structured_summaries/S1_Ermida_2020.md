@@ -1,7 +1,7 @@
 # S1: Ermida et al. (2020)
 
 **最終更新**: 2026-07-15  
-**分析者**: ChatGPT（PDF精読版）／PDF突合監査 #94（2026-07-15）  
+**分析者**: ChatGPT（PDF精読版）／PDF突合監査（2026-07-15）  
 **本研究との関連度**: 中（※LST推定"手法基盤"として重要。都市構造×LSTの説明変数比較そのものではない）
 
 ---
@@ -151,4 +151,4 @@ Google Earth Engine（GEE）上で、Landsat 4/5/7/8のLSTを一貫した枠組�
 2. **精度の整理**: accuracy（bias）0.5 / 0.0 / 0.3 K、precision（RMSE）は外れ値除去後1.0–1.3 K（除去前1.9–2.0 K）（PDF p.11）
 3. **TCWV粗さ**: **2.5°の空間解像度**という重要な限界を明記
 4. **RQ1関連度**: ◎→○に修正（手法基盤としての位置づけ）
-5. **著者名の修正（#94監査）**: Patrícia Soares・Vasco Mantas（誤: Pedro Soares・Victor Mantas。PDF p.1）
+5. **著者名の修正（PDF突合監査）**: Patrícia Soares・Vasco Mantas（誤: Pedro Soares・Victor Mantas。PDF p.1）

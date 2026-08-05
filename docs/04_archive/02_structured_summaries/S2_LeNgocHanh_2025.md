@@ -1,7 +1,7 @@
 # S2: Le Ngoc Hanh & Tran Thi An（2025）
 
 **最終更新**: 2026-07-15  
-**分析者**: ChatGPT（PDF精読版）／PDF突合監査 #94（2026-07-15）  
+**分析者**: ChatGPT（PDF精読版）／PDF突合監査（2026-07-15）  
 **本研究との関連度**: 中（※ベトナム都市・データ制約・GEE活用は強く合うが、RQ1の"都市構造多変量/ML"は限定的）
 
 ---
@@ -18,7 +18,7 @@
 | **DOI/URL** | DOIの明記なし（How to cite: Le, N. H., & Tran, T. A. (2025). The GIS-IDEAS Journal, 1(3), 16–28） |
 | **引用数** | 取得不可（Google Scholarにアクセスできないため） |
 
-**注記**: 発表年・原題・掲載誌はPDF全文（#94監査, 2026-07-15）で確定済み。
+**注記**: 発表年・原題・掲載誌はPDF全文（PDF突合監査, 2026-07-15）で確定済み。
 
 ---
 
@@ -151,7 +151,7 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
 
 ## 📌 PDF精読による重要な修正点
 
-1. **発表年・原題の確定（#94監査）**: 2025年（Published August 2025）、原題 "Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach"。市域面積1284.74 km²もPDFで確定
+1. **発表年・原題の確定（PDF突合監査）**: 2025年（Published August 2025）、原題 "Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach"。市域面積1284.74 km²もPDFで確定
 2. **著者自身の限界明記**: 「NDVI/NDBIのみでは不足」と明確に記載
 3. **詳細な定量結果**: 地区別LST、5年期平均など
 4. **将来予測の詳細**: RCP4.5による+0.7°C/+1.8°C/+2.4°C

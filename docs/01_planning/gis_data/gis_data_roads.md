@@ -171,7 +171,7 @@ ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
 | 1 | Geofabrik Vietnam extract の取得 | ✅ 完了 | `vietnam-260408.osm.pbf` を取得済み |
 | 2 | Hanoi ROI での道路ライン抽出 | ✅ 完了 | `ogr2ogr` で `highway IS NOT NULL` を ROI クリップ。194,485 件を `data/gis/roads/hanoi_osm_roads.gpkg` に出力 |
 | 3 | 道路データの探索的分析 | ✅ 完了 | highway タグ分布・z_order・other_tags の入力率を集計（Section 3 参照） |
-| 4 | ROAD_DEN（道路延長密度）算出ロジックの実装 | ✅ 完了 | `src/analysis/urban_params/params/roads.py` に実装（[PR #26](https://github.com/HitsujiNeko/MasterResearch/pull/26)、コミット `da0384a`）。車道タグのホワイトリスト方式 + z_order < 0 除外 |
+| 4 | ROAD_DEN（道路延長密度）算出ロジックの実装 | ✅ 完了 | `src/analysis/urban_params/params/roads.py` に実装（コミット `da0384a`）。車道タグのホワイトリスト方式 + z_order < 0 除外 |
 | 5 | ROAD_DEN のスモークテスト | ✅ 完了 | `tests/analysis/urban_params/test_roads.py` に GIS 契約テストを追加済み |
 | 6 | 他都市（Ho Chi Minh City 等）への道路データ取得・適用 | 未着手 | RQ2 のスケール比較時に対象都市を拡大する際に実施 |
 

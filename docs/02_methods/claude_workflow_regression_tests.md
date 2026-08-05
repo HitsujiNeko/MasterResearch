@@ -2,13 +2,13 @@
 
 **最終更新**: 2026-08-02
 **関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [task-workflow.md](../../.github/task-workflow.md), [parallel-workflow.md](../../.github/parallel-workflow.md), [skill_operation_rules.md](skill_operation_rules.md)
-**前提知識**: PR #96（Claude Code運用ルール再設計: denyガードレール・カスタムコマンド化・sharedスキル共通化）
+**前提知識**: Claude Code運用ルールの再設計（denyガードレール・カスタムコマンド化・sharedスキル共通化）
 
 ---
 
 ## 目的
 
-PR #96 で再設計した Claude Code の運用ルール（deny ガードレール・カスタムコマンド・承認ゲート・shared スキル参照化）が、「書いてあるとおりに機能するか」を検証可能な形で定義する。
+再設計後の Claude Code の運用ルール（deny ガードレール・カスタムコマンド・承認ゲート・shared スキル参照化）が、「書いてあるとおりに機能するか」を検証可能な形で定義する。
 
 本ドキュメントは以下2部で構成する。
 
@@ -127,7 +127,7 @@ PR #96 で再設計した Claude Code の運用ルール（deny ガードレー�
 
 | コマンド | 確認項目 | 結果 | 備考 |
 |---|---|---|---|
-| `/task-start` | 単一実行判定（ブランチ=main） | 合格 | 本Issue #97着手時、`main`から単一実行として判定されStep3へ進んだ（本ドキュメント作成タスク自体が実例） |
+| `/task-start` | 単一実行判定（ブランチ=main） | 合格 | 本ドキュメントの作成タスク着手時、`main`から単一実行として判定されStep3へ進んだ（このタスク自体が実例） |
 | `/task-start` | 単一実行（継続）判定 | 未実施 | 該当シナリオが本セッション中に発生しなかったため、ロジック記述の確認のみ（task-start.md該当箇所は存在し矛盾なし） |
 | `/task-start` | 並列実行判定（2パターン） | 未実施 | 別ブランチ作成を伴う実地テストは過剰と判断し、task-start.md / parallel-workflow.md の記述整合性確認に留めた |
 | `/task-done` | MERGED 検証ハードゲート | 未実施 | 本タスクは未マージのため実施不可。次回マージ後のtask-done実行時に記録を追記する |

@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-07-28  
+**最終更新**: 2026-08-05  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -91,13 +91,13 @@ docs/
 |-----------|------|-----------|---------|
 | [README.md](04_archive/README.md) | 04_archiveフォルダ案内 | フォルダ構成・ファイル一覧（詳細は literature_management_guide.md が正本） | フォルダ構成の確認時 |
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理・活用ガイド | 3層構造の思想、Claude Code中心の文献調査フロー | 文献調査・論文追加時 |
-| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S8の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
-| [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 8論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
+| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S9の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
+| [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 9論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
 | [claude_project_instructions.md](04_archive/claude_project_instructions.md) | Claude Projects プロジェクト指示 | claude.ai の文献調査用プロジェクトにコピペする指示文（正本） | Claude Projects セットアップ・指示変更時 |
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
-**先行研究一覧（S1-S8）**:
+**先行研究一覧（S1-S9）**:
 
 - **S1**: Ermida et al. (2020) - SMW法 [本研究採用手法]
 - **S2**: Le Ngoc Hanh (2025) - ベトナム・ダナン [地域参考]
@@ -107,6 +107,7 @@ docs/
 - **S6**: Garzón (2021) - 熱帯都市SUHI
 - **S7**: Derdouri et al. (2021) - LULC変化とSUHI研究レビュー
 - **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
+- **S9**: Nguyen Thanh Hoan et al. (2018) - ハノイの土地利用構成とSUHI [ハノイ一次文献・RQ2スケール◎]
 
 **構造化要約（現存ファイル）**:
 
@@ -118,6 +119,7 @@ docs/
 - [S6_Garzon_2021.md](04_archive/02_structured_summaries/S6_Garzon_2021.md)
 - [S7_Derdouri_2021.md](04_archive/02_structured_summaries/S7_Derdouri_2021.md)
 - [S8_Lin_2024.md](04_archive/02_structured_summaries/S8_Lin_2024.md)
+- [S9_Nguyen_2018.md](04_archive/02_structured_summaries/S9_Nguyen_2018.md)
 
 ---
 

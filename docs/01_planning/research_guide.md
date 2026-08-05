@@ -1,6 +1,6 @@
 # 研究計画書
 
-**最終更新**: 2026-07-16  
+**最終更新**: 2026-08-05  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
 **前提知識**: LST・ROI・3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 
@@ -56,7 +56,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 
 ### 4.1 既往研究の整理
 
-既往研究の詳細内容は、[previous_studies_report.md](../04_archive/previous_studies_report.md) にまとめている。ここでは、本研究に特に関連する主要文献（S1-S8）の概要を示す。
+既往研究の詳細内容は、[previous_studies_report.md](../04_archive/previous_studies_report.md) にまとめている。ここでは、本研究に特に関連する主要文献（S1-S9）の概要を示す。
 
 | 論文ID | 著者・年 | 主要な貢献 | 本研究との関連性 |
 |--------|---------|-----------|----------------|
@@ -68,6 +68,7 @@ RQ3：詳細な測量データが限定的な条件下においても、衛星�
 | **S6** | Garzón et al. (2021) | 熱帯コロンビア都市のSUHI、**MLR寄与率定量化**<sup>[6]</sup> | 熱帯途上国都市の参考（RQ3◎）<br>**NDWI最大寄与51.46%**、Fcover放射率R²=0.78 |
 | **S7** | Derdouri et al. (2021) | LULC変化とSUHIの体系的レビュー（2001–2020年、133都市）<sup>[7]</sup> | **ハノイ固有の知見**（RQ1・RQ3◎）<br>レビューが引用するTran et al. (2017)：市街地1%増加→LST 0.075–0.108°C上昇 |
 | **S8** | Lin et al. (2024) | 都市機能ゾーン別の2D/3D都市形態とUHI、**XGBoost+SHAP**<sup>[8]</sup> | **S2の建物高さ指摘への直接的対応**（RQ1◎）<br>XGBoost R²=0.83（OLS 0.49 / RF 0.77）、建物面積率が最大の正寄与 |
+| **S9** | Nguyen Thanh Hoan et al. (2018) | ハノイの土地利用構成とSUHI、**移動窓によるスケール別評価**<sup>[9]</sup> | **ハノイの一次文献**（RQ2◎・RQ3◎）<br>510m窓で%W R²=0.70・%U 0.67・%V 0.43、多変量R²≈0.9<br>**300m未満の窓では土地利用構成を表現できない**と指摘 |
 
 **主要な知見の統合**：
 
@@ -106,7 +107,7 @@ S5の近傍リング設計<sup>[5]</sup>を参考に、**30m/60m/90m/120m等の�
 
 ### 4.4 先行研究から得られた重要知見（RQ別整理）
 
-文献レビュー（S1-S8）から得られた知見を、本研究のRQに対応させて整理する。
+文献レビュー（S1-S9）から得られた知見を、本研究のRQに対応させて整理する。
 
 #### RQ1関連：支配的説明変数の特定
 
@@ -313,6 +314,12 @@ How does urban heat island differ across urban functional zones? Insights from 2
 <https://doi.org/10.1016/j.uclim.2023.101787>  
 → **2D/3D都市形態とXGBoost+SHAP**（R²=0.83）。S2の「建物高さを捉えられない」指摘への対応
 
+[9] **Nguyen, T. H., Liou, Y.-A., Nguyen, K.-A., Sharma, R. C., Tran, D.-P., Liou, C.-L., Dao, D. C.** (2018).  
+Assessing the Effects of Land-Use Types in Surface Urban Heat Islands for Developing Comfortable Living in Hanoi City.  
+*Remote Sensing*, 10 (12), 1965.  
+<https://doi.org/10.3390/rs10121965>  
+→ **ハノイの一次文献**。土地利用3クラスの被覆率でLSTを回帰（510m窓、多変量R²≈0.9・RMSE 1.77°C）。**移動窓サイズ別の評価**と「300m未満では構成を表現できない」との指摘
+
 **その他の参考文献**
 
 * 詳細な先行研究レビューは [previous_studies_report.md](../04_archive/previous_studies_report.md) を参照
@@ -352,9 +359,9 @@ How does urban heat island differ across urban functional zones? Insights from 2
 
 **文献レビュー**：
 
-* [previous_studies_report.md](../04_archive/previous_studies_report.md) - 先行研究の整理・要約（S1-S8の詳細分析）
+* [previous_studies_report.md](../04_archive/previous_studies_report.md) - 先行研究の整理・要約（S1-S9の詳細分析）
 * [papers_database.csv](../04_archive/01_metadata/papers_database.csv) - 文献メタデータ管理（RQ関連度評価含む）
-* [02_structured_summaries/](../04_archive/02_structured_summaries/) - PDF精読済み文献の構造化要約（S1-S8）
+* [02_structured_summaries/](../04_archive/02_structured_summaries/) - PDF精読済み文献の構造化要約（S1-S9）
 * [claude_project_instructions.md](../04_archive/claude_project_instructions.md) - claude.ai（Claude Projects）に論文分析を依頼する際のプロジェクト指示
 
 ---

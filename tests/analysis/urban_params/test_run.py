@@ -157,7 +157,7 @@ def _run_limited_like(
 
 
 def test_run_for_scale_outputs_elevation_column(tmp_path: Path, building_resource) -> None:
-    """DEMラスタを渡すとELEV_MEAN_{scale}列が出力される。"""
+    """DEMラスタを渡すとELEV_MEAN_{scale}・ELEV_VALID_RATIO_{scale}列が出力される。"""
     elevation_resource = _write_elevation_raster(tmp_path / "dem.tif")
     mask_resource = _write_full_extent_mask(tmp_path / "mask.gpkg")
 
@@ -165,6 +165,9 @@ def test_run_for_scale_outputs_elevation_column(tmp_path: Path, building_resourc
 
     assert "ELEV_MEAN_20" in df.columns
     assert (df["ELEV_MEAN_20"] == 30.0).all()
+    # DEMが解析範囲全体を覆うため、有効画素率は全セル1.0になる。
+    assert "ELEV_VALID_RATIO_20" in df.columns
+    np.testing.assert_allclose(df["ELEV_VALID_RATIO_20"].to_numpy(), 1.0, atol=1e-5)
 
 
 def test_run_for_scale_elevation_does_not_affect_gis_quality(
@@ -189,7 +192,8 @@ def test_run_for_scale_elevation_does_not_affect_gis_quality(
         with_elevation["MISSING_REASON"].to_numpy(),
         without_elevation["MISSING_REASON"].to_numpy(),
     )
-    # 標高列が無い側にはELEV_MEAN列自体が現れない。
+    # 標高列が無い側にはELEV_MEAN・ELEV_VALID_RATIO列自体が現れない。
     assert "ELEV_MEAN_20" not in without_elevation.columns
+    assert "ELEV_VALID_RATIO_20" not in without_elevation.columns
     # 建物が無いセルは、標高があってもVALID_GIS_MASK=0のまま。
     assert (with_elevation["VALID_GIS_MASK"] == 0).any()

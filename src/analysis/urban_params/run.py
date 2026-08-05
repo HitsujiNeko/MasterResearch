@@ -171,12 +171,13 @@ def run_for_scale(
             output_columns[f"{column_name}_{scale}"] = values
             gis_quality_arrays.append(values)
 
-    # 標高は品質管理列（VALID_GIS_MASK）の判定材料に含めない。判定は「値が0より
-    # 大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提と
-    # した基準である。標高は連続量であり0mは「データが無い」ではなく海抜0mを意味
-    # するため、この基準を適用すること自体が不適切である。加えて、標高を含めると
-    # ROI内のほぼ全セルが有効となり、VALID_GIS_MASK が「建物・道路データが存在
-    # するか」という本来の意味を失う。
+    # 標高由来の列（ELEV_*）は品質管理列（VALID_GIS_MASK）の判定材料に含めない。
+    # 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような
+    # 「地物の量」を前提とした基準である。標高は連続量であり0mは「データが無い」
+    # ではなく海抜0mを意味するため、この基準を適用すること自体が不適切である。
+    # 有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無
+    # とは別の軸である。加えて、標高を含めるとROI内のほぼ全セルが有効となり、
+    # VALID_GIS_MASK が「建物・道路データが存在するか」という本来の意味を失う。
     for column_name, values in elevation.compute(
         elevation_resource, analysis_bbox, grid_spec
     ).items():

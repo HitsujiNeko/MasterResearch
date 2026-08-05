@@ -80,7 +80,7 @@ def test_compute_returns_cell_mean_elevation(tmp_path: Path) -> None:
 
     result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
 
-    assert set(result) == {"ELEV_MEAN"}
+    assert set(result) == {"ELEV_MEAN", "ELEV_VALID_RATIO"}
     elev_mean = result["ELEV_MEAN"]
     assert elev_mean.shape == (4, 4)
     assert elev_mean.dtype == np.float32
@@ -143,6 +143,86 @@ def test_compute_distinguishes_zero_elevation_from_missing(tmp_path: Path) -> No
     assert elev_mean[0, 0] == pytest.approx(0.0, abs=1e-6)
     assert not np.isnan(elev_mean[0, 0])
     assert np.isnan(elev_mean[0, 1])
+
+
+def test_valid_ratio_is_one_for_fully_covered_cells(tmp_path: Path) -> None:
+    """全画素が有効なセルの有効画素率は1.0になる。"""
+    dem_path = tmp_path / "dem_full.tif"
+    _write_dem(dem_path, _gradient_dem(), nodata=-9999.0)
+
+    valid_ratio = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
+        "ELEV_VALID_RATIO"
+    ]
+
+    assert valid_ratio.shape == (4, 4)
+    assert valid_ratio.dtype == np.float32
+    np.testing.assert_allclose(valid_ratio, np.ones((4, 4), dtype=np.float32), atol=1e-5)
+
+
+def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> None:
+    """部分被覆セルはELEV_MEANでは完全被覆セルと区別できず、有効画素率でのみ区別できる。
+
+    ``Resampling.average`` は有効画素のみの平均を返すため、セル内の有効画素が
+    3/4しか無くても完全被覆セルと同じ値になる。有効カバレッジを過大評価しない
+    ために、比率を別列として出力する必要がある。
+    """
+    data = np.full((8, 8), 10.0, dtype=np.float32)
+    # セル(0, 0) に対応する左上2x2のうち1画素だけをnodataにする（有効画素率 3/4）。
+    data[0, 0] = -9999.0
+    dem_path = tmp_path / "dem_partial.tif"
+    _write_dem(dem_path, data, nodata=-9999.0)
+
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    # ELEV_MEAN は部分被覆セルと完全被覆セルで同じ値になる（区別できない）。
+    assert result["ELEV_MEAN"][0, 0] == pytest.approx(result["ELEV_MEAN"][0, 1], abs=1e-5)
+    # ELEV_VALID_RATIO は両者を区別する。
+    assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(0.75, abs=0.05)
+    assert result["ELEV_VALID_RATIO"][0, 1] == pytest.approx(1.0, abs=1e-5)
+
+
+def test_valid_ratio_is_zero_for_all_nodata_cells(tmp_path: Path) -> None:
+    """全画素がnodataのセルは有効画素率0.0であり、ELEV_MEANはNaNになる。"""
+    data = np.full((8, 8), -9999.0, dtype=np.float32)
+    data[0:2, 0:2] = 25.0
+    dem_path = tmp_path / "dem_ratio_nodata.tif"
+    _write_dem(dem_path, data, nodata=-9999.0)
+
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert result["ELEV_VALID_RATIO"][3, 3] == pytest.approx(0.0, abs=1e-5)
+    assert np.isnan(result["ELEV_MEAN"][3, 3])
+
+
+def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
+    """ラスタの範囲外セルは、NaNではなく有効画素率0.0になる。
+
+    範囲外を ``NaN`` にすると「nodataで覆われたセル」と区別が付かなくなるため、
+    どちらも「有効画素なし」を意味する0.0へ揃える。
+    """
+    # 解析範囲（0-80m四方）の左半分（x: 0-40m）だけを覆うDEMを書き出す。
+    dem_path = tmp_path / "dem_half.tif"
+    with rasterio.open(
+        dem_path,
+        "w",
+        driver="GTiff",
+        height=8,
+        width=4,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0, 80, FINE_RES_M, FINE_RES_M),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((8, 4), 12.0, dtype=np.float32), 1)
+
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert result["ELEV_VALID_RATIO"][0, 3] == pytest.approx(0.0, abs=1e-5)
+    assert not np.isnan(result["ELEV_VALID_RATIO"]).any()
+    assert np.isnan(result["ELEV_MEAN"][0, 3])
 
 
 def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:

@@ -12,10 +12,56 @@ from rasterio.warp import reproject
 from ..grid import GridSpec
 
 
+def _resolve_nodata(src: rasterio.DatasetReader, band_index: int) -> float | None:
+    """ラスタのnodata値を決定する。
+
+    GEE出力ラスタは nodata タグが ``None`` でも ``NaN`` を実値として含むため、
+    浮動小数型のラスタではタグが無い場合に ``NaN`` をnodataとみなす。
+
+    Args:
+        src: オープン済みのrasterioデータセット。
+        band_index: 対象バンド番号（1始まり）。
+
+    Returns:
+        nodata値。判定できない場合は ``None``（全画素を有効とみなす）。
+    """
+    nodata = src.nodata
+    if nodata is None and np.issubdtype(src.dtypes[band_index - 1], np.floating):
+        return float("nan")
+    return nodata
+
+
+def _valid_pixel_mask(band: np.ndarray, nodata: float | None) -> np.ndarray:
+    """画素ごとの有効・無効を表す真偽値配列を返す。
+
+    Args:
+        band: 読み込み済みのバンド配列。
+        nodata: nodata値（``None`` の場合は全画素を有効とみなす）。
+
+    Returns:
+        有効画素が ``True`` の真偽値配列。
+    """
+    if nodata is None:
+        return np.ones(band.shape, dtype=bool)
+
+    if np.isnan(nodata):
+        return ~np.isnan(band)
+
+    valid = band != nodata
+    if np.issubdtype(band.dtype, np.floating):
+        # nodataタグを持つラスタでも、実値としてNaNが混じることがある。
+        valid &= ~np.isnan(band)
+    return valid
+
+
 def aggregate_raster_to_grid(
     raster_path: Path, grid_spec: GridSpec, band_index: int = 1
 ) -> np.ndarray:
     """ラスタをcoarseグリッドへ平均再投影し、セル平均値を返す。
+
+    平均はセル内の**有効画素のみ**で取る。そのため、セルの一部しかラスタに
+    覆われていない場合でも、完全に覆われたセルと同じ実数が返る。両者を
+    区別するには ``aggregate_valid_ratio_to_grid()`` を併用する。
 
     Args:
         raster_path: 入力ラスタファイルの絶対パス。
@@ -29,10 +75,7 @@ def aggregate_raster_to_grid(
     dst_array = np.full(grid_spec.coarse_shape, np.nan, dtype=np.float32)
 
     with rasterio.open(raster_path) as src:
-        # GEE出力ラスタは nodata タグが None でも NaN を実値として含む。
-        nodata = src.nodata
-        if nodata is None and np.issubdtype(src.dtypes[band_index - 1], np.floating):
-            nodata = np.nan
+        nodata = _resolve_nodata(src, band_index)
 
         reproject(
             source=rasterio.band(src, band_index),
@@ -49,6 +92,53 @@ def aggregate_raster_to_grid(
         )
 
     return dst_array.astype(np.float32)
+
+
+def aggregate_valid_ratio_to_grid(
+    raster_path: Path, grid_spec: GridSpec, band_index: int = 1
+) -> np.ndarray:
+    """coarseセルごとの有効画素率（0-1）を返す。
+
+    ``aggregate_raster_to_grid()`` の平均は有効画素のみで取るため、セル内の
+    有効画素が1割しか無い場合でも完全に覆われたセルと同じ実数を返す。両者を
+    区別できるよう、セル面積に占める有効画素の割合を別列として算出する。
+
+    算出は「有効画素を1・nodataを0とした配列」を平均再投影することで行う。
+    そのため入力ラスタの**外周より外側**（画素が1つも無い領域）が占める分は
+    比率に反映されない。ラスタの矩形範囲を一部しか含まないセルでは、実際の
+    被覆より高い値になり得る。現行の入力（ROIでcrop済みのDEM）では、この
+    影響を受けるのは解析BBox最外周のセルに限られる。
+
+    Args:
+        raster_path: 入力ラスタファイルの絶対パス。
+        grid_spec: 再投影先のグリッド仕様（``coarse_transform``・``analysis_crs``を使用）。
+        band_index: 読み込むバンド番号（1始まり）。
+
+    Returns:
+        coarseグリッド (``grid_spec.coarse_shape``) の有効画素率配列（0-1）。
+        ラスタ範囲外のセルは ``0.0``（``NaN`` ではない）。
+    """
+    dst_array = np.zeros(grid_spec.coarse_shape, dtype=np.float32)
+
+    with rasterio.open(raster_path) as src:
+        nodata = _resolve_nodata(src, band_index)
+        valid_mask = _valid_pixel_mask(src.read(band_index), nodata).astype(np.float32)
+
+        reproject(
+            source=valid_mask,
+            destination=dst_array,
+            src_transform=src.transform,
+            src_crs=src.crs,
+            dst_transform=grid_spec.coarse_transform,
+            dst_crs=grid_spec.analysis_crs,
+            resampling=Resampling.average,
+            # 寄与する画素が1つも無いセルは、初期値0.0（＝有効画素なし）のまま残す。
+            init_dest_nodata=False,
+            num_threads=2,
+        )
+
+    # 平均再投影の丸め誤差で 0-1 をわずかに外れることがあるため、比率として丸める。
+    return np.clip(dst_array, 0.0, 1.0)
 
 
 def compute(

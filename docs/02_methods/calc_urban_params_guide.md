@@ -128,7 +128,7 @@
 `<scale>` は coarseグリッド解像度（m）で、既定では `30` / `90` / `300` の3ファイルを出力する。  
 各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。旧実装の `_0` サフィックスは廃止した。
 
-> **設計確定状況**: 座標列・衛星由来指標（6.2節）・品質管理列（6.3節）に加え、GIS由来パラメータのうち `ROAD_DEN_<scale>`、建物パラメータ4種（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`）、`ELEV_MEAN_<scale>`（`limited` のみ）は確定・実装済みである（6.4節）。  
+> **設計確定状況**: 座標列・衛星由来指標（6.2節）・品質管理列（6.3節）に加え、GIS由来パラメータのうち `ROAD_DEN_<scale>`、建物パラメータ4種（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`）、標高パラメータ2種（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`、`limited` のみ）は確定・実装済みである（6.4節）。  
 > 残るGIS由来パラメータ（水域・植生）は検討中の案であり、各パラメータの入力データ・算出方法を個別に確定したうえで本仕様へ追加する。該当するstubモジュールは追加時の実装場所を確保する足場であり、列構成そのものを確定したものではない。
 
 ### 6.1 必須列
@@ -143,7 +143,7 @@
 
 - `IN_ANALYSIS_AREA`（解析範囲レイヤ内のセルか）
 - `VALID_GIS_MASK`（少なくとも1つのGIS指標が有効なセル。`satellite_only` では常に0）
-  - **判定材料に `ELEV_MEAN_<scale>` は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
+  - **判定材料に標高由来の列（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`）は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無とは別の軸である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
 - `VALID_SATELLITE_MASK`（少なくとも1つの衛星指標がNaNでないセル。`--satellite-dir` 未指定時は常に0）
 - `MISSING_REASON`（GIS指標の主要欠損理由。`none` / `no_gis_feature`）
 - `DATA_SOURCE`（`satellite` / `open_gis` / `survey_gis`）
@@ -176,13 +176,22 @@
   - **算出方法**: 衛星指標と共通の `aggregate_raster_to_grid()` により coarse グリッドへ `Resampling.average` で再投影し、セル平均標高を得る
   - **欠測規約**: 有効カバレッジ外は **NaN**。`0` は「データが無い」ではなく**海抜0m の実測値**であり、両者を同一視しない
   - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（理由は6.3節）
-  - **`ELEV_COUNT_<scale>` は出力しない**（セル内の有効点数は本研究で使用しないため）
+  - **セルの信頼度**: 平均はセル内の**有効画素のみ**で取るため、値の有無だけでは部分被覆セルを判別できない。判別には `ELEV_VALID_RATIO_<scale>` を用いる
   - **解釈上の注意**:
     - FABDEM は Copernicus GLO-30 をランダムフォレスト回帰で補正した準DTMであり、生のDSMではない。ただし高密度キャノピー・急峻地形では補正残差が残る
     - 垂直基準面は EGM2008 であり、0m は平均海面と厳密には一致しない
     - ライセンスは CC BY-NC-SA 4.0（非商用）。論文・資料への帰属文記載が必須
     - **`scale=30` では集約が実質的なリサンプリングになる**（FABDEM の画素はハノイの緯度で東西約28m・南北約30m）。「セル内の面積平均標高」とは言えないため、RQ2 のスケール間比較で30mの値を過大解釈しない
   - **詳細**: [gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)
+
+- **`ELEV_VALID_RATIO_<scale>`（DEM有効画素率, 0-1）**: 設計確定・実装済（`limited` シナリオのみ）
+  - **入力**: `ELEV_MEAN_<scale>` と同一のDEMラスタ
+  - **算出方法**: 有効画素を1・nodataを0とした配列を、`ELEV_MEAN` と同じ `Resampling.average` で coarse グリッドへ再投影する
+  - **必要性**: `Resampling.average` はセル内の**有効画素のみ**で平均を取るため、セルの1割しかDEMに覆われていなくても、完全に覆われたセルと同じ実数が `ELEV_MEAN` に入る。`NaN` の件数だけでは部分被覆セルを捕捉できず、有効カバレッジを過大評価する（実測では `IN_ANALYSIS_AREA == 1` のうち、300mスケールで `NaN` は0.013%である一方、有効画素率99%未満は4.67%・50%未満は2.42%）
+  - **欠測規約**: ラスタ範囲外のセルは `NaN` ではなく **`0.0`**（nodataで覆われたセルと同じ「有効画素なし」を意味するため揃える）
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（理由は6.3節）
+  - **解釈上の注意**: 入力ラスタの外周より外側（画素が1つも無い領域）が占める分は比率に反映されないため、ラスタの矩形範囲を一部しか含まないセルでは実際の被覆より高い値になり得る。現行の入力（ROIでcrop済みのDEM）では解析BBox最外周のセルに限られる
+  - **`ELEV_COUNT_<scale>`（セル内の有効点数）は出力しない**（スケールによって画素数の意味が変わり、比率のほうがスケール間で比較可能なため）
 
 > `full` シナリオの標高は未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
 
@@ -208,7 +217,8 @@
 | `DATA_SOURCE`, `SCENARIO` | `run.run_for_scale()` | 確定・実装済 |
 | `BUILD_COV_<scale>`, `BUILD_DEN_<scale>`, `BUILD_H_MEAN_<scale>`, `BUILD_H_MAX_<scale>` | `params/buildings.py: compute()` | 確定・実装済（`limited` / `full` シナリオのみ） |
 | `ROAD_DEN_<scale>` | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
-| `ELEV_MEAN_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済**（`limited` シナリオのみ。`ELEV_COUNT_<scale>` は出力しない） |
+| `ELEV_MEAN_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済**（`limited` シナリオのみ） |
+| `ELEV_VALID_RATIO_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`limited` シナリオのみ。`ELEV_COUNT_<scale>` は出力しない） |
 | `WATER_COV_<scale>`, `GREEN_COV_<scale>` | （未割当） | 未確定。stubモジュールも未作成。入力源確定後にサブIssue起案が必要 |
 
 ---
@@ -226,10 +236,10 @@ src/analysis/urban_params/
   geometry.py         # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
   io.py               # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み
   params/
-    raster.py         # 衛星指標（NDVI/NDBI/NDWI/FVC）のグリッド集約
+    raster.py         # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI/FVC・有効画素率）
     buildings.py       # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
     roads.py            # 道路パラメータ（ROAD_DEN）
-    elevation.py       # 標高パラメータ（ELEV_MEAN）
+    elevation.py       # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
   run.py              # main(): シナリオ・マルチスケール出力のオーケストレーション
 ```
 
@@ -270,8 +280,9 @@ def compute(
   - `ROAD_DEN`: 道路密度（m/ha）
 - 標高（FABDEM、`limited` のみ）
   - `ELEV_MEAN`: DEMラスタを coarse グリッドへ平均再投影して得るセル平均標高（m）
+  - `ELEV_VALID_RATIO`: セル内のDEM有効画素率（0-1）。`ELEV_MEAN` の平均が有効画素のみで取られるため、部分被覆セルの判別に必要（6.4節）
   - ベクタではなくラスタ入力のため、Step C（衛星指標）と同じ集約関数を用いる
-  - 有効カバレッジ外は NaN。`VALID_GIS_MASK` の判定材料には含めない（6.3節）
+  - 有効カバレッジ外は NaN（有効画素率は 0.0）。いずれも `VALID_GIS_MASK` の判定材料には含めない（6.3節）
 
 **検討中**
 
@@ -352,7 +363,7 @@ python -m src.analysis.urban_params --city hanoi \
 
 - **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_osm_roads.gpkg` から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
 - **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_gba_buildings.gpkg`（GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`full` シナリオの `merge_DC.gpkg` は高さ属性を持たないため、高さ列は NaN になる。
-- **`params/elevation.py`（`ELEV_MEAN`）**: 設計確定・実装済み。`limited` シナリオで FABDEM v1.2（`fabdem_hanoi_dem.tif`）を coarse グリッドへ平均再投影し、セル平均標高（m）を算出する。`ELEV_COUNT` は出力しない。`full` / `satellite_only` では入力を与えないため列自体が出力されない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
+- **`params/elevation.py`（`ELEV_MEAN` / `ELEV_VALID_RATIO`）**: 設計確定・実装済み。`limited` シナリオで FABDEM v1.2（`fabdem_hanoi_dem.tif`）を coarse グリッドへ平均再投影し、セル平均標高（m）とセル内のDEM有効画素率（0-1）を算出する。`ELEV_COUNT` は出力しない。`full` / `satellite_only` では入力を与えないため列自体が出力されない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
 - `satellite_only` はGIS入力を使用せず、衛星指標と品質管理列のみを出力する。
 - 解析範囲の外接 bbox でスケールごとにグリッドを作成した後、基準レイヤのポリゴン内セル（`IN_ANALYSIS_AREA == 1`）のみを CSV に出力する。
 - 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。複数観測ファイルを含むディレクトリではなく、単一観測ファイルを指定する。
@@ -369,11 +380,12 @@ python -m src.analysis.urban_params --city hanoi \
 - `DATA_SOURCE` / `SCENARIO` が想定シナリオと一致する
 - GIS由来パラメータ（6.4節）を追加する際は、被覆率（0-1）・密度（負値なし）・有効カバレッジ内かどうかの確認を、各パラメータのサブIssueで検証項目として追加する
 
-**標高（`ELEV_MEAN_<scale>`）の検証観点**
+**標高（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`）の検証観点**
 
 - 値域が入力DEMの統計範囲に収まり、平均が同水準である（集約により最小値は上がり最大値は下がるため、**特定の下限値を合格基準にしない**）
 - 有効カバレッジ外が `NaN` であり、`0` で埋まっていない（値がちょうど `0` のセルが欠損由来でないこと）
-- `IN_ANALYSIS_AREA == 1` かつ標高が `NaN` のセル数をスケール別に記録する（DEMはROIでcrop済みのため境界セルで発生し得る。件数は有効カバレッジの議論に用いる）
+- `IN_ANALYSIS_AREA == 1` のセルについて、標高が `NaN` の件数と**有効画素率の分布（1未満・0.5未満の件数）**をスケール別に記録する。DEMはROIでcrop済みのため境界セルで発生し得る。**`NaN` の件数だけでは部分被覆セルを捕捉できず、有効カバレッジを過大評価する**ため、両方を有効カバレッジの議論に用いる
+- `ELEV_VALID_RATIO` が 0-1 に収まり、`ELEV_MEAN` が `NaN` のセルで `0.0` になっている（両列の整合）
 - `VALID_GIS_MASK` の分布が標高の追加前後で変わらない（品質判定に混入していないこと）
 - スケール間（30/90/300m）で平均標高の水準が整合する
 

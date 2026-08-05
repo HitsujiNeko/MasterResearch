@@ -16,7 +16,7 @@ from pyproj import CRS
 
 from src.common.geo_metadata import BBox
 
-from .config import CITY_CONFIG, PROJECT_ROOT, SCENARIO_LAYER_KEYS
+from .config import CITY_CONFIG, PROJECT_ROOT, SCENARIO_INPUT_KEYS
 from .geometry import compute_polygon_coverage
 from .grid import GridSpec, build_grid, grid_centers_wgs84
 from .io import (
@@ -33,7 +33,7 @@ def parse_arguments() -> argparse.Namespace:
     """CLI引数を解釈して返す。"""
     parser = argparse.ArgumentParser(description="都市構造パラメータ算出（モジュール化版）")
     parser.add_argument("--city", default="hanoi", choices=list(CITY_CONFIG.keys()))
-    parser.add_argument("--scenario", default="limited", choices=list(SCENARIO_LAYER_KEYS.keys()))
+    parser.add_argument("--scenario", default="limited", choices=list(SCENARIO_INPUT_KEYS.keys()))
     parser.add_argument(
         "--scales",
         type=int,
@@ -142,7 +142,7 @@ def run_for_scale(
     Args:
         scale: coarseグリッド解像度（m）。出力列名のサフィックスにも使う。
         args: CLI引数（``fine_res`` 等を参照する）。
-        scenario_cfg: シナリオ設定（``SCENARIO_LAYER_KEYS`` の1エントリ）。
+        scenario_cfg: シナリオ設定（``SCENARIO_INPUT_KEYS`` の1エントリ）。
         analysis_crs: 解析用投影座標系（例: EPSG:5897）。
         analysis_bbox: 解析範囲のBBox（``analysis_crs`` 上の座標）。
         mask_resource: 解析対象セルの判定に使う基準レイヤ。
@@ -212,7 +212,7 @@ def main() -> None:
     """
     args = parse_arguments()
     city_cfg = CITY_CONFIG[args.city]
-    scenario_cfg = SCENARIO_LAYER_KEYS[args.scenario]
+    scenario_cfg = SCENARIO_INPUT_KEYS[args.scenario]
     analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
 
     mask_layer_key = args.mask_layer_key or str(scenario_cfg["default_mask"])

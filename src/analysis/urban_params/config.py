@@ -64,10 +64,20 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 "crs_epsg": 5897,
             },
         },
+        # ラスタ入力。レイヤ名・CRS変換器といったベクタ固有の設定項目を持たないため、
+        # ``layers`` とは別セクションで管理する。
+        "rasters": {
+            "fabdem": {
+                "path": "data/gis/dem/fabdem/fabdem_hanoi_dem.tif",
+                "band": 1,
+            },
+        },
     }
 }
 
-SCENARIO_LAYER_KEYS: dict[str, dict[str, str | None]] = {
+# シナリオごとの入力キー。ベクタレイヤ（``layers`` のキー）とラスタ（``rasters`` の
+# キー）の両方を含むため、"LAYER" ではなく "INPUT" と呼ぶ。
+SCENARIO_INPUT_KEYS: dict[str, dict[str, str | None]] = {
     "satellite_only": {
         "default_mask": "roi",
         "buildings": None,
@@ -75,6 +85,7 @@ SCENARIO_LAYER_KEYS: dict[str, dict[str, str | None]] = {
         "water": None,
         "green": None,
         "elevation": None,
+        "elevation_raster": None,
         "data_source": "satellite",
     },
     "limited": {
@@ -84,6 +95,7 @@ SCENARIO_LAYER_KEYS: dict[str, dict[str, str | None]] = {
         "water": None,
         "green": None,
         "elevation": None,
+        "elevation_raster": "fabdem",
         "data_source": "open_gis",
     },
     "full": {
@@ -93,6 +105,7 @@ SCENARIO_LAYER_KEYS: dict[str, dict[str, str | None]] = {
         "water": "th",
         "green": "tv",
         "elevation": "dh",
+        "elevation_raster": None,
         "data_source": "survey_gis",
     },
 }

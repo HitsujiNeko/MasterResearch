@@ -1,6 +1,6 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-03  
+**最終更新**: 2026-08-05  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1-RQ3、CRS（WGS84/UTM）、ラスタ/ベクタ処理の基礎
 
@@ -84,13 +84,14 @@
 
 ## 5.2 シナリオ別入力（GIS、検討中）
 
-> **本節の位置づけ**: 本節で挙げる建物・道路・水域・植生・標高のGIS入力は、いずれも入力データ・算出方法が確定していない検討中の案である。  
-> 現時点で設計確定済みなのは衛星由来指標（5.3節）のみであり、GIS由来パラメータは各パラメータ単位の別Issueで入力源・算出方法を確定したうえで出力仕様（6章）に追加する。
+> **本節の位置づけ**: 本節で挙げる水域・植生のGIS入力は、入力データ・算出方法が確定していない検討中の案である。  
+> 建物・道路・標高（Limited）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。残るパラメータは各パラメータ単位の別Issueで確定したうえで出力仕様へ追加する。
 
 ### 5.2.1 Limited
 
 - OpenStreetMap / Geofabrik 由来の道路ライン
 - Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` / GlobalBuildingAtlas 等の建物ポリゴン
+- **オープンソースDEMラスタ**（`data/gis/dem/fabdem/fabdem_hanoi_dem.tif`、FABDEM v1.2、EPSG:4326、約30m）
 - 必要に応じて OSM 土地利用・水域ポリゴン
 
 > Hanoi ROI では、現行の Microsoft 建物データが西側行政区画を十分に覆っていない。  
@@ -127,8 +128,8 @@
 `<scale>` は coarseグリッド解像度（m）で、既定では `30` / `90` / `300` の3ファイルを出力する。  
 各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。旧実装の `_0` サフィックスは廃止した。
 
-> **設計確定状況**: 座標列・衛星由来指標（6.2節）・品質管理列（6.3節）に加え、GIS由来パラメータのうち `ROAD_DEN_<scale>` と建物パラメータ4種（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`）は確定・実装済みである（6.4節）。  
-> 残るGIS由来パラメータ（水域・植生・標高）は検討中の案であり、各パラメータの入力データ・算出方法を個別に確定したうえで本仕様へ追加する。該当するstubモジュールは追加時の実装場所を確保する足場であり、列構成そのものを確定したものではない。
+> **設計確定状況**: 座標列・衛星由来指標（6.2節）・品質管理列（6.3節）に加え、GIS由来パラメータのうち `ROAD_DEN_<scale>`、建物パラメータ4種（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`）、`ELEV_MEAN_<scale>`（`limited` のみ）は確定・実装済みである（6.4節）。  
+> 残るGIS由来パラメータ（水域・植生）は検討中の案であり、各パラメータの入力データ・算出方法を個別に確定したうえで本仕様へ追加する。該当するstubモジュールは追加時の実装場所を確保する足場であり、列構成そのものを確定したものではない。
 
 ### 6.1 必須列
 
@@ -142,6 +143,7 @@
 
 - `IN_ANALYSIS_AREA`（解析範囲レイヤ内のセルか）
 - `VALID_GIS_MASK`（少なくとも1つのGIS指標が有効なセル。`satellite_only` では常に0）
+  - **判定材料に `ELEV_MEAN_<scale>` は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
 - `VALID_SATELLITE_MASK`（少なくとも1つの衛星指標がNaNでないセル。`--satellite-dir` 未指定時は常に0）
 - `MISSING_REASON`（GIS指標の主要欠損理由。`none` / `no_gis_feature`）
 - `DATA_SOURCE`（`satellite` / `open_gis` / `survey_gis`）
@@ -169,12 +171,26 @@
   - **解釈上の注意**: `BUILD_COV = 0` は建物の不存在を意味しない（30m では建物のあるセルの14%が該当）。建物の有無は `BUILD_DEN` で判定する
   - **詳細**: [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3
 
+- **`ELEV_MEAN_<scale>`（平均標高, m）**: 設計確定・実装済（`limited` シナリオのみ）
+  - **入力**: `data/gis/dem/fabdem/fabdem_hanoi_dem.tif`（FABDEM v1.2、EPSG:4326、nodata `-9999`）
+  - **算出方法**: 衛星指標と共通の `aggregate_raster_to_grid()` により coarse グリッドへ `Resampling.average` で再投影し、セル平均標高を得る
+  - **欠測規約**: 有効カバレッジ外は **NaN**。`0` は「データが無い」ではなく**海抜0m の実測値**であり、両者を同一視しない
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（理由は6.3節）
+  - **`ELEV_COUNT_<scale>` は出力しない**（セル内の有効点数は本研究で使用しないため）
+  - **解釈上の注意**:
+    - FABDEM は Copernicus GLO-30 をランダムフォレスト回帰で補正した準DTMであり、生のDSMではない。ただし高密度キャノピー・急峻地形では補正残差が残る
+    - 垂直基準面は EGM2008 であり、0m は平均海面と厳密には一致しない
+    - ライセンスは CC BY-NC-SA 4.0（非商用）。論文・資料への帰属文記載が必須
+    - **`scale=30` では集約が実質的なリサンプリングになる**（FABDEM の画素はハノイの緯度で東西約28m・南北約30m）。「セル内の面積平均標高」とは言えないため、RQ2 のスケール間比較で30mの値を過大解釈しない
+  - **詳細**: [gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)
+
+> `full` シナリオの標高は未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
+
 #### 検討中のパラメータ（別途設計確定）
 
 以下は入力データ・算出方法が未確定の案であり、パラメータ単位で設計確定後に出力仕様へ追加する。
 
 - `WATER_COV_<scale>`（水域被覆率, 0-1）・`GREEN_COV_<scale>`（植生被覆率, 0-1）: 入力源未確定。サブIssue起案が必要
-- `ELEV_MEAN_<scale>`（標高平均）・`ELEV_COUNT_<scale>`（標高値の有効点数）: 算出方法未確定
 
 > スケール間（30/90/300m）で値の意味を揃えるため、密度系パラメータは面積あたり（/ha）に正規化する。算出には `grid.cell_area_ha()` を使用する。
 
@@ -192,7 +208,7 @@
 | `DATA_SOURCE`, `SCENARIO` | `run.run_for_scale()` | 確定・実装済 |
 | `BUILD_COV_<scale>`, `BUILD_DEN_<scale>`, `BUILD_H_MEAN_<scale>`, `BUILD_H_MAX_<scale>` | `params/buildings.py: compute()` | 確定・実装済（`limited` / `full` シナリオのみ） |
 | `ROAD_DEN_<scale>` | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
-| `ELEV_MEAN_<scale>`, `ELEV_COUNT_<scale>` | `params/elevation.py: compute()`（現状stub・空dict） | 未確定。別Issueで設計・実装予定 |
+| `ELEV_MEAN_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済**（`limited` シナリオのみ。`ELEV_COUNT_<scale>` は出力しない） |
 | `WATER_COV_<scale>`, `GREEN_COV_<scale>` | （未割当） | 未確定。stubモジュールも未作成。入力源確定後にサブIssue起案が必要 |
 
 ---
@@ -205,17 +221,19 @@
 src/analysis/urban_params/
   __init__.py
   __main__.py        # python -m src.analysis.urban_params のエントリーポイント
-  config.py           # CITY_CONFIG, SCENARIO_LAYER_KEYS
+  config.py           # CITY_CONFIG（layers/rasters）, SCENARIO_INPUT_KEYS
   grid.py             # BBox, GridSpec, build_grid, transform_bbox, grid_centers_wgs84, cell_area_ha
   geometry.py         # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
-  io.py               # LayerResource, レイヤ・ラスタの解決と読み込み
+  io.py               # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み
   params/
     raster.py         # 衛星指標（NDVI/NDBI/NDWI/FVC）のグリッド集約
     buildings.py       # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
-    roads.py            # 道路パラメータ（ROAD_DEN。実装は別Issue）
-    elevation.py       # 標高パラメータ（ELEV_MEAN/ELEV_COUNT。実装は別Issue）
+    roads.py            # 道路パラメータ（ROAD_DEN）
+    elevation.py       # 標高パラメータ（ELEV_MEAN）
   run.py              # main(): シナリオ・マルチスケール出力のオーケストレーション
 ```
+
+シナリオごとの入力キーは `SCENARIO_INPUT_KEYS` が保持する。ベクタレイヤ（`CITY_CONFIG["layers"]` のキー）とラスタ（`CITY_CONFIG["rasters"]` のキー）の両方を含むため、"LAYER" ではなく "INPUT" と呼ぶ。
 
 各 `params/*.py` は共通の `compute()` シグネチャを持つ（`raster.py` のみ別シグネチャ）。
 
@@ -228,7 +246,9 @@ def compute(
     """列名（サフィックス無し） -> coarse_shape の2次元配列、を返す。"""
 ```
 
-`resource` が `None`（シナリオでレイヤ未指定）または未実装の場合は空dict `{}` を返し、`run.py` は返り値の各キーに `_<scale>` を付与して出力列に追加する。
+`elevation.py` のみ第1引数が `RasterResource | None` であり、集約範囲は `grid_spec` が保持するため `bbox_analysis` は参照しない（他モジュールとシグネチャを揃えるために受け取る）。
+
+`resource` が `None`（シナリオで入力未指定）または未実装の場合は空dict `{}` を返し、`run.py` は返り値の各キーに `_<scale>` を付与して出力列に追加する。
 
 ### 7.1 Step A: 解析範囲・グリッド準備
 
@@ -236,9 +256,9 @@ def compute(
 - ROI / 公開GIS は必要時のみ解析用投影座標（既定: EPSG:5897）へ投影
 - `--scales` で指定した各スケールについて、coarseグリッド（既定10m補助グリッド付き）を作成
 
-### 7.2 Step B: GIS由来指標（水域・植生・標高のみ検討中、6.4節参照）
+### 7.2 Step B: GIS由来指標（水域・植生のみ検討中、6.4節参照）
 
-> 建物と道路は6.4節の通り**設計確定・実装済み**である。本節の水域・植生・標高の列名・入力源は検討中の案であり、6.4節の通り設計未確定である。各パラメータは別途個別に確定する。
+> 建物・道路・標高（Limited）は6.4節の通り**設計確定・実装済み**である。本節の水域・植生の列名・入力源は検討中の案であり、6.4節の通り設計未確定である。各パラメータは別途個別に確定する。
 
 **設計確定・実装済み**
 
@@ -248,6 +268,10 @@ def compute(
   - `BUILD_H_MEAN` / `BUILD_H_MAX`: セル内建物の平均・最大高さ（m）
 - 道路（OSM / GT）
   - `ROAD_DEN`: 道路密度（m/ha）
+- 標高（FABDEM、`limited` のみ）
+  - `ELEV_MEAN`: DEMラスタを coarse グリッドへ平均再投影して得るセル平均標高（m）
+  - ベクタではなくラスタ入力のため、Step C（衛星指標）と同じ集約関数を用いる
+  - 有効カバレッジ外は NaN。`VALID_GIS_MASK` の判定材料には含めない（6.3節）
 
 **検討中**
 
@@ -255,12 +279,12 @@ def compute(
   - `WATER_COV`: 水域被覆率
 - 植生（TV / OSM landuse 等）
   - `GREEN_COV`: 植生被覆率
-- 等高線/標高点（DH）
-  - 点属性から数値標高を抽出し、セル平均を算出する案を第一候補とする
+- 測量GIS由来の標高（DH）
+  - `full` シナリオ向けに、点属性から数値標高を抽出しセル平均を算出する案を第一候補とする
 
 > 測量由来GISのレイヤ意味は最終的に固定し切れていない部分があるため、  
-> 特に `WATER_COV`, `GREEN_COV`, `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
-> `limited` シナリオの建物データソースは GlobalBuildingAtlas（`hanoi_gba_buildings.gpkg`）を使用する。
+> 特に `WATER_COV`, `GREEN_COV`, および `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
+> `limited` シナリオの建物データソースは GlobalBuildingAtlas（`hanoi_gba_buildings.gpkg`）、標高は FABDEM v1.2 を使用する。
 
 **共通基盤関数の算出手法と制約**:
 
@@ -324,11 +348,11 @@ python -m src.analysis.urban_params --city hanoi \
 - `--satellite-dir`: 任意。衛星指標ラスタの単一ファイルまたは格納ディレクトリ
 - `--mask-layer-key`: 解析範囲の基準レイヤ。未指定時は `satellite_only`/`limited` で `roi`、`full` で `rg`
 
-### 10.1 現在の実装状況（2026-08-03）
+### 10.1 現在の実装状況（2026-08-05）
 
 - **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_osm_roads.gpkg` から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
 - **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_gba_buildings.gpkg`（GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`full` シナリオの `merge_DC.gpkg` は高さ属性を持たないため、高さ列は NaN になる。
-- `params/elevation.py`（`ELEV_MEAN` / `ELEV_COUNT`）: stub（空dict）。別途設計・実装予定。
+- **`params/elevation.py`（`ELEV_MEAN`）**: 設計確定・実装済み。`limited` シナリオで FABDEM v1.2（`fabdem_hanoi_dem.tif`）を coarse グリッドへ平均再投影し、セル平均標高（m）を算出する。`ELEV_COUNT` は出力しない。`full` / `satellite_only` では入力を与えないため列自体が出力されない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
 - `satellite_only` はGIS入力を使用せず、衛星指標と品質管理列のみを出力する。
 - 解析範囲の外接 bbox でスケールごとにグリッドを作成した後、基準レイヤのポリゴン内セル（`IN_ANALYSIS_AREA == 1`）のみを CSV に出力する。
 - 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。複数観測ファイルを含むディレクトリではなく、単一観測ファイルを指定する。
@@ -344,6 +368,14 @@ python -m src.analysis.urban_params --city hanoi \
 - 座標列 `lon`, `lat` がハノイ近傍範囲に入る
 - `DATA_SOURCE` / `SCENARIO` が想定シナリオと一致する
 - GIS由来パラメータ（6.4節）を追加する際は、被覆率（0-1）・密度（負値なし）・有効カバレッジ内かどうかの確認を、各パラメータのサブIssueで検証項目として追加する
+
+**標高（`ELEV_MEAN_<scale>`）の検証観点**
+
+- 値域が入力DEMの統計範囲に収まり、平均が同水準である（集約により最小値は上がり最大値は下がるため、**特定の下限値を合格基準にしない**）
+- 有効カバレッジ外が `NaN` であり、`0` で埋まっていない（値がちょうど `0` のセルが欠損由来でないこと）
+- `IN_ANALYSIS_AREA == 1` かつ標高が `NaN` のセル数をスケール別に記録する（DEMはROIでcrop済みのため境界セルで発生し得る。件数は有効カバレッジの議論に用いる）
+- `VALID_GIS_MASK` の分布が標高の追加前後で変わらない（品質判定に混入していないこと）
+- スケール間（30/90/300m）で平均標高の水準が整合する
 
 ### 11.1 ユニットテスト
 

@@ -107,7 +107,7 @@ docs/
 - **S6**: Garzón (2021) - 熱帯都市SUHI
 - **S7**: Derdouri et al. (2021) - LULC変化とSUHI研究レビュー
 - **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
-- **S9**: Nguyen Thanh Hoan et al. (2018) - ハノイの土地利用構成とSUHI [地域参考・RQ2参考]
+- **S9**: Nguyen Thanh Hoan et al. (2018) - ハノイの土地利用構成とSUHI [ハノイ一次文献・RQ2スケール◎]
 
 **構造化要約（現存ファイル）**:
 

@@ -1,6 +1,6 @@
 # 研究計画書
 
-**最終更新**: 2026-07-16  
+**最終更新**: 2026-08-05  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
 **前提知識**: LST・ROI・3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
+import fiona
 import numpy as np
+import rasterio
+from rasterio.transform import from_origin
 
 from src.analysis.urban_params.grid import build_grid
+from src.analysis.urban_params.io import LayerResource, RasterResource
 from src.analysis.urban_params.run import (
     build_quality_columns,
     build_satellite_quality,
@@ -14,7 +19,7 @@ from src.analysis.urban_params.run import (
 )
 from src.common.geo_metadata import BBox
 
-from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
+from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS, _make_layer_resource
 
 
 def test_build_quality_columns_marks_cells_with_any_positive_indicator() -> None:
@@ -93,3 +98,98 @@ def test_run_for_scale_returns_expected_columns(polygon_resource) -> None:
     assert (df["IN_ANALYSIS_AREA"] == 1).all()
     assert len(df) > 0
     assert df["SCENARIO"].iloc[0] == "satellite_only"
+
+
+def _write_elevation_raster(path: Path, value: float = 30.0) -> RasterResource:
+    """解析範囲全体を一定標高で覆うDEMを書き出し、RasterResourceを返す。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=8,
+        width=8,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0, 80, 10, 10),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((8, 8), value, dtype=np.float32), 1)
+    return RasterResource(path, 1)
+
+
+def _write_full_extent_mask(path: Path) -> LayerResource:
+    """解析範囲（0-80m四方）全体を覆うマスクポリゴンを書き出す。
+
+    建物が存在しないセルも ``IN_ANALYSIS_AREA == 1`` として残すために使う。
+    """
+    ring = [(0.0, 0.0), (80.0, 0.0), (80.0, 80.0), (0.0, 80.0), (0.0, 0.0)]
+    with fiona.open(
+        path,
+        "w",
+        driver="GPKG",
+        layer="data",
+        crs=ANALYSIS_CRS,
+        schema={"geometry": "Polygon", "properties": {}},
+    ) as dst:
+        dst.write({"geometry": {"type": "Polygon", "coordinates": [ring]}, "properties": {}})
+    return _make_layer_resource(path, "data")
+
+
+def _run_limited_like(
+    elevation_resource: RasterResource | None,
+    building_resource: LayerResource,
+    mask_resource: LayerResource,
+):
+    """limited相当（建物レイヤ＋DEMラスタ）の構成で run_for_scale を実行する。"""
+    return run_for_scale(
+        scale=20,
+        args=argparse.Namespace(fine_res=10.0, scenario="limited"),
+        scenario_cfg={"data_source": "open_gis"},
+        analysis_crs=ANALYSIS_CRS,
+        analysis_bbox=ANALYSIS_BBOX,
+        mask_resource=mask_resource,
+        building_resource=building_resource,
+        road_resource=None,
+        elevation_resource=elevation_resource,
+        raster_resources={},
+    )
+
+
+def test_run_for_scale_outputs_elevation_column(tmp_path: Path, building_resource) -> None:
+    """DEMラスタを渡すとELEV_MEAN_{scale}列が出力される。"""
+    elevation_resource = _write_elevation_raster(tmp_path / "dem.tif")
+    mask_resource = _write_full_extent_mask(tmp_path / "mask.gpkg")
+
+    df = _run_limited_like(elevation_resource, building_resource, mask_resource)
+
+    assert "ELEV_MEAN_20" in df.columns
+    assert (df["ELEV_MEAN_20"] == 30.0).all()
+
+
+def test_run_for_scale_elevation_does_not_affect_gis_quality(
+    tmp_path: Path, building_resource
+) -> None:
+    """標高はVALID_GIS_MASK・MISSING_REASONの判定に影響しない。
+
+    標高を判定に含めるとROI内のほぼ全セルが有効となり、VALID_GIS_MASKが
+    「建物・道路データが存在するか」という本来の意味を失うため。
+    """
+    elevation_resource = _write_elevation_raster(tmp_path / "dem.tif")
+    mask_resource = _write_full_extent_mask(tmp_path / "mask.gpkg")
+
+    with_elevation = _run_limited_like(elevation_resource, building_resource, mask_resource)
+    without_elevation = _run_limited_like(None, building_resource, mask_resource)
+
+    np.testing.assert_array_equal(
+        with_elevation["VALID_GIS_MASK"].to_numpy(),
+        without_elevation["VALID_GIS_MASK"].to_numpy(),
+    )
+    np.testing.assert_array_equal(
+        with_elevation["MISSING_REASON"].to_numpy(),
+        without_elevation["MISSING_REASON"].to_numpy(),
+    )
+    # 標高列が無い側にはELEV_MEAN列自体が現れない。
+    assert "ELEV_MEAN_20" not in without_elevation.columns
+    # 建物が無いセルは、標高があってもVALID_GIS_MASK=0のまま。
+    assert (with_elevation["VALID_GIS_MASK"] == 0).any()

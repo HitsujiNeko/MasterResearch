@@ -21,10 +21,12 @@ from .geometry import compute_polygon_coverage
 from .grid import GridSpec, build_grid, grid_centers_wgs84
 from .io import (
     LayerResource,
+    RasterResource,
     bbox_from_layer,
     find_satellite_rasters,
     get_layer_resource,
     get_optional_layer_resource,
+    get_optional_raster_resource,
 )
 from .params import buildings, elevation, raster, roads
 
@@ -130,7 +132,7 @@ def run_for_scale(
     mask_resource: LayerResource,
     building_resource: LayerResource | None,
     road_resource: LayerResource | None,
-    elevation_resource: LayerResource | None,
+    elevation_resource: RasterResource | None,
     raster_resources: dict[str, tuple[Path, int]],
 ) -> pd.DataFrame:
     """1スケール分の都市構造パラメータを算出し、データフレームを返す。
@@ -148,7 +150,7 @@ def run_for_scale(
         mask_resource: 解析対象セルの判定に使う基準レイヤ。
         building_resource: 建物レイヤ（未指定シナリオでは ``None``）。
         road_resource: 道路レイヤ（未指定シナリオでは ``None``）。
-        elevation_resource: 標高点レイヤ（未指定シナリオでは ``None``）。
+        elevation_resource: DEMラスタ（未指定シナリオでは ``None``）。
         raster_resources: 衛星指標ラスタの辞書（指標名 -> (パス, バンド番号)）。
 
     Returns:
@@ -164,11 +166,21 @@ def run_for_scale(
     for module, resource in (
         (buildings, building_resource),
         (roads, road_resource),
-        (elevation, elevation_resource),
     ):
         for column_name, values in module.compute(resource, analysis_bbox, grid_spec).items():
             output_columns[f"{column_name}_{scale}"] = values
             gis_quality_arrays.append(values)
+
+    # 標高は品質管理列（VALID_GIS_MASK）の判定材料に含めない。判定は「値が0より
+    # 大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提と
+    # した基準である。標高は連続量であり0mは「データが無い」ではなく海抜0mを意味
+    # するため、この基準を適用すること自体が不適切である。加えて、標高を含めると
+    # ROI内のほぼ全セルが有効となり、VALID_GIS_MASK が「建物・道路データが存在
+    # するか」という本来の意味を失う。
+    for column_name, values in elevation.compute(
+        elevation_resource, analysis_bbox, grid_spec
+    ).items():
+        output_columns[f"{column_name}_{scale}"] = values
 
     if raster_resources:
         for column_name, values in raster.compute(raster_resources, grid_spec).items():
@@ -205,7 +217,7 @@ def main() -> None:
     """都市構造パラメータ算出処理を実行する。
 
     CLI引数からシナリオ・都市・出力スケールを決定し、解析範囲レイヤ・
-    建物・道路・標高・衛星指標の各レイヤを解決したうえで、``--scales``
+    建物・道路のレイヤと標高・衛星指標のラスタを解決したうえで、``--scales``
     で指定したスケールごとに ``run_for_scale()`` を呼び出し、
     ``data/output/urban_params/urban_params_<scenario>_<city>_<scale>m.csv``
     へ結果を出力する。
@@ -227,7 +239,7 @@ def main() -> None:
 
     building_resource = get_optional_layer_resource(city_cfg, scenario_cfg["buildings"])
     road_resource = get_optional_layer_resource(city_cfg, scenario_cfg["roads"])
-    elevation_resource = get_optional_layer_resource(city_cfg, scenario_cfg["elevation"])
+    elevation_resource = get_optional_raster_resource(city_cfg, scenario_cfg["elevation_raster"])
 
     raster_resources: dict[str, tuple[Path, int]] = {}
     if args.satellite_dir:

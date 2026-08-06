@@ -1,7 +1,7 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-08-03  
-**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
+**最終更新**: 2026-08-06  
+**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
 ---
@@ -128,7 +128,7 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 |------|------|------|------|
 | OpenStreetMap / Geofabrik | 道路、補助的な建物 | 候補確定 | 道路の主ソース。建物利用時は QA が必要 |
 | Microsoft GlobalMLBuildingFootprints | 建物フットプリント | 保留 | Hanoi ROI 西側欠落（105.47°E境界）を確認済み。単独主ソースとして採用しない |
-| GlobalBuildingAtlas | 建物フットプリント＋高さ（ML推定） | **主候補（WFS確認済み）** | WFS（`lod1_global`）でHanoi ROI BBOX取得可。Microsoft欠落域でのカバレッジ確認済み。CC BY-NC 4.0（学術可）。取得スクリプト要作成 |
+| GlobalBuildingAtlas | 建物フットプリント＋高さ（ML推定） | **採用確定・取得済み** | WFS（`lod1_global`）でHanoi ROI全域を取得済み。Microsoft欠落域でも実データを確認しカバレッジ欠落を解消。CC BY-NC 4.0（学術可）。`Limited` シナリオの建物主ソース |
 | Google Open Buildings V3 | 建物フットプリント | 第2候補 | Vietnam明記。CC BY 4.0。建物高さなし（V3）。GBA代替として利用 |
 | GHSL / WSF | 粗い built-up 補助指標 | 補助候補 | 精密な建物輪郭の代替ではない |
 
@@ -218,50 +218,32 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 
 ### 3.1 パラメータ一覧
 
-都市構造パラメータは**衛星由来**と**GIS由来**の2グループに分類する。
+都市構造パラメータは**衛星由来**と**GIS由来**の2グループに分類する。個別のパラメータの一覧は次の2つを正本とし、**本節では再掲しない**。
 
-#### グループA: 衛星由来指標（GEE算出）
+| 内容 | 正本 |
+|---|---|
+| どの説明変数を採用するか（採否ステータス・概念定義・単位・根拠文献・対応RQ） | [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) |
+| 採用済みパラメータの出力仕様（列名・算出方法・実装状況） | [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章 |
 
-| パラメータ名 | 変数名 | 算出式 | データソース | 根拠文献 |
-|------------|--------|--------|------------|---------|
-| NDVI | `NDVI` | (NIR−R)/(NIR+R) | Landsat 8 Band 4,5 | S2, S4 |
-| NDBI | `NDBI` | (SWIR−NIR)/(SWIR+NIR) | Landsat 8 Band 5,6 | S2 |
-| NDWI | `NDWI` | (G−NIR)/(G+NIR) | Landsat 8 Band 3,5 | S6 |
-| 緑被率 | `GREEN_RATIO` | NDVI > 閾値（0.2）のピクセル割合 | Landsat 8 | S4 |
-| 水域率 | `WATER_RATIO` | NDWI > 閾値のピクセル割合 | Landsat 8 | S6 |
-
-> **根拠**: S2[Le Ngoc Hanh]で「NDVI/NDBIのみでは建物高さ・人口密度を捉えられない」と明記。  
-> S6[Garzón 2021]ではNDWIの寄与率が51.46%と最大（MLRモデル R²=0.82）。
-
-#### グループB: GIS由来指標（公開 GIS / 測量 GIS）
-
-| パラメータ名 | 変数名 | 算出方法 | データソース | 根拠文献 |
-|------------|--------|---------|------------|---------|
-| 建物被覆率 | `BUILD_COV` | グリッド内建物面積 / グリッド面積（0-1） | 建物ポリゴン（GBA / DC） | S4 |
-| 建物密度 | `BUILD_DEN` | グリッド内建物棟数 / グリッド面積（棟/ha） | 建物ポリゴン（GBA / DC） | S4 |
-| 建物平均高さ | `BUILD_H_MEAN` | グリッド内建物の平均高さ（m） | 建物ポリゴン（GBA） | S4 |
-| 建物最大高さ | `BUILD_H_MAX` | グリッド内建物の最大高さ（m） | 建物ポリゴン（GBA） | S4 |
-| 道路密度 | `ROAD_DEN` | グリッド内道路延長（m） | 道路ライン（OSM / GT） | S4 |
-| 主要道路距離 | `ROAD_DIST` | 最近接幹線道路までの距離（m） | 道路ライン（OSM / GT） | S4 |
-| 水域率 | `WATER_COV` | グリッド内水域面積 / グリッド面積 | 水域ポリゴン（OSM / TH / DH） | S6 |
-| 緑地率 | `GREEN_COV` | グリッド内植生面積 / グリッド面積 | 植生ポリゴン（TV / OSM landuse 等） | S4 |
+データソースの候補比較・空間解像度・ライセンスは [available_gis_data.md](../01_planning/available_gis_data.md) を参照する。
 
 > どのデータソースを採用するかはシナリオに依存する。  
 > `Limited` では公開 GIS のみ、`Full` では公開 GIS と測量 GIS の両方を扱う。  
 > ただし、DH / TH / TV の意味と利用方法はまだ整理途中であり、確定していない算出方法は今後の確認結果に応じて更新する。
->
-> **根拠**: S4[Sun et al. 2019]ではRandom Forestにより NDVI（都市生態インフラ）と建物密度（BD）が支配的であることを示した（RF R²>0.9、CVでは0.66まで低下）。
 
 ### 3.2 グリッド設計
 
-LSTの空間解像度に合わせ、**30m × 30m グリッド**を基本単位として都市構造パラメータを集計する。
+LSTの空間解像度（30m）を基準としつつ、**30m / 90m / 300m の3スケール**でグリッドを作成し、都市構造パラメータをスケールごとに集計する。
 
 | 項目 | 設定 |
 |------|------|
-| **グリッドサイズ** | 30m × 30m（LST解像度と一致） |
-| **CRS** | 入力/出力はWGS84（EPSG:4326）。ただし面積・長さ計算はUTM（m単位）で実施 |
-| **集計方法** | 各グリッドセル内の面積・長さ・個数を空間集計 |
-| **出力形式** | GeoDataFrame（.gpkg）または numpy array |
+| **グリッド解像度** | 30m / 90m / 300m の3スケール（既定）。スケール間の比較が RQ2 の評価軸となる |
+| **CRS** | 入力/出力はWGS84（EPSG:4326）。ただし面積・長さ計算は投影座標系（m単位）で実施 |
+| **集計方法** | 各グリッドセル内の面積・長さ・個数を空間集計。被覆率は補助グリッド（既定10m）を経由する |
+| **出力形式** | スケールごとのCSV（列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章） |
+
+> 各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。  
+> 3スケールの選択は、Step 3.3 の近傍リング設計とは別の軸である（下記）。
 
 ### 3.3 近傍変数の設計（RQ2対応）
 
@@ -271,7 +253,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 > **本節は未実装の設計案である（採否・詳細は未確定）。** 以下の `_0` / `_30_60` 等のリング型
 > サフィックスは現行の出力仕様ではない。実装済みの出力列は `_<scale>`（30/90/300m のグリッド
 > 解像度）方式であり、正本は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章である。
-> 4章のデータセット構造・5章の分析ケースに現れるリング型の列名も同様に設計案として読むこと。
+> 5章の分析ケース（5.2）に現れるリング型の列名も同様に設計案として読むこと。
 
 | スケール名 | 範囲 | 変数名サフィックス | 例（建物被覆率） |
 |----------|------|-----------------|---------------|
@@ -292,9 +274,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 | スクリプト | 処理内容 | 入力 | 出力 |
 |----------|---------|------|------|
-| `src/analysis/calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI/FVC）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
-| `src/analysis/calc_urban_params.py` | GIS由来都市構造パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + グリッド | `data/output/urban_params/urban_params_<scenario>_<city_id>.csv` |
-| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出 | `urban_params.csv` | `data/output/urban_params/urban_params_with_neighbors.csv` |
+| `src/analysis/calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
+| `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv` |
+| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | `urban_params_*.csv` | `data/output/urban_params/urban_params_with_neighbors.csv` |
 | `src/analysis/merge_dataset.py` | LSTと全説明変数の結合 | LSTクリップ + パラメータCSV | `data/output/analysis_dataset.csv` |
 
 ---
@@ -303,22 +285,26 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 ### 4.1 データセット構造
 
+分析用データセットは、LST と Step 3 で算出した都市構造パラメータをセル単位で結合したものである。**都市構造パラメータ側の列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章を正本とする**。
+
 | 列名 | 型 | 内容 |
 |------|-----|------|
 | `lon` | float | グリッドセル中心経度（WGS84） |
 | `lat` | float | グリッドセル中心緯度（WGS84） |
 | `LST` | float | 地表面温度（°C） |
-| `NDVI` | float | 衛星由来NDVI |
-| `NDBI` | float | 衛星由来NDBI |
-| `NDWI` | float | 衛星由来NDWI |
-| `BUILD_COV_0` | float | 建物被覆率（即時効果） |
-| `BUILD_COV_30_60` | float | 建物被覆率（近傍30-60m） |
-| `BUILD_COV_60_90` | float | 建物被覆率（近傍60-90m） |
-| `BUILD_COV_90_120` | float | 建物被覆率（近傍90-120m） |
-| `BUILD_DEN_*` | float | 建物密度（各スケール） |
-| `ROAD_DEN_*` | float | 道路密度（各スケール） |
-| `WATER_COV_*` | float | 水域率（各スケール） |
-| `data_source` | str | `"satellite_only"`, `"open_gis"`, `"survey_gis"` などの入力種別 |
+| `NDVI_<scale>` / `NDBI_<scale>` / `NDWI_<scale>` | float | 衛星由来指標（衛星指標ラスタを入力した場合のみ） |
+| `BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>` | float | 建物パラメータ（`Limited` / `Full` のみ） |
+| `ROAD_DEN_<scale>` | float | 道路密度（`Limited` / `Full` のみ） |
+| `ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>` | float | 標高パラメータ（`Limited` のみ） |
+| `IN_ANALYSIS_AREA` | int | 解析範囲レイヤ内のセルか |
+| `VALID_GIS_MASK` | int | 少なくとも1つのGIS指標が有効なセルか |
+| `VALID_SATELLITE_MASK` | int | 少なくとも1つの衛星指標が有効なセルか |
+| `MISSING_REASON` | str | GIS指標の主要欠損理由（`none` / `no_gis_feature`） |
+| `DATA_SOURCE` | str | `satellite` / `open_gis` / `survey_gis` |
+| `SCENARIO` | str | `satellite_only` / `limited` / `full` |
+
+`<scale>` はグリッド解像度（m）で、既定では 30 / 90 / 300 のスケールごとにファイルが分かれる。  
+出力される列はシナリオと入力の有無によって変わるため、上表は取り得る列の一覧である。
 
 **出力ファイル**: `data/output/analysis_dataset.csv`
 
@@ -335,6 +321,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 列構成は `lon`, `lat`, `LST`, `NDVI`, `NDBI`, `NDWI` を基本とし、  
 GIS 列は Full / Limited シナリオの実装時に追加する。
+
+> 本節の衛星指標列に `_<scale>` サフィックスが付かないのは、**4.1 とは別のパイプライン**の出力だからである。  
+> 本節は観測日ごとのピクセル単位データセット（30m 固定）であり、4.1 のマルチスケール出力とは生成経路が異なる。
 
 ### 4.2 品質管理
 
@@ -394,6 +383,10 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 ### 5.2 RQ2: 空間スケールの影響評価
 
 **目的**: 都市構造パラメータとLSTの関係が空間集計スケールによってどう変化するか評価する。
+
+> **本節の分析設計は未実装の設計案である。** 以下の `_0` / `_30_60` 等のリング型サフィックスは
+> Step 3.3 の近傍リング設計に対応するものであり、**4.1 の実装済み列（`_<scale>`）とは別**である。
+> 現行の実装は 30 / 90 / 300m のグリッド解像度によるスケール比較であり、リング型変数は算出していない。
 
 **分析設計**:
 
@@ -510,7 +503,7 @@ RQ3 は、現在次の順で進める。
 |------|------|---------|
 | 対象都市のROI確定 | ハノイROIは確認済み | 複数都市への拡張可否を検討 |
 | LSTの日付選定 | 3観測日は確定済み | 追加観測日の拡張条件を整理する |
-| 公開建物データ | GlobalBuildingAtlas を主候補に選定（WFS動作・Hanoi ROI西側カバレッジ確認済み）。Microsoft は保留確定 | WFSページング取得スクリプトを作成し、ROI全域の建物数・面積率を確認してから正式採用 |
+| 公開建物データ | GlobalBuildingAtlas を `Limited` の主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM を主候補 | 道路種別と欠測率の QA を続ける |
 | 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TH / TV の利用方法を確定する |
 | 人口密度データ | WorldPop検討中 | 解像度（100m）のミスマッチをどう扱うか検討 |

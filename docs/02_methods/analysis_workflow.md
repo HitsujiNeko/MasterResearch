@@ -218,7 +218,7 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 
 ### 3.1 パラメータ一覧
 
-都市構造パラメータは**衛星由来**と**GIS由来**の2グループに分類する。個別のパラメータの一覧は次の2つを正本とし、**本節では再掲しない**。
+都市構造パラメータは**衛星由来**と**GIS由来**に分かれる。個別のパラメータの一覧は次の2つを正本とし、**本節では再掲しない**（衛星由来／GIS由来の区分も新ドキュメントの節構成に対応する）。
 
 | 内容 | 正本 |
 |---|---|
@@ -229,7 +229,7 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 
 > どのデータソースを採用するかはシナリオに依存する。  
 > `Limited` では公開 GIS のみ、`Full` では公開 GIS と測量 GIS の両方を扱う。  
-> ただし、DH / TH / TV の意味と利用方法はまだ整理途中であり、確定していない算出方法は今後の確認結果に応じて更新する。
+> ただし、測量GIS（DH / TV）の意味と利用方法はまだ整理途中であり、確定していない算出方法は今後の確認結果に応じて更新する。水系レイヤ（TH）は、水域関連のパラメータを採用していないため算出対象ではない。
 
 ### 3.2 グリッド設計
 
@@ -274,10 +274,10 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 | スクリプト | 処理内容 | 入力 | 出力 |
 |----------|---------|------|------|
-| `src/analysis/calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
+| `src/gee/gee_calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
 | `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv` |
 | `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | `urban_params_*.csv` | `data/output/urban_params/urban_params_with_neighbors.csv` |
-| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合 | LSTクリップ + パラメータCSV | `data/output/analysis_dataset.csv` |
+| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合。**未実装** | LSTクリップ + パラメータCSV | `data/output/analysis_dataset.csv` |
 
 ---
 
@@ -286,6 +286,8 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 ### 4.1 データセット構造
 
 分析用データセットは、LST と Step 3 で算出した都市構造パラメータをセル単位で結合したものである。**都市構造パラメータ側の列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章を正本とする**。
+
+以下は結合後のデータセットが取り得る列の一覧である。結合を行う `merge_dataset.py` は未実装であり（3.4）、現時点で実在するのは Step 3 が出力するスケール別のパラメータCSV（`LST` 列を含まない）である。
 
 | 列名 | 型 | 内容 |
 |------|-----|------|
@@ -303,10 +305,14 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | `DATA_SOURCE` | str | `satellite` / `open_gis` / `survey_gis` |
 | `SCENARIO` | str | `satellite_only` / `limited` / `full` |
 
-`<scale>` はグリッド解像度（m）で、既定では 30 / 90 / 300 のスケールごとにファイルが分かれる。  
-出力される列はシナリオと入力の有無によって変わるため、上表は取り得る列の一覧である。
+`<scale>` はグリッド解像度（m）で、既定では 30 / 90 / 300 のスケールごとにファイルが分かれる。出力される列はシナリオと入力の有無によっても変わる。
 
-**出力ファイル**: `data/output/analysis_dataset.csv`
+**出力ファイル**
+
+| 段階 | ファイル | 状況 |
+|---|---|---|
+| Step 3 の出力 | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（スケールごと） | 実装済み |
+| 結合後 | `data/output/analysis_dataset.csv` | 未実装（`merge_dataset.py` 未作成） |
 
 ### 4.1.1 Satellite Only の現行出力（2026-04-21）
 
@@ -417,8 +423,9 @@ LST分布をどの程度説明できるかを評価する。
 **公開GISデータ取得**:
 
 - 道路: Geofabrik / OSM の `highway=*`
-- 建物: Microsoft GlobalMLBuildingFootprints, Google Open Buildings, OSM `building=*`, GlobalBuildingAtlas を比較
-- 水域・土地利用: OSM, GHSL, WSF などを補助候補として確認
+- 建物: GlobalBuildingAtlas を主ソースとして採用確定。Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` は比較候補
+- 標高・土地利用・人口密度・夜間光: いずれも取得済み（採用済み）
+- 採否の一覧は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md)、データソースの候補比較は [available_gis_data.md](../01_planning/available_gis_data.md) を参照する
 
 **評価指標**: 各シナリオのR², RMSE, 変数重要度の変化・類似度
 
@@ -505,8 +512,8 @@ RQ3 は、現在次の順で進める。
 | LSTの日付選定 | 3観測日は確定済み | 追加観測日の拡張条件を整理する |
 | 公開建物データ | GlobalBuildingAtlas を `Limited` の主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM を主候補 | 道路種別と欠測率の QA を続ける |
-| 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TH / TV の利用方法を確定する |
-| 人口密度データ | WorldPop検討中 | 解像度（100m）のミスマッチをどう扱うか検討 |
+| 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TV の利用方法を確定する（TH は水域パラメータ未採用のため対象外） |
+| 人口密度データ | WorldPop・LandScan とも取得済み。説明変数として採用確定 | どちらを入力とするかを RQ1 のモデル構築で比較して決める。解像度が解析スケールより粗い点の扱いも整理する |
 | 訓練・テスト分割 | Satellite Only では Spatial CV 実施済み | Limited / Full でも同一評価法を維持する |
 | 季節変動の扱い | 夏季2観測 + 乾季1観測 | 追加季節データの取得可否を検討 |
 

@@ -100,16 +100,19 @@ def test_excludes_pdf_directory_from_diff(tmp_path: Path) -> None:
     assert not result.has_violations
 
 
-def test_excludes_all_prefixes_simultaneously(tmp_path: Path) -> None:
-    """複数の除外パスが同時に存在しても、いずれも差分として検出しない。"""
+def test_does_not_exclude_sibling_paths_sharing_prefix_name(tmp_path: Path) -> None:
+    """除外はディレクトリ単位であり、名前が前方一致するだけの兄弟パスは除外しない。"""
     docs_dir = tmp_path / "docs"
     _write_readme(docs_dir)
-    _touch(docs_dir / "01_planning" / "gis_data" / "gis_data_roads.md")
-    _touch(docs_dir / "04_archive" / "04_pdfs" / "S2_LengocHanh_2025.pdf")
+    sibling_dir_path = "04_archive/04_pdfs_backup/note.md"
+    sibling_file_path = "04_archive/04_pdfs.md"
+    _touch(docs_dir / sibling_dir_path)
+    _touch(docs_dir / sibling_file_path)
 
     result = check_catalog_diff(project_root=tmp_path)
 
-    assert not result.has_violations
+    assert sibling_dir_path in result.missing_from_catalog
+    assert sibling_file_path in result.missing_from_catalog
 
 
 def test_detects_non_excluded_archive_subdirectory(tmp_path: Path) -> None:

@@ -82,20 +82,25 @@
 - 30m グリッド化対象となる GIS データ一式
 - 解析範囲を定義するポリゴンまたは境界データ
 
-## 5.2 シナリオ別入力（GIS、検討中）
+## 5.2 シナリオ別入力（GIS）
 
-> **本節の位置づけ**: 本節で挙げる水域・植生のGIS入力は、入力データ・算出方法が確定していない検討中の案である。  
-> 建物・道路・標高（Limited）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。残るパラメータは各パラメータ単位の別Issueで確定したうえで出力仕様へ追加する。
+> **本節の位置づけ**: 建物・道路・標高（Limited）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。  
+> 水域・植生のGIS入力は、入力データ・算出方法が確定していない検討中の案であり、各パラメータ単位の別Issueで確定したうえで出力仕様へ追加する。
 
 ### 5.2.1 Limited
 
-- OpenStreetMap / Geofabrik 由来の道路ライン
-- Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` / GlobalBuildingAtlas 等の建物ポリゴン
-- **オープンソースDEMラスタ**（`data/gis/dem/fabdem/fabdem_hanoi_dem.tif`、FABDEM v1.2、EPSG:4326、約30m）
-- 必要に応じて OSM 土地利用・水域ポリゴン
+**確定済みの入力**
 
-> Hanoi ROI では、現行の Microsoft 建物データが西側行政区画を十分に覆っていない。  
-> そのため、Microsoft 由来の `BUILD_COV_0` / `BUILD_DEN_0` は、建物データの有効カバレッジ外では建物不存在を意味しない。
+- **建物ポリゴン**: `data/gis/buildings/hanoi_gba_buildings.gpkg`（GlobalBuildingAtlas 由来）
+- **道路ライン**: `data/gis/roads/hanoi_osm_roads.gpkg`（OpenStreetMap / Geofabrik 由来）
+- **オープンソースDEMラスタ**: `data/gis/dem/fabdem/fabdem_hanoi_dem.tif`（FABDEM v1.2、EPSG:4326、約30m）
+
+**検討中の入力**
+
+- 水域・植生: OSM 土地利用・水域ポリゴン等（入力源未確定。6.4節参照）
+
+> 建物データの比較候補として Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` を検討したが、Limited シナリオの採用は GlobalBuildingAtlas で確定している（詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)）。  
+> なお Hanoi ROI では Microsoft 建物データが西側行政区画を十分に覆っていない。比較用に用いる場合、建物データの有効カバレッジ外では被覆率・棟数密度の `0` が建物不存在を意味しない点に注意する。
 
 ### 5.2.2 Full
 
@@ -385,7 +390,8 @@ python -m src.analysis.urban_params --city hanoi \
 **標高（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`）の検証観点**
 
 - 値域が入力DEMの統計範囲に収まり、平均が同水準である（集約により最小値は上がり最大値は下がるため、**特定の下限値を合格基準にしない**）
-- 有効カバレッジ外が `NaN` であり、`0` で埋まっていない（値がちょうど `0` のセルが欠損由来でないこと）
+- `ELEV_MEAN` は有効カバレッジ外が `NaN` であり、`0` で埋まっていない（値がちょうど `0` のセルが欠損由来でないこと）
+- `ELEV_VALID_RATIO` は有効画素が無いセルを `0.0` とする（`NaN` にしない。nodata で覆われたセルと範囲外セルを同じ「有効画素なし」として扱うため）
 - `IN_ANALYSIS_AREA == 1` のセルについて、標高が `NaN` の件数と**有効画素率の分布（1未満・0.5未満の件数）**をスケール別に記録する。DEMはROIでcrop済みのため境界セルで発生し得る。**`NaN` の件数だけでは部分被覆セルを捕捉できず、有効カバレッジを過大評価する**ため、両方を有効カバレッジの議論に用いる
 - `ELEV_VALID_RATIO` が 0-1 に収まり、`ELEV_MEAN` が `NaN` のセルで `0.0` になっている（両列の整合）
 - `VALID_GIS_MASK` の分布が標高の追加前後で変わらない（品質判定に混入していないこと）

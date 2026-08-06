@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 import rasterio
-from osgeo import gdal, osr
 from pyproj import CRS
 from rasterio.transform import from_origin
 
@@ -86,36 +85,48 @@ def test_aggregate_raster_all_nan_cell_stays_nan(tmp_path: Path) -> None:
     assert np.isnan(result[1, 1])
 
 
+# GDALの補助メタデータ（PAM）。GeoTIFF本体はデータセット全体で1つのnodata
+# （``TIFFTAG_GDAL_NODATA``）しか保持できないため、バンド別のnodataはサイドカー
+# ファイル（``*.tif.aux.xml``）に記録する。GDALのPython バインディング（osgeo）は
+# CI環境に無いため、rasterioのみで完結する本方式を用いる。
+_PER_BAND_NODATA_PAM = """<PAMDataset>
+  <PAMRasterBand band="1">
+    <NoDataValue>-1</NoDataValue>
+  </PAMRasterBand>
+  <PAMRasterBand band="2">
+    <NoDataValue>-9999</NoDataValue>
+  </PAMRasterBand>
+</PAMDataset>
+"""
+
+
 def _write_per_band_nodata_raster(path: Path) -> None:
     """バンドごとに異なるnodataを持つ2バンドラスタを書き出す。
 
-    rasterioのDatasetWriterは全バンドへ同じnodataしか設定できないため、
-    バンド別のnodata設定にはGDALのAPIを直接使う。GeoTIFFはデータセット全体で
-    1つのnodata（``TIFFTAG_GDAL_NODATA``）しか保持できず、再オープン時に
-    バンド別の値が失われるため、バンド別nodataを保持できるHFA形式で書き出す。
-
     バンド1: nodata=-1、全画素が -1（＝全画素無効）。
     バンド2: nodata=-9999、左上1画素のみ -1（実値として有効）、残りは 10.0。
+
+    Args:
+        path: 出力先のGeoTIFFパス（サイドカーは ``<path>.aux.xml``）。
     """
-    driver = gdal.GetDriverByName("HFA")
-    dataset = driver.Create(str(path), 4, 4, 2, gdal.GDT_Float32)
-    dataset.SetGeoTransform((0.0, 10.0, 0.0, 40.0, 0.0, -10.0))
-    spatial_ref = osr.SpatialReference()
-    spatial_ref.ImportFromEPSG(3857)
-    dataset.SetProjection(spatial_ref.ExportToWkt())
-
-    band1 = dataset.GetRasterBand(1)
-    band1.SetNoDataValue(-1.0)
-    band1.WriteArray(np.full((4, 4), -1.0, dtype=np.float32))
-
     band2_values = np.full((4, 4), 10.0, dtype=np.float32)
     band2_values[0, 0] = -1.0
-    band2 = dataset.GetRasterBand(2)
-    band2.SetNoDataValue(-9999.0)
-    band2.WriteArray(band2_values)
 
-    dataset.FlushCache()
-    dataset = None
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=4,
+        width=4,
+        count=2,
+        dtype="float32",
+        crs="EPSG:3857",
+        transform=from_origin(0, 40, 10, 10),
+    ) as dst:
+        dst.write(np.full((4, 4), -1.0, dtype=np.float32), 1)
+        dst.write(band2_values, 2)
+
+    path.with_name(f"{path.name}.aux.xml").write_text(_PER_BAND_NODATA_PAM, encoding="utf-8")
 
 
 def test_aggregate_uses_nodata_of_target_band(tmp_path: Path) -> None:
@@ -125,12 +136,13 @@ def test_aggregate_uses_nodata_of_target_band(tmp_path: Path) -> None:
     バンド1のnodata（-1）を無効値とみなし、実値の -1 を欠損として捨ててしまう。
     複数バンドを1ファイルに持つラスタで起こり得る。
     """
-    raster_path = tmp_path / "per_band_nodata.img"
+    raster_path = tmp_path / "per_band_nodata.tif"
     _write_per_band_nodata_raster(raster_path)
 
-    # バンド別nodataが保持されていることを確認してから集約する。
+    # バンド別nodataが読めない環境（PAM無効）では前提が成立しないため検証しない。
     with rasterio.open(raster_path) as src:
-        assert src.nodatavals == (-1.0, -9999.0)
+        if src.nodatavals != (-1.0, -9999.0):
+            pytest.skip("GDALのPAMサイドカーが無効でバンド別nodataを再現できない")
 
     grid_spec = build_grid(
         BBox(0.0, 0.0, 40.0, 40.0), CRS.from_epsg(3857), coarse_res_m=20.0, fine_res_m=10.0

@@ -90,12 +90,14 @@ def _write_per_band_nodata_raster(path: Path) -> None:
     """バンドごとに異なるnodataを持つ2バンドラスタを書き出す。
 
     rasterioのDatasetWriterは全バンドへ同じnodataしか設定できないため、
-    バンド別のnodata設定にはGDALのAPIを直接使う。
+    バンド別のnodata設定にはGDALのAPIを直接使う。GeoTIFFはデータセット全体で
+    1つのnodata（``TIFFTAG_GDAL_NODATA``）しか保持できず、再オープン時に
+    バンド別の値が失われるため、バンド別nodataを保持できるHFA形式で書き出す。
 
     バンド1: nodata=-1、全画素が -1（＝全画素無効）。
     バンド2: nodata=-9999、左上1画素のみ -1（実値として有効）、残りは 10.0。
     """
-    driver = gdal.GetDriverByName("GTiff")
+    driver = gdal.GetDriverByName("HFA")
     dataset = driver.Create(str(path), 4, 4, 2, gdal.GDT_Float32)
     dataset.SetGeoTransform((0.0, 10.0, 0.0, 40.0, 0.0, -10.0))
     spatial_ref = osr.SpatialReference()
@@ -121,19 +123,24 @@ def test_aggregate_uses_nodata_of_target_band(tmp_path: Path) -> None:
 
     ``src.nodata`` はバンド1のnodataを返すため、それを使うとバンド2の集約で
     バンド1のnodata（-1）を無効値とみなし、実値の -1 を欠損として捨ててしまう。
-    衛星指標ラスタは1ファイルに複数バンドを持つため、実際に起こり得る。
+    複数バンドを1ファイルに持つラスタで起こり得る。
     """
-    tif_path = tmp_path / "per_band_nodata.tif"
-    _write_per_band_nodata_raster(tif_path)
+    raster_path = tmp_path / "per_band_nodata.img"
+    _write_per_band_nodata_raster(raster_path)
+
+    # バンド別nodataが保持されていることを確認してから集約する。
+    with rasterio.open(raster_path) as src:
+        assert src.nodatavals == (-1.0, -9999.0)
 
     grid_spec = build_grid(
         BBox(0.0, 0.0, 40.0, 40.0), CRS.from_epsg(3857), coarse_res_m=20.0, fine_res_m=10.0
     )
 
-    mean = aggregate_raster_to_grid(tif_path, grid_spec, band_index=2)
-    valid_ratio = aggregate_valid_ratio_to_grid(tif_path, grid_spec, band_index=2)
+    mean = aggregate_raster_to_grid(raster_path, grid_spec, band_index=2)
+    valid_ratio = aggregate_valid_ratio_to_grid(raster_path, grid_spec, band_index=2)
 
-    # バンド2の -1 は実値。除外されれば平均は 10.0、有効画素率は 0.75 になる。
+    # バンド2の -1 は実値であり、平均に含まれる（バンド1のnodataで判定すると
+    # 除外され、平均は10.0・有効画素率は0.75になる）。
     assert mean[0, 0] == pytest.approx((10.0 * 3 - 1.0) / 4, abs=0.5)
     assert valid_ratio[0, 0] == pytest.approx(1.0, abs=1e-5)
 

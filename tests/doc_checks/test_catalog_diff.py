@@ -89,6 +89,45 @@ def test_excludes_gis_data_directory_from_diff(tmp_path: Path) -> None:
     assert not result.has_violations
 
 
+def test_excludes_pdf_directory_from_diff(tmp_path: Path) -> None:
+    """04_archive/04_pdfs/ 配下（論文PDF原本）は差分検出対象外とする。"""
+    docs_dir = tmp_path / "docs"
+    _write_readme(docs_dir)
+    _touch(docs_dir / "04_archive" / "04_pdfs" / "S1_Ermida_2020.pdf")
+
+    result = check_catalog_diff(project_root=tmp_path)
+
+    assert not result.has_violations
+
+
+def test_does_not_exclude_sibling_paths_sharing_prefix_name(tmp_path: Path) -> None:
+    """除外はディレクトリ単位であり、名前が前方一致するだけの兄弟パスは除外しない。"""
+    docs_dir = tmp_path / "docs"
+    _write_readme(docs_dir)
+    sibling_dir_path = "04_archive/04_pdfs_backup/note.md"
+    sibling_file_path = "04_archive/04_pdfs.md"
+    _touch(docs_dir / sibling_dir_path)
+    _touch(docs_dir / sibling_file_path)
+
+    result = check_catalog_diff(project_root=tmp_path)
+
+    assert sibling_dir_path in result.missing_from_catalog
+    assert sibling_file_path in result.missing_from_catalog
+
+
+def test_detects_non_excluded_archive_subdirectory(tmp_path: Path) -> None:
+    """除外対象外の 04_archive 配下（構造化要約）は従来どおり検出する。"""
+    docs_dir = tmp_path / "docs"
+    _write_readme(docs_dir)
+    summary_path = "04_archive/02_structured_summaries/S1_Ermida_2020.md"
+    _touch(docs_dir / summary_path)
+
+    result = check_catalog_diff(project_root=tmp_path)
+
+    assert summary_path in result.missing_from_catalog
+    assert result.has_violations
+
+
 def test_extracts_links_from_bullet_list_not_only_table_rows(tmp_path: Path) -> None:
     """テーブル行だけでなく箇条書きリンクもカタログ記載として認識する。"""
     docs_dir = tmp_path / "docs"

@@ -22,7 +22,11 @@ _SECTION_HEADING_PREFIX = "## "
 _LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 # カタログ掲載有無の差分検出対象外とするパス（docs/README.md 本文の既存方針に対応）
-_EXCLUDED_PREFIXES = ("01_planning/gis_data/",)
+# 04_archive/04_pdfs/ は論文PDF原本の配置先で、Git 管理外かつカタログ非掲載とする方針。
+_EXCLUDED_PREFIXES = (
+    "01_planning/gis_data/",
+    "04_archive/04_pdfs/",
+)
 
 
 @dataclass(frozen=True)

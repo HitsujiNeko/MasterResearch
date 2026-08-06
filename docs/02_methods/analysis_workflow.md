@@ -417,7 +417,7 @@ LST分布をどの程度説明できるかを評価する。
 | シナリオ | 使用データ | 想定状況 |
 |---------|---------|---------|
 | Full（フルデータ） | 衛星指標 + 公開GIS + 測量GIS | 理想的な研究環境 |
-| Limited（制約あり） | 衛星指標 + 公開GIS（OSM道路、公開建物データ候補） | 測量データ入手困難な都市 |
+| Limited（制約あり） | 衛星指標 + 公開GIS（OSM道路、GlobalBuildingAtlas建物、FABDEM標高 ほか） | 測量データ入手困難な都市 |
 | Satellite Only | 衛星指標のみ | 最も制約された状況 |
 
 **公開GISデータ取得**:
@@ -434,11 +434,12 @@ LST分布をどの程度説明できるかを評価する。
 RQ3 は、現在次の順で進める。
 
 1. `Satellite Only` の複数観測日結果を基準線として固定する。
-2. `Limited` のために OSM 道路と公開建物データ候補を前処理し、利用可能範囲と QA 条件を整理する。
-3. `calc_urban_params.py` を公開 GIS / 測量 GIS の両方に対応できる設計へ揃える。
+2. `Limited` のために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。
+3. `urban_params` パッケージを公開 GIS / 測量 GIS の両方に対応できる設計へ揃える。
 4. `Limited` を先に実装し、その後 `Full` を実装する。
 
-現時点では `Limited` / `Full` の算出手順と最終変数セットは未確定である。特に `Limited` の建物データは Microsoft 単独では ROI 全域を代表できないため、Google Open Buildings / OSM / GlobalBuildingAtlas との比較後に確定する。
+`Limited` の建物データソースは **GlobalBuildingAtlas に確定済み**である（Microsoft 単独では ROI 全域を代表できないため）。Google Open Buildings / OSM `building=*` は比較・妥当性確認の候補として残す。  
+`Full` の算出手順と、両シナリオの最終変数セットは未確定である。
 
 ### 5.3.2 Satellite Only の最小評価仕様
 

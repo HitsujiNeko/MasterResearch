@@ -314,9 +314,12 @@ def test_compute_does_not_warn_when_dem_overlaps_grid(tmp_path: Path) -> None:
     dem_path = tmp_path / "dem_overlap.tif"
     _write_dem(dem_path, _gradient_dem(), nodata=-9999.0)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    # 非重複の警告のみを対象にする（依存ライブラリの無関係な警告では失敗させない）。
+    assert not [record for record in caught if "重なりません" in str(record.message)]
 
 
 def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:

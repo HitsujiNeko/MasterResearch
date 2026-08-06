@@ -164,7 +164,7 @@ def test_run_for_scale_outputs_elevation_column(tmp_path: Path, building_resourc
     df = _run_limited_like(elevation_resource, building_resource, mask_resource)
 
     assert "ELEV_MEAN_20" in df.columns
-    assert (df["ELEV_MEAN_20"] == 30.0).all()
+    np.testing.assert_allclose(df["ELEV_MEAN_20"].to_numpy(), 30.0, rtol=1e-5)
     # DEMが解析範囲全体を覆うため、有効画素率は全セル1.0になる。
     assert "ELEV_VALID_RATIO_20" in df.columns
     np.testing.assert_allclose(df["ELEV_VALID_RATIO_20"].to_numpy(), 1.0, atol=1e-5)

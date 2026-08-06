@@ -137,7 +137,6 @@
 - NDVI
 - NDBI
 - NDWI
-- FVC
 
 入力が存在する指標のみ列を出力し、存在しない指標は処理を継続する。
 
@@ -160,7 +159,7 @@
 
 ### 6.2 条件付き列（衛星由来、設計確定済み）
 
-- `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`, `FVC_<scale>`（`--satellite-dir` で入力がある指標のみ出力）
+- `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`（`--satellite-dir` で入力がある指標のみ出力）
 
 ### 6.3 品質管理列
 
@@ -237,7 +236,7 @@
 | 列名 | 算出モジュール・関数 | 設計確定状況 |
 |---|---|---|
 | `lon`, `lat` | `grid.grid_centers_wgs84()` | 確定・実装済 |
-| `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`, `FVC_<scale>` | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-dir` 指定時のみ） |
+| `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>` | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-dir` 指定時のみ） |
 | `IN_ANALYSIS_AREA` | `geometry.compute_polygon_coverage()`（`run.run_for_scale()` 内で判定） | 確定・実装済 |
 | `VALID_GIS_MASK`, `MISSING_REASON` | `run.build_quality_columns()` | 確定・実装済 |
 | `VALID_SATELLITE_MASK` | `run.build_satellite_quality()` | 確定・実装済 |
@@ -264,7 +263,7 @@ src/analysis/urban_params/
   geometry.py         # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
   io.py               # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み
   params/
-    raster.py         # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI/FVC・有効画素率）
+    raster.py         # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI・有効画素率）
     buildings.py       # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
     roads.py            # 道路パラメータ（ROAD_DEN）
     elevation.py       # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）

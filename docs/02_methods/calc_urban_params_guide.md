@@ -1,7 +1,7 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-05  
-**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
+**最終更新**: 2026-08-06  
+**関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1-RQ3、CRS（WGS84/UTM）、ラスタ/ベクタ処理の基礎
 
 ---
@@ -16,6 +16,20 @@
 - LSTとの空間整合ルール（ROI→GIS有効域）を明文化する
 - 再現可能な入出力仕様を固定する
 - `Satellite Only` / `Limited` / `Full` の3シナリオ・複数スケール（30/90/300m）で使える設計を明文化する
+
+### 1.1 正本の境界
+
+説明変数をめぐる記述は3つのドキュメントに分かれる。**本ガイドが正本となるのは「採用済みパラメータの出力仕様」だけ**である。
+
+| 内容 | 正本 |
+|---|---|
+| どの説明変数を採用するか（採否ステータス・概念定義・単位・根拠文献・対応RQ） | [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) |
+| **採用済みパラメータの出力仕様（列名・算出方法・実装状況）** | **本ガイド 6章** |
+| データソースの候補比較・空間解像度・ライセンス | [available_gis_data.md](../01_planning/available_gis_data.md) とそのカテゴリ別ドキュメント |
+
+したがって**本ガイドには採否ステータス（採用 / 保留 / 不採用）を書かない**。採否は上記の正本を参照する。
+
+「採否」と「設計」は独立した軸であり、「**採用済みだが設計未確定**」という状態が生じる。本ガイドで「設計未確定」と記すのは後者の軸を指し、採否が未確定であることを意味しない。
 
 > 旧実装 `src/analysis/calc_urban_params.py`（30m・単一シナリオの探索版）はfrozenとして残置されており、新規実装・実行はすべて `src/analysis/urban_params/` パッケージ（`python -m src.analysis.urban_params`）を使用する。
 
@@ -35,7 +49,7 @@
 
 - 「まず設計を固定し、その設計に実装を合わせる」
 - 旧コードの部分修正ではなく、責務単位で作り直す
-- 研究手順の根拠は `analysis_workflow.md` と整合させる
+- 研究手順の根拠は [analysis_workflow.md](analysis_workflow.md) と整合させる。ただし**どの説明変数を扱うかの根拠は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) を参照する**（`analysis_workflow.md` 3.1 は同ドキュメントへの参照に置き換わっている）
 
 ---
 
@@ -84,8 +98,9 @@
 
 ## 5.2 シナリオ別入力（GIS）
 
-> **本節の位置づけ**: 建物・道路・標高（Limited）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。  
-> 水域・植生のGIS入力は、入力データ・算出方法が確定していない検討中の案であり、各パラメータ単位の別Issueで確定したうえで出力仕様へ追加する。
+> **本節の位置づけ**: 建物・道路・標高（`Limited`）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。  
+> 採用済みで設計が未確定なパラメータは、入力データ・算出方法をパラメータ単位で確定したうえで出力仕様へ追加する。  
+> どのパラメータが採用済みかは [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) を正本とする（1.1節）。
 
 ### 5.2.1 Limited
 
@@ -95,9 +110,10 @@
 - **道路ライン**: `data/gis/roads/hanoi_osm_roads.gpkg`（OpenStreetMap / Geofabrik 由来）
 - **オープンソースDEMラスタ**: `data/gis/dem/fabdem/fabdem_hanoi_dem.tif`（FABDEM v1.2、EPSG:4326、約30m）
 
-**検討中の入力**
+**設計未確定の入力**（採用済みだが入力源・算出方法が未確定）
 
-- 水域・植生: OSM 土地利用・水域ポリゴン等（入力源未確定。6.4節参照）
+- 植生（植生被覆率）: 土地被覆分類ラスタの植生クラス（入力源未確定。6.4節参照）
+- 土地被覆クラス別面積率・人口密度・夜間光: いずれもラスタ入力。Hanoi ROI での取得は完了しているが、**同一概念に複数の候補データセットがあり、どれを入力とするかが未確定**である（候補の比較は [available_gis_data.md](../01_planning/available_gis_data.md) を参照）
 
 > 建物データの比較候補として Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` を検討したが、Limited シナリオの採用は GlobalBuildingAtlas で確定している（詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)）。  
 > なお Hanoi ROI では Microsoft 建物データが西側行政区画を十分に覆っていない。比較用に用いる場合、建物データの有効カバレッジ外では被覆率・棟数密度の `0` が建物不存在を意味しない点に注意する。
@@ -110,8 +126,9 @@
 - `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連、利用方法は要確認）
 - `整備データ/merge/merge_TV.gpkg`（植生・土地利用）
 
-> DH / TH / TV のどれを水域率・標高・植生率に使うかは、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて最終確定する。  
-> 現時点では完全確定ではなく、実装と並行して調整中である。
+> DH / TV のどちらを標高・植生率に使うかは、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて最終確定する。  
+> 現時点では完全確定ではなく、実装と並行して調整中である。  
+> `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。水域関連のパラメータは採用しておらず、算出対象ではない（1.1節）。
 
 ## 5.3 任意入力（衛星指標ラスタ）
 
@@ -120,7 +137,6 @@
 - NDVI
 - NDBI
 - NDWI
-- FVC
 
 入力が存在する指標のみ列を出力し、存在しない指標は処理を継続する。
 
@@ -134,7 +150,8 @@
 各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。旧実装の `_0` サフィックスは廃止した。
 
 > **設計確定状況**: 座標列・衛星由来指標（6.2節）・品質管理列（6.3節）に加え、GIS由来パラメータのうち `ROAD_DEN_<scale>`、建物パラメータ4種（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`）、標高パラメータ2種（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`、`limited` のみ）は確定・実装済みである（6.4節）。  
-> 残るGIS由来パラメータ（水域・植生）は検討中の案であり、各パラメータの入力データ・算出方法を個別に確定したうえで本仕様へ追加する。該当するstubモジュールは追加時の実装場所を確保する足場であり、列構成そのものを確定したものではない。
+> 残る採用済みのGIS由来パラメータ（植生被覆率・土地被覆クラス別面積率・人口密度・夜間光強度）は**設計未確定**であり、各パラメータの入力データ・算出方法を個別に確定したうえで本仕様へ追加する（6.4節）。該当するstubモジュールは追加時の実装場所を確保する足場であり、列構成そのものを確定したものではない。  
+> 採用していないパラメータは本仕様の対象外である。採否の一覧は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) を参照する。
 
 ### 6.1 必須列
 
@@ -142,7 +159,7 @@
 
 ### 6.2 条件付き列（衛星由来、設計確定済み）
 
-- `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`, `FVC_<scale>`（`--satellite-dir` で入力がある指標のみ出力）
+- `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`（`--satellite-dir` で入力がある指標のみ出力）
 
 ### 6.3 品質管理列
 
@@ -198,13 +215,17 @@
   - **解釈上の注意**: 入力ラスタの外周より外側（画素が1つも無い領域）が占める分は比率に反映されないため、ラスタの矩形範囲を一部しか含まないセルでは実際の被覆より高い値になり得る。現行の入力（ROIでcrop済みのDEM）では解析BBox最外周のセルに限られる
   - **`ELEV_COUNT_<scale>`（セル内の有効点数）は出力しない**（スケールによって画素数の意味が変わり、比率のほうがスケール間で比較可能なため）
 
-> `full` シナリオの標高は未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
+> `full` シナリオの標高は設計未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
 
-#### 検討中のパラメータ（別途設計確定）
+#### 採用済み・設計未確定のパラメータ（別途設計確定）
 
-以下は入力データ・算出方法が未確定の案であり、パラメータ単位で設計確定後に出力仕様へ追加する。
+以下は**採用済みだが**入力データ・算出方法が未確定であり、パラメータ単位で設計確定後に出力仕様へ追加する。列名は暫定であり、確定時に見直す。
 
-- `WATER_COV_<scale>`（水域被覆率, 0-1）・`GREEN_COV_<scale>`（植生被覆率, 0-1）: 入力源未確定。サブIssue起案が必要
+- `GREEN_COV_<scale>`（植生被覆率, 0-1）: 入力源未確定。stubモジュールも未作成
+- 土地被覆クラス別面積率: クラス体系・出力するクラスの粒度がいずれも未確定。列名も未定
+- 人口密度・夜間光強度: 候補データセットが複数あり入力が未確定。いずれも連続量ラスタのため、標高と同じラスタ集約経路（7.2節 Step B）を用いる見込み
+
+> **採用していないパラメータは本節に列挙しない。** 採否の一覧と保留の見直し時期は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) を正本とする（1.1節）。
 
 > スケール間（30/90/300m）で値の意味を揃えるため、密度系パラメータは面積あたり（/ha）に正規化する。算出には `grid.cell_area_ha()` を使用する。
 
@@ -215,7 +236,7 @@
 | 列名 | 算出モジュール・関数 | 設計確定状況 |
 |---|---|---|
 | `lon`, `lat` | `grid.grid_centers_wgs84()` | 確定・実装済 |
-| `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`, `FVC_<scale>` | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-dir` 指定時のみ） |
+| `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>` | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-dir` 指定時のみ） |
 | `IN_ANALYSIS_AREA` | `geometry.compute_polygon_coverage()`（`run.run_for_scale()` 内で判定） | 確定・実装済 |
 | `VALID_GIS_MASK`, `MISSING_REASON` | `run.build_quality_columns()` | 確定・実装済 |
 | `VALID_SATELLITE_MASK` | `run.build_satellite_quality()` | 確定・実装済 |
@@ -224,7 +245,8 @@
 | `ROAD_DEN_<scale>` | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
 | `ELEV_MEAN_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済**（`limited` シナリオのみ） |
 | `ELEV_VALID_RATIO_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`limited` シナリオのみ。`ELEV_COUNT_<scale>` は出力しない） |
-| `WATER_COV_<scale>`, `GREEN_COV_<scale>` | （未割当） | 未確定。stubモジュールも未作成。入力源確定後にサブIssue起案が必要 |
+| `GREEN_COV_<scale>` | （未割当） | **採用済み・設計未確定**。stubモジュールも未作成。入力源の確定が必要 |
+| 土地被覆クラス別面積率・人口密度・夜間光強度（列名未定） | （未割当） | **採用済み・設計未確定**。入力データセットの選定と算出方法の確定が必要 |
 
 ---
 
@@ -241,7 +263,7 @@ src/analysis/urban_params/
   geometry.py         # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
   io.py               # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み
   params/
-    raster.py         # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI/FVC・有効画素率）
+    raster.py         # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI・有効画素率）
     buildings.py       # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
     roads.py            # 道路パラメータ（ROAD_DEN）
     elevation.py       # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
@@ -271,9 +293,10 @@ def compute(
 - ROI / 公開GIS は必要時のみ解析用投影座標（既定: EPSG:5897）へ投影
 - `--scales` で指定した各スケールについて、coarseグリッド（既定10m補助グリッド付き）を作成
 
-### 7.2 Step B: GIS由来指標（水域・植生のみ検討中、6.4節参照）
+### 7.2 Step B: GIS由来指標（一部は設計未確定、6.4節参照）
 
-> 建物・道路・標高（Limited）は6.4節の通り**設計確定・実装済み**である。本節の水域・植生の列名・入力源は検討中の案であり、6.4節の通り設計未確定である。各パラメータは別途個別に確定する。
+> 建物・道路・標高（`Limited`）は6.4節の通り**設計確定・実装済み**である。以下「設計未確定」に挙げるパラメータの列名・入力源は案であり、各パラメータを別途個別に確定する。  
+> 本節は**採用済みのパラメータのみ**を扱う（1.1節）。
 
 **設計確定・実装済み**
 
@@ -289,17 +312,24 @@ def compute(
   - ベクタではなくラスタ入力のため、Step C（衛星指標）と同じ集約関数を用いる
   - 有効カバレッジ外は NaN（有効画素率は 0.0）。いずれも `VALID_GIS_MASK` の判定材料には含めない（6.3節）
 
-**検討中**
+**設計未確定**（採用済み）
 
-- 水系（OSM water / TH / DH）
-  - `WATER_COV`: 水域被覆率
-- 植生（TV / OSM landuse 等）
+- 植生（土地被覆分類ラスタの植生クラス / 測量GIS の TV）
   - `GREEN_COV`: 植生被覆率
+  - 採否の正本は本パラメータを「**土地被覆分類の植生クラスに由来する面積比**」と定義している。土地利用タグ（OSM `landuse=*` 等）を入力に用いる場合は、**どのタグを植生クラスとみなすかの分類規則を定めてから**候補に加える。規則を定めずに用いると、正本の定義とは別概念の列を出力することになる
+- 土地被覆クラス別面積率（土地被覆ラスタ）
+  - **カテゴリカルラスタ**のため、連続量を対象とする `Resampling.average` は使えない。クラスごとの画素割合を集約する処理を別途設計する
+- 夜間光強度（ラスタ）
+  - 放射輝度は面積に比例しない**強度量**であるため、標高と同じくラスタ集約経路（Step C と共通の集約関数）でセル平均を取る
+- 人口密度（ラスタ）
+  - **平均集約は使えない。** 候補データセットの配布値は「密度」ではなく**セルあたりの人口カウント**であり、カウントは合計保存量のため、平均や最近傍で再投影すると総人口が保存されないためである（[gis_data_population.md](../01_planning/gis_data/gis_data_population.md) 6.2節）
+  - 集約先セル内のカウントを**合計**したうえで `grid.cell_area_ha()` で面積正規化する経路を別途設計する。標高・衛星指標とは集約関数を共有できない
+- 入力ラスタの解像度と解析スケールの関係は**データセットによって異なる**（30m より粗く 300m より細かいものと、すべてのスケールより粗いものが候補に混在する）。細スケールで実質的な内挿になるかは入力の選定後に確定する。各候補の解像度は [available_gis_data.md](../01_planning/available_gis_data.md) のカテゴリ別ドキュメントを参照
 - 測量GIS由来の標高（DH）
   - `full` シナリオ向けに、点属性から数値標高を抽出しセル平均を算出する案を第一候補とする
 
 > 測量由来GISのレイヤ意味は最終的に固定し切れていない部分があるため、  
-> 特に `WATER_COV`, `GREEN_COV`, および `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
+> 特に `GREEN_COV` および `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
 > `limited` シナリオの建物データソースは GlobalBuildingAtlas（`hanoi_gba_buildings.gpkg`）、標高は FABDEM v1.2 を使用する。
 
 **共通基盤関数の算出手法と制約**:

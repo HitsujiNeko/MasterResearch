@@ -1,6 +1,6 @@
 # POI密度データの調査・評価
 
-**最終更新**: 2026-07-05  
+**最終更新**: 2026-08-06  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -10,7 +10,7 @@
 
 先行研究S8（Lin et al., 2024, 武漢）では438,700件のPOI（Point of Interest）密度を都市構造パラメータの1つとして使用しており、商業・生活利便施設の集積度は人口密度・土地利用と並ぶ人間活動指標として扱われる。本資料では、無料・オープンソースのPOIデータ候補を調査する（有料APIであるGoogle Places API等は対象外）。
 
-Hanoi ROIでの実データ取得・採用可否は未判断。
+Hanoi ROIでの実データは未取得である。採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
 
 ---
 

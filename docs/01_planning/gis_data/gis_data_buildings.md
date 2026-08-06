@@ -1,6 +1,6 @@
 # 建物データの調査・評価
 
-**最終更新**: 2026-08-03  
+**最終更新**: 2026-08-06  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義、分析シナリオ（Satellite Only / Limited / Full）の定義
 
@@ -321,7 +321,7 @@ GBA から算出する建物パラメータの定義と、解釈上の前提を�
 5. Geofabrik Vietnam extract から `building=*` を抽出し、GBA / Google と密度・面積率を比較する。
 6. `GHSL`, `WSF`, `Google Open Buildings 2.5D Temporal` で built-up / building presence の補助指標を作る。
 7. 各候補について欠測率、重複率、空間カバレッジ、建物数、建物面積率を同一 ROI グリッドで比較する。
-8. 採用可否を [analysis_workflow.md](../../02_methods/analysis_workflow.md) と [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) に反映する。
+8. データソースの選定結果を [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) の入力仕様に反映する。説明変数としての採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
 
 ---
 

@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-08-05  
+**最終更新**: 2026-08-06  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -56,6 +56,7 @@ docs/
 |-----------|------|-----------|--------|
 | [available_gis_data.md](01_planning/available_gis_data.md) | 公開GISデータ候補の整理（インデックス） | 評価観点、採用データ一覧、結論の要点、カテゴリ別ドキュメントへのリンク | 全RQ |
 | [research_guide.md](01_planning/research_guide.md) | 研究計画書 | 研究題目、背景、RQ1-3、手法概要、期待される成果 | 全RQ |
+| [urban_structure_parameters.md](01_planning/urban_structure_parameters.md) | 都市構造パラメータの採否（正本） | 説明変数の採否ステータス（採用/保留/不採用）、概念定義・単位・根拠文献、採否軸と設計軸の区別 | 全RQ |
 
 > **注記**: `gis_data/` 配下の各カテゴリ詳細ファイルは [available_gis_data.md](01_planning/available_gis_data.md) Section 4 を索引の正本とし、本表には掲載しない（check-docs-consistency のカタログ比較対象外）。
 

@@ -16,15 +16,17 @@ from pyproj import CRS
 
 from src.common.geo_metadata import BBox
 
-from .config import CITY_CONFIG, PROJECT_ROOT, SCENARIO_LAYER_KEYS
+from .config import CITY_CONFIG, PROJECT_ROOT, SCENARIO_INPUT_KEYS
 from .geometry import compute_polygon_coverage
 from .grid import GridSpec, build_grid, grid_centers_wgs84
 from .io import (
     LayerResource,
+    RasterResource,
     bbox_from_layer,
     find_satellite_rasters,
     get_layer_resource,
     get_optional_layer_resource,
+    get_optional_raster_resource,
 )
 from .params import buildings, elevation, raster, roads
 
@@ -33,7 +35,7 @@ def parse_arguments() -> argparse.Namespace:
     """CLI引数を解釈して返す。"""
     parser = argparse.ArgumentParser(description="都市構造パラメータ算出（モジュール化版）")
     parser.add_argument("--city", default="hanoi", choices=list(CITY_CONFIG.keys()))
-    parser.add_argument("--scenario", default="limited", choices=list(SCENARIO_LAYER_KEYS.keys()))
+    parser.add_argument("--scenario", default="limited", choices=list(SCENARIO_INPUT_KEYS.keys()))
     parser.add_argument(
         "--scales",
         type=int,
@@ -130,7 +132,7 @@ def run_for_scale(
     mask_resource: LayerResource,
     building_resource: LayerResource | None,
     road_resource: LayerResource | None,
-    elevation_resource: LayerResource | None,
+    elevation_resource: RasterResource | None,
     raster_resources: dict[str, tuple[Path, int]],
 ) -> pd.DataFrame:
     """1スケール分の都市構造パラメータを算出し、データフレームを返す。
@@ -142,13 +144,13 @@ def run_for_scale(
     Args:
         scale: coarseグリッド解像度（m）。出力列名のサフィックスにも使う。
         args: CLI引数（``fine_res`` 等を参照する）。
-        scenario_cfg: シナリオ設定（``SCENARIO_LAYER_KEYS`` の1エントリ）。
+        scenario_cfg: シナリオ設定（``SCENARIO_INPUT_KEYS`` の1エントリ）。
         analysis_crs: 解析用投影座標系（例: EPSG:5897）。
         analysis_bbox: 解析範囲のBBox（``analysis_crs`` 上の座標）。
         mask_resource: 解析対象セルの判定に使う基準レイヤ。
         building_resource: 建物レイヤ（未指定シナリオでは ``None``）。
         road_resource: 道路レイヤ（未指定シナリオでは ``None``）。
-        elevation_resource: 標高点レイヤ（未指定シナリオでは ``None``）。
+        elevation_resource: DEMラスタ（未指定シナリオでは ``None``）。
         raster_resources: 衛星指標ラスタの辞書（指標名 -> (パス, バンド番号)）。
 
     Returns:
@@ -164,11 +166,22 @@ def run_for_scale(
     for module, resource in (
         (buildings, building_resource),
         (roads, road_resource),
-        (elevation, elevation_resource),
     ):
         for column_name, values in module.compute(resource, analysis_bbox, grid_spec).items():
             output_columns[f"{column_name}_{scale}"] = values
             gis_quality_arrays.append(values)
+
+    # 標高由来の列（ELEV_*）は品質管理列（VALID_GIS_MASK）の判定材料に含めない。
+    # 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような
+    # 「地物の量」を前提とした基準である。標高は連続量であり0mは「データが無い」
+    # ではなく海抜0mを意味するため、この基準を適用すること自体が不適切である。
+    # 有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無
+    # とは別の軸である。加えて、標高を含めるとROI内のほぼ全セルが有効となり、
+    # VALID_GIS_MASK が「建物・道路データが存在するか」という本来の意味を失う。
+    for column_name, values in elevation.compute(
+        elevation_resource, analysis_bbox, grid_spec
+    ).items():
+        output_columns[f"{column_name}_{scale}"] = values
 
     if raster_resources:
         for column_name, values in raster.compute(raster_resources, grid_spec).items():
@@ -205,14 +218,14 @@ def main() -> None:
     """都市構造パラメータ算出処理を実行する。
 
     CLI引数からシナリオ・都市・出力スケールを決定し、解析範囲レイヤ・
-    建物・道路・標高・衛星指標の各レイヤを解決したうえで、``--scales``
+    建物・道路のレイヤと標高・衛星指標のラスタを解決したうえで、``--scales``
     で指定したスケールごとに ``run_for_scale()`` を呼び出し、
     ``data/output/urban_params/urban_params_<scenario>_<city>_<scale>m.csv``
     へ結果を出力する。
     """
     args = parse_arguments()
     city_cfg = CITY_CONFIG[args.city]
-    scenario_cfg = SCENARIO_LAYER_KEYS[args.scenario]
+    scenario_cfg = SCENARIO_INPUT_KEYS[args.scenario]
     analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
 
     mask_layer_key = args.mask_layer_key or str(scenario_cfg["default_mask"])
@@ -227,7 +240,7 @@ def main() -> None:
 
     building_resource = get_optional_layer_resource(city_cfg, scenario_cfg["buildings"])
     road_resource = get_optional_layer_resource(city_cfg, scenario_cfg["roads"])
-    elevation_resource = get_optional_layer_resource(city_cfg, scenario_cfg["elevation"])
+    elevation_resource = get_optional_raster_resource(city_cfg, scenario_cfg["elevation_raster"])
 
     raster_resources: dict[str, tuple[Path, int]] = {}
     if args.satellite_dir:

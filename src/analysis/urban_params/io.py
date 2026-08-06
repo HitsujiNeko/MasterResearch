@@ -37,6 +37,23 @@ class LayerResource:
     from_analysis: Transformer
 
 
+@dataclass(frozen=True)
+class RasterResource:
+    """入力ラスタの所在を保持する。
+
+    ``LayerResource`` と分けているのは、ラスタにはレイヤ名が無く、CRS変換も
+    再投影（``rasterio.warp.reproject``）が担うため、ベクタ固有のフィールドが
+    常に無意味になるためである。
+
+    Attributes:
+        path: ラスタファイルの絶対パス。
+        band_index: 読み込むバンド番号（1始まり）。
+    """
+
+    path: Path
+    band_index: int
+
+
 def resolve_layer_name(gpkg_path: Path, preferred_layer: str) -> str:
     """指定レイヤが無い場合は、実在する最初の通常レイヤへフォールバックする。
 
@@ -116,6 +133,47 @@ def get_optional_layer_resource(
         return None
     analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
     return get_layer_resource(city_cfg, layer_key, analysis_crs)
+
+
+def get_optional_raster_resource(
+    city_cfg: dict[str, Any],
+    raster_key: str | None,
+) -> RasterResource | None:
+    """シナリオで未指定のラスタはNoneとして扱う。
+
+    ファイルが存在しない場合に ``None`` を返さず例外を送出するのは、出力列が
+    黙って消えると欠損に気づかないまま分析に進む事故を招くためである。ベクタ側の
+    ``resolve_layer_name()`` も同じ挙動であり、一貫させている。
+
+    Args:
+        city_cfg: ``CITY_CONFIG`` の対象都市エントリ（``rasters`` を含む）。
+        raster_key: ``city_cfg["rasters"]`` のキー。シナリオで未使用の場合は ``None``。
+
+    Returns:
+        ``raster_key`` が ``None`` の場合は ``None``。
+        それ以外は解決済みのパスとバンド番号を保持する ``RasterResource``。
+
+    Raises:
+        ValueError: ``raster_key`` が ``city_cfg["rasters"]`` に存在しない場合、
+            または設定に ``path`` / ``band`` が欠けている場合。
+        FileNotFoundError: 設定されたラスタファイルが存在しない場合。
+    """
+    if raster_key is None:
+        return None
+
+    raster_cfg = city_cfg.get("rasters", {}).get(raster_key)
+    if raster_cfg is None:
+        raise ValueError(f"都市設定にラスタがありません: {raster_key}")
+
+    for required_key in ("path", "band"):
+        if required_key not in raster_cfg:
+            raise ValueError(f"ラスタ設定に {required_key} がありません: {raster_key}")
+
+    raster_path = PROJECT_ROOT / raster_cfg["path"]
+    if not raster_path.exists():
+        raise FileNotFoundError(f"ラスタファイルが見つかりません: {raster_path}")
+
+    return RasterResource(raster_path, int(raster_cfg["band"]))
 
 
 def bbox_from_layer(resource: LayerResource, analysis_crs: CRS) -> BBox:

@@ -1,6 +1,6 @@
 # 標高データ（DEM）候補の調査・選定ガイド
 
-**最終更新**: 2026-06-02  
+**最終更新**: 2026-08-05  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、分析シナリオ（Satellite Only / Limited / Full）の定義
 
@@ -22,7 +22,7 @@
 | シナリオ | 使用DEM | 出典 | 備考 |
 |---|---|---|---|
 | **Full** | 測量由来DEM（BSHorizon） | `data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif` | 10m解像度、EPSG:5897、有効カバレッジはROIより小さい |
-| **Limited** | オープンソースDEM（本資料で選定） | GEE経由で取得済み | ハノイROI全域をカバー |
+| **Limited** | **FABDEM v1.2**（本資料で選定・採用確定） | GEE経由で取得済み | ハノイROIをほぼ全域カバー（ROIでcrop済みのため境界セルに欠損・部分被覆あり）。`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>` として実装済み |
 | **Satellite Only** | DEMなし（衛星指標のみ） | — | — |
 
 ---
@@ -187,7 +187,7 @@
   - ただし、沿岸部・急峻地形では建物アーティファクトが残存する場合がある。
   - 熱帯の高密度キャノピー（カバー率50%超）では補正精度が低下する可能性がある。
 - **取得方法**: GEE経由で取得可能。`download_open_dem.py --dataset fabdem` で他のDEMと同じ手順で取得できる（タイルの手動選択不要）。Bristol大学リポジトリ（<https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn>）からの直接ダウンロードも可能だが、GEE経由の方が簡便。
-- **判断**: 技術的には最も望ましい準DTM候補。GEE経由で取得可能なため実行コストは低い。将来の比較候補として保留。
+- **判断**: 技術的に最も望ましい準DTM候補。取得・BSHorizonとの比較を実施のうえ（5章）、**Limitedシナリオの採用DEMとして確定**した（7章）。
 
 ---
 
@@ -253,23 +253,24 @@
 
 ## 7. 選定結果
 
-### 7.1 Limitedシナリオ採用DEM（暫定）
+### 7.1 Limitedシナリオ採用DEM（確定）
 
 | 採用 | データセット | 根拠 |
 |---|---|---|
-| ✅ **主採用候補** | **FABDEM v1.2** | 4候補中でRMSE=3.88m・MAE=3.20m・相関係数0.603と全指標で最良。建物・森林バイアス除去により地形面に最も近い |
+| ✅ **採用確定** | **FABDEM v1.2** | 4候補中でRMSE=3.88m・MAE=3.20m・相関係数0.603と全指標で最良。建物・森林バイアス除去により地形面に最も近い |
 | 参考保存 | NASADEM | DSMとして精度2位。FABDEM比較の基準として保持 |
 | 参考保存 | Copernicus GLO-30 | DSM（X帯SAR）。比較参照用 |
 | 参考保存 | SRTMGL1 v003 | DSM（C帯SAR）。比較参照用 |
 | ❌ 不採用 | ASTER GDEM v3 | ベトナムのモンスーン気候で雲汚染が深刻、信頼性不足 |
 | ❌ 不採用（重複） | TanDEM-X（DLR独立版） | Copernicus GLO-30と同一の原データ、追加取得不要 |
 
-> **注意**: 最終採用は研究者が比較結果とデータソース特性を総合的に判断して確定すること。
+> 研究者の判断により FABDEM v1.2 を採用確定した（CC BY-NC-SA 4.0・非商用・帰属文必須を了承のうえ）。  
+> Limitedシナリオの `ELEV_MEAN_<scale>`（セル平均標高）および `ELEV_VALID_RATIO_<scale>`（セル内のDEM有効画素率）として実装済みである。算出仕様は [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) 6.4節を正本とする。
 
 ### 7.2 採用ファイルパス
 
 ```text
-data/gis/dem/fabdem/fabdem_hanoi_dem.tif                    # Limitedシナリオ採用（暫定）
+data/gis/dem/fabdem/fabdem_hanoi_dem.tif                    # Limitedシナリオ採用（確定）
 data/gis/dem/nasadem/nasadem_hanoi_dem.tif                  # 参考保存（比較用）
 data/gis/dem/copernicus_glo30/copernicus_glo30_hanoi_dem_clipped.tif  # 参考保存（比較用）
 data/gis/dem/srtmgl1/srtmgl1_hanoi_dem.tif                  # 参考保存（比較用）
@@ -280,8 +281,10 @@ data/gis/dem/srtmgl1/srtmgl1_hanoi_dem.tif                  # 参考保存（比
 ## 8. 今後の課題
 
 1. **水域マスクを使った非水域のみの比較**: BSHorizonに含まれる河川セルを除外した比較を行い、水域以外での精度を再評価する。
-2. **FABDEMの取得と比較**: ライセンス確認後、FABDEMをハノイROIで取得し、他候補と比較する。
-3. **論文中の注記**: 採用DEMがDSMであることを明示し、地形高度としての制限を記述する。
+2. **論文中の注記**: 採用したFABDEMが準DTM（DSMを機械学習で補正したもの）であり、高密度キャノピー・急峻地形では補正残差が残ることを明示する。あわせて垂直基準面がEGM2008であり0mが平均海面と一致しないことを記述する。
+3. **`full` シナリオの標高**: 測量GISの `merge_DH.gpkg` による標高、またはFABDEMの暫定適用のいずれを採るかを判断する（現状 `full` では標高を出力しない）。
+
+> **実施済み**: 「FABDEMの取得と比較」は完了した。取得（GEE経由）・BSHorizonとの比較（5章）・採用確定（7章）・`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>` としての実装まで完了している。
 
 ---
 

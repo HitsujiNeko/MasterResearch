@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import fiona
 import numpy as np
@@ -14,8 +15,10 @@ from rasterio.transform import from_origin
 from src.analysis.urban_params import io as urban_params_io
 from src.analysis.urban_params.io import (
     LayerResource,
+    RasterResource,
     _covers_layer_extent,
     find_satellite_rasters,
+    get_optional_raster_resource,
     iter_feature_records,
     list_layer_fields,
     read_layer_dataframe,
@@ -364,3 +367,58 @@ def test_find_satellite_rasters_duplicate_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         find_satellite_rasters(subdir)
+
+
+# ---------------------------------------------------------------------------
+# get_optional_raster_resource
+# ---------------------------------------------------------------------------
+
+
+def _raster_city_cfg(relative_path: str, band: int = 1) -> dict[str, Any]:
+    """ラスタ1件のみを持つ都市設定を組み立てる。"""
+    return {"rasters": {"dem": {"path": relative_path, "band": band}}}
+
+
+def test_get_optional_raster_resource_resolves_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """設定の相対パスがPROJECT_ROOT基準で解決され、バンド番号が保持される。"""
+    monkeypatch.setattr(urban_params_io, "PROJECT_ROOT", tmp_path)
+    raster_dir = tmp_path / "data" / "dem"
+    raster_dir.mkdir(parents=True)
+    _write_multiband_tif(raster_dir / "dem.tif", (None, None))
+
+    resource = get_optional_raster_resource(_raster_city_cfg("data/dem/dem.tif", band=2), "dem")
+
+    assert resource == RasterResource(raster_dir / "dem.tif", 2)
+
+
+def test_get_optional_raster_resource_none_key() -> None:
+    """シナリオで未指定（None）の場合はNoneを返す。"""
+    assert get_optional_raster_resource(_raster_city_cfg("data/dem/dem.tif"), None) is None
+
+
+def test_get_optional_raster_resource_missing_file_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ファイルが存在しない場合はFileNotFoundErrorを送出する（列が黙って消えるのを防ぐ）。"""
+    monkeypatch.setattr(urban_params_io, "PROJECT_ROOT", tmp_path)
+
+    with pytest.raises(FileNotFoundError):
+        get_optional_raster_resource(_raster_city_cfg("data/dem/missing.tif"), "dem")
+
+
+def test_get_optional_raster_resource_unknown_key_raises() -> None:
+    """都市設定に無いキーを指定した場合はValueErrorを送出する。"""
+    with pytest.raises(ValueError):
+        get_optional_raster_resource(_raster_city_cfg("data/dem/dem.tif"), "unknown")
+
+
+@pytest.mark.parametrize("missing_key", ["path", "band"])
+def test_get_optional_raster_resource_missing_config_key_raises(missing_key: str) -> None:
+    """設定にpath/bandが無い場合は、素のKeyErrorではなく日本語のValueErrorになる。"""
+    city_cfg = _raster_city_cfg("data/dem/dem.tif")
+    del city_cfg["rasters"]["dem"][missing_key]
+
+    with pytest.raises(ValueError, match=missing_key):
+        get_optional_raster_resource(city_cfg, "dem")

@@ -305,14 +305,14 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | `DATA_SOURCE` | str | `satellite` / `open_gis` / `survey_gis` |
 | `SCENARIO` | str | `satellite_only` / `limited` / `full` |
 
-`<scale>` はグリッド解像度（m）で、既定では 30 / 90 / 300 のスケールごとにファイルが分かれる。出力される列はシナリオと入力の有無によっても変わる。
+`<scale>` はグリッド解像度（m）で、既定値は 30 / 90 / 300 である。出力される列はシナリオと入力の有無によって変わる。
 
 **出力ファイル**
 
 | 段階 | ファイル | 状況 |
 |---|---|---|
-| Step 3 の出力 | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（スケールごと） | 実装済み |
-| 結合後 | `data/output/analysis_dataset.csv` | 未実装（`merge_dataset.py` 未作成） |
+| Step 3 の出力 | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（**スケールごとに分かれる**。`LST` 列を含まない） | 実装済み |
+| 結合後 | `data/output/analysis_dataset.csv` | 未実装（`merge_dataset.py` 未作成。スケールごとに分けるかは設計時に決める） |
 
 ### 4.1.1 Satellite Only の現行出力（2026-04-21）
 

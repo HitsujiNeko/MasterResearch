@@ -34,10 +34,14 @@ def _validate_band_index(src: rasterio.DatasetReader, band_index: int, raster_pa
 
 
 def _resolve_nodata(src: rasterio.DatasetReader, band_index: int) -> float | None:
-    """ラスタのnodata値を決定する。
+    """対象バンドのnodata値を決定する。
 
     GEE出力ラスタは nodata タグが ``None`` でも ``NaN`` を実値として含むため、
     浮動小数型のラスタではタグが無い場合に ``NaN`` をnodataとみなす。
+
+    nodataは ``src.nodata``（バンド1の値）ではなく ``src.nodatavals`` から対象
+    バンドの値を取る。衛星指標ラスタは1ファイルに複数バンドを持ち、バンドごとに
+    nodataが異なり得るため、バンド1の値で判定すると有効画素を誤って判定する。
 
     Args:
         src: オープン済みのrasterioデータセット。
@@ -46,7 +50,7 @@ def _resolve_nodata(src: rasterio.DatasetReader, band_index: int) -> float | Non
     Returns:
         nodata値。判定できない場合は ``None``（全画素を有効とみなす）。
     """
-    nodata = src.nodata
+    nodata = src.nodatavals[band_index - 1]
     if nodata is None and np.issubdtype(src.dtypes[band_index - 1], np.floating):
         return float("nan")
     return nodata

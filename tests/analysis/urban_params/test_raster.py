@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import rasterio
+from osgeo import gdal, osr
 from pyproj import CRS
 from rasterio.transform import from_origin
 
@@ -83,6 +84,58 @@ def test_aggregate_raster_all_nan_cell_stays_nan(tmp_path: Path) -> None:
     assert not np.isnan(result[0, 0])
     assert np.isnan(result[0, 1])
     assert np.isnan(result[1, 1])
+
+
+def _write_per_band_nodata_raster(path: Path) -> None:
+    """バンドごとに異なるnodataを持つ2バンドラスタを書き出す。
+
+    rasterioのDatasetWriterは全バンドへ同じnodataしか設定できないため、
+    バンド別のnodata設定にはGDALのAPIを直接使う。
+
+    バンド1: nodata=-1、全画素が -1（＝全画素無効）。
+    バンド2: nodata=-9999、左上1画素のみ -1（実値として有効）、残りは 10.0。
+    """
+    driver = gdal.GetDriverByName("GTiff")
+    dataset = driver.Create(str(path), 4, 4, 2, gdal.GDT_Float32)
+    dataset.SetGeoTransform((0.0, 10.0, 0.0, 40.0, 0.0, -10.0))
+    spatial_ref = osr.SpatialReference()
+    spatial_ref.ImportFromEPSG(3857)
+    dataset.SetProjection(spatial_ref.ExportToWkt())
+
+    band1 = dataset.GetRasterBand(1)
+    band1.SetNoDataValue(-1.0)
+    band1.WriteArray(np.full((4, 4), -1.0, dtype=np.float32))
+
+    band2_values = np.full((4, 4), 10.0, dtype=np.float32)
+    band2_values[0, 0] = -1.0
+    band2 = dataset.GetRasterBand(2)
+    band2.SetNoDataValue(-9999.0)
+    band2.WriteArray(band2_values)
+
+    dataset.FlushCache()
+    dataset = None
+
+
+def test_aggregate_uses_nodata_of_target_band(tmp_path: Path) -> None:
+    """nodataは対象バンドの値を使う（バンド1の値で判定しない）。
+
+    ``src.nodata`` はバンド1のnodataを返すため、それを使うとバンド2の集約で
+    バンド1のnodata（-1）を無効値とみなし、実値の -1 を欠損として捨ててしまう。
+    衛星指標ラスタは1ファイルに複数バンドを持つため、実際に起こり得る。
+    """
+    tif_path = tmp_path / "per_band_nodata.tif"
+    _write_per_band_nodata_raster(tif_path)
+
+    grid_spec = build_grid(
+        BBox(0.0, 0.0, 40.0, 40.0), CRS.from_epsg(3857), coarse_res_m=20.0, fine_res_m=10.0
+    )
+
+    mean = aggregate_raster_to_grid(tif_path, grid_spec, band_index=2)
+    valid_ratio = aggregate_valid_ratio_to_grid(tif_path, grid_spec, band_index=2)
+
+    # バンド2の -1 は実値。除外されれば平均は 10.0、有効画素率は 0.75 になる。
+    assert mean[0, 0] == pytest.approx((10.0 * 3 - 1.0) / 4, abs=0.5)
+    assert valid_ratio[0, 0] == pytest.approx(1.0, abs=1e-5)
 
 
 @pytest.mark.parametrize(

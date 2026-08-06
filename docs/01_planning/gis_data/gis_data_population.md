@@ -1,6 +1,6 @@
 # 人口密度データの調査・評価
 
-**最終更新**: 2026-07-26  
+**最終更新**: 2026-08-06  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -10,7 +10,7 @@
 
 先行研究S2（ベトナム・ダナン市）では著者自身が「NDVI/NDBIのみでは建物高さ・人口密度を捉えられない」と指摘しており、`research_guide.md`でも人口密度は「人口・人間活動指標」として言及されている（データ入手可能な場合の追加候補）。本資料では、ベトナム国勢調査に依存せず利用できるオープンソースの人口密度グリッドデータを調査する。
 
-主候補`WorldPop`と比較候補`LandScan Global`のHanoi ROIでの取得結果は6章に記載する（採用可否はRQ1のモデル構築時に判断する）。
+主候補`WorldPop`と比較候補`LandScan Global`のHanoi ROIでの取得結果は6章に記載する。説明変数としての採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。**どちらのデータセットを入力とするか**はRQ1のモデル構築時に比較して決める（採否とは別の軸である）。
 
 ### 1.1 評価軸についての補足
 

@@ -1,6 +1,6 @@
 # 夜間光データの調査・評価
 
-**最終更新**: 2026-08-02  
+**最終更新**: 2026-08-06  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -10,7 +10,7 @@
 
 `research_guide.md`では夜間光強度（VIIRS等）が「人口・人間活動指標」の追加候補として言及されている。また先行研究S8（Lin et al., 2024, 中国・武漢）では夜間光データとして`Luojia 1-01`を利用しており、夜間光は人口密度・経済活動の代理指標として都市構造パラメータに組み込まれる例がある。本資料ではオープンソースの夜間光データ候補を調査する。
 
-Hanoi ROIでの実データ取得結果は5章に記載する（採用可否は未判断）。
+Hanoi ROIでの実データ取得結果は5章に記載する。説明変数としての採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
 
 なお、Jilin-1（92cm解像度、中国の商用衛星コンステレーション）も調査したが、商用データ（有料）であるため本調査の対象外とする（有料データは対象外とする方針のため）。
 

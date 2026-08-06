@@ -1,6 +1,6 @@
 # 不透水面率データの調査・評価
 
-**最終更新**: 2026-07-05  
+**最終更新**: 2026-08-06  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md), [gis_data_population.md](gis_data_population.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義（NDBIとの違い）
 
@@ -14,7 +14,7 @@
 
 候補データの中には、「不透水面（道路・駐車場・広場等を含む人工被覆全般）」を測定するものと、「建物量（built-up、建物の屋根・フットプリントのみ）」を測定するものが混在する。都市の地表面温度（LST）に対しては、建物か否かによらず人工被覆全般の熱的性質が影響するため、本研究の目的には「不透水面」を測定するデータの方がより直接的に対応する。この違いは評価表・推奨方針で明記する。
 
-Hanoi ROIでの実データ取得・採用可否は未判断。
+Hanoi ROIでの実データは未取得である。採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
 
 ---
 

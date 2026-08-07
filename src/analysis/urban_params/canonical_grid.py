@@ -36,6 +36,9 @@ SNAP_UNIT_M = 900.0
 # cell_id を組み立てる際の row の桁送り幅。col はこの値未満である必要がある。
 CELL_ID_STRIDE = 1_000_000
 
+# cell_id が int64 に収まる row の上限。これを超えると桁が溢れて負値になる。
+CELL_ID_MAX_ROW = int((np.iinfo(np.int64).max - (CELL_ID_STRIDE - 1)) // CELL_ID_STRIDE)
+
 # 親セル対応づけの基準スケール（m）と、対応づける親スケール（m）。
 # 300 ÷ 90 が整数にならず入れ子にならないため、90m ↔ 300m は対応づけない。
 PARENT_BASE_RES_M = 30.0
@@ -95,6 +98,10 @@ def snap_origin(value: float, snap_unit_m: float = SNAP_UNIT_M) -> float:
     切り上げ・四捨五入ではなく切り下げに固定するのは、原点を必ず対象範囲の
     外側（またはちょうど境界）に置き、非負のインデックスを保つためである。
 
+    **原点定数が0である現状では、この関数は ``snap_unit_m`` の値によらず0を返す**
+    （0は任意の正の単位の倍数であるため）。それでもスナップを実装として持つのは、
+    将来CRSや原点定数を変えたときに自動的に効かせるためである。
+
     Args:
         value: スナップ対象の座標値（m）。
         snap_unit_m: スナップ単位（m）。正の値である必要がある。
@@ -129,15 +136,18 @@ def build_canonical_grid(
         bbox_analysis: 解析用CRS上の解析範囲BBox。
         analysis_crs: 解析用CRS（投影座標系）。
         res_m: セル1辺の長さ（m）。``snap_unit_m`` の約数である必要がある。
-        snap_unit_m: 原点のスナップ単位（m）。
+        snap_unit_m: 原点のスナップ単位（m）。原点定数が0である現状では原点を
+            動かさず、``res_m`` の妥当性判定の基準としてのみ効く
+            （``snap_origin()`` の説明を参照）。
 
     Returns:
         構築された正準グリッドの仕様。
 
     Raises:
         ValueError: ``analysis_crs`` が投影座標系でない場合、``res_m`` が正でない場合、
-            ``res_m`` が ``snap_unit_m`` の約数でない場合、または ``bbox_analysis``
-            の幅・高さが正でない場合。
+            ``res_m`` が ``snap_unit_m`` の約数でない場合、``bbox_analysis`` の
+            幅・高さが正でない場合、または解析範囲のインデックスが ``cell_id`` の
+            採番範囲（``make_cell_id()`` の制約）に収まらない場合。
     """
     # 解像度・原点スナップ単位をメートルとして扱うため、地理座標系（度単位）を
     # 渡されると res_m が「度」と解釈され、黙って無意味なグリッドができる。
@@ -163,6 +173,19 @@ def build_canonical_grid(
     # ceil から1を引く。境界にかかるセルは含める。
     col_max = max(math.ceil((bbox_analysis.maxx - origin_x) / res_m) - 1, col_min)
     row_max = max(math.ceil((bbox_analysis.maxy - origin_y) / res_m) - 1, row_min)
+
+    # 採番できないインデックスは仕様構築の時点で弾く。セル生成まで進んでから
+    # make_cell_id() で落ちると、原因が「解析CRSと解像度の組合せ」にあることを
+    # 読み取りにくいためである。判定は make_cell_id() に委ね、範囲の定義を二重に持たない。
+    try:
+        make_cell_id(row_min, col_min)
+        make_cell_id(row_max, col_max)
+    except ValueError as error:
+        raise ValueError(
+            "解析範囲のインデックスが cell_id の採番範囲に収まりません。"
+            " 解析CRSと解像度の組合せを見直してください"
+            f"（row {row_min}-{row_max} / col {col_min}-{col_max}）: {error}"
+        ) from error
 
     to_wgs84 = Transformer.from_crs(analysis_crs, CRS.from_epsg(4326), always_xy=True)
     return CanonicalGridSpec(
@@ -191,25 +214,40 @@ def make_cell_id(row: int | np.ndarray, col: int | np.ndarray) -> int | np.ndarr
     済ませるためである。
 
     Args:
-        row: 原点からの絶対行インデックス（北向きが正）。0以上である必要がある。
-        col: 原点からの絶対列インデックス。0以上 ``CELL_ID_STRIDE`` 未満で
-            ある必要がある。
+        row: 原点からの絶対行インデックス（北向きが正）。0以上
+            ``CELL_ID_MAX_ROW`` 以下の整数である必要がある。
+        col: 原点からの絶対列インデックス。0以上 ``CELL_ID_STRIDE`` 未満の
+            整数である必要がある。
 
     Returns:
         ``cell_id``。入力がいずれもスカラーの場合は ``int``、
         それ以外は ``int64`` のNumPy配列。
 
     Raises:
-        ValueError: ``col`` が0未満または ``CELL_ID_STRIDE`` 以上の場合
-            （桁が溢れて ``row`` と混ざるため）、または ``row`` が0未満の場合。
+        ValueError: ``row`` / ``col`` が整数でない場合、``col`` が0未満または
+            ``CELL_ID_STRIDE`` 以上の場合（桁が溢れて ``row`` と混ざるため）、
+            ``row`` が0未満の場合、または ``row`` が ``CELL_ID_MAX_ROW`` を
+            超える場合（``cell_id`` がint64に収まらないため）。
     """
-    row_array = np.asarray(row, dtype=np.int64)
-    col_array = np.asarray(col, dtype=np.int64)
+    row_array = np.asarray(row)
+    col_array = np.asarray(col)
+
+    # 浮動小数点数は int64 への変換で黙って切り捨てられ、誤った cell_id を
+    # 例外なしで返してしまうため、型の時点で弾く。
+    if not (
+        np.issubdtype(row_array.dtype, np.integer) and np.issubdtype(col_array.dtype, np.integer)
+    ):
+        raise ValueError("row と col は整数で指定してください（小数は切り捨てられるため）。")
+
+    row_array = row_array.astype(np.int64)
+    col_array = col_array.astype(np.int64)
 
     if np.any(col_array < 0) or np.any(col_array >= CELL_ID_STRIDE):
         raise ValueError(f"col は 0 以上 {CELL_ID_STRIDE} 未満である必要があります。")
     if np.any(row_array < 0):
         raise ValueError("row は 0 以上である必要があります。")
+    if np.any(row_array > CELL_ID_MAX_ROW):
+        raise ValueError(f"row は {CELL_ID_MAX_ROW} 以下である必要があります。")
 
     cell_id = row_array * CELL_ID_STRIDE + col_array
     if np.ndim(row) == 0 and np.ndim(col) == 0:
@@ -229,8 +267,14 @@ def split_cell_id(cell_id: int | np.ndarray) -> tuple[int, int] | tuple[np.ndarr
     Returns:
         ``(row, col)`` の組。入力がスカラーの場合は ``int`` の組、
         それ以外は ``int64`` のNumPy配列の組。
+
+    Raises:
+        ValueError: ``cell_id`` が0未満の場合。``make_cell_id()`` は非負の
+            ``cell_id`` しか生成しないため、負値は入力の誤りを意味する。
     """
     cell_id_array = np.asarray(cell_id, dtype=np.int64)
+    if np.any(cell_id_array < 0):
+        raise ValueError("cell_id は 0 以上である必要があります。")
     row = cell_id_array // CELL_ID_STRIDE
     col = cell_id_array % CELL_ID_STRIDE
     if np.ndim(cell_id) == 0:

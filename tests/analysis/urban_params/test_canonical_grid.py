@@ -1,7 +1,13 @@
 """canonical_grid.py（正準グリッドの仕様定義・cell_id採番）のテスト。
 
-解析用CRSにはEPSG:3857を用いる。正準グリッドの原点スナップ・インデックス採番は
-CRSの種類に依存せず、座標値のみで決まるためである（既存テストとも揃えている）。
+解析用CRSにはEPSG:3857を用いる（既存テストと揃えている）。原点スナップ・
+インデックス採番のロジックはCRSの種類ではなく座標値で決まるため、投影座標系で
+あればどれでも同じ経路を通る。
+
+ただし**採番できるかは座標値の大きさに依存する**。cell_idの桁設計上 col は
+1,000,000 未満である必要があり、座標値の大きいCRS・細かい解像度の組合せでは
+この上限を超える。本ファイルは小さな合成座標を使うため上限には触れないので、
+上限側の挙動は専用のテストで別途検証している。
 """
 
 from __future__ import annotations
@@ -11,6 +17,7 @@ import pytest
 from pyproj import CRS
 
 from src.analysis.urban_params.canonical_grid import (
+    CELL_ID_MAX_ROW,
     CELL_ID_STRIDE,
     SNAP_UNIT_M,
     build_canonical_grid,
@@ -68,7 +75,7 @@ def test_build_canonical_grid_origin_is_snap_unit_multiple() -> None:
 def test_build_canonical_grid_origin_is_independent_of_bbox() -> None:
     """解析範囲を変えても原点は動かない（cell_id不変性の前提）。"""
     narrow = build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0)
-    wide = build_canonical_grid(BBox(-5000.0, -5000.0, 12345.0, 23456.0), ANALYSIS_CRS, res_m=30.0)
+    wide = build_canonical_grid(BBox(30.0, 60.0, 12345.0, 23456.0), ANALYSIS_CRS, res_m=30.0)
 
     assert narrow.origin_x == wide.origin_x
     assert narrow.origin_y == wide.origin_y
@@ -137,6 +144,25 @@ def test_build_canonical_grid_degenerate_bbox_raises() -> None:
         build_canonical_grid(BBox(900.0, 1800.0, 900.0, 2700.0), ANALYSIS_CRS, res_m=30.0)
 
 
+def test_build_canonical_grid_negative_index_raises() -> None:
+    """原点より西・南にはみ出すBBoxは仕様構築の時点でValueErrorになる。
+
+    採番できないインデックスをそのまま返すと、セル生成まで進んでから
+    make_cell_id() で落ち、原因が読み取りにくくなる。
+    """
+    with pytest.raises(ValueError, match="採番範囲に収まりません"):
+        build_canonical_grid(BBox(-5000.0, -5000.0, 12345.0, 23456.0), ANALYSIS_CRS, res_m=30.0)
+
+
+def test_build_canonical_grid_col_overflow_raises() -> None:
+    """col が cell_id の桁上限を超える組合せは仕様構築の時点でValueErrorになる。
+
+    座標値の大きいCRSと細かい解像度を組み合わせると col が 1,000,000 を超える。
+    """
+    with pytest.raises(ValueError, match="採番範囲に収まりません"):
+        build_canonical_grid(BBox(11.70e6, 2.30e6, 11.71e6, 2.31e6), ANALYSIS_CRS, res_m=10.0)
+
+
 def test_build_canonical_grid_geographic_crs_raises() -> None:
     """地理座標系（度単位）を渡した場合はValueErrorになる。
 
@@ -201,3 +227,36 @@ def test_make_cell_id_detects_out_of_range_in_array() -> None:
     """配列の一部だけが範囲外でもValueErrorになる。"""
     with pytest.raises(ValueError, match="col は"):
         make_cell_id(np.array([1, 2]), np.array([5, CELL_ID_STRIDE]))
+
+
+@pytest.mark.parametrize(("row", "col"), [(1.9, 2.9), (1, 2.0), (1.0, 2)])
+def test_make_cell_id_float_raises(row: float, col: float) -> None:
+    """小数を渡した場合はValueErrorになる。
+
+    int64 への変換で黙って切り捨てられ、例外なしに誤った cell_id を返すため。
+    """
+    with pytest.raises(ValueError, match="整数で指定してください"):
+        make_cell_id(row, col)
+
+
+def test_make_cell_id_row_overflow_raises() -> None:
+    """row が int64 の桁を溢れさせる大きさの場合はValueErrorになる。
+
+    検証がないと負値の cell_id を例外なしに返す。
+    """
+    with pytest.raises(ValueError, match="row は"):
+        make_cell_id(CELL_ID_MAX_ROW + 1, 0)
+
+
+def test_make_cell_id_accepts_max_row() -> None:
+    """上限ちょうどの row は受け付け、cell_id が正のまま往復する。"""
+    cell_id = make_cell_id(CELL_ID_MAX_ROW, CELL_ID_STRIDE - 1)
+
+    assert cell_id > 0
+    assert split_cell_id(cell_id) == (CELL_ID_MAX_ROW, CELL_ID_STRIDE - 1)
+
+
+def test_split_cell_id_negative_raises() -> None:
+    """負の cell_id はValueErrorになる（make_cell_id は生成しないため）。"""
+    with pytest.raises(ValueError, match="cell_id は"):
+        split_cell_id(-1)

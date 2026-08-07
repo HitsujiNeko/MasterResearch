@@ -7,7 +7,7 @@ from typing import Any
 from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再エクスポート
 
 # 衛星指標ラスタのバンド説明として検出対象とするキー一覧。
-RASTER_KEYS = ("NDVI", "NDBI", "NDWI", "FVC")
+RASTER_KEYS = ("NDVI", "NDBI", "NDWI")
 
 CITY_CONFIG: dict[str, dict[str, Any]] = {
     "hanoi": {

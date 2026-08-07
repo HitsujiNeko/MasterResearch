@@ -13,17 +13,29 @@
     - ``row`` / ``col`` は原点からの絶対インデックス。解析範囲のBBoxは、出力する
       セルの ``row`` / ``col`` 範囲を決めるためだけに使う。
     - ``cell_id`` は ``row * CELL_ID_STRIDE + col``。
+
+実行例::
+
+    python -m src.analysis.urban_params.canonical_grid --city hanoi
 """
 
 from __future__ import annotations
 
+import argparse
 import math
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterator, Sequence
 
+import geopandas as gpd
 import numpy as np
+import shapely
 from pyproj import CRS, Transformer
 
 from src.common.geo_metadata import BBox
+
+from .config import CITY_CONFIG, PROJECT_ROOT
+from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
 
 # グリッド原点の基準座標（解析用CRS上）。解析範囲に依存させないための定数であり、
 # 実際の原点は snap_origin() で SNAP_UNIT_M の倍数へ切り下げた値を使う。
@@ -43,6 +55,10 @@ CELL_ID_MAX_ROW = int((np.iinfo(np.int64).max - (CELL_ID_STRIDE - 1)) // CELL_ID
 # 300 ÷ 90 が整数にならず入れ子にならないため、90m ↔ 300m は対応づけない。
 PARENT_BASE_RES_M = 30.0
 PARENT_SCALES = (90, 300)
+
+# 1ブロックあたりの行数の既定値。30mスケールではROI内でも約374万セルとなるため、
+# 行ブロック単位で生成・書き出しを行いメモリ使用量を抑える。
+DEFAULT_BLOCK_ROWS = 500
 
 
 @dataclass(frozen=True)
@@ -280,3 +296,347 @@ def split_cell_id(cell_id: int | np.ndarray) -> tuple[int, int] | tuple[np.ndarr
     if np.ndim(cell_id) == 0:
         return int(row), int(col)
     return row, col
+
+
+def _parent_id_columns(rows: np.ndarray, cols: np.ndarray, res_m: float) -> dict[str, np.ndarray]:
+    """基準スケールのセルに対する親セルの ``cell_id`` 列を作る。
+
+    原点が全スケールで共通であるため、``row // factor`` / ``col // factor`` で
+    得た親インデックスから採番した値は、親スケールのレイヤの ``cell_id`` と
+    厳密に一致する。
+
+    Args:
+        rows: 基準スケールの行インデックス配列。
+        cols: 基準スケールの列インデックス配列。
+        res_m: 基準スケールのセル1辺の長さ（m）。
+
+    Returns:
+        ``parent_id_90`` / ``parent_id_300`` をキーとする配列の辞書。
+    """
+    columns: dict[str, np.ndarray] = {}
+    for parent_scale in PARENT_SCALES:
+        factor = int(round(parent_scale / res_m))
+        columns[f"parent_id_{parent_scale}"] = make_cell_id(rows // factor, cols // factor)
+    return columns
+
+
+def _build_cell_frame(
+    grid_spec: CanonicalGridSpec,
+    row_indices: np.ndarray,
+    col_indices: np.ndarray,
+) -> gpd.GeoDataFrame:
+    """行・列インデックスの直積からセルポリゴンのGeoDataFrameを作る。
+
+    数百万セルを扱うため、ポリゴン生成（``shapely.box()``）と座標変換の双方を
+    配列単位で行い、1セルずつのPythonループを避ける。
+
+    Args:
+        grid_spec: 正準グリッドの仕様。
+        row_indices: 対象の行インデックス配列。
+        col_indices: 対象の列インデックス配列。
+
+    Returns:
+        ``cell_id`` / ``row`` / ``col`` / ``lon`` / ``lat`` とセル矩形を持つ
+        GeoDataFrame。``grid_spec`` の解像度が ``PARENT_BASE_RES_M`` と一致する
+        場合は ``parent_id_90`` / ``parent_id_300`` も含む。
+    """
+    col_grid, row_grid = np.meshgrid(col_indices, row_indices)
+    rows = row_grid.ravel()
+    cols = col_grid.ravel()
+
+    res_m = grid_spec.res_m
+    min_x = grid_spec.origin_x + (cols * res_m)
+    min_y = grid_spec.origin_y + (rows * res_m)
+    geometries = shapely.box(min_x, min_y, min_x + res_m, min_y + res_m)
+
+    half_res = res_m / 2.0
+    center_lon, center_lat = grid_spec.to_wgs84.transform(min_x + half_res, min_y + half_res)
+
+    data: dict[str, np.ndarray] = {
+        "cell_id": make_cell_id(rows, cols),
+        "row": rows.astype(np.int32),
+        "col": cols.astype(np.int32),
+        "lon": np.asarray(center_lon, dtype=np.float64),
+        "lat": np.asarray(center_lat, dtype=np.float64),
+    }
+    # 親子対応は基準スケール（30m）にのみ持たせる。300 ÷ 90 が整数にならず
+    # 入れ子にならないため、90m / 300m レイヤには親を持たせない。
+    if math.isclose(res_m, PARENT_BASE_RES_M):
+        data.update(_parent_id_columns(rows, cols, res_m))
+
+    return gpd.GeoDataFrame(data, geometry=geometries, crs=grid_spec.analysis_crs)
+
+
+def _filter_by_mask(cells: gpd.GeoDataFrame, mask_geometries: np.ndarray) -> gpd.GeoDataFrame:
+    """マスクポリゴンと交差するセルだけを残す。
+
+    判定は「セルとポリゴンの交差」であり、``run.py`` の ``IN_ANALYSIS_AREA``
+    （10mピクセル中心がポリゴン内に入るかで判定）とは一致しない。角をわずかに
+    かすめるセルは交差するが、ピクセル中心は1つも入らないためである。両者は
+    「交差 ⊇ IN_ANALYSIS_AREA」の包含関係にあり、正準グリッドは結合の土台として
+    取りこぼさない安全側を採る。
+
+    Args:
+        cells: 判定対象のセルを持つGeoDataFrame。
+        mask_geometries: マスクポリゴンの配列（``cells`` と同じCRS）。
+
+    Returns:
+        いずれかのマスクポリゴンと交差するセルのみを残したGeoDataFrame。
+    """
+    if len(cells) == 0 or len(mask_geometries) == 0:
+        return cells.iloc[0:0].reset_index(drop=True)
+
+    # query() は (2, N) を返し、0行目がマスク側・1行目がセル側の位置を指す。
+    # 複数のマスクポリゴンに跨るセルが重複するため一意化する。
+    _, cell_positions = cells.sindex.query(mask_geometries, predicate="intersects")
+    return cells.iloc[np.unique(cell_positions)].reset_index(drop=True)
+
+
+def iter_cell_blocks(
+    grid_spec: CanonicalGridSpec,
+    block_rows: int = DEFAULT_BLOCK_ROWS,
+    mask_geometries: np.ndarray | None = None,
+) -> Iterator[gpd.GeoDataFrame]:
+    """行ブロック単位でセルのGeoDataFrameを生成する。
+
+    30mスケールではROI内でも約374万セルとなり、全セルを一度にメモリへ載せると
+    負荷が大きい。行を ``block_rows`` 件ずつに区切って生成・マスク判定し、
+    呼び出し側が逐次書き出せるようにする。
+
+    マスクを適用すると**空のブロックが生じうる**。ブロック数を ``block_rows`` と
+    行数のみから決まる予測可能な値に保つため、空ブロックもそのまま返す。
+
+    Args:
+        grid_spec: 正準グリッドの仕様。
+        block_rows: 1ブロックあたりの行数。
+        mask_geometries: マスクポリゴンの配列（``grid_spec.analysis_crs`` 上）。
+            ``None`` の場合はBBox全体のセルを返す。
+
+    Yields:
+        ブロック1つ分のセルを持つGeoDataFrame。行インデックスの昇順に返す。
+
+    Raises:
+        ValueError: ``block_rows`` が正でない場合。
+    """
+    if block_rows <= 0:
+        raise ValueError("block_rows は正の整数で指定してください。")
+
+    col_indices = np.arange(grid_spec.col_min, grid_spec.col_max + 1, dtype=np.int64)
+    for row_start in range(grid_spec.row_min, grid_spec.row_max + 1, block_rows):
+        row_stop = min(row_start + block_rows - 1, grid_spec.row_max)
+        row_indices = np.arange(row_start, row_stop + 1, dtype=np.int64)
+
+        cells = _build_cell_frame(grid_spec, row_indices, col_indices)
+        if mask_geometries is not None:
+            cells = _filter_by_mask(cells, mask_geometries)
+        yield cells
+
+
+def write_grid_layers(
+    bbox_analysis: BBox,
+    analysis_crs: CRS,
+    output_path: Path,
+    scales: Sequence[int],
+    mask_geometries: np.ndarray | None = None,
+    block_rows: int = DEFAULT_BLOCK_ROWS,
+    overwrite: bool = False,
+) -> dict[str, int]:
+    """各スケールの正準グリッドを1つのGeoPackageへレイヤとして書き出す。
+
+    追記モードのまま再実行すると既存レイヤに行が積み増しされ ``cell_id`` の
+    一意性が壊れるため、既存ファイルへの上書きは ``overwrite`` の明示を必須とする。
+
+    Args:
+        bbox_analysis: 出力対象のインデックス範囲を決める解析範囲BBox。
+        analysis_crs: 解析用CRS（投影座標系）。
+        output_path: 出力先のGeoPackageパス。
+        scales: 出力するスケール（m）の一覧。レイヤ名は ``grid_{scale}m``。
+        mask_geometries: マスクポリゴンの配列。``None`` の場合はBBox全体を出力する。
+        block_rows: 1ブロックあたりの行数。
+        overwrite: ``True`` の場合、既存の出力ファイルを削除して作り直す。
+
+    Returns:
+        レイヤ名から書き出したセル数への辞書。
+
+    Raises:
+        FileExistsError: 出力ファイルが既に存在し ``overwrite`` が ``False`` の場合。
+        ValueError: いずれかのスケールで書き出すセルが1件も無い場合
+            （マスクとBBoxのCRSが食い違っている等、設定ミスの可能性が高いため）。
+    """
+    if output_path.exists():
+        if not overwrite:
+            raise FileExistsError(
+                f"出力ファイルが既に存在します。作り直す場合は overwrite を指定してください: "
+                f"{output_path}"
+            )
+        output_path.unlink()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cell_counts: dict[str, int] = {}
+    for scale in scales:
+        grid_spec = build_canonical_grid(bbox_analysis, analysis_crs, float(scale))
+        layer_name = f"grid_{scale}m"
+        print(
+            f"[{layer_name}] 対象範囲: row {grid_spec.row_min}-{grid_spec.row_max} / "
+            f"col {grid_spec.col_min}-{grid_spec.col_max}（最大 {grid_spec.n_cells:,} セル）"
+        )
+
+        written = 0
+        for block_index, cells in enumerate(
+            iter_cell_blocks(grid_spec, block_rows, mask_geometries), start=1
+        ):
+            if len(cells) == 0:
+                continue
+            # 最初に書き出すブロックだけレイヤを作り直し、以降は追記する。
+            # 空ブロックが先行しうるため、判定にはブロック番号ではなく書き出し実績を使う。
+            cells.to_file(
+                output_path,
+                layer=layer_name,
+                driver="GPKG",
+                mode="w" if written == 0 else "a",
+            )
+            written += len(cells)
+            # 30mスケールは数分かかるため、リダイレクト時もブロックごとに進捗が届くよう
+            # 明示的にフラッシュする（既定のブロックバッファリングでは終了時までまとまる）。
+            print(
+                f"[{layer_name}] ブロック{block_index}まで完了: 累計 {written:,} セル",
+                flush=True,
+            )
+
+        if written == 0:
+            raise ValueError(
+                f"{layer_name} に書き出すセルがありません。"
+                f" マスクと解析範囲のCRS・位置関係を確認してください。"
+            )
+        cell_counts[layer_name] = written
+
+    return cell_counts
+
+
+def parse_arguments() -> argparse.Namespace:
+    """CLI引数を解釈して返す。
+
+    Returns:
+        解釈済みの引数。``--scales`` は重複を除いた昇順の一覧に正規化する。
+    """
+    parser = argparse.ArgumentParser(
+        description="正準グリッドの生成（cell_id 付きセルポリゴンのGeoPackage出力）"
+    )
+    parser.add_argument("--city", default="hanoi", choices=list(CITY_CONFIG.keys()))
+    parser.add_argument(
+        "--scales",
+        type=int,
+        nargs="+",
+        default=[30, 90, 300],
+        help="出力するスケール（m）の一覧。900の約数である必要がある。",
+    )
+    parser.add_argument(
+        "--extent",
+        default="mask",
+        choices=["mask", "bbox"],
+        help="mask: 解析範囲ポリゴンと交差するセルのみ出力する。bbox: BBox全体を出力する。",
+    )
+    parser.add_argument(
+        "--mask-layer-key",
+        default="roi",
+        choices=["roi", "rg", "cs"],
+        help="解析範囲の基準レイヤ。BBoxと（--extent mask 時の）マスクの両方に使う。",
+    )
+    parser.add_argument(
+        "--output",
+        default="",
+        help="出力先のGeoPackageパス。相対パスはプロジェクトルート基準。"
+        " 既定は data/output/grid/grid_{city}.gpkg。",
+    )
+    parser.add_argument(
+        "--block-rows",
+        type=int,
+        default=DEFAULT_BLOCK_ROWS,
+        help="1ブロックあたりの行数。小さくするとメモリ使用量が減る。",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="既存の出力ファイルを削除して作り直す。",
+    )
+
+    args = parser.parse_args()
+    if any(scale <= 0 for scale in args.scales):
+        parser.error("--scales には正の整数のみ指定してください。")
+    if args.block_rows <= 0:
+        parser.error("--block-rows には正の整数を指定してください。")
+    args.scales = sorted(dict.fromkeys(args.scales))
+    return args
+
+
+def resolve_output_path(output_argument: str, city: str) -> Path:
+    """CLIの ``--output`` から出力先の絶対パスを決める。
+
+    Args:
+        output_argument: ``--output`` の値。空文字の場合は既定パスを使う。
+        city: 都市ID。既定パスのファイル名に使う。
+
+    Returns:
+        出力先の絶対パス。相対パスはプロジェクトルート基準で解決する。
+    """
+    if not output_argument:
+        return PROJECT_ROOT / "data" / "output" / "grid" / f"grid_{city}.gpkg"
+
+    output_path = Path(output_argument)
+    if not output_path.is_absolute():
+        output_path = PROJECT_ROOT / output_path
+    return output_path
+
+
+def main() -> None:
+    """正準グリッドを生成してGeoPackageへ出力する。
+
+    CLI引数から都市・スケール・出力範囲を決定し、解析範囲レイヤからBBoxと
+    （``--extent mask`` の場合は）マスクポリゴンを取得したうえで、スケールごとの
+    レイヤをGeoPackageへ書き出す。
+    """
+    args = parse_arguments()
+    city_cfg = CITY_CONFIG[args.city]
+    analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
+
+    mask_resource = get_layer_resource(city_cfg, args.mask_layer_key, analysis_crs)
+    bbox_analysis = bbox_from_layer(mask_resource, analysis_crs)
+
+    print("都市:", args.city)
+    print("解析CRS:", analysis_crs.to_string())
+    print(
+        "解析範囲レイヤ:",
+        args.mask_layer_key,
+        "->",
+        mask_resource.path.name,
+        mask_resource.layer_name,
+    )
+    print("解析BBox:", bbox_analysis)
+    print("出力範囲:", args.extent)
+
+    mask_geometries: np.ndarray | None = None
+    if args.extent == "mask":
+        # 属性列は判定に使わないため、ジオメトリのみ読み込む。
+        mask_gdf = read_layer_dataframe(mask_resource, columns=[])
+        mask_gdf = mask_gdf[mask_gdf.geometry.notna()]
+        mask_geometries = mask_gdf.geometry.to_numpy()
+        print("マスクポリゴン数:", len(mask_geometries))
+
+    output_path = resolve_output_path(args.output, args.city)
+    cell_counts = write_grid_layers(
+        bbox_analysis=bbox_analysis,
+        analysis_crs=analysis_crs,
+        output_path=output_path,
+        scales=args.scales,
+        mask_geometries=mask_geometries,
+        block_rows=args.block_rows,
+        overwrite=args.overwrite,
+    )
+
+    print("出力先:", output_path)
+    for layer_name, cell_count in cell_counts.items():
+        print(f"  {layer_name}: {cell_count:,} セル")
+
+
+if __name__ == "__main__":
+    main()

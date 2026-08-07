@@ -1,4 +1,4 @@
-"""canonical_grid.py（正準グリッドの仕様定義・cell_id採番）のテスト。
+"""canonical_grid.py（正準グリッド）のテスト。
 
 解析用CRSにはEPSG:3857を用いる（既存テストと揃えている）。原点スナップ・
 インデックス採番のロジックはCRSの種類ではなく座標値で決まるため、投影座標系で
@@ -12,18 +12,28 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import fiona
+import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
-from pyproj import CRS
+from pyproj import CRS, Transformer
+from shapely.geometry import Polygon
 
 from src.analysis.urban_params.canonical_grid import (
     CELL_ID_MAX_ROW,
     CELL_ID_STRIDE,
     SNAP_UNIT_M,
+    CanonicalGridSpec,
     build_canonical_grid,
+    iter_cell_blocks,
     make_cell_id,
+    resolve_output_path,
     snap_origin,
     split_cell_id,
+    write_grid_layers,
 )
 from src.common.geo_metadata import BBox
 
@@ -31,6 +41,32 @@ ANALYSIS_CRS = CRS.from_epsg(3857)
 
 # 原点(0, 0)・res=30m のとき col 30-59 / row 60-89（30x30セル）となるBBox。
 SAMPLE_BBOX = BBox(900.0, 1800.0, 1800.0, 2700.0)
+
+# 900mの正方形。30m/90m/300mのいずれでも割り切れ、親子対応の件数を手計算できる。
+NESTED_BBOX = BBox(0.0, 0.0, 900.0, 900.0)
+
+
+def _collect_cells(
+    grid_spec: CanonicalGridSpec,
+    block_rows: int = 500,
+    mask_geometries: np.ndarray | None = None,
+) -> gpd.GeoDataFrame:
+    """全ブロックのセルを1つのGeoDataFrameへまとめる（テスト用）。"""
+    blocks = [
+        block
+        for block in iter_cell_blocks(grid_spec, block_rows, mask_geometries)
+        if len(block) > 0
+    ]
+    if not blocks:
+        return gpd.GeoDataFrame(geometry=[], crs=grid_spec.analysis_crs)
+    return gpd.GeoDataFrame(pd.concat(blocks, ignore_index=True), crs=grid_spec.analysis_crs)
+
+
+def _bounds_keyed_cell_ids(cells: gpd.GeoDataFrame) -> pd.DataFrame:
+    """セル矩形の境界座標をキーとする cell_id 表を作る（テスト用）。"""
+    keyed = cells.geometry.bounds.round(6)
+    keyed["cell_id"] = cells["cell_id"].to_numpy()
+    return keyed
 
 
 # --- snap_origin ---------------------------------------------------------
@@ -260,3 +296,320 @@ def test_split_cell_id_negative_raises() -> None:
     """負の cell_id はValueErrorになる（make_cell_id は生成しないため）。"""
     with pytest.raises(ValueError, match="cell_id は"):
         split_cell_id(-1)
+
+
+# --- iter_cell_blocks（セルポリゴン生成） --------------------------------
+
+
+def test_iter_cell_blocks_cell_id_is_unique() -> None:
+    """1レイヤ分の全セルで cell_id が一意である（完了条件）。"""
+    cells = _collect_cells(build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0))
+
+    assert len(cells) == 900
+    assert cells["cell_id"].nunique() == len(cells)
+
+
+def test_iter_cell_blocks_cell_geometry_matches_index() -> None:
+    """セル矩形の四隅が origin + index * res と一致し、面積が res^2 になる。"""
+    grid_spec = build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0)
+
+    cells = _collect_cells(grid_spec)
+    bounds = cells.geometry.bounds
+
+    expected_minx = grid_spec.origin_x + (cells["col"].to_numpy() * grid_spec.res_m)
+    expected_miny = grid_spec.origin_y + (cells["row"].to_numpy() * grid_spec.res_m)
+    np.testing.assert_allclose(bounds["minx"].to_numpy(), expected_minx)
+    np.testing.assert_allclose(bounds["miny"].to_numpy(), expected_miny)
+    np.testing.assert_allclose(bounds["maxx"].to_numpy(), expected_minx + grid_spec.res_m)
+    np.testing.assert_allclose(bounds["maxy"].to_numpy(), expected_miny + grid_spec.res_m)
+    np.testing.assert_allclose(cells.geometry.area.to_numpy(), grid_spec.res_m**2)
+
+
+def test_iter_cell_blocks_lon_lat_are_cell_centers() -> None:
+    """lon / lat がセル中心のWGS84座標と一致する。"""
+    grid_spec = build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0)
+    to_wgs84 = Transformer.from_crs(ANALYSIS_CRS, CRS.from_epsg(4326), always_xy=True)
+
+    cells = _collect_cells(grid_spec)
+    centroids = cells.geometry.centroid
+    expected_lon, expected_lat = to_wgs84.transform(centroids.x.to_numpy(), centroids.y.to_numpy())
+
+    np.testing.assert_allclose(cells["lon"].to_numpy(), expected_lon)
+    np.testing.assert_allclose(cells["lat"].to_numpy(), expected_lat)
+
+
+def test_iter_cell_blocks_cell_id_is_invariant_to_extent() -> None:
+    """解析範囲を広げても、同じ座標のセルは同じ cell_id を持つ（完了条件）。"""
+    narrow = _collect_cells(
+        build_canonical_grid(BBox(900.0, 900.0, 1800.0, 1800.0), ANALYSIS_CRS, res_m=30.0)
+    )
+    wide = _collect_cells(
+        build_canonical_grid(BBox(0.0, 0.0, 2700.0, 2700.0), ANALYSIS_CRS, res_m=30.0)
+    )
+
+    merged = _bounds_keyed_cell_ids(narrow).merge(
+        _bounds_keyed_cell_ids(wide),
+        on=["minx", "miny", "maxx", "maxy"],
+        suffixes=("_narrow", "_wide"),
+    )
+
+    # 狭い側のセルはすべて広い側にも存在し、cell_id が一致する。
+    assert len(merged) == len(narrow) == 900
+    assert (merged["cell_id_narrow"] == merged["cell_id_wide"]).all()
+
+
+def test_iter_cell_blocks_parent_ids_cover_nine_and_hundred_children() -> None:
+    """90mセル1つに30mセルが9個、300mセル1つに100個対応する（完了条件）。"""
+    cells_30m = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=30.0))
+
+    assert len(cells_30m) == 900
+    assert (cells_30m.groupby("parent_id_90").size() == 9).all()
+    assert (cells_30m.groupby("parent_id_300").size() == 100).all()
+
+
+def test_iter_cell_blocks_parent_ids_match_parent_layer_cell_ids() -> None:
+    """parent_id が親スケールのレイヤの cell_id と厳密に一致する（完了条件）。"""
+    cells_30m = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=30.0))
+    cells_90m = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=90.0))
+    cells_300m = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0))
+
+    assert set(cells_30m["parent_id_90"]) == set(cells_90m["cell_id"])
+    assert set(cells_30m["parent_id_300"]) == set(cells_300m["cell_id"])
+
+
+def test_iter_cell_blocks_parent_ids_only_on_base_scale() -> None:
+    """90m / 300m レイヤは親セル列を持たない（入れ子にならないため）。"""
+    cells_90m = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=90.0))
+    cells_300m = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0))
+
+    for cells in (cells_90m, cells_300m):
+        assert "parent_id_90" not in cells.columns
+        assert "parent_id_300" not in cells.columns
+
+
+@pytest.mark.parametrize("block_rows", [1, 7, 30, 1000])
+def test_iter_cell_blocks_result_is_independent_of_block_size(block_rows: int) -> None:
+    """block_rows を変えても総件数・cell_id 集合が変わらない。"""
+    grid_spec = build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0)
+    baseline = _collect_cells(grid_spec, block_rows=500)
+
+    cells = _collect_cells(grid_spec, block_rows=block_rows)
+
+    assert len(cells) == len(baseline)
+    assert set(cells["cell_id"]) == set(baseline["cell_id"])
+
+
+def test_iter_cell_blocks_block_count_is_predictable() -> None:
+    """ブロック数は行数と block_rows のみで決まる（空ブロックも返す）。"""
+    grid_spec = build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0)
+
+    blocks = list(iter_cell_blocks(grid_spec, block_rows=7))
+
+    # 30行を7行ずつ区切ると 7+7+7+7+2 の5ブロックになる。
+    assert len(blocks) == 5
+    assert [len(block) for block in blocks] == [7 * 30, 7 * 30, 7 * 30, 7 * 30, 2 * 30]
+
+
+def test_iter_cell_blocks_invalid_block_rows_raises() -> None:
+    """block_rows が正でない場合はValueErrorになる。"""
+    grid_spec = build_canonical_grid(SAMPLE_BBOX, ANALYSIS_CRS, res_m=30.0)
+
+    with pytest.raises(ValueError, match="block_rows"):
+        list(iter_cell_blocks(grid_spec, block_rows=0))
+
+
+def test_iter_cell_blocks_mask_excludes_outside_cells() -> None:
+    """マスクポリゴンと交差しないセルが除外される。"""
+    grid_spec = build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0)
+    # 3x3セルのうち左下1セル（0-300, 0-300）の内側だけを覆うポリゴン。
+    mask = np.array([Polygon([(10.0, 10.0), (290.0, 10.0), (290.0, 290.0), (10.0, 290.0)])])
+
+    cells = _collect_cells(grid_spec, mask_geometries=mask)
+
+    assert len(cells) == 1
+    assert cells["row"].tolist() == [0]
+    assert cells["col"].tolist() == [0]
+
+
+def test_iter_cell_blocks_mask_includes_touching_cells() -> None:
+    """セル境界にかかるポリゴンは、またぐ両側のセルを残す（交差判定のため）。"""
+    grid_spec = build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0)
+    # x=300 の境界をまたぐポリゴン。左下と右下の2セルに跨る。
+    mask = np.array([Polygon([(290.0, 10.0), (310.0, 10.0), (310.0, 290.0), (290.0, 290.0)])])
+
+    cells = _collect_cells(grid_spec, mask_geometries=mask)
+
+    assert len(cells) == 2
+    assert sorted(cells["col"].tolist()) == [0, 1]
+
+
+def test_iter_cell_blocks_mask_deduplicates_overlapping_polygons() -> None:
+    """複数のマスクポリゴンが重なってもセルが重複しない。"""
+    grid_spec = build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0)
+    overlapping = np.array(
+        [
+            Polygon([(10.0, 10.0), (290.0, 10.0), (290.0, 290.0), (10.0, 290.0)]),
+            Polygon([(20.0, 20.0), (280.0, 20.0), (280.0, 280.0), (20.0, 280.0)]),
+        ]
+    )
+
+    cells = _collect_cells(grid_spec, mask_geometries=overlapping)
+
+    assert len(cells) == 1
+
+
+# --- write_grid_layers（GeoPackage出力） ---------------------------------
+
+
+def test_write_grid_layers_creates_three_layers(tmp_path: Path) -> None:
+    """30m / 90m / 300m の3レイヤが出力される（完了条件）。"""
+    output_path = tmp_path / "grid_test.gpkg"
+
+    cell_counts = write_grid_layers(
+        NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90, 300], block_rows=7
+    )
+
+    assert set(fiona.listlayers(output_path)) >= {"grid_30m", "grid_90m", "grid_300m"}
+    assert cell_counts == {"grid_30m": 900, "grid_90m": 100, "grid_300m": 9}
+    for layer_name, expected_count in cell_counts.items():
+        assert len(gpd.read_file(output_path, layer=layer_name)) == expected_count
+
+
+def test_write_grid_layers_schema_and_dtypes(tmp_path: Path) -> None:
+    """CRS・列名・dtypeが仕様どおりに保存される。"""
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90], block_rows=7)
+
+    cells_30m = gpd.read_file(output_path, layer="grid_30m")
+    cells_90m = gpd.read_file(output_path, layer="grid_90m")
+
+    assert cells_30m.crs == ANALYSIS_CRS
+    assert set(cells_30m.columns) == {
+        "cell_id",
+        "row",
+        "col",
+        "lon",
+        "lat",
+        "parent_id_90",
+        "parent_id_300",
+        "geometry",
+    }
+    assert set(cells_90m.columns) == {"cell_id", "row", "col", "lon", "lat", "geometry"}
+    assert cells_30m["cell_id"].dtype == np.int64
+    assert cells_30m["row"].dtype == np.int32
+    assert cells_30m["col"].dtype == np.int32
+    assert cells_30m["lon"].dtype == np.float64
+    assert cells_30m["lat"].dtype == np.float64
+    assert cells_30m["parent_id_90"].dtype == np.int64
+    assert cells_30m["parent_id_300"].dtype == np.int64
+
+
+def test_write_grid_layers_cell_id_unique_per_layer(tmp_path: Path) -> None:
+    """保存後のレイヤでも cell_id が一意である（完了条件）。"""
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90, 300], block_rows=7)
+
+    for layer_name in ("grid_30m", "grid_90m", "grid_300m"):
+        cells = gpd.read_file(output_path, layer=layer_name)
+        assert cells["cell_id"].nunique() == len(cells)
+
+
+def test_write_grid_layers_refuses_existing_file(tmp_path: Path) -> None:
+    """既存ファイルへは overwrite なしで書き込まない。"""
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], block_rows=7)
+
+    with pytest.raises(FileExistsError, match="overwrite"):
+        write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], block_rows=7)
+
+
+def test_write_grid_layers_overwrite_does_not_duplicate(tmp_path: Path) -> None:
+    """overwrite での再実行後もセル数が倍にならない（重複防止の回帰テスト）。"""
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90], block_rows=7)
+
+    cell_counts = write_grid_layers(
+        NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90], block_rows=7, overwrite=True
+    )
+
+    assert cell_counts == {"grid_30m": 900, "grid_90m": 100}
+    assert len(gpd.read_file(output_path, layer="grid_30m")) == 900
+    assert len(gpd.read_file(output_path, layer="grid_90m")) == 100
+
+
+def test_write_grid_layers_keeps_earlier_layers(tmp_path: Path) -> None:
+    """後続レイヤの書き出しで先行レイヤが消えない。"""
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90, 300], block_rows=7)
+
+    # 最初に書いた 30m レイヤが 90m / 300m の書き出し後も残っている。
+    assert len(gpd.read_file(output_path, layer="grid_30m")) == 900
+
+
+def test_write_grid_layers_empty_mask_raises(tmp_path: Path) -> None:
+    """マスクと交差するセルが1件も無い場合はValueErrorになる。"""
+    output_path = tmp_path / "grid_test.gpkg"
+    # グリッド範囲外のポリゴン。
+    outside = np.array(
+        [Polygon([(5000.0, 5000.0), (5100.0, 5000.0), (5100.0, 5100.0), (5000.0, 5100.0)])]
+    )
+
+    with pytest.raises(ValueError, match="書き出すセルがありません"):
+        write_grid_layers(
+            NESTED_BBOX,
+            ANALYSIS_CRS,
+            output_path,
+            scales=[300],
+            mask_geometries=outside,
+            block_rows=7,
+        )
+
+
+def test_write_grid_layers_creates_parent_directory(tmp_path: Path) -> None:
+    """出力先の親ディレクトリが存在しない場合は作成する。"""
+    output_path = tmp_path / "nested" / "dir" / "grid_test.gpkg"
+
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], block_rows=7)
+
+    assert output_path.exists()
+
+
+def test_write_grid_layers_masked_output_is_subset(tmp_path: Path) -> None:
+    """マスク適用時も cell_id はマスクなしの場合と同じ値を保つ。"""
+    output_path = tmp_path / "grid_masked.gpkg"
+    mask = np.array([Polygon([(10.0, 10.0), (290.0, 10.0), (290.0, 290.0), (10.0, 290.0)])])
+    write_grid_layers(
+        NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], mask_geometries=mask, block_rows=7
+    )
+
+    masked = gpd.read_file(output_path, layer="grid_300m")
+    unmasked = _collect_cells(build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0))
+
+    assert set(masked["cell_id"]).issubset(set(unmasked["cell_id"]))
+    assert len(masked) == 1
+
+
+# --- resolve_output_path -------------------------------------------------
+
+
+def test_resolve_output_path_default_is_city_specific() -> None:
+    """--output 未指定なら data/output/grid/grid_{city}.gpkg になる。"""
+    output_path = resolve_output_path("", "hanoi")
+
+    assert output_path.is_absolute()
+    assert output_path.parts[-3:] == ("output", "grid", "grid_hanoi.gpkg")
+
+
+def test_resolve_output_path_relative_is_project_root_based() -> None:
+    """相対パスはプロジェクトルート基準で解決される。"""
+    output_path = resolve_output_path("data/tmp/custom.gpkg", "hanoi")
+
+    assert output_path.is_absolute()
+    assert output_path.parts[-3:] == ("data", "tmp", "custom.gpkg")
+
+
+def test_resolve_output_path_absolute_is_kept(tmp_path: Path) -> None:
+    """絶対パスはそのまま使う（検証時に任意の場所へ書き出せる）。"""
+    absolute_path = tmp_path / "custom.gpkg"
+
+    assert resolve_output_path(str(absolute_path), "hanoi") == absolute_path

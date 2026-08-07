@@ -483,6 +483,20 @@ def iter_cell_blocks(
         yield cells
 
 
+def _remove_geopackage(path: Path) -> None:
+    """GeoPackage本体とSQLiteの付随ファイルをまとめて削除する。
+
+    書き込み中に中断すると ``-wal`` / ``-shm`` / ``-journal`` が残ることがある。
+    本体だけを消すと、次に同名で作ったデータベースに古い付随ファイルが
+    残留した状態になるため、併せて片付ける。
+
+    Args:
+        path: 削除するGeoPackageのパス。存在しない場合は何もしない。
+    """
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        Path(f"{path}{suffix}").unlink(missing_ok=True)
+
+
 def write_grid_layers(
     bbox_analysis: BBox,
     analysis_crs: CRS,
@@ -499,9 +513,15 @@ def write_grid_layers(
 
     **全スケールの仕様を構築し終えてからファイルへ触れる。** スケールごとに
     構築しながら書き出すと、不正なスケールが後ろにあった場合に手前のレイヤを
-    書き終えてから失敗し、``overwrite`` 指定時は既存の正しい出力を消した後に
-    半端なファイルだけが残る。``build_canonical_grid()`` は安価な純関数のため、
+    書き終えてから失敗する。``build_canonical_grid()`` は安価な純関数のため、
     先に全件を構築して検証を前倒しできる。
+
+    **書き出しは一時ファイルへ行い、全レイヤの完了後に置き換える。** 仕様構築の
+    時点では検出できない失敗（マスクとの交差が1件も無い、書き込み中のI/Oエラー、
+    中断）があるため、出力先を直接書き換えると既存の正しい出力を失う。30mの
+    再生成には数分かかるため影響が大きい。``Path.replace()`` は同一ディレクトリ
+    （＝同一ファイルシステム）でアトミックに動作し、途中で失敗しても既存ファイルは
+    そのまま残る。
 
     Args:
         bbox_analysis: 出力対象のインデックス範囲を決める解析範囲BBox。
@@ -511,7 +531,7 @@ def write_grid_layers(
         mask_geometries: マスクポリゴンの配列。``None`` の場合はBBox全体を出力する。
         block_rows: 1ブロックあたりの行数（セル数ではない。
             ``iter_cell_blocks()`` の説明を参照）。
-        overwrite: ``True`` の場合、既存の出力ファイルを削除して作り直す。
+        overwrite: ``True`` の場合、既存の出力ファイルを作り直す。
 
     Returns:
         レイヤ名から書き出したセル数への辞書。
@@ -554,45 +574,58 @@ def write_grid_layers(
                 flush=True,
             )
 
-    if output_path.exists():
-        if not overwrite:
-            raise FileExistsError(
-                f"出力ファイルが既に存在します。作り直す場合は overwrite を指定してください: "
-                f"{output_path}"
-            )
-        output_path.unlink()
+    if output_path.exists() and not overwrite:
+        raise FileExistsError(
+            f"出力ファイルが既に存在します。作り直す場合は overwrite を指定してください: "
+            f"{output_path}"
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cell_counts: dict[str, int] = {}
-    for layer_name, grid_spec in grid_specs.items():
-        written = 0
-        for block_index, cells in enumerate(
-            iter_cell_blocks(grid_spec, block_rows, mask_geometries), start=1
-        ):
-            if len(cells) == 0:
-                continue
-            # 最初に書き出すブロックだけレイヤを作り直し、以降は追記する。
-            # 空ブロックが先行しうるため、判定にはブロック番号ではなく書き出し実績を使う。
-            cells.to_file(
-                output_path,
-                layer=layer_name,
-                driver="GPKG",
-                mode="w" if written == 0 else "a",
-            )
-            written += len(cells)
-            # 30mスケールは数分かかるため、リダイレクト時もブロックごとに進捗が届くよう
-            # 明示的にフラッシュする（既定のブロックバッファリングでは終了時までまとまる）。
-            print(
-                f"[{layer_name}] ブロック{block_index}まで完了: 累計 {written:,} セル",
-                flush=True,
-            )
+    # 拡張子は出力先と揃える（ドライバの判定を拡張子に依存させないため）。
+    temp_path = output_path.with_name(f"{output_path.stem}.tmp{output_path.suffix}")
+    _remove_geopackage(temp_path)
 
-        if written == 0:
-            raise ValueError(
-                f"{layer_name} に書き出すセルがありません。"
-                f" マスクと解析範囲のCRS・位置関係を確認してください。"
-            )
-        cell_counts[layer_name] = written
+    cell_counts: dict[str, int] = {}
+    try:
+        for layer_name, grid_spec in grid_specs.items():
+            written = 0
+            for block_index, cells in enumerate(
+                iter_cell_blocks(grid_spec, block_rows, mask_geometries), start=1
+            ):
+                if len(cells) == 0:
+                    continue
+                # 最初に書き出すブロックだけレイヤを作り直し、以降は追記する。
+                # 空ブロックが先行しうるため、判定にはブロック番号ではなく書き出し実績を使う。
+                cells.to_file(
+                    temp_path,
+                    layer=layer_name,
+                    driver="GPKG",
+                    mode="w" if written == 0 else "a",
+                )
+                written += len(cells)
+                # 30mスケールは数分かかるため、リダイレクト時もブロックごとに進捗が届くよう
+                # 明示的にフラッシュする（既定のブロックバッファリングでは終了時までまとまる）。
+                print(
+                    f"[{layer_name}] ブロック{block_index}まで完了: 累計 {written:,} セル",
+                    flush=True,
+                )
+
+            if written == 0:
+                raise ValueError(
+                    f"{layer_name} に書き出すセルがありません。"
+                    f" マスクと解析範囲のCRS・位置関係を確認してください。"
+                )
+            cell_counts[layer_name] = written
+    except BaseException:
+        # 中断（KeyboardInterrupt）も含めて書きかけを残さない。
+        _remove_geopackage(temp_path)
+        raise
+
+    # 置換前に、出力先に残っている古い付随ファイルを消す。本体だけを差し替えると
+    # 別のデータベースの -wal / -shm が残った状態になるため。
+    for suffix in ("-wal", "-shm", "-journal"):
+        Path(f"{output_path}{suffix}").unlink(missing_ok=True)
+    temp_path.replace(output_path)
 
     return cell_counts
 

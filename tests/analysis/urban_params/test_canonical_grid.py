@@ -602,6 +602,56 @@ def test_write_grid_layers_keeps_earlier_layers(tmp_path: Path) -> None:
     assert len(gpd.read_file(output_path, layer="grid_30m")) == 900
 
 
+def test_write_grid_layers_keeps_existing_output_on_empty_mask(tmp_path: Path) -> None:
+    """マスク不整合で失敗しても、既存の正しい出力を失わない（回帰テスト）。
+
+    不正スケールと違いマスク不整合はブロックを生成しないと判定できないため、
+    仕様構築時に前倒しできない。一時ファイルへ書き切ってから置き換えることで守る。
+    """
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], block_rows=7)
+    outside = np.array(
+        [Polygon([(5000.0, 5000.0), (5100.0, 5000.0), (5100.0, 5100.0), (5000.0, 5100.0)])]
+    )
+
+    with pytest.raises(ValueError, match="書き出すセルがありません"):
+        write_grid_layers(
+            NESTED_BBOX,
+            ANALYSIS_CRS,
+            output_path,
+            scales=[300],
+            mask_geometries=outside,
+            block_rows=7,
+            overwrite=True,
+        )
+
+    assert len(gpd.read_file(output_path, layer="grid_300m")) == 9
+
+
+def test_write_grid_layers_leaves_no_temporary_file(tmp_path: Path) -> None:
+    """成功時も失敗時も一時ファイルを残さない。"""
+    output_path = tmp_path / "grid_test.gpkg"
+
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], block_rows=7)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["grid_test.gpkg"]
+
+    outside = np.array(
+        [Polygon([(5000.0, 5000.0), (5100.0, 5000.0), (5100.0, 5100.0), (5000.0, 5100.0)])]
+    )
+    with pytest.raises(ValueError, match="書き出すセルがありません"):
+        write_grid_layers(
+            NESTED_BBOX,
+            ANALYSIS_CRS,
+            output_path,
+            scales=[300],
+            mask_geometries=outside,
+            block_rows=7,
+            overwrite=True,
+        )
+
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["grid_test.gpkg"]
+
+
 def test_write_grid_layers_empty_mask_raises(tmp_path: Path) -> None:
     """マスクと交差するセルが1件も無い場合はValueErrorになる。"""
     output_path = tmp_path / "grid_test.gpkg"

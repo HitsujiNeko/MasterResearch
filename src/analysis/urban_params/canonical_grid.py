@@ -31,6 +31,7 @@ import geopandas as gpd
 import numpy as np
 import shapely
 from pyproj import CRS, Transformer
+from shapely.geometry.base import BaseGeometry
 
 from src.common.geo_metadata import BBox
 
@@ -50,6 +51,10 @@ CELL_ID_STRIDE = 1_000_000
 
 # cell_id が int64 に収まる row の上限。これを超えると桁が溢れて負値になる。
 CELL_ID_MAX_ROW = int((np.iinfo(np.int64).max - (CELL_ID_STRIDE - 1)) // CELL_ID_STRIDE)
+
+# row / col 列の dtype と、そこに収まるインデックスの上限。
+INDEX_DTYPE = np.int32
+INDEX_MAX = int(np.iinfo(INDEX_DTYPE).max)
 
 # 親セル対応づけの基準スケール（m）と、対応づける親スケール（m）。
 # 300 ÷ 90 が整数にならず入れ子にならないため、90m ↔ 300m は対応づけない。
@@ -133,6 +138,25 @@ def snap_origin(value: float, snap_unit_m: float = SNAP_UNIT_M) -> float:
     return math.floor(value / snap_unit_m) * snap_unit_m
 
 
+def is_supported_resolution(res_m: float, snap_unit_m: float = SNAP_UNIT_M) -> bool:
+    """解像度が正準グリッドで扱えるか（``snap_unit_m`` の約数か）を返す。
+
+    約数でない解像度は原点で格子が揃わず、スケール間の入れ子も成立しない。
+    CLIの引数検証と ``build_canonical_grid()`` の双方から使い、判定を一箇所に保つ。
+
+    Args:
+        res_m: 判定するセル1辺の長さ（m）。
+        snap_unit_m: 原点のスナップ単位（m）。
+
+    Returns:
+        正の値かつ ``snap_unit_m`` の約数であれば ``True``。
+    """
+    if res_m <= 0 or snap_unit_m <= 0:
+        return False
+    cells_per_snap_unit = snap_unit_m / res_m
+    return abs(cells_per_snap_unit - round(cells_per_snap_unit)) <= 1e-9
+
+
 def build_canonical_grid(
     bbox_analysis: BBox,
     analysis_crs: CRS,
@@ -174,8 +198,7 @@ def build_canonical_grid(
     if bbox_analysis.maxx <= bbox_analysis.minx or bbox_analysis.maxy <= bbox_analysis.miny:
         raise ValueError("bbox_analysis は正の幅・高さを持つ必要があります。")
 
-    cells_per_snap_unit = snap_unit_m / res_m
-    if abs(cells_per_snap_unit - round(cells_per_snap_unit)) > 1e-9:
+    if not is_supported_resolution(res_m, snap_unit_m):
         raise ValueError(
             f"res_m は snap_unit_m（{snap_unit_m}m）の約数で指定してください: res_m={res_m}"
         )
@@ -203,6 +226,15 @@ def build_canonical_grid(
             " 解析CRSと解像度の組合せを見直してください"
             f"（row {row_min}-{row_max} / col {col_min}-{col_max}）: {error}"
         ) from error
+
+    # row / col は INDEX_DTYPE で出力する。make_cell_id() が許す上限
+    # （int64 基準）より狭いため、採番は通るのに属性列だけが黙って折り返す
+    # 範囲が生じる。ここで併せて弾き、検証範囲と出力 dtype の辻褄を合わせる。
+    if row_max > INDEX_MAX or col_max > INDEX_MAX:
+        raise ValueError(
+            f"解析範囲のインデックスが row / col 列の上限（{INDEX_MAX}）を超えます。"
+            f" 解析CRSと解像度の組合せを見直してください（row {row_max} / col {col_max}）。"
+        )
 
     to_wgs84 = Transformer.from_crs(analysis_crs, CRS.from_epsg(4326), always_xy=True)
     return CanonicalGridSpec(
@@ -362,8 +394,8 @@ def _build_cell_frame(
 
     data: dict[str, np.ndarray] = {
         "cell_id": make_cell_id(rows, cols),
-        "row": rows.astype(np.int32),
-        "col": cols.astype(np.int32),
+        "row": rows.astype(INDEX_DTYPE),
+        "col": cols.astype(INDEX_DTYPE),
         "lon": np.asarray(center_lon, dtype=np.float64),
         "lat": np.asarray(center_lat, dtype=np.float64),
     }
@@ -378,11 +410,16 @@ def _build_cell_frame(
 def _filter_by_mask(cells: gpd.GeoDataFrame, mask_geometries: np.ndarray) -> gpd.GeoDataFrame:
     """マスクポリゴンと交差するセルだけを残す。
 
-    判定は「セルとポリゴンの交差」であり、``run.py`` の ``IN_ANALYSIS_AREA``
+    判定は「セルとジオメトリの交差」であり、``run.py`` の ``IN_ANALYSIS_AREA``
     （10mピクセル中心がポリゴン内に入るかで判定）とは一致しない。角をわずかに
     かすめるセルは交差するが、ピクセル中心は1つも入らないためである。両者は
     「交差 ⊇ IN_ANALYSIS_AREA」の包含関係にあり、正準グリッドは結合の土台として
     取りこぼさない安全側を採る。
+
+    **マスクとして機能するのは面ジオメトリを持つレイヤに限る。** 交差判定は線・点
+    とも成立するため、測量GISのような線主体のレイヤを渡すと「範囲を面で切る」
+    動作にならず、線上のセルだけが選ばれる。測量GISから分析対象域をどう定義するかは
+    未決であり、それまでは面を持つレイヤ（現状はROI）を使う。詳細は設計正本を参照。
 
     Args:
         cells: 判定対象のセルを持つGeoDataFrame。
@@ -500,6 +537,23 @@ def write_grid_layers(
             flush=True,
         )
 
+    # 基準スケールのレイヤは parent_id を持つ。親スケールを同時に出力しないと
+    # 参照先の無い値になるため警告する（出力自体は妨げない）。
+    base_layer_name = f"grid_{int(PARENT_BASE_RES_M)}m"
+    if base_layer_name in grid_specs:
+        missing_parents = [
+            f"grid_{parent_scale}m"
+            for parent_scale in PARENT_SCALES
+            if f"grid_{parent_scale}m" not in grid_specs
+        ]
+        if missing_parents:
+            print(
+                f"警告: {base_layer_name} の parent_id が指す"
+                f" {' / '.join(missing_parents)} を同時に出力しません。"
+                " 参照先の無い値になります。",
+                flush=True,
+            )
+
     if output_path.exists():
         if not overwrite:
             raise FileExistsError(
@@ -597,6 +651,15 @@ def parse_arguments() -> argparse.Namespace:
     args = parser.parse_args()
     if any(scale <= 0 for scale in args.scales):
         parser.error("--scales には正の整数のみ指定してください。")
+
+    # 判定は is_supported_resolution() に委ね、約数の規則を二重に持たない。
+    unsupported = [scale for scale in args.scales if not is_supported_resolution(float(scale))]
+    if unsupported:
+        parser.error(
+            f"--scales には {SNAP_UNIT_M:.0f}m の約数のみ指定してください"
+            f"（指定値: {', '.join(str(scale) for scale in unsupported)}）。"
+        )
+
     if args.block_rows <= 0:
         parser.error("--block-rows には正の整数を指定してください。")
 
@@ -632,6 +695,30 @@ def resolve_output_path(output_argument: str, city: str) -> Path:
     return output_path
 
 
+def _drop_zero_area_parts(geometry: BaseGeometry | None) -> BaseGeometry | None:
+    """ジオメトリから面積を持たない部分（線・点）を取り除く。
+
+    ``make_valid()`` は自己交差の形状によって ``GeometryCollection`` を返し、
+    スパイク状のはみ出しが面積ゼロの線分として残ることがある。線分もセルと
+    交差するため、そのまま使うと**実データがまったく無いセルまでマスクに
+    入ってしまう**。面積を持つ部分だけを残してこれを防ぐ。
+
+    Args:
+        geometry: 判定対象のジオメトリ。
+
+    Returns:
+        面積を持つ部分のみのジオメトリ。面積を持つ部分が無ければ ``None``。
+        ``GeometryCollection`` 以外はそのまま返す。
+    """
+    if geometry is None or geometry.geom_type != "GeometryCollection":
+        return geometry
+
+    areal_parts = [part for part in geometry.geoms if part.area > 0]
+    if not areal_parts:
+        return None
+    return shapely.union_all(areal_parts)
+
+
 def prepare_mask_geometries(geometries: gpd.GeoSeries) -> np.ndarray:
     """マスクポリゴンを交差判定に使える状態へ整える。
 
@@ -656,6 +743,12 @@ def prepare_mask_geometries(geometries: gpd.GeoSeries) -> np.ndarray:
     if invalid_count > 0:
         # 既に妥当なジオメトリに対しては make_valid() は実質的な変更を加えない。
         usable = usable.make_valid()
+        # 修復の副産物として残る面積ゼロの部分を落とす（下記関数の説明を参照）。
+        usable = gpd.GeoSeries(
+            [_drop_zero_area_parts(geometry) for geometry in usable],
+            index=usable.index,
+            crs=usable.crs,
+        )
         print(f"不正なマスクジオメトリを修復しました: {invalid_count} 件", flush=True)
 
     usable = usable[usable.notna() & ~usable.is_empty]

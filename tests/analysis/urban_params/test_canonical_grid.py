@@ -22,15 +22,18 @@ import numpy as np
 import pandas as pd
 import pytest
 from pyproj import CRS, Transformer
+from shapely import wkt
 from shapely.geometry import Polygon
 
 from src.analysis.urban_params.canonical_grid import (
     CELL_ID_MAX_ROW,
     CELL_ID_STRIDE,
     DEFAULT_BLOCK_ROWS,
+    INDEX_MAX,
     SNAP_UNIT_M,
     CanonicalGridSpec,
     build_canonical_grid,
+    is_supported_resolution,
     iter_cell_blocks,
     make_cell_id,
     parse_arguments,
@@ -202,6 +205,36 @@ def test_build_canonical_grid_col_overflow_raises() -> None:
     """
     with pytest.raises(ValueError, match="採番範囲に収まりません"):
         build_canonical_grid(BBox(11.70e6, 2.30e6, 11.71e6, 2.31e6), ANALYSIS_CRS, res_m=10.0)
+
+
+def test_build_canonical_grid_index_dtype_overflow_raises() -> None:
+    """row / col 列の dtype に収まらないインデックスはValueErrorになる。
+
+    make_cell_id() が許す上限（int64基準）より狭いため、採番は通るのに
+    属性列だけが黙って折り返す範囲が生じる。
+    """
+    # res=10m で row が int32 上限（約21.5億）を超える座標範囲。
+    huge_y = (INDEX_MAX + 1000) * 10.0
+    with pytest.raises(ValueError, match="row / col 列の上限"):
+        build_canonical_grid(BBox(0.0, huge_y, 900.0, huge_y + 900.0), ANALYSIS_CRS, res_m=10.0)
+
+
+@pytest.mark.parametrize(
+    ("res_m", "expected"),
+    [
+        (10.0, True),
+        (30.0, True),
+        (90.0, True),
+        (300.0, True),
+        (900.0, True),
+        (40.0, False),
+        (0.0, False),
+        (-30.0, False),
+    ],
+)
+def test_is_supported_resolution(res_m: float, expected: bool) -> None:
+    """900mの約数のみを扱える解像度と判定する。"""
+    assert is_supported_resolution(res_m) is expected
 
 
 def test_build_canonical_grid_geographic_crs_raises() -> None:
@@ -623,6 +656,30 @@ def test_write_grid_layers_keeps_existing_output_on_invalid_scale(tmp_path: Path
     assert len(gpd.read_file(output_path, layer="grid_300m")) == 9
 
 
+def test_write_grid_layers_warns_when_parent_layers_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """30mだけを出力すると、参照先の無い parent_id になる旨を警告する。"""
+    output_path = tmp_path / "grid_test.gpkg"
+
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30], block_rows=7)
+
+    message = capsys.readouterr().out
+    assert "警告" in message
+    assert "grid_90m" in message and "grid_300m" in message
+
+
+def test_write_grid_layers_no_warning_with_all_scales(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """親スケールを併せて出力する場合は警告しない。"""
+    output_path = tmp_path / "grid_test.gpkg"
+
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[30, 90, 300], block_rows=7)
+
+    assert "警告" not in capsys.readouterr().out
+
+
 def test_write_grid_layers_empty_scales_raises(tmp_path: Path) -> None:
     """スケールが空の場合はValueErrorになる。"""
     with pytest.raises(ValueError, match="scales には"):
@@ -713,6 +770,21 @@ def test_parse_arguments_rejects_non_positive_scale(monkeypatch: pytest.MonkeyPa
         _parse(monkeypatch, "--scales", "30", "0")
 
 
+def test_parse_arguments_rejects_non_divisor_scale(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """900mの約数でないスケールは、CLIの段階で parser.error で終了する。
+
+    build_canonical_grid() まで進むとトレースバックになり、他の引数と扱いが揃わない。
+    """
+    with pytest.raises(SystemExit):
+        _parse(monkeypatch, "--scales", "30", "40")
+
+    message = capsys.readouterr().err
+    assert "--scales" in message
+    assert "40" in message
+
+
 def test_parse_arguments_rejects_non_positive_block_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     """0以下の --block-rows は parser.error で終了する（SystemExit）。"""
     with pytest.raises(SystemExit):
@@ -788,6 +860,39 @@ def test_prepare_mask_geometries_repairs_invalid() -> None:
 
     assert len(prepared) == 1
     assert all(geometry.is_valid for geometry in prepared)
+
+
+def test_prepare_mask_geometries_drops_zero_area_remnants() -> None:
+    """修復で残る面積ゼロの部分（線分）を落とす。
+
+    スパイク状のはみ出しを持つポリゴンは GeometryCollection へ修復され、
+    面積ゼロの線分が残る。線分もセルと交差するため、そのまま使うと実データが
+    まったく無いセルまでマスクに入る。
+    """
+    spiked = wkt.loads("POLYGON((10 10, 290 10, 290 290, 10 290, 10 10, 800 800, 10 10))")
+    assert not spiked.is_valid
+
+    prepared = prepare_mask_geometries(gpd.GeoSeries([spiked], crs=ANALYSIS_CRS))
+
+    assert len(prepared) == 1
+    assert prepared[0].geom_type in ("Polygon", "MultiPolygon")
+    # 線分の残骸が落ちていれば、面積は元のポリゴン部分と一致する。
+    assert prepared[0].area == pytest.approx(280.0 * 280.0)
+
+
+def test_iter_cell_blocks_mask_excludes_cells_touched_only_by_remnants() -> None:
+    """面積ゼロの残骸だけが触れるセルはマスクに入らない（回帰テスト）。"""
+    grid_spec = build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0)
+    # スパイクが (800, 800) まで伸び、3x3セルの対角線上を貫く。
+    spiked = wkt.loads("POLYGON((10 10, 290 10, 290 290, 10 290, 10 10, 800 800, 10 10))")
+
+    prepared = prepare_mask_geometries(gpd.GeoSeries([spiked], crs=ANALYSIS_CRS))
+    cells = _collect_cells(grid_spec, mask_geometries=prepared)
+
+    # 面積を持つのは左下1セル分のみ。スパイクが貫くセルは含めない。
+    assert len(cells) == 1
+    assert cells["row"].tolist() == [0]
+    assert cells["col"].tolist() == [0]
 
 
 def test_prepare_mask_geometries_keeps_valid_unchanged() -> None:

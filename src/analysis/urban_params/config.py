@@ -7,7 +7,7 @@ from typing import Any
 from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再エクスポート
 
 # 衛星指標ラスタのバンド説明として検出対象とするキー一覧。
-RASTER_KEYS = ("NDVI", "NDBI", "NDWI", "FVC")
+RASTER_KEYS = ("NDVI", "NDBI", "NDWI")
 
 CITY_CONFIG: dict[str, dict[str, Any]] = {
     "hanoi": {
@@ -48,6 +48,9 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 "layer": "elements",
                 "crs_epsg": 5897,
             },
+            # 現在どのシナリオからも参照していない。水域パラメータ（水域被覆率・
+            # 水域近接距離）の採否が保留であり、採用時に full シナリオの参照先と
+            # なるため、データカタログとして残置している。
             "th": {
                 "path": "整備データ/merge/merge_TH.gpkg",
                 "layer": "elements",
@@ -80,12 +83,13 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
 
 # シナリオごとの入力キー。ベクタレイヤ（``layers`` のキー）とラスタ（``rasters`` の
 # キー）の両方を含むため、"LAYER" ではなく "INPUT" と呼ぶ。
+# ``green``（植生）は説明変数として採用済みだが算出方法が未確定であり、run.py は
+# まだ参照しない。算出方法の確定後に参照を追加するため、キーを残置している。
 SCENARIO_INPUT_KEYS: dict[str, dict[str, str | None]] = {
     "satellite_only": {
         "default_mask": "roi",
         "buildings": None,
         "roads": None,
-        "water": None,
         "green": None,
         "elevation_raster": None,
         "data_source": "satellite",
@@ -94,7 +98,6 @@ SCENARIO_INPUT_KEYS: dict[str, dict[str, str | None]] = {
         "default_mask": "roi",
         "buildings": "open_buildings",
         "roads": "open_roads",
-        "water": None,
         "green": None,
         "elevation_raster": "fabdem",
         "data_source": "open_gis",
@@ -103,7 +106,6 @@ SCENARIO_INPUT_KEYS: dict[str, dict[str, str | None]] = {
         "default_mask": "rg",
         "buildings": "dc",
         "roads": "gt",
-        "water": "th",
         "green": "tv",
         "elevation_raster": None,
         "data_source": "survey_gis",

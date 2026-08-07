@@ -329,7 +329,7 @@ def read_layer_dataframe(
 def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:
     """衛星指標ラスタとバンド番号を自動検出する。
 
-    バンドの説明（description）に ``NDVI``/``NDBI``/``NDWI``/``FVC`` のいずれかが
+    バンドの説明（description）に ``NDVI``/``NDBI``/``NDWI`` のいずれかが
     含まれていればそのバンドを採用する。説明から特定できない指標は、
     ファイル名に指標名が含まれていればバンド1を採用する。
 

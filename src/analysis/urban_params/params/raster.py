@@ -1,4 +1,4 @@
-"""衛星指標ラスタ（NDVI/NDBI/NDWI/FVC）をグリッドへ集約するモジュール。"""
+"""衛星指標ラスタ（NDVI/NDBI/NDWI）をグリッドへ集約するモジュール。"""
 
 from __future__ import annotations
 
@@ -219,7 +219,7 @@ def compute(
 
     Args:
         raster_resources: ``io.find_satellite_rasters`` で検出した
-            指標名（NDVI/NDBI/NDWI/FVC）からラスタパスとバンド番号への辞書。
+            指標名（NDVI/NDBI/NDWI）からラスタパスとバンド番号への辞書。
         grid_spec: 集約先のグリッド仕様。
 
     Returns:

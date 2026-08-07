@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+import argparse
+import sys
 from pathlib import Path
 
 import fiona
@@ -25,11 +27,14 @@ from shapely.geometry import Polygon
 from src.analysis.urban_params.canonical_grid import (
     CELL_ID_MAX_ROW,
     CELL_ID_STRIDE,
+    DEFAULT_BLOCK_ROWS,
     SNAP_UNIT_M,
     CanonicalGridSpec,
     build_canonical_grid,
     iter_cell_blocks,
     make_cell_id,
+    parse_arguments,
+    prepare_mask_geometries,
     resolve_output_path,
     snap_origin,
     split_cell_id,
@@ -296,6 +301,24 @@ def test_split_cell_id_negative_raises() -> None:
     """負の cell_id はValueErrorになる（make_cell_id は生成しないため）。"""
     with pytest.raises(ValueError, match="cell_id は"):
         split_cell_id(-1)
+
+
+def test_split_cell_id_float_raises() -> None:
+    """小数の cell_id はValueErrorになる（make_cell_id と対称にするため）。"""
+    with pytest.raises(ValueError, match="整数で指定してください"):
+        split_cell_id(1.9)
+
+
+def test_cell_id_accepts_empty_arrays() -> None:
+    """空配列は整数チェックで弾かず、空の結果を返す。
+
+    np.asarray([]) の dtype は float64 になるが、要素が無いため切り捨ては起きない。
+    """
+    cell_ids = make_cell_id(np.array([]), np.array([]))
+    rows, cols = split_cell_id(np.array([]))
+
+    assert cell_ids.size == 0
+    assert rows.size == 0 and cols.size == 0
 
 
 # --- iter_cell_blocks（セルポリゴン生成） --------------------------------
@@ -565,6 +588,47 @@ def test_write_grid_layers_empty_mask_raises(tmp_path: Path) -> None:
         )
 
 
+def test_write_grid_layers_validates_all_scales_before_writing(tmp_path: Path) -> None:
+    """不正なスケールが後ろにあっても、1レイヤも書き出さずに停止する。
+
+    スケールごとに構築しながら書き出すと、手前のレイヤを書き終えてから失敗する。
+    """
+    output_path = tmp_path / "grid_test.gpkg"
+
+    with pytest.raises(ValueError, match="約数"):
+        write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300, 40], block_rows=7)
+
+    assert not output_path.exists()
+
+
+def test_write_grid_layers_keeps_existing_output_on_invalid_scale(tmp_path: Path) -> None:
+    """不正なスケールでは overwrite 指定でも既存の出力を消さない（回帰テスト）。
+
+    検証より先にファイルを削除すると、正しい既存出力を失ったうえに
+    半端なファイルだけが残る。
+    """
+    output_path = tmp_path / "grid_test.gpkg"
+    write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, output_path, scales=[300], block_rows=7)
+
+    with pytest.raises(ValueError, match="約数"):
+        write_grid_layers(
+            NESTED_BBOX,
+            ANALYSIS_CRS,
+            output_path,
+            scales=[300, 40],
+            block_rows=7,
+            overwrite=True,
+        )
+
+    assert len(gpd.read_file(output_path, layer="grid_300m")) == 9
+
+
+def test_write_grid_layers_empty_scales_raises(tmp_path: Path) -> None:
+    """スケールが空の場合はValueErrorになる。"""
+    with pytest.raises(ValueError, match="scales には"):
+        write_grid_layers(NESTED_BBOX, ANALYSIS_CRS, tmp_path / "grid_test.gpkg", scales=[])
+
+
 def test_write_grid_layers_creates_parent_directory(tmp_path: Path) -> None:
     """出力先の親ディレクトリが存在しない場合は作成する。"""
     output_path = tmp_path / "nested" / "dir" / "grid_test.gpkg"
@@ -613,3 +677,135 @@ def test_resolve_output_path_absolute_is_kept(tmp_path: Path) -> None:
     absolute_path = tmp_path / "custom.gpkg"
 
     assert resolve_output_path(str(absolute_path), "hanoi") == absolute_path
+
+
+# --- parse_arguments -----------------------------------------------------
+
+
+def _parse(monkeypatch: pytest.MonkeyPatch, *arguments: str) -> argparse.Namespace:
+    """CLI引数を差し替えて parse_arguments() を実行する（テスト用）。"""
+    monkeypatch.setattr(sys, "argv", ["canonical_grid", *arguments])
+    return parse_arguments()
+
+
+def test_parse_arguments_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """既定値が仕様どおりに設定される。"""
+    args = _parse(monkeypatch)
+
+    assert args.city == "hanoi"
+    assert args.scales == [30, 90, 300]
+    assert args.extent == "mask"
+    assert args.mask_layer_key == "roi"
+    assert args.block_rows == DEFAULT_BLOCK_ROWS
+    assert args.overwrite is False
+
+
+def test_parse_arguments_normalizes_scales(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--scales は重複を除いて昇順に正規化される。"""
+    args = _parse(monkeypatch, "--scales", "300", "30", "300", "90")
+
+    assert args.scales == [30, 90, 300]
+
+
+def test_parse_arguments_rejects_non_positive_scale(monkeypatch: pytest.MonkeyPatch) -> None:
+    """0以下のスケールは parser.error で終了する（SystemExit）。"""
+    with pytest.raises(SystemExit):
+        _parse(monkeypatch, "--scales", "30", "0")
+
+
+def test_parse_arguments_rejects_non_positive_block_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """0以下の --block-rows は parser.error で終了する（SystemExit）。"""
+    with pytest.raises(SystemExit):
+        _parse(monkeypatch, "--block-rows", "0")
+
+
+def test_parse_arguments_accepts_configured_mask_layer_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """都市設定に実在するレイヤキーは受け付ける。"""
+    args = _parse(monkeypatch, "--mask-layer-key", "cs")
+
+    assert args.mask_layer_key == "cs"
+
+
+def test_parse_arguments_rejects_unknown_mask_layer_key(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """都市設定に無いレイヤキーは、候補を示して parser.error で終了する。
+
+    読み込み時まで進むとトレースバックになり、有効な候補も示されないため。
+    """
+    with pytest.raises(SystemExit):
+        _parse(monkeypatch, "--mask-layer-key", "unknown_layer")
+
+    message = capsys.readouterr().err
+    assert "--mask-layer-key" in message
+    # 候補は CITY_CONFIG から導くため、設定に実在するキーが列挙される。
+    assert "roi" in message
+
+
+# --- prepare_mask_geometries ---------------------------------------------
+
+
+def test_prepare_mask_geometries_drops_null() -> None:
+    """NULLジオメトリを除外する。"""
+    square = Polygon([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+    geometries = gpd.GeoSeries([square, None], crs=ANALYSIS_CRS)
+
+    prepared = prepare_mask_geometries(geometries)
+
+    assert len(prepared) == 1
+
+
+def test_prepare_mask_geometries_reports_dropped_count(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """除外が起きた場合は件数を報告する（有効域が黙って縮むのを避ける）。"""
+    square = Polygon([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+    geometries = gpd.GeoSeries([square, None, None], crs=ANALYSIS_CRS)
+
+    prepare_mask_geometries(geometries)
+
+    assert "2 件除外" in capsys.readouterr().out
+
+
+def test_prepare_mask_geometries_is_quiet_without_drops(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """除外も修復も無い場合は何も報告しない。"""
+    square = Polygon([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+
+    prepare_mask_geometries(gpd.GeoSeries([square], crs=ANALYSIS_CRS))
+
+    assert capsys.readouterr().out == ""
+
+
+def test_prepare_mask_geometries_repairs_invalid() -> None:
+    """自己交差ポリゴンを make_valid で修復し、交差判定に使える状態にする。"""
+    # 8の字型（自己交差）のリング。is_valid が偽になる。
+    bowtie = Polygon([(0.0, 0.0), (10.0, 10.0), (10.0, 0.0), (0.0, 10.0)])
+    assert not bowtie.is_valid
+
+    prepared = prepare_mask_geometries(gpd.GeoSeries([bowtie], crs=ANALYSIS_CRS))
+
+    assert len(prepared) == 1
+    assert all(geometry.is_valid for geometry in prepared)
+
+
+def test_prepare_mask_geometries_keeps_valid_unchanged() -> None:
+    """妥当なジオメトリはそのまま返す。"""
+    square = Polygon([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+
+    prepared = prepare_mask_geometries(gpd.GeoSeries([square], crs=ANALYSIS_CRS))
+
+    assert len(prepared) == 1
+    assert prepared[0].equals(square)
+
+
+def test_iter_cell_blocks_accepts_repaired_mask() -> None:
+    """修復済みの不正ジオメトリでマスク判定が成立する。"""
+    grid_spec = build_canonical_grid(NESTED_BBOX, ANALYSIS_CRS, res_m=300.0)
+    bowtie = Polygon([(10.0, 10.0), (290.0, 290.0), (290.0, 10.0), (10.0, 290.0)])
+
+    prepared = prepare_mask_geometries(gpd.GeoSeries([bowtie], crs=ANALYSIS_CRS))
+    cells = _collect_cells(grid_spec, mask_geometries=prepared)
+
+    assert len(cells) == 1

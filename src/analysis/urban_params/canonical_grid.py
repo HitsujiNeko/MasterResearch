@@ -193,6 +193,7 @@ def build_canonical_grid(
     # 採番できないインデックスは仕様構築の時点で弾く。セル生成まで進んでから
     # make_cell_id() で落ちると、原因が「解析CRSと解像度の組合せ」にあることを
     # 読み取りにくいためである。判定は make_cell_id() に委ね、範囲の定義を二重に持たない。
+    # row / col の制約は軸ごとに独立で範囲も単調なため、両端の2点で必要十分である。
     try:
         make_cell_id(row_min, col_min)
         make_cell_id(row_max, col_max)
@@ -249,8 +250,9 @@ def make_cell_id(row: int | np.ndarray, col: int | np.ndarray) -> int | np.ndarr
     col_array = np.asarray(col)
 
     # 浮動小数点数は int64 への変換で黙って切り捨てられ、誤った cell_id を
-    # 例外なしで返してしまうため、型の時点で弾く。
-    if not (
+    # 例外なしで返してしまうため、型の時点で弾く。ただし空配列は要素が無く
+    # 切り捨ても起きないため通す（np.asarray([]) の dtype は float64 になる）。
+    if (row_array.size > 0 or col_array.size > 0) and not (
         np.issubdtype(row_array.dtype, np.integer) and np.issubdtype(col_array.dtype, np.integer)
     ):
         raise ValueError("row と col は整数で指定してください（小数は切り捨てられるため）。")
@@ -285,10 +287,16 @@ def split_cell_id(cell_id: int | np.ndarray) -> tuple[int, int] | tuple[np.ndarr
         それ以外は ``int64`` のNumPy配列の組。
 
     Raises:
-        ValueError: ``cell_id`` が0未満の場合。``make_cell_id()`` は非負の
-            ``cell_id`` しか生成しないため、負値は入力の誤りを意味する。
+        ValueError: ``cell_id`` が整数でない場合（小数は切り捨てられるため）、
+            または0未満の場合。``make_cell_id()`` は非負の整数 ``cell_id`` しか
+            生成しないため、いずれも入力の誤りを意味する。
     """
-    cell_id_array = np.asarray(cell_id, dtype=np.int64)
+    cell_id_array = np.asarray(cell_id)
+    # make_cell_id() と同じ理由で小数を弾き、逆変換として非対称にならないようにする。
+    if cell_id_array.size > 0 and not np.issubdtype(cell_id_array.dtype, np.integer):
+        raise ValueError("cell_id は整数で指定してください（小数は切り捨てられるため）。")
+
+    cell_id_array = cell_id_array.astype(np.int64)
     if np.any(cell_id_array < 0):
         raise ValueError("cell_id は 0 以上である必要があります。")
     row = cell_id_array // CELL_ID_STRIDE
@@ -403,12 +411,18 @@ def iter_cell_blocks(
     負荷が大きい。行を ``block_rows`` 件ずつに区切って生成・マスク判定し、
     呼び出し側が逐次書き出せるようにする。
 
+    **区切るのは行だけで、列は常に全幅を展開する。** したがって1ブロックのセル数は
+    ``block_rows * grid_spec.n_cols`` であり、メモリ使用量は解析範囲の東西幅に
+    比例する。既定値は東西幅の広い範囲や細かい解像度では大きくなりすぎるため、
+    範囲を変えるときは実測しながら ``block_rows`` を調整する
+    （ハノイROI・30mでは ``n_cols`` が約2,551で、既定500だと1ブロック約128万セル）。
+
     マスクを適用すると**空のブロックが生じうる**。ブロック数を ``block_rows`` と
     行数のみから決まる予測可能な値に保つため、空ブロックもそのまま返す。
 
     Args:
         grid_spec: 正準グリッドの仕様。
-        block_rows: 1ブロックあたりの行数。
+        block_rows: 1ブロックあたりの行数（セル数ではない。上記参照）。
         mask_geometries: マスクポリゴンの配列（``grid_spec.analysis_crs`` 上）。
             ``None`` の場合はBBox全体のセルを返す。
 
@@ -446,23 +460,46 @@ def write_grid_layers(
     追記モードのまま再実行すると既存レイヤに行が積み増しされ ``cell_id`` の
     一意性が壊れるため、既存ファイルへの上書きは ``overwrite`` の明示を必須とする。
 
+    **全スケールの仕様を構築し終えてからファイルへ触れる。** スケールごとに
+    構築しながら書き出すと、不正なスケールが後ろにあった場合に手前のレイヤを
+    書き終えてから失敗し、``overwrite`` 指定時は既存の正しい出力を消した後に
+    半端なファイルだけが残る。``build_canonical_grid()`` は安価な純関数のため、
+    先に全件を構築して検証を前倒しできる。
+
     Args:
         bbox_analysis: 出力対象のインデックス範囲を決める解析範囲BBox。
         analysis_crs: 解析用CRS（投影座標系）。
         output_path: 出力先のGeoPackageパス。
         scales: 出力するスケール（m）の一覧。レイヤ名は ``grid_{scale}m``。
         mask_geometries: マスクポリゴンの配列。``None`` の場合はBBox全体を出力する。
-        block_rows: 1ブロックあたりの行数。
+        block_rows: 1ブロックあたりの行数（セル数ではない。
+            ``iter_cell_blocks()`` の説明を参照）。
         overwrite: ``True`` の場合、既存の出力ファイルを削除して作り直す。
 
     Returns:
         レイヤ名から書き出したセル数への辞書。
 
     Raises:
-        FileExistsError: 出力ファイルが既に存在し ``overwrite`` が ``False`` の場合。
-        ValueError: いずれかのスケールで書き出すセルが1件も無い場合
+        ValueError: いずれかのスケールでグリッド仕様を構築できない場合、
+            ``scales`` が空の場合、または書き出すセルが1件も無い場合
             （マスクとBBoxのCRSが食い違っている等、設定ミスの可能性が高いため）。
+        FileExistsError: 出力ファイルが既に存在し ``overwrite`` が ``False`` の場合。
     """
+    if not scales:
+        raise ValueError("scales には少なくとも1つのスケールを指定してください。")
+
+    # ファイルへ触れる前に全スケールを構築し、不正なスケールをここで検出する。
+    grid_specs = {
+        f"grid_{scale}m": build_canonical_grid(bbox_analysis, analysis_crs, float(scale))
+        for scale in scales
+    }
+    for layer_name, grid_spec in grid_specs.items():
+        print(
+            f"[{layer_name}] 対象範囲: row {grid_spec.row_min}-{grid_spec.row_max} / "
+            f"col {grid_spec.col_min}-{grid_spec.col_max}（最大 {grid_spec.n_cells:,} セル）",
+            flush=True,
+        )
+
     if output_path.exists():
         if not overwrite:
             raise FileExistsError(
@@ -473,14 +510,7 @@ def write_grid_layers(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     cell_counts: dict[str, int] = {}
-    for scale in scales:
-        grid_spec = build_canonical_grid(bbox_analysis, analysis_crs, float(scale))
-        layer_name = f"grid_{scale}m"
-        print(
-            f"[{layer_name}] 対象範囲: row {grid_spec.row_min}-{grid_spec.row_max} / "
-            f"col {grid_spec.col_min}-{grid_spec.col_max}（最大 {grid_spec.n_cells:,} セル）"
-        )
-
+    for layer_name, grid_spec in grid_specs.items():
         written = 0
         for block_index, cells in enumerate(
             iter_cell_blocks(grid_spec, block_rows, mask_geometries), start=1
@@ -536,11 +566,14 @@ def parse_arguments() -> argparse.Namespace:
         choices=["mask", "bbox"],
         help="mask: 解析範囲ポリゴンと交差するセルのみ出力する。bbox: BBox全体を出力する。",
     )
+    # 有効な値は都市ごとに異なり、--city の解釈後でないと決まらないため
+    # choices では列挙できない。候補はハードコードせず CITY_CONFIG から導き、
+    # 解釈後に検証する（下部参照）。
     parser.add_argument(
         "--mask-layer-key",
         default="roi",
-        choices=["roi", "rg", "cs"],
-        help="解析範囲の基準レイヤ。BBoxと（--extent mask 時の）マスクの両方に使う。",
+        help="解析範囲の基準レイヤ。CITY_CONFIG の layers のキーを指定する"
+        "（例: roi / rg / cs）。BBoxと（--extent mask 時の）マスクの両方に使う。",
     )
     parser.add_argument(
         "--output",
@@ -552,7 +585,8 @@ def parse_arguments() -> argparse.Namespace:
         "--block-rows",
         type=int,
         default=DEFAULT_BLOCK_ROWS,
-        help="1ブロックあたりの行数。小さくするとメモリ使用量が減る。",
+        help="1ブロックあたりの行数（セル数ではない）。1ブロックのセル数は"
+        " 行数×列数となり、列数は解析範囲の東西幅で決まる。小さくするとメモリ使用量が減る。",
     )
     parser.add_argument(
         "--overwrite",
@@ -565,6 +599,16 @@ def parse_arguments() -> argparse.Namespace:
         parser.error("--scales には正の整数のみ指定してください。")
     if args.block_rows <= 0:
         parser.error("--block-rows には正の整数を指定してください。")
+
+    # 候補は都市設定から導く。読み込み時にも実在確認は行われるが、そこまで進むと
+    # トレースバックになり有効な候補も示されないため、CLIの段階で弾く。
+    layer_keys = list(CITY_CONFIG[args.city]["layers"])
+    if args.mask_layer_key not in layer_keys:
+        parser.error(
+            f"--mask-layer-key には {args.city} の layers のキーを指定してください"
+            f"（指定値: {args.mask_layer_key} / 候補: {', '.join(layer_keys)}）"
+        )
+
     args.scales = sorted(dict.fromkeys(args.scales))
     return args
 
@@ -586,6 +630,44 @@ def resolve_output_path(output_argument: str, city: str) -> Path:
     if not output_path.is_absolute():
         output_path = PROJECT_ROOT / output_path
     return output_path
+
+
+def prepare_mask_geometries(geometries: gpd.GeoSeries) -> np.ndarray:
+    """マスクポリゴンを交差判定に使える状態へ整える。
+
+    NULLジオメトリを除き、不正ジオメトリは ``make_valid()`` で修復する。
+    自己交差などの不正ポリゴンは交差判定で例外になりうるためである。ROIは整備済み
+    だが、測量GIS（RG / CS）を基準レイヤに指定する経路では起こりうる。設計正本の
+    「不正ジオメトリは make_valid を試行し、失敗時はスキップ」に従う。
+
+    除外が発生した場合は件数を標準出力へ報告する。マスクが減れば解析範囲もその分
+    狭まるため、有効域が黙って縮むのを避ける。
+
+    Args:
+        geometries: マスクレイヤのジオメトリ（解析用CRSへ投影済み）。
+
+    Returns:
+        交差判定に使えるジオメトリの配列。NULLと、修復しても空になったものは除く。
+    """
+    input_count = len(geometries)
+    usable = geometries[geometries.notna()]
+
+    invalid_count = int((~usable.is_valid).sum())
+    if invalid_count > 0:
+        # 既に妥当なジオメトリに対しては make_valid() は実質的な変更を加えない。
+        usable = usable.make_valid()
+        print(f"不正なマスクジオメトリを修復しました: {invalid_count} 件", flush=True)
+
+    usable = usable[usable.notna() & ~usable.is_empty]
+
+    dropped_count = input_count - len(usable)
+    if dropped_count > 0:
+        print(
+            f"マスクジオメトリを {dropped_count} 件除外しました"
+            f"（NULLまたは修復不能。入力 {input_count} 件）。解析範囲がその分狭まります。",
+            flush=True,
+        )
+    return usable.to_numpy()
 
 
 def main() -> None:
@@ -618,8 +700,7 @@ def main() -> None:
     if args.extent == "mask":
         # 属性列は判定に使わないため、ジオメトリのみ読み込む。
         mask_gdf = read_layer_dataframe(mask_resource, columns=[])
-        mask_gdf = mask_gdf[mask_gdf.geometry.notna()]
-        mask_geometries = mask_gdf.geometry.to_numpy()
+        mask_geometries = prepare_mask_geometries(mask_gdf.geometry)
         print("マスクポリゴン数:", len(mask_geometries))
 
     output_path = resolve_output_path(args.output, args.city)

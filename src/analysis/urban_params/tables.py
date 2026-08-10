@@ -32,9 +32,9 @@ import pandas as pd
 import pyogrio
 
 from src.common.geo_metadata import BBox
-from src.common.geopackage import remove_geopackage, remove_sidecar_files
+from src.common.geopackage import remove_geopackage, replace_geopackage
 
-from .canonical_grid import CanonicalGridSpec, make_cell_id, split_cell_id
+from .canonical_grid import CanonicalGridSpec, split_cell_id
 from .grid import GridSpec, build_grid
 
 # パラメータテーブルのキー列。パラメータの列名として使うことはできない。
@@ -100,24 +100,6 @@ def build_aligned_grid(canonical_spec: CanonicalGridSpec, fine_res_m: float) -> 
             " 解析範囲・解像度・補助解像度の組合せを確認してください。"
         )
     return grid_spec
-
-
-def cell_id_array(canonical_spec: CanonicalGridSpec) -> np.ndarray:
-    """coarse配列の添字順に並んだ ``cell_id`` の2次元配列を返す。
-
-    先頭行（添字0）が最も北の行（``row_max``）に対応する。ラスタの慣習に合わせた
-    並びであり、正準グリッドの北向き ``row`` とは向きが逆である点に注意する。
-
-    Args:
-        canonical_spec: 正準グリッドの仕様。
-
-    Returns:
-        形状 ``(n_rows, n_cols)`` の ``int64`` 配列。
-    """
-    row_indices = canonical_spec.row_max - np.arange(canonical_spec.n_rows, dtype=np.int64)
-    col_indices = canonical_spec.col_min + np.arange(canonical_spec.n_cols, dtype=np.int64)
-    col_grid, row_grid = np.meshgrid(col_indices, row_indices)
-    return np.asarray(make_cell_id(row_grid, col_grid))
 
 
 def read_grid_cell_ids(grid_path: Path, layer_name: str) -> np.ndarray:
@@ -262,10 +244,24 @@ def write_param_table(table: pd.DataFrame, output_path: Path, layer_name: str) -
     既存の出力を失わない保護は一時ファイル経由で担保する。
 
     Args:
-        table: 出力するテーブル（``cell_id`` 列を含む）。
+        table: 出力するテーブル。結合キーとなる ``cell_id`` 列を含む必要がある。
         output_path: 出力先のGeoPackageパス。
         layer_name: 書き出すレイヤ名。パラメータセット名と一致させる。
+
+    Raises:
+        ValueError: ``table`` が ``cell_id`` 列を持たない場合。
+        OSError: 出力先への差し替えに失敗した場合（出力先が他のアプリケーションで
+            開かれている等）。
     """
+    # 通常は build_param_table() の戻り値を渡すためキー列は保証されるが、公開関数
+    # として単独でも呼べる。キーの無いテーブルは結合できず、出力してから気づくと
+    # 再計算が必要になるため、書き出す前に弾く。
+    if CELL_ID_COLUMN not in table.columns:
+        raise ValueError(
+            f"テーブルにキー列 {CELL_ID_COLUMN} がありません"
+            f"（列: {', '.join(str(name) for name in table.columns)}）。"
+        )
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 拡張子は出力先と揃える（ドライバの判定を拡張子に依存させないため）。
@@ -279,7 +275,4 @@ def write_param_table(table: pd.DataFrame, output_path: Path, layer_name: str) -
         remove_geopackage(temp_path)
         raise
 
-    # 置換前に、出力先に残っている古い付随ファイルを消す。本体だけを差し替えると
-    # 別のデータベースの -wal / -shm が残った状態になるため。
-    remove_sidecar_files(output_path)
-    temp_path.replace(output_path)
+    replace_geopackage(temp_path, output_path)

@@ -1,6 +1,7 @@
 earthengine-api
 geopandas
 fiona
+pyogrio
 pyproj
 shapely
 pandas

@@ -112,9 +112,29 @@ def test_build_aligned_grid_rejects_incompatible_fine_res(canonical_spec) -> Non
         tables.build_aligned_grid(canonical_spec, 30.0)
 
 
-def test_cell_id_array_first_row_is_northmost(canonical_spec) -> None:
-    """配列の先頭行が row_max（最も北）、末尾行が row_min に対応する。"""
-    cell_ids = tables.cell_id_array(canonical_spec)
+def _cell_id_array(canonical_spec) -> np.ndarray:
+    """coarse配列の添字順に並んだ ``cell_id`` の2次元配列を組み立てる。
+
+    本番コード（``build_param_table()``）が ``cell_id`` から添字を**逆算**するのに
+    対し、こちらは添字から ``cell_id`` を**順方向**に組み立てる独立実装である。
+    両者を突き合わせることで、正準グリッドの北向き ``row`` とラスタ慣習の
+    south-up な行添字の反転が正しいことを検証できる。
+
+    Args:
+        canonical_spec: 正準グリッドの仕様。
+
+    Returns:
+        形状 ``(n_rows, n_cols)`` の ``int64`` 配列。先頭行が最も北（``row_max``）。
+    """
+    row_indices = canonical_spec.row_max - np.arange(canonical_spec.n_rows, dtype=np.int64)
+    col_indices = canonical_spec.col_min + np.arange(canonical_spec.n_cols, dtype=np.int64)
+    col_grid, row_grid = np.meshgrid(col_indices, row_indices)
+    return np.asarray(make_cell_id(row_grid, col_grid))
+
+
+def test_cell_id_helper_matches_canonical_index_convention(canonical_spec) -> None:
+    """検証用ヘルパの並びが正準インデックスの規約と一致する（期待値側の健全性確認）。"""
+    cell_ids = _cell_id_array(canonical_spec)
 
     assert cell_ids.shape == (canonical_spec.n_rows, canonical_spec.n_cols)
     assert cell_ids[0, 0] == make_cell_id(canonical_spec.row_max, canonical_spec.col_min)
@@ -122,18 +142,33 @@ def test_cell_id_array_first_row_is_northmost(canonical_spec) -> None:
     # 行添字が増えると row は減り、列添字が増えると col は増える。
     assert cell_ids[1, 0] - cell_ids[0, 0] == -CELL_ID_STRIDE
     assert cell_ids[0, 1] - cell_ids[0, 0] == 1
-
-
-def test_cell_id_array_roundtrip_returns_original_indices(canonical_spec) -> None:
-    """添字 → cell_id → split_cell_id の往復で元の正準インデックスに戻る。"""
-    cell_ids = tables.cell_id_array(canonical_spec)
+    # split_cell_id() との往復で元の正準インデックスに戻る。
     rows, cols = split_cell_id(cell_ids)
-
     row_indices, col_indices = np.meshgrid(
         np.arange(canonical_spec.n_rows), np.arange(canonical_spec.n_cols), indexing="ij"
     )
     np.testing.assert_array_equal(rows, canonical_spec.row_max - row_indices)
     np.testing.assert_array_equal(cols, canonical_spec.col_min + col_indices)
+
+
+def test_build_param_table_reverses_row_direction(canonical_spec) -> None:
+    """北向き row と south-up な行添字の反転を、本番コードの経路で直接検証する。
+
+    ヘルパを介さず ``make_cell_id()`` で組み立てた両端の ``cell_id`` を渡し、
+    ``build_param_table()`` が最北のセルを配列の先頭行へ対応づけることを確かめる。
+    """
+    values = np.arange(canonical_spec.n_rows * canonical_spec.n_cols, dtype=np.float32).reshape(
+        canonical_spec.n_rows, canonical_spec.n_cols
+    )
+    northwest = make_cell_id(canonical_spec.row_max, canonical_spec.col_min)
+    southeast = make_cell_id(canonical_spec.row_min, canonical_spec.col_max)
+
+    table = tables.build_param_table(
+        {"BUILD_COV": values}, canonical_spec, np.array([northwest, southeast], dtype=np.int64)
+    )
+
+    # 最北西セルは添字 (0, 0)、最南東セルは添字 (n_rows-1, n_cols-1)。
+    assert table["BUILD_COV"].tolist() == [values[0, 0], values[-1, -1]]
 
 
 def _write_grid_layer(gpkg_path: Path, cell_ids: np.ndarray, layer_name: str) -> None:
@@ -152,7 +187,7 @@ def _write_grid_layer(gpkg_path: Path, cell_ids: np.ndarray, layer_name: str) ->
 def test_read_grid_cell_ids_preserves_stored_order(tmp_path: Path, canonical_spec) -> None:
     """レイヤの格納順のままint64配列として読み出す。"""
     gpkg_path = tmp_path / "grid.gpkg"
-    stored = tables.cell_id_array(canonical_spec).ravel()[[5, 0, 20, 11]]
+    stored = _cell_id_array(canonical_spec).ravel()[[5, 0, 20, 11]]
     _write_grid_layer(gpkg_path, stored, "grid_20m")
 
     cell_ids = tables.read_grid_cell_ids(gpkg_path, "grid_20m")
@@ -170,7 +205,7 @@ def test_read_grid_cell_ids_missing_file_raises(tmp_path: Path) -> None:
 def test_read_grid_cell_ids_missing_layer_lists_candidates(tmp_path: Path, canonical_spec) -> None:
     """レイヤ名が存在しない場合は候補つきのValueErrorになる。"""
     gpkg_path = tmp_path / "grid.gpkg"
-    _write_grid_layer(gpkg_path, tables.cell_id_array(canonical_spec).ravel()[:3], "grid_20m")
+    _write_grid_layer(gpkg_path, _cell_id_array(canonical_spec).ravel()[:3], "grid_20m")
 
     with pytest.raises(ValueError, match="grid_20m"):
         tables.read_grid_cell_ids(gpkg_path, "grid_30m")
@@ -202,7 +237,7 @@ def _sequential_columns(canonical_spec) -> dict[str, np.ndarray]:
 
 def test_build_param_table_selects_and_orders_by_cell_ids(canonical_spec) -> None:
     """指定した cell_id の行だけを、指定の順序で返す。"""
-    all_cell_ids = tables.cell_id_array(canonical_spec)
+    all_cell_ids = _cell_id_array(canonical_spec)
     columns = _sequential_columns(canonical_spec)
     # 添字 (0, 0) / (2, 3) / (5, 5) を、この順で取り出す。
     picked = np.array([all_cell_ids[0, 0], all_cell_ids[2, 3], all_cell_ids[5, 5]], dtype=np.int64)
@@ -225,7 +260,7 @@ def test_build_param_table_keeps_nan_values(canonical_spec) -> None:
     columns["BUILD_H_MEAN"] = np.full(
         (canonical_spec.n_rows, canonical_spec.n_cols), np.nan, dtype=np.float32
     )
-    cell_ids = tables.cell_id_array(canonical_spec).ravel()
+    cell_ids = _cell_id_array(canonical_spec).ravel()
 
     table = tables.build_param_table(columns, canonical_spec, cell_ids)
 
@@ -235,7 +270,7 @@ def test_build_param_table_keeps_nan_values(canonical_spec) -> None:
 def test_build_param_table_full_grid_matches_ravel_order(canonical_spec) -> None:
     """添字順の cell_id をすべて渡すと、配列の ravel 順と一致する。"""
     columns = _sequential_columns(canonical_spec)
-    cell_ids = tables.cell_id_array(canonical_spec).ravel()
+    cell_ids = _cell_id_array(canonical_spec).ravel()
 
     table = tables.build_param_table(columns, canonical_spec, cell_ids)
 
@@ -255,7 +290,7 @@ def test_build_param_table_rejects_out_of_range_cell_id(canonical_spec) -> None:
 def test_build_param_table_rejects_duplicated_cell_id(canonical_spec) -> None:
     """cell_id に重複があるとValueErrorになる。"""
     columns = _sequential_columns(canonical_spec)
-    cell_id = tables.cell_id_array(canonical_spec)[0, 0]
+    cell_id = _cell_id_array(canonical_spec)[0, 0]
 
     with pytest.raises(ValueError, match="重複"):
         tables.build_param_table(
@@ -269,7 +304,7 @@ def test_build_param_table_rejects_reserved_column_name(canonical_spec) -> None:
     columns[tables.CELL_ID_COLUMN] = np.zeros(
         (canonical_spec.n_rows, canonical_spec.n_cols), dtype=np.float32
     )
-    cell_ids = tables.cell_id_array(canonical_spec).ravel()
+    cell_ids = _cell_id_array(canonical_spec).ravel()
 
     with pytest.raises(ValueError, match="予約されています"):
         tables.build_param_table(columns, canonical_spec, cell_ids)
@@ -278,7 +313,7 @@ def test_build_param_table_rejects_reserved_column_name(canonical_spec) -> None:
 def test_build_param_table_rejects_shape_mismatch(canonical_spec) -> None:
     """列の形状が正準グリッドと一致しない場合はValueErrorになる。"""
     columns = {"BUILD_COV": np.zeros((canonical_spec.n_rows, canonical_spec.n_cols + 1))}
-    cell_ids = tables.cell_id_array(canonical_spec).ravel()
+    cell_ids = _cell_id_array(canonical_spec).ravel()
 
     with pytest.raises(ValueError, match="形状"):
         tables.build_param_table(columns, canonical_spec, cell_ids)
@@ -286,7 +321,7 @@ def test_build_param_table_rejects_shape_mismatch(canonical_spec) -> None:
 
 def test_build_param_table_rejects_empty_inputs(canonical_spec) -> None:
     """列が空の場合と cell_id が空の場合はいずれもValueErrorになる。"""
-    cell_ids = tables.cell_id_array(canonical_spec).ravel()
+    cell_ids = _cell_id_array(canonical_spec).ravel()
 
     with pytest.raises(ValueError, match="出力する列がありません"):
         tables.build_param_table({}, canonical_spec, cell_ids)
@@ -319,6 +354,17 @@ def test_write_param_table_creates_attribute_only_layer(tmp_path: Path) -> None:
     assert written["BUILD_H_MEAN"].isna().tolist() == [True, False]
     # 一時ファイルを残さない。
     assert not (output_path.parent / "build_gba.tmp.gpkg").exists()
+
+
+def test_write_param_table_requires_key_column(tmp_path: Path) -> None:
+    """キー列を持たないテーブルは、書き出す前にValueErrorで弾かれる。"""
+    output_path = tmp_path / "build_gba.gpkg"
+    table = pd.DataFrame({"BUILD_COV": np.array([0.25, 0.5], dtype=np.float32)})
+
+    with pytest.raises(ValueError, match="キー列"):
+        tables.write_param_table(table, output_path, "build_gba")
+
+    assert not output_path.exists()
 
 
 def test_write_param_table_rerun_does_not_append(tmp_path: Path) -> None:

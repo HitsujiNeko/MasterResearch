@@ -34,7 +34,7 @@ from pyproj import CRS, Transformer
 from shapely.geometry.base import BaseGeometry
 
 from src.common.geo_metadata import BBox
-from src.common.geopackage import remove_geopackage, remove_sidecar_files
+from src.common.geopackage import remove_geopackage, replace_geopackage
 
 from .config import CITY_CONFIG, PROJECT_ROOT
 from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
@@ -608,10 +608,7 @@ def write_grid_layers(
         remove_geopackage(temp_path)
         raise
 
-    # 置換前に、出力先に残っている古い付随ファイルを消す。本体だけを差し替えると
-    # 別のデータベースの -wal / -shm が残った状態になるため。
-    remove_sidecar_files(output_path)
-    temp_path.replace(output_path)
+    replace_geopackage(temp_path, output_path)
 
     return cell_counts
 

@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.common.geopackage import SIDECAR_SUFFIXES, remove_geopackage, remove_sidecar_files
+import pytest
+
+from src.common.geopackage import (
+    SIDECAR_SUFFIXES,
+    remove_geopackage,
+    remove_sidecar_files,
+    replace_geopackage,
+)
 
 
 def _create_geopackage_files(base_path: Path) -> None:
@@ -56,3 +63,57 @@ def test_remove_geopackage_keeps_unrelated_files(tmp_path: Path) -> None:
     remove_geopackage(gpkg_path)
 
     assert unrelated_path.exists()
+
+
+def test_replace_geopackage_swaps_content_and_clears_sidecars(tmp_path: Path) -> None:
+    """一時ファイルの内容で出力先を差し替え、出力先の古い付随ファイルを消す。"""
+    output_path = tmp_path / "output.gpkg"
+    _create_geopackage_files(output_path)
+    temp_path = tmp_path / "output.tmp.gpkg"
+    temp_path.write_text("new", encoding="utf-8")
+
+    replace_geopackage(temp_path, output_path)
+
+    assert output_path.read_text(encoding="utf-8") == "new"
+    assert not temp_path.exists()
+    assert not any(Path(f"{output_path}{suffix}").exists() for suffix in SIDECAR_SUFFIXES)
+
+
+def test_replace_geopackage_creates_output_when_absent(tmp_path: Path) -> None:
+    """出力先が存在しない場合も、そのまま新規作成として差し替えられる。"""
+    output_path = tmp_path / "output.gpkg"
+    temp_path = tmp_path / "output.tmp.gpkg"
+    temp_path.write_text("new", encoding="utf-8")
+
+    replace_geopackage(temp_path, output_path)
+
+    assert output_path.read_text(encoding="utf-8") == "new"
+
+
+def test_replace_geopackage_wraps_failure_with_japanese_message(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """差し替えに失敗した場合は、対処を示す日本語のOSErrorに包み直す。
+
+    Windowsで出力先をQGIS等が開いたままだと起きる状況を模す。素の
+    ``PermissionError`` では原因が読み取りにくいため、案内文と一時ファイルの
+    所在を添える。
+    """
+    output_path = tmp_path / "output.gpkg"
+    output_path.write_text("original", encoding="utf-8")
+    temp_path = tmp_path / "output.tmp.gpkg"
+    temp_path.write_text("new", encoding="utf-8")
+
+    def failing_replace(self: Path, target: object) -> None:
+        """他プロセスがファイルを開いている状況を模す。"""
+        raise PermissionError("使用中のファイルにアクセスできません")
+
+    monkeypatch.setattr(Path, "replace", failing_replace)
+
+    with pytest.raises(OSError, match="他のアプリケーションで開かれていないか") as error_info:
+        replace_geopackage(temp_path, output_path)
+
+    assert isinstance(error_info.value.__cause__, PermissionError)
+    # 既存の出力は失われず、書き出し済みの一時ファイルも回収できるよう残す。
+    assert output_path.read_text(encoding="utf-8") == "original"
+    assert temp_path.exists()

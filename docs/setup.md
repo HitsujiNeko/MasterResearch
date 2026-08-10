@@ -50,7 +50,7 @@ Conda が未初期化で `conda activate` が通らない場合は、Miniconda �
 最小限、次の import が通れば GIS 系の主要依存と分析系依存は読み込めている。
 
 ```powershell
-python -c "import ee, geopandas, fiona, rasterio, pyproj, shapely, pandas, numpy, scipy, sklearn, matplotlib, shap, requests, tqdm"
+python -c "import ee, geopandas, fiona, pyogrio, rasterio, pyproj, shapely, pandas, numpy, scipy, sklearn, matplotlib, shap, requests, tqdm"
 ```
 
 `ogr2ogr` は `environment.yml` の `gdal` に含まれる想定。次で確認する。

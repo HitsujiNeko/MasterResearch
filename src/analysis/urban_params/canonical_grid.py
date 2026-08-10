@@ -34,6 +34,7 @@ from pyproj import CRS, Transformer
 from shapely.geometry.base import BaseGeometry
 
 from src.common.geo_metadata import BBox
+from src.common.geopackage import remove_geopackage, remove_sidecar_files
 
 from .config import CITY_CONFIG, PROJECT_ROOT
 from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
@@ -483,20 +484,6 @@ def iter_cell_blocks(
         yield cells
 
 
-def _remove_geopackage(path: Path) -> None:
-    """GeoPackage本体とSQLiteの付随ファイルをまとめて削除する。
-
-    書き込み中に中断すると ``-wal`` / ``-shm`` / ``-journal`` が残ることがある。
-    本体だけを消すと、次に同名で作ったデータベースに古い付随ファイルが
-    残留した状態になるため、併せて片付ける。
-
-    Args:
-        path: 削除するGeoPackageのパス。存在しない場合は何もしない。
-    """
-    for suffix in ("", "-wal", "-shm", "-journal"):
-        Path(f"{path}{suffix}").unlink(missing_ok=True)
-
-
 def write_grid_layers(
     bbox_analysis: BBox,
     analysis_crs: CRS,
@@ -583,7 +570,7 @@ def write_grid_layers(
 
     # 拡張子は出力先と揃える（ドライバの判定を拡張子に依存させないため）。
     temp_path = output_path.with_name(f"{output_path.stem}.tmp{output_path.suffix}")
-    _remove_geopackage(temp_path)
+    remove_geopackage(temp_path)
 
     cell_counts: dict[str, int] = {}
     try:
@@ -618,13 +605,12 @@ def write_grid_layers(
             cell_counts[layer_name] = written
     except BaseException:
         # 中断（KeyboardInterrupt）も含めて書きかけを残さない。
-        _remove_geopackage(temp_path)
+        remove_geopackage(temp_path)
         raise
 
     # 置換前に、出力先に残っている古い付随ファイルを消す。本体だけを差し替えると
     # 別のデータベースの -wal / -shm が残った状態になるため。
-    for suffix in ("-wal", "-shm", "-journal"):
-        Path(f"{output_path}{suffix}").unlink(missing_ok=True)
+    remove_sidecar_files(output_path)
     temp_path.replace(output_path)
 
     return cell_counts

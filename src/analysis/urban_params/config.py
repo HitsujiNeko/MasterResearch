@@ -1,13 +1,55 @@
-"""都市・シナリオ別のレイヤ構成を定義するモジュール。"""
+"""都市・シナリオ別のレイヤ構成と出力レイアウトを定義するモジュール。"""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再エクスポート
 
 # 衛星指標ラスタのバンド説明として検出対象とするキー一覧。
 RASTER_KEYS = ("NDVI", "NDBI", "NDWI")
+
+# パラメータテーブルの既定の出力ルート（プロジェクトルートからの相対パス要素）。
+PARAMS_OUTPUT_PARTS = ("data", "output", "params")
+
+
+def grid_layer_name(scale: int) -> str:
+    """正準グリッドGeoPackage内のレイヤ名を返す。
+
+    命名は ``canonical_grid.write_grid_layers()`` が書き出すレイヤ名と揃える。
+
+    Args:
+        scale: coarseグリッド解像度（m）。
+
+    Returns:
+        レイヤ名（例: ``grid_30m``）。
+    """
+    return f"grid_{scale}m"
+
+
+def resolve_table_path(
+    city: str,
+    scale: int,
+    table_name: str,
+    base_dir: Path | None = None,
+) -> Path:
+    """パラメータテーブルの出力先パスを決める。
+
+    スケールは列名のサフィックスではなく**ディレクトリ階層**で表現する。
+
+    Args:
+        city: 都市ID（例: ``hanoi``）。
+        scale: coarseグリッド解像度（m）。
+        table_name: パラメータセット名（例: ``build_gba``）。ファイル名にも使う。
+        base_dir: 出力ルート。``None`` の場合は ``data/output/params`` を使う。
+
+    Returns:
+        ``{base_dir}/{city}/{scale}m/{table_name}.gpkg`` の絶対パス。
+    """
+    root = base_dir if base_dir is not None else PROJECT_ROOT.joinpath(*PARAMS_OUTPUT_PARTS)
+    return root / city / f"{scale}m" / f"{table_name}.gpkg"
+
 
 CITY_CONFIG: dict[str, dict[str, Any]] = {
     "hanoi": {

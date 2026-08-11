@@ -5,20 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import fiona
-import geopandas as gpd
 import numpy as np
 import pyogrio
 import pytest
 import rasterio
-import shapely
-from pyproj import CRS
 from rasterio.transform import from_origin
 
-from src.analysis.urban_params import canonical_grid as urban_params_canonical_grid
-from src.analysis.urban_params import config as urban_params_config
 from src.analysis.urban_params import io as urban_params_io
-from src.analysis.urban_params import run as urban_params_run
 from src.analysis.urban_params.canonical_grid import build_canonical_grid
 from src.analysis.urban_params.config import ParamSet
 from src.analysis.urban_params.run import (
@@ -32,15 +25,16 @@ from src.analysis.urban_params.run import (
 )
 from src.common.geo_metadata import BBox
 
-ANALYSIS_CRS = CRS.from_epsg(3857)
-ANALYSIS_EPSG = 3857
-# 900m の約数となるスケール（正準グリッドの制約）。fine=10m で factor は 2 と 6。
-SCALES = (20, 60)
-FINE_RES_M = 10.0
-# 解析範囲。20m では 6x6 セル、60m では 3x3 セルの正準グリッドになる。
-ROI_BOUNDS = (50.0, 30.0, 150.0, 130.0)
-CITY = "testcity"
-
+from ..conftest import (
+    ANALYSIS_CRS,
+    ANALYSIS_EPSG,
+    CITY,
+    FINE_RES_M,
+    ROI_BOUNDS,
+    SATELLITE_FILE_NAME,
+    SATELLITE_TABLE_NAME,
+    SCALES,
+)
 
 # ---------------------------------------------------------------------------
 # satellite_table_name
@@ -172,192 +166,6 @@ def test_validate_computed_columns_reports_difference(
 # ---------------------------------------------------------------------------
 
 
-def _write_polygon_layer(path: Path, rings: list[list[tuple[float, float]]]) -> None:
-    """属性を持たないポリゴンレイヤを書き出す。"""
-    with fiona.open(
-        path,
-        "w",
-        driver="GPKG",
-        layer="data",
-        crs=ANALYSIS_CRS,
-        schema={"geometry": "Polygon", "properties": {}},
-    ) as dst:
-        for ring in rings:
-            dst.write({"geometry": {"type": "Polygon", "coordinates": [ring]}, "properties": {}})
-
-
-def _rectangle(min_x: float, min_y: float, max_x: float, max_y: float) -> list[tuple[float, float]]:
-    """矩形の外周リングを返す。"""
-    return [
-        (min_x, min_y),
-        (max_x, min_y),
-        (max_x, max_y),
-        (min_x, max_y),
-        (min_x, min_y),
-    ]
-
-
-def _write_building_layer(path: Path) -> None:
-    """高さ・推定分散を持つ建物レイヤを書き出す。"""
-    with fiona.open(
-        path,
-        "w",
-        driver="GPKG",
-        layer="data",
-        crs=ANALYSIS_CRS,
-        schema={"geometry": "Polygon", "properties": {"height": "float", "var": "float"}},
-    ) as dst:
-        for bounds, height in (
-            ((60.0, 40.0, 80.0, 60.0), 10.0),
-            ((100.0, 90.0, 110.0, 100.0), 20.0),
-        ):
-            dst.write(
-                {
-                    "geometry": {"type": "Polygon", "coordinates": [_rectangle(*bounds)]},
-                    "properties": {"height": height, "var": 1.0},
-                }
-            )
-
-
-def _write_road_layer(path: Path) -> None:
-    """車道タグを持つ道路レイヤを書き出す。"""
-    with fiona.open(
-        path,
-        "w",
-        driver="GPKG",
-        layer="data",
-        crs=ANALYSIS_CRS,
-        schema={
-            "geometry": "LineString",
-            "properties": {"highway": "str", "z_order": "int"},
-        },
-    ) as dst:
-        dst.write(
-            {
-                "geometry": {"type": "LineString", "coordinates": [(55.0, 60.0), (145.0, 60.0)]},
-                "properties": {"highway": "residential", "z_order": 0},
-            }
-        )
-
-
-def _write_dem(path: Path) -> None:
-    """解析範囲を覆う一定標高のDEMを書き出す。"""
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=20,
-        width=20,
-        count=1,
-        dtype="float32",
-        crs=ANALYSIS_CRS,
-        transform=from_origin(0.0, 200.0, 10.0, 10.0),
-        nodata=-9999.0,
-    ) as dst:
-        dst.write(np.full((20, 20), 30.0, dtype=np.float32), 1)
-
-
-def _write_indices_raster(path: Path) -> None:
-    """NDVI/NDBI/NDWI のバンド説明を持つ衛星指標ラスタを書き出す。"""
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=20,
-        width=20,
-        count=3,
-        dtype="float32",
-        crs=ANALYSIS_CRS,
-        transform=from_origin(0.0, 200.0, 10.0, 10.0),
-        nodata=np.nan,
-    ) as dst:
-        for band_index, (name, value) in enumerate(
-            (("NDVI", 0.4), ("NDBI", -0.1), ("NDWI", 0.2)), start=1
-        ):
-            dst.write(np.full((20, 20), value, dtype=np.float32), band_index)
-            dst.set_band_description(band_index, name)
-
-
-def _write_canonical_grid(path: Path, roi_bbox: BBox) -> dict[int, np.ndarray]:
-    """各スケールの正準グリッドレイヤを書き出し、cell_id を返す。
-
-    実運用と同じく、BBox全域ではなく一部のセルだけを持つレイヤにする
-    （マスク交差セルのみを出力する挙動を模す）。
-    """
-    cell_ids_by_scale: dict[int, np.ndarray] = {}
-    for scale in SCALES:
-        canonical = build_canonical_grid(roi_bbox, ANALYSIS_CRS, float(scale))
-        rows = np.repeat(
-            np.arange(canonical.row_min, canonical.row_max + 1, dtype=np.int64), canonical.n_cols
-        )
-        cols = np.tile(
-            np.arange(canonical.col_min, canonical.col_max + 1, dtype=np.int64), canonical.n_rows
-        )
-        # 先頭2セルを除いて「マスクで一部が落ちた」状態にする。
-        rows, cols = rows[2:], cols[2:]
-        cell_ids = rows * 1_000_000 + cols
-
-        min_x = cols * canonical.res_m
-        min_y = rows * canonical.res_m
-        frame = gpd.GeoDataFrame(
-            {"cell_id": cell_ids, "row": rows.astype(np.int32), "col": cols.astype(np.int32)},
-            geometry=shapely.box(min_x, min_y, min_x + canonical.res_m, min_y + canonical.res_m),
-            crs=ANALYSIS_CRS,
-        )
-        pyogrio.write_dataframe(frame, path, layer=f"grid_{scale}m", driver="GPKG")
-        cell_ids_by_scale[scale] = cell_ids
-    return cell_ids_by_scale
-
-
-@pytest.fixture()
-def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    """合成データ一式と、それを指す都市設定を用意する。"""
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-
-    _write_polygon_layer(data_dir / "roi.gpkg", [_rectangle(*ROI_BOUNDS)])
-    _write_building_layer(data_dir / "buildings.gpkg")
-    _write_road_layer(data_dir / "roads.gpkg")
-    _write_dem(data_dir / "dem.tif")
-    _write_indices_raster(data_dir / "INDICES_TestSat_20230707_032329Z.tif")
-
-    roi_bbox = BBox(*ROI_BOUNDS)
-    cell_ids_by_scale = _write_canonical_grid(data_dir / "grid.gpkg", roi_bbox)
-
-    city_cfg = {
-        "analysis_epsg": ANALYSIS_EPSG,
-        "layers": {
-            "roi": {"path": "data/roi.gpkg", "layer": "data", "crs_epsg": ANALYSIS_EPSG},
-            "open_buildings": {
-                "path": "data/buildings.gpkg",
-                "layer": "data",
-                "crs_epsg": ANALYSIS_EPSG,
-            },
-            "open_roads": {"path": "data/roads.gpkg", "layer": "data", "crs_epsg": ANALYSIS_EPSG},
-        },
-        "rasters": {"fabdem": {"path": "data/dem.tif", "band": 1}},
-    }
-
-    # 入力・出力ともにテンポラリ配下で完結させる。PROJECT_ROOT は各モジュールが
-    # それぞれ import しているため、参照する4モジュールすべてを差し替える。
-    # --grid の解決は canonical_grid.resolve_output_path() が、出力先の既定値は
-    # config.resolve_table_path() が担うため、いずれも差し替えないと実プロジェクトの
-    # data/ を参照・書き換えてしまう。
-    monkeypatch.setattr(urban_params_io, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(urban_params_run, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(urban_params_canonical_grid, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(urban_params_config, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setitem(urban_params_run.CITY_CONFIG, CITY, city_cfg)
-
-    return {
-        "root": tmp_path,
-        "city_cfg": city_cfg,
-        "grid_path": data_dir / "grid.gpkg",
-        "output_dir": tmp_path / "out",
-        "cell_ids_by_scale": cell_ids_by_scale,
-    }
-
-
 def _run_main(city_environment: dict[str, Any], extra_args: list[str]) -> None:
     """合成環境に対して main() を実行する。"""
     main(
@@ -369,7 +177,7 @@ def _run_main(city_environment: dict[str, Any], extra_args: list[str]) -> None:
             "--fine-res",
             str(FINE_RES_M),
             "--grid",
-            str(city_environment["grid_path"].relative_to(city_environment["root"])),
+            city_environment["grid_argument"],
             "--output-dir",
             "out",
             *extra_args,
@@ -479,7 +287,7 @@ def test_main_uses_default_output_root_when_not_specified(
             "--fine-res",
             str(FINE_RES_M),
             "--grid",
-            str(city_environment["grid_path"].relative_to(city_environment["root"])),
+            city_environment["grid_argument"],
         ]
     )
 
@@ -511,7 +319,7 @@ def test_main_rejects_scale_without_grid_layer_before_writing(
                 "--fine-res",
                 str(FINE_RES_M),
                 "--grid",
-                str(city_environment["grid_path"].relative_to(city_environment["root"])),
+                city_environment["grid_argument"],
                 "--output-dir",
                 "out",
             ]
@@ -547,14 +355,14 @@ def test_main_writes_satellite_table_named_by_observation(
     """衛星指標は観測日時つきのテーブル名で出力される。"""
     _run_main(
         city_environment,
-        ["--satellite-file", "data/INDICES_TestSat_20230707_032329Z.tif"],
+        ["--satellite-file", f"data/{SATELLITE_FILE_NAME}"],
     )
 
     output_dir = city_environment["output_dir"]
-    path = output_dir / CITY / "20m" / "idx_20230707_032329.gpkg"
+    path = output_dir / CITY / "20m" / f"{SATELLITE_TABLE_NAME}.gpkg"
     assert path.exists()
 
-    table = pyogrio.read_dataframe(path, layer="idx_20230707_032329", read_geometry=False)
+    table = pyogrio.read_dataframe(path, layer=SATELLITE_TABLE_NAME, read_geometry=False)
     assert set(table.columns) == {"cell_id", "NDVI", "NDBI", "NDWI"}
 
 
@@ -603,12 +411,12 @@ def test_build_param_tasks_resolves_all_inputs_before_running(
 def test_build_satellite_task_missing_file_raises(tmp_path: Path) -> None:
     """存在しない衛星指標ファイルはFileNotFoundErrorになる。"""
     with pytest.raises(FileNotFoundError):
-        build_satellite_task(tmp_path / "INDICES_TestSat_20230707_032329Z.tif")
+        build_satellite_task(tmp_path / SATELLITE_FILE_NAME)
 
 
 def test_build_satellite_task_without_indices_raises(tmp_path: Path) -> None:
     """指標を1つも検出できないラスタはValueErrorになる。"""
-    path = tmp_path / "INDICES_TestSat_20230707_032329Z.tif"
+    path = tmp_path / SATELLITE_FILE_NAME
     with rasterio.open(
         path,
         "w",

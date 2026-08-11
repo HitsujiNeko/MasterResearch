@@ -367,7 +367,7 @@ def test_build_param_table_rejects_empty_inputs(canonical_spec) -> None:
         )
 
 
-def test_write_param_table_creates_attribute_only_layer(tmp_path: Path) -> None:
+def test_write_attribute_table_creates_attribute_only_layer(tmp_path: Path) -> None:
     """ジオメトリを持たないレイヤとして書き出され、NaNはNULLとして保持される。"""
     output_path = tmp_path / "params" / "build_gba.gpkg"
     table = pd.DataFrame(
@@ -378,7 +378,7 @@ def test_write_param_table_creates_attribute_only_layer(tmp_path: Path) -> None:
         }
     )
 
-    tables.write_param_table(table, output_path, "build_gba")
+    tables.write_attribute_table(table, output_path, "build_gba")
 
     info = pyogrio.read_info(output_path, layer="build_gba")
     assert info["geometry_type"] is None
@@ -391,18 +391,18 @@ def test_write_param_table_creates_attribute_only_layer(tmp_path: Path) -> None:
     assert not (output_path.parent / "build_gba.tmp.gpkg").exists()
 
 
-def test_write_param_table_requires_key_column(tmp_path: Path) -> None:
+def test_write_attribute_table_requires_key_column(tmp_path: Path) -> None:
     """キー列を持たないテーブルは、書き出す前にValueErrorで弾かれる。"""
     output_path = tmp_path / "build_gba.gpkg"
     table = pd.DataFrame({"BUILD_COV": np.array([0.25, 0.5], dtype=np.float32)})
 
     with pytest.raises(ValueError, match="キー列"):
-        tables.write_param_table(table, output_path, "build_gba")
+        tables.write_attribute_table(table, output_path, "build_gba")
 
     assert not output_path.exists()
 
 
-def test_write_param_table_rerun_does_not_append(tmp_path: Path) -> None:
+def test_write_attribute_table_rerun_does_not_append(tmp_path: Path) -> None:
     """同じ内容で2回実行しても行数が倍にならない（追記経路を持たない）。"""
     output_path = tmp_path / "build_gba.gpkg"
     table = pd.DataFrame(
@@ -412,17 +412,19 @@ def test_write_param_table_rerun_does_not_append(tmp_path: Path) -> None:
         }
     )
 
-    tables.write_param_table(table, output_path, "build_gba")
-    tables.write_param_table(table, output_path, "build_gba")
+    tables.write_attribute_table(table, output_path, "build_gba")
+    tables.write_attribute_table(table, output_path, "build_gba")
 
     assert int(pyogrio.read_info(output_path, layer="build_gba")["features"]) == 2
 
 
-def test_write_param_table_keeps_existing_output_on_failure(tmp_path: Path, monkeypatch) -> None:
+def test_write_attribute_table_keeps_existing_output_on_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
     """書き出しに失敗しても既存の出力を失わず、一時ファイルも残さない。"""
     output_path = tmp_path / "build_gba.gpkg"
     original = pd.DataFrame({"cell_id": np.array([1_000_002], dtype=np.int64)})
-    tables.write_param_table(original, output_path, "build_gba")
+    tables.write_attribute_table(original, output_path, "build_gba")
 
     def failing_write(*args: object, **kwargs: object) -> None:
         """書き出し中のI/Oエラーを模す。"""
@@ -431,7 +433,7 @@ def test_write_param_table_keeps_existing_output_on_failure(tmp_path: Path, monk
     monkeypatch.setattr(tables.pyogrio, "write_dataframe", failing_write)
 
     with pytest.raises(OSError):
-        tables.write_param_table(
+        tables.write_attribute_table(
             pd.DataFrame({"cell_id": np.array([9_000_009], dtype=np.int64)}),
             output_path,
             "build_gba",

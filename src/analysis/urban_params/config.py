@@ -23,6 +23,13 @@ ANALYSIS_EXTENT_LAYER_KEY = "roi"
 # パラメータテーブルの既定の出力ルート（プロジェクトルートからの相対パス要素）。
 PARAMS_OUTPUT_PARTS = ("data", "output", "params")
 
+# 分析用データセットの既定の出力ルート。
+DATASETS_OUTPUT_PARTS = ("data", "output", "datasets")
+
+# 衛星指標テーブル名の接頭辞。観測ファイル単位で作るため PARAM_SETS に列挙できず、
+# 結合フェーズはこの接頭辞でGIS由来のテーブルと区別する。
+SATELLITE_TABLE_PREFIX = "idx_"
+
 
 def grid_layer_name(scale: int) -> str:
     """正準グリッドGeoPackage内のレイヤ名を返す。

@@ -1,0 +1,526 @@
+"""build_dataset.py（cell_id 結合による分析用データセット生成）のテスト。"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+import pyogrio
+import pytest
+
+from src.analysis.build_dataset import (
+    MISSING_REASON_COLUMN,
+    VALID_GIS_MASK_COLUMN,
+    VALID_SATELLITE_MASK_COLUMN,
+    add_quality_columns,
+    classify_value_columns,
+    join_tables,
+    load_param_table,
+    main,
+    parse_arguments,
+    report_match_counts,
+    resolve_dataset_name,
+    resolve_dataset_path,
+    resolve_table_names,
+)
+from src.analysis.urban_params.config import SCENARIO_TABLES
+from src.analysis.urban_params.run import main as run_urban_params
+
+from .conftest import CITY, FINE_RES_M, SATELLITE_FILE_NAME, SATELLITE_TABLE_NAME, SCALES
+
+# 結合の検証に使うスケール（合成グリッドでは 20m が 6x6 相当）。
+TARGET_SCALE = SCALES[0]
+
+
+# ---------------------------------------------------------------------------
+# parse_arguments
+# ---------------------------------------------------------------------------
+
+
+def test_parse_arguments_expands_scenario() -> None:
+    """--scenario 指定では --name の既定がシナリオ名になる。"""
+    args = parse_arguments(["--scale", "30", "--scenario", "limited"])
+
+    assert args.scenario == "limited"
+    assert args.tables == []
+
+
+def test_parse_arguments_requires_scenario_or_tables() -> None:
+    """--scenario と --tables のどちらも指定しない場合はエラーになる。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--scale", "30"])
+
+
+def test_parse_arguments_rejects_scenario_and_tables_together() -> None:
+    """--scenario と --tables の同時指定はエラーになる（対象が二重定義になるため）。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--scale", "30", "--scenario", "limited", "--tables", "build_gba"])
+
+
+def test_parse_arguments_requires_name_with_tables() -> None:
+    """--tables 指定時は --name が必須（既定名を推測しないため）。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--scale", "30", "--tables", "build_gba"])
+
+
+@pytest.mark.parametrize("scale", ["40", "0", "7"])
+def test_parse_arguments_rejects_unsupported_scale(scale: str) -> None:
+    """900mの約数でないスケールはCLI段階で弾く。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--scale", scale, "--scenario", "limited"])
+
+
+def test_parse_arguments_removes_duplicate_tables() -> None:
+    """--tables は重複を除いた一覧に正規化される。"""
+    args = parse_arguments(
+        ["--scale", "30", "--tables", "build_gba", "build_gba", "road_osm", "--name", "custom"]
+    )
+
+    assert args.tables == ["build_gba", "road_osm"]
+
+
+# ---------------------------------------------------------------------------
+# 結合対象・出力先の決定
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_table_names_expands_scenario_tables() -> None:
+    """シナリオ名は SCENARIO_TABLES へ展開される。"""
+    assert resolve_table_names("limited", []) == list(SCENARIO_TABLES["limited"])
+    assert resolve_table_names("", ["build_dc", "road_gt"]) == ["build_dc", "road_gt"]
+
+
+def test_resolve_dataset_name_prefers_explicit_name() -> None:
+    """--name があればそれを使い、無ければシナリオ名を使う。"""
+    assert resolve_dataset_name("limited", "") == "limited"
+    assert resolve_dataset_name("limited", "custom") == "custom"
+
+
+def test_resolve_dataset_path_includes_city_and_scale(tmp_path: Path) -> None:
+    """出力ファイル名に都市とスケールが含まれる。"""
+    path = resolve_dataset_path("limited", "hanoi", 30, base_dir=tmp_path)
+
+    assert path == tmp_path / "dataset_limited_hanoi_30m.gpkg"
+
+
+# ---------------------------------------------------------------------------
+# load_param_table
+# ---------------------------------------------------------------------------
+
+
+def _write_table(path: Path, layer_name: str, frame: pd.DataFrame) -> None:
+    """属性のみのテーブルを書き出す。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pyogrio.write_dataframe(frame, path, layer=layer_name, driver="GPKG")
+
+
+def test_load_param_table_missing_file_suggests_calculation_command(tmp_path: Path) -> None:
+    """テーブルが無い場合は、算出コマンドを案内するFileNotFoundErrorになる。"""
+    with pytest.raises(FileNotFoundError, match="src.analysis.urban_params"):
+        load_param_table("build_gba", "hanoi", 30, tmp_path)
+
+
+def test_load_param_table_rejects_duplicated_cell_id(tmp_path: Path) -> None:
+    """cell_id に重複があるテーブルはValueErrorになる（結合で行が増えるため）。"""
+    table_path = tmp_path / "hanoi" / "30m" / "build_gba.gpkg"
+    _write_table(
+        table_path,
+        "build_gba",
+        pd.DataFrame(
+            {
+                "cell_id": np.array([1_000_001, 1_000_001], dtype=np.int64),
+                "BUILD_COV": np.array([0.1, 0.2], dtype=np.float32),
+            }
+        ),
+    )
+
+    with pytest.raises(ValueError, match="重複"):
+        load_param_table("build_gba", "hanoi", 30, tmp_path)
+
+
+def test_load_param_table_rejects_table_without_key_column(tmp_path: Path) -> None:
+    """cell_id 列を持たないテーブルはValueErrorになる。"""
+    table_path = tmp_path / "hanoi" / "30m" / "build_gba.gpkg"
+    _write_table(
+        table_path,
+        "build_gba",
+        pd.DataFrame({"BUILD_COV": np.array([0.1, 0.2], dtype=np.float32)}),
+    )
+
+    with pytest.raises(ValueError, match="cell_id 列がありません"):
+        load_param_table("build_gba", "hanoi", 30, tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# join_tables
+# ---------------------------------------------------------------------------
+
+
+def _base_frame() -> pd.DataFrame:
+    """土台となる正準グリッドのフレーム。"""
+    return pd.DataFrame(
+        {
+            "cell_id": np.array([1_000_001, 1_000_002, 1_000_003], dtype=np.int64),
+            "lon": np.array([105.0, 105.1, 105.2], dtype=np.float64),
+            "lat": np.array([21.0, 21.1, 21.2], dtype=np.float64),
+        }
+    )
+
+
+def test_join_tables_keeps_all_base_rows_and_nulls_missing_cells() -> None:
+    """土台の行はすべて残り、テーブルに無い cell_id は NULL になる。"""
+    table = pd.DataFrame(
+        {
+            "cell_id": np.array([1_000_001, 1_000_003], dtype=np.int64),
+            "BUILD_COV": np.array([0.5, 0.25], dtype=np.float32),
+        }
+    )
+
+    joined = join_tables(_base_frame(), {"build_gba": table})
+
+    assert len(joined) == 3
+    assert joined["BUILD_COV"].isna().tolist() == [False, True, False]
+    np.testing.assert_allclose(joined.loc[0, "BUILD_COV"], 0.5)
+
+
+def test_join_tables_merges_multiple_tables() -> None:
+    """複数テーブルを同時に結合できる。"""
+    tables = {
+        "build_gba": pd.DataFrame(
+            {
+                "cell_id": np.array([1_000_001], dtype=np.int64),
+                "BUILD_COV": np.array([0.5], dtype=np.float32),
+            }
+        ),
+        "road_osm": pd.DataFrame(
+            {
+                "cell_id": np.array([1_000_002], dtype=np.int64),
+                "ROAD_DEN": np.array([12.0], dtype=np.float32),
+            }
+        ),
+    }
+
+    joined = join_tables(_base_frame(), tables)
+
+    assert list(joined.columns) == ["cell_id", "lon", "lat", "BUILD_COV", "ROAD_DEN"]
+    assert len(joined) == 3
+
+
+def test_report_match_counts_shows_matched_rows(capsys: pytest.CaptureFixture[str]) -> None:
+    """テーブルの行数と、土台と一致した件数を報告する。"""
+    table = pd.DataFrame(
+        {
+            "cell_id": np.array([1_000_001, 9_999_999], dtype=np.int64),
+            "BUILD_COV": np.array([0.5, 0.25], dtype=np.float32),
+        }
+    )
+
+    report_match_counts(_base_frame(), {"build_gba": table})
+
+    output = capsys.readouterr().out
+    assert "build_gba: 2 行（うち土台と一致 1 行）" in output
+    assert "警告" not in output
+
+
+def test_report_match_counts_warns_when_nothing_matches(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """1件も一致しない場合は、世代違いの可能性を警告する。
+
+    stale なテーブルの結合は例外にならず、該当列が全行NULLになるだけで
+    静かに壊れるため、検知手段を明示的に置く。
+    """
+    table = pd.DataFrame(
+        {
+            "cell_id": np.array([9_999_998, 9_999_999], dtype=np.int64),
+            "BUILD_COV": np.array([0.5, 0.25], dtype=np.float32),
+        }
+    )
+
+    report_match_counts(_base_frame(), {"build_gba": table})
+
+    output = capsys.readouterr().out
+    assert "うち土台と一致 0 行" in output
+    assert "警告" in output
+
+
+def test_join_tables_rejects_column_name_conflict() -> None:
+    """同じ列名を持つ別ソースのテーブルを同時に結合するとValueErrorになる。"""
+    same_columns = pd.DataFrame(
+        {
+            "cell_id": np.array([1_000_001], dtype=np.int64),
+            "BUILD_COV": np.array([0.5], dtype=np.float32),
+        }
+    )
+    tables = {"build_gba": same_columns, "build_dc": same_columns.copy()}
+
+    with pytest.raises(ValueError, match="BUILD_COV（build_gba）"):
+        join_tables(_base_frame(), tables)
+
+
+# ---------------------------------------------------------------------------
+# classify_value_columns
+# ---------------------------------------------------------------------------
+
+
+def _one_row(columns: list[str]) -> pd.DataFrame:
+    """指定列を持つ1行のテーブルを作る。"""
+    data: dict[str, np.ndarray] = {"cell_id": np.array([1_000_001], dtype=np.int64)}
+    for name in columns:
+        data[name] = np.array([1.0], dtype=np.float32)
+    return pd.DataFrame(data)
+
+
+def test_classify_value_columns_splits_gis_and_satellite() -> None:
+    """建物・道路はGIS由来、idx_ で始まるテーブルは衛星由来として扱う。"""
+    tables = {
+        "build_gba": _one_row(["BUILD_COV", "BUILD_DEN"]),
+        "road_osm": _one_row(["ROAD_DEN"]),
+        SATELLITE_TABLE_NAME: _one_row(["NDVI", "NDBI"]),
+    }
+
+    gis_columns, satellite_columns = classify_value_columns(list(tables), tables)
+
+    assert gis_columns == ["BUILD_COV", "BUILD_DEN", "ROAD_DEN"]
+    assert satellite_columns == ["NDVI", "NDBI"]
+
+
+def test_classify_value_columns_excludes_elevation_and_mask() -> None:
+    """標高と解析対象域フラグは VALID_GIS_MASK の判定材料に含めない。
+
+    標高は連続量で0mが「データが無い」を意味しないため、地物の量を前提とした
+    判定基準を適用すること自体が不適切である。
+    """
+    tables = {
+        "elev_fabdem": _one_row(["ELEV_MEAN", "ELEV_VALID_RATIO"]),
+        "mask_roi": _one_row(["IN_ANALYSIS_AREA"]),
+    }
+
+    gis_columns, satellite_columns = classify_value_columns(list(tables), tables)
+
+    assert gis_columns == []
+    assert satellite_columns == []
+
+
+def test_classify_value_columns_rejects_unknown_table() -> None:
+    """PARAM_SETS にも衛星指標の命名規則にも該当しないテーブルはValueErrorになる。"""
+    tables = {"mystery": _one_row(["SOMETHING"])}
+
+    with pytest.raises(ValueError, match="種別を判別できません"):
+        classify_value_columns(list(tables), tables)
+
+
+# ---------------------------------------------------------------------------
+# add_quality_columns
+# ---------------------------------------------------------------------------
+
+
+def test_add_quality_columns_marks_cells_with_any_positive_indicator() -> None:
+    """いずれかのGIS指標が0より大きいセルのみ VALID_GIS_MASK=1 になる。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2, 3, 4], dtype=np.int64),
+            "BUILD_COV": np.array([0.0, 0.0, np.nan, 0.0], dtype=np.float32),
+            "ROAD_DEN": np.array([1.0, 0.0, 0.0, np.nan], dtype=np.float32),
+        }
+    )
+
+    result = add_quality_columns(dataset, ["BUILD_COV", "ROAD_DEN"], [])
+
+    np.testing.assert_array_equal(
+        result[VALID_GIS_MASK_COLUMN].to_numpy(), np.array([1, 0, 0, 0], dtype=np.int8)
+    )
+    assert result[MISSING_REASON_COLUMN].tolist() == [
+        "none",
+        "no_gis_feature",
+        "no_gis_feature",
+        "no_gis_feature",
+    ]
+
+
+def test_add_quality_columns_detects_non_nan_satellite_cells() -> None:
+    """NaNでない衛星指標があるセルのみ VALID_SATELLITE_MASK=1 になる。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2, 3], dtype=np.int64),
+            "NDVI": np.array([0.5, np.nan, np.nan], dtype=np.float32),
+            "NDBI": np.array([np.nan, -0.2, np.nan], dtype=np.float32),
+        }
+    )
+
+    result = add_quality_columns(dataset, [], ["NDVI", "NDBI"])
+
+    np.testing.assert_array_equal(
+        result[VALID_SATELLITE_MASK_COLUMN].to_numpy(), np.array([1, 1, 0], dtype=np.int8)
+    )
+    assert VALID_GIS_MASK_COLUMN not in result.columns
+
+
+def test_add_quality_columns_omits_columns_without_source() -> None:
+    """判定材料の列が無い場合、対応する品質管理列を付与しない。
+
+    全セル0の列を出すと「確認したうえで無効と判定した」ように読めてしまうため。
+    """
+    dataset = pd.DataFrame({"cell_id": np.array([1, 2], dtype=np.int64)})
+
+    result = add_quality_columns(dataset, [], [])
+
+    assert VALID_GIS_MASK_COLUMN not in result.columns
+    assert MISSING_REASON_COLUMN not in result.columns
+    assert VALID_SATELLITE_MASK_COLUMN not in result.columns
+
+
+def test_add_quality_columns_does_not_mutate_input() -> None:
+    """入力のデータフレームを破壊的に変更しない。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            "ROAD_DEN": np.array([1.0], dtype=np.float32),
+        }
+    )
+
+    add_quality_columns(dataset, ["ROAD_DEN"], [])
+
+    assert VALID_GIS_MASK_COLUMN not in dataset.columns
+
+
+# ---------------------------------------------------------------------------
+# 合成グリッドでの compute -> tables -> build_dataset のE2E検証
+# ---------------------------------------------------------------------------
+
+
+def _run_param_calculation(city_environment: dict[str, Any], extra_args: list[str]) -> None:
+    """算出フェーズ（urban_params）を合成環境で実行する。"""
+    run_urban_params(
+        [
+            "--city",
+            CITY,
+            "--scales",
+            str(TARGET_SCALE),
+            "--fine-res",
+            str(FINE_RES_M),
+            "--grid",
+            city_environment["grid_argument"],
+            "--output-dir",
+            "params",
+            *extra_args,
+        ]
+    )
+
+
+def _run_build_dataset(city_environment: dict[str, Any], extra_args: list[str]) -> None:
+    """結合フェーズ（build_dataset）を合成環境で実行する。"""
+    main(
+        [
+            "--city",
+            CITY,
+            "--scale",
+            str(TARGET_SCALE),
+            "--params-dir",
+            "params",
+            "--grid",
+            city_environment["grid_argument"],
+            "--output-dir",
+            "datasets",
+            *extra_args,
+        ]
+    )
+
+
+def _read_dataset(city_environment: dict[str, Any], dataset_name: str) -> pd.DataFrame:
+    """出力したデータセットを読み戻す。"""
+    path = (
+        city_environment["root"]
+        / "datasets"
+        / f"dataset_{dataset_name}_{CITY}_{TARGET_SCALE}m.gpkg"
+    )
+    return pyogrio.read_dataframe(path, layer=dataset_name, read_geometry=False)
+
+
+def test_end_to_end_join_matches_canonical_grid(city_environment: dict[str, Any]) -> None:
+    """算出したテーブルを結合すると、正準グリッドと同じ行集合になる。"""
+    _run_param_calculation(city_environment, ["--params", "build_gba", "road_osm", "mask_roi"])
+    _run_build_dataset(
+        city_environment,
+        ["--tables", "build_gba", "road_osm", "mask_roi", "--name", "e2e"],
+    )
+
+    dataset = _read_dataset(city_environment, "e2e")
+    expected_cell_ids = city_environment["cell_ids_by_scale"][TARGET_SCALE]
+
+    assert len(dataset) == len(expected_cell_ids)
+    np.testing.assert_array_equal(dataset["cell_id"].to_numpy(), expected_cell_ids)
+    assert list(dataset.columns) == [
+        "cell_id",
+        "lon",
+        "lat",
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "BUILD_H_MAX",
+        "ROAD_DEN",
+        "IN_ANALYSIS_AREA",
+        VALID_GIS_MASK_COLUMN,
+        MISSING_REASON_COLUMN,
+    ]
+
+
+def test_end_to_end_values_match_source_tables(city_environment: dict[str, Any]) -> None:
+    """結合後の値が、算出したパラメータテーブルの値と cell_id 単位で一致する。"""
+    _run_param_calculation(city_environment, ["--params", "build_gba", "road_osm"])
+    _run_build_dataset(city_environment, ["--tables", "build_gba", "road_osm", "--name", "values"])
+
+    dataset = _read_dataset(city_environment, "values").set_index("cell_id")
+    for table_name, column_name in (("build_gba", "BUILD_COV"), ("road_osm", "ROAD_DEN")):
+        source = pyogrio.read_dataframe(
+            city_environment["root"] / "params" / CITY / f"{TARGET_SCALE}m" / f"{table_name}.gpkg",
+            layer=table_name,
+            read_geometry=False,
+        ).set_index("cell_id")
+        np.testing.assert_allclose(
+            dataset.loc[source.index, column_name].to_numpy(),
+            source[column_name].to_numpy(),
+            equal_nan=True,
+        )
+
+
+def test_end_to_end_satellite_table_adds_quality_column(
+    city_environment: dict[str, Any],
+) -> None:
+    """衛星指標テーブルを結合すると VALID_SATELLITE_MASK が導出される。"""
+    _run_param_calculation(city_environment, ["--satellite-file", f"data/{SATELLITE_FILE_NAME}"])
+    _run_build_dataset(city_environment, ["--tables", SATELLITE_TABLE_NAME, "--name", "satellite"])
+
+    dataset = _read_dataset(city_environment, "satellite")
+
+    assert {"NDVI", "NDBI", "NDWI"}.issubset(set(dataset.columns))
+    assert VALID_SATELLITE_MASK_COLUMN in dataset.columns
+    assert VALID_GIS_MASK_COLUMN not in dataset.columns
+
+
+def test_end_to_end_scenario_expands_to_tables(city_environment: dict[str, Any]) -> None:
+    """--scenario は SCENARIO_TABLES を展開し、シナリオ名で出力する。"""
+    _run_param_calculation(city_environment, ["--params", *SCENARIO_TABLES["limited"]])
+    _run_build_dataset(city_environment, ["--scenario", "limited"])
+
+    dataset = _read_dataset(city_environment, "limited")
+
+    assert {"BUILD_COV", "ROAD_DEN", "ELEV_MEAN", "IN_ANALYSIS_AREA"}.issubset(set(dataset.columns))
+    # 標高は VALID_GIS_MASK の判定材料に含めないため、建物・道路が無いセルは0のまま。
+    assert (dataset[VALID_GIS_MASK_COLUMN] == 0).any()
+
+
+def test_end_to_end_missing_table_stops_before_writing(
+    city_environment: dict[str, Any],
+) -> None:
+    """一部のテーブルが未算出なら、データセットを1件も書かずに停止する。"""
+    _run_param_calculation(city_environment, ["--params", "build_gba"])
+
+    with pytest.raises(FileNotFoundError, match="パラメータテーブルが見つかりません"):
+        _run_build_dataset(
+            city_environment, ["--tables", "build_gba", "road_osm", "--name", "partial"]
+        )
+
+    assert not (city_environment["root"] / "datasets").exists()

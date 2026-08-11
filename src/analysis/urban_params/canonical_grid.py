@@ -697,9 +697,10 @@ def parse_arguments() -> argparse.Namespace:
 def resolve_output_path(output_argument: str, city: str) -> Path:
     """正準グリッドGeoPackageのパスを決める。
 
-    本モジュールの ``--output``（出力先）と ``run.py`` の ``--grid``（入力元）の
-    双方から使う。同じファイルを指す引数であり、既定パスの定義を1か所に保つため
-    共有している。**関数名は出力側の用途に由来するが、入力パスの解決にも用いる。**
+    本モジュールの ``--output``（出力先）と、``run.py`` / ``build_dataset.py`` の
+    ``--grid``（入力元）から使う。いずれも同じファイルを指す引数であり、既定パスの
+    定義を1か所に保つため共有している。**関数名は出力側の用途に由来するが、
+    入力パスの解決にも用いる。**
 
     Args:
         output_argument: 引数の値。空文字の場合は既定パスを使う。

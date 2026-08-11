@@ -45,6 +45,7 @@ from .config import (
     CITY_CONFIG,
     PARAM_SETS,
     PROJECT_ROOT,
+    SATELLITE_TABLE_PREFIX,
     ParamSet,
     grid_layer_name,
     resolve_table_path,
@@ -66,7 +67,7 @@ from .tables import (
     build_param_table,
     read_grid_cell_ids,
     require_grid_layers,
-    write_param_table,
+    write_attribute_table,
 )
 
 # ``ParamSet.module_name`` から実体への対応。config.py が直接モジュールを保持すると
@@ -124,7 +125,7 @@ def satellite_table_name(satellite_path: Path) -> str:
             f"衛星指標ファイル名から観測日時を特定できません: {satellite_path.name}。"
             " INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif の形式のファイルを指定してください。"
         )
-    return f"idx_{matched.group('date')}_{matched.group('time')}"
+    return f"{SATELLITE_TABLE_PREFIX}{matched.group('date')}_{matched.group('time')}"
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -373,7 +374,7 @@ def run_for_scale(
 
         table = build_param_table(columns, canonical_spec, cell_ids)
         output_path = resolve_table_path(city, scale, task.table_name, output_dir)
-        write_param_table(table, output_path, task.table_name)
+        write_attribute_table(table, output_path, task.table_name)
 
         summarize_table(task.table_name, table)
         print(f"  出力先: {output_path}", flush=True)

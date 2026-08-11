@@ -145,13 +145,51 @@ def require_grid_layers(grid_path: Path, layer_names: Sequence[str]) -> None:
         )
 
 
+def read_grid_frame(grid_path: Path, layer_name: str, columns: Sequence[str]) -> pd.DataFrame:
+    """正準グリッドGeoPackageのレイヤから指定列だけを読み出す。
+
+    ジオメトリと不要な属性を読まないため、30mスケール（約374万セル）でも数秒で
+    済む。パラメータテーブルの行集合も、結合フェーズの土台も、この読み出し結果を
+    正本とし、マスク交差判定を再計算しない。判定ロジックが二重化すると、両者が
+    ずれたときに結合が静かに壊れるためである。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+        layer_name: 読み出すレイヤ名（例: ``grid_30m``）。
+        columns: 読み出す列名。
+
+    Returns:
+        レイヤの格納順に並んだ、``columns`` の順序どおりのデータフレーム。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+        ValueError: ``layer_name`` がGeoPackageに存在しない場合、または対象レイヤが
+            要求した列を持たない場合。
+    """
+    require_grid_layers(grid_path, [layer_name])
+
+    # 列の存在を先に確かめる。pyogrio は存在しない列を指定しても例外を出さず、
+    # 列も行も持たない空のデータフレームを返すため、そのまま読むと原因の分からない
+    # KeyError になる。
+    available_fields = [
+        str(name) for name in pyogrio.read_info(grid_path, layer=layer_name)["fields"]
+    ]
+    missing_columns = [name for name in columns if name not in available_fields]
+    if missing_columns:
+        raise ValueError(
+            f"レイヤに {', '.join(missing_columns)} 列がありません: {layer_name}"
+            f"（列: {', '.join(available_fields)} / パス: {grid_path}）"
+        )
+
+    frame = pyogrio.read_dataframe(
+        grid_path, layer=layer_name, columns=list(columns), read_geometry=False
+    )
+    # pyogrio は要求した順序で列を返すとは限らないため、明示的に並べ替える。
+    return frame[list(columns)]
+
+
 def read_grid_cell_ids(grid_path: Path, layer_name: str) -> np.ndarray:
     """正準グリッドGeoPackageのレイヤから ``cell_id`` 列だけを読み出す。
-
-    ジオメトリと他の属性を読まないため、30mスケール（約374万セル）でも数秒で
-    済む。パラメータテーブルの行集合はこの ``cell_id`` を正本とし、マスク交差判定を
-    再計算しない。判定ロジックが二重化すると、両者がずれたときに結合が静かに壊れる
-    ためである。
 
     Args:
         grid_path: 正準グリッドGeoPackageのパス。
@@ -165,23 +203,7 @@ def read_grid_cell_ids(grid_path: Path, layer_name: str) -> np.ndarray:
         ValueError: ``layer_name`` がGeoPackageに存在しない場合、または対象レイヤが
             ``cell_id`` 列を持たない場合。
     """
-    require_grid_layers(grid_path, [layer_name])
-
-    # 列の存在を先に確かめる。pyogrio は存在しない列を指定しても例外を出さず、
-    # 列も行も持たない空のデータフレームを返すため、そのまま読むと原因の分からない
-    # KeyError になる。
-    available_fields = [
-        str(name) for name in pyogrio.read_info(grid_path, layer=layer_name)["fields"]
-    ]
-    if CELL_ID_COLUMN not in available_fields:
-        raise ValueError(
-            f"レイヤに {CELL_ID_COLUMN} 列がありません: {layer_name}"
-            f"（列: {', '.join(available_fields)} / パス: {grid_path}）"
-        )
-
-    frame = pyogrio.read_dataframe(
-        grid_path, layer=layer_name, columns=[CELL_ID_COLUMN], read_geometry=False
-    )
+    frame = read_grid_frame(grid_path, layer_name, [CELL_ID_COLUMN])
     return frame[CELL_ID_COLUMN].to_numpy(dtype=np.int64)
 
 
@@ -265,8 +287,11 @@ def build_param_table(
     return pd.DataFrame(table_data)
 
 
-def write_param_table(table: pd.DataFrame, output_path: Path, layer_name: str) -> None:
-    """パラメータテーブルを属性のみのGeoPackageとして書き出す。
+def write_attribute_table(table: pd.DataFrame, output_path: Path, layer_name: str) -> None:
+    """``cell_id`` をキーとする属性のみのテーブルをGeoPackageへ書き出す。
+
+    パラメータテーブル（算出フェーズ）と分析用データセット（結合フェーズ）の双方が
+    同じ書き出し規約を必要とするため共有する。
 
     **追記モードは使わない。** 追記で ``cell_id`` が二重化すると結合が静かに壊れる
     ため、その経路自体を持たせない。書き出しは一時ファイルへ行い、完了後に

@@ -196,6 +196,41 @@ def test_read_grid_cell_ids_preserves_stored_order(tmp_path: Path, canonical_spe
     np.testing.assert_array_equal(cell_ids, stored)
 
 
+def test_list_grid_layers_returns_layer_names(tmp_path: Path, canonical_spec) -> None:
+    """GeoPackageが持つレイヤ名の一覧を返す。"""
+    gpkg_path = tmp_path / "grid.gpkg"
+    cell_ids = _cell_id_array(canonical_spec).ravel()
+    _write_grid_layer(gpkg_path, cell_ids[:3], "grid_20m")
+    _write_grid_layer(gpkg_path, cell_ids[3:6], "grid_60m")
+
+    assert sorted(tables.list_grid_layers(gpkg_path)) == ["grid_20m", "grid_60m"]
+
+
+def test_require_grid_layers_accepts_existing_layers(tmp_path: Path, canonical_spec) -> None:
+    """要求したレイヤがすべて存在すれば例外にならない。"""
+    gpkg_path = tmp_path / "grid.gpkg"
+    cell_ids = _cell_id_array(canonical_spec).ravel()
+    _write_grid_layer(gpkg_path, cell_ids[:3], "grid_20m")
+    _write_grid_layer(gpkg_path, cell_ids[3:6], "grid_60m")
+
+    tables.require_grid_layers(gpkg_path, ["grid_20m", "grid_60m"])
+
+
+def test_require_grid_layers_reports_all_missing_layers(tmp_path: Path, canonical_spec) -> None:
+    """不足しているレイヤをまとめて報告する（1件ずつ失敗を繰り返させない）。"""
+    gpkg_path = tmp_path / "grid.gpkg"
+    _write_grid_layer(gpkg_path, _cell_id_array(canonical_spec).ravel()[:3], "grid_20m")
+
+    with pytest.raises(ValueError, match="grid_45m, grid_60m"):
+        tables.require_grid_layers(gpkg_path, ["grid_20m", "grid_45m", "grid_60m"])
+
+
+def test_require_grid_layers_missing_file_raises(tmp_path: Path) -> None:
+    """GeoPackageが存在しない場合はFileNotFoundErrorになる。"""
+    with pytest.raises(FileNotFoundError, match="正準グリッドGeoPackage"):
+        tables.require_grid_layers(tmp_path / "missing.gpkg", ["grid_20m"])
+
+
 def test_read_grid_cell_ids_missing_file_raises(tmp_path: Path) -> None:
     """GeoPackageが存在しない場合はFileNotFoundErrorになる。"""
     with pytest.raises(FileNotFoundError, match="正準グリッドGeoPackage"):

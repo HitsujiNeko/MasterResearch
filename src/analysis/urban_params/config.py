@@ -1,7 +1,8 @@
-"""都市・シナリオ別のレイヤ構成と出力レイアウトを定義するモジュール。"""
+"""都市別のレイヤ構成・パラメータセット・出力レイアウトを定義するモジュール。"""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,15 @@ from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再�
 
 # 衛星指標ラスタのバンド説明として検出対象とするキー一覧。
 RASTER_KEYS = ("NDVI", "NDBI", "NDWI")
+
+# 解析範囲の基準レイヤ。正準グリッド（canonical_grid.py の --mask-layer-key 既定値）と
+# 同じレイヤを使う必要がある。食い違うと出力対象のセル集合が対応しなくなる。
+#
+# 測量GIS（RG）を基準にする経路は設けない。RGは境界「線」主体のレイヤで90.6%が
+# 面積ゼロであり、面積ベースの compute_polygon_coverage() と噛み合わないためである
+# （現行 full シナリオの300m出力が実データ2行しかないことがその破綻を示している）。
+# 測量GISから分析対象域をどう定義するかは未決であり、それまではROIへ一本化する。
+ANALYSIS_EXTENT_LAYER_KEY = "roi"
 
 # パラメータテーブルの既定の出力ルート（プロジェクトルートからの相対パス要素）。
 PARAMS_OUTPUT_PARTS = ("data", "output", "params")
@@ -123,33 +133,54 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
     }
 }
 
-# シナリオごとの入力キー。ベクタレイヤ（``layers`` のキー）とラスタ（``rasters`` の
-# キー）の両方を含むため、"LAYER" ではなく "INPUT" と呼ぶ。
-# ``green``（植生）は説明変数として採用済みだが算出方法が未確定であり、run.py は
-# まだ参照しない。算出方法の確定後に参照を追加するため、キーを残置している。
-SCENARIO_INPUT_KEYS: dict[str, dict[str, str | None]] = {
-    "satellite_only": {
-        "default_mask": "roi",
-        "buildings": None,
-        "roads": None,
-        "green": None,
-        "elevation_raster": None,
-        "data_source": "satellite",
-    },
-    "limited": {
-        "default_mask": "roi",
-        "buildings": "open_buildings",
-        "roads": "open_roads",
-        "green": None,
-        "elevation_raster": "fabdem",
-        "data_source": "open_gis",
-    },
-    "full": {
-        "default_mask": "rg",
-        "buildings": "dc",
-        "roads": "gt",
-        "green": "tv",
-        "elevation_raster": None,
-        "data_source": "survey_gis",
-    },
+
+@dataclass(frozen=True)
+class ParamSet:
+    """パラメータセット（どのパラメータを、どの入力ソースで算出するか）の定義。
+
+    **テーブル名はパラメータセット名と一致させ、出力ファイル名・レイヤ名の双方に
+    使う。** 同じ列名の別ソース版（例: ``build_gba`` と ``build_dc``）を並置でき、
+    感度分析が結合先の差し替えだけで済むという狙いは、この命名で成立する。
+
+    Attributes:
+        module_name: ``params`` 配下のモジュール名。実体への解決は ``run.py`` が
+            行う。ここでモジュールを直接参照すると、``params/*`` → ``io`` →
+            ``config`` の循環importになるためである。
+        input_kind: 入力の種別（``layer`` は ``CITY_CONFIG["layers"]``、
+            ``raster`` は ``CITY_CONFIG["rasters"]`` を参照する）。
+        input_key: 入力の設定キー。
+        columns: 出力する列名。``compute()`` の戻り値がこの通りかを実行時に検証し、
+            同じ列名を持つべき別ソース版どうしの食い違いを検知する。
+    """
+
+    module_name: str
+    input_kind: str
+    input_key: str
+    columns: tuple[str, ...]
+
+
+# 列名にスケールのサフィックスは付けない。ファイル自体がスケール別ディレクトリへ
+# 分かれるため冗長であり、結合時に列名がスケールへ依存すると扱いにくいためである。
+BUILDING_COLUMNS = ("BUILD_COV", "BUILD_DEN", "BUILD_H_MEAN", "BUILD_H_MAX")
+ROAD_COLUMNS = ("ROAD_DEN",)
+
+PARAM_SETS: dict[str, ParamSet] = {
+    "build_gba": ParamSet("buildings", "layer", "open_buildings", BUILDING_COLUMNS),
+    "build_dc": ParamSet("buildings", "layer", "dc", BUILDING_COLUMNS),
+    "road_osm": ParamSet("roads", "layer", "open_roads", ROAD_COLUMNS),
+    "road_gt": ParamSet("roads", "layer", "gt", ROAD_COLUMNS),
+    "elev_fabdem": ParamSet("elevation", "raster", "fabdem", ("ELEV_MEAN", "ELEV_VALID_RATIO")),
+    "mask_roi": ParamSet("mask", "layer", ANALYSIS_EXTENT_LAYER_KEY, ("IN_ANALYSIS_AREA",)),
+}
+
+# シナリオごとに結合するテーブルの一覧。シナリオは「グリッドを変えるもの」ではなく
+# 「どのテーブルを結合するかの選択」へ還元したため、算出側（run.py）は参照せず、
+# 結合側（build_dataset.py）が使う。
+#
+# 衛星指標は観測ファイル単位でテーブルを作るため、ここには列挙できない。
+# 結合時に観測日時つきのテーブル名（例: idx_20230707_032329）を明示的に指定する。
+SCENARIO_TABLES: dict[str, tuple[str, ...]] = {
+    "satellite_only": ("mask_roi",),
+    "limited": ("mask_roi", "build_gba", "road_osm", "elev_fabdem"),
+    "full": ("mask_roi", "build_dc", "road_gt"),
 }

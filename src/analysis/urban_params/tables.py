@@ -25,6 +25,7 @@ row が増えるのに対し、正準グリッドの ``row`` は北向きが正�
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -102,6 +103,48 @@ def build_aligned_grid(canonical_spec: CanonicalGridSpec, fine_res_m: float) -> 
     return grid_spec
 
 
+def list_grid_layers(grid_path: Path) -> list[str]:
+    """正準グリッドGeoPackageが持つレイヤ名の一覧を返す。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+
+    Returns:
+        レイヤ名の一覧。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+    """
+    if not grid_path.exists():
+        raise FileNotFoundError(f"正準グリッドGeoPackageが見つかりません: {grid_path}")
+    return [str(name) for name in pyogrio.list_layers(grid_path)[:, 0]]
+
+
+def require_grid_layers(grid_path: Path, layer_names: Sequence[str]) -> None:
+    """指定したレイヤがすべて存在することを確認する。
+
+    **算出を始める前にまとめて確認するために使う。** スケールごとの処理に入ってから
+    レイヤの不在に気づくと、先行するスケールの出力だけが残る。``--scales`` は
+    900mの約数をすべて受け付けるため、正準グリッドを生成していないスケールを
+    指定する操作は十分ありうる。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+        layer_names: 存在を要求するレイヤ名の一覧。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+        ValueError: いずれかのレイヤが存在しない場合。
+    """
+    available_layers = list_grid_layers(grid_path)
+    missing_layers = [name for name in layer_names if name not in available_layers]
+    if missing_layers:
+        raise ValueError(
+            f"正準グリッドにレイヤがありません: {', '.join(missing_layers)}"
+            f"（候補: {', '.join(available_layers)} / パス: {grid_path}）"
+        )
+
+
 def read_grid_cell_ids(grid_path: Path, layer_name: str) -> np.ndarray:
     """正準グリッドGeoPackageのレイヤから ``cell_id`` 列だけを読み出す。
 
@@ -122,15 +165,7 @@ def read_grid_cell_ids(grid_path: Path, layer_name: str) -> np.ndarray:
         ValueError: ``layer_name`` がGeoPackageに存在しない場合、または対象レイヤが
             ``cell_id`` 列を持たない場合。
     """
-    if not grid_path.exists():
-        raise FileNotFoundError(f"正準グリッドGeoPackageが見つかりません: {grid_path}")
-
-    available_layers = [str(name) for name in pyogrio.list_layers(grid_path)[:, 0]]
-    if layer_name not in available_layers:
-        raise ValueError(
-            f"正準グリッドにレイヤがありません: {layer_name}"
-            f"（候補: {', '.join(available_layers)} / パス: {grid_path}）"
-        )
+    require_grid_layers(grid_path, [layer_name])
 
     # 列の存在を先に確かめる。pyogrio は存在しない列を指定しても例外を出さず、
     # 列も行も持たない空のデータフレームを返すため、そのまま読むと原因の分からない

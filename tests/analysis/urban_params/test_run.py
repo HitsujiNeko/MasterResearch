@@ -1,129 +1,179 @@
-"""run.py（オーケストレーション補助関数）のテスト。"""
+"""run.py（パラメータセット単位のオーケストレーション）のテスト。"""
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
+from typing import Any
 
 import fiona
+import geopandas as gpd
 import numpy as np
+import pyogrio
+import pytest
 import rasterio
+import shapely
+from pyproj import CRS
 from rasterio.transform import from_origin
 
-from src.analysis.urban_params.grid import build_grid
-from src.analysis.urban_params.io import LayerResource, RasterResource
+from src.analysis.urban_params import canonical_grid as urban_params_canonical_grid
+from src.analysis.urban_params import config as urban_params_config
+from src.analysis.urban_params import io as urban_params_io
+from src.analysis.urban_params import run as urban_params_run
+from src.analysis.urban_params.canonical_grid import build_canonical_grid
+from src.analysis.urban_params.config import ParamSet
 from src.analysis.urban_params.run import (
-    build_quality_columns,
-    build_satellite_quality,
-    run_for_scale,
+    ParamTask,
+    build_param_tasks,
+    build_satellite_task,
+    main,
+    parse_arguments,
+    satellite_table_name,
+    validate_computed_columns,
 )
 from src.common.geo_metadata import BBox
 
-from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS, _make_layer_resource
+ANALYSIS_CRS = CRS.from_epsg(3857)
+ANALYSIS_EPSG = 3857
+# 900m の約数となるスケール（正準グリッドの制約）。fine=10m で factor は 2 と 6。
+SCALES = (20, 60)
+FINE_RES_M = 10.0
+# 解析範囲。20m では 6x6 セル、60m では 3x3 セルの正準グリッドになる。
+ROI_BOUNDS = (50.0, 30.0, 150.0, 130.0)
+CITY = "testcity"
 
 
-def test_build_quality_columns_marks_cells_with_any_positive_indicator() -> None:
-    """いずれかの指標が0より大きいセルのみVALID_GIS_MASK=1となる。"""
-    grid_spec = build_grid(
-        BBox(0.0, 0.0, 40.0, 40.0), ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0
+# ---------------------------------------------------------------------------
+# satellite_table_name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("file_name", "expected"),
+    [
+        ("INDICES_Landsat8_20230707_032329Z.tif", "idx_20230707_032329"),
+        ("INDICES_Landsat8_20241130_032336Z.tif", "idx_20241130_032336"),
+        ("INDICES_Sentinel2_20230723_032309Z.tiff", "idx_20230723_032309"),
+    ],
+)
+def test_satellite_table_name_derives_observation(file_name: str, expected: str) -> None:
+    """ファイル名の観測日時からテーブル名を導く。"""
+    assert satellite_table_name(Path(file_name)) == expected
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        "indices_20230707.tif",
+        "INDICES_Landsat8_20230707Z.tif",
+        "INDICES_Landsat8_2023077_032329Z.tif",
+        "INDICES_Landsat_8_20230707_032329Z.tif",
+        "INDICES_Landsat8_20230707_032329Z.csv",
+    ],
+)
+def test_satellite_table_name_rejects_unparsable_name(file_name: str) -> None:
+    """観測を特定できないファイル名は推測せずValueErrorで停止する。"""
+    with pytest.raises(ValueError, match="観測日時を特定できません"):
+        satellite_table_name(Path(file_name))
+
+
+# ---------------------------------------------------------------------------
+# parse_arguments
+# ---------------------------------------------------------------------------
+
+
+def test_parse_arguments_requires_params_or_satellite_file() -> None:
+    """算出対象を1つも指定しない場合はエラーになる。"""
+    with pytest.raises(SystemExit):
+        parse_arguments([])
+
+
+def test_parse_arguments_removes_duplicates() -> None:
+    """--scales と --params は重複を除いた一覧に正規化される。"""
+    args = parse_arguments(
+        ["--params", "build_gba", "build_gba", "road_osm", "--scales", "30", "30", "90"]
     )
 
-    indicator_a = np.array([[0.0, 0.0], [np.nan, 0.0]], dtype=np.float32)
-    indicator_b = np.array([[1.0, 0.0], [0.0, 0.0]], dtype=np.float32)
-
-    valid_gis_mask, missing_reason = build_quality_columns([indicator_a, indicator_b], grid_spec)
-
-    expected_mask = np.array([[1, 0], [0, 0]], dtype=np.int8)
-    expected_reason = np.array([["none", "no_gis_feature"], ["no_gis_feature", "no_gis_feature"]])
-
-    np.testing.assert_array_equal(valid_gis_mask, expected_mask)
-    np.testing.assert_array_equal(missing_reason, expected_reason)
+    assert args.params == ["build_gba", "road_osm"]
+    assert args.scales == [30, 90]
 
 
-def test_build_satellite_quality_detects_non_nan_cells() -> None:
-    """NaNでないセルがあればVALID_SATELLITE_MASK=1になる。"""
-    grid_spec = build_grid(
-        BBox(0.0, 0.0, 40.0, 40.0), ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0
-    )
-
-    ndvi = np.array([[0.5, np.nan], [np.nan, np.nan]], dtype=np.float32)
-    ndbi = np.array([[np.nan, -0.2], [np.nan, np.nan]], dtype=np.float32)
-
-    valid_sat_mask = build_satellite_quality([ndvi, ndbi], grid_spec)
-
-    expected = np.array([[1, 1], [0, 0]], dtype=np.int8)
-    np.testing.assert_array_equal(valid_sat_mask, expected)
+def test_parse_arguments_rejects_non_positive_scale() -> None:
+    """0以下のスケールはエラーになる。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--params", "build_gba", "--scales", "0"])
 
 
-def test_build_satellite_quality_empty_arrays() -> None:
-    """衛星指標がない場合（satellite_dir未指定）は全セル0になる。"""
-    grid_spec = build_grid(
-        BBox(0.0, 0.0, 40.0, 40.0), ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0
-    )
-
-    valid_sat_mask = build_satellite_quality([], grid_spec)
-
-    np.testing.assert_array_equal(valid_sat_mask, np.zeros((2, 2), dtype=np.int8))
+@pytest.mark.parametrize("scale", ["40", "7", "1000"])
+def test_parse_arguments_rejects_unsupported_scale(scale: str) -> None:
+    """900mの約数でないスケールはCLI段階で弾く（正準グリッドが扱えないため）。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--params", "build_gba", "--scales", scale])
 
 
-def test_run_for_scale_returns_expected_columns(polygon_resource) -> None:
-    """run_for_scaleがIN_ANALYSIS_AREA==1の行のみ返し、必須列を含む。"""
-    args = argparse.Namespace(fine_res=10.0, scenario="satellite_only")
-    scenario_cfg = {"data_source": "satellite"}
+@pytest.mark.parametrize("scale", ["10", "30", "90", "300", "900"])
+def test_parse_arguments_accepts_supported_scale(scale: str) -> None:
+    """900mの約数であるスケールは受け付ける。"""
+    args = parse_arguments(["--params", "build_gba", "--scales", scale])
 
-    df = run_for_scale(
-        scale=20,
-        args=args,
-        scenario_cfg=scenario_cfg,
-        analysis_crs=ANALYSIS_CRS,
-        analysis_bbox=ANALYSIS_BBOX,
-        mask_resource=polygon_resource,
-        building_resource=None,
-        road_resource=None,
-        elevation_resource=None,
-        raster_resources={},
-    )
-
-    expected_columns = {
-        "lon",
-        "lat",
-        "IN_ANALYSIS_AREA",
-        "VALID_GIS_MASK",
-        "VALID_SATELLITE_MASK",
-        "MISSING_REASON",
-        "DATA_SOURCE",
-        "SCENARIO",
-    }
-    assert expected_columns.issubset(set(df.columns))
-    assert (df["IN_ANALYSIS_AREA"] == 1).all()
-    assert len(df) > 0
-    assert df["SCENARIO"].iloc[0] == "satellite_only"
+    assert args.scales == [int(scale)]
 
 
-def _write_elevation_raster(path: Path, value: float = 30.0) -> RasterResource:
-    """解析範囲全体を一定標高で覆うDEMを書き出し、RasterResourceを返す。"""
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=8,
-        width=8,
-        count=1,
-        dtype="float32",
-        crs=ANALYSIS_CRS,
-        transform=from_origin(0, 80, 10, 10),
-        nodata=-9999.0,
-    ) as dst:
-        dst.write(np.full((8, 8), value, dtype=np.float32), 1)
-    return RasterResource(path, 1)
+def test_parse_arguments_rejects_unknown_param_set() -> None:
+    """PARAM_SETS に無いパラメータセット名はエラーになる。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(["--params", "build_unknown"])
 
 
-def _write_full_extent_mask(path: Path) -> LayerResource:
-    """解析範囲（0-80m四方）全体を覆うマスクポリゴンを書き出す。
+def test_parse_arguments_accepts_satellite_file_only() -> None:
+    """衛星指標だけの指定でも受け付ける。"""
+    args = parse_arguments(["--satellite-file", "data/satellite/x.tif"])
 
-    建物が存在しないセルも ``IN_ANALYSIS_AREA == 1`` として残すために使う。
-    """
-    ring = [(0.0, 0.0), (80.0, 0.0), (80.0, 80.0), (0.0, 80.0), (0.0, 0.0)]
+    assert args.params == []
+    assert args.satellite_file == "data/satellite/x.tif"
+
+
+# ---------------------------------------------------------------------------
+# validate_computed_columns
+# ---------------------------------------------------------------------------
+
+
+def _dummy_task(expected_columns: tuple[str, ...]) -> ParamTask:
+    """列検証だけを試すためのタスクを作る。"""
+    return ParamTask("dummy", lambda bbox, grid_spec: {}, expected_columns)
+
+
+def test_validate_computed_columns_accepts_exact_match() -> None:
+    """期待した列と一致すれば例外にならない。"""
+    task = _dummy_task(("BUILD_COV", "BUILD_DEN"))
+
+    validate_computed_columns(task, {"BUILD_DEN": np.zeros(1), "BUILD_COV": np.zeros(1)})
+
+
+@pytest.mark.parametrize(
+    ("actual_columns", "message"),
+    [
+        (("BUILD_COV",), "不足"),
+        (("BUILD_COV", "BUILD_DEN", "BUILD_EXTRA"), "余分"),
+    ],
+)
+def test_validate_computed_columns_reports_difference(
+    actual_columns: tuple[str, ...], message: str
+) -> None:
+    """列が食い違う場合は不足・余分を示すValueErrorになる。"""
+    task = _dummy_task(("BUILD_COV", "BUILD_DEN"))
+    columns = {name: np.zeros(1) for name in actual_columns}
+
+    with pytest.raises(ValueError, match=message):
+        validate_computed_columns(task, columns)
+
+
+# ---------------------------------------------------------------------------
+# 合成データによるオーケストレーションの検証
+# ---------------------------------------------------------------------------
+
+
+def _write_polygon_layer(path: Path, rings: list[list[tuple[float, float]]]) -> None:
+    """属性を持たないポリゴンレイヤを書き出す。"""
     with fiona.open(
         path,
         "w",
@@ -132,68 +182,469 @@ def _write_full_extent_mask(path: Path) -> LayerResource:
         crs=ANALYSIS_CRS,
         schema={"geometry": "Polygon", "properties": {}},
     ) as dst:
-        dst.write({"geometry": {"type": "Polygon", "coordinates": [ring]}, "properties": {}})
-    return _make_layer_resource(path, "data")
+        for ring in rings:
+            dst.write({"geometry": {"type": "Polygon", "coordinates": [ring]}, "properties": {}})
 
 
-def _run_limited_like(
-    elevation_resource: RasterResource | None,
-    building_resource: LayerResource,
-    mask_resource: LayerResource,
-):
-    """limited相当（建物レイヤ＋DEMラスタ）の構成で run_for_scale を実行する。"""
-    return run_for_scale(
-        scale=20,
-        args=argparse.Namespace(fine_res=10.0, scenario="limited"),
-        scenario_cfg={"data_source": "open_gis"},
-        analysis_crs=ANALYSIS_CRS,
-        analysis_bbox=ANALYSIS_BBOX,
-        mask_resource=mask_resource,
-        building_resource=building_resource,
-        road_resource=None,
-        elevation_resource=elevation_resource,
-        raster_resources={},
-    )
+def _rectangle(min_x: float, min_y: float, max_x: float, max_y: float) -> list[tuple[float, float]]:
+    """矩形の外周リングを返す。"""
+    return [
+        (min_x, min_y),
+        (max_x, min_y),
+        (max_x, max_y),
+        (min_x, max_y),
+        (min_x, min_y),
+    ]
 
 
-def test_run_for_scale_outputs_elevation_column(tmp_path: Path, building_resource) -> None:
-    """DEMラスタを渡すとELEV_MEAN_{scale}・ELEV_VALID_RATIO_{scale}列が出力される。"""
-    elevation_resource = _write_elevation_raster(tmp_path / "dem.tif")
-    mask_resource = _write_full_extent_mask(tmp_path / "mask.gpkg")
+def _write_building_layer(path: Path) -> None:
+    """高さ・推定分散を持つ建物レイヤを書き出す。"""
+    with fiona.open(
+        path,
+        "w",
+        driver="GPKG",
+        layer="data",
+        crs=ANALYSIS_CRS,
+        schema={"geometry": "Polygon", "properties": {"height": "float", "var": "float"}},
+    ) as dst:
+        for bounds, height in (
+            ((60.0, 40.0, 80.0, 60.0), 10.0),
+            ((100.0, 90.0, 110.0, 100.0), 20.0),
+        ):
+            dst.write(
+                {
+                    "geometry": {"type": "Polygon", "coordinates": [_rectangle(*bounds)]},
+                    "properties": {"height": height, "var": 1.0},
+                }
+            )
 
-    df = _run_limited_like(elevation_resource, building_resource, mask_resource)
 
-    assert "ELEV_MEAN_20" in df.columns
-    np.testing.assert_allclose(df["ELEV_MEAN_20"].to_numpy(), 30.0, rtol=1e-5)
-    # DEMが解析範囲全体を覆うため、有効画素率は全セル1.0になる。
-    assert "ELEV_VALID_RATIO_20" in df.columns
-    np.testing.assert_allclose(df["ELEV_VALID_RATIO_20"].to_numpy(), 1.0, atol=1e-5)
+def _write_road_layer(path: Path) -> None:
+    """車道タグを持つ道路レイヤを書き出す。"""
+    with fiona.open(
+        path,
+        "w",
+        driver="GPKG",
+        layer="data",
+        crs=ANALYSIS_CRS,
+        schema={
+            "geometry": "LineString",
+            "properties": {"highway": "str", "z_order": "int"},
+        },
+    ) as dst:
+        dst.write(
+            {
+                "geometry": {"type": "LineString", "coordinates": [(55.0, 60.0), (145.0, 60.0)]},
+                "properties": {"highway": "residential", "z_order": 0},
+            }
+        )
 
 
-def test_run_for_scale_elevation_does_not_affect_gis_quality(
-    tmp_path: Path, building_resource
-) -> None:
-    """標高はVALID_GIS_MASK・MISSING_REASONの判定に影響しない。
+def _write_dem(path: Path) -> None:
+    """解析範囲を覆う一定標高のDEMを書き出す。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 200.0, 10.0, 10.0),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((20, 20), 30.0, dtype=np.float32), 1)
 
-    標高を判定に含めるとROI内のほぼ全セルが有効となり、VALID_GIS_MASKが
-    「建物・道路データが存在するか」という本来の意味を失うため。
+
+def _write_indices_raster(path: Path) -> None:
+    """NDVI/NDBI/NDWI のバンド説明を持つ衛星指標ラスタを書き出す。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=3,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 200.0, 10.0, 10.0),
+        nodata=np.nan,
+    ) as dst:
+        for band_index, (name, value) in enumerate(
+            (("NDVI", 0.4), ("NDBI", -0.1), ("NDWI", 0.2)), start=1
+        ):
+            dst.write(np.full((20, 20), value, dtype=np.float32), band_index)
+            dst.set_band_description(band_index, name)
+
+
+def _write_canonical_grid(path: Path, roi_bbox: BBox) -> dict[int, np.ndarray]:
+    """各スケールの正準グリッドレイヤを書き出し、cell_id を返す。
+
+    実運用と同じく、BBox全域ではなく一部のセルだけを持つレイヤにする
+    （マスク交差セルのみを出力する挙動を模す）。
     """
-    elevation_resource = _write_elevation_raster(tmp_path / "dem.tif")
-    mask_resource = _write_full_extent_mask(tmp_path / "mask.gpkg")
+    cell_ids_by_scale: dict[int, np.ndarray] = {}
+    for scale in SCALES:
+        canonical = build_canonical_grid(roi_bbox, ANALYSIS_CRS, float(scale))
+        rows = np.repeat(
+            np.arange(canonical.row_min, canonical.row_max + 1, dtype=np.int64), canonical.n_cols
+        )
+        cols = np.tile(
+            np.arange(canonical.col_min, canonical.col_max + 1, dtype=np.int64), canonical.n_rows
+        )
+        # 先頭2セルを除いて「マスクで一部が落ちた」状態にする。
+        rows, cols = rows[2:], cols[2:]
+        cell_ids = rows * 1_000_000 + cols
 
-    with_elevation = _run_limited_like(elevation_resource, building_resource, mask_resource)
-    without_elevation = _run_limited_like(None, building_resource, mask_resource)
+        min_x = cols * canonical.res_m
+        min_y = rows * canonical.res_m
+        frame = gpd.GeoDataFrame(
+            {"cell_id": cell_ids, "row": rows.astype(np.int32), "col": cols.astype(np.int32)},
+            geometry=shapely.box(min_x, min_y, min_x + canonical.res_m, min_y + canonical.res_m),
+            crs=ANALYSIS_CRS,
+        )
+        pyogrio.write_dataframe(frame, path, layer=f"grid_{scale}m", driver="GPKG")
+        cell_ids_by_scale[scale] = cell_ids
+    return cell_ids_by_scale
 
-    np.testing.assert_array_equal(
-        with_elevation["VALID_GIS_MASK"].to_numpy(),
-        without_elevation["VALID_GIS_MASK"].to_numpy(),
+
+@pytest.fixture()
+def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """合成データ一式と、それを指す都市設定を用意する。"""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    _write_polygon_layer(data_dir / "roi.gpkg", [_rectangle(*ROI_BOUNDS)])
+    _write_building_layer(data_dir / "buildings.gpkg")
+    _write_road_layer(data_dir / "roads.gpkg")
+    _write_dem(data_dir / "dem.tif")
+    _write_indices_raster(data_dir / "INDICES_TestSat_20230707_032329Z.tif")
+
+    roi_bbox = BBox(*ROI_BOUNDS)
+    cell_ids_by_scale = _write_canonical_grid(data_dir / "grid.gpkg", roi_bbox)
+
+    city_cfg = {
+        "analysis_epsg": ANALYSIS_EPSG,
+        "layers": {
+            "roi": {"path": "data/roi.gpkg", "layer": "data", "crs_epsg": ANALYSIS_EPSG},
+            "open_buildings": {
+                "path": "data/buildings.gpkg",
+                "layer": "data",
+                "crs_epsg": ANALYSIS_EPSG,
+            },
+            "open_roads": {"path": "data/roads.gpkg", "layer": "data", "crs_epsg": ANALYSIS_EPSG},
+        },
+        "rasters": {"fabdem": {"path": "data/dem.tif", "band": 1}},
+    }
+
+    # 入力・出力ともにテンポラリ配下で完結させる。PROJECT_ROOT は各モジュールが
+    # それぞれ import しているため、参照する4モジュールすべてを差し替える。
+    # --grid の解決は canonical_grid.resolve_output_path() が、出力先の既定値は
+    # config.resolve_table_path() が担うため、いずれも差し替えないと実プロジェクトの
+    # data/ を参照・書き換えてしまう。
+    monkeypatch.setattr(urban_params_io, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(urban_params_run, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(urban_params_canonical_grid, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(urban_params_config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setitem(urban_params_run.CITY_CONFIG, CITY, city_cfg)
+
+    return {
+        "root": tmp_path,
+        "city_cfg": city_cfg,
+        "grid_path": data_dir / "grid.gpkg",
+        "output_dir": tmp_path / "out",
+        "cell_ids_by_scale": cell_ids_by_scale,
+    }
+
+
+def _run_main(city_environment: dict[str, Any], extra_args: list[str]) -> None:
+    """合成環境に対して main() を実行する。"""
+    main(
+        [
+            "--city",
+            CITY,
+            "--scales",
+            *[str(scale) for scale in SCALES],
+            "--fine-res",
+            str(FINE_RES_M),
+            "--grid",
+            str(city_environment["grid_path"].relative_to(city_environment["root"])),
+            "--output-dir",
+            "out",
+            *extra_args,
+        ]
     )
-    np.testing.assert_array_equal(
-        with_elevation["MISSING_REASON"].to_numpy(),
-        without_elevation["MISSING_REASON"].to_numpy(),
+
+
+def _read_table(output_dir: Path, scale: int, table_name: str):
+    """出力したテーブルを読み戻す。"""
+    path = output_dir / CITY / f"{scale}m" / f"{table_name}.gpkg"
+    return pyogrio.read_dataframe(path, layer=table_name, read_geometry=False)
+
+
+def test_main_writes_one_table_per_param_set(city_environment: dict[str, Any]) -> None:
+    """パラメータセットごとに、スケール別ディレクトリへテーブルが出力される。"""
+    _run_main(city_environment, ["--params", "build_gba", "road_osm", "mask_roi"])
+
+    output_dir = city_environment["output_dir"]
+    for scale in SCALES:
+        for table_name in ("build_gba", "road_osm", "mask_roi"):
+            path = output_dir / CITY / f"{scale}m" / f"{table_name}.gpkg"
+            assert path.exists(), path
+
+
+def test_main_output_matches_canonical_cell_ids(city_environment: dict[str, Any]) -> None:
+    """出力行は正準グリッドレイヤの cell_id と件数・並びが一致する。"""
+    _run_main(city_environment, ["--params", "build_gba"])
+
+    for scale in SCALES:
+        table = _read_table(city_environment["output_dir"], scale, "build_gba")
+        expected_cell_ids = city_environment["cell_ids_by_scale"][scale]
+
+        assert len(table) == len(expected_cell_ids)
+        np.testing.assert_array_equal(table["cell_id"].to_numpy(), expected_cell_ids)
+
+
+def test_main_output_columns_have_no_scale_suffix(city_environment: dict[str, Any]) -> None:
+    """列名にスケールのサフィックスが付かない（スケールはディレクトリで表す）。"""
+    _run_main(city_environment, ["--params", "build_gba", "road_osm", "mask_roi"])
+
+    build_table = _read_table(city_environment["output_dir"], 20, "build_gba")
+    road_table = _read_table(city_environment["output_dir"], 20, "road_osm")
+    mask_table = _read_table(city_environment["output_dir"], 20, "mask_roi")
+
+    assert list(build_table.columns) == [
+        "cell_id",
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "BUILD_H_MAX",
+    ]
+    assert list(road_table.columns) == ["cell_id", "ROAD_DEN"]
+    assert list(mask_table.columns) == ["cell_id", "IN_ANALYSIS_AREA"]
+
+
+def test_main_keeps_missing_height_as_null(city_environment: dict[str, Any]) -> None:
+    """建物が無いセルの BUILD_H_MEAN は NULL として保持される。"""
+    _run_main(city_environment, ["--params", "build_gba"])
+
+    table = _read_table(city_environment["output_dir"], 20, "build_gba")
+
+    assert table["BUILD_H_MEAN"].isna().any()
+    # 建物があるセルには値が入る。
+    assert table["BUILD_H_MEAN"].notna().any()
+
+
+def test_main_reads_input_layer_once_across_scales(
+    city_environment: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """複数スケールを1回の実行で出力しても、入力レイヤの読み込みは1回で済む。"""
+    counts = {"dataframe": 0, "features": 0}
+    original_frame = urban_params_io._read_layer_dataframe_uncached
+    original_records = urban_params_io._iter_feature_records_uncached
+
+    def counting_frame(resource: Any, columns: Any) -> Any:
+        """建物レイヤの実読み込み回数を数える。"""
+        counts["dataframe"] += 1
+        return original_frame(resource, columns)
+
+    def counting_records(resource: Any, bbox_analysis: Any) -> Any:
+        """道路・ROIレイヤの実読み込み回数を数える。"""
+        counts["features"] += 1
+        return original_records(resource, bbox_analysis)
+
+    monkeypatch.setattr(urban_params_io, "_read_layer_dataframe_uncached", counting_frame)
+    monkeypatch.setattr(urban_params_io, "_iter_feature_records_uncached", counting_records)
+
+    _run_main(city_environment, ["--params", "build_gba", "road_osm", "mask_roi"])
+
+    # 建物1回（2スケール分）。道路とROIで合わせて2回。
+    assert counts["dataframe"] == 1
+    assert counts["features"] == 2
+
+
+def test_main_uses_default_output_root_when_not_specified(
+    city_environment: dict[str, Any],
+) -> None:
+    """--output-dir 未指定でも、プロジェクトルート基準の既定パスへ出力される。"""
+    main(
+        [
+            "--city",
+            CITY,
+            "--params",
+            "road_osm",
+            "--scales",
+            "60",
+            "--fine-res",
+            str(FINE_RES_M),
+            "--grid",
+            str(city_environment["grid_path"].relative_to(city_environment["root"])),
+        ]
     )
-    # 標高列が無い側にはELEV_MEAN・ELEV_VALID_RATIO列自体が現れない。
-    assert "ELEV_MEAN_20" not in without_elevation.columns
-    assert "ELEV_VALID_RATIO_20" not in without_elevation.columns
-    # 建物が無いセルは、標高があってもVALID_GIS_MASK=0のまま。
-    assert (with_elevation["VALID_GIS_MASK"] == 0).any()
+
+    default_path = (
+        city_environment["root"] / "data" / "output" / "params" / CITY / "60m" / "road_osm.gpkg"
+    )
+    assert default_path.exists()
+
+
+def test_main_rejects_scale_without_grid_layer_before_writing(
+    city_environment: dict[str, Any],
+) -> None:
+    """グリッドレイヤの無いスケールを含む場合、1件も出力せずに停止する。
+
+    スケールごとの処理に入ってから気づくと、先行するスケールの出力だけが残り、
+    どこまでが最新なのか分からなくなる。
+    """
+    # 45 は900mの約数のためCLI検証は通るが、グリッドは生成していない。
+    with pytest.raises(ValueError, match="正準グリッドにレイヤがありません"):
+        main(
+            [
+                "--city",
+                CITY,
+                "--params",
+                "road_osm",
+                "--scales",
+                "20",
+                "45",
+                "--fine-res",
+                str(FINE_RES_M),
+                "--grid",
+                str(city_environment["grid_path"].relative_to(city_environment["root"])),
+                "--output-dir",
+                "out",
+            ]
+        )
+
+    assert not (city_environment["output_dir"]).exists()
+
+
+def test_main_rerun_does_not_duplicate_rows(city_environment: dict[str, Any]) -> None:
+    """同じコマンドを2回実行しても行数が倍にならない。"""
+    _run_main(city_environment, ["--params", "road_osm"])
+    first = len(_read_table(city_environment["output_dir"], 20, "road_osm"))
+
+    _run_main(city_environment, ["--params", "road_osm"])
+    second = len(_read_table(city_environment["output_dir"], 20, "road_osm"))
+
+    assert first == second
+
+
+def test_main_writes_elevation_table(city_environment: dict[str, Any]) -> None:
+    """ラスタ入力のパラメータセットも同じ枠組みで出力される。"""
+    _run_main(city_environment, ["--params", "elev_fabdem"])
+
+    table = _read_table(city_environment["output_dir"], 60, "elev_fabdem")
+
+    assert list(table.columns) == ["cell_id", "ELEV_MEAN", "ELEV_VALID_RATIO"]
+    np.testing.assert_allclose(table["ELEV_MEAN"].to_numpy(), 30.0, rtol=1e-5)
+
+
+def test_main_writes_satellite_table_named_by_observation(
+    city_environment: dict[str, Any],
+) -> None:
+    """衛星指標は観測日時つきのテーブル名で出力される。"""
+    _run_main(
+        city_environment,
+        ["--satellite-file", "data/INDICES_TestSat_20230707_032329Z.tif"],
+    )
+
+    output_dir = city_environment["output_dir"]
+    path = output_dir / CITY / "20m" / "idx_20230707_032329.gpkg"
+    assert path.exists()
+
+    table = pyogrio.read_dataframe(path, layer="idx_20230707_032329", read_geometry=False)
+    assert set(table.columns) == {"cell_id", "NDVI", "NDBI", "NDWI"}
+
+
+def test_build_param_tasks_binds_each_resource_independently(
+    city_environment: dict[str, Any],
+) -> None:
+    """複数タスクを作っても、各タスクが自分の入力とモジュールを保持する。
+
+    ループ内で定義したクロージャが最後の変数を共有する（遅延束縛）と、すべての
+    タスクが同じパラメータを算出してしまう。その退行を防ぐための検証である。
+    """
+    tasks = build_param_tasks(
+        ["build_gba", "road_osm", "mask_roi"], city_environment["city_cfg"], ANALYSIS_CRS
+    )
+
+    assert [task.table_name for task in tasks] == ["build_gba", "road_osm", "mask_roi"]
+
+    canonical = build_canonical_grid(BBox(*ROI_BOUNDS), ANALYSIS_CRS, 20.0)
+    from src.analysis.urban_params.tables import aligned_bbox, build_aligned_grid
+
+    grid_spec = build_aligned_grid(canonical, FINE_RES_M)
+    bbox = aligned_bbox(canonical)
+
+    computed = [set(task.compute(bbox, grid_spec)) for task in tasks]
+    assert computed[0] == {"BUILD_COV", "BUILD_DEN", "BUILD_H_MEAN", "BUILD_H_MAX"}
+    assert computed[1] == {"ROAD_DEN"}
+    assert computed[2] == {"IN_ANALYSIS_AREA"}
+
+
+def test_build_param_tasks_resolves_all_inputs_before_running(
+    city_environment: dict[str, Any],
+) -> None:
+    """入力が解決できないパラメータセットがあれば、タスク組み立ての時点で失敗する。"""
+    city_cfg = dict(city_environment["city_cfg"])
+    city_cfg["layers"] = dict(city_cfg["layers"])
+    city_cfg["layers"]["dc"] = {
+        "path": "data/missing.gpkg",
+        "layer": "data",
+        "crs_epsg": ANALYSIS_EPSG,
+    }
+
+    with pytest.raises(FileNotFoundError):
+        build_param_tasks(["build_gba", "build_dc"], city_cfg, ANALYSIS_CRS)
+
+
+def test_build_satellite_task_missing_file_raises(tmp_path: Path) -> None:
+    """存在しない衛星指標ファイルはFileNotFoundErrorになる。"""
+    with pytest.raises(FileNotFoundError):
+        build_satellite_task(tmp_path / "INDICES_TestSat_20230707_032329Z.tif")
+
+
+def test_build_satellite_task_without_indices_raises(tmp_path: Path) -> None:
+    """指標を1つも検出できないラスタはValueErrorになる。"""
+    path = tmp_path / "INDICES_TestSat_20230707_032329Z.tif"
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=2,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 20.0, 10.0, 10.0),
+    ) as dst:
+        dst.write(np.zeros((2, 2), dtype=np.float32), 1)
+
+    with pytest.raises(ValueError, match="衛星指標を検出できませんでした"):
+        build_satellite_task(path)
+
+
+def test_param_set_columns_match_computed_columns(city_environment: dict[str, Any]) -> None:
+    """PARAM_SETS の宣言列と compute() の実際の出力列が一致する。
+
+    宣言が実装から乖離すると、感度分析で結合先を差し替えたときに列が揃わない。
+    """
+    canonical = build_canonical_grid(BBox(*ROI_BOUNDS), ANALYSIS_CRS, 20.0)
+    from src.analysis.urban_params.tables import aligned_bbox, build_aligned_grid
+
+    grid_spec = build_aligned_grid(canonical, FINE_RES_M)
+    bbox = aligned_bbox(canonical)
+
+    for table_name in ("build_gba", "road_osm", "mask_roi", "elev_fabdem"):
+        task = build_param_tasks([table_name], city_environment["city_cfg"], ANALYSIS_CRS)[0]
+        validate_computed_columns(task, task.compute(bbox, grid_spec))
+
+
+def test_param_set_dataclass_is_immutable() -> None:
+    """パラメータセット定義は変更できない（実行中の書き換えを防ぐ）。"""
+    param_set = ParamSet("buildings", "layer", "open_buildings", ("BUILD_COV",))
+
+    with pytest.raises(Exception):
+        param_set.input_key = "dc"  # type: ignore[misc]

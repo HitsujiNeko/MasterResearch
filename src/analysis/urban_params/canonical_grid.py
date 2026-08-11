@@ -36,7 +36,7 @@ from shapely.geometry.base import BaseGeometry
 from src.common.geo_metadata import BBox
 from src.common.geopackage import remove_geopackage, replace_geopackage
 
-from .config import CITY_CONFIG, PROJECT_ROOT
+from .config import ANALYSIS_EXTENT_LAYER_KEY, CITY_CONFIG, PROJECT_ROOT
 from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
 
 # グリッド原点の基準座標（解析用CRS上）。解析範囲に依存させないための定数であり、
@@ -639,9 +639,11 @@ def parse_arguments() -> argparse.Namespace:
     # 有効な値は都市ごとに異なり、--city の解釈後でないと決まらないため
     # choices では列挙できない。候補はハードコードせず CITY_CONFIG から導き、
     # 解釈後に検証する（下部参照）。
+    # 既定値は config の定数を参照する。パラメータテーブル側（run.py）が使う解析範囲
+    # レイヤと食い違うと、出力対象のセル集合が対応しなくなるためである。
     parser.add_argument(
         "--mask-layer-key",
-        default="roi",
+        default=ANALYSIS_EXTENT_LAYER_KEY,
         help="解析範囲の基準レイヤ。CITY_CONFIG の layers のキーを指定する"
         "（例: roi / rg / cs）。BBoxと（--extent mask 時の）マスクの両方に使う。",
     )
@@ -693,14 +695,19 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def resolve_output_path(output_argument: str, city: str) -> Path:
-    """CLIの ``--output`` から出力先の絶対パスを決める。
+    """正準グリッドGeoPackageのパスを決める。
+
+    本モジュールの ``--output``（出力先）と ``run.py`` の ``--grid``（入力元）の
+    双方から使う。同じファイルを指す引数であり、既定パスの定義を1か所に保つため
+    共有している。**関数名は出力側の用途に由来するが、入力パスの解決にも用いる。**
 
     Args:
-        output_argument: ``--output`` の値。空文字の場合は既定パスを使う。
+        output_argument: 引数の値。空文字の場合は既定パスを使う。
         city: 都市ID。既定パスのファイル名に使う。
 
     Returns:
-        出力先の絶対パス。相対パスはプロジェクトルート基準で解決する。
+        正準グリッドGeoPackageの絶対パス。相対パスはプロジェクトルート基準で
+        解決する。
     """
     if not output_argument:
         return PROJECT_ROOT / "data" / "output" / "grid" / f"grid_{city}.gpkg"

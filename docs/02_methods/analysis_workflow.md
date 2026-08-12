@@ -280,7 +280,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来パラメータのグリッド集計。**パラメータセット単位**に出力する | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ + 正準グリッド | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（`cell_id` キーの属性テーブル） |
 | `src/analysis/build_dataset.py` | 指定テーブル群の `cell_id` 結合と品質管理列の導出 | パラメータテーブル + 正準グリッド | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg` |
 | `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | パラメータテーブルまたは結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
-| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合。**未実装** | LSTクリップ + パラメータCSV | `data/output/analysis_dataset.csv` |
+| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合。**未実装** | LSTクリップ + 結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
 
 ---
 

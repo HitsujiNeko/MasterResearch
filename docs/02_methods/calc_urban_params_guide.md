@@ -238,7 +238,9 @@
 
 **分ける理由**: 結合フェーズでは左結合を使うため、テーブルに存在しない `cell_id` の列が NULL になる。両者を同じ値にまとめると、結合したテーブルの世代違いや算出範囲の不足が「地物が無い地域」に化けて分析へ流れ込む。前者は0として扱ってよいが、後者はテーブルを算出し直すべき状態であり、対処が異なる。
 
-なお `missing_gis_data` は結果側の表示であって原因を示さない。原因の切り分けには結合時に出力される突合件数を見る（`build_dataset.report_match_counts()` は、テーブル側の一致件数と**土台側で値が付く件数**の両方を報告し、後者が土台の行数に満たない場合に警告する。部分的に stale なテーブルは一致0件にならないため、0件だけを検知していると見逃す）。
+**判定は結合した全 GIS 列をまたいで行うため、複数テーブルを結合した場合の検知範囲は限られる。** `missing_gis_data` になるのは判定材料が**すべて** NULL のセルだけである。したがって `road_osm` が最新で `build_gba` だけが古い、といった**テーブル単位の世代違いは捕まらない**（建物4列が NULL でも `ROAD_DEN` に値があれば `no_gis_feature` になる）。この列が確実に捕まえるのは「結合した GIS テーブルのすべてがそのセルを持たない」場合に限る。
+
+なお `missing_gis_data` は結果側の表示であって原因を示さない。**テーブル単位の世代違いの切り分けには、結合時に出力される突合件数を使う**（`build_dataset.report_match_counts()` は、テーブル側の一致件数と**土台側で値が付く件数**の両方をテーブルごとに報告し、後者が土台の行数に満たない場合に警告する。部分的に stale なテーブルは一致0件にならないため、0件だけを検知していると見逃す）。
 
 **`DATA_SOURCE` / `SCENARIO` は廃止した。** テーブル名（`build_gba` 等）と結合対象の選択が同じ情報を持つためである。
 
@@ -347,13 +349,22 @@
 - `--scenario`: `config.py` の `SCENARIO_TABLES`（シナリオ → 結合するテーブル名の一覧）を展開する
 - `--tables`: テーブル名を直接指定する（別ソース版の比較・衛星指標の追加など）
 
-| シナリオ | 結合するテーブル |
-|---|---|
-| `satellite_only` | `mask_roi` |
-| `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` |
-| `full` | `mask_roi` / `build_dc` / `road_gt` |
+| シナリオ | 結合するテーブル | `--scenario` での指定 |
+|---|---|---|
+| `satellite_only` | `mask_roi` | **不可**（下記） |
+| `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` | 可 |
+| `full` | `mask_roi` / `build_dc` / `road_gt` | 可 |
 
 衛星指標は観測ファイル単位のため `SCENARIO_TABLES` には列挙できない。結合時に観測日時つきのテーブル名（例: `idx_20230707_032329`）を `--tables` で明示する。
+
+**`--scenario satellite_only` は拒否する。** 衛星指標を列挙できない以上、シナリオ名だけで展開すると `mask_roi` だけの4列（`cell_id` / `lon` / `lat` / `IN_ANALYSIS_AREA`）のデータセットが `dataset_satellite_only_*.gpkg` という名前で出力される。**名前が中身を偽る**ため、経路自体を塞いでいる。次のように直接指定する。
+
+```bash
+python -m src.analysis.build_dataset --city hanoi --scale 30 \
+    --tables idx_20230707_032329 mask_roi --name satellite_only
+```
+
+`SCENARIO_TABLES` にエントリを残しているのは、「衛星指標以外に何を結合するか」を記録するためである。`--scenario` と `--tables` の併用を許すかどうかは CLI 仕様の設計判断を伴うため、LST のテーブル化とあわせて後続で決める。
 
 **結合は左結合とする。** 正準グリッドのセルを1行も落とさないためであり、あるテーブルにのみ存在しない `cell_id` の値は NULL として残る。
 

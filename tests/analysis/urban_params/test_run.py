@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ from src.analysis.urban_params.run import (
     satellite_table_name,
     validate_computed_columns,
 )
+from src.analysis.urban_params.tables import aligned_bbox, build_aligned_grid
 from src.common.geo_metadata import BBox
 
 from ..conftest import (
@@ -381,8 +383,6 @@ def test_build_param_tasks_binds_each_resource_independently(
     assert [task.table_name for task in tasks] == ["build_gba", "road_osm", "mask_roi"]
 
     canonical = build_canonical_grid(BBox(*ROI_BOUNDS), ANALYSIS_CRS, 20.0)
-    from src.analysis.urban_params.tables import aligned_bbox, build_aligned_grid
-
     grid_spec = build_aligned_grid(canonical, FINE_RES_M)
     bbox = aligned_bbox(canonical)
 
@@ -440,8 +440,6 @@ def test_param_set_columns_match_computed_columns(city_environment: dict[str, An
     宣言が実装から乖離すると、感度分析で結合先を差し替えたときに列が揃わない。
     """
     canonical = build_canonical_grid(BBox(*ROI_BOUNDS), ANALYSIS_CRS, 20.0)
-    from src.analysis.urban_params.tables import aligned_bbox, build_aligned_grid
-
     grid_spec = build_aligned_grid(canonical, FINE_RES_M)
     bbox = aligned_bbox(canonical)
 
@@ -454,5 +452,7 @@ def test_param_set_dataclass_is_immutable() -> None:
     """パラメータセット定義は変更できない（実行中の書き換えを防ぐ）。"""
     param_set = ParamSet("buildings", "layer", "open_buildings", ("BUILD_COV",))
 
-    with pytest.raises(Exception):
+    # 例外型を絞る。Exception のままだと、frozen でなくなった後に別の理由で失敗
+    # するようになってもテストが通り続け、不変性の保証を検証できない。
+    with pytest.raises(FrozenInstanceError):
         param_set.input_key = "dc"  # type: ignore[misc]

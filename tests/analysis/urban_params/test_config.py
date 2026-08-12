@@ -4,12 +4,38 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src.analysis.urban_params.config import (
     CITY_CONFIG,
+    PARAM_SETS,
     PARAMS_OUTPUT_PARTS,
     grid_layer_name,
     resolve_table_path,
 )
+
+
+@pytest.mark.parametrize(
+    ("table_names", "label"),
+    [
+        (("build_gba", "build_dc"), "建物"),
+        (("road_osm", "road_gt"), "道路"),
+    ],
+)
+def test_param_sets_of_same_module_declare_identical_columns(
+    table_names: tuple[str, ...], label: str
+) -> None:
+    """同じモジュールを使う別ソース版は、同じ列名を宣言する。
+
+    感度分析で結合先を差し替えられるという設計の狙いは、この一致に依存する。
+    片方の ``columns`` だけを変えても ``validate_computed_columns()`` は個別には
+    通るため、列が揃わないことに気づくのは結合フェーズまで遅れる。
+    """
+    columns = {name: PARAM_SETS[name].columns for name in table_names}
+    modules = {PARAM_SETS[name].module_name for name in table_names}
+
+    assert len(modules) == 1, f"{label}の別ソース版が異なるモジュールを指しています: {modules}"
+    assert len(set(columns.values())) == 1, f"{label}の別ソース版で列が揃っていません: {columns}"
 
 
 def test_grid_layer_name_matches_canonical_grid_naming() -> None:

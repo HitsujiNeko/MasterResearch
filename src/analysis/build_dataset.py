@@ -42,6 +42,7 @@ from src.analysis.urban_params.config import (
     DATASETS_OUTPUT_PARTS,
     PARAM_SETS,
     PROJECT_ROOT,
+    SATELLITE_ONLY_SCENARIO,
     SATELLITE_TABLE_PREFIX,
     SCENARIO_TABLES,
     grid_layer_name,
@@ -148,6 +149,19 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         )
     if bool(args.scenario) == bool(args.tables):
         parser.error("--scenario と --tables はどちらか一方を指定してください。")
+    # satellite_only は衛星指標を含まなければ意味を成さないが、衛星指標は観測ファイル
+    # 単位のため SCENARIO_TABLES に列挙できない。このまま展開すると mask_roi だけの
+    # データセットが「衛星のみ」を名乗るファイル名で出力される。名前が中身を偽るより
+    # 止めるほうがよい。--tables との併用を許すかは CLI 仕様の設計判断を伴うため、
+    # ここでは経路を塞ぐにとどめる。
+    if args.scenario == SATELLITE_ONLY_SCENARIO:
+        parser.error(
+            f"--scenario {SATELLITE_ONLY_SCENARIO} は使えません。"
+            " 衛星指標は観測ファイル単位のテーブルであり、シナリオ名では展開できないため、"
+            f" mask_roi だけのデータセットになります。--tables {SATELLITE_TABLE_PREFIX}"
+            "{YYYYMMDD}_{HHMMSS} mask_roi"
+            f" --name {SATELLITE_ONLY_SCENARIO} のように直接指定してください。"
+        )
     if args.tables and not args.name:
         parser.error("--tables を使う場合は --name でデータセット名を指定してください。")
 

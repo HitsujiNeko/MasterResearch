@@ -59,6 +59,17 @@ def test_parse_arguments_rejects_scenario_and_tables_together() -> None:
         parse_arguments(["--scale", "30", "--scenario", "limited", "--tables", "build_gba"])
 
 
+def test_parse_arguments_rejects_satellite_only_scenario() -> None:
+    """--scenario satellite_only は拒否する。
+
+    衛星指標は観測ファイル単位のため SCENARIO_TABLES に列挙できず、シナリオ名で
+    展開すると mask_roi だけのデータセットが「衛星のみ」を名乗って出力される。
+    名前が中身を偽るくらいなら止める。
+    """
+    with pytest.raises(SystemExit):
+        parse_arguments(["--scale", "30", "--scenario", "satellite_only"])
+
+
 def test_parse_arguments_requires_name_with_tables() -> None:
     """--tables 指定時は --name が必須（既定名を推測しないため）。"""
     with pytest.raises(SystemExit):

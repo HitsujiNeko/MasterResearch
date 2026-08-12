@@ -186,8 +186,15 @@ PARAM_SETS: dict[str, ParamSet] = {
 #
 # 衛星指標は観測ファイル単位でテーブルを作るため、ここには列挙できない。
 # 結合時に観測日時つきのテーブル名（例: idx_20230707_032329）を明示的に指定する。
+#
+# ``satellite_only`` はそのためシナリオ名だけでは完成しない。エントリを残すのは
+# 「衛星指標以外に何を結合するか」を記録するためであり、``--scenario`` での指定は
+# build_dataset.py が明示的に拒否する（mask_roi だけのデータセットが「衛星のみ」を
+# 名乗って出力されるのを防ぐため）。
+SATELLITE_ONLY_SCENARIO = "satellite_only"
+
 SCENARIO_TABLES: dict[str, tuple[str, ...]] = {
-    "satellite_only": ("mask_roi",),
+    SATELLITE_ONLY_SCENARIO: ("mask_roi",),
     "limited": ("mask_roi", "build_gba", "road_osm", "elev_fabdem"),
     "full": ("mask_roi", "build_dc", "road_gt"),
 }

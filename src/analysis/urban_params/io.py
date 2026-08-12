@@ -82,13 +82,16 @@ class LayerCache:
     スケールが変更後のデータを受け取る）。現在の呼び出し側（``params/*.py``）は
     いずれも読み取りと新規オブジェクトの生成しか行わない。
 
-    ``load_counts`` は実際にファイルを読んだ回数で、「複数スケール出力時に入力
-    レイヤの読み込みが1回で済む」ことを実行時に確認するために持つ。
+    ``load_counts`` はファイルを読みに行った回数で、「複数スケール出力時に入力
+    レイヤの読み込みが1回で済む」ことを実行時に確認するために持つ。**キャッシュへ
+    載せない読み込み（検索BBoxがレイヤ全体を覆わない場合）も計上する。** 計上から
+    漏らすと、スケールごとに読み直しているレイヤが集計表に1行も現れず、性能退行を
+    検知する唯一の手段が沈黙するためである。
 
     Attributes:
         dataframes: ``read_layer_dataframe()`` の結果。
         feature_records: ``iter_feature_records()`` の結果（フィーチャのリスト）。
-        load_counts: ``{パス名}::{レイヤ名}`` から実読み込み回数への辞書。
+        load_counts: ``{パス名}::{レイヤ名}`` から読み込み回数への辞書。
         hits: キャッシュから返した回数。
     """
 
@@ -98,7 +101,7 @@ class LayerCache:
     hits: int = 0
 
     def record_load(self, resource: LayerResource) -> None:
-        """実際にファイルを読んだことを記録する。
+        """ファイルを読みに行ったことを記録する。
 
         ラベルにはファイル名ではなくパス全体を使う。都市別ディレクトリに同名の
         ファイルを置く構成では、ファイル名だけだと別レイヤの読み込みが同じラベルへ
@@ -213,26 +216,6 @@ def get_layer_resource(
     return LayerResource(
         gpkg_path, layer_name, source_crs, analysis_crs, to_analysis, from_analysis
     )
-
-
-def get_optional_layer_resource(
-    city_cfg: dict[str, Any],
-    layer_key: str | None,
-) -> LayerResource | None:
-    """シナリオで未指定のレイヤはNoneとして扱う。
-
-    Args:
-        city_cfg: ``CITY_CONFIG`` の対象都市エントリ。
-        layer_key: ``city_cfg["layers"]`` のキー。シナリオで未使用の場合は ``None``。
-
-    Returns:
-        ``layer_key`` が ``None`` の場合は ``None``。
-        それ以外は ``get_layer_resource()`` で解決した ``LayerResource``。
-    """
-    if layer_key is None:
-        return None
-    analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
-    return get_layer_resource(city_cfg, layer_key, analysis_crs)
 
 
 def get_optional_raster_resource(
@@ -428,6 +411,9 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
     # キャッシュの参照可否は、キーではなく「検索BBoxがレイヤ全体を覆うか」で決める。
     # 覆わない検索へ全件を返さないための判定であり、保存側と参照側の双方に必要である。
     if not _covers_whole_layer(resource, bbox_analysis):
+        # キャッシュへ載せない読み込みも回数へ計上する。計上を省くと、この経路を
+        # 通るレイヤはスケールごとに読み直していても集計表に現れない。
+        cache.record_load(resource)
         return _iter_feature_records_uncached(resource, bbox_analysis)
 
     key = (resource.path, resource.layer_name)

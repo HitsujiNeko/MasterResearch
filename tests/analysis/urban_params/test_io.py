@@ -554,7 +554,12 @@ def test_layer_cache_reads_features_once_for_covering_bboxes(
 def test_layer_cache_skips_features_when_bbox_does_not_cover_layer(
     points_resource: LayerResource, counting_readers: dict[str, int]
 ) -> None:
-    """レイヤ全域を覆わないBBoxはキャッシュせず、毎回読み直す。"""
+    """レイヤ全域を覆わないBBoxはキャッシュせず、毎回読み直す。
+
+    キャッシュへ載せない読み込みも ``load_counts`` へ計上する。計上を省くと、この
+    経路を通るレイヤはスケールごとに読み直していても集計表に1行も現れず、性能退行を
+    検知する手段が沈黙する。
+    """
     with layer_cache() as cache:
         for _ in range(3):
             records = [
@@ -563,6 +568,7 @@ def test_layer_cache_skips_features_when_bbox_does_not_cover_layer(
 
     assert counting_readers["features"] == 3
     assert cache.feature_records == {}
+    assert sum(cache.load_counts.values()) == 3
     assert records == [1, 2]
 
 

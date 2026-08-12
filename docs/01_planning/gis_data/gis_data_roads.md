@@ -12,7 +12,7 @@
 
 Hanoi ROI については、Geofabrik の Vietnam extract から `highway IS NOT NULL` の道路ラインを抽出した `data/gis/roads/hanoi_osm_roads.gpkg` を利用候補とする。今回の抽出結果では、道路ラインは `194,485` 件、ジオメトリ型は `MultiLineString` であり、道路密度指標の算出に利用できる状態である。
 
-- 主用途: `ROAD_DEN_<scale>` などの道路密度指標の算出
+- 主用途: `ROAD_DEN` などの道路密度指標の算出
 - 補助用途: 道路近接距離、主要道路と生活道路の粗い区分、都市構造の説明変数作成
 - 主な利用列: `highway`, `name`, `z_order`, `other_tags`, `geometry`
 

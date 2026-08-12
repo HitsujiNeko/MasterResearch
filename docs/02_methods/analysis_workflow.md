@@ -134,7 +134,7 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 
 > 根拠は [available_gis_data.md](../01_planning/available_gis_data.md) に整理している。  
 > Microsoft 建物データは、Hanoi ROI 西側で `105.46875E` 付近を境に欠落が確認された（現在の主ソースは GBA）。  
-> `BUILD_COV_<scale> = 0` / `BUILD_DEN_<scale> = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。  
+> `BUILD_COV = 0` / `BUILD_DEN = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。  
 > **`BUILD_COV = 0` はカバレッジが十分な領域でも建物の不存在を意味しない**。ラスタ化の解像度より小さい建物は被覆率に寄与しないため、建物の有無は `BUILD_DEN` で判定する（詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3.5）。
 
 ---
@@ -240,9 +240,9 @@ LSTの空間解像度（30m）を基準としつつ、**30m / 90m / 300m の3ス
 | **グリッド解像度** | 30m / 90m / 300m の3スケール（既定）。スケール間の比較が RQ2 の評価軸となる |
 | **CRS** | 入力/出力はWGS84（EPSG:4326）。ただし面積・長さ計算は投影座標系（m単位）で実施 |
 | **集計方法** | 各グリッドセル内の面積・長さ・個数を空間集計。被覆率は補助グリッド（既定10m）を経由する |
-| **出力形式** | スケールごとのCSV（列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章） |
+| **出力形式** | パラメータセットごと・スケールごとの GeoPackage（`cell_id` キーの属性テーブル）。列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章 |
 
-> 各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。  
+> **スケールは列名のサフィックスではなくディレクトリ階層で表現する**（旧実装の `NDVI_30` のような `_<scale>` サフィックスは廃止した）。  
 > 3スケールの選択は、Step 3.3 の近傍リング設計とは別の軸である（下記）。
 
 ### 3.3 近傍変数の設計（RQ2対応）
@@ -251,8 +251,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 各パラメータを**複数の空間スケール**で算出し、空間スケール依存性を評価する。
 
 > **本節は未実装の設計案である（採否・詳細は未確定）。** 以下の `_0` / `_30_60` 等のリング型
-> サフィックスは現行の出力仕様ではない。実装済みの出力列は `_<scale>`（30/90/300m のグリッド
-> 解像度）方式であり、正本は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章である。
+> サフィックスは現行の出力仕様ではない。実装済みの出力はスケール別ディレクトリに分けた
+> パラメータテーブル（列名にスケールを含まない）であり、正本は
+> [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章である。
 > 5章の分析ケース（5.2）に現れるリング型の列名も同様に設計案として読むこと。
 
 | スケール名 | 範囲 | 変数名サフィックス | 例（建物被覆率） |
@@ -275,8 +276,10 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | スクリプト | 処理内容 | 入力 | 出力 |
 |----------|---------|------|------|
 | `src/gee/gee_calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
-| `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来パラメータのグリッド集計 | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv` |
-| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | `urban_params_*.csv` | `data/output/urban_params/urban_params_with_neighbors.csv` |
+| `src/analysis/urban_params/canonical_grid.py` | 全シナリオ共通の正準グリッド生成（`cell_id` 採番） | 解析範囲レイヤ（ROI） | `data/output/grid/grid_<city_id>.gpkg`（`grid_30m` / `grid_90m` / `grid_300m`） |
+| `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来パラメータのグリッド集計。**パラメータセット単位**に出力する | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ + 正準グリッド | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（`cell_id` キーの属性テーブル） |
+| `src/analysis/build_dataset.py` | 指定テーブル群の `cell_id` 結合と品質管理列の導出 | パラメータテーブル + 正準グリッド | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg` |
+| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | パラメータテーブルまたは結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
 | `src/analysis/merge_dataset.py` | LSTと全説明変数の結合。**未実装** | LSTクリップ + パラメータCSV | `data/output/analysis_dataset.csv` |
 
 ---
@@ -287,32 +290,39 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 分析用データセットは、LST と Step 3 で算出した都市構造パラメータをセル単位で結合したものである。**都市構造パラメータ側の列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章を正本とする**。
 
-以下は結合後のデータセットが取り得る列の一覧である。結合を行う `merge_dataset.py` は未実装であり（3.4）、現時点で実在するのは Step 3 が出力するスケール別のパラメータCSV（`LST` 列を含まない）である。
+以下は結合後のデータセットが取り得る列の一覧である。LST との結合を行う `merge_dataset.py` は未実装であり（3.4）、現時点で実在するのは `build_dataset.py` が出力するスケール別のデータセット（`LST` 列を含まない）である。
 
-| 列名 | 型 | 内容 |
-|------|-----|------|
-| `lon` | float | グリッドセル中心経度（WGS84） |
-| `lat` | float | グリッドセル中心緯度（WGS84） |
-| `LST` | float | 地表面温度（°C） |
-| `NDVI_<scale>` / `NDBI_<scale>` / `NDWI_<scale>` | float | 衛星由来指標（衛星指標ラスタを入力した場合のみ） |
-| `BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>` | float | 建物パラメータ（`Limited` / `Full` のみ） |
-| `ROAD_DEN_<scale>` | float | 道路密度（`Limited` / `Full` のみ） |
-| `ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>` | float | 標高パラメータ（`Limited` のみ） |
-| `IN_ANALYSIS_AREA` | int | 解析範囲レイヤ内のセルか |
-| `VALID_GIS_MASK` | int | 少なくとも1つのGIS指標が有効なセルか |
-| `VALID_SATELLITE_MASK` | int | 少なくとも1つの衛星指標が有効なセルか |
-| `MISSING_REASON` | str | GIS指標の主要欠損理由（`none` / `no_gis_feature`） |
-| `DATA_SOURCE` | str | `satellite` / `open_gis` / `survey_gis` |
-| `SCENARIO` | str | `satellite_only` / `limited` / `full` |
+| 列名 | 型 | 内容 | 出どころ |
+|------|-----|------|------|
+| `cell_id` | int | 正準グリッドのセルID（`row * 1000000 + col`）。**同一スケール内でのみ一意** | 正準グリッド |
+| `lon` | float | グリッドセル中心経度（WGS84） | 正準グリッド |
+| `lat` | float | グリッドセル中心緯度（WGS84） | 正準グリッド |
+| `LST` | float | 地表面温度（°C） | 未実装（`merge_dataset.py`） |
+| `NDVI` / `NDBI` / `NDWI` | float | 衛星由来指標 | `idx_*` テーブル |
+| `BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX` | float | 建物パラメータ | `build_gba` または `build_dc` テーブル |
+| `ROAD_DEN` | float | 道路密度 | `road_osm` または `road_gt` テーブル |
+| `ELEV_MEAN` / `ELEV_VALID_RATIO` | float | 標高パラメータ | `elev_fabdem` テーブル |
+| `IN_ANALYSIS_AREA` | int | 解析範囲レイヤ内のセルか | `mask_roi` テーブル |
+| `VALID_GIS_MASK` | int | 少なくとも1つのGIS指標が有効なセルか | 結合時に導出（**条件付き**） |
+| `VALID_SATELLITE_MASK` | int | 少なくとも1つの衛星指標が有効なセルか | 結合時に導出（**条件付き**） |
+| `MISSING_REASON` | str | GIS指標の主要欠損理由（`none` / `no_gis_feature`） | 結合時に導出（**条件付き**） |
 
-`<scale>` はグリッド解像度（m）で、既定値は 30 / 90 / 300 である。出力される列はシナリオと入力の有無によって変わる。
+**列名にスケールのサフィックスは付かない。** スケールはディレクトリ階層とファイル名で表現する。
+
+**出力される列は結合したテーブルによって変わる。** 品質管理列は**判定材料となる列がある場合のみ付与される**（全セル0の列を出すと「確認したうえで無効と判定した」と読めてしまうため）。建物・道路を結合しなければ `VALID_GIS_MASK` / `MISSING_REASON` は付かず、衛星指標を結合しなければ `VALID_SATELLITE_MASK` は付かない。旧 wide CSV は常に全列を持っていたため、**列の存在を前提にしたコードは修正が必要である**。詳細は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.3節を正本とする。
+
+**`DATA_SOURCE` / `SCENARIO` は廃止した。** テーブル名（`build_gba` 等）と結合対象の選択が同じ情報を持つためである。
 
 **出力ファイル**
 
 | 段階 | ファイル | 状況 |
 |---|---|---|
-| Step 3 の出力 | `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（**スケールごとに分かれる**。`LST` 列を含まない） | 実装済み |
-| 結合後 | `data/output/analysis_dataset.csv` | 未実装（`merge_dataset.py` 未作成。スケールごとに分けるかは設計時に決める） |
+| 正準グリッド | `data/output/grid/grid_<city_id>.gpkg`（`grid_30m` / `grid_90m` / `grid_300m`） | 実装済み |
+| Step 3 の出力（算出） | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（**パラメータセットごと・スケールごとに分かれる**） | 実装済み |
+| Step 3 の出力（結合） | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg`（`LST` 列を含まない） | 実装済み |
+| LST 結合後 | `data/output/analysis_dataset.csv` | 未実装（`merge_dataset.py` 未作成。スケールごとに分けるかは設計時に決める） |
+
+> **旧出力**: `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（wide CSV）は残置しているが、再生成の手段は持たない。再設計前後で算出値が変わっていないことは照合済みである（[calc_urban_params_guide.md](calc_urban_params_guide.md) 11.2節）。
 
 ### 4.1.1 Satellite Only の現行出力（2026-04-21）
 
@@ -328,8 +338,8 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 列構成は `lon`, `lat`, `LST`, `NDVI`, `NDBI`, `NDWI` を基本とし、  
 GIS 列は Full / Limited シナリオの実装時に追加する。
 
-> 本節の衛星指標列に `_<scale>` サフィックスが付かないのは、**4.1 とは別のパイプライン**の出力だからである。  
-> 本節は観測日ごとのピクセル単位データセット（30m 固定）であり、4.1 のマルチスケール出力とは生成経路が異なる。
+> 本節は**4.1 とは別のパイプライン**の出力である。観測日ごとのピクセル単位データセット（30m 固定）であり、
+> 4.1 のマルチスケール出力（`cell_id` キーのテーブル）とは生成経路が異なる。
 
 ### 4.2 品質管理
 
@@ -391,7 +401,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 **目的**: 都市構造パラメータとLSTの関係が空間集計スケールによってどう変化するか評価する。
 
 > **本節の分析設計は未実装の設計案である。** 以下の `_0` / `_30_60` 等のリング型サフィックスは
-> Step 3.3 の近傍リング設計に対応するものであり、**4.1 の実装済み列（`_<scale>`）とは別**である。
+> Step 3.3 の近傍リング設計に対応するものであり、**4.1 の実装済み列とは別**である。
 > 現行の実装は 30 / 90 / 300m のグリッド解像度によるスケール比較であり、リング型変数は算出していない。
 
 **分析設計**:

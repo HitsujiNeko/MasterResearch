@@ -1,6 +1,6 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-07  
+**最終更新**: 2026-08-12  
 **関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1-RQ3、CRS（WGS84/UTM）、ラスタ/ベクタ処理の基礎
 
@@ -75,10 +75,20 @@
 
 ### 4.1 担当範囲
 
-- 30mグリッドの生成（計算はUTM）
+処理は**算出フェーズ**と**結合フェーズ**の2段に分かれる。
+
+**算出フェーズ**（`src/analysis/urban_params/`）
+
+- 正準グリッド（7.5節）に整合したマルチスケールグリッドの生成（計算は投影座標系）
 - GIS由来パラメータ算出
-- 衛星由来ラスタ指標の30mグリッド集約（任意入力）
-- シナリオ別の分析用説明変数CSVの出力
+- 衛星由来ラスタ指標のグリッド集約（任意入力）
+- **パラメータセット単位の独立したテーブル**（`cell_id` キーのGeoPackage）の出力
+
+**結合フェーズ**（`src/analysis/build_dataset.py`）
+
+- 指定したテーブル群の `cell_id` による結合
+- 結合した列からの品質管理列の導出
+- 分析用データセットの出力
 
 ### 4.2 非担当範囲
 
@@ -96,11 +106,30 @@
 - 30m グリッド化対象となる GIS データ一式
 - 解析範囲を定義するポリゴンまたは境界データ
 
-## 5.2 シナリオ別入力（GIS）
+## 5.2 パラメータセット別入力（GIS）
 
 > **本節の位置づけ**: 建物・道路・標高（`Limited`）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。  
 > 採用済みで設計が未確定なパラメータは、入力データ・算出方法をパラメータ単位で確定したうえで出力仕様へ追加する。  
 > どのパラメータが採用済みかは [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) を正本とする（1.1節）。
+
+### 5.2.0 パラメータセットの定義
+
+「**どのパラメータを、どの入力ソースで算出するか**」の組を**パラメータセット**と呼び、`config.py` の `PARAM_SETS` に定義する。**テーブル名はパラメータセット名と一致させ、出力ファイル名・レイヤ名の双方に使う。**
+
+| パラメータセット名 | 算出モジュール | 入力 | 出力列 |
+|---|---|---|---|
+| `build_gba` | `params/buildings.py` | `layers.open_buildings`（GlobalBuildingAtlas） | `BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX` |
+| `build_dc` | `params/buildings.py` | `layers.dc`（測量GIS） | 同上 |
+| `road_osm` | `params/roads.py` | `layers.open_roads`（OSM） | `ROAD_DEN` |
+| `road_gt` | `params/roads.py` | `layers.gt`（測量GIS） | 同上 |
+| `elev_fabdem` | `params/elevation.py` | `rasters.fabdem` | `ELEV_MEAN` / `ELEV_VALID_RATIO` |
+| `mask_roi` | `params/mask.py` | `layers.roi` | `IN_ANALYSIS_AREA` |
+
+**同じ列名の別ソース版を並置できる**（`build_gba` と `build_dc`、`road_osm` と `road_gt`）ことが、感度分析を「結合先の差し替えだけ」で済ませる要である。`PARAM_SETS` は各セットが返すべき列を宣言し、`compute()` の戻り値と実行時に突き合わせて、別ソース版どうしで列が食い違う状態を検知する。
+
+**シナリオは算出側では扱わない。** シナリオは「どのテーブルを結合するか」の選択へ還元されており、`SCENARIO_TABLES`（シナリオ → 結合するテーブル名の一覧）として結合フェーズが持つ（6.6節）。
+
+**解析範囲は当面 ROI へ一本化する。** 測量GIS（RG）を基準にするパラメータセットは設けない。RG は境界**線**主体のレイヤで 90.6% が面積ゼロであり、面積ベースの `compute_polygon_coverage()` と噛み合わないためである（7.5.6節）。**したがって `full` シナリオの有効域定義は未決のままである。**
 
 ### 5.2.1 Limited
 
@@ -140,44 +169,84 @@
 
 入力が存在する指標のみ列を出力し、存在しない指標は処理を継続する。
 
+**衛星指標は観測ファイル単位でテーブルを作るため `PARAM_SETS` に固定列挙できない。** `--satellite-file` で単一の観測ファイルを指定し、テーブル名はファイル名の観測日時から導く。
+
+- ファイル名が `INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif` に合致する場合、`idx_{YYYYMMDD}_{HHMMSS}` とする（例: `INDICES_Landsat8_20230707_032329Z.tif` → `idx_20230707_032329`）
+- **合致しない場合は日本語の `ValueError` で停止する。** ファイル名から観測を特定できないまま出力すると、どの観測のテーブルか後から判別できなくなるためである
+
 ---
 
 ## 6. 出力仕様
 
-出力先: `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`
+### 6.0 出力構成の全体像
 
-`<scale>` は coarseグリッド解像度（m）で、既定では `30` / `90` / `300` の3ファイルを出力する。  
-各パラメータ列には `_<scale>`（例: `NDVI_30`）のサフィックスを付与する。旧実装の `_0` サフィックスは廃止した。
+```text
+[算出フェーズ] パラメータセット単位
+  data/output/params/{city}/{scale}m/{テーブル名}.gpkg
+    例: data/output/params/hanoi/30m/build_gba.gpkg
+        data/output/params/hanoi/30m/road_osm.gpkg
+        data/output/params/hanoi/30m/idx_20230707_032329.gpkg
 
-> **設計確定状況**: 座標列・衛星由来指標（6.2節）・品質管理列（6.3節）に加え、GIS由来パラメータのうち `ROAD_DEN_<scale>`、建物パラメータ4種（`BUILD_COV_<scale>` / `BUILD_DEN_<scale>` / `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`）、標高パラメータ2種（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`、`limited` のみ）は確定・実装済みである（6.4節）。  
-> 残る採用済みのGIS由来パラメータ（植生被覆率・土地被覆クラス別面積率・人口密度・夜間光強度）は**設計未確定**であり、各パラメータの入力データ・算出方法を個別に確定したうえで本仕様へ追加する（6.4節）。該当するstubモジュールは追加時の実装場所を確保する足場であり、列構成そのものを確定したものではない。  
-> 採用していないパラメータは本仕様の対象外である。採否の一覧は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) を参照する。
+[結合フェーズ] 分析用データセット
+  data/output/datasets/dataset_{name}_{city}_{scale}m.gpkg
+    例: data/output/datasets/dataset_limited_hanoi_30m.gpkg
+```
 
-### 6.1 必須列
+**パラメータごとに別ファイルとする。** 再計算が独立し、並列実行で書き込みが競合せず、QGIS で個別に開けるためである。
 
-- `lon`, `lat`（coarseセル中心座標、WGS84）
+**スケールは列名のサフィックスではなくディレクトリ階層で表現する。** ファイル自体がスケール別に分かれるため冗長であり、結合時に列名がスケールへ依存すると扱いにくい。旧実装の `_<scale>` サフィックス（`BUILD_COV_30` 等）は廃止した。
 
-### 6.2 条件付き列（衛星由来、設計確定済み）
+### 6.1 パラメータテーブル（算出フェーズの出力）
 
-- `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>`（`--satellite-dir` で入力がある指標のみ出力）
+| 項目 | 内容 |
+|---|---|
+| 形式 | **ジオメトリを持たない属性のみの GeoPackage** |
+| レイヤ名 | テーブル名（＝パラメータセット名）と同一 |
+| 行集合 | 正準グリッドGeoPackageの該当レイヤが持つ `cell_id` の集合（実測: `grid_30m` 3,739,454 件 / `grid_90m` 417,694 件 / `grid_300m` 38,235 件） |
+| 列 | `cell_id`（int64・キー）＋ 当該パラメータの列のみ |
 
-### 6.3 品質管理列
+**テーブルは `lon` / `lat` を持たない。** 座標は正準グリッドのレイヤが保持しており、全テーブルに複製するとパラメータ単位で独立させる狙いに反するためである。
 
-- `IN_ANALYSIS_AREA`（解析範囲レイヤ内のセルか）
-- `VALID_GIS_MASK`（少なくとも1つのGIS指標が有効なセル。`satellite_only` では常に0）
-  - **判定材料に標高由来の列（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`）は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無とは別の軸である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
-- `VALID_SATELLITE_MASK`（少なくとも1つの衛星指標がNaNでないセル。`--satellite-dir` 未指定時は常に0）
+**行集合を有効域と同一視してはならない。** 正準グリッドのセル集合は「セルとマスクポリゴンの交差」で選ばれるのに対し、`IN_ANALYSIS_AREA` は「fineピクセル中心がポリゴン内に入るか」で判定する。両者は「交差 ⊇ `IN_ANALYSIS_AREA`」の包含関係にあり、テーブルには解析対象域外のセルも含まれる（実測: 300mで 38,235 セル中 35 セルが `IN_ANALYSIS_AREA = 0`）。有効域の判定には `mask_roi` テーブルの `IN_ANALYSIS_AREA` を使う。
+
+**欠測は GeoPackage の NULL として保持される。** CSV で空文字になり型が揺れる問題は解消した。
+
+### 6.2 条件付きテーブル（衛星由来、設計確定済み）
+
+- `idx_{YYYYMMDD}_{HHMMSS}.gpkg`: `NDVI` / `NDBI` / `NDWI`（`--satellite-file` で入力がある指標のみ）
+
+観測日別にテーブルを分けるため、複数観測を同型で並置できる。
+
+### 6.3 品質管理列（結合フェーズで導出）
+
+品質管理列は**パラメータテーブルには持たせず、結合したパラメータ列から導出する**。
+
+- `IN_ANALYSIS_AREA`（解析範囲レイヤ内のセルか）: **独立したテーブル `mask_roi`** として出力する。全テーブルに複製するとパラメータ単位で独立させる狙いに反するため
+- `VALID_GIS_MASK`（少なくとも1つのGIS指標が有効なセル）
+  - **判定材料に標高由来の列（`ELEV_MEAN` / `ELEV_VALID_RATIO`）は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無とは別の軸である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
+  - 解析対象域フラグ（`IN_ANALYSIS_AREA`）も判定材料に含めない。有効域の定義であって地物の量ではないため
+- `VALID_SATELLITE_MASK`（少なくとも1つの衛星指標がNaNでないセル）
 - `MISSING_REASON`（GIS指標の主要欠損理由。`none` / `no_gis_feature`）
-- `DATA_SOURCE`（`satellite` / `open_gis` / `survey_gis`）
-- `SCENARIO`（`satellite_only` / `limited` / `full`）
 
-`satellite_only` シナリオでは、GIS由来パラメータ（6.4節）は出力されず、`lon`, `lat`, 衛星指標列、品質管理列のみとなる。
+**`DATA_SOURCE` / `SCENARIO` は廃止した。** テーブル名（`build_gba` 等）と結合対象の選択が同じ情報を持つためである。
+
+#### データセットのスキーマは結合対象によって変わる
+
+**判定材料となる列が1つも無い場合、対応する品質管理列は付与しない。** 全セル0の列を出すと「データを確認したうえで無効と判定した」ように読めてしまうためである。
+
+| 結合対象 | 付与される品質管理列 |
+|---|---|
+| 建物・道路を含む | `VALID_GIS_MASK` / `MISSING_REASON` |
+| 衛星指標を含む | `VALID_SATELLITE_MASK` |
+| `mask_roi` のみ・標高のみ | いずれも付与されない |
+
+旧 wide CSV は常に全列を持っていたため、**列の存在を前提にした下流のコードは修正が必要である。**
 
 ### 6.4 GIS由来パラメータ
 
 #### 確定済みパラメータ
 
-- **`ROAD_DEN_<scale>`（道路密度, m/ha）**: 設計確定・実装済
+- **`ROAD_DEN`（道路密度, m/ha）**: 設計確定・実装済
   - **入力**: `data/gis/roads/hanoi_osm_roads.gpkg`（OSM Geofabrik 由来）
   - **フィルタリング**: ホワイトリスト方式。motorway〜living_street + service を含め、非車道（footway, steps, path 等）・track・construction・proposed・特殊用途を除外。z_order < 0（トンネル・地下道）も除外
   - **算出方法**: `compute_line_length()` でセル内ライン総延長（m/cell）を算出し、`cell_area_ha()` で面積正規化
@@ -185,20 +254,20 @@
 
 - **建物パラメータ4種**: 設計確定・実装済
   - **入力**: `data/gis/buildings/hanoi_gba_buildings.gpkg`（GlobalBuildingAtlas 由来）
-  - `BUILD_COV_<scale>`（建物被覆率, 0-1）: fine グリッドへラスタ化し coarse セルへ平均集約
-  - `BUILD_DEN_<scale>`（建物棟数密度, 棟/ha）: 重心が属するセルごとの棟数を `cell_area_ha()` で正規化
-  - `BUILD_H_MEAN_<scale>` / `BUILD_H_MAX_<scale>`（建物高さ, m）: 重心が属するセルごとの有効高さの平均・最大
+  - `BUILD_COV`（建物被覆率, 0-1）: fine グリッドへラスタ化し coarse セルへ平均集約
+  - `BUILD_DEN`（建物棟数密度, 棟/ha）: 重心が属するセルごとの棟数を `cell_area_ha()` で正規化
+  - `BUILD_H_MEAN` / `BUILD_H_MAX`（建物高さ, m）: 重心が属するセルごとの有効高さの平均・最大
   - **高さの除外条件**: 推定分散または高さ自体が負・欠測の建物を高さ集計から除外（被覆率・棟数密度からは除外しない）
   - **欠測規約**: セル内に有効高さの建物が無い場合、高さは 0.0 ではなく **NaN**
   - **解釈上の注意**: `BUILD_COV = 0` は建物の不存在を意味しない（30m では建物のあるセルの14%が該当）。建物の有無は `BUILD_DEN` で判定する
   - **詳細**: [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3
 
-- **`ELEV_MEAN_<scale>`（平均標高, m）**: 設計確定・実装済（`limited` シナリオのみ）
+- **`ELEV_MEAN`（平均標高, m）**: 設計確定・実装済（パラメータセット `elev_fabdem`）
   - **入力**: `data/gis/dem/fabdem/fabdem_hanoi_dem.tif`（FABDEM v1.2、EPSG:4326、nodata `-9999`）
   - **算出方法**: 衛星指標と共通の `aggregate_raster_to_grid()` により coarse グリッドへ `Resampling.average` で再投影し、セル平均標高を得る
-  - **欠測規約**: 有効カバレッジ外は **NaN**。`0` は「データが無い」ではなく**海抜0m の実測値**であり、両者を同一視しない。無効画素の判定は `ELEV_VALID_RATIO_<scale>` と揃えており、nodata タグの値に加えて**実値の NaN も欠損**として扱う
+  - **欠測規約**: 有効カバレッジ外は **NaN**。`0` は「データが無い」ではなく**海抜0m の実測値**であり、両者を同一視しない。無効画素の判定は `ELEV_VALID_RATIO` と揃えており、nodata タグの値に加えて**実値の NaN も欠損**として扱う
   - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（理由は6.3節）
-  - **セルの信頼度**: 平均はセル内の**有効画素のみ**で取るため、値の有無だけでは部分被覆セルを判別できない。判別には `ELEV_VALID_RATIO_<scale>` を用いる
+  - **セルの信頼度**: 平均はセル内の**有効画素のみ**で取るため、値の有無だけでは部分被覆セルを判別できない。判別には `ELEV_VALID_RATIO` を用いる
   - **解釈上の注意**:
     - FABDEM は Copernicus GLO-30 をランダムフォレスト回帰で補正した準DTMであり、生のDSMではない。ただし高密度キャノピー・急峻地形では補正残差が残る
     - 垂直基準面は EGM2008 であり、0m は平均海面と厳密には一致しない
@@ -206,14 +275,14 @@
     - **`scale=30` では集約が実質的なリサンプリングになる**（FABDEM の画素はハノイの緯度で東西約28m・南北約30m）。「セル内の面積平均標高」とは言えないため、RQ2 のスケール間比較で30mの値を過大解釈しない
   - **詳細**: [gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)
 
-- **`ELEV_VALID_RATIO_<scale>`（DEM有効画素率, 0-1）**: 設計確定・実装済（`limited` シナリオのみ）
-  - **入力**: `ELEV_MEAN_<scale>` と同一のDEMラスタ
+- **`ELEV_VALID_RATIO`（DEM有効画素率, 0-1）**: 設計確定・実装済（パラメータセット `elev_fabdem`）
+  - **入力**: `ELEV_MEAN` と同一のDEMラスタ
   - **算出方法**: 有効画素を1・nodataを0とした配列を、`ELEV_MEAN` と同じ `Resampling.average` で coarse グリッドへ再投影する
   - **必要性**: `Resampling.average` はセル内の**有効画素のみ**で平均を取るため、セルの1割しかDEMに覆われていなくても、完全に覆われたセルと同じ実数が `ELEV_MEAN` に入る。`NaN` の件数だけでは部分被覆セルを捕捉できず、有効カバレッジを過大評価する（実測では `IN_ANALYSIS_AREA == 1` のうち、300mスケールで `NaN` は0.013%である一方、有効画素率99%未満は4.67%・50%未満は2.42%）
   - **欠測規約**: ラスタ範囲外のセルは `NaN` ではなく **`0.0`**（nodataで覆われたセルと同じ「有効画素なし」を意味するため揃える）
   - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（理由は6.3節）
   - **解釈上の注意**: 入力ラスタの外周より外側（画素が1つも無い領域）が占める分は比率に反映されないため、ラスタの矩形範囲を一部しか含まないセルでは実際の被覆より高い値になり得る。現行の入力（ROIでcrop済みのDEM）では解析BBox最外周のセルに限られる
-  - **`ELEV_COUNT_<scale>`（セル内の有効点数）は出力しない**（スケールによって画素数の意味が変わり、比率のほうがスケール間で比較可能なため）
+  - **`ELEV_COUNT`（セル内の有効点数）は出力しない**（スケールによって画素数の意味が変わり、比率のほうがスケール間で比較可能なため）
 
 > `full` シナリオの標高は設計未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
 
@@ -221,7 +290,7 @@
 
 以下は**採用済みだが**入力データ・算出方法が未確定であり、パラメータ単位で設計確定後に出力仕様へ追加する。列名は暫定であり、確定時に見直す。
 
-- `GREEN_COV_<scale>`（植生被覆率, 0-1）: 入力源未確定。stubモジュールも未作成
+- `GREEN_COV`（植生被覆率, 0-1）: 入力源未確定。stubモジュールも未作成
 - 土地被覆クラス別面積率: クラス体系・出力するクラスの粒度がいずれも未確定。列名も未定
 - 人口密度・夜間光強度: 候補データセットが複数あり入力が未確定。いずれも連続量ラスタのため、標高と同じラスタ集約経路（7.2節 Step B）を用いる見込み
 
@@ -233,20 +302,56 @@
 
 ソースコードを読まずに「どの列がどのモジュール・関数で算出されるか／設計確定状況」を確認できるよう、対応関係を以下に示す。
 
-| 列名 | 算出モジュール・関数 | 設計確定状況 |
-|---|---|---|
-| `lon`, `lat` | `grid.grid_centers_wgs84()` | 確定・実装済 |
-| `NDVI_<scale>`, `NDBI_<scale>`, `NDWI_<scale>` | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-dir` 指定時のみ） |
-| `IN_ANALYSIS_AREA` | `geometry.compute_polygon_coverage()`（`run.run_for_scale()` 内で判定） | 確定・実装済 |
-| `VALID_GIS_MASK`, `MISSING_REASON` | `run.build_quality_columns()` | 確定・実装済 |
-| `VALID_SATELLITE_MASK` | `run.build_satellite_quality()` | 確定・実装済 |
-| `DATA_SOURCE`, `SCENARIO` | `run.run_for_scale()` | 確定・実装済 |
-| `BUILD_COV_<scale>`, `BUILD_DEN_<scale>`, `BUILD_H_MEAN_<scale>`, `BUILD_H_MAX_<scale>` | `params/buildings.py: compute()` | 確定・実装済（`limited` / `full` シナリオのみ） |
-| `ROAD_DEN_<scale>` | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
-| `ELEV_MEAN_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済**（`limited` シナリオのみ） |
-| `ELEV_VALID_RATIO_<scale>` | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`limited` シナリオのみ。`ELEV_COUNT_<scale>` は出力しない） |
-| `GREEN_COV_<scale>` | （未割当） | **採用済み・設計未確定**。stubモジュールも未作成。入力源の確定が必要 |
-| 土地被覆クラス別面積率・人口密度・夜間光強度（列名未定） | （未割当） | **採用済み・設計未確定**。入力データセットの選定と算出方法の確定が必要 |
+| 列名 | 出力先 | 算出モジュール・関数 | 設計確定状況 |
+|---|---|---|---|
+| `cell_id` | 全テーブル | `canonical_grid.make_cell_id()`（`tables.build_param_table()` が付与） | 確定・実装済 |
+| `lon`, `lat` | 正準グリッド／データセット | `canonical_grid._build_cell_frame()`（結合時に `build_dataset.py` が引き継ぐ） | 確定・実装済 |
+| `NDVI`, `NDBI`, `NDWI` | `idx_*` テーブル | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-file` 指定時のみ） |
+| `IN_ANALYSIS_AREA` | `mask_roi` テーブル | `params/mask.py: compute()` → `geometry.compute_polygon_coverage()` | 確定・実装済 |
+| `VALID_GIS_MASK`, `MISSING_REASON` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（判定材料の列がある場合のみ付与。6.3節） |
+| `VALID_SATELLITE_MASK` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（同上） |
+| `BUILD_COV`, `BUILD_DEN`, `BUILD_H_MEAN`, `BUILD_H_MAX` | `build_gba` / `build_dc` テーブル | `params/buildings.py: compute()` | 確定・実装済 |
+| `ROAD_DEN` | `road_osm` / `road_gt` テーブル | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
+| `ELEV_MEAN` | `elev_fabdem` テーブル | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済** |
+| `ELEV_VALID_RATIO` | `elev_fabdem` テーブル | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`ELEV_COUNT` は出力しない） |
+| `GREEN_COV` | （未割当） | （未割当） | **採用済み・設計未確定**。stubモジュールも未作成。入力源の確定が必要 |
+| 土地被覆クラス別面積率・人口密度・夜間光強度（列名未定） | （未割当） | （未割当） | **採用済み・設計未確定**。入力データセットの選定と算出方法の確定が必要 |
+
+**`DATA_SOURCE` / `SCENARIO` は廃止した**（6.3節）。
+
+### 6.6 分析用データセット（結合フェーズの出力）
+
+`src/analysis/build_dataset.py` が、指定したテーブル群を `cell_id` で結合する。
+
+| 項目 | 内容 |
+|---|---|
+| 出力先 | `data/output/datasets/dataset_{name}_{city}_{scale}m.gpkg` |
+| レイヤ名 | データセット名（`{name}`）と同一 |
+| 土台 | 正準グリッドのレイヤ（`cell_id` / `lon` / `lat`） |
+| 列 | `cell_id` / `lon` / `lat` ＋ 各テーブルの列 ＋ 品質管理列（6.3節） |
+
+結合対象の指定方法は2通りある。
+
+- `--scenario`: `config.py` の `SCENARIO_TABLES`（シナリオ → 結合するテーブル名の一覧）を展開する
+- `--tables`: テーブル名を直接指定する（別ソース版の比較・衛星指標の追加など）
+
+| シナリオ | 結合するテーブル |
+|---|---|
+| `satellite_only` | `mask_roi` |
+| `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` |
+| `full` | `mask_roi` / `build_dc` / `road_gt` |
+
+衛星指標は観測ファイル単位のため `SCENARIO_TABLES` には列挙できない。結合時に観測日時つきのテーブル名（例: `idx_20230707_032329`）を `--tables` で明示する。
+
+**結合は左結合とする。** 正準グリッドのセルを1行も落とさないためであり、あるテーブルにのみ存在しない `cell_id` の値は NULL として残る。
+
+**単一スケールのテーブルのみを結合する。** `cell_id` は全スケール共通の式（`row * 1000000 + col`）で採番するため、**一意なのは同一スケールのレイヤ内に限られる**（7.5.3節）。`--scale` は単一指定に限り、テーブルも同じスケールのディレクトリからのみ読む。
+
+**静かに壊れる経路を3つ塞いでいる。**
+
+- **列名の衝突**（`build_gba` と `build_dc` の同時結合など）は、所有テーブル名つきの `ValueError` で拒否する。接尾辞を付けて黙って両方残すと、どちらがどのソースか分からなくなる
+- **`cell_id` の重複**があるテーブルは、読み込みの時点で弾く。結合で行が増え、値の誤りではなく行数の誤りとして現れる
+- **土台と `cell_id` が一致した件数**をテーブルごとに報告し、0件なら警告する。古い解析範囲で算出した stale なテーブルを結合しても例外にはならず、該当列が広範囲に NULL になるだけである
 
 ---
 
@@ -255,25 +360,30 @@
 `src/analysis/urban_params/` パッケージは責務ごとにモジュールを分割している。
 
 ```text
-src/analysis/urban_params/
-  __init__.py
-  __main__.py        # python -m src.analysis.urban_params のエントリーポイント
-  config.py           # CITY_CONFIG（layers/rasters）, SCENARIO_INPUT_KEYS
-  grid.py             # BBox, GridSpec, build_grid, transform_bbox, grid_centers_wgs84, cell_area_ha
-  canonical_grid.py   # 全シナリオ共通の正準グリッド（cell_id 採番・GeoPackage 出力。7.5節）
-  geometry.py         # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
-  io.py               # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み
-  params/
-    raster.py         # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI・有効画素率）
-    buildings.py       # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
-    roads.py            # 道路パラメータ（ROAD_DEN）
-    elevation.py       # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
-  run.py              # main(): シナリオ・マルチスケール出力のオーケストレーション
+src/analysis/
+  urban_params/
+    __init__.py
+    __main__.py       # python -m src.analysis.urban_params のエントリーポイント
+    config.py         # CITY_CONFIG（layers/rasters）, PARAM_SETS, SCENARIO_TABLES, 出力パス解決
+    grid.py           # GridSpec, build_grid, grid_centers_wgs84, cell_area_ha
+    canonical_grid.py # 全シナリオ共通の正準グリッド（cell_id 採番・GeoPackage 出力。7.5節）
+    tables.py         # 正準グリッド整合の GridSpec 構築・cell_id 付きテーブル化・書き出し（7.6節）
+    geometry.py       # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
+    io.py             # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み・キャッシュ（7.7節）
+    params/
+      raster.py       # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI・有効画素率）
+      buildings.py    # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
+      roads.py        # 道路パラメータ（ROAD_DEN）
+      elevation.py    # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
+      mask.py         # 解析対象域フラグ（IN_ANALYSIS_AREA）
+    run.py            # main(): パラメータセット単位・マルチスケール出力のオーケストレーション
+    verify_values.py  # 旧 wide CSV との値照合（検証専用。11.2節）
+  build_dataset.py    # cell_id 結合による分析用データセット生成（6.6節）
 ```
 
-シナリオごとの入力キーは `SCENARIO_INPUT_KEYS` が保持する。ベクタレイヤ（`CITY_CONFIG["layers"]` のキー）とラスタ（`CITY_CONFIG["rasters"]` のキー）の両方を含むため、"LAYER" ではなく "INPUT" と呼ぶ。
+「どのパラメータを、どの入力ソースで算出するか」は `PARAM_SETS` が保持する（5.2.0節）。シナリオは算出側では扱わず、`SCENARIO_TABLES` として結合側が持つ（6.6節）。
 
-各 `params/*.py` は共通の `compute()` シグネチャを持つ（`raster.py` のみ別シグネチャ）。
+各 `params/*.py` は共通の `compute()` シグネチャを持つ（`raster.py` のみ別シグネチャ）。**再設計にあたって `compute()` はシグネチャ・ロジックとも変更していない。**
 
 ```python
 def compute(
@@ -281,18 +391,19 @@ def compute(
     bbox_analysis: BBox,
     grid_spec: GridSpec,
 ) -> dict[str, np.ndarray]:
-    """列名（サフィックス無し） -> coarse_shape の2次元配列、を返す。"""
+    """列名 -> coarse_shape の2次元配列、を返す。"""
 ```
 
-`elevation.py` のみ第1引数が `RasterResource | None` であり、集約範囲は `grid_spec` が保持するため `bbox_analysis` は参照しない（他モジュールとシグネチャを揃えるために受け取る）。
+`elevation.py` のみ第1引数が `RasterResource | None` であり、集約範囲は `grid_spec` が保持するため `bbox_analysis` は参照しない（他モジュールとシグネチャを揃えるために受け取る）。`raster.py` は `bbox_analysis` を取らずラスタ辞書を受け取る別シグネチャであり、`run.py` の `ParamTask` が呼び出し形を揃える。
 
-`resource` が `None`（シナリオで入力未指定）または未実装の場合は空dict `{}` を返し、`run.py` は返り値の各キーに `_<scale>` を付与して出力列に追加する。
+`resource` が `None`（入力未指定）または未実装の場合は空dict `{}` を返す。
 
 ### 7.1 Step A: 解析範囲・グリッド準備
 
-- シナリオに応じて公開 GIS 範囲または RG レイヤのBBoxを取得
-- ROI / 公開GIS は必要時のみ解析用投影座標（既定: EPSG:5897）へ投影
-- `--scales` で指定した各スケールについて、coarseグリッド（既定10m補助グリッド付き）を作成
+- 解析範囲レイヤ（ROI。`ANALYSIS_EXTENT_LAYER_KEY`）のBBoxを取得する。**正準グリッドと同じレイヤを使う必要がある**ため、`canonical_grid.py` の `--mask-layer-key` 既定値も同じ定数を参照する
+- ROI は必要時のみ解析用投影座標（既定: EPSG:5897）へ投影する
+- `--scales` で指定した各スケールについて、**正準グリッドのセル境界に載る整合BBox**（7.6節）から coarseグリッド（既定10m補助グリッド付き）を作成する
+- 対象スケールのグリッドレイヤが存在するかを、**算出へ入る前にまとめて確認する**。スケールごとの処理に入ってから気づくと、先行するスケールの出力だけが残るため
 
 ### 7.2 Step B: GIS由来指標（一部は設計未確定、6.4節参照）
 
@@ -307,7 +418,7 @@ def compute(
   - `BUILD_H_MEAN` / `BUILD_H_MAX`: セル内建物の平均・最大高さ（m）
 - 道路（OSM / GT）
   - `ROAD_DEN`: 道路密度（m/ha）
-- 標高（FABDEM、`limited` のみ）
+- 標高（FABDEM、パラメータセット `elev_fabdem`）
   - `ELEV_MEAN`: DEMラスタを coarse グリッドへ平均再投影して得るセル平均標高（m）
   - `ELEV_VALID_RATIO`: セル内のDEM有効画素率（0-1）。`ELEV_MEAN` の平均が有効画素のみで取られるため、部分被覆セルの判別に必要（6.4節）
   - ベクタではなくラスタ入力のため、Step C（衛星指標）と同じ集約関数を用いる
@@ -347,24 +458,25 @@ def compute(
 - `Resampling.average` でセル平均を取得
 - 有効値のみ出力列に追加
 
-### 7.4 Step D: 品質管理・出力
+### 7.4 Step D: テーブル化・出力
 
-- 欠損理由を列に付与
-- データソース種別・シナリオ種別を列に付与
-- 最終CSVをUTF-8で保存
-- 処理サマリ（件数、統計量）を標準出力
+- coarse配列の添字を `cell_id` へ変換し、正準グリッドの `cell_id` で行を絞り込む（7.6節）
+- 属性のみの GeoPackage へ書き出す。**追記モードは持たず、常に一時ファイルへ書いてから置き換える**
+- 処理サマリ（行数、統計量、入力レイヤの実読み込み回数）を標準出力
+
+品質管理列の付与は算出フェーズでは行わない。結合フェーズ（6.3節・6.6節）が担う。
 
 ### 7.5 正準グリッド（`canonical_grid.py`）
 
-**本節は Step A–D の処理フローとは独立している。** `canonical_grid.py` は `run.py` から呼ばれず、独自の CLI を持つ単独の生成処理である。パラメータ値を `cell_id` キーの独立したテーブルとして持つ構成へ移行するための、結合の土台を定義する。
+**本節は Step A–D の処理フローとは独立している。** `canonical_grid.py` は `run.py` から呼ばれず、独自の CLI を持つ単独の生成処理である。パラメータ値を `cell_id` キーの独立したテーブルとして持つ構成の、結合の土台を定義する。
 
 #### 7.5.1 既存 `grid.py` との関係
 
 `grid.py` の `build_grid()` はグリッド原点を解析範囲レイヤの BBox（`minx` / `maxy`）から取る。この BBox はシナリオごとに異なる基準レイヤ（`limited` は ROI、`full` は RG）に由来するため、**シナリオが変わるとセルが揃わず比較できない**。
 
-正準グリッドは原点を解析範囲から独立させてこれを解消する。`grid.py` は既存出力の互換性のため残置しており、正準グリッドはその置き換えではなく追加である。
+正準グリッドは原点を解析範囲から独立させてこれを解消する。`grid.py` は `build_grid()` の実装として引き続き使われるが、**渡す BBox を正準グリッドのセル境界に載る「整合BBox」へ差し替える**ことで、両者の格子を一致させている（7.6節）。
 
-**両者のセルは対応しない。** 原点が異なるため格子の位相がずれており、出力件数が近い値になっても 1 対 1 に対応することはない。件数の不一致は不具合ではない。
+**解析範囲レイヤの BBox をそのまま渡した場合、両者のセルは対応しない。** 原点が異なるため格子の位相がずれる（ハノイROI・30m の実測で dx=29.97m / dy=23.23m）。旧 wide CSV はこの旧原点で生成されているため、**旧出力と再設計後の出力をセル単位で照合することはできない**（照合方法は11.2節）。
 
 #### 7.5.2 原点とインデックス
 
@@ -418,7 +530,7 @@ ROI でクリップする場合、「30m セルが ROI と交差するならそ�
 
 `--extent mask`（既定）は解析範囲レイヤのジオメトリと交差するセルのみを、`--extent bbox` は BBox 全体を出力する。マスクレイヤの既定を `roi` としてよいのは、測量GISが ROI 内の一部である（3.1節）ため **ROI が全シナリオの解析範囲を包含する**からである。
 
-判定は「セルとジオメトリの交差」を用いる。`run.py` の `IN_ANALYSIS_AREA`（10m fine ピクセル中心がポリゴン内に入るかで判定）とは**一致せず、交差 ⊇ `IN_ANALYSIS_AREA` の包含関係**になる。角をわずかにかすめるセルは交差するが fine ピクセル中心が 1 つも入らないためである。正準グリッドは結合の土台として取りこぼさない安全側を採る。
+判定は「セルとジオメトリの交差」を用いる。`params/mask.py` の `IN_ANALYSIS_AREA`（10m fine ピクセル中心がポリゴン内に入るかで判定）とは**一致せず、交差 ⊇ `IN_ANALYSIS_AREA` の包含関係**になる。角をわずかにかすめるセルは交差するが fine ピクセル中心が 1 つも入らないためである。正準グリッドは結合の土台として取りこぼさない安全側を採る（実測: 300mで 38,235 セル中 35 セルが `IN_ANALYSIS_AREA = 0`）。
 
 ##### マスクとして機能するのは面ジオメトリを持つレイヤに限る（既知の制約）
 
@@ -432,7 +544,9 @@ ROI でクリップする場合、「30m セルが ROI と交差するならそ�
 
 RG は**境界線**であり（[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)）、線と交差判定すると有効域の内部ではなく**境界線上のセルだけ**が選ばれる。実測でも RG の BBox 112,617 セル（30m）に対し選択は 9,835 セル（8.7%）と、面を塗った場合の値にならない。
 
-これは正準グリッド固有の問題ではなく、**測量GISから分析対象域をどう定義するかが未決である**ことに由来する。`run.py` の `compute_polygon_coverage()` も面積ベースであり同じ前提を共有する。定義が決まるまで、マスクには面ジオメトリを持つレイヤ（現状は `roi`）を使う。
+これは正準グリッド固有の問題ではなく、**測量GISから分析対象域をどう定義するかが未決である**ことに由来する。`params/mask.py` の `compute_polygon_coverage()` も面積ベースであり同じ前提を共有する。定義が決まるまで、マスクには面ジオメトリを持つレイヤ（現状は `roi`）を使う。
+
+**この未決が `full` シナリオの有効域定義に及ぶ。** 解析範囲を ROI へ一本化しているため、`full` に固有の有効域は現時点で定義されていない。旧実装は `rg` をマスクにしていたが、300m 出力が実データ2行しかなく既に破綻していた。
 
 #### 7.5.7 CLI
 
@@ -463,6 +577,79 @@ python -m src.analysis.urban_params.canonical_grid --city hanoi --scales 30 90 3
 
 30m の再生成には数分・約 1.1GB を要するため、失敗時に既存出力を失う影響は小さくない。なお一時ファイルを併存させる間はディスク使用量が一時的に倍になる。
 
+### 7.6 正準グリッドとの格子整合とテーブル化（`tables.py`）
+
+#### 7.6.1 整合BBox
+
+`build_grid()` は渡された BBox の `minx` / `maxy` をグリッド原点にする。したがって、**正準グリッドの `row` / `col` 範囲からセル境界にちょうど載る BBox を組み立てて渡せば、両者の格子が一致する**。
+
+```text
+minx = origin_x + col_min * res      maxx = origin_x + (col_max + 1) * res
+miny = origin_y + row_min * res      maxy = origin_y + (row_max + 1) * res
+```
+
+整合BBoxの幅・高さは解像度の整数倍になるため `build_grid()` のパディングが 0 となり、`coarse_shape` が正準グリッドの `(n_rows, n_cols)` と厳密に一致する。ハノイROI・EPSG:5897 での実測は次のとおり。
+
+| スケール | 正準 `(n_rows, n_cols)` | `coarse_shape` | `cell_id` 件数 |
+|---|---|---|---|
+| 30m | (3040, 2551) | 一致 | 3,739,454 |
+| 90m | (1014, 851) | 一致 | 417,694 |
+| 300m | (305, 256) | 一致 | 38,235 |
+
+**`compute()` へ渡す解析BBoxも整合BBoxとする。** 整合BBoxは必ず ROI の BBox を包含するため、ROI 側を渡すと外周1セル分の帯にかかる道路を取りこぼす。建物は `grid_spec` 基準で範囲判定するため影響を受けないが、パラメータ間で範囲の意味が食い違わないよう統一する。
+
+#### 7.6.2 添字と `cell_id` の対応
+
+`coarse_transform` は北から南へ row が増えるのに対し、正準グリッドの `row` は北向きが正であるため反転する。
+
+```text
+canonical_row = row_max - i     （i: coarse配列の行添字）
+canonical_col = col_min + j     （j: coarse配列の列添字）
+cell_id = make_cell_id(canonical_row, canonical_col)
+```
+
+出力する行集合は**正準グリッド GeoPackage が持つ `cell_id` を正本**とし、マスク交差判定を再計算しない。判定ロジックが二重化すると、両者がずれたときに結合が静かに壊れるためである。行の順序もグリッドレイヤの格納順に従う。
+
+#### 7.6.3 静かなずれを防ぐ実行時チェック
+
+正準グリッドが別の解析範囲・別のマスクで再生成された場合、例外を出さずに対応のずれたテーブルを作ってしまう。次の3点を実行時に検証する。
+
+- `coarse_shape` が正準グリッドの `(n_rows, n_cols)` と一致する
+- 読み込んだ `cell_id` がすべて配列範囲内の `(row, col)` へ分解される
+- `cell_id` に重複が無く、パラメータ列名がキー列 `cell_id` と衝突しない
+
+#### 7.6.4 再実行時の上書き規約
+
+**追記モードは持たない。** 追記で `cell_id` が二重化すると結合が静かに壊れるため、その経路自体を持たせない。書き出しは常に一時ファイルへ行い、完了後に `Path.replace()` で差し替える。
+
+`canonical_grid.py` と異なり `--overwrite` を課さないのは、「1つのパラメータだけ再計算する」ことが通常運用であり、毎回フラグを要求するとパラメータ単位で独立に再計算できるという狙いと逆行するためである。失敗時に既存の出力を失わない保護は一時ファイル経由で担保する。
+
+> **Windows での注意**: 出力先を QGIS などが開いたままだと差し替えが失敗する。素の `PermissionError` ではなく、他のアプリケーションで開かれていないかを案内する日本語メッセージへ包み直し、書き出し済みの一時ファイルは回収できるよう残す。
+
+### 7.7 入力レイヤの読み込み1回化（`io.py`）
+
+複数スケールを1回の実行で出力する場合、同じ入力レイヤをスケール数だけ読み直すと所要時間の支配項になる。`layer_cache()` のスコープ内では読み込み結果を再利用する。
+
+| 入力レイヤ | 件数 | 保持コスト | 1スケールあたりの節約 |
+|---|---|---|---|
+| 建物（GBA） | 3,071,511 | 約 1.3 GB | 約 21 秒 |
+| 道路（OSM） | 194,485 | 約 0.5 GB | 約 4 秒 |
+
+3スケール実行で読み込み分の所要時間は 75.6 秒 → 24.9 秒（実測）、ピーク常駐メモリは約 2.0GB になる。**解析範囲を広げる場合はこの比率が変わるため、特に道路については採否を見直す。**
+
+キャッシュキーは関数ごとに分ける。
+
+| 関数 | キー | 条件 |
+|---|---|---|
+| `read_layer_dataframe()` | `(パス, レイヤ名, 読み込む列, source_crs, analysis_crs)` | BBox を取らない関数のためスケール非依存 |
+| `iter_feature_records()` | `(パス, レイヤ名)` | **検索BBoxがレイヤ全体を覆うときだけ**参照・保存する |
+
+整合BBoxはスケールごとに異なる（`maxy` が 30m: 2365950 / 90m: 2366010 / 300m: 2366100）ため、BBox をキーに含めるとスケールごとにミスして1回化できない。一方 BBox を無視したキーにすると、レイヤの一部だけを求める呼び出しへ全件を返してしまう。そこで「空間フィルタが結果に影響しない」ことを確認できたときに限りキャッシュを使う。**この判定は保存側だけでなく参照側にも必要である。**
+
+現在の入力レイヤはいずれも ROI へクリップ済みのため全スケールでこの条件を満たす（実測で建物・道路とも 30/90/300m すべて成立）。ただし**これはデータ側の性質に依存した成立であって設計上の保証ではない**。前提が崩れた場合は再読み込みが発生して**性能が落ちるだけで、結果は変わらない**。
+
+> **返り値を破壊的に変更してはならない。** キャッシュは読み込み結果そのものを保持し、呼び出し側へ同じオブジェクトを返す。変更すると以降のスケールが変更後のデータを受け取る。
+
 ---
 
 ## 8. CRS・単位ルール
@@ -481,53 +668,91 @@ python -m src.analysis.urban_params.canonical_grid --city hanoi --scales 30 90 3
 - 不正ジオメトリは `make_valid` を試行し、失敗時はスキップ
 - レイヤ名が設定値と不一致の場合は、候補レイヤを探索して自動解決
 - 任意入力（衛星指標）が欠けていても処理継続
-- シナリオごとに不足レイヤを検出し、不足分を明示して停止または継続判断する
+- 入力の解決と対象スケールのグリッドレイヤの存在確認は、算出へ入る前にまとめて行い、不足があれば1件も出力せずに停止する
 - ラスタ設定の不備（`path` / `band` の欠落、バンド数を超えるバンド番号）は日本語の `ValueError` で停止する
 - DEMが解析グリッドとまったく重ならない場合は警告する（ファイルは存在するため入力解決を素通りし、全セル `NaN` の列が黙って出力されるため）
+- `compute()` の戻り値が `PARAM_SETS` の宣言列と食い違う場合は、不足・余分を示して停止する（別ソース版どうしで列が揃わなくなるため）
+- 出力先への差し替えに失敗した場合（QGIS等が開いたまま等）は、対処を示す日本語メッセージへ包み直し、書き出し済みの一時ファイルは回収できるよう残す
 - エラーメッセージは日本語で明示
 
 ---
 
 ## 10. CLI仕様
 
+**前提**: 先に正準グリッドを生成しておく（7.5.7節）。パラメータテーブルの行集合はこのグリッドを正本とする。
+
+### 10.1 算出フェーズ
+
 ```bash
+# パラメータセット単位（複数スケールでも入力レイヤの読み込みは1回）
 python -m src.analysis.urban_params --city hanoi \
-  --scenario limited \
-  --scales 30 90 300 --fine-res 10 \
-  --satellite-dir data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif
+  --params build_gba road_osm elev_fabdem mask_roi \
+  --scales 30 90 300 --fine-res 10
+
+# 衛星指標（観測ファイル単位）
+python -m src.analysis.urban_params --city hanoi \
+  --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \
+  --scales 30 90 300
 ```
 
 主要引数:
 
 - `--city`: 都市ID（例: hanoi）
-- `--scenario`: `satellite_only` / `limited` / `full`
-- `--scales`: 出力するcoarseグリッド解像度（m）の一覧（既定: `30 90 300`）
+- `--params`: 算出するパラメータセット名の一覧（5.2.0節）。テーブル名としてそのまま使う
+- `--satellite-file`: 任意。衛星指標ラスタの**単一ファイル**。テーブル名はファイル名の観測日時から導く
+- `--scales`: 出力するcoarseグリッド解像度（m）の一覧（既定: `30 90 300`）。900 の約数である必要がある
 - `--fine-res`: 被覆率計算の補助解像度（既定10m）
-- `--satellite-dir`: 任意。衛星指標ラスタの単一ファイルまたは格納ディレクトリ
-- `--mask-layer-key`: 解析範囲の基準レイヤ。未指定時は `satellite_only`/`limited` で `roi`、`full` で `rg`
+- `--grid`: 正準グリッドGeoPackageのパス（既定: `data/output/grid/grid_{city}.gpkg`）
+- `--output-dir`: 出力ルート（既定: `data/output/params`）
 
-### 10.1 現在の実装状況（2026-08-05）
+`--params` と `--satellite-file` は少なくとも一方の指定が必要である。
 
-- **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_osm_roads.gpkg` から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
-- **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`limited` シナリオで `hanoi_gba_buildings.gpkg`（GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`full` シナリオの `merge_DC.gpkg` は高さ属性を持たないため、高さ列は NaN になる。
-- **`params/elevation.py`（`ELEV_MEAN` / `ELEV_VALID_RATIO`）**: 設計確定・実装済み。`limited` シナリオで FABDEM v1.2（`fabdem_hanoi_dem.tif`）を coarse グリッドへ平均再投影し、セル平均標高（m）とセル内のDEM有効画素率（0-1）を算出する。`ELEV_COUNT` は出力しない。`full` / `satellite_only` では入力を与えないため列自体が出力されない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
-- `satellite_only` はGIS入力を使用せず、衛星指標と品質管理列のみを出力する。
-- 解析範囲の外接 bbox でスケールごとにグリッドを作成した後、基準レイヤのポリゴン内セル（`IN_ANALYSIS_AREA == 1`）のみを CSV に出力する。
-- 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。複数観測ファイルを含むディレクトリではなく、単一観測ファイルを指定する。
-- 出力先は `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv` とする。
-- 実行には `fiona`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
+**廃止した引数**: `--scenario`（シナリオは結合側へ移動）、`--mask-layer-key`（解析範囲は ROI へ一本化し、有効域は `mask_roi` テーブルが持つ）、`--satellite-dir`（複数観測を1テーブルへ混ぜる余地を残すため、単一観測の指定に限る）。
+
+### 10.2 結合フェーズ
+
+```bash
+# シナリオ名で結合対象を展開する
+python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario limited
+
+# テーブルを直接指定する（別ソース版の比較・衛星指標の追加など）
+python -m src.analysis.build_dataset --city hanoi --scale 30 \
+  --tables build_dc road_gt idx_20230707_032329 --name full_with_indices
+```
+
+主要引数:
+
+- `--scale`: 結合対象のスケール（m）。**単一指定に限る**（`cell_id` はスケール内でのみ一意のため）
+- `--scenario` / `--tables`: 結合対象の指定（どちらか一方）
+- `--name`: データセット名。`--scenario` 指定時の既定はシナリオ名、`--tables` 指定時は必須
+- `--params-dir` / `--grid` / `--output-dir`: 入出力ルート
+
+### 10.3 現在の実装状況
+
+> 本節の内容は冒頭メタ情報の「最終更新」時点のものである（見出しに日付を持たせると二重管理になり、実際に取り残されたことがあるため）。
+
+- **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`hanoi_osm_roads.gpkg`（`road_osm`）から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
+- **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`hanoi_gba_buildings.gpkg`（`build_gba`、GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`build_dc`（`merge_DC.gpkg`）は高さ属性を持たないため、高さ列は NaN になる。
+- **`params/elevation.py`（`ELEV_MEAN` / `ELEV_VALID_RATIO`）**: 設計確定・実装済み。FABDEM v1.2（`fabdem_hanoi_dem.tif`、`elev_fabdem`）を coarse グリッドへ平均再投影し、セル平均標高（m）とセル内のDEM有効画素率（0-1）を算出する。`ELEV_COUNT` は出力しない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
+- **`params/mask.py`（`IN_ANALYSIS_AREA`）**: 設計確定・実装済み。ROI ポリゴンの被覆率が0より大きいセルを1とする。
+- 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。
+- 実行には `fiona`, `pyogrio`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
+- **旧 wide CSV（`data/output/urban_params/*.csv`）は残置する。** 再生成の手段は持たない（旧原点での算出は `verify_values.py` が担う）。
 
 ---
 
 ## 11. 検証項目（最低限）
 
-- 各スケール（30/90/300m）の出力CSVに `lon`, `lat`, 品質管理列（6.3節）が存在する
-- 入力した衛星指標（`NDVI_<scale>` 等）が出力され、値が妥当な範囲に収まる
-- 座標列 `lon`, `lat` がハノイ近傍範囲に入る
-- `DATA_SOURCE` / `SCENARIO` が想定シナリオと一致する
+- 各スケール（30/90/300m）のパラメータテーブルが、正準グリッドの該当レイヤと**同じ行数**で出力される
+- 入力した衛星指標（`NDVI` 等）が出力され、値が妥当な範囲に収まる
+- 結合したデータセットの `lon`, `lat` がハノイ近傍範囲に入る
+- 同じコマンドを2回実行しても行数が倍にならない（追記経路を持たないこと）
+- `BUILD_H_MEAN` / `BUILD_H_MAX` の欠測が GeoPackage の NULL として保持される
+- 衛星指標テーブルが観測日時つきの名前（`idx_20230707_032329` 等）で出力される
+- QGIS で正準グリッドのレイヤ（`grid_30m` 等）にベクタレイヤ結合で繋ぎ、`BUILD_COV` で着色表示して分布が妥当である
 - GIS由来パラメータ（6.4節）を追加する際は、被覆率（0-1）・密度（負値なし）・有効カバレッジ内かどうかの確認を、各パラメータのサブIssueで検証項目として追加する
 
-**標高（`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>`）の検証観点**
+**標高（`ELEV_MEAN` / `ELEV_VALID_RATIO`）の検証観点**
 
 - 値域が入力DEMの統計範囲に収まり、平均が同水準である（集約により最小値は上がり最大値は下がるため、**特定の下限値を合格基準にしない**）
 - `ELEV_MEAN` は有効カバレッジ外が `NaN` であり、`0` で埋まっていない（値がちょうど `0` のセルが欠損由来でないこと）
@@ -539,9 +764,11 @@ python -m src.analysis.urban_params --city hanoi \
 
 ### 11.1 ユニットテスト
 
-`tests/analysis/urban_params/` に、`grid.py` / `geometry.py` / `run.py` の主要関数（リファクタリングで `calc_urban_params.py` から移植したロジック）に対するユニットテストを配置している。
+`tests/analysis/urban_params/` と `tests/analysis/` に、各モジュールの主要関数に対するユニットテストを配置している。
 
-- 既知のジオメトリ・グリッドを用いて、被覆率・重心カウント・ライン密度・標高集計・品質管理列などの計算結果が期待値と一致することを検証する
+- 既知のジオメトリ・グリッドを用いて、被覆率・重心カウント・ライン密度・標高集計などの計算結果が期待値と一致することを検証する
+- 小さな合成グリッドで `compute → tables → build_dataset` のE2E検証を行う（算出したテーブルを読み直し、`cell_id` 単位で値が一致することまで確認する）
+- 複数スケール実行時に入力レイヤの読み込みが1回で済むことを、**キャッシュ自身の集計とは独立したカウンタ付きフェイク**で検証する（実装の自己申告に頼らない）
 - `pytest`（`environment.yml` に含まれる）で実行する
 
 ```bash
@@ -549,6 +776,55 @@ python -m pytest tests/
 ```
 
 実行時は `pyproject.toml` の `[tool.pytest.ini_options]` によりリポジトリルートが `sys.path` に追加され、`src.analysis.urban_params` をインポートできる。
+
+### 11.2 旧 wide CSV との値照合（`verify_values.py`）
+
+再設計が**算出値を変えていない**ことは、テストではなく実データでの照合により確認する。
+
+正準グリッドと旧グリッドはセルが対応しない（7.5.1節）ため、再設計後の出力と旧 CSV をセル単位で照合することはできない。そこで**検証専用に旧BBox原点の `GridSpec` を構築**し、再設計後の算出経路（`PARAM_SETS` による入力解決・io層のキャッシュ・列検証）を通した結果を旧 CSV と全列照合する。`GridSpec` と解析BBoxだけを旧仕様へ差し替える形にしているのは、`compute()` を直接呼ぶだけでは再設計で新たに入った要素を何も検証しないためである。
+
+```bash
+python -m src.analysis.urban_params.verify_values --city hanoi \
+  --params build_gba road_osm --legacy-scenario limited --scales 30 90 300
+```
+
+**照合結果（2026-08-12・ハノイ・`limited`）**: 3スケール・5列のすべてで**不一致 0 件・最大絶対差 0**、すなわちビット単位で完全に一致した。
+
+| スケール | 行数（旧 CSV と一致） | 座標の最大差 | 照合結果 |
+|---|---|---|---|
+| 30m | 3,736,071 | lon 1.4e-14 / lat 3.6e-15 度 | 全5列一致 |
+| 90m | 417,310 | 同上 | 全5列一致 |
+| 300m | 38,213 | 同上 | 全5列一致 |
+
+照合上の前提が2点ある。
+
+- **NaN 同士は一致として扱う。** `BUILD_H_MEAN` / `BUILD_H_MAX` の欠測規約が維持されていることを確認する必要があるため
+- **旧 CSV の保存精度（float32）へ揃えてから比較する。** 旧 CSV は float32 の値を「float32 として往復できる最短の10進表記」で保存しており、float64 として読むと元の float32 との間に最大で float32 の半 ULP のずれ（値1.0付近で約6e-8、値680付近で約3e-5）が残る。これは算出値の差ではなく表記の丸めによる差である
+
+照合対象は建物4種と道路の5列とする。標高は旧 CSV の生成後に算出内容が変わっており（`ELEV_VALID_RATIO` が未収録）、値の同一性を問える状態にない。
+
+> **`verify_values.py` は検証専用であり、旧 CSV が役目を終えた時点で削除してよい。** 削除条件は (1) 再設計後の出力で分析を一巡し値の妥当性が確認できている、(2) `data/output/urban_params/*.csv` を参照する分析・ドキュメントが無くなっている、の2つをともに満たしたとき。削除時は対応するテストも併せて削除する。
+
+### 11.3 QGIS での目視確認（結合と分布の妥当性）
+
+正準グリッド `grid_300m`（38,235セル）にパラメータテーブル4件（`build_gba` / `road_osm` / `elev_fabdem` / `mask_roi`）を**同時に**ベクタレイヤ結合し、全8列を着色表示して確認した。図は `images/urban_params/urban_params_{列名}_hanoi_300m.png` に保存している。
+
+| 確認項目 | 結果 |
+|---|---|
+| 属性のみのGeoPackageがQGISで開けるか | 4テーブルとも 38,235 件で読み込み（ジオメトリ無しレイヤ） |
+| `cell_id` による結合 | 4テーブル同時結合が成立。`BUILD_COV` は 38,235 件すべて非 NULL |
+| `cell_id` = `row × 1000000 + col` | 全 38,235 セルで検算一致（不一致0件） |
+| QGIS 側の集計と算出時の統計 | 全8列で min / mean / max が一致 |
+
+分布の妥当性は、`BUILD_COV` / `ROAD_DEN` / `ELEV_MEAN` の3図で**紅河の位置が独立に一致**することで確認した（建物・道路が無く、標高が低い帯として現れる）。結合が空間的に正しいことの裏付けになる。
+
+**欠測規約と品質管理列も図と数値で確認した。**
+
+- `BUILD_H_MEAN` / `BUILD_H_MAX`: NULL は 7,567 セル（19.8%）で、**2列の NULL が完全に一致**する（食い違い0件）。同一の除外条件で動いていることを示す
+- `ELEV_MEAN` が NULL の 12 セルは**すべて `ELEV_VALID_RATIO = 0.0`**（違反0件）。11章の「両列の整合」を満たす
+- `IN_ANALYSIS_AREA = 0` は**ちょうど 35 セル**で、すべて ROI 境界上にある。6.1節の「交差 ⊇ `IN_ANALYSIS_AREA`」と一致する
+
+> **QGIS-MCP の制約**: `add_table_join` は結合を登録するが結合レイヤの参照を解決しないため、`layer.resolveReferences(QgsProject.instance())` を呼ぶまで結合フィールドが現れない。
 
 ---
 
@@ -558,6 +834,7 @@ python -m pytest tests/
 2. `urban_params` パッケージを本ガイド準拠で実装  
 3. `Satellite Only` / `Limited` / `Full` の3シナリオに接続できる入力仕様を固定する
 4. 研究者が「変数定義・計算根拠・制約」を追跡できる状態にする
+5. **パラメータ単位のテーブル出力へ移行し、パラメータの追加・変更がそのパラメータの再計算だけで済む構成にする**（達成。感度分析は結合先の差し替えだけで済む）
 
 ---
 

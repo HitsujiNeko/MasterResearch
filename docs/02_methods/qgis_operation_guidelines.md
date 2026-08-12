@@ -259,6 +259,7 @@ Esri LULC（`io-lulc-annual-v02`）では、STACコレクションの`item_asset
 
 - `images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`（英小文字スネークケース）
 - 例: `images/gis_data/roads/roads_osm_hanoi.png`
+- **算出結果の図**（取得データではなく、分析パイプラインが出力した値を描いたもの）は `images/{パッケージ名}/{パッケージ名}_{列名}_{ROI}_{スケール}.png` とする。例: `images/urban_params/urban_params_build_cov_hanoi_300m.png`。取得データの図と混在させないのは、両者で「何を検証しているか」（データのカバレッジか、算出値の妥当性か）が異なるためである
 - 複数枚必要な場合は接尾辞を付す。`_overview` / `_detail`（空間スケールの違い）、`_{年}`（同一データセットの複数年）が該当する
 - **同一タスク内で並べる図は接尾辞の有無を揃える**。年を付ける図と付けない図を混在させず、複数年ある側に合わせて1枚しかないデータセットにも年を付ける。一方が `population_landscan_hanoi_2023.png` なら、もう一方も `population_worldpop_hanoi_2020.png` とし、`population_worldpop_hanoi.png` のまま並べない。年の有無が不揃いだと図どうしの対応関係が読み取りにくくなるため（すべての図が年を持たない場合はそれで揃っているとみなす）
 - `images/` は Git 追跡対象（`.gitignore` に `*.png` 除外はなく、直下 `images/` も除外対象外）

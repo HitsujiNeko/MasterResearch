@@ -380,7 +380,17 @@ def verify_scale(
     selected_lon = lon.ravel()[analysis_mask.ravel()]
     selected_lat = lat.ravel()[analysis_mask.ravel()]
 
+    # 照合対象が1列も無いまま進むと、何も検証していないのに「すべて一致」と報告して
+    # 終了コード0で終わる。検証ツールとして最も避けたい失敗のため、明示的に弾く。
     target_columns = [name for name in COMPARED_COLUMNS if name in selected]
+    if not target_columns:
+        raise ValueError(
+            "照合対象の列が1つもありません"
+            f"（算出された列: {', '.join(sorted(selected)) or 'なし'}）。"
+            f" --params に照合対象の列（{', '.join(COMPARED_COLUMNS)}）を返す"
+            " パラメータセットを指定してください。"
+        )
+
     legacy_columns = {name: f"{name}_{scale}" for name in target_columns}
     legacy_frame = pd.read_csv(csv_path, usecols=["lon", "lat", *legacy_columns.values()])
 

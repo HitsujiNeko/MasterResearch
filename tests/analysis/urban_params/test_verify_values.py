@@ -388,3 +388,35 @@ def test_main_reports_missing_legacy_csv(city_environment: dict[str, Any]) -> No
     """旧 CSV が無い場合は、探したパスを示すFileNotFoundErrorになる。"""
     with pytest.raises(FileNotFoundError, match="旧 wide CSV が見つかりません"):
         verify_main(_legacy_arguments(SCALES[0]))
+
+
+def test_main_rejects_run_without_comparable_columns(city_environment: dict[str, Any]) -> None:
+    """照合対象の列を返さないパラメータセットだけを指定した場合は停止する。
+
+    何も検証していないのに「すべて一致」と報告して終了コード0で終わるのが、
+    検証ツールとして最も避けたい失敗であるため。
+    """
+    scale = SCALES[0]
+    _write_legacy_csv(
+        city_environment["root"] / "legacy" / f"urban_params_limited_{CITY}_{scale}m.csv",
+        city_environment,
+        scale,
+    )
+
+    with pytest.raises(ValueError, match="照合対象の列が1つもありません"):
+        verify_main(
+            [
+                "--city",
+                CITY,
+                "--params",
+                "mask_roi",
+                "--legacy-scenario",
+                "limited",
+                "--scales",
+                str(scale),
+                "--fine-res",
+                str(FINE_RES_M),
+                "--legacy-dir",
+                "legacy",
+            ]
+        )

@@ -26,6 +26,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 import numpy as np
 import pandas as pd
@@ -62,6 +63,7 @@ from .io import (
 )
 from .params import buildings, elevation, mask, raster, roads
 from .tables import (
+    CELL_ID_COLUMN,
     aligned_bbox,
     build_aligned_grid,
     build_param_table,
@@ -255,8 +257,8 @@ def build_param_tasks(
         def compute(
             bbox_analysis: BBox,
             grid_spec: GridSpec,
-            _module: object = module,
-            _resource: object = resource,
+            _module: ModuleType = module,
+            _resource: LayerResource | RasterResource = resource,
         ) -> dict[str, np.ndarray]:
             """標準シグネチャの ``compute()`` を呼ぶ。"""
             return _module.compute(_resource, bbox_analysis, grid_spec)
@@ -331,7 +333,7 @@ def summarize_table(table_name: str, table: pd.DataFrame) -> None:
         table_name: テーブル名。
         table: 出力したテーブル（``cell_id`` 列を含む）。
     """
-    value_columns = [name for name in table.columns if name != "cell_id"]
+    value_columns = [name for name in table.columns if name != CELL_ID_COLUMN]
     print(f"[{table_name}] {len(table):,} 行 / 列: {', '.join(value_columns)}", flush=True)
     if value_columns:
         statistics = table[value_columns].describe().loc[["min", "mean", "max"]]

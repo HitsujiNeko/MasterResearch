@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再エクスポート
 
@@ -161,7 +161,7 @@ class ParamSet:
     """
 
     module_name: str
-    input_kind: str
+    input_kind: Literal["layer", "raster"]
     input_key: str
     columns: tuple[str, ...]
 

@@ -117,3 +117,33 @@ def test_replace_geopackage_wraps_failure_with_japanese_message(
     # 既存の出力は失われず、書き出し済みの一時ファイルも回収できるよう残す。
     assert output_path.read_text(encoding="utf-8") == "original"
     assert temp_path.exists()
+
+
+def test_replace_geopackage_keeps_existing_sidecars_when_replace_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """差し替えに失敗した場合、既存の付随ファイルも失われない。
+
+    付随ファイルを差し替えの**前**に消すと、出力先をQGISが開いていて差し替えが
+    失敗したときに、生きている ``-wal`` だけを失う。``-wal`` は未チェックポイントの
+    トランザクションを保持するため、既存データベースの内容が巻き戻る。
+    「失敗しても既存の出力はそのまま残る」という保証は本体だけでは足りない。
+    """
+    output_path = tmp_path / "output.gpkg"
+    _create_geopackage_files(output_path)
+    temp_path = tmp_path / "output.tmp.gpkg"
+    temp_path.write_text("new", encoding="utf-8")
+
+    def failing_replace(self: Path, target: object) -> None:
+        """他プロセスがファイルを開いている状況を模す。"""
+        raise PermissionError("使用中のファイルにアクセスできません")
+
+    monkeypatch.setattr(Path, "replace", failing_replace)
+
+    with pytest.raises(OSError, match="他のアプリケーションで開かれていないか"):
+        replace_geopackage(temp_path, output_path)
+
+    assert output_path.read_text(encoding="utf-8") == "main"
+    for suffix in SIDECAR_SUFFIXES:
+        sidecar = Path(f"{output_path}{suffix}")
+        assert sidecar.read_text(encoding="utf-8") == suffix

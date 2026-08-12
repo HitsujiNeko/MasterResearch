@@ -47,9 +47,16 @@ def replace_geopackage(temp_path: Path, output_path: Path) -> None:
     """書き出し済みの一時GeoPackageを出力先へ差し替える。
 
     ``Path.replace()`` は同一ディレクトリ（＝同一ファイルシステム）でアトミックに
-    動作するため、途中で失敗しても既存の出力はそのまま残る。差し替えの前に出力先の
-    付随ファイルを消すのは、本体だけを差し替えると別のデータベースの ``-wal`` /
-    ``-shm`` が残った状態になるためである。
+    動作するため、途中で失敗しても既存の出力はそのまま残る。本体だけを差し替えると
+    別のデータベースの ``-wal`` / ``-shm`` が残った状態になるため、付随ファイルも
+    組で片付ける必要がある。
+
+    **付随ファイルの削除は差し替えが成功した後に行う。** 先に消すと、差し替えに
+    失敗したときに既存データベースの ``-wal`` だけを失う。出力先をQGISが開いたまま
+    差し替えが失敗する状況は、まさにその ``-wal`` が生きている状況であり、
+    「失敗しても既存の出力はそのまま残る」という上記の保証が崩れる。差し替え後に
+    残っている付随ファイルは**差し替え前のデータベースのもの**であり、新しい本体
+    とは無関係なため、成功後に削除して問題ない。
 
     **Windowsでは、出力先をQGIS等が開いたままだと差し替えが失敗する。** 素の
     ``PermissionError`` は原因を読み取りにくいため、対処を示す日本語のメッセージへ
@@ -62,7 +69,6 @@ def replace_geopackage(temp_path: Path, output_path: Path) -> None:
     Raises:
         OSError: 差し替えに失敗した場合。元の例外は ``__cause__`` に保持する。
     """
-    remove_sidecar_files(output_path)
     try:
         Path(temp_path).replace(output_path)
     except OSError as error:
@@ -71,3 +77,4 @@ def replace_geopackage(temp_path: Path, output_path: Path) -> None:
             " 出力先のファイルがQGISなど他のアプリケーションで開かれていないか確認してください。"
             f" 書き出し済みの一時ファイルは残しています: {temp_path}"
         ) from error
+    remove_sidecar_files(output_path)

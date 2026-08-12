@@ -1,0 +1,365 @@
+"""正準グリッドに整合したグリッド構築と ``cell_id`` 付きテーブル化を扱うモジュール。
+
+``grid.py`` の ``build_grid()`` はグリッド原点を解析範囲レイヤのBBoxから取るため、
+``canonical_grid.py`` が定義する正準グリッド（原点を座標系原点へスナップ）とは格子の
+位相がずれる。そのままでは coarse配列の添字を ``cell_id`` へ対応づけられない。
+
+本モジュールは、正準グリッドの ``row`` / ``col`` 範囲から**セル境界にちょうど載る
+BBox**（以下「整合BBox」）を組み立て、それを ``build_grid()`` へ渡す。整合BBoxの
+幅・高さは解像度の整数倍になるため ``build_grid()`` のパディングが0となり、
+``coarse_shape`` が正準グリッドの ``(n_rows, n_cols)`` と厳密に一致する。
+
+配列添字と正準インデックスの対応は次のとおりである。``coarse_transform`` は北から南へ
+row が増えるのに対し、正準グリッドの ``row`` は北向きが正であるため反転する。
+
+.. code-block:: text
+
+    canonical_row = row_max - i     （i: coarse配列の行添字）
+    canonical_col = col_min + j     （j: coarse配列の列添字）
+    cell_id = make_cell_id(canonical_row, canonical_col)
+
+出力するテーブルは ``cell_id`` と当該パラメータの列だけを持つ**属性のみのテーブル**で
+あり、``lon`` / ``lat`` は持たせない。座標は正準グリッドのレイヤが保持しており、
+全テーブルへ複製するとパラメータ単位で独立させる狙いに反するためである。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pyogrio
+
+from src.common.geo_metadata import BBox
+from src.common.geopackage import remove_geopackage, replace_geopackage
+
+from .canonical_grid import CanonicalGridSpec, split_cell_id
+from .grid import GridSpec, build_grid
+
+# パラメータテーブルのキー列。パラメータの列名として使うことはできない。
+CELL_ID_COLUMN = "cell_id"
+
+
+def aligned_bbox(canonical_spec: CanonicalGridSpec) -> BBox:
+    """正準グリッドのセル境界にちょうど載るBBoxを返す。
+
+    ``row_min`` / ``row_max`` / ``col_min`` / ``col_max`` はいずれも範囲に**含む**
+    インデックスであるため、上端・右端はそれぞれ1セル分だけ外側の境界を採る。
+
+    Args:
+        canonical_spec: 正準グリッドの仕様。
+
+    Returns:
+        ``canonical_spec.analysis_crs`` 上の整合BBox。
+    """
+    res_m = canonical_spec.res_m
+    return BBox(
+        minx=canonical_spec.origin_x + (canonical_spec.col_min * res_m),
+        miny=canonical_spec.origin_y + (canonical_spec.row_min * res_m),
+        maxx=canonical_spec.origin_x + ((canonical_spec.col_max + 1) * res_m),
+        maxy=canonical_spec.origin_y + ((canonical_spec.row_max + 1) * res_m),
+    )
+
+
+def build_aligned_grid(canonical_spec: CanonicalGridSpec, fine_res_m: float) -> GridSpec:
+    """正準グリッドと格子が一致する ``GridSpec`` を構築する。
+
+    ``params/*.py`` の ``compute()`` は ``GridSpec`` を受け取るため、正準グリッドへ
+    出力を載せ替えるにあたって変更が必要なのは**渡す ``GridSpec`` の作り方だけ**で
+    ある。整合BBoxを ``build_grid()`` へ渡すことでこれを満たす。
+
+    形状の一致は**実行時に検証する**。正準グリッドGeoPackageが別の解析範囲・別の
+    マスクで再生成された場合や、丸め誤差でパディングが生じた場合に、例外を出さずに
+    対応のずれたテーブルを作ってしまうのを防ぐためである。
+
+    Args:
+        canonical_spec: 正準グリッドの仕様。
+        fine_res_m: 被覆率計算用の補助解像度（m）。``canonical_spec.res_m`` の
+            約数である必要がある（判定は ``build_grid()`` が行う）。
+
+    Returns:
+        ``coarse_shape`` が ``(n_rows, n_cols)`` と一致する ``GridSpec``。
+
+    Raises:
+        ValueError: ``build_grid()`` が解像度・BBoxを受け付けない場合、または
+            構築した ``coarse_shape`` が正準グリッドの形状と一致しない場合。
+    """
+    grid_spec = build_grid(
+        aligned_bbox(canonical_spec),
+        canonical_spec.analysis_crs,
+        canonical_spec.res_m,
+        fine_res_m,
+    )
+
+    expected_shape = (canonical_spec.n_rows, canonical_spec.n_cols)
+    if grid_spec.coarse_shape != expected_shape:
+        raise ValueError(
+            "構築したグリッドが正準グリッドと一致しません"
+            f"（coarse_shape={grid_spec.coarse_shape} / 正準={expected_shape}）。"
+            " 解析範囲・解像度・補助解像度の組合せを確認してください。"
+        )
+    return grid_spec
+
+
+def list_grid_layers(grid_path: Path) -> list[str]:
+    """正準グリッドGeoPackageが持つレイヤ名の一覧を返す。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+
+    Returns:
+        レイヤ名の一覧。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+    """
+    if not grid_path.exists():
+        raise FileNotFoundError(f"正準グリッドGeoPackageが見つかりません: {grid_path}")
+    return [str(name) for name in pyogrio.list_layers(grid_path)[:, 0]]
+
+
+def _layer_fields(grid_path: Path, layer_name: str) -> list[str]:
+    """レイヤが持つ属性列名を、行を読まずに取得する。
+
+    Args:
+        grid_path: GeoPackageのパス。
+        layer_name: 対象レイヤ名。
+
+    Returns:
+        属性列名の一覧。
+    """
+    return [str(name) for name in pyogrio.read_info(grid_path, layer=layer_name)["fields"]]
+
+
+def require_grid_layers(grid_path: Path, layer_names: Sequence[str]) -> None:
+    """指定したレイヤがすべて存在し、``cell_id`` 列を持つことを確認する。
+
+    **算出を始める前にまとめて確認するために使う。** スケールごとの処理に入ってから
+    レイヤの不在に気づくと、先行するスケールの出力だけが残る。``--scales`` は
+    900mの約数をすべて受け付けるため、正準グリッドを生成していないスケールを
+    指定する操作は十分ありうる。
+
+    **レイヤの存在だけでなく ``cell_id`` 列の有無まで確認する。** 列の欠落が
+    ``read_grid_cell_ids()`` まで判明しないと、事前確認を通過した後に同じ
+    「先行スケールの出力だけが残る」状態になり、この関数の目的を果たさないため
+    である。確認は属性のメタデータのみで行い、行は読まない。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+        layer_names: 存在を要求するレイヤ名の一覧。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+        ValueError: いずれかのレイヤが存在しない場合、または ``cell_id`` 列を
+            持たないレイヤがある場合。
+    """
+    available_layers = list_grid_layers(grid_path)
+    missing_layers = [name for name in layer_names if name not in available_layers]
+    if missing_layers:
+        raise ValueError(
+            f"正準グリッドにレイヤがありません: {', '.join(missing_layers)}"
+            f"（候補: {', '.join(available_layers)} / パス: {grid_path}）"
+        )
+
+    layers_without_key = [
+        name for name in layer_names if CELL_ID_COLUMN not in _layer_fields(grid_path, name)
+    ]
+    if layers_without_key:
+        raise ValueError(
+            f"正準グリッドのレイヤに {CELL_ID_COLUMN} 列がありません:"
+            f" {', '.join(layers_without_key)}（パス: {grid_path}）。"
+            " 正準グリッドを生成し直してください。"
+        )
+
+
+def read_grid_frame(grid_path: Path, layer_name: str, columns: Sequence[str]) -> pd.DataFrame:
+    """正準グリッドGeoPackageのレイヤから指定列だけを読み出す。
+
+    ジオメトリと不要な属性を読まないため、30mスケール（約374万セル）でも数秒で
+    済む。パラメータテーブルの行集合も、結合フェーズの土台も、この読み出し結果を
+    正本とし、マスク交差判定を再計算しない。判定ロジックが二重化すると、両者が
+    ずれたときに結合が静かに壊れるためである。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+        layer_name: 読み出すレイヤ名（例: ``grid_30m``）。
+        columns: 読み出す列名。
+
+    Returns:
+        レイヤの格納順に並んだ、``columns`` の順序どおりのデータフレーム。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+        ValueError: ``layer_name`` がGeoPackageに存在しない場合、または対象レイヤが
+            要求した列を持たない場合。
+    """
+    require_grid_layers(grid_path, [layer_name])
+
+    # 列の存在を先に確かめる。pyogrio は存在しない列を指定しても例外を出さず、
+    # 列も行も持たない空のデータフレームを返すため、そのまま読むと原因の分からない
+    # KeyError になる。
+    available_fields = _layer_fields(grid_path, layer_name)
+    missing_columns = [name for name in columns if name not in available_fields]
+    if missing_columns:
+        raise ValueError(
+            f"レイヤに {', '.join(missing_columns)} 列がありません: {layer_name}"
+            f"（列: {', '.join(available_fields)} / パス: {grid_path}）"
+        )
+
+    frame = pyogrio.read_dataframe(
+        grid_path, layer=layer_name, columns=list(columns), read_geometry=False
+    )
+    # pyogrio は要求した順序で列を返すとは限らないため、明示的に並べ替える。
+    return frame[list(columns)]
+
+
+def read_grid_cell_ids(grid_path: Path, layer_name: str) -> np.ndarray:
+    """正準グリッドGeoPackageのレイヤから ``cell_id`` 列だけを読み出す。
+
+    Args:
+        grid_path: 正準グリッドGeoPackageのパス。
+        layer_name: 読み出すレイヤ名（例: ``grid_30m``）。
+
+    Returns:
+        レイヤの格納順に並んだ ``cell_id`` の1次元 ``int64`` 配列。
+
+    Raises:
+        FileNotFoundError: ``grid_path`` が存在しない場合。
+        ValueError: ``layer_name`` がGeoPackageに存在しない場合、または対象レイヤが
+            ``cell_id`` 列を持たない場合。
+    """
+    frame = read_grid_frame(grid_path, layer_name, [CELL_ID_COLUMN])
+    return frame[CELL_ID_COLUMN].to_numpy(dtype=np.int64)
+
+
+def build_param_table(
+    columns: dict[str, np.ndarray],
+    canonical_spec: CanonicalGridSpec,
+    cell_ids: np.ndarray,
+) -> pd.DataFrame:
+    """coarse配列群を ``cell_id`` キーのテーブルへ変換する。
+
+    出力する行は ``cell_ids`` が指すセルのみで、順序も ``cell_ids`` の並びに従う。
+    正準グリッドのレイヤと1:1で結合できる状態にするためである。
+
+    Args:
+        columns: 列名から ``canonical_spec`` の形状と一致する2次元配列への辞書。
+        canonical_spec: 正準グリッドの仕様。
+        cell_ids: 出力対象の ``cell_id``（1次元・整数）。
+
+    Returns:
+        先頭列を ``cell_id`` とし、以降に ``columns`` の各列を持つデータフレーム。
+
+    Raises:
+        ValueError: ``columns`` が空の場合、``columns`` がキー列と同名の列を含む
+            場合、配列の形状が正準グリッドと一致しない場合、``cell_ids`` が1次元で
+            ない場合・空の場合・重複を含む場合、または ``cell_ids`` に正準グリッドの
+            範囲外の値が含まれる場合。
+    """
+    if not columns:
+        raise ValueError("出力する列がありません。columns には1つ以上の列を指定してください。")
+    # キー列と同名のパラメータ列を許すと、後段の代入でキーが値に置き換わり、
+    # 結合先が黙ってずれる。列名の衝突として明示的に弾く。
+    if CELL_ID_COLUMN in columns:
+        raise ValueError(
+            f"列名 {CELL_ID_COLUMN} はキー列として予約されています。"
+            " パラメータの列名を変更してください。"
+        )
+
+    expected_shape = (canonical_spec.n_rows, canonical_spec.n_cols)
+    for column_name, values in columns.items():
+        if values.shape != expected_shape:
+            raise ValueError(
+                f"列の形状が正準グリッドと一致しません: {column_name}"
+                f"（shape={values.shape} / 正準={expected_shape}）"
+            )
+
+    cell_id_values = np.asarray(cell_ids)
+    if cell_id_values.ndim != 1:
+        raise ValueError(f"cell_ids は1次元配列で指定してください（ndim={cell_id_values.ndim}）。")
+    if cell_id_values.size == 0:
+        raise ValueError(
+            "cell_ids が空です。正準グリッドのレイヤと解析範囲の対応を確認してください。"
+        )
+    # 重複があると結合先の行が増え、値の誤りではなく行数の誤りとして現れる。
+    # 検知が遅れると原因の特定が難しいため、テーブル化の時点で弾く。
+    if np.unique(cell_id_values).size != cell_id_values.size:
+        raise ValueError("cell_ids に重複があります。正準グリッドのレイヤを確認してください。")
+
+    rows, cols = split_cell_id(cell_id_values)
+    row_offsets = canonical_spec.row_max - np.asarray(rows)
+    col_offsets = np.asarray(cols) - canonical_spec.col_min
+
+    out_of_range = (
+        (row_offsets < 0)
+        | (row_offsets >= canonical_spec.n_rows)
+        | (col_offsets < 0)
+        | (col_offsets >= canonical_spec.n_cols)
+    )
+    if bool(out_of_range.any()):
+        invalid_count = int(out_of_range.sum())
+        sample = cell_id_values[out_of_range][:5].tolist()
+        raise ValueError(
+            f"正準グリッドの範囲外を指す cell_id があります（{invalid_count} 件 /"
+            f" 全 {cell_id_values.size} 件・例: {sample}）。"
+            " グリッドGeoPackageと解析範囲・スケールの対応を確認してください。"
+        )
+
+    flat_indices = (row_offsets * canonical_spec.n_cols) + col_offsets
+    table_data: dict[str, np.ndarray] = {CELL_ID_COLUMN: cell_id_values.astype(np.int64)}
+    for column_name, values in columns.items():
+        table_data[column_name] = values.ravel()[flat_indices]
+    return pd.DataFrame(table_data)
+
+
+def write_attribute_table(table: pd.DataFrame, output_path: Path, layer_name: str) -> None:
+    """``cell_id`` をキーとする属性のみのテーブルをGeoPackageへ書き出す。
+
+    パラメータテーブル（算出フェーズ）と分析用データセット（結合フェーズ）の双方が
+    同じ書き出し規約を必要とするため共有する。
+
+    **追記モードは使わない。** 追記で ``cell_id`` が二重化すると結合が静かに壊れる
+    ため、その経路自体を持たせない。書き出しは一時ファイルへ行い、完了後に
+    ``Path.replace()`` で差し替える。同一ディレクトリ内の置換はアトミックに動作し、
+    途中で失敗しても既存の正しい出力はそのまま残る。
+
+    ``canonical_grid.write_grid_layers()`` と異なり ``overwrite`` を課さないのは、
+    「1つのパラメータだけ再計算する」ことが通常運用であり、毎回フラグを要求すると
+    パラメータ単位で独立に再計算できるという狙いと逆行するためである。失敗時に
+    既存の出力を失わない保護は一時ファイル経由で担保する。
+
+    Args:
+        table: 出力するテーブル。結合キーとなる ``cell_id`` 列を含む必要がある。
+        output_path: 出力先のGeoPackageパス。
+        layer_name: 書き出すレイヤ名。パラメータセット名と一致させる。
+
+    Raises:
+        ValueError: ``table`` が ``cell_id`` 列を持たない場合。
+        OSError: 出力先への差し替えに失敗した場合（出力先が他のアプリケーションで
+            開かれている等）。
+    """
+    # 通常は build_param_table() の戻り値を渡すためキー列は保証されるが、公開関数
+    # として単独でも呼べる。キーの無いテーブルは結合できず、出力してから気づくと
+    # 再計算が必要になるため、書き出す前に弾く。
+    if CELL_ID_COLUMN not in table.columns:
+        raise ValueError(
+            f"テーブルにキー列 {CELL_ID_COLUMN} がありません"
+            f"（列: {', '.join(str(name) for name in table.columns)}）。"
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 拡張子は出力先と揃える（ドライバの判定を拡張子に依存させないため）。
+    temp_path = output_path.with_name(f"{output_path.stem}.tmp{output_path.suffix}")
+    remove_geopackage(temp_path)
+
+    try:
+        pyogrio.write_dataframe(table, temp_path, layer=layer_name, driver="GPKG")
+    except BaseException:
+        # 中断（KeyboardInterrupt）も含めて書きかけを残さない。
+        remove_geopackage(temp_path)
+        raise
+
+    replace_geopackage(temp_path, output_path)

@@ -1,11 +1,30 @@
-"""入力レイヤ・ラスタの解決と読み込みを扱うモジュール。"""
+"""入力レイヤ・ラスタの解決と読み込みを扱うモジュール。
+
+複数スケールを1回の実行で出力する場合、同じ入力レイヤをスケール数だけ読み直すと
+所要時間の支配項になる。これを避けるため、``layer_cache()`` のスコープ内では
+読み込み結果を再利用する。
+
+キャッシュの費用対効果（ハノイROI・実測）:
+
+===========  ==========  ================  ==================
+入力レイヤ   件数        保持コスト        1スケールあたりの節約
+===========  ==========  ================  ==================
+建物（GBA）  3,071,511   約 1.3 GB         約 21 秒
+道路（OSM）  194,485     約 0.5 GB         約 4 秒
+===========  ==========  ================  ==================
+
+3スケール実行で合計約51秒（読み込み分のみ）を節約し、ピーク常駐メモリは約2.0GBに
+なる。**解析範囲を広げる場合はこの比率が変わるため、特に道路（節約は建物の約1/5
+に対しメモリは約1/3）については採否を見直す。**
+"""
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 import fiona
 import geopandas as gpd
@@ -52,6 +71,90 @@ class RasterResource:
 
     path: Path
     band_index: int
+
+
+@dataclass
+class LayerCache:
+    """1回の実行で読み込んだ入力レイヤを保持するキャッシュ。
+
+    保持するのは**読み込み結果そのもの**であり、呼び出し側へ同じオブジェクトを
+    返す。したがって**返り値を破壊的に変更してはならない**（変更すると、以降の
+    スケールが変更後のデータを受け取る）。現在の呼び出し側（``params/*.py``）は
+    いずれも読み取りと新規オブジェクトの生成しか行わない。
+
+    ``load_counts`` はファイルを読みに行った回数で、「複数スケール出力時に入力
+    レイヤの読み込みが1回で済む」ことを実行時に確認するために持つ。**キャッシュへ
+    載せない読み込み（検索BBoxがレイヤ全体を覆わない場合）も計上する。** 計上から
+    漏らすと、スケールごとに読み直しているレイヤが集計表に1行も現れず、性能退行を
+    検知する唯一の手段が沈黙するためである。
+
+    Attributes:
+        dataframes: ``read_layer_dataframe()`` の結果。
+        feature_records: ``iter_feature_records()`` の結果（フィーチャのリスト）。
+        load_counts: ``{パス名}::{レイヤ名}`` から読み込み回数への辞書。
+        hits: キャッシュから返した回数。
+    """
+
+    dataframes: dict[tuple[Any, ...], gpd.GeoDataFrame] = field(default_factory=dict)
+    feature_records: dict[tuple[Any, ...], list[Any]] = field(default_factory=dict)
+    load_counts: dict[str, int] = field(default_factory=dict)
+    hits: int = 0
+
+    def record_load(self, resource: LayerResource) -> None:
+        """ファイルを読みに行ったことを記録する。
+
+        ラベルにはファイル名ではなくパス全体を使う。都市別ディレクトリに同名の
+        ファイルを置く構成では、ファイル名だけだと別レイヤの読み込みが同じラベルへ
+        集約され、実際は複数回読んでいるのに「1回」に見えてしまうためである。
+
+        Args:
+            resource: 読み込んだ対象レイヤ。
+        """
+        label = f"{resource.path}::{resource.layer_name}"
+        self.load_counts[label] = self.load_counts.get(label, 0) + 1
+
+    def clear(self) -> None:
+        """保持しているデータを解放する。
+
+        ``load_counts`` と ``hits`` は残す。スコープを抜けた後に読み込み回数を
+        確認できるようにするためで、これらはデータ本体を伴わない集計値である。
+        """
+        self.dataframes.clear()
+        self.feature_records.clear()
+
+
+# 有効なキャッシュ。``layer_cache()`` のスコープ内でのみ ``None`` 以外になる。
+# プロセス全体に残る暗黙のグローバル状態にしないため、スコープを抜けた時点で
+# 必ず ``None`` へ戻し、保持データも解放する。単一スレッドでの利用を前提とする。
+_active_cache: LayerCache | None = None
+
+
+@contextmanager
+def layer_cache() -> Iterator[LayerCache]:
+    """入力レイヤの読み込み結果を再利用するスコープを開く。
+
+    スコープ内では ``read_layer_dataframe()`` と ``iter_feature_records()`` が
+    読み込み結果を再利用する。スコープを抜けると保持データを解放する。
+
+    入れ子にした場合は**外側のキャッシュを共有**し、解放も外側に委ねる。内側で
+    解放してしまうと、外側がまだ使う予定のデータを失うためである。
+
+    Yields:
+        有効化されたキャッシュ。読み込み回数の確認に使える。
+    """
+    global _active_cache
+
+    if _active_cache is not None:
+        yield _active_cache
+        return
+
+    cache = LayerCache()
+    _active_cache = cache
+    try:
+        yield cache
+    finally:
+        _active_cache = None
+        cache.clear()
 
 
 def resolve_layer_name(gpkg_path: Path, preferred_layer: str) -> str:
@@ -113,26 +216,6 @@ def get_layer_resource(
     return LayerResource(
         gpkg_path, layer_name, source_crs, analysis_crs, to_analysis, from_analysis
     )
-
-
-def get_optional_layer_resource(
-    city_cfg: dict[str, Any],
-    layer_key: str | None,
-) -> LayerResource | None:
-    """シナリオで未指定のレイヤはNoneとして扱う。
-
-    Args:
-        city_cfg: ``CITY_CONFIG`` の対象都市エントリ。
-        layer_key: ``city_cfg["layers"]`` のキー。シナリオで未使用の場合は ``None``。
-
-    Returns:
-        ``layer_key`` が ``None`` の場合は ``None``。
-        それ以外は ``get_layer_resource()`` で解決した ``LayerResource``。
-    """
-    if layer_key is None:
-        return None
-    analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
-    return get_layer_resource(city_cfg, layer_key, analysis_crs)
 
 
 def get_optional_raster_resource(
@@ -232,25 +315,51 @@ def _covers_layer_extent(src: fiona.Collection, query_bbox: BBox) -> bool:
     )
 
 
-def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterable[dict[str, Any]]:
-    """指定BBox内のフィーチャを逐次返す。
+def _query_bbox_for(resource: LayerResource, bbox_analysis: BBox) -> BBox:
+    """解析用CRS上の検索範囲を、レイヤ本来のCRSへ変換して返す。
 
-    検索BBoxがレイヤ全体の範囲を覆う場合は、空間フィルタを適用しても
-    全フィーチャが該当するため、フィルタを省略して読み込む。空間索引の
-    参照コストを避けるための最適化であり、レイヤの記録範囲が正しい限り
-    返すフィーチャ集合は変わらない。
+    Args:
+        resource: 対象レイヤ。
+        bbox_analysis: 解析用CRS上の検索範囲。
+
+    Returns:
+        レイヤ本来のCRS上の検索範囲。CRSが同じ場合はそのまま返す。
+    """
+    if resource.source_crs == resource.analysis_crs:
+        return bbox_analysis
+    return transform_bbox(bbox_analysis, resource.from_analysis)
+
+
+def _covers_whole_layer(resource: LayerResource, bbox_analysis: BBox) -> bool:
+    """検索BBoxがレイヤ全体を覆うかを、レイヤのメタデータだけで判定する。
+
+    フィーチャは読まずに範囲情報のみを参照するため安価である。
+
+    Args:
+        resource: 対象レイヤ。
+        bbox_analysis: 解析用CRS上の検索範囲。
+
+    Returns:
+        検索BBoxがレイヤ全体を覆う場合は ``True``。
+    """
+    query_bbox = _query_bbox_for(resource, bbox_analysis)
+    with fiona.open(resource.path, layer=resource.layer_name) as src:
+        return _covers_layer_extent(src, query_bbox)
+
+
+def _iter_feature_records_uncached(
+    resource: LayerResource, bbox_analysis: BBox
+) -> Iterable[dict[str, Any]]:
+    """キャッシュを介さずに、指定BBox内のフィーチャを逐次返す。
 
     Args:
         resource: フィーチャを読み込む対象レイヤ。
-        bbox_analysis: 解析用CRS上の検索範囲。レイヤのCRSが異なる場合は
-            レイヤのCRSへ変換してから検索する。
+        bbox_analysis: 解析用CRS上の検索範囲。
 
     Yields:
         ジオメトリを持つフィーチャ（``geometry`` が ``None`` のものは除外）。
     """
-    query_bbox = bbox_analysis
-    if resource.source_crs != resource.analysis_crs:
-        query_bbox = transform_bbox(bbox_analysis, resource.from_analysis)
+    query_bbox = _query_bbox_for(resource, bbox_analysis)
 
     with fiona.open(resource.path, layer=resource.layer_name) as src:
         if _covers_layer_extent(src, query_bbox):
@@ -262,6 +371,61 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
             if feature.get("geometry") is None:
                 continue
             yield feature
+
+
+def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterable[dict[str, Any]]:
+    """指定BBox内のフィーチャを返す。
+
+    検索BBoxがレイヤ全体の範囲を覆う場合は、空間フィルタを適用しても
+    全フィーチャが該当するため、フィルタを省略して読み込む。空間索引の
+    参照コストを避けるための最適化であり、レイヤの記録範囲が正しい限り
+    返すフィーチャ集合は変わらない。
+
+    ``layer_cache()`` のスコープ内では、**検索BBoxがレイヤ全体を覆う場合に限り**
+    読み込み結果を再利用する。整合BBoxはスケールごとに異なるため、BBoxを
+    キャッシュキーに含めるとスケールごとにミスして「読み込み1回」を達成できない。
+    かといってBBoxを無視したキーにすると、レイヤの一部だけを求める呼び出しへ
+    全件を返してしまう。そこで「空間フィルタが結果に影響しない」ことを確認できた
+    ときだけキャッシュを参照・保存し、そうでなければ従来どおり逐次読み込む。
+
+    現在の入力レイヤはいずれもROIへクリップ済みのため全スケールでこの条件を
+    満たすが、**それはデータ側の性質に依存した成立であって設計上の保証ではない**。
+    前提が崩れた場合は再読み込みが発生して**性能が落ちるだけで、結果は変わらない**。
+
+    Args:
+        resource: フィーチャを読み込む対象レイヤ。
+        bbox_analysis: 解析用CRS上の検索範囲。レイヤのCRSが異なる場合は
+            レイヤのCRSへ変換してから検索する。
+
+    Returns:
+        ジオメトリを持つフィーチャの反復子（``geometry`` が ``None`` のものは
+        除外）。キャッシュへ載せる場合のみ全件を先に読み込むため、途中で反復を
+        打ち切っても読み込み量は減らず、**ファイルを開けない場合の例外も反復開始
+        時ではなく本関数の呼び出し時点で送出される**（キャッシュスコープ外では
+        従来どおり反復開始時に送出される）。例外の種類とメッセージは変わらない。
+    """
+    cache = _active_cache
+    if cache is None:
+        return _iter_feature_records_uncached(resource, bbox_analysis)
+
+    # キャッシュの参照可否は、キーではなく「検索BBoxがレイヤ全体を覆うか」で決める。
+    # 覆わない検索へ全件を返さないための判定であり、保存側と参照側の双方に必要である。
+    if not _covers_whole_layer(resource, bbox_analysis):
+        # キャッシュへ載せない読み込みも回数へ計上する。計上を省くと、この経路を
+        # 通るレイヤはスケールごとに読み直していても集計表に現れない。
+        cache.record_load(resource)
+        return _iter_feature_records_uncached(resource, bbox_analysis)
+
+    key = (resource.path, resource.layer_name)
+    cached_records = cache.feature_records.get(key)
+    if cached_records is not None:
+        cache.hits += 1
+        return iter(cached_records)
+
+    records = list(_iter_feature_records_uncached(resource, bbox_analysis))
+    cache.record_load(resource)
+    cache.feature_records[key] = records
+    return iter(records)
 
 
 def list_layer_fields(resource: LayerResource) -> list[str]:
@@ -279,6 +443,30 @@ def list_layer_fields(resource: LayerResource) -> list[str]:
     """
     with fiona.open(resource.path, layer=resource.layer_name) as src:
         return list(src.schema["properties"])
+
+
+def _read_layer_dataframe_uncached(
+    resource: LayerResource,
+    columns: list[str] | None,
+) -> gpd.GeoDataFrame:
+    """キャッシュを介さずにレイヤ全体を読み込み、解析用CRSへ投影する。
+
+    Args:
+        resource: 読み込む対象レイヤ。
+        columns: 読み込む属性列の一覧。``None`` の場合は全列を読み込む。
+
+    Returns:
+        解析用CRSへ投影済みのGeoDataFrame。
+    """
+    read_kwargs: dict[str, Any] = {"layer": resource.layer_name}
+    if columns is not None:
+        read_kwargs["columns"] = columns
+
+    gdf = gpd.read_file(resource.path, **read_kwargs)
+    gdf = gdf.set_crs(resource.source_crs, allow_override=True)
+    if resource.source_crs != resource.analysis_crs:
+        gdf = gdf.to_crs(resource.analysis_crs)
+    return gdf
 
 
 def read_layer_dataframe(
@@ -307,6 +495,11 @@ def read_layer_dataframe(
     メモリ使用量がレイヤ全体に比例するため、``gpd.read_file()`` の ``bbox``
     引数で絞り込む形へ変更する（逐次経路と範囲の意味論も揃う）。
 
+    ``layer_cache()`` のスコープ内では読み込み結果を再利用する。本関数はBBoxを
+    受け取らないため結果がスケールに依存せず、キーは ``(パス, レイヤ名, 読み込む
+    列, CRS)`` で足りる。**返り値は共有されるため破壊的に変更してはならない**
+    （``LayerCache`` の説明を参照）。
+
     Args:
         resource: 読み込む対象レイヤ。
         columns: 読み込む属性列の一覧。``None`` の場合は全列を読み込む。
@@ -315,14 +508,27 @@ def read_layer_dataframe(
     Returns:
         解析用CRSへ投影済みのGeoDataFrame。
     """
-    read_kwargs: dict[str, Any] = {"layer": resource.layer_name}
-    if columns is not None:
-        read_kwargs["columns"] = columns
+    cache = _active_cache
+    if cache is None:
+        return _read_layer_dataframe_uncached(resource, columns)
 
-    gdf = gpd.read_file(resource.path, **read_kwargs)
-    gdf = gdf.set_crs(resource.source_crs, allow_override=True)
-    if resource.source_crs != resource.analysis_crs:
-        gdf = gdf.to_crs(resource.analysis_crs)
+    # 読み込む列とCRSが違えば結果も違うため、いずれもキーに含める。
+    # columns=None（全列）と columns=[]（属性なし）は別物なので区別する。
+    key = (
+        resource.path,
+        resource.layer_name,
+        None if columns is None else tuple(columns),
+        resource.source_crs,
+        resource.analysis_crs,
+    )
+    cached_frame = cache.dataframes.get(key)
+    if cached_frame is not None:
+        cache.hits += 1
+        return cached_frame
+
+    gdf = _read_layer_dataframe_uncached(resource, columns)
+    cache.record_load(resource)
+    cache.dataframes[key] = gdf
     return gdf
 
 

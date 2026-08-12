@@ -6,6 +6,9 @@ dependencies:
   - earthengine-api
   - geopandas=1.0
   - fiona=1.10
+  # geopandas の推移的依存でもあるが、属性のみのGeoPackage書き出しと列を絞った
+  # 読み出しのために直接importしているため、明示的に宣言する
+  - pyogrio=0.11
   - gdal=3.10
   - pyproj=3.7
   - shapely=2.0

@@ -20,6 +20,7 @@ from src.analysis.urban_params.io import (
     find_satellite_rasters,
     get_optional_raster_resource,
     iter_feature_records,
+    layer_cache,
     list_layer_fields,
     read_layer_dataframe,
     resolve_layer_name,
@@ -422,3 +423,218 @@ def test_get_optional_raster_resource_missing_config_key_raises(missing_key: str
 
     with pytest.raises(ValueError, match=missing_key):
         get_optional_raster_resource(city_cfg, "dem")
+
+
+# ---------------------------------------------------------------------------
+# layer_cache（入力レイヤの読み込み1回化）
+# ---------------------------------------------------------------------------
+
+# レイヤ全域（10, 5）-（75, 70）を覆うBBox。スケールごとに異なる整合BBoxを模す。
+COVERING_BBOXES = (
+    BBox(0.0, 0.0, 80.0, 80.0),
+    BBox(-30.0, -30.0, 90.0, 90.0),
+    BBox(0.0, 0.0, 300.0, 300.0),
+)
+# レイヤ全域を覆わないBBox。(75, 5) の点が範囲外になる。
+PARTIAL_BBOX = BBox(0.0, 0.0, 40.0, 80.0)
+
+SAMPLE_POINTS = [(10.0, 70.0), (30.0, 30.0), (75.0, 5.0)]
+
+
+@pytest.fixture()
+def counting_readers(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    """実際にファイルを読んだ回数を数えるフェイクを差し込む。
+
+    キャッシュ自身が持つ ``load_counts`` とは独立に数えることで、
+    「読み込みが1回で済む」ことを実装の自己申告に頼らずに確認する。
+    """
+    counts = {"dataframe": 0, "features": 0}
+    original_frame = urban_params_io._read_layer_dataframe_uncached
+    original_records = urban_params_io._iter_feature_records_uncached
+
+    def counting_frame(resource: LayerResource, columns: list[str] | None) -> Any:
+        """GeoDataFrameの実読み込み回数を数える。"""
+        counts["dataframe"] += 1
+        return original_frame(resource, columns)
+
+    def counting_records(resource: LayerResource, bbox_analysis: BBox) -> Any:
+        """フィーチャの実読み込み回数を数える。"""
+        counts["features"] += 1
+        return original_records(resource, bbox_analysis)
+
+    monkeypatch.setattr(urban_params_io, "_read_layer_dataframe_uncached", counting_frame)
+    monkeypatch.setattr(urban_params_io, "_iter_feature_records_uncached", counting_records)
+    return counts
+
+
+@pytest.fixture()
+def points_resource(tmp_path: Path) -> LayerResource:
+    """範囲が既知のポイントレイヤ。"""
+    gpkg = tmp_path / "cached_points.gpkg"
+    _write_points_layer(gpkg, SAMPLE_POINTS)
+    return _make_layer_resource(gpkg, "data")
+
+
+def test_read_layer_dataframe_reads_every_time_without_cache_scope(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """キャッシュスコープの外では、従来どおり毎回読み込む。"""
+    for _ in range(3):
+        read_layer_dataframe(points_resource)
+
+    assert counting_readers["dataframe"] == 3
+
+
+def test_layer_cache_reads_dataframe_once_across_scales(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """複数スケール分を1スコープ内で読んでも、実読み込みは1回で済む。"""
+    with layer_cache() as cache:
+        frames = [read_layer_dataframe(points_resource, columns=["val"]) for _ in range(3)]
+
+    assert counting_readers["dataframe"] == 1
+    assert cache.hits == 2
+    assert list(cache.load_counts.values()) == [1]
+    # 同じオブジェクトを共有する（破壊的変更を禁じている根拠）。
+    assert frames[0] is frames[1] is frames[2]
+
+
+def test_layer_cache_distinguishes_column_selection(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """読み込む列が違えば別のキーとして扱う（全列・一部・属性なしを区別する）。"""
+    with layer_cache():
+        read_layer_dataframe(points_resource, columns=None)
+        read_layer_dataframe(points_resource, columns=["val"])
+        read_layer_dataframe(points_resource, columns=[])
+        read_layer_dataframe(points_resource, columns=["val"])
+
+    assert counting_readers["dataframe"] == 3
+
+
+def test_layer_cache_distinguishes_analysis_crs(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """投影先CRSが違えば別のキーとして扱う（結果が異なるため使い回せない）。"""
+    other_crs = CRS.from_epsg(32648)
+    reprojected = LayerResource(
+        path=points_resource.path,
+        layer_name=points_resource.layer_name,
+        source_crs=points_resource.source_crs,
+        analysis_crs=other_crs,
+        to_analysis=Transformer.from_crs(points_resource.source_crs, other_crs, always_xy=True),
+        from_analysis=Transformer.from_crs(other_crs, points_resource.source_crs, always_xy=True),
+    )
+
+    with layer_cache():
+        original = read_layer_dataframe(points_resource)
+        converted = read_layer_dataframe(reprojected)
+        read_layer_dataframe(reprojected)
+
+    assert counting_readers["dataframe"] == 2
+    assert original.crs == points_resource.analysis_crs
+    assert converted.crs == other_crs
+
+
+def test_layer_cache_reads_features_once_for_covering_bboxes(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """レイヤ全域を覆うBBoxであれば、BBoxが違っても読み込みは1回で済む。"""
+    with layer_cache() as cache:
+        results = [
+            [f["properties"]["val"] for f in iter_feature_records(points_resource, bbox)]
+            for bbox in COVERING_BBOXES
+        ]
+
+    assert counting_readers["features"] == 1
+    assert cache.hits == 2
+    assert results == [[1, 2, 3], [1, 2, 3], [1, 2, 3]]
+
+
+def test_layer_cache_skips_features_when_bbox_does_not_cover_layer(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """レイヤ全域を覆わないBBoxはキャッシュせず、毎回読み直す。
+
+    キャッシュへ載せない読み込みも ``load_counts`` へ計上する。計上を省くと、この
+    経路を通るレイヤはスケールごとに読み直していても集計表に1行も現れず、性能退行を
+    検知する手段が沈黙する。
+    """
+    with layer_cache() as cache:
+        for _ in range(3):
+            records = [
+                f["properties"]["val"] for f in iter_feature_records(points_resource, PARTIAL_BBOX)
+            ]
+
+    assert counting_readers["features"] == 3
+    assert cache.feature_records == {}
+    assert sum(cache.load_counts.values()) == 3
+    assert records == [1, 2]
+
+
+def test_layer_cache_does_not_serve_partial_bbox_from_cache(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """全域を覆う呼び出しでキャッシュした後も、部分BBoxには絞り込んだ結果を返す。
+
+    キャッシュキーがBBoxを含まないため、参照側でも「全域を覆うか」を判定しないと
+    部分BBoxの呼び出しへ全件を返してしまう。その退行を防ぐための検証である。
+    """
+    with layer_cache():
+        covered = [
+            f["properties"]["val"]
+            for f in iter_feature_records(points_resource, COVERING_BBOXES[0])
+        ]
+        partial = [
+            f["properties"]["val"] for f in iter_feature_records(points_resource, PARTIAL_BBOX)
+        ]
+
+    assert covered == [1, 2, 3]
+    assert partial == [1, 2]
+    # 全域1回 + 部分1回（部分はキャッシュを使わない）。
+    assert counting_readers["features"] == 2
+
+
+def test_layer_cache_releases_data_on_exit(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """スコープを抜けるとキャッシュを解放し、以降は再び読み込む。"""
+    with layer_cache() as cache:
+        read_layer_dataframe(points_resource)
+        list(iter_feature_records(points_resource, COVERING_BBOXES[0]))
+
+    assert cache.dataframes == {}
+    assert cache.feature_records == {}
+    assert urban_params_io._active_cache is None
+
+    read_layer_dataframe(points_resource)
+    assert counting_readers["dataframe"] == 2
+
+
+def test_layer_cache_releases_data_even_on_exception(points_resource: LayerResource) -> None:
+    """スコープ内で例外が起きても、キャッシュは確実に解放される。"""
+    with pytest.raises(RuntimeError):
+        with layer_cache() as cache:
+            read_layer_dataframe(points_resource)
+            raise RuntimeError("スコープ内の失敗（テスト）")
+
+    assert cache.dataframes == {}
+    assert urban_params_io._active_cache is None
+
+
+def test_layer_cache_nested_scope_shares_and_defers_release(
+    points_resource: LayerResource, counting_readers: dict[str, int]
+) -> None:
+    """入れ子のスコープは外側のキャッシュを共有し、解放も外側に委ねる。"""
+    with layer_cache() as outer:
+        read_layer_dataframe(points_resource)
+        with layer_cache() as inner:
+            assert inner is outer
+            read_layer_dataframe(points_resource)
+        # 内側を抜けても解放されず、外側の読み込み結果が残る。
+        assert urban_params_io._active_cache is outer
+        read_layer_dataframe(points_resource)
+
+    assert counting_readers["dataframe"] == 1
+    assert outer.dataframes == {}
+    assert urban_params_io._active_cache is None

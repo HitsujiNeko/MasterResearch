@@ -34,8 +34,9 @@ from pyproj import CRS, Transformer
 from shapely.geometry.base import BaseGeometry
 
 from src.common.geo_metadata import BBox
+from src.common.geopackage import remove_geopackage, replace_geopackage
 
-from .config import CITY_CONFIG, PROJECT_ROOT
+from .config import ANALYSIS_EXTENT_LAYER_KEY, CITY_CONFIG, PROJECT_ROOT
 from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
 
 # グリッド原点の基準座標（解析用CRS上）。解析範囲に依存させないための定数であり、
@@ -483,20 +484,6 @@ def iter_cell_blocks(
         yield cells
 
 
-def _remove_geopackage(path: Path) -> None:
-    """GeoPackage本体とSQLiteの付随ファイルをまとめて削除する。
-
-    書き込み中に中断すると ``-wal`` / ``-shm`` / ``-journal`` が残ることがある。
-    本体だけを消すと、次に同名で作ったデータベースに古い付随ファイルが
-    残留した状態になるため、併せて片付ける。
-
-    Args:
-        path: 削除するGeoPackageのパス。存在しない場合は何もしない。
-    """
-    for suffix in ("", "-wal", "-shm", "-journal"):
-        Path(f"{path}{suffix}").unlink(missing_ok=True)
-
-
 def write_grid_layers(
     bbox_analysis: BBox,
     analysis_crs: CRS,
@@ -583,7 +570,7 @@ def write_grid_layers(
 
     # 拡張子は出力先と揃える（ドライバの判定を拡張子に依存させないため）。
     temp_path = output_path.with_name(f"{output_path.stem}.tmp{output_path.suffix}")
-    _remove_geopackage(temp_path)
+    remove_geopackage(temp_path)
 
     cell_counts: dict[str, int] = {}
     try:
@@ -618,14 +605,10 @@ def write_grid_layers(
             cell_counts[layer_name] = written
     except BaseException:
         # 中断（KeyboardInterrupt）も含めて書きかけを残さない。
-        _remove_geopackage(temp_path)
+        remove_geopackage(temp_path)
         raise
 
-    # 置換前に、出力先に残っている古い付随ファイルを消す。本体だけを差し替えると
-    # 別のデータベースの -wal / -shm が残った状態になるため。
-    for suffix in ("-wal", "-shm", "-journal"):
-        Path(f"{output_path}{suffix}").unlink(missing_ok=True)
-    temp_path.replace(output_path)
+    replace_geopackage(temp_path, output_path)
 
     return cell_counts
 
@@ -656,9 +639,11 @@ def parse_arguments() -> argparse.Namespace:
     # 有効な値は都市ごとに異なり、--city の解釈後でないと決まらないため
     # choices では列挙できない。候補はハードコードせず CITY_CONFIG から導き、
     # 解釈後に検証する（下部参照）。
+    # 既定値は config の定数を参照する。パラメータテーブル側（run.py）が使う解析範囲
+    # レイヤと食い違うと、出力対象のセル集合が対応しなくなるためである。
     parser.add_argument(
         "--mask-layer-key",
-        default="roi",
+        default=ANALYSIS_EXTENT_LAYER_KEY,
         help="解析範囲の基準レイヤ。CITY_CONFIG の layers のキーを指定する"
         "（例: roi / rg / cs）。BBoxと（--extent mask 時の）マスクの両方に使う。",
     )
@@ -710,14 +695,20 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def resolve_output_path(output_argument: str, city: str) -> Path:
-    """CLIの ``--output`` から出力先の絶対パスを決める。
+    """正準グリッドGeoPackageのパスを決める。
+
+    本モジュールの ``--output``（出力先）と、``run.py`` / ``build_dataset.py`` の
+    ``--grid``（入力元）から使う。いずれも同じファイルを指す引数であり、既定パスの
+    定義を1か所に保つため共有している。**関数名は出力側の用途に由来するが、
+    入力パスの解決にも用いる。**
 
     Args:
-        output_argument: ``--output`` の値。空文字の場合は既定パスを使う。
+        output_argument: 引数の値。空文字の場合は既定パスを使う。
         city: 都市ID。既定パスのファイル名に使う。
 
     Returns:
-        出力先の絶対パス。相対パスはプロジェクトルート基準で解決する。
+        正準グリッドGeoPackageの絶対パス。相対パスはプロジェクトルート基準で
+        解決する。
     """
     if not output_argument:
         return PROJECT_ROOT / "data" / "output" / "grid" / f"grid_{city}.gpkg"

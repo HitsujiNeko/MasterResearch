@@ -1,14 +1,32 @@
 """都市構造パラメータ算出のオーケストレーションモジュール。
 
-シナリオ（satellite_only / limited / full）とスケール（既定: 30/90/300m）
-ごとに都市構造パラメータを算出し、CSVへ出力する。
+パラメータセット単位でパラメータを算出し、正準グリッドの ``cell_id`` をキーとする
+属性テーブル（GeoPackage）へ出力する。1つのパラメータの追加・変更が、そのパラメータ
+の再計算だけで済むようにするための構成である。
+
+実行例::
+
+    # パラメータセット単位（複数スケールでも入力レイヤの読み込みは1回）
+    python -m src.analysis.urban_params --city hanoi \\
+        --params build_gba road_osm --scales 30 90 300
+
+    # 衛星指標（観測ファイル単位）
+    python -m src.analysis.urban_params --city hanoi \\
+        --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \\
+        --scales 30 90 300
+
+シナリオ（satellite_only / limited / full）は算出側では扱わない。「どのテーブルを
+結合するか」の選択へ還元したため、結合側（``build_dataset.py``）が持つ。
 """
 
 from __future__ import annotations
 
 import argparse
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from types import ModuleType
 
 import numpy as np
 import pandas as pd
@@ -16,26 +34,128 @@ from pyproj import CRS
 
 from src.common.geo_metadata import BBox
 
-from .config import CITY_CONFIG, PROJECT_ROOT, SCENARIO_INPUT_KEYS
-from .geometry import compute_polygon_coverage
-from .grid import GridSpec, build_grid, grid_centers_wgs84
+from .canonical_grid import (
+    SNAP_UNIT_M,
+    CanonicalGridSpec,
+    build_canonical_grid,
+    is_supported_resolution,
+    resolve_output_path,
+)
+from .config import (
+    ANALYSIS_EXTENT_LAYER_KEY,
+    CITY_CONFIG,
+    PARAM_SETS,
+    PROJECT_ROOT,
+    SATELLITE_TABLE_PREFIX,
+    ParamSet,
+    grid_layer_name,
+    resolve_table_path,
+)
+from .grid import GridSpec
 from .io import (
     LayerResource,
     RasterResource,
     bbox_from_layer,
     find_satellite_rasters,
     get_layer_resource,
-    get_optional_layer_resource,
     get_optional_raster_resource,
+    layer_cache,
 )
-from .params import buildings, elevation, raster, roads
+from .params import buildings, elevation, mask, raster, roads
+from .tables import (
+    CELL_ID_COLUMN,
+    aligned_bbox,
+    build_aligned_grid,
+    build_param_table,
+    read_grid_cell_ids,
+    require_grid_layers,
+    write_attribute_table,
+)
+
+# ``ParamSet.module_name`` から実体への対応。config.py が直接モジュールを保持すると
+# params/* -> io -> config の循環importになるため、解決はここで行う。
+PARAM_MODULES = {
+    "buildings": buildings,
+    "roads": roads,
+    "elevation": elevation,
+    "mask": mask,
+}
+
+# 衛星指標ファイル名から観測日時を取り出すパターン。
+SATELLITE_FILENAME_PATTERN = re.compile(
+    r"^INDICES_[^_]+_(?P<date>\d{8})_(?P<time>\d{6})Z\.tiff?$", re.IGNORECASE
+)
 
 
-def parse_arguments() -> argparse.Namespace:
-    """CLI引数を解釈して返す。"""
-    parser = argparse.ArgumentParser(description="都市構造パラメータ算出（モジュール化版）")
+@dataclass(frozen=True)
+class ParamTask:
+    """1テーブル分の算出タスク。
+
+    ``params/*.py`` の ``compute()`` はモジュールごとにシグネチャが異なる
+    （衛星指標は ``bbox_analysis`` を取らずラスタ辞書を受け取る）。呼び出し側で
+    分岐を持たずに済むよう、ここで ``(bbox, grid_spec) -> 列辞書`` の形へ揃える。
+
+    Attributes:
+        table_name: 出力するテーブル名（ファイル名・レイヤ名の双方に使う）。
+        compute: 解析BBoxとグリッド仕様から列辞書を返す関数。
+        expected_columns: 期待する出力列。実際の戻り値と突き合わせて検証する。
+    """
+
+    table_name: str
+    compute: Callable[[BBox, GridSpec], dict[str, np.ndarray]]
+    expected_columns: tuple[str, ...]
+
+
+def satellite_table_name(satellite_path: Path) -> str:
+    """衛星指標ファイル名から観測日時つきのテーブル名を導く。
+
+    ファイル名から観測を特定できないまま出力すると、どの観測のテーブルか後から
+    判別できなくなる。そのため合致しないファイル名は**推測せずに停止する**。
+
+    Args:
+        satellite_path: 衛星指標ラスタのパス。
+
+    Returns:
+        ``idx_{YYYYMMDD}_{HHMMSS}`` 形式のテーブル名。
+
+    Raises:
+        ValueError: ファイル名が想定の形式に合致しない場合。
+    """
+    matched = SATELLITE_FILENAME_PATTERN.match(satellite_path.name)
+    if matched is None:
+        raise ValueError(
+            f"衛星指標ファイル名から観測日時を特定できません: {satellite_path.name}。"
+            " INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif の形式のファイルを指定してください。"
+        )
+    return f"{SATELLITE_TABLE_PREFIX}{matched.group('date')}_{matched.group('time')}"
+
+
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """CLI引数を解釈して返す。
+
+    Args:
+        argv: 解釈する引数列。``None`` の場合は ``sys.argv`` を使う。
+
+    Returns:
+        解釈済みの引数。``--scales`` と ``--params`` は重複を除いた一覧に正規化する。
+    """
+    parser = argparse.ArgumentParser(
+        description="都市構造パラメータ算出（パラメータセット単位のテーブル出力）"
+    )
     parser.add_argument("--city", default="hanoi", choices=list(CITY_CONFIG.keys()))
-    parser.add_argument("--scenario", default="limited", choices=list(SCENARIO_INPUT_KEYS.keys()))
+    parser.add_argument(
+        "--params",
+        nargs="+",
+        default=[],
+        choices=list(PARAM_SETS.keys()),
+        help="算出するパラメータセット名の一覧。テーブル名としてそのまま使う。",
+    )
+    parser.add_argument(
+        "--satellite-file",
+        default="",
+        help="衛星指標ラスタのファイルパス（任意）。相対パスはプロジェクトルート基準。"
+        " テーブル名はファイル名の観測日時から導く。",
+    )
     parser.add_argument(
         "--scales",
         type=int,
@@ -46,233 +166,273 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--fine-res", type=float, default=10.0, help="被覆率計算用の補助解像度（m）。"
     )
-    parser.add_argument("--mask-layer-key", default="", choices=["", "roi", "rg", "cs"])
     parser.add_argument(
-        "--satellite-dir",
-        type=str,
+        "--grid",
         default="",
-        help="衛星指標ラスタのファイルまたは格納ディレクトリ（任意）。複数観測がある場合はファイルを指定する。",
+        help="正準グリッドGeoPackageのパス。相対パスはプロジェクトルート基準。"
+        " 既定は data/output/grid/grid_{city}.gpkg。",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--output-dir",
+        default="",
+        help="出力ルート。相対パスはプロジェクトルート基準。既定は data/output/params。",
+    )
+
+    args = parser.parse_args(argv)
     if any(scale <= 0 for scale in args.scales):
         parser.error("--scales には正の整数のみ指定してください。")
+
+    # 正準グリッドが扱えない解像度は、入力の解決や算出へ進む前にここで弾く。
+    # 判定は is_supported_resolution() に委ね、約数の規則を二重に持たない。
+    # 検出しないまま進むと build_canonical_grid() のトレースバックになり、
+    # 原因が「解像度の指定」にあることを読み取りにくい。
+    unsupported = [scale for scale in args.scales if not is_supported_resolution(float(scale))]
+    if unsupported:
+        parser.error(
+            f"--scales には {SNAP_UNIT_M:.0f}m の約数のみ指定してください"
+            f"（指定値: {', '.join(str(scale) for scale in unsupported)}）。"
+        )
+
+    if not args.params and not args.satellite_file:
+        parser.error("--params と --satellite-file の少なくとも一方を指定してください。")
+
     args.scales = list(dict.fromkeys(args.scales))
+    args.params = list(dict.fromkeys(args.params))
     return args
 
 
-def build_quality_columns(
-    indicator_arrays: list[np.ndarray], grid_spec: GridSpec
-) -> tuple[np.ndarray, np.ndarray]:
-    """GIS由来の品質管理列（VALID_GIS_MASK, MISSING_REASON）を作成する。
+def resolve_param_resource(
+    city_cfg: dict[str, object],
+    param_set: ParamSet,
+    analysis_crs: CRS,
+) -> LayerResource | RasterResource:
+    """パラメータセットの入力を解決する。
 
     Args:
-        indicator_arrays: 各GIS由来パラメータのcoarseグリッド配列のリスト。
-            いずれか1つでも値が0より大きいセルを「GIS指標が有効」とみなす。
-        grid_spec: 出力グリッドの仕様。
+        city_cfg: ``CITY_CONFIG`` の対象都市エントリ。
+        param_set: 解決するパラメータセットの定義。
+        analysis_crs: 解析用CRS。
 
     Returns:
-        VALID_GIS_MASK（有効セルなら1、そうでなければ0）と、
-        MISSING_REASON（有効なら"none"、無効なら"no_gis_feature"）の組。
+        解決済みの入力（ベクタレイヤまたはラスタ）。
+
+    Raises:
+        ValueError: ``input_kind`` が未知の場合、または設定にキーが無い場合。
+        FileNotFoundError: 入力ファイルが存在しない場合。
     """
-    valid_gis_mask = np.zeros(grid_spec.coarse_shape, dtype=bool)
-    for indicator_array in indicator_arrays:
-        valid_gis_mask |= np.nan_to_num(indicator_array, nan=0.0) > 0
+    if param_set.input_kind == "layer":
+        return get_layer_resource(city_cfg, param_set.input_key, analysis_crs)
+    if param_set.input_kind == "raster":
+        resource = get_optional_raster_resource(city_cfg, param_set.input_key)
+        if resource is None:  # pragma: no cover - input_key が None の場合のみ
+            raise ValueError(f"ラスタ入力を解決できません: {param_set.input_key}")
+        return resource
+    raise ValueError(f"未知の入力種別です: {param_set.input_kind}")
 
-    missing_reason = np.where(valid_gis_mask, "none", "no_gis_feature")
-    return valid_gis_mask.astype(np.int8), missing_reason
 
+def build_param_tasks(
+    param_names: list[str],
+    city_cfg: dict[str, object],
+    analysis_crs: CRS,
+) -> list[ParamTask]:
+    """パラメータセット名の一覧から算出タスクを組み立てる。
 
-def build_satellite_quality(satellite_arrays: list[np.ndarray], grid_spec: GridSpec) -> np.ndarray:
-    """衛星指標の品質列（VALID_SATELLITE_MASK）を作成する。
+    **入力の解決はすべてのタスク分をまとめて先に行う。** 1つ目の出力を書き終えてから
+    2つ目の入力が見つからずに失敗すると、中途半端な出力が残るためである。
 
     Args:
-        satellite_arrays: 各衛星由来パラメータのcoarseグリッド配列のリスト。
-            いずれか1つでもNaNでないセルを「衛星指標が有効」とみなす。
-        grid_spec: 出力グリッドの仕様。
+        param_names: 算出するパラメータセット名の一覧。
+        city_cfg: ``CITY_CONFIG`` の対象都市エントリ。
+        analysis_crs: 解析用CRS。
 
     Returns:
-        VALID_SATELLITE_MASK（有効セルなら1、そうでなければ0）。
+        算出タスクの一覧（``param_names`` と同じ順序）。
     """
-    valid_mask = np.zeros(grid_spec.coarse_shape, dtype=bool)
-    for arr in satellite_arrays:
-        valid_mask |= ~np.isnan(arr)
-    return valid_mask.astype(np.int8)
+    tasks: list[ParamTask] = []
+    for table_name in param_names:
+        param_set = PARAM_SETS[table_name]
+        module = PARAM_MODULES[param_set.module_name]
+        resource = resolve_param_resource(city_cfg, param_set, analysis_crs)
+
+        def compute(
+            bbox_analysis: BBox,
+            grid_spec: GridSpec,
+            _module: ModuleType = module,
+            _resource: LayerResource | RasterResource = resource,
+        ) -> dict[str, np.ndarray]:
+            """標準シグネチャの ``compute()`` を呼ぶ。"""
+            return _module.compute(_resource, bbox_analysis, grid_spec)
+
+        tasks.append(ParamTask(table_name, compute, param_set.columns))
+    return tasks
 
 
-def print_basic_summary(dataframe: pd.DataFrame) -> None:
-    """主要列の簡易統計を標準出力する。
+def build_satellite_task(satellite_path: Path) -> ParamTask:
+    """衛星指標ラスタから算出タスクを組み立てる。
 
     Args:
-        dataframe: 出力対象のデータフレーム。lon/lat・品質管理列以外の
-            数値列について、最小・平均・最大値を表示する。
-    """
-    excluded_columns = {
-        "lon",
-        "lat",
-        "IN_ANALYSIS_AREA",
-        "VALID_GIS_MASK",
-        "VALID_SATELLITE_MASK",
-        "MISSING_REASON",
-        "DATA_SOURCE",
-        "SCENARIO",
-    }
-    numeric_columns = [column for column in dataframe.columns if column not in excluded_columns]
+        satellite_path: 衛星指標ラスタのパス。
 
-    print("出力行数:", len(dataframe))
-    if numeric_columns:
-        print(dataframe[numeric_columns].describe().loc[["min", "mean", "max"]])
+    Returns:
+        観測日時つきのテーブル名を持つ算出タスク。
+
+    Raises:
+        FileNotFoundError: ファイルが存在しない場合。
+        ValueError: ファイル名から観測日時を特定できない場合、または指標を
+            1つも検出できない場合。
+    """
+    if not satellite_path.is_file():
+        raise FileNotFoundError(f"衛星指標ファイルが見つかりません: {satellite_path}")
+
+    table_name = satellite_table_name(satellite_path)
+    raster_resources = find_satellite_rasters(satellite_path)
+    if not raster_resources:
+        raise ValueError(
+            f"衛星指標を検出できませんでした: {satellite_path}。"
+            " バンド説明またはファイル名に NDVI / NDBI / NDWI が含まれる必要があります。"
+        )
+
+    def compute(
+        bbox_analysis: BBox,
+        grid_spec: GridSpec,
+    ) -> dict[str, np.ndarray]:
+        """衛星指標は ``bbox_analysis`` を取らない別シグネチャのため個別に扱う。"""
+        return raster.compute(raster_resources, grid_spec)
+
+    return ParamTask(table_name, compute, tuple(sorted(raster_resources)))
+
+
+def validate_computed_columns(task: ParamTask, columns: dict[str, np.ndarray]) -> None:
+    """``compute()`` の戻り値が期待した列と一致するかを検証する。
+
+    同じ列名を持つべき別ソース版（``build_gba`` と ``build_dc`` など）が食い違うと、
+    感度分析で結合先を差し替えたときに列が揃わない。算出モジュール側の列名変更を
+    出力前に検知するための確認である。
+
+    Args:
+        task: 検証対象のタスク。
+        columns: ``compute()`` が返した列辞書。
+
+    Raises:
+        ValueError: 列の集合が期待と一致しない場合。
+    """
+    actual = set(columns)
+    expected = set(task.expected_columns)
+    if actual != expected:
+        raise ValueError(
+            f"{task.table_name} の出力列が期待と一致しません"
+            f"（不足: {sorted(expected - actual)} / 余分: {sorted(actual - expected)}）。"
+            " 算出モジュールの列名と config.py の PARAM_SETS を確認してください。"
+        )
+
+
+def summarize_table(table_name: str, table: pd.DataFrame) -> None:
+    """出力したテーブルの行数と主要統計を標準出力する。
+
+    Args:
+        table_name: テーブル名。
+        table: 出力したテーブル（``cell_id`` 列を含む）。
+    """
+    value_columns = [name for name in table.columns if name != CELL_ID_COLUMN]
+    print(f"[{table_name}] {len(table):,} 行 / 列: {', '.join(value_columns)}", flush=True)
+    if value_columns:
+        statistics = table[value_columns].describe().loc[["min", "mean", "max"]]
+        print(statistics.to_string(), flush=True)
 
 
 def run_for_scale(
     scale: int,
-    args: argparse.Namespace,
-    scenario_cfg: dict[str, Any],
-    analysis_crs: CRS,
-    analysis_bbox: BBox,
-    mask_resource: LayerResource,
-    building_resource: LayerResource | None,
-    road_resource: LayerResource | None,
-    elevation_resource: RasterResource | None,
-    raster_resources: dict[str, tuple[Path, int]],
-) -> pd.DataFrame:
-    """1スケール分の都市構造パラメータを算出し、データフレームを返す。
-
-    建物・道路・標高・衛星指標の各 ``compute()`` を呼び出し、戻り値の列名に
-    ``_{scale}`` サフィックスを付与したうえで、座標・品質管理列とともに
-    1つのデータフレームへ統合する。
+    tasks: list[ParamTask],
+    canonical_spec: CanonicalGridSpec,
+    grid_path: Path,
+    fine_res_m: float,
+    city: str,
+    output_dir: Path | None,
+) -> None:
+    """1スケール分のパラメータテーブルを算出して書き出す。
 
     Args:
-        scale: coarseグリッド解像度（m）。出力列名のサフィックスにも使う。
-        args: CLI引数（``fine_res`` 等を参照する）。
-        scenario_cfg: シナリオ設定（``SCENARIO_INPUT_KEYS`` の1エントリ）。
-        analysis_crs: 解析用投影座標系（例: EPSG:5897）。
-        analysis_bbox: 解析範囲のBBox（``analysis_crs`` 上の座標）。
-        mask_resource: 解析対象セルの判定に使う基準レイヤ。
-        building_resource: 建物レイヤ（未指定シナリオでは ``None``）。
-        road_resource: 道路レイヤ（未指定シナリオでは ``None``）。
-        elevation_resource: DEMラスタ（未指定シナリオでは ``None``）。
-        raster_resources: 衛星指標ラスタの辞書（指標名 -> (パス, バンド番号)）。
-
-    Returns:
-        ``IN_ANALYSIS_AREA == 1`` のセルのみを残したデータフレーム。
+        scale: coarseグリッド解像度（m）。
+        tasks: 算出タスクの一覧。
+        canonical_spec: 当該スケールの正準グリッド仕様。
+        grid_path: 正準グリッドGeoPackageのパス。
+        fine_res_m: 被覆率計算用の補助解像度（m）。
+        city: 都市ID（出力パスに使う）。
+        output_dir: 出力ルート。``None`` の場合は既定パスを使う。
     """
-    grid_spec = build_grid(analysis_bbox, analysis_crs, float(scale), args.fine_res)
-    print(f"[scale={scale}m] coarse shape: {grid_spec.coarse_shape}")
-
-    output_columns: dict[str, np.ndarray] = {}
-    gis_quality_arrays: list[np.ndarray] = []
-    satellite_quality_arrays: list[np.ndarray] = []
-
-    for module, resource in (
-        (buildings, building_resource),
-        (roads, road_resource),
-    ):
-        for column_name, values in module.compute(resource, analysis_bbox, grid_spec).items():
-            output_columns[f"{column_name}_{scale}"] = values
-            gis_quality_arrays.append(values)
-
-    # 標高由来の列（ELEV_*）は品質管理列（VALID_GIS_MASK）の判定材料に含めない。
-    # 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような
-    # 「地物の量」を前提とした基準である。標高は連続量であり0mは「データが無い」
-    # ではなく海抜0mを意味するため、この基準を適用すること自体が不適切である。
-    # 有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無
-    # とは別の軸である。加えて、標高を含めるとROI内のほぼ全セルが有効となり、
-    # VALID_GIS_MASK が「建物・道路データが存在するか」という本来の意味を失う。
-    for column_name, values in elevation.compute(
-        elevation_resource, analysis_bbox, grid_spec
-    ).items():
-        output_columns[f"{column_name}_{scale}"] = values
-
-    if raster_resources:
-        for column_name, values in raster.compute(raster_resources, grid_spec).items():
-            output_columns[f"{column_name}_{scale}"] = values
-            satellite_quality_arrays.append(values)
-
-    lon, lat = grid_centers_wgs84(grid_spec)
-    analysis_mask = compute_polygon_coverage(mask_resource, analysis_bbox, grid_spec) > 0
-    valid_gis_mask, missing_reason = build_quality_columns(gis_quality_arrays, grid_spec)
-    valid_sat_mask = build_satellite_quality(satellite_quality_arrays, grid_spec)
-
-    output_data: dict[str, Any] = {
-        "lon": lon.ravel(),
-        "lat": lat.ravel(),
-    }
-    for column_name, values in output_columns.items():
-        output_data[column_name] = values.ravel()
-    output_data.update(
-        {
-            "IN_ANALYSIS_AREA": analysis_mask.astype(np.int8).ravel(),
-            "VALID_GIS_MASK": valid_gis_mask.ravel(),
-            "VALID_SATELLITE_MASK": valid_sat_mask.ravel(),
-            "MISSING_REASON": missing_reason.ravel(),
-            "DATA_SOURCE": str(scenario_cfg["data_source"]),
-            "SCENARIO": args.scenario,
-        }
+    grid_spec = build_aligned_grid(canonical_spec, fine_res_m)
+    bbox_analysis = aligned_bbox(canonical_spec)
+    print(
+        f"[scale={scale}m] coarse shape: {grid_spec.coarse_shape} / 整合BBox: {bbox_analysis}",
+        flush=True,
     )
 
-    output_df = pd.DataFrame(output_data)
-    return output_df[output_df["IN_ANALYSIS_AREA"] == 1].copy()
+    cell_ids = read_grid_cell_ids(grid_path, grid_layer_name(scale))
+    print(f"[scale={scale}m] 正準グリッドの対象セル: {cell_ids.size:,} 件", flush=True)
+
+    for task in tasks:
+        columns = task.compute(bbox_analysis, grid_spec)
+        validate_computed_columns(task, columns)
+
+        table = build_param_table(columns, canonical_spec, cell_ids)
+        output_path = resolve_table_path(city, scale, task.table_name, output_dir)
+        write_attribute_table(table, output_path, task.table_name)
+
+        summarize_table(task.table_name, table)
+        print(f"  出力先: {output_path}", flush=True)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """都市構造パラメータ算出処理を実行する。
 
-    CLI引数からシナリオ・都市・出力スケールを決定し、解析範囲レイヤ・
-    建物・道路のレイヤと標高・衛星指標のラスタを解決したうえで、``--scales``
-    で指定したスケールごとに ``run_for_scale()`` を呼び出し、
-    ``data/output/urban_params/urban_params_<scenario>_<city>_<scale>m.csv``
-    へ結果を出力する。
+    解析範囲は正準グリッドと同じ基準レイヤ（ROI）から取る。``compute()`` へ渡す
+    解析BBoxは、ROIのBBoxではなく**正準グリッドのセル境界に載る整合BBox**とする。
+    整合BBoxは必ずROIのBBoxを包含するため、ROI側を渡すと外周1セル分の帯にかかる
+    道路を取りこぼす。
+
+    Args:
+        argv: 解釈する引数列。``None`` の場合は ``sys.argv`` を使う。
     """
-    args = parse_arguments()
+    args = parse_arguments(argv)
     city_cfg = CITY_CONFIG[args.city]
-    scenario_cfg = SCENARIO_INPUT_KEYS[args.scenario]
     analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
 
-    mask_layer_key = args.mask_layer_key or str(scenario_cfg["default_mask"])
-    mask_resource = get_layer_resource(city_cfg, mask_layer_key, analysis_crs)
-    analysis_bbox = bbox_from_layer(mask_resource, analysis_crs)
+    extent_resource = get_layer_resource(city_cfg, ANALYSIS_EXTENT_LAYER_KEY, analysis_crs)
+    roi_bbox = bbox_from_layer(extent_resource, analysis_crs)
+    grid_path = resolve_output_path(args.grid, args.city)
+    output_dir = (PROJECT_ROOT / args.output_dir) if args.output_dir else None
 
-    print("シナリオ:", args.scenario)
-    print(
-        "解析範囲レイヤ:", mask_layer_key, "->", mask_resource.path.name, mask_resource.layer_name
-    )
-    print("解析BBox:", analysis_bbox)
+    print("都市:", args.city)
+    print("解析範囲レイヤ:", ANALYSIS_EXTENT_LAYER_KEY, "->", extent_resource.path.name)
+    print("ROI BBox:", roi_bbox)
+    print("正準グリッド:", grid_path)
 
-    building_resource = get_optional_layer_resource(city_cfg, scenario_cfg["buildings"])
-    road_resource = get_optional_layer_resource(city_cfg, scenario_cfg["roads"])
-    elevation_resource = get_optional_raster_resource(city_cfg, scenario_cfg["elevation_raster"])
+    # 入力の解決と、対象スケールのグリッドレイヤの存在確認を、算出に入る前に
+    # まとめて済ませる。途中で失敗すると先行するスケール・テーブルの出力だけが
+    # 残り、どこまでが最新なのか分からなくなるためである。
+    require_grid_layers(grid_path, [grid_layer_name(scale) for scale in args.scales])
+    tasks = build_param_tasks(args.params, city_cfg, analysis_crs)
+    if args.satellite_file:
+        tasks.append(build_satellite_task((PROJECT_ROOT / args.satellite_file).resolve()))
+    print("算出するテーブル:", ", ".join(task.table_name for task in tasks))
 
-    raster_resources: dict[str, tuple[Path, int]] = {}
-    if args.satellite_dir:
-        satellite_path = (PROJECT_ROOT / args.satellite_dir).resolve()
-        raster_resources = find_satellite_rasters(satellite_path)
-        if raster_resources:
-            print("衛星ラスタ検出:", ", ".join(sorted(raster_resources.keys())))
-        else:
-            print("衛星ラスタは検出されませんでした。GIS由来列のみを出力します。")
+    # 入力レイヤの読み込みを1回で済ませるため、全スケールを1つのキャッシュスコープで囲む。
+    with layer_cache() as cache:
+        for scale in args.scales:
+            canonical_spec = build_canonical_grid(roi_bbox, analysis_crs, float(scale))
+            run_for_scale(
+                scale=scale,
+                tasks=tasks,
+                canonical_spec=canonical_spec,
+                grid_path=grid_path,
+                fine_res_m=args.fine_res,
+                city=args.city,
+                output_dir=output_dir,
+            )
 
-    out_dir = PROJECT_ROOT / "data" / "output" / "urban_params"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    for scale in args.scales:
-        output_df = run_for_scale(
-            scale=scale,
-            args=args,
-            scenario_cfg=scenario_cfg,
-            analysis_crs=analysis_crs,
-            analysis_bbox=analysis_bbox,
-            mask_resource=mask_resource,
-            building_resource=building_resource,
-            road_resource=road_resource,
-            elevation_resource=elevation_resource,
-            raster_resources=raster_resources,
-        )
-
-        out_path = out_dir / f"urban_params_{args.scenario}_{args.city}_{scale}m.csv"
-        output_df.to_csv(out_path, index=False, encoding="utf-8")
-
-        print("出力先:", out_path)
-        print_basic_summary(output_df)
+        print("\n入力レイヤの実読み込み回数:", flush=True)
+        for label, count in cache.load_counts.items():
+            print(f"  {label}: {count} 回", flush=True)
 
 
 if __name__ == "__main__":

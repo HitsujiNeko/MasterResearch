@@ -22,7 +22,7 @@
 | シナリオ | 使用DEM | 出典 | 備考 |
 |---|---|---|---|
 | **Full** | 測量由来DEM（BSHorizon） | `data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif` | 10m解像度、EPSG:5897、有効カバレッジはROIより小さい |
-| **Limited** | **FABDEM v1.2**（本資料で選定・採用確定） | GEE経由で取得済み | ハノイROIをほぼ全域カバー（ROIでcrop済みのため境界セルに欠損・部分被覆あり）。`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>` として実装済み |
+| **Limited** | **FABDEM v1.2**（本資料で選定・採用確定） | GEE経由で取得済み | ハノイROIをほぼ全域カバー（ROIでcrop済みのため境界セルに欠損・部分被覆あり）。`ELEV_MEAN` / `ELEV_VALID_RATIO` として実装済み |
 | **Satellite Only** | DEMなし（衛星指標のみ） | — | — |
 
 ---
@@ -265,7 +265,7 @@
 | ❌ 不採用（重複） | TanDEM-X（DLR独立版） | Copernicus GLO-30と同一の原データ、追加取得不要 |
 
 > 研究者の判断により FABDEM v1.2 を採用確定した（CC BY-NC-SA 4.0・非商用・帰属文必須を了承のうえ）。  
-> Limitedシナリオの `ELEV_MEAN_<scale>`（セル平均標高）および `ELEV_VALID_RATIO_<scale>`（セル内のDEM有効画素率）として実装済みである。算出仕様は [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) 6.4節を正本とする。
+> パラメータセット `elev_fabdem` の `ELEV_MEAN`（セル平均標高）および `ELEV_VALID_RATIO`（セル内のDEM有効画素率）として実装済みである。算出仕様は [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) 6.4節を正本とする。
 
 ### 7.2 採用ファイルパス
 
@@ -284,7 +284,7 @@ data/gis/dem/srtmgl1/srtmgl1_hanoi_dem.tif                  # 参考保存（比
 2. **論文中の注記**: 採用したFABDEMが準DTM（DSMを機械学習で補正したもの）であり、高密度キャノピー・急峻地形では補正残差が残ることを明示する。あわせて垂直基準面がEGM2008であり0mが平均海面と一致しないことを記述する。
 3. **`full` シナリオの標高**: 測量GISの `merge_DH.gpkg` による標高、またはFABDEMの暫定適用のいずれを採るかを判断する（現状 `full` では標高を出力しない）。
 
-> **実施済み**: 「FABDEMの取得と比較」は完了した。取得（GEE経由）・BSHorizonとの比較（5章）・採用確定（7章）・`ELEV_MEAN_<scale>` / `ELEV_VALID_RATIO_<scale>` としての実装まで完了している。
+> **実施済み**: 「FABDEMの取得と比較」は完了した。取得（GEE経由）・BSHorizonとの比較（5章）・採用確定（7章）・`ELEV_MEAN` / `ELEV_VALID_RATIO` としての実装まで完了している。
 
 ---
 

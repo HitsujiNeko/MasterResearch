@@ -120,13 +120,31 @@ def list_grid_layers(grid_path: Path) -> list[str]:
     return [str(name) for name in pyogrio.list_layers(grid_path)[:, 0]]
 
 
+def _layer_fields(grid_path: Path, layer_name: str) -> list[str]:
+    """レイヤが持つ属性列名を、行を読まずに取得する。
+
+    Args:
+        grid_path: GeoPackageのパス。
+        layer_name: 対象レイヤ名。
+
+    Returns:
+        属性列名の一覧。
+    """
+    return [str(name) for name in pyogrio.read_info(grid_path, layer=layer_name)["fields"]]
+
+
 def require_grid_layers(grid_path: Path, layer_names: Sequence[str]) -> None:
-    """指定したレイヤがすべて存在することを確認する。
+    """指定したレイヤがすべて存在し、``cell_id`` 列を持つことを確認する。
 
     **算出を始める前にまとめて確認するために使う。** スケールごとの処理に入ってから
     レイヤの不在に気づくと、先行するスケールの出力だけが残る。``--scales`` は
     900mの約数をすべて受け付けるため、正準グリッドを生成していないスケールを
     指定する操作は十分ありうる。
+
+    **レイヤの存在だけでなく ``cell_id`` 列の有無まで確認する。** 列の欠落が
+    ``read_grid_cell_ids()`` まで判明しないと、事前確認を通過した後に同じ
+    「先行スケールの出力だけが残る」状態になり、この関数の目的を果たさないため
+    である。確認は属性のメタデータのみで行い、行は読まない。
 
     Args:
         grid_path: 正準グリッドGeoPackageのパス。
@@ -134,7 +152,8 @@ def require_grid_layers(grid_path: Path, layer_names: Sequence[str]) -> None:
 
     Raises:
         FileNotFoundError: ``grid_path`` が存在しない場合。
-        ValueError: いずれかのレイヤが存在しない場合。
+        ValueError: いずれかのレイヤが存在しない場合、または ``cell_id`` 列を
+            持たないレイヤがある場合。
     """
     available_layers = list_grid_layers(grid_path)
     missing_layers = [name for name in layer_names if name not in available_layers]
@@ -142,6 +161,16 @@ def require_grid_layers(grid_path: Path, layer_names: Sequence[str]) -> None:
         raise ValueError(
             f"正準グリッドにレイヤがありません: {', '.join(missing_layers)}"
             f"（候補: {', '.join(available_layers)} / パス: {grid_path}）"
+        )
+
+    layers_without_key = [
+        name for name in layer_names if CELL_ID_COLUMN not in _layer_fields(grid_path, name)
+    ]
+    if layers_without_key:
+        raise ValueError(
+            f"正準グリッドのレイヤに {CELL_ID_COLUMN} 列がありません:"
+            f" {', '.join(layers_without_key)}（パス: {grid_path}）。"
+            " 正準グリッドを生成し直してください。"
         )
 
 
@@ -171,9 +200,7 @@ def read_grid_frame(grid_path: Path, layer_name: str, columns: Sequence[str]) ->
     # 列の存在を先に確かめる。pyogrio は存在しない列を指定しても例外を出さず、
     # 列も行も持たない空のデータフレームを返すため、そのまま読むと原因の分からない
     # KeyError になる。
-    available_fields = [
-        str(name) for name in pyogrio.read_info(grid_path, layer=layer_name)["fields"]
-    ]
+    available_fields = _layer_fields(grid_path, layer_name)
     missing_columns = [name for name in columns if name not in available_fields]
     if missing_columns:
         raise ValueError(

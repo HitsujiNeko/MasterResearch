@@ -225,6 +225,20 @@ def test_require_grid_layers_reports_all_missing_layers(tmp_path: Path, canonica
         tables.require_grid_layers(gpkg_path, ["grid_20m", "grid_45m", "grid_60m"])
 
 
+def test_require_grid_layers_rejects_layer_without_cell_id(tmp_path: Path) -> None:
+    """レイヤが存在しても cell_id 列を持たなければ、その場でValueErrorになる。
+
+    列の欠落が read_grid_cell_ids() まで判明しないと、事前確認を通過した後に
+    「先行するスケールの出力だけが残る」状態になり、事前確認の目的を果たさない。
+    """
+    gpkg_path = tmp_path / "grid.gpkg"
+    frame = pd.DataFrame({"lon": [105.0, 105.1], "lat": [21.0, 21.1]})
+    pyogrio.write_dataframe(frame, gpkg_path, layer="grid_20m", driver="GPKG")
+
+    with pytest.raises(ValueError, match="cell_id 列がありません"):
+        tables.require_grid_layers(gpkg_path, ["grid_20m"])
+
+
 def test_require_grid_layers_missing_file_raises(tmp_path: Path) -> None:
     """GeoPackageが存在しない場合はFileNotFoundErrorになる。"""
     with pytest.raises(FileNotFoundError, match="正準グリッドGeoPackage"):

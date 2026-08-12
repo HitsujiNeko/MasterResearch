@@ -1,7 +1,9 @@
 earthengine-api
 geopandas
 fiona
-pyogrio
+# 属性のみのGeoPackage書き出しと列を絞った読み出しに直接使う。environment.yml は
+# 再現性のため 0.11 をピンしており、こちらは必要な下限のみを示す。
+pyogrio>=0.11
 pyproj
 shapely
 pandas

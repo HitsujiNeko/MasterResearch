@@ -115,6 +115,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 - 拡張子ベースのグローバル除外
   - `*.tif`, `*.tiff`, `*.gpkg`, `*.aux.xml`（大容量バイナリ）
   - 都市構造パラメータの出力（`data/output/grid/`・`data/output/params/`・`data/output/datasets/`）はすべて GeoPackage のため、この拡張子ベース除外でカバーされる。ディレクトリベースの追加は不要である
+  - **ただし GeoPackage の付随ファイル（`-wal` / `-shm` / `-journal`）は `*.gpkg` に一致しない。** GeoPackage は SQLite であり、書き込みが中断されるとこれらが残る。`-wal` は本体に近いサイズまで成長しうるため、誤って追跡するとリポジトリが重くなる。通常は `src/common/geopackage.py` が書き出しの成功後に必ず削除するため残らないが、異常終了時は手動で確認する
 - ディレクトリベースの除外
   - `data/gis/`（GIS 空間データ）
   - `data/satellite/`（衛星由来データ）

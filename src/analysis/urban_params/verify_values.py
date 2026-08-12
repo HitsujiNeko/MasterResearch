@@ -43,8 +43,8 @@ from src.common.geo_metadata import BBox
 from .config import CITY_CONFIG, PARAM_SETS, PROJECT_ROOT
 from .geometry import compute_polygon_coverage
 from .grid import GridSpec, build_grid, grid_centers_wgs84
-from .io import bbox_from_layer, get_layer_resource, layer_cache
-from .run import build_param_tasks, validate_computed_columns
+from .io import LayerResource, bbox_from_layer, get_layer_resource, layer_cache
+from .run import ParamTask, build_param_tasks, validate_computed_columns
 
 # 旧 wide CSV の格納ルート（プロジェクトルートからの相対パス要素）。
 LEGACY_OUTPUT_PARTS = ("data", "output", "urban_params")
@@ -335,8 +335,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 def verify_scale(
     scale: int,
     args: argparse.Namespace,
-    tasks: list,
-    mask_resource: object,
+    tasks: list[ParamTask],
+    mask_resource: LayerResource,
     bbox_analysis: BBox,
     analysis_crs: CRS,
     legacy_dir: Path | None,
@@ -398,6 +398,15 @@ def verify_scale(
         raise ValueError(
             f"行数が一致しません（旧 {len(legacy_frame):,} 行 / 現行 {len(selected_lon):,} 行）。"
             " 解析範囲レイヤ・補助解像度が旧実行時と同じか確認してください。"
+        )
+    # 両方とも0行だと上の一致確認を通過してしまう。そのまま進むと座標比較の
+    # np.max() が空配列に対して「zero-size array to reduction operation」という
+    # 原因の読み取れない例外を出す。何も照合しないまま成功扱いにもしないよう、
+    # 原因を示して停止する。
+    if len(legacy_frame) == 0:
+        raise ValueError(
+            "照合対象の行が1行もありません。"
+            " 解析範囲レイヤが現行の正準グリッドと重なっているか確認してください。"
         )
     print(f"[scale={scale}m] 行数: {len(legacy_frame):,} 行（一致）", flush=True)
 

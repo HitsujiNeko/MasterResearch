@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 from pyproj import CRS
 
+from src.analysis.urban_params import verify_values
 from src.analysis.urban_params.geometry import compute_polygon_coverage
 from src.analysis.urban_params.grid import grid_centers_wgs84
 from src.analysis.urban_params.io import bbox_from_layer, get_layer_resource
@@ -102,12 +103,15 @@ def test_to_storage_precision_recovers_original_float32(text: str) -> None:
     残り、算出値の差と区別できなくなる。
     """
     as_float64 = np.array([float(text)], dtype=np.float64)
+    expected_float32 = np.array([text], dtype=np.float32)
     restored = to_storage_precision(as_float64)
 
     assert restored.dtype == np.float32
-    # float64 のままでは一致しないが、保存精度へ揃えれば一致する。
-    assert float(restored[0]) != float(as_float64[0]) or float(text) == float(np.float32(text))
-    np.testing.assert_array_equal(restored, np.array([text], dtype=np.float32))
+    # 保存精度へ揃えれば、元の float32 とビット単位で一致する。
+    np.testing.assert_array_equal(restored, expected_float32)
+    # float64 のまま比較すると表記由来のずれが残る。これを取り除くのが本関数の
+    # 目的であるため、ずれが実際に存在することもテストの前提として固定する。
+    assert float(as_float64[0]) != float(expected_float32[0])
 
 
 def test_to_storage_precision_keeps_nan() -> None:
@@ -265,6 +269,7 @@ def _write_legacy_csv(
     scale: int,
     perturb_column: str | None = None,
     drop_last_row: bool = False,
+    shift_lon_deg: float = 0.0,
 ) -> None:
     """合成環境から、旧 run.py と同じ形式の wide CSV を書き出す。
 
@@ -277,6 +282,7 @@ def _write_legacy_csv(
         scale: coarseグリッド解像度（m）。
         perturb_column: 値を1件だけずらす列名（不一致の検出を試すときに指定する）。
         drop_last_row: 末尾1行を落とすかどうか（行数不一致を試すときに指定する）。
+        shift_lon_deg: 経度をずらす量（度）。座標ずれの検出を試すときに指定する。
     """
     city_cfg = city_environment["city_cfg"]
     analysis_crs = CRS.from_epsg(int(city_cfg["analysis_epsg"]))
@@ -306,6 +312,8 @@ def _write_legacy_csv(
         frame.loc[0, legacy_name] = np.float32(frame.loc[0, legacy_name]) + np.float32(1.0)
     if drop_last_row:
         frame = frame.iloc[:-1]
+    if shift_lon_deg:
+        frame["lon"] = frame["lon"] + shift_lon_deg
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(csv_path, index=False, encoding="utf-8")
@@ -388,6 +396,45 @@ def test_main_reports_missing_legacy_csv(city_environment: dict[str, Any]) -> No
     """旧 CSV が無い場合は、探したパスを示すFileNotFoundErrorになる。"""
     with pytest.raises(FileNotFoundError, match="旧 wide CSV が見つかりません"):
         verify_main(_legacy_arguments(SCALES[0]))
+
+
+def test_main_rejects_coordinate_drift(city_environment: dict[str, Any]) -> None:
+    """座標が許容差を超えてずれている場合は停止する。
+
+    行数が同じでも行の順序が食い違っていれば、別セル同士を比較して「一致」と
+    報告しうる。座標の突合はその取り違えを検知するためのガードである。
+    """
+    scale = SCALES[0]
+    csv_path = city_environment["root"] / "legacy" / f"urban_params_limited_{CITY}_{scale}m.csv"
+    _write_legacy_csv(csv_path, city_environment, scale, shift_lon_deg=1.0)
+
+    with pytest.raises(ValueError, match="座標が一致しません"):
+        verify_main(_legacy_arguments(scale))
+
+
+def test_main_rejects_run_without_any_row(
+    city_environment: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """旧 CSV と現行がともに0行の場合は、原因を示して停止する。
+
+    行数の一致確認は通過するため、そのまま進むと座標比較の ``np.max()`` が
+    空配列に対して原因の読み取れない例外を出す。何も照合しないまま成功扱いに
+    することも避ける。
+    """
+    scale = SCALES[0]
+    csv_path = city_environment["root"] / "legacy" / f"urban_params_limited_{CITY}_{scale}m.csv"
+    _write_legacy_csv(csv_path, city_environment, scale)
+    # ヘッダだけを残して0行のCSVにする。
+    pd.read_csv(csv_path).head(0).to_csv(csv_path, index=False)
+
+    def empty_coverage(_resource: Any, _bbox: Any, grid_spec: Any) -> np.ndarray:
+        """解析対象域が1セルも選ばれない状況を模す。"""
+        return np.zeros(grid_spec.coarse_shape, dtype=np.float64)
+
+    monkeypatch.setattr(verify_values, "compute_polygon_coverage", empty_coverage)
+
+    with pytest.raises(ValueError, match="照合対象の行が1行もありません"):
+        verify_main(_legacy_arguments(scale))
 
 
 def test_main_rejects_run_without_comparable_columns(city_environment: dict[str, Any]) -> None:

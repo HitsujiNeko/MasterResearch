@@ -25,6 +25,7 @@ from src.analysis.urban_params import canonical_grid as urban_params_canonical_g
 from src.analysis.urban_params import config as urban_params_config
 from src.analysis.urban_params import io as urban_params_io
 from src.analysis.urban_params import run as urban_params_run
+from src.analysis.urban_params import verify_values as urban_params_verify_values
 from src.analysis.urban_params.canonical_grid import build_canonical_grid, make_cell_id
 from src.common.geo_metadata import BBox
 
@@ -224,6 +225,7 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         urban_params_run,
         urban_params_canonical_grid,
         urban_params_config,
+        urban_params_verify_values,
         analysis_build_dataset,
     ):
         monkeypatch.setattr(module, "PROJECT_ROOT", tmp_path)

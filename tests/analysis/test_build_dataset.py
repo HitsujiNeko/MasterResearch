@@ -209,19 +209,45 @@ def test_join_tables_merges_multiple_tables() -> None:
 
 
 def test_report_match_counts_shows_matched_rows(capsys: pytest.CaptureFixture[str]) -> None:
-    """テーブルの行数と、土台と一致した件数を報告する。"""
+    """テーブルの行数・土台と一致した件数・土台側で値が付く件数を報告する。
+
+    テーブルが土台より広い場合（余分な行を持つ場合）は、土台の全行に値が付く
+    ため警告しない。
+    """
     table = pd.DataFrame(
         {
-            "cell_id": np.array([1_000_001, 9_999_999], dtype=np.int64),
-            "BUILD_COV": np.array([0.5, 0.25], dtype=np.float32),
+            "cell_id": np.array([1_000_001, 1_000_002, 1_000_003, 9_999_999], dtype=np.int64),
+            "BUILD_COV": np.array([0.5, 0.25, 0.125, 0.0625], dtype=np.float32),
         }
     )
 
     report_match_counts(_base_frame(), {"build_gba": table})
 
     output = capsys.readouterr().out
-    assert "build_gba: 2 行（うち土台と一致 1 行）" in output
+    assert "build_gba: 4 行（うち土台と一致 3 行 / 土台 3 行のうち値が付くのは 3 行）" in output
     assert "警告" not in output
+
+
+def test_report_match_counts_warns_on_partial_coverage(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """土台の一部にしか値が付かないテーブルも警告する。
+
+    部分的に stale なテーブルは一致0件にならないため、0件だけを検知していると
+    見逃す。左結合ではその差分がそのまま NULL の行数になる。
+    """
+    table = pd.DataFrame(
+        {
+            "cell_id": np.array([1_000_001], dtype=np.int64),
+            "BUILD_COV": np.array([0.5], dtype=np.float32),
+        }
+    )
+
+    report_match_counts(_base_frame(), {"build_gba": table})
+
+    output = capsys.readouterr().out
+    assert "警告" in output
+    assert "土台の 2 行" in output
 
 
 def test_report_match_counts_warns_when_nothing_matches(
@@ -258,6 +284,23 @@ def test_join_tables_rejects_column_name_conflict() -> None:
 
     with pytest.raises(ValueError, match="BUILD_COV（build_gba）"):
         join_tables(_base_frame(), tables)
+
+
+def test_join_tables_rejects_conflict_with_grid_columns() -> None:
+    """土台の座標列と同名の列を持つテーブルもValueErrorになる。
+
+    検査対象に土台の列を含めないと、pandas が ``lon_x`` / ``lon_y`` へ暗黙に
+    リネームし、例外も警告も出ないまま座標列が二重化する。
+    """
+    table = pd.DataFrame(
+        {
+            "cell_id": np.array([1_000_001], dtype=np.int64),
+            "lon": np.array([105.0], dtype=np.float64),
+        }
+    )
+
+    with pytest.raises(ValueError, match="lon（正準グリッド）"):
+        join_tables(_base_frame(), {"build_gba": table})
 
 
 # ---------------------------------------------------------------------------
@@ -338,6 +381,35 @@ def test_add_quality_columns_marks_cells_with_any_positive_indicator() -> None:
         "no_gis_feature",
         "no_gis_feature",
     ]
+
+
+def test_add_quality_columns_distinguishes_missing_data_from_absent_feature() -> None:
+    """判定材料がすべてNULLのセルは no_gis_feature と区別する。
+
+    左結合ではテーブルに存在しない cell_id の列が NULL になる。0（地物が無い）と
+    同じラベルにまとめると、テーブルの世代違いや算出範囲の不足が「地物が無い地域」
+    として分析へ流れ込む。1列でも値があれば観測結果として扱う。
+    """
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2, 3], dtype=np.int64),
+            "BUILD_COV": np.array([0.0, np.nan, np.nan], dtype=np.float32),
+            "ROAD_DEN": np.array([0.0, 0.0, np.nan], dtype=np.float32),
+        }
+    )
+
+    result = add_quality_columns(dataset, ["BUILD_COV", "ROAD_DEN"], [])
+
+    assert result[MISSING_REASON_COLUMN].tolist() == [
+        "no_gis_feature",
+        "no_gis_feature",
+        "missing_gis_data",
+    ]
+    # 値が得られていないセルも「有効なGIS指標を持たない」ことに変わりはないため、
+    # VALID_GIS_MASK は 0 のままとする。
+    np.testing.assert_array_equal(
+        result[VALID_GIS_MASK_COLUMN].to_numpy(), np.array([0, 0, 0], dtype=np.int8)
+    )
 
 
 def test_add_quality_columns_detects_non_nan_satellite_cells() -> None:

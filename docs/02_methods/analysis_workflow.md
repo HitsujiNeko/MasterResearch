@@ -305,11 +305,13 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | `IN_ANALYSIS_AREA` | int | 解析範囲レイヤ内のセルか | `mask_roi` テーブル |
 | `VALID_GIS_MASK` | int | 少なくとも1つのGIS指標が有効なセルか | 結合時に導出（**条件付き**） |
 | `VALID_SATELLITE_MASK` | int | 少なくとも1つの衛星指標が有効なセルか | 結合時に導出（**条件付き**） |
-| `MISSING_REASON` | str | GIS指標の主要欠損理由（`none` / `no_gis_feature`） | 結合時に導出（**条件付き**） |
+| `MISSING_REASON` | str | GIS指標の主要欠損理由（`none` / `no_gis_feature` / `missing_gis_data`） | 結合時に導出（**条件付き**） |
 
 **列名にスケールのサフィックスは付かない。** スケールはディレクトリ階層とファイル名で表現する。
 
 **出力される列は結合したテーブルによって変わる。** 品質管理列は**判定材料となる列がある場合のみ付与される**（全セル0の列を出すと「確認したうえで無効と判定した」と読めてしまうため）。建物・道路を結合しなければ `VALID_GIS_MASK` / `MISSING_REASON` は付かず、衛星指標を結合しなければ `VALID_SATELLITE_MASK` は付かない。旧 wide CSV は常に全列を持っていたため、**列の存在を前提にしたコードは修正が必要である**。詳細は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.3節を正本とする。
+
+**`MISSING_REASON` は NULL（値が得られていない = `missing_gis_data`）と0（地物が無い = `no_gis_feature`）を区別する。** 結合したテーブルの世代違いが「地物が無い地域」として分析へ流れ込むことを防ぐためである。判定基準は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.3節を正本とする。
 
 **`DATA_SOURCE` / `SCENARIO` は廃止した。** テーブル名（`build_gba` 等）と結合対象の選択が同じ情報を持つためである。
 

@@ -71,6 +71,18 @@ VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
 MISSING_REASON_COLUMN = "MISSING_REASON"
 VALID_SATELLITE_MASK_COLUMN = "VALID_SATELLITE_MASK"
 
+# ``MISSING_REASON`` が取る値。
+#
+# ``no_gis_feature`` と ``missing_gis_data`` を分けるのは、両者が意味も対処も異なる
+# ためである。前者は「データを見たうえで地物が無かった」という**観測結果**であり、
+# 分析上は0として扱ってよい。後者は「そのセルの値がそもそも得られていない」という
+# **データ側の欠落**であり、結合したテーブルの世代違いや算出範囲の不足を疑うべき
+# 状態である。両者を同じ値にまとめると、テーブルの取り違えが「地物が無い地域」に
+# 化けて分析へ流れ込む。
+MISSING_REASON_NONE = "none"
+MISSING_REASON_NO_GIS_FEATURE = "no_gis_feature"
+MISSING_REASON_MISSING_GIS_DATA = "missing_gis_data"
+
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """CLI引数を解釈して返す。
@@ -245,13 +257,19 @@ def join_tables(base: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> pd.DataF
         結合済みのデータフレーム。
 
     Raises:
-        ValueError: 複数のテーブルが同じ列名を持つ場合。同じ列名の別ソース版
-            （``build_gba`` と ``build_dc`` など）を同時に結合しようとした場合に
-            起きる。どちらを使うかは分析者が選ぶべきであり、接尾辞を付けて黙って
-            両方残すと、どちらがどのソースか分からなくなる。
+        ValueError: 複数のテーブルが同じ列名を持つ場合、または土台の列と衝突する
+            場合。前者は同じ列名の別ソース版（``build_gba`` と ``build_dc`` など）
+            を同時に結合しようとした場合に起きる。どちらを使うかは分析者が選ぶべき
+            であり、接尾辞を付けて黙って両方残すと、どちらがどのソースか分からなく
+            なる。
     """
     joined = base
-    column_owners: dict[str, str] = {}
+    # 土台の列（``lon`` / ``lat``）も衝突検査の対象に含める。含めないと、テーブルが
+    # 同名の列を持った場合に pandas が ``lon_x`` / ``lon_y`` へ暗黙にリネームし、
+    # 例外も警告も出ないまま座標列が二重化する。``cell_id`` は結合キーなので除く。
+    column_owners: dict[str, str] = {
+        name: "正準グリッド" for name in base.columns if name != CELL_ID_COLUMN
+    }
 
     for table_name, table in tables.items():
         value_columns = [name for name in table.columns if name != CELL_ID_COLUMN]
@@ -273,24 +291,41 @@ def report_match_counts(base: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> 
 
     **古い解析範囲で算出した stale なテーブルを結合しても例外にはならず、該当列が
     広範囲に NULL になるだけである。** 行数だけを見ていると原因がテーブルの世代違い
-    だと気づきにくいため、突合件数を明示する。一致が0件の場合は、正常な結合結果と
-    区別できるよう警告する。
+    だと気づきにくいため、突合件数を明示する。
+
+    報告する件数は2種類ある。``一致`` はテーブル側の行のうち土台にも存在するもの
+    （テーブルが土台より広い場合に減る）、``値が付く`` は土台側の行のうちテーブルに
+    値があるもの（**左結合で NULL になる行数の裏返し**）である。**部分的に stale な
+    テーブルは全件一致でも0件一致でもないため、一致0件だけを見ていると見逃す。**
+    後段の ``add_quality_columns()`` は NULL を ``missing_gis_data`` として区別する
+    が、それは結果側の表示であり、原因がテーブルの世代違いであることは示さない。
 
     Args:
         base: 土台のフレーム（``cell_id`` を含む）。
         tables: テーブル名からデータフレームへの辞書。
     """
     base_cell_ids = base[CELL_ID_COLUMN]
+    base_count = len(base)
     for table_name, table in tables.items():
         matched = int(table[CELL_ID_COLUMN].isin(base_cell_ids).sum())
+        covered = int(base_cell_ids.isin(table[CELL_ID_COLUMN]).sum())
         print(
-            f"  {table_name}: {len(table):,} 行（うち土台と一致 {matched:,} 行）",
+            f"  {table_name}: {len(table):,} 行"
+            f"（うち土台と一致 {matched:,} 行 / 土台 {base_count:,} 行のうち"
+            f"値が付くのは {covered:,} 行）",
             flush=True,
         )
-        if matched == 0:
+        if covered == 0:
             print(
                 f"  警告: {table_name} は土台と1件も一致しません。"
                 " 正準グリッドを再生成した後にテーブルを算出し直していない可能性があります。",
+                flush=True,
+            )
+        elif covered < base_count:
+            print(
+                f"  警告: {table_name} は土台の {base_count - covered:,} 行"
+                f"（{(base_count - covered) / base_count:.1%}）に値を持ちません。"
+                " 解析範囲を変更した後にテーブルを算出し直していない可能性があります。",
                 flush=True,
             )
 
@@ -343,6 +378,12 @@ def add_quality_columns(
     **判定材料となる列が1つも無い場合、対応する品質管理列は付与しない。** 全セル0の
     列を出すと「データを確認したうえで無効と判定した」ように読めてしまうためである。
 
+    ``MISSING_REASON`` は NULL（値が得られていない）と0（地物が無い）を区別する。
+    左結合では、テーブルに存在しない ``cell_id`` の列が NULL になる。これを0と同じ
+    ``no_gis_feature`` にまとめると、テーブルの世代違いや算出範囲の不足が「地物が
+    無い地域」として分析へ流れ込む。判定材料の列が**すべて** NULL のセルのみ
+    ``missing_gis_data`` とし、1列でも値があれば観測結果として扱う。
+
     Args:
         dataset: 結合済みのデータフレーム。
         gis_columns: GIS由来の指標列（建物・道路）。
@@ -357,11 +398,18 @@ def add_quality_columns(
         # 「値が0より大きいセル」を有効とみなす。被覆率・密度はいずれも地物の量を
         # 表すため、0は「その地物が無い」ことを意味する。
         valid_gis = np.zeros(len(result), dtype=bool)
+        # 1列でも実測値（非NULL）を持つか。すべてNULLのセルだけを欠落として扱う。
+        has_gis_value = np.zeros(len(result), dtype=bool)
         for column_name in gis_columns:
             values = result[column_name].to_numpy(dtype=np.float64, na_value=np.nan)
+            has_gis_value |= ~np.isnan(values)
             valid_gis |= np.nan_to_num(values, nan=0.0) > 0
         result[VALID_GIS_MASK_COLUMN] = valid_gis.astype(np.int8)
-        result[MISSING_REASON_COLUMN] = np.where(valid_gis, "none", "no_gis_feature")
+        result[MISSING_REASON_COLUMN] = np.where(
+            valid_gis,
+            MISSING_REASON_NONE,
+            np.where(has_gis_value, MISSING_REASON_NO_GIS_FEATURE, MISSING_REASON_MISSING_GIS_DATA),
+        )
 
     if satellite_columns:
         valid_satellite = np.zeros(len(result), dtype=bool)

@@ -10,10 +10,10 @@
 
 ### 文献データベースの資産
 
-- `docs/04_archive/previous_studies_report.md`: 事実整理のマスター（S1〜S9）
+- `docs/04_archive/previous_studies_report.md`: 事実整理のマスター（S1〜S10）
 - `docs/04_archive/01_metadata/papers_database.csv`: 全論文の基本情報（検索・フィルタリング用）
-- `docs/04_archive/02_structured_summaries/`: 個別論文の構造化要約（S1〜S9）
-- `docs/04_archive/04_pdfs/`: 元の PDF ファイル（S1〜S9、`S{番号}_{著者}_{年}.pdf`）
+- `docs/04_archive/02_structured_summaries/`: 個別論文の構造化要約（S1〜S10）
+- `docs/04_archive/04_pdfs/`: 元の PDF ファイル（S1〜S10、`S{番号}_{著者}_{年}.pdf`）
 
 ### 前提
 

@@ -1,6 +1,6 @@
 # 04_archive - アーカイブ
 
-**最終更新**: 2026-08-05  
+**最終更新**: 2026-08-13  
 **関連ドキュメント**: [literature_management_guide.md](literature_management_guide.md)
 
 このフォルダには、参考資料や完了済みのドキュメント、先行研究の整理などを格納します。文献管理の思想・運用フローの詳細は上記を正本とし、本 README はフォルダ構成の案内に徹する。
@@ -11,14 +11,14 @@
 04_archive/
 ├── README.md                           # このファイル
 ├── literature_management_guide.md      # 文献管理・活用ガイド（思想・フローの正本）
-├── previous_studies_report.md          # 先行研究の事実整理（S1〜S9、マスター）
+├── previous_studies_report.md          # 先行研究の事実整理（S1〜S10、マスター）
 ├── claude_project_instructions.md      # Claude Projects プロジェクト指示（コピペ用）
 ├── claude_project_knowledge.md         # Claude Projects ナレッジ（アップロード用）
 │
 ├── 01_metadata/
 │   └── papers_database.csv             # 全論文の基本情報（CSV）
 │
-├── 02_structured_summaries/            # 構造化要約（S1〜S9）
+├── 02_structured_summaries/            # 構造化要約（S1〜S10）
 │   ├── S1_Ermida_2020.md
 │   ├── S2_LeNgocHanh_2025.md
 │   ├── S3_Onacillova_2022.md
@@ -27,9 +27,10 @@
 │   ├── S6_Garzon_2021.md
 │   ├── S7_Derdouri_2021.md
 │   ├── S8_Lin_2024.md
-│   └── S9_Nguyen_2018.md
+│   ├── S9_Nguyen_2018.md
+│   └── S10_Hoang_2025.md
 │
-├── 04_pdfs/                            # PDF原本（S1〜S9）
+├── 04_pdfs/                            # PDF原本（S1〜S10）
 │   └── S{番号}_{著者}_{年}.pdf
 │
 └── templates/
@@ -42,13 +43,13 @@
 
 | ファイル | 役割 |
 |----------|------|
-| [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S9）。概要把握・一覧のマスター |
+| [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S10）。概要把握・一覧のマスター |
 | [literature_management_guide.md](literature_management_guide.md) | 3層構造の思想と Claude Code 中心の文献調査フロー |
 | [claude_project_instructions.md](claude_project_instructions.md) | claude.ai 文献調査用プロジェクトの「プロジェクト指示」欄にコピペする指示文（正本） |
 | [claude_project_knowledge.md](claude_project_knowledge.md) | claude.ai プロジェクトナレッジにアップロードする凝縮版（研究概要・RQ・先行研究サマリー） |
 | [01_metadata/papers_database.csv](01_metadata/papers_database.csv) | 全論文の基本情報（検索・集計用） |
-| [02_structured_summaries/](02_structured_summaries/) | 個別論文の構造化要約（S1〜S9）。詳細比較・引用候補抽出に使用 |
-| `04_pdfs/` | 論文 PDF 原本（S1〜S9、Git管理外）。Claude Code が `Read` で直接精読 |
+| [02_structured_summaries/](02_structured_summaries/) | 個別論文の構造化要約（S1〜S10）。詳細比較・引用候補抽出に使用 |
+| `04_pdfs/` | 論文 PDF 原本（S1〜S10、Git管理外）。Claude Code が `Read` で直接精読 |
 | [templates/structured_summary_template.md](templates/structured_summary_template.md) | 構造化要約の標準フォーマット（正本） |
 
 ## 🎯 このフォルダの目的
@@ -67,7 +68,3 @@
 
 - **文献管理・活用ガイド**: [literature_management_guide.md](literature_management_guide.md)
 - **研究計画**: [../01_planning/research_guide.md](../01_planning/research_guide.md)
-
----
-
-**最終更新**: 2026-08-05

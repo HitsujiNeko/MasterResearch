@@ -109,7 +109,7 @@ docs/
 - **S7**: Derdouri et al. (2021) - LULC変化とSUHI研究レビュー
 - **S8**: Lin et al. (2024) - UFZ別2D/3D都市形態とUHI要因分析
 - **S9**: Nguyen Thanh Hoan et al. (2018) - ハノイの土地利用構成とSUHI [ハノイ一次文献・RQ2スケール◎]
-- **S10**: Hoang et al. (2025) - ダナンのLightGBM+SHAPによるLSTモデリング [ダナン一次文献・RQ1◎]
+- **S10**: Hoang et al. (2025) - ダナンのLightGBM+SHAPによるLSTモデリング [ダナン・GBDT+SHAPの一次文献・RQ1◎]
 
 **構造化要約（現存ファイル）**:
 

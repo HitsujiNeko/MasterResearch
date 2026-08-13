@@ -1,6 +1,6 @@
 # 04_archive - アーカイブ
 
-**最終更新**: 2026-08-05  
+**最終更新**: 2026-08-13  
 **関連ドキュメント**: [literature_management_guide.md](literature_management_guide.md)
 
 このフォルダには、参考資料や完了済みのドキュメント、先行研究の整理などを格納します。文献管理の思想・運用フローの詳細は上記を正本とし、本 README はフォルダ構成の案内に徹する。
@@ -68,7 +68,3 @@
 
 - **文献管理・活用ガイド**: [literature_management_guide.md](literature_management_guide.md)
 - **研究計画**: [../01_planning/research_guide.md](../01_planning/research_guide.md)
-
----
-
-**最終更新**: 2026-08-05

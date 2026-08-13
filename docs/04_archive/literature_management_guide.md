@@ -1,6 +1,6 @@
 # 先行研究管理・活用ガイド
 
-**最終更新**: 2026-08-05  
+**最終更新**: 2026-08-13  
 **関連ドキュメント**: [structured_summary_template.md](templates/structured_summary_template.md), [previous_studies_report.md](previous_studies_report.md), [claude_project_instructions.md](claude_project_instructions.md)
 
 > **このファイルの役割**  

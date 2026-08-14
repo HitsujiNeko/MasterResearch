@@ -13,6 +13,11 @@
     python -m src.analysis.build_dataset --city hanoi --scale 30 \\
         --tables build_dc road_gt idx_20230707_032329 --name full_with_indices
 
+    # シナリオと観測ファイル単位のテーブルを併用する（satellite_only はこの形が必須）
+    python -m src.analysis.build_dataset --city hanoi --scale 30 \\
+        --scenario satellite_only --tables idx_20230707_032329 lst_20230707_032329 \\
+        --name satellite_only_20230707_032329
+
 結合の土台は正準グリッドのレイヤ（``cell_id`` / ``lon`` / ``lat``）とする。
 あるテーブルにのみ存在しない ``cell_id`` は NULL として残す。
 
@@ -40,6 +45,7 @@ from src.analysis.urban_params.canonical_grid import (
 from src.analysis.urban_params.config import (
     CITY_CONFIG,
     DATASETS_OUTPUT_PARTS,
+    LST_TABLE_PREFIX,
     PARAM_SETS,
     PROJECT_ROOT,
     SATELLITE_ONLY_SCENARIO,
@@ -147,21 +153,25 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error(
             f"--scale には {SNAP_UNIT_M:.0f}m の約数を指定してください（指定値: {args.scale}）。"
         )
-    if bool(args.scenario) == bool(args.tables):
-        parser.error("--scenario と --tables はどちらか一方を指定してください。")
-    # satellite_only は衛星指標を含まなければ意味を成さないが、衛星指標は観測ファイル
-    # 単位のため SCENARIO_TABLES に列挙できない。このまま展開すると mask_roi だけの
-    # データセットが「衛星のみ」を名乗るファイル名で出力される。名前が中身を偽るより
-    # 止めるほうがよい。--tables との併用を許すかは CLI 仕様の設計判断を伴うため、
-    # ここでは経路を塞ぐにとどめる。
+    if not args.scenario and not args.tables:
+        parser.error("--scenario と --tables の少なくとも一方を指定してください。")
+    # satellite_only は衛星由来指標（idx_*）を含まなければ「衛星のみ」の意味を成さない。
+    # 衛星指標は観測ファイル単位のため SCENARIO_TABLES に列挙できず、シナリオ名だけの
+    # 指定では mask_roi だけのデータセットになる。--tables に idx_* を伴う場合のみ許可する
+    # （lst_* の有無は解禁条件にしない。LSTは目的変数であり、lst_* だけを許すと目的変数
+    # しか持たないデータセットが「衛星のみ」を名乗ることになるため）。
     if args.scenario == SATELLITE_ONLY_SCENARIO:
-        parser.error(
-            f"--scenario {SATELLITE_ONLY_SCENARIO} は使えません。"
-            " 衛星指標は観測ファイル単位のテーブルであり、シナリオ名では展開できないため、"
-            f" mask_roi だけのデータセットになります。--tables {SATELLITE_TABLE_PREFIX}"
-            "{YYYYMMDD}_{HHMMSS} mask_roi"
-            f" --name {SATELLITE_ONLY_SCENARIO} のように直接指定してください。"
-        )
+        has_satellite_table = any(table.startswith(SATELLITE_TABLE_PREFIX) for table in args.tables)
+        if not has_satellite_table:
+            parser.error(
+                f"--scenario {SATELLITE_ONLY_SCENARIO} は --tables に"
+                f" {SATELLITE_TABLE_PREFIX}{{YYYYMMDD}}_{{HHMMSS}} 形式の衛星指標テーブルを"
+                "伴う場合のみ使えます。衛星指標は観測ファイル単位のテーブルであり、"
+                "シナリオ名だけでは mask_roi だけのデータセットになるため、"
+                f" --scenario {SATELLITE_ONLY_SCENARIO} --tables {SATELLITE_TABLE_PREFIX}"
+                "{YYYYMMDD}_{HHMMSS}"
+                " --name ... のように併用してください。"
+            )
     if args.tables and not args.name:
         parser.error("--tables を使う場合は --name でデータセット名を指定してください。")
 
@@ -172,16 +182,18 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 def resolve_table_names(scenario: str, tables: list[str]) -> list[str]:
     """結合するテーブル名の一覧を決める。
 
+    ``--scenario`` と ``--tables`` は併用できるため、シナリオ展開分（先）と
+    直接指定分（後）を連結する。両方に同じテーブル名が含まれる場合は重複を除く。
+
     Args:
         scenario: シナリオ名（未指定の場合は空文字）。
         tables: 直接指定されたテーブル名の一覧。
 
     Returns:
-        結合するテーブル名の一覧。
+        結合するテーブル名の一覧（シナリオ展開分が先、順序保持・重複除去済み）。
     """
-    if scenario:
-        return list(SCENARIO_TABLES[scenario])
-    return list(tables)
+    scenario_tables = list(SCENARIO_TABLES[scenario]) if scenario else []
+    return list(dict.fromkeys(scenario_tables + tables))
 
 
 def resolve_dataset_name(scenario: str, name: str) -> str:
@@ -349,6 +361,11 @@ def classify_value_columns(
 ) -> tuple[list[str], list[str]]:
     """結合した列を、GIS由来の指標と衛星由来の指標へ分類する。
 
+    LST（``lst_`` で始まるテーブル）は目的変数であり、GIS・衛星いずれの品質管理列
+    （``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK``）の判定材料にもしないため、
+    戻り値のどちらにも含めず読み飛ばす（列自体はデータセットへ残る）。目的変数と
+    説明変数の有効性を混ぜないためである。
+
     Args:
         table_names: 結合したテーブル名の一覧。
         tables: テーブル名からデータフレームへの辞書。
@@ -357,7 +374,7 @@ def classify_value_columns(
         (GIS由来の指標列, 衛星由来の指標列) の組。
 
     Raises:
-        ValueError: ``PARAM_SETS`` にも無く、衛星指標の命名規則にも合致しない
+        ValueError: ``PARAM_SETS`` にも無く、衛星指標・LSTの命名規則にも合致しない
             テーブル名が含まれる場合。
     """
     gis_columns: list[str] = []
@@ -373,10 +390,13 @@ def classify_value_columns(
         if table_name.startswith(SATELLITE_TABLE_PREFIX):
             satellite_columns.extend(value_columns)
             continue
+        if table_name.startswith(LST_TABLE_PREFIX):
+            continue
         raise ValueError(
             f"テーブルの種別を判別できません: {table_name}。"
             f" PARAM_SETS のいずれか（{', '.join(PARAM_SETS)}）か、"
-            f" {SATELLITE_TABLE_PREFIX} で始まる衛星指標テーブルを指定してください。"
+            f" {SATELLITE_TABLE_PREFIX} で始まる衛星指標テーブル、"
+            f" {LST_TABLE_PREFIX} で始まるLSTテーブルを指定してください。"
         )
 
     return gis_columns, satellite_columns

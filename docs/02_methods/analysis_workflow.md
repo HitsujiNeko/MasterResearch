@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-08-06  
+**最終更新**: 2026-08-14  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -276,10 +276,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 |----------|---------|------|------|
 | `src/gee/gee_calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
 | `src/analysis/urban_params/canonical_grid.py` | 全シナリオ共通の正準グリッド生成（`cell_id` 採番） | 解析範囲レイヤ（ROI） | `data/output/grid/grid_<city_id>.gpkg`（`grid_30m` / `grid_90m` / `grid_300m`） |
-| `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来パラメータのグリッド集計。**パラメータセット単位**に出力する | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ + 正準グリッド | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（`cell_id` キーの属性テーブル） |
-| `src/analysis/build_dataset.py` | 指定テーブル群の `cell_id` 結合と品質管理列の導出 | パラメータテーブル + 正準グリッド | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg` |
+| `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来・LST由来パラメータのグリッド集計。**パラメータセット単位**に出力する | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ + LSTラスタ + 正準グリッド | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（`cell_id` キーの属性テーブル） |
+| `src/analysis/build_dataset.py` | 指定テーブル群（LST の `lst_*` を含む）の `cell_id` 結合と品質管理列の導出 | パラメータテーブル + 正準グリッド | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg` |
 | `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | パラメータテーブルまたは結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
-| `src/analysis/merge_dataset.py` | LSTと全説明変数の結合。**未実装** | LSTクリップ + 結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
 
 ---
 
@@ -289,14 +288,14 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 分析用データセットは、LST と Step 3 で算出した都市構造パラメータをセル単位で結合したものである。**都市構造パラメータ側の列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章を正本とする**。
 
-以下は結合後のデータセットが取り得る列の一覧である。LST との結合を行う `merge_dataset.py` は未実装であり（3.4）、現時点で実在するのは `build_dataset.py` が出力するスケール別のデータセット（`LST` 列を含まない）である。
+以下は結合後のデータセットが取り得る列の一覧である。LST は `urban_params` が出力する `lst_*` テーブル（観測ファイル単位）として算出し、`build_dataset.py` が他のテーブルと同様に `--tables` で結合する（3.4）。LST専用の結合スクリプトは持たない。
 
 | 列名 | 型 | 内容 | 出どころ |
 |------|-----|------|------|
 | `cell_id` | int | 正準グリッドのセルID（`row * 1000000 + col`）。**同一スケール内でのみ一意** | 正準グリッド |
 | `lon` | float | グリッドセル中心経度（WGS84） | 正準グリッド |
 | `lat` | float | グリッドセル中心緯度（WGS84） | 正準グリッド |
-| `LST` | float | 地表面温度（°C） | 未実装（`merge_dataset.py`） |
+| `LST` / `LST_VALID_RATIO` | float | 地表面温度（°C）/ セル内のLST有効画素率（0-1） | `lst_*` テーブル |
 | `NDVI` / `NDBI` / `NDWI` | float | 衛星由来指標 | `idx_*` テーブル |
 | `BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX` | float | 建物パラメータ | `build_gba` または `build_dc` テーブル |
 | `ROAD_DEN` | float | 道路密度 | `road_osm` または `road_gt` テーブル |
@@ -320,8 +319,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 |---|---|---|
 | 正準グリッド | `data/output/grid/grid_<city_id>.gpkg`（`grid_30m` / `grid_90m` / `grid_300m`） | 実装済み |
 | Step 3 の出力（算出） | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（**パラメータセットごと・スケールごとに分かれる**） | 実装済み |
-| Step 3 の出力（結合） | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg`（`LST` 列を含まない） | 実装済み |
-| LST 結合後 | `data/output/analysis_dataset.csv` | 未実装（`merge_dataset.py` 未作成。スケールごとに分けるかは設計時に決める） |
+| Step 3 の出力（結合） | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg`（`--tables` に `lst_*` を含めれば `LST` 列も持つ） | 実装済み |
 
 > **旧出力**: `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（wide CSV）は残置しているが、再生成の手段は持たない。再設計前後で算出値が変わっていないことは照合済みである（[calc_urban_params_guide.md](calc_urban_params_guide.md) 11.2節）。
 
@@ -341,6 +339,8 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 
 > 本節は**4.1 とは別のパイプライン**の出力である。観測日ごとのピクセル単位データセット（30m 固定）であり、
 > 4.1 のマルチスケール出力（`cell_id` キーのテーブル）とは生成経路が異なる。
+>
+> **2026-08-14時点の補足**: 本節が参照する生成経路（`build_satellite_only_dataset.py`）は cell_id 化に伴い削除済みであり、上表の出力を再現する手段はツリー内に存在しない。新経路（`urban_params` の `lst_*` テーブル + `build_dataset.py`）との仕様上の差異は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節を参照。本節自体は2026-04-21時点の記録として据え置く。
 
 ### 4.2 品質管理
 
@@ -508,7 +508,7 @@ RQ3 は、現在次の順で進める。
 | **Phase 2** | 公開 GIS 候補の取得・QA | `extract_geofabrik_roads_hanoi.py`, `fetch_microsoft_buildings_hanoi.py`, Google / OSM 建物取得スクリプト | 🔴 高 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
 | **Phase 3** | 近傍変数算出 | `calc_neighborhood_vars.py` | 🟡 中 |
-| **Phase 4** | データセット結合・品質管理（空間範囲マスク含む） | `merge_dataset.py` | 🟡 中 |
+| **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
 | **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など | 🔴 高 |
 | **Phase 5** | `Full` シナリオ比較（RQ3） | `analysis_rq3_full.py` など | 🟡 中 |
 | **Phase 6** | RQ1 / RQ2 本分析 | `analysis_rq1.py`, `analysis_rq2.py` | 🟢 後 |

@@ -39,6 +39,8 @@ ROI_BOUNDS = (50.0, 30.0, 150.0, 130.0)
 CITY = "testcity"
 SATELLITE_FILE_NAME = "INDICES_TestSat_20230707_032329Z.tif"
 SATELLITE_TABLE_NAME = "idx_20230707_032329"
+LST_FILE_NAME = "LST_TestSat_20230707_032329Z.tif"
+LST_TABLE_NAME = "lst_20230707_032329"
 
 
 def rectangle(min_x: float, min_y: float, max_x: float, max_y: float) -> list[tuple[float, float]]:
@@ -148,6 +150,24 @@ def _write_indices_raster(path: Path) -> None:
             dst.set_band_description(band_index, name)
 
 
+def _write_lst_raster(path: Path) -> None:
+    """バンド説明「LST」を持つ摂氏のLSTラスタを書き出す。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 200.0, 10.0, 10.0),
+        nodata=np.nan,
+    ) as dst:
+        dst.write(np.full((20, 20), 35.0, dtype=np.float32), 1)
+        dst.set_band_description(1, "LST")
+
+
 def _write_canonical_grid(path: Path, roi_bbox: BBox) -> dict[int, np.ndarray]:
     """各スケールの正準グリッドレイヤを書き出し、``cell_id`` を返す。
 
@@ -199,6 +219,7 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     _write_road_layer(data_dir / "roads.gpkg")
     _write_dem(data_dir / "dem.tif")
     _write_indices_raster(data_dir / SATELLITE_FILE_NAME)
+    _write_lst_raster(data_dir / LST_FILE_NAME)
 
     roi_bbox = BBox(*ROI_BOUNDS)
     cell_ids_by_scale = _write_canonical_grid(data_dir / "grid.gpkg", roi_bbox)

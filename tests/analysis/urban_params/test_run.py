@@ -17,8 +17,10 @@ from src.analysis.urban_params.canonical_grid import build_canonical_grid
 from src.analysis.urban_params.config import ParamSet
 from src.analysis.urban_params.run import (
     ParamTask,
+    build_lst_task,
     build_param_tasks,
     build_satellite_task,
+    lst_table_name,
     main,
     parse_arguments,
     satellite_table_name,
@@ -32,6 +34,8 @@ from ..conftest import (
     ANALYSIS_EPSG,
     CITY,
     FINE_RES_M,
+    LST_FILE_NAME,
+    LST_TABLE_NAME,
     ROI_BOUNDS,
     SATELLITE_FILE_NAME,
     SATELLITE_TABLE_NAME,
@@ -70,6 +74,40 @@ def test_satellite_table_name_rejects_unparsable_name(file_name: str) -> None:
     """観測を特定できないファイル名は推測せずValueErrorで停止する。"""
     with pytest.raises(ValueError, match="観測日時を特定できません"):
         satellite_table_name(Path(file_name))
+
+
+# ---------------------------------------------------------------------------
+# lst_table_name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("file_name", "expected"),
+    [
+        ("LST_Landsat8_20230707_032329Z.tif", "lst_20230707_032329"),
+        ("LST_Landsat8_20241130_032336Z.tif", "lst_20241130_032336"),
+        ("LST_Sentinel2_20230723_032309Z.tiff", "lst_20230723_032309"),
+    ],
+)
+def test_lst_table_name_derives_observation(file_name: str, expected: str) -> None:
+    """ファイル名の観測日時からテーブル名を導く。"""
+    assert lst_table_name(Path(file_name)) == expected
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        "lst_20230707.tif",
+        "LST_Landsat8_20230707Z.tif",
+        "LST_Landsat8_2023077_032329Z.tif",
+        "LST_Landsat_8_20230707_032329Z.tif",
+        "LST_Landsat8_20230707_032329Z.csv",
+    ],
+)
+def test_lst_table_name_rejects_unparsable_name(file_name: str) -> None:
+    """観測を特定できないファイル名は推測せずValueErrorで停止する。"""
+    with pytest.raises(ValueError, match="観測日時を特定できません"):
+        lst_table_name(Path(file_name))
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +164,14 @@ def test_parse_arguments_accepts_satellite_file_only() -> None:
 
     assert args.params == []
     assert args.satellite_file == "data/satellite/x.tif"
+
+
+def test_parse_arguments_accepts_lst_file_only() -> None:
+    """LSTだけの指定でも受け付ける。"""
+    args = parse_arguments(["--lst-file", "data/satellite/lst/x.tif"])
+
+    assert args.params == []
+    assert args.lst_file == "data/satellite/lst/x.tif"
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +414,23 @@ def test_main_writes_satellite_table_named_by_observation(
     assert set(table.columns) == {"cell_id", "NDVI", "NDBI", "NDWI"}
 
 
+def test_main_writes_lst_table_named_by_observation(
+    city_environment: dict[str, Any],
+) -> None:
+    """LSTは観測日時つきのテーブル名で出力される。"""
+    _run_main(
+        city_environment,
+        ["--lst-file", f"data/{LST_FILE_NAME}"],
+    )
+
+    output_dir = city_environment["output_dir"]
+    path = output_dir / CITY / "20m" / f"{LST_TABLE_NAME}.gpkg"
+    assert path.exists()
+
+    table = pyogrio.read_dataframe(path, layer=LST_TABLE_NAME, read_geometry=False)
+    assert set(table.columns) == {"cell_id", "LST", "LST_VALID_RATIO"}
+
+
 def test_build_param_tasks_binds_each_resource_independently(
     city_environment: dict[str, Any],
 ) -> None:
@@ -432,6 +495,89 @@ def test_build_satellite_task_without_indices_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="衛星指標を検出できませんでした"):
         build_satellite_task(path)
+
+
+# ---------------------------------------------------------------------------
+# build_lst_task
+# ---------------------------------------------------------------------------
+
+
+def _write_single_band_raster(path: Path, description: str | None, band_count: int = 1) -> None:
+    """バンド説明・バンド数を指定した合成ラスタを書き出す（LSTのバンド検証用）。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=2,
+        count=band_count,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 20.0, 10.0, 10.0),
+    ) as dst:
+        for band_index in range(1, band_count + 1):
+            dst.write(np.full((2, 2), 30.0, dtype=np.float32), band_index)
+        if description is not None:
+            dst.set_band_description(1, description)
+
+
+def test_build_lst_task_missing_file_raises(tmp_path: Path) -> None:
+    """存在しないLSTファイルはFileNotFoundErrorになる。"""
+    with pytest.raises(FileNotFoundError):
+        build_lst_task(tmp_path / LST_FILE_NAME)
+
+
+def test_build_lst_task_rejects_multiple_bands(tmp_path: Path) -> None:
+    """バンド数が1でないLSTラスタはValueErrorになる。
+
+    指標側は io.find_satellite_rasters() でバンド説明を検証しているが、LST側は
+    単一バンド前提の入力であり、同じ検証を経由しない。誤って多バンドのラスタを
+    渡した場合に気づけるよう、ここで個別に検証する。
+    """
+    path = tmp_path / LST_FILE_NAME
+    _write_single_band_raster(path, "LST", band_count=2)
+
+    with pytest.raises(ValueError, match="バンド数が1ではありません"):
+        build_lst_task(path)
+
+
+def test_build_lst_task_rejects_mismatched_band_description(tmp_path: Path) -> None:
+    """バンド説明が設定されていて LST 以外の場合はValueErrorになる。"""
+    path = tmp_path / LST_FILE_NAME
+    _write_single_band_raster(path, "NDVI")
+
+    with pytest.raises(ValueError, match="バンド説明が想定と異なります"):
+        build_lst_task(path)
+
+
+def test_build_lst_task_accepts_missing_band_description(tmp_path: Path) -> None:
+    """バンド説明が未設定の場合は通す（正常なLSTを誤って弾かないため）。"""
+    path = tmp_path / LST_FILE_NAME
+    _write_single_band_raster(path, None)
+
+    task = build_lst_task(path)
+
+    assert task.table_name == lst_table_name(path)
+
+
+def test_build_lst_task_accepts_lst_band_description(tmp_path: Path) -> None:
+    """バンド説明が LST の場合は通す。"""
+    path = tmp_path / LST_FILE_NAME
+    _write_single_band_raster(path, "LST")
+
+    task = build_lst_task(path)
+
+    assert task.expected_columns == ("LST", "LST_VALID_RATIO")
+
+
+def test_build_lst_task_accepts_lowercase_lst_band_description(tmp_path: Path) -> None:
+    """バンド説明が小文字表記（lst）でも大文字小文字を無視して受け入れる。"""
+    path = tmp_path / LST_FILE_NAME
+    _write_single_band_raster(path, "lst")
+
+    task = build_lst_task(path)
+
+    assert task.expected_columns == ("LST", "LST_VALID_RATIO")
 
 
 def test_param_set_columns_match_computed_columns(city_environment: dict[str, Any]) -> None:

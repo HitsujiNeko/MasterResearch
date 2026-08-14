@@ -34,7 +34,6 @@
 
 現在の主要実装:
 
-- `src/analysis/build_satellite_only_dataset.py`
 - `src/analysis/analysis_rq3_satellite_only.py`
 - `src/preprocessing/extract_geofabrik_roads_hanoi.py`
 - `src/preprocessing/fetch_microsoft_buildings_hanoi.py`
@@ -504,7 +503,7 @@ RQ3 は、現在次の順で進める。
 | フェーズ | 作業内容 | スクリプト | 優先度 |
 |---------|---------|----------|--------|
 | **Phase 1** | GISデータ空間範囲の把握（BBox比較） | `src/analysis/analyze_spatial_extents.py` | ✅ 完了（2026-03-03） |
-| **Phase 1.5** | Satellite Only データセット構築 | `src/analysis/build_satellite_only_dataset.py` | ✅ 完了 |
+| **Phase 1.5** | Satellite Only データセット構築 | （削除済み） | ✅ 完了 |
 | **Phase 1.6** | Satellite Only ベースライン分析（3観測日） | `src/analysis/analysis_rq3_satellite_only.py` | ✅ 完了 |
 | **Phase 2** | 公開 GIS 候補の取得・QA | `extract_geofabrik_roads_hanoi.py`, `fetch_microsoft_buildings_hanoi.py`, Google / OSM 建物取得スクリプト | 🔴 高 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |

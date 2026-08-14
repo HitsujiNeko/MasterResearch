@@ -77,7 +77,7 @@ def test_satellite_table_name_rejects_unparsable_name(file_name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# lst_table_name
+# lst_table_name のテスト
 # ---------------------------------------------------------------------------
 
 
@@ -498,7 +498,7 @@ def test_build_satellite_task_without_indices_raises(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_lst_task
+# build_lst_task のテスト
 # ---------------------------------------------------------------------------
 
 

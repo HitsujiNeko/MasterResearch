@@ -21,6 +21,9 @@ LandsatのLSTラスタをcoarseグリッドへ平均集約し、セル平均地�
     - ラスタ範囲外のセルは ``LST_VALID_RATIO`` が ``0.0`` になる
       （``aggregate_valid_ratio_to_grid()`` の既知の制約）。LSTラスタの範囲は
       FABDEMと同一でROIを覆うため、影響を受けるのは解析BBox最外周セルに限られる。
+    - LSTラスタが解析グリッドと全く重ならない場合（都市とラスタの取り違え・切り出し
+      範囲の誤り等）は、有効画素が1つも無いためケルビン検知（中央値判定）ができない。
+      その場合は別途、全セルNaNになる旨を警告する（標高と同じ規約）。
 """
 
 from __future__ import annotations
@@ -68,5 +71,13 @@ def compute(resource: RasterResource, grid_spec: GridSpec) -> dict[str, np.ndarr
                 f" 確認してください: {resource.path}",
                 stacklevel=2,
             )
+    else:
+        # 都市とLSTラスタの取り違えや切り出し範囲の誤りでは、ファイルが存在するため
+        # 入力解決を素通りし、全セルNaNの列が黙って出力される。列が残るぶん欠損に
+        # 気づきにくいため、ここで警告する（elevation.pyと同じ規約）。
+        warnings.warn(
+            f"LSTラスタが解析グリッドと重なりません。LST列は全セルNaNになります: {resource.path}",
+            stacklevel=2,
+        )
 
     return {"LST": lst_mean, "LST_VALID_RATIO": valid_ratio}

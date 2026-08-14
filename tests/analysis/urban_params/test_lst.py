@@ -274,11 +274,11 @@ def test_compute_does_not_warn_for_plausible_celsius_values(tmp_path: Path) -> N
     assert not [record for record in caught if "妥当な範囲" in str(record.message)]
 
 
-def test_compute_does_not_warn_when_all_values_are_missing(tmp_path: Path) -> None:
-    """有効値が1件も無い場合は中央値を計算できないため警告しない。
+def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(tmp_path: Path) -> None:
+    """有効値が1件も無い場合、ケルビン検知（妥当な範囲チェック）は行わない。
 
     正常なLSTを弾かない設計上、判定材料が無いセル集合を「範囲外」と誤検知して
-    はならない。
+    はならない。全欠測自体は別の警告（重なりません）で検知する。
     """
     lst_path = tmp_path / "lst_all_missing.tif"
     _write_lst(lst_path, np.full((8, 8), -9999.0, dtype=np.float32), nodata=-9999.0)
@@ -289,3 +289,45 @@ def test_compute_does_not_warn_when_all_values_are_missing(tmp_path: Path) -> No
 
     assert not [record for record in caught if "妥当な範囲" in str(record.message)]
     assert np.isnan(result["LST"]).all()
+
+
+def test_compute_warns_when_lst_does_not_overlap_grid(tmp_path: Path) -> None:
+    """LSTラスタが解析グリッドと全く重ならない場合は警告する。
+
+    都市とLSTラスタの取り違え・切り出し範囲の誤りではファイルが存在するため
+    入力解決を素通りし、全セルNaNの列が黙って出力される。列が残るぶん欠損に
+    気づきにくい（elevation.pyと同じ規約）。
+    """
+    # 解析範囲（0-80m四方）から大きく離れた位置のLSTラスタを書き出す。
+    lst_path = tmp_path / "lst_far.tif"
+    with rasterio.open(
+        lst_path,
+        "w",
+        driver="GTiff",
+        height=8,
+        width=8,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(100000, 100000, FINE_RES_M, FINE_RES_M),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((8, 8), 35.0, dtype=np.float32), 1)
+
+    with pytest.warns(UserWarning, match="重なりません"):
+        result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+
+    assert np.isnan(result["LST"]).all()
+    np.testing.assert_allclose(result["LST_VALID_RATIO"], 0.0, atol=1e-5)
+
+
+def test_compute_does_not_warn_overlap_when_lst_overlaps_grid(tmp_path: Path) -> None:
+    """LSTラスタがグリッドと重なる通常の入力では、重なりの警告をしない。"""
+    lst_path = tmp_path / "lst_overlap.tif"
+    _write_lst(lst_path, _gradient_lst(), nodata=-9999.0)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+
+    assert not [record for record in caught if "重なりません" in str(record.message)]

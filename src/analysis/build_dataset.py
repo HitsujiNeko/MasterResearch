@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
@@ -90,6 +91,60 @@ MISSING_REASON_NONE = "none"
 MISSING_REASON_NO_GIS_FEATURE = "no_gis_feature"
 MISSING_REASON_MISSING_GIS_DATA = "missing_gis_data"
 
+# 観測ファイル単位のテーブル名（``idx_`` / ``lst_``）から観測日時を取り出すパターン。
+# 接頭辞は config.py の定数から組み立て、命名規則を二重に持たない。
+OBSERVATION_TABLE_PATTERN = re.compile(
+    rf"^(?:{re.escape(SATELLITE_TABLE_PREFIX)}|{re.escape(LST_TABLE_PREFIX)})"
+    r"(?P<observation>\d{8}_\d{6})$"
+)
+
+
+def observation_key(table_name: str) -> str | None:
+    """観測ファイル単位のテーブル名から観測日時キーを取り出す。
+
+    Args:
+        table_name: テーブル名。
+
+    Returns:
+        ``{YYYYMMDD}_{HHMMSS}`` 形式の観測日時キー。観測ファイル単位のテーブルで
+        ない場合（``build_gba`` 等のパラメータセット）は ``None``。
+    """
+    matched = OBSERVATION_TABLE_PATTERN.match(table_name)
+    return matched.group("observation") if matched is not None else None
+
+
+def validate_observation_consistency(table_names: list[str]) -> None:
+    """観測ファイル単位のテーブルが単一の観測に揃っているかを検証する。
+
+    **LSTと衛星指標は同一観測でなければ対応づかない。** 目的変数（``LST``）と説明変数
+    （``NDVI`` / ``NDBI`` / ``NDWI``）が別の日時の観測から来ていると、両者の関係を
+    見るという分析の前提そのものが崩れる。それでいて結合自体は ``cell_id`` で成立し、
+    行数も欠損も正常に見えるため、**出力を見ても気づけない**。テーブル名が観測日時を
+    保持しているうちに、結合の入口で止める。
+
+    Args:
+        table_names: 結合するテーブル名の一覧。
+
+    Raises:
+        ValueError: 観測日時の異なる観測テーブルが混在する場合。
+    """
+    observations: dict[str, list[str]] = {}
+    for table_name in table_names:
+        key = observation_key(table_name)
+        if key is None:
+            continue
+        observations.setdefault(key, []).append(table_name)
+
+    if len(observations) <= 1:
+        return
+
+    detail = " / ".join(f"{key}: {', '.join(names)}" for key, names in sorted(observations.items()))
+    raise ValueError(
+        f"観測日時の異なるテーブルを同時に結合できません（{detail}）。"
+        " LSTと衛星指標は同一観測でなければ対応づかず、結合自体は成立してしまうため"
+        " 出力からは判別できません。同じ観測日時のテーブルだけを指定してください。"
+    )
+
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """CLI引数を解釈して返す。
@@ -121,8 +176,9 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--tables",
         nargs="+",
         default=[],
-        help="結合するテーブル名を直接指定する。衛星指標テーブル"
-        f"（{SATELLITE_TABLE_PREFIX}で始まる名前）もここで指定する。",
+        help="結合するテーブル名を直接指定する。観測ファイル単位のテーブル"
+        f"（衛星指標は{SATELLITE_TABLE_PREFIX}、LSTは{LST_TABLE_PREFIX}で始まる名前）も"
+        " ここで指定する。両者を併せて指定する場合は同一観測日時である必要がある。",
     )
     parser.add_argument(
         "--name",
@@ -476,10 +532,14 @@ def build_dataset(
         データフレーム。
 
     Raises:
-        ValueError: 結合するテーブルが1つも無い場合。
+        ValueError: 結合するテーブルが1つも無い場合、または観測日時の異なる観測
+            テーブル（``idx_*`` / ``lst_*``）が混在する場合。
     """
     if not table_names:
         raise ValueError("結合するテーブルが指定されていません。")
+    # 読み込みより前に検証する。ファイルは実在するため読み込みは成功してしまい、
+    # 結合まで進んでも異常として現れないためである。
+    validate_observation_consistency(table_names)
 
     base = read_grid_frame(grid_path, grid_layer_name(scale), GRID_COLUMNS)
     print(f"土台の正準グリッド: {len(base):,} 行（{grid_layer_name(scale)}）", flush=True)

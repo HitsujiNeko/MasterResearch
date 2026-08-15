@@ -19,11 +19,13 @@ from src.analysis.build_dataset import (
     join_tables,
     load_param_table,
     main,
+    observation_key,
     parse_arguments,
     report_match_counts,
     resolve_dataset_name,
     resolve_dataset_path,
     resolve_table_names,
+    validate_observation_consistency,
 )
 from src.analysis.urban_params.config import SCENARIO_TABLES
 from src.analysis.urban_params.run import main as run_urban_params
@@ -472,6 +474,90 @@ def test_classify_value_columns_rejects_unknown_table() -> None:
 
     with pytest.raises(ValueError, match="種別を判別できません"):
         classify_value_columns(list(tables), tables)
+
+
+# ---------------------------------------------------------------------------
+# observation_key / validate_observation_consistency
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected"),
+    [
+        ("idx_20230707_032329", "20230707_032329"),
+        ("lst_20230707_032329", "20230707_032329"),
+        ("lst_20241130_032336", "20241130_032336"),
+        # 観測ファイル単位でないテーブルは観測日時を持たない。
+        ("build_gba", None),
+        ("mask_roi", None),
+        # 接頭辞は合っていても日時形式に合致しないものは対象外とする。
+        ("idx_2023", None),
+        ("lst_20230707_0323290", None),
+    ],
+)
+def test_observation_key_extracts_datetime(table_name: str, expected: str | None) -> None:
+    """観測ファイル単位のテーブル名からのみ観測日時キーを取り出す。"""
+    assert observation_key(table_name) == expected
+
+
+@pytest.mark.parametrize(
+    "table_names",
+    [
+        ["idx_20230707_032329", "lst_20230707_032329"],
+        ["mask_roi", "build_gba", "idx_20230707_032329", "lst_20230707_032329"],
+        # 観測テーブルが1つだけ、あるいは1つも無い場合も通す。
+        ["lst_20230707_032329"],
+        ["mask_roi", "build_gba"],
+        [],
+    ],
+)
+def test_validate_observation_consistency_accepts_single_observation(
+    table_names: list[str],
+) -> None:
+    """観測日時が揃っている（または観測テーブルが1つ以下の）場合は通る。"""
+    validate_observation_consistency(table_names)
+
+
+def test_validate_observation_consistency_rejects_mixed_observations() -> None:
+    """観測日時の異なる idx_* と lst_* の同時結合はValueErrorで止める。
+
+    LSTと衛星指標が別の観測から来ていると、目的変数と説明変数の関係を見るという
+    分析の前提が崩れる。それでいて cell_id 結合は成立し、行数も欠損も正常に見える
+    ため、出力からは判別できない。
+    """
+    with pytest.raises(ValueError, match="観測日時の異なるテーブル"):
+        validate_observation_consistency(["mask_roi", "idx_20230707_032329", "lst_20241130_032336"])
+
+
+def test_validate_observation_consistency_rejects_two_satellite_observations() -> None:
+    """同種のテーブルどうしでも、観測日時が異なれば止める。"""
+    with pytest.raises(ValueError, match="観測日時の異なるテーブル"):
+        validate_observation_consistency(["idx_20230707_032329", "idx_20241130_032336"])
+
+
+def test_build_dataset_rejects_mixed_observations_before_reading(
+    city_environment: dict[str, Any],
+) -> None:
+    """観測日時の食い違いは、テーブルを読み込む前に検出する。
+
+    ファイルは実在するため読み込み自体は成功し、結合まで進んでも異常として現れない。
+    """
+    _run_param_calculation(
+        city_environment,
+        ["--satellite-file", f"data/{SATELLITE_FILE_NAME}", "--lst-file", f"data/{LST_FILE_NAME}"],
+    )
+
+    with pytest.raises(ValueError, match="観測日時の異なるテーブル"):
+        _run_build_dataset(
+            city_environment,
+            [
+                "--tables",
+                SATELLITE_TABLE_NAME,
+                "lst_20241130_032336",
+                "--name",
+                "mixed_observation",
+            ],
+        )
 
 
 # ---------------------------------------------------------------------------

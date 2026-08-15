@@ -35,6 +35,7 @@ from shapely.geometry.base import BaseGeometry
 
 from src.common.geo_metadata import BBox
 from src.common.geopackage import remove_geopackage, replace_geopackage
+from src.common.paths import resolve_relative_to_project_root
 
 from .config import ANALYSIS_EXTENT_LAYER_KEY, CITY_CONFIG, PROJECT_ROOT
 from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
@@ -710,13 +711,10 @@ def resolve_output_path(output_argument: str, city: str) -> Path:
         正準グリッドGeoPackageの絶対パス。相対パスはプロジェクトルート基準で
         解決する。
     """
-    if not output_argument:
+    resolved = resolve_relative_to_project_root(output_argument, project_root=PROJECT_ROOT)
+    if resolved is None:
         return PROJECT_ROOT / "data" / "output" / "grid" / f"grid_{city}.gpkg"
-
-    output_path = Path(output_argument)
-    if not output_path.is_absolute():
-        output_path = PROJECT_ROOT / output_path
-    return output_path
+    return resolved
 
 
 def _drop_zero_area_parts(geometry: BaseGeometry | None) -> BaseGeometry | None:

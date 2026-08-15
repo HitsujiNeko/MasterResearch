@@ -39,6 +39,7 @@ import pandas as pd
 from pyproj import CRS
 
 from src.common.geo_metadata import BBox
+from src.common.paths import resolve_relative_to_project_root
 
 from .canonical_grid import (
     SNAP_UNIT_M,
@@ -579,7 +580,7 @@ def main(argv: list[str] | None = None) -> None:
     extent_resource = get_layer_resource(city_cfg, ANALYSIS_EXTENT_LAYER_KEY, analysis_crs)
     roi_bbox = bbox_from_layer(extent_resource, analysis_crs)
     grid_path = resolve_output_path(args.grid, args.city)
-    output_dir = (PROJECT_ROOT / args.output_dir) if args.output_dir else None
+    output_dir = resolve_relative_to_project_root(args.output_dir, project_root=PROJECT_ROOT)
 
     print("都市:", args.city)
     print("解析範囲レイヤ:", ANALYSIS_EXTENT_LAYER_KEY, "->", extent_resource.path.name)
@@ -591,10 +592,14 @@ def main(argv: list[str] | None = None) -> None:
     # 残り、どこまでが最新なのか分からなくなるためである。
     require_grid_layers(grid_path, [grid_layer_name(scale) for scale in args.scales])
     tasks = build_param_tasks(args.params, city_cfg, analysis_crs)
-    if args.satellite_file:
-        tasks.append(build_satellite_task((PROJECT_ROOT / args.satellite_file).resolve()))
-    if args.lst_file:
-        tasks.append(build_lst_task((PROJECT_ROOT / args.lst_file).resolve()))
+    satellite_path = resolve_relative_to_project_root(
+        args.satellite_file, project_root=PROJECT_ROOT
+    )
+    if satellite_path is not None:
+        tasks.append(build_satellite_task(satellite_path.resolve()))
+    lst_path = resolve_relative_to_project_root(args.lst_file, project_root=PROJECT_ROOT)
+    if lst_path is not None:
+        tasks.append(build_lst_task(lst_path.resolve()))
     print("算出するテーブル:", ", ".join(task.table_name for task in tasks))
 
     # 入力レイヤの読み込みを1回で済ませるため、全スケールを1つのキャッシュスコープで囲む。

@@ -60,6 +60,7 @@ from src.analysis.urban_params.tables import (
     read_grid_frame,
     write_attribute_table,
 )
+from src.common.paths import resolve_relative_to_project_root
 
 # 正準グリッドから引き継ぐ列。座標はパラメータテーブルではなくグリッドが保持する。
 GRID_COLUMNS = (CELL_ID_COLUMN, "lon", "lat")
@@ -585,8 +586,8 @@ def main(argv: list[str] | None = None) -> None:
     table_names = resolve_table_names(args.scenario, args.tables)
     dataset_name = resolve_dataset_name(args.scenario, args.name)
     grid_path = resolve_output_path(args.grid, args.city)
-    params_dir = (PROJECT_ROOT / args.params_dir) if args.params_dir else None
-    output_dir = (PROJECT_ROOT / args.output_dir) if args.output_dir else None
+    params_dir = resolve_relative_to_project_root(args.params_dir, project_root=PROJECT_ROOT)
+    output_dir = resolve_relative_to_project_root(args.output_dir, project_root=PROJECT_ROOT)
 
     print("都市:", args.city)
     print("スケール:", f"{args.scale}m")

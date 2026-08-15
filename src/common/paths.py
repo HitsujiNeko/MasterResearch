@@ -12,6 +12,37 @@ from pathlib import Path
 from src.common.config import PROJECT_ROOT
 
 
+def resolve_relative_to_project_root(value: str, project_root: Path = PROJECT_ROOT) -> Path | None:
+    """CLI引数などの相対パス文字列をプロジェクトルート基準で絶対化する。
+
+    存在確認や親ディレクトリ作成は行わない純粋なパス解決であり、入力ファイルの
+    要否・出力ディレクトリの作成要否は呼び出し側が個別に判断する
+    （``resolve_existing_path()`` / ``prepare_output_path()`` と役割分担する）。
+    「未指定なら既定パスを使う」という判断も、既定パスの中身が呼び出し元ごとに
+    異なるため、ここでは行わず呼び出し側に委ねる。
+
+    **``project_root`` は呼び出し側で明示的に渡すこと。** 既定値はこの関数の
+    定義時に一度だけ評価されるため、呼び出し元モジュールが自身の ``PROJECT_ROOT``
+    を ``monkeypatch`` で差し替えても（テストでのプロジェクトルート隔離等）、
+    この関数の既定値には反映されない。呼び出し元が自身の（monkeypatch可能な）
+    ``PROJECT_ROOT`` を ``project_root=`` として明示的に渡すことで、呼び出し時点の
+    値を使わせる。
+
+    Args:
+        value: CLI引数などで受け取ったパス文字列。空文字は「未指定」を表す。
+        project_root: 相対パスの基準ディレクトリ。呼び出し元の ``PROJECT_ROOT``
+            を明示的に渡すことを推奨する（上記参照）。
+
+    Returns:
+        絶対化した ``Path``。``value`` が空文字の場合は ``None``
+        （呼び出し側が既定値を決める）。
+    """
+    if not value:
+        return None
+    path = Path(value)
+    return path if path.is_absolute() else (project_root / path)
+
+
 def resolve_existing_path(path: Path, project_root: Path = PROJECT_ROOT) -> Path:
     """相対パスをプロジェクトルート基準で解決し、存在確認を行う。
 

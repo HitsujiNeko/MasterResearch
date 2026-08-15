@@ -1,14 +1,19 @@
-"""衛星指標ラスタ（NDVI/NDBI/NDWI）をグリッドへ集約するモジュール。"""
+"""ラスタをグリッドへ集約するモジュール（衛星指標 NDVI/NDBI/NDWI と共通の集約基盤）。
+
+セル平均と有効画素率の2列を対で出すパラメータ（標高・LST）は
+``aggregate_mean_and_valid_ratio()`` を共通の入口として使う。
+"""
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import rasterio
 from rasterio.enums import Resampling
-from rasterio.warp import reproject
+from rasterio.warp import reproject, transform_bounds
 
 from ..grid import GridSpec
 
@@ -209,6 +214,112 @@ def aggregate_valid_ratio_to_grid(
 
     # 平均再投影の丸め誤差で 0-1 をわずかに外れることがあるため、比率として丸める。
     return np.clip(dst_array, 0.0, 1.0)
+
+
+def coarse_grid_bounds(grid_spec: GridSpec) -> tuple[float, float, float, float]:
+    """coarseグリッド全体の範囲を解析用CRS上の ``(minx, miny, maxx, maxy)`` で返す。
+
+    Args:
+        grid_spec: fine/coarseグリッドの仕様。
+
+    Returns:
+        coarseグリッド全体の範囲。
+    """
+    rows, cols = grid_spec.coarse_shape
+    transform = grid_spec.coarse_transform
+    minx = transform.c
+    maxy = transform.f
+    # ``transform.e`` は負（北が上）のため、行数を掛けて足すと下端になる。
+    return minx, maxy + (rows * transform.e), minx + (cols * transform.a), maxy
+
+
+def raster_overlaps_grid(raster_path: Path, grid_spec: GridSpec) -> bool:
+    """ラスタの範囲がcoarseグリッドの範囲と重なるかを判定する。
+
+    **全セルが ``NaN`` になった原因の切り分けに使う。** 「ラスタがグリッドと重なって
+    いない」（都市の取り違え・切り出し範囲の誤り）と「重なってはいるが有効画素が
+    1つも無い」（雲マスクによる全面欠測・nodata値の取り違え）は、対処がまったく
+    異なるにもかかわらず、どちらも全セル ``NaN`` という同じ結果になる。
+
+    判定はラスタが記録している範囲（``src.bounds``）に基づき、画素値は読まない。
+
+    Args:
+        raster_path: 入力ラスタファイルの絶対パス。
+        grid_spec: 判定先のグリッド仕様。
+
+    Returns:
+        範囲が重なる場合は ``True``。接するだけ（面積ゼロの共有）は ``False``。
+    """
+    with rasterio.open(raster_path) as src:
+        # 地理座標系から投影座標系への変換では辺が曲がるため、辺上に点を足して
+        # 範囲を評価する（既定の4隅だけだと重なりを取りこぼすことがある）。
+        left, bottom, right, top = transform_bounds(
+            src.crs, grid_spec.analysis_crs, *src.bounds, densify_pts=21
+        )
+
+    minx, miny, maxx, maxy = coarse_grid_bounds(grid_spec)
+    return left < maxx and right > minx and bottom < maxy and top > miny
+
+
+def aggregate_mean_and_valid_ratio(
+    raster_path: Path,
+    grid_spec: GridSpec,
+    band_index: int,
+    mean_column: str,
+    ratio_column: str,
+    kind_label: str,
+) -> dict[str, np.ndarray]:
+    """セル平均値とセル内有効画素率の2列を対で算出する。
+
+    標高（``ELEV_MEAN`` / ``ELEV_VALID_RATIO``）とLST（``LST`` / ``LST_VALID_RATIO``）は
+    集約の手順が同一のため、ここへ集約する。**平均はセル内の有効画素のみで取るため、
+    セルの一部しか覆われていなくても値は ``NaN`` にならない。** セルの信頼度は
+    有効画素率の列で判断する。``NaN`` の件数だけでは部分被覆のセルを捕捉できず、
+    有効カバレッジを過大評価する。
+
+    全セルが ``NaN`` になった場合は警告する。ファイルが存在する以上、入力解決は
+    素通りし、列が残ったまま中身だけが空になるため欠損に気づきにくい。**原因が
+    「グリッドと重なっていない」のか「重なってはいるが有効画素が無い」のかで対処が
+    まったく異なる**ため、``raster_overlaps_grid()`` で切り分けてから文言を選ぶ。
+
+    Args:
+        raster_path: 入力ラスタファイルの絶対パス。
+        grid_spec: 集約先のグリッド仕様。
+        band_index: 読み込むバンド番号（1始まり）。
+        mean_column: セル平均値の列名（例: ``ELEV_MEAN``）。
+        ratio_column: 有効画素率の列名（例: ``ELEV_VALID_RATIO``）。
+        kind_label: 警告文に使う入力種別のラベル（例: ``DEM``）。
+
+    Returns:
+        ``{mean_column: array, ratio_column: array}`` 形式の辞書。有効画素率は
+        0-1で、ラスタ範囲外のセルは ``0.0``（``NaN`` ではない）。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
+    """
+    mean_values = aggregate_raster_to_grid(raster_path, grid_spec, band_index)
+    valid_ratio = aggregate_valid_ratio_to_grid(raster_path, grid_spec, band_index)
+
+    if not np.isfinite(mean_values).any():
+        # 重なり判定はこの異常時にしか行わない。正常な入力ではラスタを開き直す
+        # コストが掛からないようにするためである。
+        if raster_overlaps_grid(raster_path, grid_spec):
+            warnings.warn(
+                f"{kind_label}ラスタは解析グリッドと重なっていますが、有効画素が1つも"
+                f"ありません。{mean_column} 列は全セルNaNになります。全面が雲マスク等で"
+                " 欠測している観測か、nodata値の取り違えを疑ってください:"
+                f" {raster_path}",
+                stacklevel=3,
+            )
+        else:
+            warnings.warn(
+                f"{kind_label}ラスタが解析グリッドと重なりません。{mean_column} 列は"
+                "全セルNaNになります。都市の取り違え・切り出し範囲の誤りを疑って"
+                f"ください: {raster_path}",
+                stacklevel=3,
+            )
+
+    return {mean_column: mean_values, ratio_column: valid_ratio}
 
 
 def compute(

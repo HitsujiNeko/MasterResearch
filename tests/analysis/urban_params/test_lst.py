@@ -230,15 +230,25 @@ def test_compute_warns_when_median_looks_like_kelvin(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("boundary_value", "label"),
-    [(lst.PLAUSIBLE_LST_MIN_C, "min"), (lst.PLAUSIBLE_LST_MAX_C, "max")],
+    ("inside_value", "label"),
+    [
+        (lst.PLAUSIBLE_LST_MIN_C + 0.1, "just_above_min"),
+        (lst.PLAUSIBLE_LST_MAX_C - 0.1, "just_below_max"),
+    ],
 )
-def test_compute_does_not_warn_at_plausible_range_boundary(
-    tmp_path: Path, boundary_value: float, label: str
+def test_compute_does_not_warn_just_inside_plausible_range(
+    tmp_path: Path, inside_value: float, label: str
 ) -> None:
-    """妥当範囲の境界値（-60°C・90°C）ちょうどでは警告しない（境界は範囲に含む）。"""
-    lst_path = tmp_path / f"lst_boundary_{label}.tif"
-    _write_lst(lst_path, np.full((8, 8), boundary_value, dtype=np.float32))
+    """妥当範囲のわずかに内側では警告しない（境界の1歩内側）。
+
+    境界値ちょうどではなく1歩内側で判定する。境界ちょうどの値は、平均再投影と
+    float32 の往復を経た中央値が閾値と**ビット単位で一致すること**に依存し、
+    再サンプリング方法や dtype を変えただけで閾値の退行に見える偽の失敗を起こす。
+    範囲外側は test_compute_warns_just_outside_plausible_range が押さえるため、
+    この対と合わせて閾値は 0.1°C の精度で固定される。
+    """
+    lst_path = tmp_path / f"lst_inside_{label}.tif"
+    _write_lst(lst_path, np.full((8, 8), inside_value, dtype=np.float32))
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -278,7 +288,7 @@ def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(tmp_path
     """有効値が1件も無い場合、ケルビン検知（妥当な範囲チェック）は行わない。
 
     正常なLSTを弾かない設計上、判定材料が無いセル集合を「範囲外」と誤検知して
-    はならない。全欠測自体は別の警告（重なりません）で検知する。
+    はならない。全欠測自体は別の警告で検知する。
     """
     lst_path = tmp_path / "lst_all_missing.tif"
     _write_lst(lst_path, np.full((8, 8), -9999.0, dtype=np.float32), nodata=-9999.0)
@@ -289,6 +299,28 @@ def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(tmp_path
 
     assert not [record for record in caught if "妥当な範囲" in str(record.message)]
     assert np.isnan(result["LST"]).all()
+
+
+def test_compute_warns_all_missing_not_no_overlap_when_fully_cloud_masked(
+    tmp_path: Path,
+) -> None:
+    """グリッドと重なっているのに全画素が雲マスクの場合、「重なりません」とは言わない。
+
+    実データは雲マスクにより有効画素率が25.4〜45.7%しかなく、全面が雲に覆われた
+    観測を選ぶことは十分に起こり得る。それを「ラスタが重なりません」と報告すると、
+    都市の取り違えや切り出し範囲を疑わせてしまい、実際の原因（観測日の選び直し・
+    nodata値の確認）から遠ざける。
+    """
+    # 解析範囲（0-80m四方）と完全に一致する範囲で、全画素を雲マスク（nodata）にする。
+    lst_path = tmp_path / "lst_fully_clouded.tif"
+    _write_lst(lst_path, np.full((8, 8), -9999.0, dtype=np.float32), nodata=-9999.0)
+
+    with pytest.warns(UserWarning, match="有効画素が1つもありません") as caught:
+        result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+
+    assert not [record for record in caught if "重なりません" in str(record.message)]
+    assert np.isnan(result["LST"]).all()
+    np.testing.assert_allclose(result["LST_VALID_RATIO"], 0.0, atol=1e-5)
 
 
 def test_compute_warns_when_lst_does_not_overlap_grid(tmp_path: Path) -> None:

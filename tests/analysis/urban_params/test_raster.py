@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -12,8 +13,11 @@ from rasterio.transform import from_origin
 
 from src.analysis.urban_params.grid import build_grid
 from src.analysis.urban_params.params.raster import (
+    aggregate_mean_and_valid_ratio,
     aggregate_raster_to_grid,
     aggregate_valid_ratio_to_grid,
+    coarse_grid_bounds,
+    raster_overlaps_grid,
 )
 from src.common.geo_metadata import BBox
 
@@ -175,3 +179,150 @@ def test_aggregate_rejects_out_of_range_band(
 
     with pytest.raises(ValueError, match="バンド番号"):
         aggregate_function(tif_path, grid_spec, band_index)
+
+
+# ---------------------------------------------------------------------------
+# coarse_grid_bounds / raster_overlaps_grid
+# ---------------------------------------------------------------------------
+
+
+def _grid_spec_0_to_40():
+    """解析範囲 0-40m 四方・coarse 20m のグリッド仕様を返す。"""
+    return build_grid(
+        BBox(0.0, 0.0, 40.0, 40.0), CRS.from_epsg(3857), coarse_res_m=20.0, fine_res_m=10.0
+    )
+
+
+def test_coarse_grid_bounds_returns_full_grid_extent() -> None:
+    """coarseグリッド全体の範囲を (minx, miny, maxx, maxy) で返す。"""
+    assert coarse_grid_bounds(_grid_spec_0_to_40()) == pytest.approx((0.0, 0.0, 40.0, 40.0))
+
+
+@pytest.mark.parametrize(
+    ("origin_x", "origin_y", "expected", "label"),
+    [
+        (0.0, 40.0, True, "完全一致"),
+        (20.0, 60.0, True, "一部が重なる"),
+        (100000.0, 100000.0, False, "遠く離れている"),
+        # 右端がグリッド左端にちょうど接するだけ（共有面積ゼロ）は重なりとみなさない。
+        (-40.0, 40.0, False, "辺で接するだけ"),
+    ],
+)
+def test_raster_overlaps_grid_judges_by_extent(
+    tmp_path: Path, origin_x: float, origin_y: float, expected: bool, label: str
+) -> None:
+    """ラスタ範囲とグリッド範囲の重なりを、画素値を読まずに判定する。"""
+    tif_path = tmp_path / f"overlap_{label}.tif"
+    _write_test_raster(
+        tif_path, np.ones((4, 4), dtype=np.float32), from_origin(origin_x, origin_y, 10, 10)
+    )
+
+    assert raster_overlaps_grid(tif_path, _grid_spec_0_to_40()) is expected
+
+
+def test_raster_overlaps_grid_handles_geographic_crs(tmp_path: Path) -> None:
+    """ラスタが解析CRSと異なる地理座標系でも、範囲を変換して判定する。
+
+    実運用のLST・指標ラスタはEPSG:4326、解析CRSはEPSG:5897であり必ず変換を伴う。
+    """
+    tif_path = tmp_path / "overlap_wgs84.tif"
+    # EPSG:3857 の 0-40m 四方は経緯度の原点近傍にあたる。
+    _write_test_raster(
+        tif_path,
+        np.ones((4, 4), dtype=np.float32),
+        from_origin(-0.001, 0.001, 0.0005, 0.0005),
+        crs="EPSG:4326",
+    )
+
+    assert raster_overlaps_grid(tif_path, _grid_spec_0_to_40()) is True
+
+
+# ---------------------------------------------------------------------------
+# aggregate_mean_and_valid_ratio
+# ---------------------------------------------------------------------------
+
+
+def _write_all_nodata_raster(path: Path, transform: rasterio.Affine) -> None:
+    """全画素がnodataのラスタを書き出す。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=4,
+        width=4,
+        count=1,
+        dtype="float32",
+        crs="EPSG:3857",
+        transform=transform,
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((4, 4), -9999.0, dtype=np.float32), 1)
+
+
+def test_aggregate_mean_and_valid_ratio_returns_named_columns(tmp_path: Path) -> None:
+    """指定した列名でセル平均値と有効画素率の2列を返す。"""
+    tif_path = tmp_path / "pair.tif"
+    _write_test_raster(
+        tif_path, np.full((4, 4), 12.0, dtype=np.float32), from_origin(0, 40, 10, 10)
+    )
+
+    columns = aggregate_mean_and_valid_ratio(
+        tif_path, _grid_spec_0_to_40(), 1, "ELEV_MEAN", "ELEV_VALID_RATIO", "DEM"
+    )
+
+    assert set(columns) == {"ELEV_MEAN", "ELEV_VALID_RATIO"}
+    np.testing.assert_allclose(columns["ELEV_MEAN"], 12.0, rtol=1e-5)
+    np.testing.assert_allclose(columns["ELEV_VALID_RATIO"], 1.0, atol=1e-5)
+
+
+def test_aggregate_mean_and_valid_ratio_distinguishes_all_missing_from_no_overlap(
+    tmp_path: Path,
+) -> None:
+    """重なってはいるが全画素欠測の場合、「重なりません」ではない警告を出す。
+
+    どちらも全セルNaNという同じ結果になるが、対処はまったく異なる。前者は観測の
+    選び直し（雲被覆）やnodata値の確認、後者は都市・切り出し範囲の確認である。
+    """
+    tif_path = tmp_path / "all_nodata_overlapping.tif"
+    _write_all_nodata_raster(tif_path, from_origin(0, 40, 10, 10))
+
+    with pytest.warns(UserWarning, match="有効画素が1つもありません") as caught:
+        columns = aggregate_mean_and_valid_ratio(
+            tif_path, _grid_spec_0_to_40(), 1, "LST", "LST_VALID_RATIO", "LST"
+        )
+
+    assert np.isnan(columns["LST"]).all()
+    assert not [record for record in caught if "重なりません" in str(record.message)]
+
+
+def test_aggregate_mean_and_valid_ratio_warns_when_raster_does_not_overlap(
+    tmp_path: Path,
+) -> None:
+    """グリッドと重ならないラスタでは「重なりません」と警告する。"""
+    tif_path = tmp_path / "far_away.tif"
+    _write_test_raster(
+        tif_path, np.full((4, 4), 12.0, dtype=np.float32), from_origin(100000, 100000, 10, 10)
+    )
+
+    with pytest.warns(UserWarning, match="重なりません"):
+        columns = aggregate_mean_and_valid_ratio(
+            tif_path, _grid_spec_0_to_40(), 1, "LST", "LST_VALID_RATIO", "LST"
+        )
+
+    assert np.isnan(columns["LST"]).all()
+
+
+def test_aggregate_mean_and_valid_ratio_does_not_warn_for_normal_input(tmp_path: Path) -> None:
+    """有効値があるラスタでは警告しない（重なり判定のためにラスタを開き直さない）。"""
+    tif_path = tmp_path / "normal.tif"
+    _write_test_raster(
+        tif_path, np.full((4, 4), 12.0, dtype=np.float32), from_origin(0, 40, 10, 10)
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        aggregate_mean_and_valid_ratio(
+            tif_path, _grid_spec_0_to_40(), 1, "ELEV_MEAN", "ELEV_VALID_RATIO", "DEM"
+        )
+
+    assert not [record for record in caught if "全セルNaN" in str(record.message)]

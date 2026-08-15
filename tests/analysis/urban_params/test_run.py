@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pyogrio
 import pytest
 import rasterio
@@ -24,6 +25,7 @@ from src.analysis.urban_params.run import (
     main,
     parse_arguments,
     satellite_table_name,
+    summarize_valid_ratio,
     validate_computed_columns,
 )
 from src.analysis.urban_params.tables import aligned_bbox, build_aligned_grid
@@ -578,6 +580,69 @@ def test_build_lst_task_accepts_lowercase_lst_band_description(tmp_path: Path) -
     task = build_lst_task(path)
 
     assert task.expected_columns == ("LST", "LST_VALID_RATIO")
+
+
+@pytest.mark.parametrize("description", ["LST ", " LST", "  lst  "])
+def test_build_lst_task_accepts_band_description_with_surrounding_spaces(
+    tmp_path: Path, description: str
+) -> None:
+    """バンド説明の前後に空白があっても受け入れる。
+
+    別の物理量のラスタを弾くための検証であり、体裁の違いで実行全体を止めない。
+    空文字は rasterio が None へ正規化するため、未設定と同じ扱いになる。
+    """
+    path = tmp_path / LST_FILE_NAME
+    _write_single_band_raster(path, description)
+
+    task = build_lst_task(path)
+
+    assert task.expected_columns == ("LST", "LST_VALID_RATIO")
+
+
+# ---------------------------------------------------------------------------
+# summarize_valid_ratio
+# ---------------------------------------------------------------------------
+
+
+def test_summarize_valid_ratio_reports_partial_coverage_counts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """有効画素率の列について、閾値ごとの件数を報告する。
+
+    セル平均は有効画素のみで取るため、部分被覆セルは NaN にならず完全被覆セルと
+    区別が付かない。NaN の件数だけでは有効カバレッジを過大評価する。
+    """
+    table = pd.DataFrame(
+        {
+            "cell_id": np.arange(4, dtype=np.int64),
+            "LST": np.array([30.0, 31.0, 32.0, 33.0], dtype=np.float32),
+            "LST_VALID_RATIO": np.array([1.0, 0.8, 0.4, 0.0], dtype=np.float32),
+        }
+    )
+
+    summarize_valid_ratio(table)
+
+    captured = capsys.readouterr().out
+    # 1.0未満は3件（0.8 / 0.4 / 0.0）、0.5未満は2件（0.4 / 0.0）。
+    assert "LST_VALID_RATIO" in captured
+    assert "1.0未満 3 件" in captured
+    assert "0.5未満 2 件" in captured
+
+
+def test_summarize_valid_ratio_ignores_tables_without_ratio_columns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """有効画素率の列を持たないテーブルでは何も出力しない。"""
+    table = pd.DataFrame(
+        {
+            "cell_id": np.arange(2, dtype=np.int64),
+            "ROAD_DEN": np.array([1.0, 2.0], dtype=np.float32),
+        }
+    )
+
+    summarize_valid_ratio(table)
+
+    assert capsys.readouterr().out == ""
 
 
 def test_param_set_columns_match_computed_columns(city_environment: dict[str, Any]) -> None:

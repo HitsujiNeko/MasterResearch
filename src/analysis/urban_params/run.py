@@ -100,6 +100,13 @@ SATELLITE_FILENAME_PATTERN = re.compile(
 # LSTファイル名から観測日時を取り出すパターン。
 LST_FILENAME_PATTERN = re.compile(r"^LST_[^_]+" + _OBSERVATION_DATETIME_SUFFIX, re.IGNORECASE)
 
+# LSTラスタのバンド1に期待するバンド説明（大文字化・前後空白除去のうえで比較する）。
+# GEE側（gee_calc_LST.py）が LST バンドとして書き出す名前と揃える。
+LST_BAND_DESCRIPTION = "LST"
+
+# 使用するLSTラスタのバンド番号。単一バンド前提のため固定する。
+LST_BAND_INDEX = 1
+
 
 @dataclass(frozen=True)
 class ParamTask:
@@ -376,8 +383,8 @@ def build_satellite_task(satellite_path: Path) -> ParamTask:
     return ParamTask(table_name, compute, tuple(sorted(raster_resources)))
 
 
-def _resolve_lst_band(lst_path: Path) -> int:
-    """LSTラスタのバンド構成を検証し、使用するバンド番号（常に1）を返す。
+def _validate_lst_raster(lst_path: Path) -> None:
+    """LSTラスタのバンド構成を検証する（使用するバンドは常に1）。
 
     衛星指標は ``io.find_satellite_rasters()`` がバンド説明を検証するが、LSTは
     単一ファイル・単一バンドの入力であり、その検証を経由しない。誤って多バンドの
@@ -385,9 +392,6 @@ def _resolve_lst_band(lst_path: Path) -> int:
 
     Args:
         lst_path: LSTラスタのパス。
-
-    Returns:
-        使用するバンド番号（常に1）。
 
     Raises:
         ValueError: バンド数が1でない場合、またはバンド1の説明が設定されていて
@@ -401,13 +405,15 @@ def _resolve_lst_band(lst_path: Path) -> int:
                 f"LSTラスタのバンド数が1ではありません（{src.count} バンド）: {lst_path}。"
                 " 単一バンドのLSTラスタを指定してください。"
             )
+        # 前後の空白は落としてから比較する。別の物理量のラスタを弾くための検証で
+        # あり、"LST " のような体裁の違いで実行全体を止める理由は無い。
         description = src.descriptions[0]
-        if description is not None and str(description).upper() != "LST":
+        if description is not None and str(description).strip().upper() != LST_BAND_DESCRIPTION:
             raise ValueError(
                 f"LSTラスタのバンド説明が想定と異なります（説明: {description}）: {lst_path}。"
-                ' バンド説明が "LST" のラスタを指定してください（未設定は許容します）。'
+                f' バンド説明が "{LST_BAND_DESCRIPTION}" のラスタを指定してください'
+                "（未設定は許容します）。"
             )
-    return 1
 
 
 def build_lst_task(lst_path: Path) -> ParamTask:
@@ -428,8 +434,8 @@ def build_lst_task(lst_path: Path) -> ParamTask:
         raise FileNotFoundError(f"LSTファイルが見つかりません: {lst_path}")
 
     table_name = lst_table_name(lst_path)
-    band_index = _resolve_lst_band(lst_path)
-    resource = RasterResource(lst_path, band_index)
+    _validate_lst_raster(lst_path)
+    resource = RasterResource(lst_path, LST_BAND_INDEX)
 
     def compute(
         bbox_analysis: BBox,
@@ -465,6 +471,39 @@ def validate_computed_columns(task: ParamTask, columns: dict[str, np.ndarray]) -
         )
 
 
+# 有効画素率の列を判別する接尾辞（``ELEV_VALID_RATIO`` / ``LST_VALID_RATIO``）。
+VALID_RATIO_COLUMN_SUFFIX = "_VALID_RATIO"
+
+# 有効画素率の分布として件数を報告する閾値。
+VALID_RATIO_REPORT_THRESHOLDS = (1.0, 0.5)
+
+
+def summarize_valid_ratio(table: pd.DataFrame) -> None:
+    """有効画素率の列について、部分被覆セルの件数を標準出力する。
+
+    **``NaN`` の件数だけでは部分被覆のセルを捕捉できず、有効カバレッジを過大評価
+    する。** セル平均は有効画素のみで取るため、セルの1割しか覆われていなくても値は
+    ``NaN`` にならず、完全に覆われたセルと区別が付かない。LSTは雲マスクにより
+    有効画素率が低くなりやすく、min/mean/max だけでは分布の偏りが読めないため、
+    閾値ごとの件数を明示する。
+
+    Args:
+        table: 出力したテーブル（``cell_id`` 列を含む）。
+    """
+    ratio_columns = [name for name in table.columns if name.endswith(VALID_RATIO_COLUMN_SUFFIX)]
+    for column_name in ratio_columns:
+        values = table[column_name].to_numpy(dtype=np.float64, na_value=np.nan)
+        total = values.size
+        if total == 0:
+            continue
+        counts = " / ".join(
+            f"{threshold}未満 {int(np.sum(values < threshold)):,} 件"
+            f"（{np.sum(values < threshold) / total:.1%}）"
+            for threshold in VALID_RATIO_REPORT_THRESHOLDS
+        )
+        print(f"  {column_name}: {counts}", flush=True)
+
+
 def summarize_table(table_name: str, table: pd.DataFrame) -> None:
     """出力したテーブルの行数と主要統計を標準出力する。
 
@@ -477,6 +516,7 @@ def summarize_table(table_name: str, table: pd.DataFrame) -> None:
     if value_columns:
         statistics = table[value_columns].describe().loc[["min", "mean", "max"]]
         print(statistics.to_string(), flush=True)
+    summarize_valid_ratio(table)
 
 
 def run_for_scale(

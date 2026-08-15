@@ -1,8 +1,8 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-14  
+**最終更新**: 2026-08-15  
 **関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
-**前提知識**: RQ1-RQ3、CRS（WGS84/UTM）、ラスタ/ベクタ処理の基礎
+**前提知識**: RQ1-RQ3、CRS（WGS84/投影座標系）、ラスタ/ベクタ処理の基礎
 
 ---
 
@@ -507,7 +507,7 @@ def compute(
 
 ### 7.3 Step C: 衛星由来指標（任意）
 
-- 各ラスタをUTMのcoarseグリッドに再投影
+- 各ラスタを投影座標系（`analysis_epsg`）のcoarseグリッドに再投影
 - `Resampling.average` でセル平均を取得
 - 有効値のみ出力列に追加
 
@@ -708,7 +708,7 @@ cell_id = make_cell_id(canonical_row, canonical_col)
 ## 8. CRS・単位ルール
 
 - 測量GISの正本座標: EPSG:5897
-- 距離・面積・長さ計算: UTM（都市別の適切なEPSG）
+- 距離・面積・長さ計算: 投影座標系（`analysis_epsg`。既定値はEPSG:5897／VN-2000 TM-3 zone 482。都市ごとに設定）
 - 温度: 摂氏（LST側の仕様に従う）
 - 被覆率: 0-1
 - 道路密度: m/ha（面積正規化、`grid.cell_area_ha()` で算出）

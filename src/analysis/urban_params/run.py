@@ -15,6 +15,12 @@
         --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \\
         --scales 30 90 300
 
+    # LST（観測ファイル単位）。衛星指標と併用する場合は両方の引数を指定する。
+    python -m src.analysis.urban_params --city hanoi \\
+        --lst-file data/satellite/lst/2023/LST_Landsat8_20230707_032329Z.tif \\
+        --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \\
+        --scales 30 90 300
+
 シナリオ（satellite_only / limited / full）は算出側では扱わない。「どのテーブルを
 結合するか」の選択へ還元したため、結合側（``build_dataset.py``）が持つ。
 """
@@ -44,6 +50,8 @@ from .canonical_grid import (
 from .config import (
     ANALYSIS_EXTENT_LAYER_KEY,
     CITY_CONFIG,
+    LST_COLUMNS,
+    LST_TABLE_PREFIX,
     PARAM_SETS,
     PROJECT_ROOT,
     SATELLITE_TABLE_PREFIX,
@@ -61,7 +69,7 @@ from .io import (
     get_optional_raster_resource,
     layer_cache,
 )
-from .params import buildings, elevation, mask, raster, roads
+from .params import buildings, elevation, lst, mask, raster, roads
 from .tables import (
     CELL_ID_COLUMN,
     aligned_bbox,
@@ -81,10 +89,23 @@ PARAM_MODULES = {
     "mask": mask,
 }
 
+# 観測ファイル名から観測日時を取り出す共通パターン（接頭辞のみ異なる）。
+_OBSERVATION_DATETIME_SUFFIX = r"_(?P<date>\d{8})_(?P<time>\d{6})Z\.tiff?$"
+
 # 衛星指標ファイル名から観測日時を取り出すパターン。
 SATELLITE_FILENAME_PATTERN = re.compile(
-    r"^INDICES_[^_]+_(?P<date>\d{8})_(?P<time>\d{6})Z\.tiff?$", re.IGNORECASE
+    r"^INDICES_[^_]+" + _OBSERVATION_DATETIME_SUFFIX, re.IGNORECASE
 )
+
+# LSTファイル名から観測日時を取り出すパターン。
+LST_FILENAME_PATTERN = re.compile(r"^LST_[^_]+" + _OBSERVATION_DATETIME_SUFFIX, re.IGNORECASE)
+
+# LSTラスタのバンド1に期待するバンド説明（大文字化・前後空白除去のうえで比較する）。
+# GEE側（gee_calc_LST.py）が LST バンドとして書き出す名前と揃える。
+LST_BAND_DESCRIPTION = "LST"
+
+# 使用するLSTラスタのバンド番号。単一バンド前提のため固定する。
+LST_BAND_INDEX = 1
 
 
 @dataclass(frozen=True)
@@ -106,11 +127,42 @@ class ParamTask:
     expected_columns: tuple[str, ...]
 
 
-def satellite_table_name(satellite_path: Path) -> str:
-    """衛星指標ファイル名から観測日時つきのテーブル名を導く。
+def _observation_table_name(
+    raster_path: Path,
+    pattern: re.Pattern[str],
+    table_prefix: str,
+    kind_label: str,
+    expected_format_hint: str,
+) -> str:
+    """観測ファイル名から観測日時つきのテーブル名を導く共通処理。
 
     ファイル名から観測を特定できないまま出力すると、どの観測のテーブルか後から
     判別できなくなる。そのため合致しないファイル名は**推測せずに停止する**。
+
+    Args:
+        raster_path: 衛星指標またはLSTラスタのパス。
+        pattern: ファイル名の想定形式（観測日時を名前付きグループで捕捉する）。
+        table_prefix: テーブル名の接頭辞（``idx_`` / ``lst_``）。
+        kind_label: エラーメッセージに使う入力種別のラベル（例: "衛星指標"）。
+        expected_format_hint: エラーメッセージに使う想定ファイル名形式の説明。
+
+    Returns:
+        ``{table_prefix}{YYYYMMDD}_{HHMMSS}`` 形式のテーブル名。
+
+    Raises:
+        ValueError: ファイル名が想定の形式に合致しない場合。
+    """
+    matched = pattern.match(raster_path.name)
+    if matched is None:
+        raise ValueError(
+            f"{kind_label}ファイル名から観測日時を特定できません: {raster_path.name}。"
+            f" {expected_format_hint} の形式のファイルを指定してください。"
+        )
+    return f"{table_prefix}{matched.group('date')}_{matched.group('time')}"
+
+
+def satellite_table_name(satellite_path: Path) -> str:
+    """衛星指標ファイル名から観測日時つきのテーブル名を導く。
 
     Args:
         satellite_path: 衛星指標ラスタのパス。
@@ -121,13 +173,34 @@ def satellite_table_name(satellite_path: Path) -> str:
     Raises:
         ValueError: ファイル名が想定の形式に合致しない場合。
     """
-    matched = SATELLITE_FILENAME_PATTERN.match(satellite_path.name)
-    if matched is None:
-        raise ValueError(
-            f"衛星指標ファイル名から観測日時を特定できません: {satellite_path.name}。"
-            " INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif の形式のファイルを指定してください。"
-        )
-    return f"{SATELLITE_TABLE_PREFIX}{matched.group('date')}_{matched.group('time')}"
+    return _observation_table_name(
+        satellite_path,
+        SATELLITE_FILENAME_PATTERN,
+        SATELLITE_TABLE_PREFIX,
+        "衛星指標",
+        "INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif",
+    )
+
+
+def lst_table_name(lst_path: Path) -> str:
+    """LSTファイル名から観測日時つきのテーブル名を導く。
+
+    Args:
+        lst_path: LSTラスタのパス。
+
+    Returns:
+        ``lst_{YYYYMMDD}_{HHMMSS}`` 形式のテーブル名。
+
+    Raises:
+        ValueError: ファイル名が想定の形式に合致しない場合。
+    """
+    return _observation_table_name(
+        lst_path,
+        LST_FILENAME_PATTERN,
+        LST_TABLE_PREFIX,
+        "LST",
+        "LST_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif",
+    )
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -154,6 +227,12 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--satellite-file",
         default="",
         help="衛星指標ラスタのファイルパス（任意）。相対パスはプロジェクトルート基準。"
+        " テーブル名はファイル名の観測日時から導く。",
+    )
+    parser.add_argument(
+        "--lst-file",
+        default="",
+        help="LSTラスタのファイルパス（任意）。相対パスはプロジェクトルート基準。"
         " テーブル名はファイル名の観測日時から導く。",
     )
     parser.add_argument(
@@ -193,8 +272,10 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             f"（指定値: {', '.join(str(scale) for scale in unsupported)}）。"
         )
 
-    if not args.params and not args.satellite_file:
-        parser.error("--params と --satellite-file の少なくとも一方を指定してください。")
+    if not args.params and not args.satellite_file and not args.lst_file:
+        parser.error(
+            "--params と --satellite-file と --lst-file の少なくとも1つを指定してください。"
+        )
 
     args.scales = list(dict.fromkeys(args.scales))
     args.params = list(dict.fromkeys(args.params))
@@ -302,6 +383,70 @@ def build_satellite_task(satellite_path: Path) -> ParamTask:
     return ParamTask(table_name, compute, tuple(sorted(raster_resources)))
 
 
+def _validate_lst_raster(lst_path: Path) -> None:
+    """LSTラスタのバンド構成を検証する（使用するバンドは常に1）。
+
+    衛星指標は ``io.find_satellite_rasters()`` がバンド説明を検証するが、LSTは
+    単一ファイル・単一バンドの入力であり、その検証を経由しない。誤って多バンドの
+    ラスタや別の物理量のラスタを渡した場合に気づけるよう、ここで検証する。
+
+    Args:
+        lst_path: LSTラスタのパス。
+
+    Raises:
+        ValueError: バンド数が1でない場合、またはバンド1の説明が設定されていて
+            ``LST`` と一致しない場合（未設定の場合は通す）。
+    """
+    import rasterio
+
+    with rasterio.open(lst_path) as src:
+        if src.count != 1:
+            raise ValueError(
+                f"LSTラスタのバンド数が1ではありません（{src.count} バンド）: {lst_path}。"
+                " 単一バンドのLSTラスタを指定してください。"
+            )
+        # 前後の空白は落としてから比較する。別の物理量のラスタを弾くための検証で
+        # あり、"LST " のような体裁の違いで実行全体を止める理由は無い。
+        description = src.descriptions[0]
+        if description is not None and str(description).strip().upper() != LST_BAND_DESCRIPTION:
+            raise ValueError(
+                f"LSTラスタのバンド説明が想定と異なります（説明: {description}）: {lst_path}。"
+                f' バンド説明が "{LST_BAND_DESCRIPTION}" のラスタを指定してください'
+                "（未設定は許容します）。"
+            )
+
+
+def build_lst_task(lst_path: Path) -> ParamTask:
+    """LSTラスタから算出タスクを組み立てる。
+
+    Args:
+        lst_path: LSTラスタのパス。
+
+    Returns:
+        観測日時つきのテーブル名を持つ算出タスク。
+
+    Raises:
+        FileNotFoundError: ファイルが存在しない場合。
+        ValueError: ファイル名から観測日時を特定できない場合、バンド数が1でない
+            場合、またはバンド説明が ``LST`` 以外の場合。
+    """
+    if not lst_path.is_file():
+        raise FileNotFoundError(f"LSTファイルが見つかりません: {lst_path}")
+
+    table_name = lst_table_name(lst_path)
+    _validate_lst_raster(lst_path)
+    resource = RasterResource(lst_path, LST_BAND_INDEX)
+
+    def compute(
+        bbox_analysis: BBox,
+        grid_spec: GridSpec,
+    ) -> dict[str, np.ndarray]:
+        """LSTは ``bbox_analysis`` を取らない別シグネチャのため個別に扱う。"""
+        return lst.compute(resource, grid_spec)
+
+    return ParamTask(table_name, compute, LST_COLUMNS)
+
+
 def validate_computed_columns(task: ParamTask, columns: dict[str, np.ndarray]) -> None:
     """``compute()`` の戻り値が期待した列と一致するかを検証する。
 
@@ -326,6 +471,39 @@ def validate_computed_columns(task: ParamTask, columns: dict[str, np.ndarray]) -
         )
 
 
+# 有効画素率の列を判別する接尾辞（``ELEV_VALID_RATIO`` / ``LST_VALID_RATIO``）。
+VALID_RATIO_COLUMN_SUFFIX = "_VALID_RATIO"
+
+# 有効画素率の分布として件数を報告する閾値。
+VALID_RATIO_REPORT_THRESHOLDS = (1.0, 0.5)
+
+
+def summarize_valid_ratio(table: pd.DataFrame) -> None:
+    """有効画素率の列について、部分被覆セルの件数を標準出力する。
+
+    **``NaN`` の件数だけでは部分被覆のセルを捕捉できず、有効カバレッジを過大評価
+    する。** セル平均は有効画素のみで取るため、セルの1割しか覆われていなくても値は
+    ``NaN`` にならず、完全に覆われたセルと区別が付かない。LSTは雲マスクにより
+    有効画素率が低くなりやすく、min/mean/max だけでは分布の偏りが読めないため、
+    閾値ごとの件数を明示する。
+
+    Args:
+        table: 出力したテーブル（``cell_id`` 列を含む）。
+    """
+    ratio_columns = [name for name in table.columns if name.endswith(VALID_RATIO_COLUMN_SUFFIX)]
+    for column_name in ratio_columns:
+        values = table[column_name].to_numpy(dtype=np.float64, na_value=np.nan)
+        total = values.size
+        if total == 0:
+            continue
+        counts = " / ".join(
+            f"{threshold}未満 {int(np.sum(values < threshold)):,} 件"
+            f"（{np.sum(values < threshold) / total:.1%}）"
+            for threshold in VALID_RATIO_REPORT_THRESHOLDS
+        )
+        print(f"  {column_name}: {counts}", flush=True)
+
+
 def summarize_table(table_name: str, table: pd.DataFrame) -> None:
     """出力したテーブルの行数と主要統計を標準出力する。
 
@@ -338,6 +516,7 @@ def summarize_table(table_name: str, table: pd.DataFrame) -> None:
     if value_columns:
         statistics = table[value_columns].describe().loc[["min", "mean", "max"]]
         print(statistics.to_string(), flush=True)
+    summarize_valid_ratio(table)
 
 
 def run_for_scale(
@@ -414,6 +593,8 @@ def main(argv: list[str] | None = None) -> None:
     tasks = build_param_tasks(args.params, city_cfg, analysis_crs)
     if args.satellite_file:
         tasks.append(build_satellite_task((PROJECT_ROOT / args.satellite_file).resolve()))
+    if args.lst_file:
+        tasks.append(build_lst_task((PROJECT_ROOT / args.lst_file).resolve()))
     print("算出するテーブル:", ", ".join(task.table_name for task in tasks))
 
     # 入力レイヤの読み込みを1回で済ませるため、全スケールを1つのキャッシュスコープで囲む。

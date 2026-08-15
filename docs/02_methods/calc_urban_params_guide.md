@@ -1,6 +1,6 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-12  
+**最終更新**: 2026-08-14  
 **関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1-RQ3、CRS（WGS84/UTM）、ラスタ/ベクタ処理の基礎
 
@@ -159,9 +159,11 @@
 > 現時点では完全確定ではなく、実装と並行して調整中である。  
 > `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。水域関連のパラメータは採用しておらず、算出対象ではない（1.1節）。
 
-## 5.3 任意入力（衛星指標ラスタ）
+## 5.3 任意入力（衛星指標・LSTラスタ）
 
 任意で次のGeoTIFFを指定可能とする。
+
+**衛星指標**（`--satellite-file`）
 
 - NDVI
 - NDBI
@@ -169,10 +171,18 @@
 
 入力が存在する指標のみ列を出力し、存在しない指標は処理を継続する。
 
-**衛星指標は観測ファイル単位でテーブルを作るため `PARAM_SETS` に固定列挙できない。** `--satellite-file` で単一の観測ファイルを指定し、テーブル名はファイル名の観測日時から導く。
+**LST**（`--lst-file`）
 
-- ファイル名が `INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif` に合致する場合、`idx_{YYYYMMDD}_{HHMMSS}` とする（例: `INDICES_Landsat8_20230707_032329Z.tif` → `idx_20230707_032329`）
-- **合致しない場合は日本語の `ValueError` で停止する。** ファイル名から観測を特定できないまま出力すると、どの観測のテーブルか後から判別できなくなるためである
+- LST（地表面温度、°C）
+
+LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル系統として出力する（6.2節・6.3節）。
+
+**いずれも観測ファイル単位でテーブルを作るため `PARAM_SETS` に固定列挙できない。** `--satellite-file` / `--lst-file` で単一の観測ファイルを指定し、テーブル名はファイル名の観測日時から導く。
+
+- 衛星指標: ファイル名が `INDICES_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif` に合致する場合、`idx_{YYYYMMDD}_{HHMMSS}` とする（例: `INDICES_Landsat8_20230707_032329Z.tif` → `idx_20230707_032329`）
+- LST: ファイル名が `LST_{センサ}_{YYYYMMDD}_{HHMMSS}Z.tif` に合致する場合、`lst_{YYYYMMDD}_{HHMMSS}` とする（例: `LST_Landsat8_20230707_032329Z.tif` → `lst_20230707_032329`）
+- **いずれも合致しない場合は日本語の `ValueError` で停止する。** ファイル名から観測を特定できないまま出力すると、どの観測のテーブルか後から判別できなくなるためである
+- LSTラスタは**バンド1固定**とする。バンド数が1でない場合、またはバンド説明が設定されていて `LST` と一致しない場合（大文字小文字は無視）は日本語の `ValueError` で停止する（未設定は許容する）。指標側が `io.find_satellite_rasters()` でバンド説明を検証しているのに対し、LST側だけ無検証にしないためである
 
 ---
 
@@ -186,6 +196,7 @@
     例: data/output/params/hanoi/30m/build_gba.gpkg
         data/output/params/hanoi/30m/road_osm.gpkg
         data/output/params/hanoi/30m/idx_20230707_032329.gpkg
+        data/output/params/hanoi/30m/lst_20230707_032329.gpkg
 
 [結合フェーズ] 分析用データセット
   data/output/datasets/dataset_{name}_{city}_{scale}m.gpkg
@@ -211,11 +222,12 @@
 
 **欠測は GeoPackage の NULL として保持される。** CSV で空文字になり型が揺れる問題は解消した。
 
-### 6.2 条件付きテーブル（衛星由来、設計確定済み）
+### 6.2 条件付きテーブル（衛星由来・LST由来、設計確定済み）
 
 - `idx_{YYYYMMDD}_{HHMMSS}.gpkg`: `NDVI` / `NDBI` / `NDWI`（`--satellite-file` で入力がある指標のみ）
+- `lst_{YYYYMMDD}_{HHMMSS}.gpkg`: `LST`（セル平均・°C）/ `LST_VALID_RATIO`（セル内有効画素率、0-1）（`--lst-file` 指定時のみ）
 
-観測日別にテーブルを分けるため、複数観測を同型で並置できる。
+観測日別にテーブルを分けるため、複数観測を同型で並置できる。LSTは目的変数であり、6.3節の品質管理列の判定材料には含めない。
 
 ### 6.3 品質管理列（結合フェーズで導出）
 
@@ -225,7 +237,7 @@
 - `VALID_GIS_MASK`（少なくとも1つのGIS指標が有効なセル）
   - **判定材料に標高由来の列（`ELEV_MEAN` / `ELEV_VALID_RATIO`）は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無とは別の軸である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
   - 解析対象域フラグ（`IN_ANALYSIS_AREA`）も判定材料に含めない。有効域の定義であって地物の量ではないため
-- `VALID_SATELLITE_MASK`（少なくとも1つの衛星指標がNaNでないセル）
+- `VALID_SATELLITE_MASK`（少なくとも1つの衛星指標がNaNでないセル）。**LST（`lst_*`）は判定材料に含めない。** LSTは目的変数であり、説明変数（衛星指標）の品質管理列に混ぜると目的変数と説明変数の有効性が区別できなくなるためである
 - `MISSING_REASON`（GIS指標の主要欠損理由。`none` / `no_gis_feature` / `missing_gis_data`）
 
 #### `MISSING_REASON` は NULL と 0 を区別する
@@ -321,6 +333,7 @@
 | `cell_id` | 全テーブル | `canonical_grid.make_cell_id()`（`tables.build_param_table()` が付与） | 確定・実装済 |
 | `lon`, `lat` | 正準グリッド／データセット | `canonical_grid._build_cell_frame()`（結合時に `build_dataset.py` が引き継ぐ） | 確定・実装済 |
 | `NDVI`, `NDBI`, `NDWI` | `idx_*` テーブル | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-file` 指定時のみ） |
+| `LST`, `LST_VALID_RATIO` | `lst_*` テーブル | `params/lst.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` / `aggregate_valid_ratio_to_grid()` | 確定・実装済（`--lst-file` 指定時のみ） |
 | `IN_ANALYSIS_AREA` | `mask_roi` テーブル | `params/mask.py: compute()` → `geometry.compute_polygon_coverage()` | 確定・実装済 |
 | `VALID_GIS_MASK`, `MISSING_REASON` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（判定材料の列がある場合のみ付与。6.3節） |
 | `VALID_SATELLITE_MASK` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（同上） |
@@ -351,30 +364,46 @@
 
 | シナリオ | 結合するテーブル | `--scenario` での指定 |
 |---|---|---|
-| `satellite_only` | `mask_roi` | **不可**（下記） |
+| `satellite_only` | `mask_roi` | `--tables` に `idx_*` を伴う場合のみ可（下記） |
 | `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` | 可 |
 | `full` | `mask_roi` / `build_dc` / `road_gt` | 可 |
 
-衛星指標は観測ファイル単位のため `SCENARIO_TABLES` には列挙できない。結合時に観測日時つきのテーブル名（例: `idx_20230707_032329`）を `--tables` で明示する。
+衛星指標・LSTは観測ファイル単位のため `SCENARIO_TABLES` には列挙できない。結合時に観測日時つきのテーブル名（例: `idx_20230707_032329` / `lst_20230707_032329`）を `--tables` で明示する。
 
-**`--scenario satellite_only` は拒否する。** 衛星指標を列挙できない以上、シナリオ名だけで展開すると `mask_roi` だけの4列（`cell_id` / `lon` / `lat` / `IN_ANALYSIS_AREA`）のデータセットが `dataset_satellite_only_*.gpkg` という名前で出力される。**名前が中身を偽る**ため、経路自体を塞いでいる。次のように直接指定する。
+**`--scenario` と `--tables` は併用できる。** シナリオ展開分（先）と直接指定分（後）を連結し、重複は除く（`build_dataset.resolve_table_names()`）。併用時は `--name` を必須とする（既定名としてシナリオ名を推測しないため）。観測ファイル単位のテーブルは `SCENARIO_TABLES` に列挙できないため、シナリオ展開＋観測テーブルの追加が RQ1・RQ2 でも定型になる。
+
+**`--scenario satellite_only` は単独では拒否する。** 衛星指標を列挙できない以上、シナリオ名だけで展開すると `mask_roi` だけの4列（`cell_id` / `lon` / `lat` / `IN_ANALYSIS_AREA`）のデータセットが `dataset_satellite_only_*.gpkg` という名前で出力される。**名前が中身を偽る**ため、`--tables` に `idx_*` を伴う場合のみ許可する。**`lst_*` の有無は解禁条件にしない。** `Satellite Only` は「衛星由来指標のみを用いる分析シナリオ」（CLAUDE.md 用語集）であり、説明変数が `idx_*` だからである。`mask_roi` + `lst_*` だけを許すと、目的変数しか持たないデータセットが `satellite_only` を名乗ることになる。
 
 ```bash
 python -m src.analysis.build_dataset --city hanoi --scale 30 \
-    --tables idx_20230707_032329 mask_roi --name satellite_only
+    --scenario satellite_only --tables idx_20230707_032329 lst_20230707_032329 \
+    --name satellite_only_20230707_032329
 ```
 
-`SCENARIO_TABLES` にエントリを残しているのは、「衛星指標以外に何を結合するか」を記録するためである。`--scenario` と `--tables` の併用を許すかどうかは CLI 仕様の設計判断を伴うため、LST のテーブル化とあわせて後続で決める。
+`SCENARIO_TABLES` にエントリを残しているのは、「衛星指標以外に何を結合するか」を記録するためである。
 
 **結合は左結合とする。** 正準グリッドのセルを1行も落とさないためであり、あるテーブルにのみ存在しない `cell_id` の値は NULL として残る。
 
 **単一スケールのテーブルのみを結合する。** `cell_id` は全スケール共通の式（`row * 1000000 + col`）で採番するため、**一意なのは同一スケールのレイヤ内に限られる**（7.5.3節）。`--scale` は単一指定に限り、テーブルも同じスケールのディレクトリからのみ読む。
 
-**静かに壊れる経路を3つ塞いでいる。**
+**静かに壊れる経路を4つ塞いでいる。**
 
 - **列名の衝突**（`build_gba` と `build_dc` の同時結合など）は、所有テーブル名つきの `ValueError` で拒否する。接尾辞を付けて黙って両方残すと、どちらがどのソースか分からなくなる
 - **`cell_id` の重複**があるテーブルは、読み込みの時点で弾く。結合で行が増え、値の誤りではなく行数の誤りとして現れる
 - **土台と `cell_id` が一致した件数**をテーブルごとに報告し、0件なら警告する。古い解析範囲で算出した stale なテーブルを結合しても例外にはならず、該当列が広範囲に NULL になるだけである
+- **観測日時の混在**（`idx_20230707_032329` と `lst_20241130_032336` の同時結合など）は、テーブルを読み込む前に `ValueError` で拒否する（`validate_observation_consistency()`）。LSTと衛星指標が別観測から来ていると目的変数と説明変数の関係を見るという前提が崩れるが、**結合自体は `cell_id` で成立し、行数も欠損も正常に見えるため出力からは判別できない**。テーブル名が観測日時を保持しているうちに入口で止める。同種どうし（`idx_*` が2つなど）も同様に拒否する
+
+### 6.7 新旧の差異と比較可能性（Satellite Only）
+
+旧経路（`build_satellite_only_dataset.py`。移行に伴い削除済み）と本節冒頭の新経路（`urban_params` + `build_dataset`）は、以下の3点で仕様が異なる。**単なる集計単位の違いではないため、3点まとめて記載する。**
+
+| 観点 | 旧経路（削除済み） | 新経路 |
+|---|---|---|
+| 集計単位 | ピクセル単位（1行1ピクセル、`gdal_translate` によるXYZ出力） | セル単位（`cell_id` キーの `LST` / `LST_VALID_RATIO` セル平均） |
+| 行の絞り込み方 | LST・NDVI・NDBI・NDWI がすべて揃う complete case のみ | 全セル保持＋品質管理列（`LST_VALID_RATIO` / `VALID_SATELLITE_MASK`）で判断させる（6.3節） |
+| 物理範囲フィルタ | LST 15〜65°C・指標 ±1.1 の範囲外を除外 | 適用しない。フィルタは下流の分析スクリプトが担う責務とする（結合フェーズが行を落とすと `MISSING_REASON` の意味が崩れるため） |
+
+**この3点の違いにより、既存の [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)（旧経路によるRQ3のベースライン結果）と、新経路で出力したデータセットは統計的に別物であり、直接比較しない。** 格子が一致せずセル単位の対応づけができないため、突合できるとしても分布統計に限られ、投じる作業量に対して得られる根拠が弱いと判断した。既存結果はピクセル単位の先行結果として保持し、新経路での RQ3 再実行は別Issueで扱う。
 
 ---
 
@@ -395,6 +424,7 @@ src/analysis/
     io.py             # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み・キャッシュ（7.7節）
     params/
       raster.py       # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI・有効画素率）
+      lst.py          # LSTパラメータ（LST/LST_VALID_RATIO）
       buildings.py    # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
       roads.py        # 道路パラメータ（ROAD_DEN）
       elevation.py    # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
@@ -693,7 +723,10 @@ cell_id = make_cell_id(canonical_row, canonical_col)
 - 任意入力（衛星指標）が欠けていても処理継続
 - 入力の解決と対象スケールのグリッドレイヤの存在確認は、算出へ入る前にまとめて行い、不足があれば1件も出力せずに停止する
 - ラスタ設定の不備（`path` / `band` の欠落、バンド数を超えるバンド番号）は日本語の `ValueError` で停止する
-- DEMが解析グリッドとまったく重ならない場合は警告する（ファイルは存在するため入力解決を素通りし、全セル `NaN` の列が黙って出力されるため）
+- **セル平均の列が全セル `NaN` になった場合は警告する**（DEM・LSTに共通。`params/raster.py: aggregate_mean_and_valid_ratio()`）。ファイルは存在するため入力解決を素通りし、列が残ったまま中身だけが空になる
+  - **原因を2つに切り分けてから文言を選ぶ。** 「ラスタがグリッドと重なっていない」（都市の取り違え・切り出し範囲の誤り）と「重なってはいるが有効画素が1つも無い」（**全面が雲マスクの観測**・nodata値の取り違え）は、どちらも全セル `NaN` という同じ結果になる一方、対処がまったく異なる。判定は `raster_overlaps_grid()` がラスタの記録範囲とグリッド範囲の交差で行い、**画素値は読まない**
+  - 切り分けは全セル `NaN` のときにしか行わない。正常な入力でラスタを開き直すコストを掛けないためである
+  - **LSTでは「重なっているが全面欠測」が現実に起こり得る**（実データの有効画素率は25.4〜45.7%）。これを「重なりません」と報告すると、実際の原因（観測日の選び直し）から遠ざけてしまう
 - `compute()` の戻り値が `PARAM_SETS` の宣言列と食い違う場合は、不足・余分を示して停止する（別ソース版どうしで列が揃わなくなるため）
 - 出力先への差し替えに失敗した場合（QGIS等が開いたまま等）は、対処を示す日本語メッセージへ包み直し、書き出し済みの一時ファイルは回収できるよう残す
 - エラーメッセージは日本語で明示
@@ -716,6 +749,12 @@ python -m src.analysis.urban_params --city hanoi \
 python -m src.analysis.urban_params --city hanoi \
   --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \
   --scales 30 90 300
+
+# LST（観測ファイル単位）。衛星指標と併用する場合は両方の引数を指定する
+python -m src.analysis.urban_params --city hanoi \
+  --lst-file data/satellite/lst/2023/LST_Landsat8_20230707_032329Z.tif \
+  --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \
+  --scales 30 90 300
 ```
 
 主要引数:
@@ -723,12 +762,13 @@ python -m src.analysis.urban_params --city hanoi \
 - `--city`: 都市ID（例: hanoi）
 - `--params`: 算出するパラメータセット名の一覧（5.2.0節）。テーブル名としてそのまま使う
 - `--satellite-file`: 任意。衛星指標ラスタの**単一ファイル**。テーブル名はファイル名の観測日時から導く
+- `--lst-file`: 任意。LSTラスタの**単一ファイル**。テーブル名はファイル名の観測日時から導く
 - `--scales`: 出力するcoarseグリッド解像度（m）の一覧（既定: `30 90 300`）。900 の約数である必要がある
 - `--fine-res`: 被覆率計算の補助解像度（既定10m）
 - `--grid`: 正準グリッドGeoPackageのパス（既定: `data/output/grid/grid_{city}.gpkg`）
 - `--output-dir`: 出力ルート（既定: `data/output/params`）
 
-`--params` と `--satellite-file` は少なくとも一方の指定が必要である。
+`--params` / `--satellite-file` / `--lst-file` は少なくとも1つの指定が必要である。
 
 **廃止した引数**: `--scenario`（シナリオは結合側へ移動）、`--mask-layer-key`（解析範囲は ROI へ一本化し、有効域は `mask_roi` テーブルが持つ）、`--satellite-dir`（複数観測を1テーブルへ混ぜる余地を残すため、単一観測の指定に限る）。
 
@@ -741,13 +781,18 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario limited
 # テーブルを直接指定する（別ソース版の比較・衛星指標の追加など）
 python -m src.analysis.build_dataset --city hanoi --scale 30 \
   --tables build_dc road_gt idx_20230707_032329 --name full_with_indices
+
+# シナリオと観測ファイル単位のテーブルを併用する（satellite_only はこの形が必須）
+python -m src.analysis.build_dataset --city hanoi --scale 30 \
+  --scenario satellite_only --tables idx_20230707_032329 lst_20230707_032329 \
+  --name satellite_only_20230707_032329
 ```
 
 主要引数:
 
 - `--scale`: 結合対象のスケール（m）。**単一指定に限る**（`cell_id` はスケール内でのみ一意のため）
-- `--scenario` / `--tables`: 結合対象の指定（どちらか一方）
-- `--name`: データセット名。`--scenario` 指定時の既定はシナリオ名、`--tables` 指定時は必須
+- `--scenario` / `--tables`: 結合対象の指定。**併用可**（シナリオ展開＋観測ファイル単位テーブルの追加）。併用時は `--name` が必須
+- `--name`: データセット名。`--scenario` 単独指定時の既定はシナリオ名、`--tables` を使う場合（併用含む）は必須
 - `--params-dir` / `--grid` / `--output-dir`: 入出力ルート
 
 ### 10.3 現在の実装状況
@@ -757,8 +802,9 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`hanoi_osm_roads.gpkg`（`road_osm`）から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
 - **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`hanoi_gba_buildings.gpkg`（`build_gba`、GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`build_dc`（`merge_DC.gpkg`）は高さ属性を持たないため、高さ列は NaN になる。
 - **`params/elevation.py`（`ELEV_MEAN` / `ELEV_VALID_RATIO`）**: 設計確定・実装済み。FABDEM v1.2（`fabdem_hanoi_dem.tif`、`elev_fabdem`）を coarse グリッドへ平均再投影し、セル平均標高（m）とセル内のDEM有効画素率（0-1）を算出する。`ELEV_COUNT` は出力しない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
+- **`params/lst.py`（`LST` / `LST_VALID_RATIO`）**: 設計確定・実装済み。LSTラスタ（`--lst-file`）を coarse グリッドへ平均再投影し、セル平均地表面温度（°C）とセル内のLST有効画素率（0-1）を算出する。目的変数であり `VALID_SATELLITE_MASK` の判定材料には含めない（6.3節）。集約後の有効値の中央値が摂氏として妥当な範囲（-60〜90°C）の外なら警告する（ケルビン取り違えの検知。正常なLSTを弾かない広さに取る）。
 - **`params/mask.py`（`IN_ANALYSIS_AREA`）**: 設計確定・実装済み。ROI ポリゴンの被覆率が0より大きいセルを1とする。
-- 衛星指標は `INDICES_*.tif` のバンド説明（NDVI, NDBI, NDWI）から検出する。
+- 衛星指標・LSTは `INDICES_*.tif` / `LST_*.tif` のバンド説明（衛星指標: NDVI, NDBI, NDWI／LST: LST）から検出・検証する。
 - 実行には `fiona`, `pyogrio`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
 - **旧 wide CSV（`data/output/urban_params/*.csv`）は残置する。** 再生成の手段は持たない（旧原点での算出は `verify_values.py` が担う）。
 
@@ -784,6 +830,15 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - `ELEV_VALID_RATIO` が 0-1 に収まり、`ELEV_MEAN` が `NaN` のセルで `0.0` になっている（両列の整合）
 - `VALID_GIS_MASK` の分布が標高の追加前後で変わらない（品質判定に混入していないこと）
 - スケール間（30/90/300m）で平均標高の水準が整合する
+
+**LST（`LST` / `LST_VALID_RATIO`）の検証観点**
+
+- 値が摂氏として妥当な範囲に収まる（実データ実測 min 13.50 / max 63.27°C）。集約後の中央値がケルビン相当（約270〜320）でないことを確認する
+- `LST` は有効カバレッジ外・雲被覆セルが `NaN` であり、`LST_VALID_RATIO` は有効画素が無いセルを `0.0` とする（`NaN` にしない、両列の整合）
+- `LST_VALID_RATIO` の分布（1未満・0.5未満の件数）をスケール別に記録する。実データは雲マスクにより有効画素率が25.4〜45.7%と低いため、**`NaN` の件数だけでは部分被覆セルを捕捉できず、有効カバレッジを過大評価する**
+  - この件数は算出時に自動で出力される（`run.py: summarize_valid_ratio()`）。`_VALID_RATIO` で終わる列を対象とするため、`ELEV_VALID_RATIO` も同時に報告される。min/mean/max だけでは分布の偏りが読めないため、`describe()` とは別に件数を出す
+- 結合後のデータセットで `VALID_SATELLITE_MASK` が `NDVI`/`NDBI`/`NDWI` のみから決まり、`LST` の有無で変わらない（6.3節）
+- `IN_ANALYSIS_AREA == 1` のセルにおける `LST` 非 NULL 件数を記録する
 
 ### 11.1 ユニットテスト
 

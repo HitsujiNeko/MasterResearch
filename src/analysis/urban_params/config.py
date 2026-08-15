@@ -30,6 +30,15 @@ DATASETS_OUTPUT_PARTS = ("data", "output", "datasets")
 # 結合フェーズはこの接頭辞でGIS由来のテーブルと区別する。
 SATELLITE_TABLE_PREFIX = "idx_"
 
+# LSTテーブル名の接頭辞。衛星指標と同じく観測ファイル単位で作るため PARAM_SETS に
+# 列挙できない。LSTは目的変数であり、衛星指標（説明変数）の品質管理列
+# （VALID_SATELLITE_MASK）の判定材料には含めないため、接頭辞を分けて区別する。
+LST_TABLE_PREFIX = "lst_"
+
+# LSTテーブルの列名。標高（ELEV_MEAN / ELEV_VALID_RATIO）と同じく、セル平均値と
+# セル内有効画素率の2列を持つ。
+LST_COLUMNS = ("LST", "LST_VALID_RATIO")
+
 
 def grid_layer_name(scale: int) -> str:
     """正準グリッドGeoPackage内のレイヤ名を返す。
@@ -184,13 +193,17 @@ PARAM_SETS: dict[str, ParamSet] = {
 # 「どのテーブルを結合するかの選択」へ還元したため、算出側（run.py）は参照せず、
 # 結合側（build_dataset.py）が使う。
 #
-# 衛星指標は観測ファイル単位でテーブルを作るため、ここには列挙できない。
-# 結合時に観測日時つきのテーブル名（例: idx_20230707_032329）を明示的に指定する。
+# 衛星指標・LSTは観測ファイル単位でテーブルを作るため、ここには列挙できない。
+# 結合時に観測日時つきのテーブル名（例: idx_20230707_032329 / lst_20230707_032329）を
+# 明示的に指定する。
 #
 # ``satellite_only`` はそのためシナリオ名だけでは完成しない。エントリを残すのは
-# 「衛星指標以外に何を結合するか」を記録するためであり、``--scenario`` での指定は
+# 「衛星指標以外に何を結合するか」を記録するためであり、``--scenario`` での単独指定は
 # build_dataset.py が明示的に拒否する（mask_roi だけのデータセットが「衛星のみ」を
-# 名乗って出力されるのを防ぐため）。
+# 名乗って出力されるのを防ぐため）。``--tables`` に idx_* を伴う場合のみ、
+# ``--scenario satellite_only`` との併用を許可する（Satellite Only は衛星由来指標
+# （idx_*）を用いるシナリオであり、lst_* の有無は解禁条件にしない。lst_* だけを許すと
+# 目的変数しか持たないデータセットが「衛星のみ」を名乗ることになるため）。
 SATELLITE_ONLY_SCENARIO = "satellite_only"
 
 SCENARIO_TABLES: dict[str, tuple[str, ...]] = {

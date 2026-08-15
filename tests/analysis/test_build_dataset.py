@@ -19,16 +19,26 @@ from src.analysis.build_dataset import (
     join_tables,
     load_param_table,
     main,
+    observation_key,
     parse_arguments,
     report_match_counts,
     resolve_dataset_name,
     resolve_dataset_path,
     resolve_table_names,
+    validate_observation_consistency,
 )
 from src.analysis.urban_params.config import SCENARIO_TABLES
 from src.analysis.urban_params.run import main as run_urban_params
 
-from .conftest import CITY, FINE_RES_M, SATELLITE_FILE_NAME, SATELLITE_TABLE_NAME, SCALES
+from .conftest import (
+    CITY,
+    FINE_RES_M,
+    LST_FILE_NAME,
+    LST_TABLE_NAME,
+    SATELLITE_FILE_NAME,
+    SATELLITE_TABLE_NAME,
+    SCALES,
+)
 
 # 結合の検証に使うスケール（合成グリッドでは 20m が 6x6 相当）。
 TARGET_SCALE = SCALES[0]
@@ -53,21 +63,88 @@ def test_parse_arguments_requires_scenario_or_tables() -> None:
         parse_arguments(["--scale", "30"])
 
 
-def test_parse_arguments_rejects_scenario_and_tables_together() -> None:
-    """--scenario と --tables の同時指定はエラーになる（対象が二重定義になるため）。"""
+def test_parse_arguments_accepts_scenario_and_tables_together() -> None:
+    """--scenario と --tables は併用できる（シナリオ展開＋観測ファイル単位テーブルの追加）。
+
+    観測ファイル単位のテーブル（idx_* / lst_*）は SCENARIO_TABLES に列挙できないため、
+    シナリオ展開＋観測テーブルの追加が RQ1・RQ2 でも定型になる。
+    """
+    args = parse_arguments(
+        [
+            "--scale",
+            "30",
+            "--scenario",
+            "limited",
+            "--tables",
+            "idx_20230707_032329",
+            "--name",
+            "custom",
+        ]
+    )
+
+    assert args.scenario == "limited"
+    assert args.tables == ["idx_20230707_032329"]
+
+
+def test_parse_arguments_requires_name_when_scenario_and_tables_combined() -> None:
+    """--scenario と --tables を併用する場合も --name が必須（既定名を推測しないため）。"""
     with pytest.raises(SystemExit):
-        parse_arguments(["--scale", "30", "--scenario", "limited", "--tables", "build_gba"])
+        parse_arguments(
+            ["--scale", "30", "--scenario", "limited", "--tables", "idx_20230707_032329"]
+        )
 
 
-def test_parse_arguments_rejects_satellite_only_scenario() -> None:
-    """--scenario satellite_only は拒否する。
+def test_parse_arguments_rejects_satellite_only_without_tables() -> None:
+    """--scenario satellite_only を --tables なしで指定すると拒否する。
 
-    衛星指標は観測ファイル単位のため SCENARIO_TABLES に列挙できず、シナリオ名で
-    展開すると mask_roi だけのデータセットが「衛星のみ」を名乗って出力される。
+    衛星指標は観測ファイル単位のため SCENARIO_TABLES に列挙できず、シナリオ名だけの
+    指定では mask_roi だけのデータセットが「衛星のみ」を名乗って出力される。
     名前が中身を偽るくらいなら止める。
     """
     with pytest.raises(SystemExit):
         parse_arguments(["--scale", "30", "--scenario", "satellite_only"])
+
+
+def test_parse_arguments_rejects_satellite_only_without_satellite_table() -> None:
+    """--scenario satellite_only を idx_* 抜きの --tables で指定すると拒否する。
+
+    lst_* だけを許すと、目的変数（LST）しか持たないデータセットが「衛星のみ」を
+    名乗ることになる。Satellite Only は衛星由来指標（idx_*）を用いるシナリオであり、
+    lst_* の有無は解禁条件にしない。
+    """
+    with pytest.raises(SystemExit):
+        parse_arguments(
+            [
+                "--scale",
+                "30",
+                "--scenario",
+                "satellite_only",
+                "--tables",
+                "lst_20230707_032329",
+                "--name",
+                "custom",
+            ]
+        )
+
+
+def test_parse_arguments_accepts_satellite_only_with_satellite_table() -> None:
+    """--scenario satellite_only は idx_* を伴う --tables との併用で許可される。"""
+    args = parse_arguments(
+        [
+            "--scale",
+            "30",
+            "--scenario",
+            "satellite_only",
+            "--tables",
+            "idx_20230707_032329",
+            "lst_20230707_032329",
+            "--name",
+            "custom",
+        ]
+    )
+
+    assert args.scenario == "satellite_only"
+    assert args.tables == ["idx_20230707_032329", "lst_20230707_032329"]
 
 
 def test_parse_arguments_requires_name_with_tables() -> None:
@@ -101,6 +178,21 @@ def test_resolve_table_names_expands_scenario_tables() -> None:
     """シナリオ名は SCENARIO_TABLES へ展開される。"""
     assert resolve_table_names("limited", []) == list(SCENARIO_TABLES["limited"])
     assert resolve_table_names("", ["build_dc", "road_gt"]) == ["build_dc", "road_gt"]
+
+
+def test_resolve_table_names_combines_scenario_and_tables() -> None:
+    """シナリオ展開分（先）と直接指定分（後）を連結する。"""
+    result = resolve_table_names("limited", ["idx_20230707_032329"])
+
+    assert result == [*SCENARIO_TABLES["limited"], "idx_20230707_032329"]
+
+
+def test_resolve_table_names_deduplicates_overlapping_names() -> None:
+    """シナリオ展開分と直接指定分に同じテーブル名がある場合は重複を除く。"""
+    result = resolve_table_names("limited", ["build_gba", "idx_20230707_032329"])
+
+    assert result.count("build_gba") == 1
+    assert result == [*SCENARIO_TABLES["limited"], "idx_20230707_032329"]
 
 
 def test_resolve_dataset_name_prefers_explicit_name() -> None:
@@ -341,6 +433,24 @@ def test_classify_value_columns_splits_gis_and_satellite() -> None:
     assert satellite_columns == ["NDVI", "NDBI"]
 
 
+def test_classify_value_columns_excludes_lst_from_both_masks() -> None:
+    """LST（lst_ で始まるテーブル）はGIS・衛星いずれの分類にも含めない。
+
+    LSTは目的変数であり、VALID_GIS_MASK / VALID_SATELLITE_MASK の判定材料に
+    混ぜてはならない。
+    """
+    tables = {
+        "build_gba": _one_row(["BUILD_COV"]),
+        SATELLITE_TABLE_NAME: _one_row(["NDVI"]),
+        LST_TABLE_NAME: _one_row(["LST", "LST_VALID_RATIO"]),
+    }
+
+    gis_columns, satellite_columns = classify_value_columns(list(tables), tables)
+
+    assert gis_columns == ["BUILD_COV"]
+    assert satellite_columns == ["NDVI"]
+
+
 def test_classify_value_columns_excludes_elevation_and_mask() -> None:
     """標高と解析対象域フラグは VALID_GIS_MASK の判定材料に含めない。
 
@@ -364,6 +474,90 @@ def test_classify_value_columns_rejects_unknown_table() -> None:
 
     with pytest.raises(ValueError, match="種別を判別できません"):
         classify_value_columns(list(tables), tables)
+
+
+# ---------------------------------------------------------------------------
+# observation_key / validate_observation_consistency
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected"),
+    [
+        ("idx_20230707_032329", "20230707_032329"),
+        ("lst_20230707_032329", "20230707_032329"),
+        ("lst_20241130_032336", "20241130_032336"),
+        # 観測ファイル単位でないテーブルは観測日時を持たない。
+        ("build_gba", None),
+        ("mask_roi", None),
+        # 接頭辞は合っていても日時形式に合致しないものは対象外とする。
+        ("idx_2023", None),
+        ("lst_20230707_0323290", None),
+    ],
+)
+def test_observation_key_extracts_datetime(table_name: str, expected: str | None) -> None:
+    """観測ファイル単位のテーブル名からのみ観測日時キーを取り出す。"""
+    assert observation_key(table_name) == expected
+
+
+@pytest.mark.parametrize(
+    "table_names",
+    [
+        ["idx_20230707_032329", "lst_20230707_032329"],
+        ["mask_roi", "build_gba", "idx_20230707_032329", "lst_20230707_032329"],
+        # 観測テーブルが1つだけ、あるいは1つも無い場合も通す。
+        ["lst_20230707_032329"],
+        ["mask_roi", "build_gba"],
+        [],
+    ],
+)
+def test_validate_observation_consistency_accepts_single_observation(
+    table_names: list[str],
+) -> None:
+    """観測日時が揃っている（または観測テーブルが1つ以下の）場合は通る。"""
+    validate_observation_consistency(table_names)
+
+
+def test_validate_observation_consistency_rejects_mixed_observations() -> None:
+    """観測日時の異なる idx_* と lst_* の同時結合はValueErrorで止める。
+
+    LSTと衛星指標が別の観測から来ていると、目的変数と説明変数の関係を見るという
+    分析の前提が崩れる。それでいて cell_id 結合は成立し、行数も欠損も正常に見える
+    ため、出力からは判別できない。
+    """
+    with pytest.raises(ValueError, match="観測日時の異なるテーブル"):
+        validate_observation_consistency(["mask_roi", "idx_20230707_032329", "lst_20241130_032336"])
+
+
+def test_validate_observation_consistency_rejects_two_satellite_observations() -> None:
+    """同種のテーブルどうしでも、観測日時が異なれば止める。"""
+    with pytest.raises(ValueError, match="観測日時の異なるテーブル"):
+        validate_observation_consistency(["idx_20230707_032329", "idx_20241130_032336"])
+
+
+def test_build_dataset_rejects_mixed_observations_before_reading(
+    city_environment: dict[str, Any],
+) -> None:
+    """観測日時の食い違いは、テーブルを読み込む前に検出する。
+
+    ファイルは実在するため読み込み自体は成功し、結合まで進んでも異常として現れない。
+    """
+    _run_param_calculation(
+        city_environment,
+        ["--satellite-file", f"data/{SATELLITE_FILE_NAME}", "--lst-file", f"data/{LST_FILE_NAME}"],
+    )
+
+    with pytest.raises(ValueError, match="観測日時の異なるテーブル"):
+        _run_build_dataset(
+            city_environment,
+            [
+                "--tables",
+                SATELLITE_TABLE_NAME,
+                "lst_20241130_032336",
+                "--name",
+                "mixed_observation",
+            ],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -579,6 +773,60 @@ def test_end_to_end_satellite_table_adds_quality_column(
     dataset = _read_dataset(city_environment, "satellite")
 
     assert {"NDVI", "NDBI", "NDWI"}.issubset(set(dataset.columns))
+    assert VALID_SATELLITE_MASK_COLUMN in dataset.columns
+    assert VALID_GIS_MASK_COLUMN not in dataset.columns
+
+
+def test_end_to_end_lst_table_adds_no_quality_column(city_environment: dict[str, Any]) -> None:
+    """LSTテーブルを結合しても、GIS・衛星いずれの品質管理列も導出されない。
+
+    LSTは目的変数であり、判定材料に混ぜてはならない（方針2）。
+    """
+    _run_param_calculation(city_environment, ["--lst-file", f"data/{LST_FILE_NAME}"])
+    _run_build_dataset(city_environment, ["--tables", LST_TABLE_NAME, "--name", "lst_only"])
+
+    dataset = _read_dataset(city_environment, "lst_only")
+
+    assert {"LST", "LST_VALID_RATIO"}.issubset(set(dataset.columns))
+    assert VALID_GIS_MASK_COLUMN not in dataset.columns
+    assert VALID_SATELLITE_MASK_COLUMN not in dataset.columns
+
+
+def test_end_to_end_satellite_only_scenario_with_tables(city_environment: dict[str, Any]) -> None:
+    """--scenario satellite_only は idx_* を伴う --tables との併用で結合できる。
+
+    VALID_SATELLITE_MASK は NDVI/NDBI/NDWI のみから決まり、LSTの有無で変わらない
+    （方針2・方針4）。
+    """
+    _run_param_calculation(
+        city_environment,
+        [
+            "--params",
+            "mask_roi",
+            "--satellite-file",
+            f"data/{SATELLITE_FILE_NAME}",
+            "--lst-file",
+            f"data/{LST_FILE_NAME}",
+        ],
+    )
+    _run_build_dataset(
+        city_environment,
+        [
+            "--scenario",
+            "satellite_only",
+            "--tables",
+            SATELLITE_TABLE_NAME,
+            LST_TABLE_NAME,
+            "--name",
+            "satellite_only_with_lst",
+        ],
+    )
+
+    dataset = _read_dataset(city_environment, "satellite_only_with_lst")
+
+    assert {"IN_ANALYSIS_AREA", "NDVI", "NDBI", "NDWI", "LST", "LST_VALID_RATIO"}.issubset(
+        set(dataset.columns)
+    )
     assert VALID_SATELLITE_MASK_COLUMN in dataset.columns
     assert VALID_GIS_MASK_COLUMN not in dataset.columns
 

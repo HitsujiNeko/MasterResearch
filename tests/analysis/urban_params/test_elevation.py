@@ -309,6 +309,24 @@ def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path) -> None:
     np.testing.assert_allclose(result["ELEV_VALID_RATIO"], 0.0, atol=1e-5)
 
 
+def test_compute_warns_all_missing_not_no_overlap_when_dem_is_fully_nodata(
+    tmp_path: Path,
+) -> None:
+    """DEMがグリッドと重なっていて全画素nodataの場合、「重なりません」とは言わない。
+
+    どちらも全セルNaNという同じ結果になるが、切り出し範囲を疑うべき場合と、
+    nodata値の取り違えを疑うべき場合とで対処が異なる。
+    """
+    dem_path = tmp_path / "dem_all_nodata.tif"
+    _write_dem(dem_path, np.full((8, 8), -9999.0, dtype=np.float32), nodata=-9999.0)
+
+    with pytest.warns(UserWarning, match="有効画素が1つもありません") as caught:
+        result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+
+    assert not [record for record in caught if "重なりません" in str(record.message)]
+    assert np.isnan(result["ELEV_MEAN"]).all()
+
+
 def test_compute_does_not_warn_when_dem_overlaps_grid(tmp_path: Path) -> None:
     """DEMがグリッドと重なる通常の入力では警告しない。"""
     dem_path = tmp_path / "dem_overlap.tif"

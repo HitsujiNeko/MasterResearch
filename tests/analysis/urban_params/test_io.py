@@ -447,10 +447,18 @@ def counting_readers(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
 
     キャッシュ自身が持つ ``load_counts`` とは独立に数えることで、
     「読み込みが1回で済む」ことを実装の自己申告に頼らずに確認する。
+
+    ``features`` は2つの経路を合算する。``_iter_feature_records_uncached()``
+    （キャッシュ非活性時、および全域を覆わない検索）と ``_read_full_layer_features()``
+    （キャッシュ活性時に全域を覆うと判定してからの実読み込み）で、判定用に開いた
+    ファイルを読み込みにも使い回すため（``iter_feature_records()`` 参照）、実読み込みが
+    後者だけを通ることがある。片方だけを数えると、二重オープン解消後の実読み込みを
+    取りこぼす。
     """
     counts = {"dataframe": 0, "features": 0}
     original_frame = urban_params_io._read_layer_dataframe_uncached
     original_records = urban_params_io._iter_feature_records_uncached
+    original_full_layer = urban_params_io._read_full_layer_features
 
     def counting_frame(resource: LayerResource, columns: list[str] | None) -> Any:
         """GeoDataFrameの実読み込み回数を数える。"""
@@ -458,12 +466,18 @@ def counting_readers(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
         return original_frame(resource, columns)
 
     def counting_records(resource: LayerResource, bbox_analysis: BBox) -> Any:
-        """フィーチャの実読み込み回数を数える。"""
+        """フィーチャの実読み込み回数を数える（キャッシュ非活性時・全域非対象時の経路）。"""
         counts["features"] += 1
         return original_records(resource, bbox_analysis)
 
+    def counting_full_layer(src: Any) -> Any:
+        """フィーチャの実読み込み回数を数える（キャッシュ活性時に全域を覆う経路）。"""
+        counts["features"] += 1
+        return original_full_layer(src)
+
     monkeypatch.setattr(urban_params_io, "_read_layer_dataframe_uncached", counting_frame)
     monkeypatch.setattr(urban_params_io, "_iter_feature_records_uncached", counting_records)
+    monkeypatch.setattr(urban_params_io, "_read_full_layer_features", counting_full_layer)
     return counts
 
 

@@ -1,6 +1,6 @@
 # GIS-IDEAS 学会用アブストラクト下書き（衛星指標のみ条件の初期分析）
 
-**最終更新**: 2026-04-21  
+**最終更新**: 2026-08-15  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)  
 **前提知識**: データ制約下での有効性評価の目的、Satellite Only 初期実行結果、LST 算出フロー
 
@@ -19,11 +19,14 @@
 
 ## 2. Methodology 記述前のコード確認メモ
 
+> **2026-08-15時点の補足**: 本節は2026-04-16時点のコード構成に対する確認記録であり、記述はその時点のものとして据え置く。
+> 以降、`build_satellite_only_dataset.py` は cell_id 結合への移行に伴い削除された。**Methodology を英文へ起こす際は、本節ではなく現行の実装（下記「現行の対応先」）を参照すること。**
+
 ### 2.1 確認対象
 
 - `src/gee/gee_calc_LST.py`
 - `src/gee/gee_calc_satellite_indices.py`
-- `src/analysis/build_satellite_only_dataset.py`
+- `src/analysis/build_satellite_only_dataset.py`（**削除済み**。現行の対応先は `src/analysis/urban_params/`（`--lst-file` / `--satellite-file`）と `src/analysis/build_dataset.py`）
 - `src/analysis/analysis_rq3_satellite_only.py`
 
 ### 2.2 確認結果
@@ -31,6 +34,7 @@
 - `gee_calc_LST.py` は、ROI を読み込み、Landsat 8 から LST を算出し、ROI を対象に GeoTIFF を出力する構成になっている。
 - `gee_calc_satellite_indices.py` は、NDVI・NDBI・NDWI を算出し、2026-04-09 時点で `image.clip(roi)` を通した上で Drive 出力するため、LST 側と出力範囲の整合が取れている。
 - `build_satellite_only_dataset.py` は、LST と指標ラスタを同一観測時刻で対応付け、グリッド整合を確認した上でピクセル単位 CSV を作成している。
+  - **削除済みのため現状とは異なる。** 現行では、LST と指標をそれぞれ観測日時つきのテーブル（`lst_*` / `idx_*`）として算出し、`build_dataset.py` が `cell_id` で結合する。**同一観測時刻の対応付けは `build_dataset.validate_observation_consistency()` が担い、観測日時の異なるテーブルの同時結合は `ValueError` で拒否する。** グリッド整合は、両者を共通の正準グリッドへ集約することで担保される（集計単位はピクセルからセルへ変わった。差異は [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6.7節）。
 - `analysis_rq3_satellite_only.py` は、random split と Spatial CV の両方で Linear Regression と Random Forest を評価し、SHAP を出力する構成になっている。
 
 ### 2.3 本タスクに対する判断

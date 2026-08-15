@@ -13,7 +13,6 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from src.analysis.urban_params import io as urban_params_io
 from src.analysis.urban_params.canonical_grid import build_canonical_grid
 from src.analysis.urban_params.config import ParamSet
 from src.analysis.urban_params.run import (
@@ -295,31 +294,14 @@ def test_main_keeps_missing_height_as_null(city_environment: dict[str, Any]) -> 
 
 
 def test_main_reads_input_layer_once_across_scales(
-    city_environment: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    city_environment: dict[str, Any], counting_readers: dict[str, int]
 ) -> None:
     """複数スケールを1回の実行で出力しても、入力レイヤの読み込みは1回で済む。"""
-    counts = {"dataframe": 0, "features": 0}
-    original_frame = urban_params_io._read_layer_dataframe_uncached
-    original_records = urban_params_io._iter_feature_records_uncached
-
-    def counting_frame(resource: Any, columns: Any) -> Any:
-        """建物レイヤの実読み込み回数を数える。"""
-        counts["dataframe"] += 1
-        return original_frame(resource, columns)
-
-    def counting_records(resource: Any, bbox_analysis: Any) -> Any:
-        """道路・ROIレイヤの実読み込み回数を数える。"""
-        counts["features"] += 1
-        return original_records(resource, bbox_analysis)
-
-    monkeypatch.setattr(urban_params_io, "_read_layer_dataframe_uncached", counting_frame)
-    monkeypatch.setattr(urban_params_io, "_iter_feature_records_uncached", counting_records)
-
     _run_main(city_environment, ["--params", "build_gba", "road_osm", "mask_roi"])
 
     # 建物1回（2スケール分）。道路とROIで合わせて2回。
-    assert counts["dataframe"] == 1
-    assert counts["features"] == 2
+    assert counting_readers["dataframe"] == 1
+    assert counting_readers["features"] == 2
 
 
 def test_main_uses_default_output_root_when_not_specified(

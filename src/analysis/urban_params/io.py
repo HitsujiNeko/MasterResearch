@@ -330,21 +330,22 @@ def _query_bbox_for(resource: LayerResource, bbox_analysis: BBox) -> BBox:
     return transform_bbox(bbox_analysis, resource.from_analysis)
 
 
-def _covers_whole_layer(resource: LayerResource, bbox_analysis: BBox) -> bool:
-    """検索BBoxがレイヤ全体を覆うかを、レイヤのメタデータだけで判定する。
+def _read_full_layer_features(src: fiona.Collection) -> list[dict[str, Any]]:
+    """開いたレイヤから全フィーチャを読み込む（ジオメトリNoneは除外）。
 
-    フィーチャは読まずに範囲情報のみを参照するため安価である。
+    呼び出し元が検索BBoxでレイヤ全体を覆うと判定済みの場合に使う、空間フィルタを
+    適用しない全件読み込みのみを担う純粋な読み込み関数である。ファイルを開く処理
+    自体は呼び出し元（``iter_feature_records()``）が担い、判定用に開いたファイルを
+    そのまま読み込みに使い回すことで、1回の実読み込みにつき ``fiona.open()`` が
+    2回発生するのを避ける。
 
     Args:
-        resource: 対象レイヤ。
-        bbox_analysis: 解析用CRS上の検索範囲。
+        src: オープン済みのFionaコレクション。
 
     Returns:
-        検索BBoxがレイヤ全体を覆う場合は ``True``。
+        ジオメトリを持つフィーチャのリスト。
     """
-    query_bbox = _query_bbox_for(resource, bbox_analysis)
-    with fiona.open(resource.path, layer=resource.layer_name) as src:
-        return _covers_layer_extent(src, query_bbox)
+    return [feature for feature in src if feature.get("geometry") is not None]
 
 
 def _iter_feature_records_uncached(
@@ -410,19 +411,27 @@ def iter_feature_records(resource: LayerResource, bbox_analysis: BBox) -> Iterab
 
     # キャッシュの参照可否は、キーではなく「検索BBoxがレイヤ全体を覆うか」で決める。
     # 覆わない検索へ全件を返さないための判定であり、保存側と参照側の双方に必要である。
-    if not _covers_whole_layer(resource, bbox_analysis):
-        # キャッシュへ載せない読み込みも回数へ計上する。計上を省くと、この経路を
-        # 通るレイヤはスケールごとに読み直していても集計表に現れない。
-        cache.record_load(resource)
-        return _iter_feature_records_uncached(resource, bbox_analysis)
+    # 判定とキャッシュミス時の全件読み込みを同一の fiona.open() スコープ内で行い、
+    # 1回の実読み込みにつきオープンが2回発生するのを避ける（判定用に開いたファイルを
+    # 一度閉じてから読み込み用にもう一度開くと二重オープンになる）。
+    query_bbox = _query_bbox_for(resource, bbox_analysis)
+    with fiona.open(resource.path, layer=resource.layer_name) as src:
+        if not _covers_layer_extent(src, query_bbox):
+            # キャッシュへ載せない読み込みも回数へ計上する。計上を省くと、この経路を
+            # 通るレイヤはスケールごとに読み直していても集計表に現れない。この経路は
+            # 元々キャッシュされないため二重オープンの解消対象とせず、従来どおり
+            # _iter_feature_records_uncached() へ委ねる（そちらが独自に再度開く）。
+            cache.record_load(resource)
+            return _iter_feature_records_uncached(resource, bbox_analysis)
 
-    key = (resource.path, resource.layer_name)
-    cached_records = cache.feature_records.get(key)
-    if cached_records is not None:
-        cache.hits += 1
-        return iter(cached_records)
+        key = (resource.path, resource.layer_name)
+        cached_records = cache.feature_records.get(key)
+        if cached_records is not None:
+            cache.hits += 1
+            return iter(cached_records)
 
-    records = list(_iter_feature_records_uncached(resource, bbox_analysis))
+        records = _read_full_layer_features(src)
+
     cache.record_load(resource)
     cache.feature_records[key] = records
     return iter(records)

@@ -9,8 +9,38 @@ import pytest
 from src.common.paths import (
     prepare_output_path,
     resolve_existing_path,
+    resolve_relative_to_project_root,
     to_project_relative_string,
 )
+
+
+def test_resolve_relative_to_project_root_returns_none_for_empty_string() -> None:
+    """空文字は「未指定」を表し None を返す（既定値の決定は呼び出し側に委ねる）。"""
+    assert resolve_relative_to_project_root("") is None
+
+
+def test_resolve_relative_to_project_root_resolves_relative_path(tmp_path: Path) -> None:
+    """相対パス文字列は project_root を前置して絶対化する。"""
+    result = resolve_relative_to_project_root("data/output", project_root=tmp_path)
+
+    assert result == tmp_path / "data" / "output"
+
+
+def test_resolve_relative_to_project_root_keeps_absolute_path(tmp_path: Path) -> None:
+    """絶対パス文字列は project_root を前置せずそのまま返す。"""
+    absolute = tmp_path / "elsewhere" / "output"
+
+    result = resolve_relative_to_project_root(str(absolute), project_root=tmp_path)
+
+    assert result == absolute
+
+
+def test_resolve_relative_to_project_root_does_not_check_existence(tmp_path: Path) -> None:
+    """存在確認や親ディレクトリ作成は行わない（出力先の要否は呼び出し側の判断）。"""
+    result = resolve_relative_to_project_root("not_created_yet", project_root=tmp_path)
+
+    assert result == tmp_path / "not_created_yet"
+    assert not result.exists()
 
 
 def test_resolve_existing_path_returns_absolute_path_for_existing_file(tmp_path: Path) -> None:

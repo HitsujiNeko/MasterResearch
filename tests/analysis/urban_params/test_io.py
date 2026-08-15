@@ -442,32 +442,6 @@ SAMPLE_POINTS = [(10.0, 70.0), (30.0, 30.0), (75.0, 5.0)]
 
 
 @pytest.fixture()
-def counting_readers(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
-    """実際にファイルを読んだ回数を数えるフェイクを差し込む。
-
-    キャッシュ自身が持つ ``load_counts`` とは独立に数えることで、
-    「読み込みが1回で済む」ことを実装の自己申告に頼らずに確認する。
-    """
-    counts = {"dataframe": 0, "features": 0}
-    original_frame = urban_params_io._read_layer_dataframe_uncached
-    original_records = urban_params_io._iter_feature_records_uncached
-
-    def counting_frame(resource: LayerResource, columns: list[str] | None) -> Any:
-        """GeoDataFrameの実読み込み回数を数える。"""
-        counts["dataframe"] += 1
-        return original_frame(resource, columns)
-
-    def counting_records(resource: LayerResource, bbox_analysis: BBox) -> Any:
-        """フィーチャの実読み込み回数を数える。"""
-        counts["features"] += 1
-        return original_records(resource, bbox_analysis)
-
-    monkeypatch.setattr(urban_params_io, "_read_layer_dataframe_uncached", counting_frame)
-    monkeypatch.setattr(urban_params_io, "_iter_feature_records_uncached", counting_records)
-    return counts
-
-
-@pytest.fixture()
 def points_resource(tmp_path: Path) -> LayerResource:
     """範囲が既知のポイントレイヤ。"""
     gpkg = tmp_path / "cached_points.gpkg"

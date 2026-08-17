@@ -504,7 +504,7 @@ RQ3 は、現在次の順で進める。
 |---------|---------|----------|--------|
 | **Phase 1** | GISデータ空間範囲の把握（BBox比較） | `src/analysis/analyze_spatial_extents.py` | ✅ 完了（2026-03-03） |
 | **Phase 1.5** | Satellite Only データセット構築 | （削除済み） | ✅ 完了 |
-| **Phase 1.6** | Satellite Only ベースライン分析（3観測日） | `src/analysis/analysis_rq3_satellite_only.py` | ✅ 完了 |
+| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・1観測日。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲） | ✅ 完了 |
 | **Phase 2** | 公開 GIS 候補の取得・QA | `extract_geofabrik_roads_hanoi.py`, `fetch_microsoft_buildings_hanoi.py`, Google / OSM 建物取得スクリプト | 🔴 高 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
 | **Phase 3** | 近傍変数算出 | `calc_neighborhood_vars.py` | 🟡 中 |
@@ -535,5 +535,5 @@ RQ3 は、現在次の順で進める。
 > そのうえで、変更内容に応じて関連文書のみを更新する。  
 >
 > - 測量由来 GIS の整備状況や解釈を変えた場合: [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)  
-> - `Satellite Only` の分析結果を変えた場合: [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)  
+> - `Satellite Only` の分析結果を変えた場合: [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)（旧経路）/ [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)（新経路）  
 > - ドキュメント構成や参照先を変えた場合: [docs/README.md](../README.md)

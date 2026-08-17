@@ -403,7 +403,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 | 行の絞り込み方 | LST・NDVI・NDBI・NDWI がすべて揃う complete case のみ | 全セル保持＋品質管理列（`LST_VALID_RATIO` / `VALID_SATELLITE_MASK`）で判断させる（6.3節） |
 | 物理範囲フィルタ | LST 15〜65°C・指標 ±1.1 の範囲外を除外 | 適用しない。フィルタは下流の分析スクリプトが担う責務とする（結合フェーズが行を落とすと `MISSING_REASON` の意味が崩れるため） |
 
-**この3点の違いにより、既存の [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)（旧経路によるRQ3のベースライン結果）と、新経路で出力したデータセットは統計的に別物であり、直接比較しない。** 格子が一致せずセル単位の対応づけができないため、突合できるとしても分布統計に限られ、投じる作業量に対して得られる根拠が弱いと判断した。既存結果はピクセル単位の先行結果として保持し、新経路での RQ3 再実行は別Issueで扱う。
+**この3点の違いにより、既存の [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)（旧経路によるRQ3のベースライン結果）と、新経路で出力したデータセットは統計的に別物であり、直接比較しない。** 格子が一致せずセル単位の対応づけができないため、突合できるとしても分布統計に限られ、投じる作業量に対して得られる根拠が弱いと判断した。既存結果はピクセル単位の先行結果として保持する。新経路での RQ3 再実行は実施済みであり、結果は [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) を参照。
 
 ---
 

@@ -1,0 +1,102 @@
+{
+  "scenario": "Satellite Only",
+  "dataset_path": "data\\output\\datasets\\dataset_satellite_only_20230707_032329_hanoi_30m.gpkg",
+  "sample_path": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_sample_100000.csv",
+  "sample_size": 100000,
+  "train_size": 80000,
+  "test_size": 20000,
+  "features": [
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "lst_valid_ratio_threshold": 0.5,
+  "random_split": {
+    "linear_regression": {
+      "metrics": {
+        "r2": 0.5645091533660889,
+        "rmse": 1.3893845415495578,
+        "mae": 1.009912371635437
+      },
+      "standardized_coefficients": {
+        "NDVI": -1.260984182357788,
+        "NDBI": 0.5410229563713074,
+        "NDWI": -1.2264145612716675
+      }
+    },
+    "random_forest": {
+      "metrics": {
+        "r2": 0.7426565062167769,
+        "rmse": 1.068044972425432,
+        "mae": 0.8011196198834656
+      },
+      "feature_importance": {
+        "NDVI": 0.17587796673732725,
+        "NDBI": 0.6649047842630137,
+        "NDWI": 0.1592172489996591
+      },
+      "permutation_importance": {
+        "NDVI": 0.27138466027428215,
+        "NDBI": 0.800482660293315,
+        "NDWI": 0.2846040755665295
+      }
+    }
+  },
+  "spatial_cv": {
+    "cv_splits": 5,
+    "linear_regression": {
+      "r2_mean": 0.5540652990341186,
+      "r2_std": 0.03693699499077217,
+      "rmse_mean": 1.392356413808757,
+      "rmse_std": 0.07714345848621217,
+      "mae_mean": 1.0172852635383607,
+      "mae_std": 0.06747793029388875
+    },
+    "random_forest": {
+      "r2_mean": 0.7277474082478824,
+      "r2_std": 0.024532097461091446,
+      "rmse_mean": 1.0865927635768968,
+      "rmse_std": 0.03620014369154714,
+      "mae_mean": 0.8113971884379516,
+      "mae_std": 0.02308866239546968
+    },
+    "block_definition": {
+      "block_size_m": 2700,
+      "n_blocks": 305
+    },
+    "outputs": {
+      "fold_metrics_csv": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_spatial_cv_folds.csv",
+      "spatial_cv_png": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_spatial_cv.png"
+    }
+  },
+  "vif": {
+    "NDVI": 21.091424749702057,
+    "NDBI": 1.3524137537990553,
+    "NDWI": 20.05469456939203
+  },
+  "vif_non_finite_features": [],
+  "shap": {
+    "sample_size": 2000,
+    "background_size": 500,
+    "mean_abs_shap": {
+      "NDBI": 0.8859746178596092,
+      "NDVI": 0.48391428014838156,
+      "NDWI": 0.40384963469405655
+    },
+    "outputs": {
+      "shap_importance_csv": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_shap_importance.csv",
+      "shap_summary_png": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_shap_summary.png",
+      "shap_bar_png": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_shap_bar.png",
+      "shap_dependence_png": {
+        "NDVI": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_shap_dependence_NDVI.png",
+        "NDBI": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_shap_dependence_NDBI.png",
+        "NDWI": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_shap_dependence_NDWI.png"
+      }
+    }
+  },
+  "outputs": {
+    "feature_importance_csv": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_feature_importance.csv",
+    "model_comparison_png": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_model_comparison.png",
+    "feature_importance_png": "data\\output\\satellite_only_cellbased\\20230707_032329\\dataset_satellite_only_20230707_032329_hanoi_30m_feature_importance.png"
+  }
+}

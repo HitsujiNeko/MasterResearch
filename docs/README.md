@@ -84,7 +84,8 @@ docs/
 | [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md) | GIS-IDEAS学会用アブストラクト下書き | RQ3 Satellite Only の本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/output/satellite_only/`, `src/analysis/` |
 | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認、Full シナリオ接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
-| [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果 | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | `src/analysis/analysis_rq3_satellite_only.py` |
+| [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果（旧経路・ピクセル単位） | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | （2026-04-21時点のスクリプトによる記録。`analysis_rq3_satellite_only.py` はcell_id結合経路へ書き換え済みのため再現不可） |
+| [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（新経路・cell_id結合） | 1観測日（30m）のベースライン、物理的に等間隔なブロックによるSpatial CV、SHAP、境界セル影響の概算 | `src/analysis/analysis_rq3_satellite_only.py` |
 
 ### 📦 04_archive - アーカイブ・先行研究
 

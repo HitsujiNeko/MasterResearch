@@ -386,7 +386,8 @@ From Data to Insights: Modeling Urban Land Surface Temperature Using Geospatial 
 
 **分析結果**：
 
-* [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md) - `Satellite Only` の分析結果
+* [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md) - `Satellite Only` の分析結果（旧経路・ピクセル単位・3観測日）
+* [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) - `Satellite Only` の分析結果（新経路・cell_id結合・1観測日）
 * [GIS_IDEAS_abstract.md](../03_results/GIS_IDEAS_abstract.md) - 学会発表用アブストラクト
 
 **文献レビュー**：

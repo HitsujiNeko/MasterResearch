@@ -321,7 +321,7 @@ GBA から算出する建物パラメータの定義と、解釈上の前提を�
 5. Geofabrik Vietnam extract から `building=*` を抽出し、GBA / Google と密度・面積率を比較する。
 6. `GHSL`, `WSF`, `Google Open Buildings 2.5D Temporal` で built-up / building presence の補助指標を作る。
 7. 各候補について欠測率、重複率、空間カバレッジ、建物数、建物面積率を同一 ROI グリッドで比較する。
-8. データソースの選定結果を [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) の入力仕様に反映する。説明変数としての採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
+8. データソースの選定結果を [calc_urban_params_io_spec.md](../../02_methods/calc_urban_params/calc_urban_params_io_spec.md) の入力仕様に反映する。説明変数としての採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
 
 ---
 

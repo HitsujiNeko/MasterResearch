@@ -17,12 +17,12 @@
 | 軸 | 問い | 決めるもの | 正本 |
 |---|---|---|---|
 | **① 採否軸** | この概念を**算出対象にするか** | 研究者の計画判断 | **本ドキュメント** |
-| ② 設計軸 | 入力データ・算出方法が確定しているか | 実装時の設計判断 | [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6章 |
+| ② 設計軸 | 入力データ・算出方法が確定しているか | 実装時の設計判断 | [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6章 |
 | ③ 変数選択 | 最終的にモデルに**残るか**・寄与が大きいか | 分析結果（変数重要度・SHAP・多重共線性診断） | `docs/03_results/` の分析結果 |
 
 3軸は独立であり、「① 採用済みだが ② 設計未確定」「① 採用したが ③ モデルから落ちた」はいずれも正常な状態である。
 
-したがって本ドキュメントには**列名（変数名）・算出方法・入力ファイル・実装状況を記載しない**。これらは ② の正本である [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6章に置く。データソースの候補比較・解像度・ライセンスは [available_gis_data.md](available_gis_data.md) とそのカテゴリ別ドキュメントを正本とする。
+したがって本ドキュメントには**列名（変数名）・算出方法・入力ファイル・実装状況を記載しない**。これらは ② の正本である [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6章に置く。データソースの候補比較・解像度・ライセンスは [available_gis_data.md](available_gis_data.md) とそのカテゴリ別ドキュメントを正本とする。
 
 ここで記載しないのは、**実装の進行に追随して更新し続ける必要がある情報**である。採否を決めた時点の状況を**判断根拠として日付つきで残すこと**は、これに当たらない（§2.3・§3.1）。理由を残さないと同じ検討が繰り返されるためであり、その記述は当時の記録であって最新状況の参照先ではない。**最新の取得状況・実装状況は、上表の各正本を参照する。**
 
@@ -102,7 +102,7 @@ P13 の単位を「未定」とするのは、密度の定義（集計単位内�
 | P12 水域近接距離・P15 公園近接距離 | ② 距離として定義される | 集計単位内の量ではなく単位外の地物までの距離であり、近傍リングを広げるという RQ2 の操作と軸が異なる |
 | P13 POI密度 | ③ 定義自体が未確定 | 密度の定義（集計単位内の点密度か最近接距離か）が未検討であり、②に該当するかを判定できない。定義の確定時に割り当てを見直す |
 
-P5 平均標高も、細かいスケールでは集約が実質的なリサンプリングになる制約を持つ（[calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6.4節）。ただしこれはスケール間比較の解釈上の注意であり、値の意味が失われるわけではないため RQ2 は割り当てている。
+P5 平均標高も、細かいスケールでは集約が実質的なリサンプリングになる制約を持つ（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.4節）。ただしこれはスケール間比較の解釈上の注意であり、値の意味が失われるわけではないため RQ2 は割り当てている。
 
 ### 2.2 採用パラメータに関する注意
 
@@ -158,12 +158,12 @@ FVC は NDVI の単調変換として定義されるため、説明変数とし�
 | 公開GIS由来（標高） | P5・P6 | `Limited` のみ（`Full` の標高は設計未確定のため現状は出力しない） |
 | 測量GIS由来 | 同一の概念を測量データから算出する | `Full` |
 
-保留中のパラメータ（P11〜P15）は算出しないため、いずれの層にも現れない。シナリオごとに実際にどの列が出力されるかは [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6章を正本とする。データの3層構造と RQ3 の対応は [research_guide.md](research_guide.md) §6.1 を参照。
+保留中のパラメータ（P11〜P15）は算出しないため、いずれの層にも現れない。シナリオごとに実際にどの列が出力されるかは [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6章を正本とする。データの3層構造と RQ3 の対応は [research_guide.md](research_guide.md) §6.1 を参照。
 
 ---
 
 ## 5. 更新ルール
 
-- 採否を変更した場合は、本ドキュメントを更新したうえで [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6章との整合を確認する
+- 採否を変更した場合は、本ドキュメントを更新したうえで [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6章との整合を確認する
 - 「保留」から「採用」へ変更する場合は、判断の根拠（分析結果など）を該当パラメータの注記に残す
 - 「不採用」とする場合は、判断根拠を節として残す（§3.1 の形式）。理由を残さないと同じ検討が繰り返されるため

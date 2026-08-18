@@ -158,3 +158,10 @@ class TestSplitBySpatialBlocks:
 
         with pytest.raises(ValueError, match="非空ブロック数"):
             split_by_spatial_blocks(block_id, n_splits=5)
+
+    def test_raises_when_n_splits_is_less_than_two(self) -> None:
+        """n_splitsが2未満だとtrain/testに分割できないため例外にする。"""
+        block_id = np.array([0, 0, 1, 1, 2, 2])
+
+        with pytest.raises(ValueError, match="2以上"):
+            split_by_spatial_blocks(block_id, n_splits=1)

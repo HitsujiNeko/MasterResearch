@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import pandas as pd
+import pytest
 
 from src.common.analysis_plots import (
     save_feature_importance_plot,
@@ -51,6 +52,16 @@ class TestSaveFeatureImportancePlot:
 
         assert output_path.exists()
         assert output_path.stat().st_size > 0
+
+    def test_raises_when_key_sets_differ(self, tmp_path: Path) -> None:
+        """standardized_coefficientsとrf_importanceのキー集合が食い違う場合は
+        素のKeyErrorではなく、原因の分かる例外にする。"""
+        output_path = tmp_path / "feature_importance.png"
+        coefficients = {"feat_a": 0.5, "feat_b": -0.3}
+        importance = {"feat_a": 0.6, "feat_c": 0.4}
+
+        with pytest.raises(ValueError, match="キー集合"):
+            save_feature_importance_plot(output_path, coefficients, importance, "2023-07-07")
 
 
 class TestSaveSpatialCvPlot:

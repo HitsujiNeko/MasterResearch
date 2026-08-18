@@ -104,10 +104,14 @@ def split_by_spatial_blocks(
     Returns:
         (train_idx, test_idx) のタプルのリスト（fold順）。
     Raises:
-        ValueError: `n_splits` が非空ブロック数を上回る場合。GroupKFoldは
-            グループ数未満のfold数しか作れないため、英語の内部例外を
-            そのまま伝播させず日本語で理由を明示する。
+        ValueError: `n_splits` が2未満、または非空ブロック数を上回る場合。
+            前者はtrain/testに分割できず交差検証にならないため、後者は
+            GroupKFoldがグループ数未満のfold数しか作れないためであり、
+            いずれも英語の内部例外をそのまま伝播させず日本語で理由を明示する。
     """
+    if n_splits < 2:
+        raise ValueError(f"n_splitsは2以上である必要があります（n_splits={n_splits}）。")
+
     n_blocks = int(np.unique(block_id).size)
     if n_splits > n_blocks:
         raise ValueError(

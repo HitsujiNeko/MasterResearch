@@ -74,7 +74,16 @@ def save_feature_importance_plot(
         rf_importance: RFの特徴量重要度（`standardized_coefficients` と同じ
             キー集合を持つ必要がある）。
         observation_label: 図タイトルに使う観測日時ラベル。
+    Raises:
+        ValueError: `standardized_coefficients` と `rf_importance` のキー集合が
+            一致しない場合。素の `KeyError` にすると原因が分かりにくいため。
     """
+    if set(standardized_coefficients.keys()) != set(rf_importance.keys()):
+        raise ValueError(
+            "standardized_coefficientsとrf_importanceのキー集合が一致していません: "
+            f"{sorted(standardized_coefficients.keys())} vs {sorted(rf_importance.keys())}"
+        )
+
     feature_names = list(standardized_coefficients.keys())
     linear_values = [abs(standardized_coefficients[feature]) for feature in feature_names]
     rf_values = [rf_importance[feature] for feature in feature_names]

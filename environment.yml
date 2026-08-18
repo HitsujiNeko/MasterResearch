@@ -16,8 +16,10 @@ dependencies:
   - numpy=1.26
   - scipy
   - scikit-learn
-  - matplotlib
-  - shap
+  # Axes.set_xticks(labels=...) は3.5.0以降で使用可能なため下限を明示する
+  - matplotlib>=3.5
+  # 動作確認済みバージョンを下限として明示する
+  - shap>=0.48
   - tqdm=4.67
   - rasterio=1.4
   # NASA Black Marble（VNP46A4）は HDF-EOS5 配布で、本環境の GDAL は HDF5 ドライバ

@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -15,6 +11,8 @@ from sklearn.ensemble import RandomForestRegressor
 
 from src.common import shap_report as shap_report_module
 from src.common.shap_report import compute_shap_outputs
+
+# matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
 
 
 @pytest.fixture

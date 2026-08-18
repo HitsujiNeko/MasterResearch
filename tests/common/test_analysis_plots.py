@@ -8,10 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-
 import pandas as pd
 import pytest
 
@@ -20,6 +16,8 @@ from src.common.analysis_plots import (
     save_model_comparison_plot,
     save_spatial_cv_plot,
 )
+
+# matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
 
 
 class TestSaveModelComparisonPlot:

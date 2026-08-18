@@ -19,10 +19,13 @@ from src.analysis.analysis_rq3_satellite_only import (
     DEFAULT_OUTPUT_DIR,
     DEFAULT_SCALE_M,
     FEATURE_COLUMNS,
+    TARGET_COLUMN,
     assign_canonical_blocks,
     build_filtered_sample,
     parse_arguments,
     resolve_output_stem,
+    run_random_split_models,
+    run_spatial_cv_models,
 )
 from src.analysis.urban_params.canonical_grid import make_cell_id
 
@@ -161,3 +164,71 @@ class TestBuildFilteredSample:
         )
 
         assert len(result) == 0
+
+
+def _linear_sample_dataframe(n: int = 60, seed: int = 0) -> pd.DataFrame:
+    """run_random_split_models / run_spatial_cv_models 用の合成データ。
+
+    FEATURE_COLUMNS・TARGET_COLUMNの実列名を使い、値には多少のばらつきを
+    持たせる（定数列だとVIF計算やRFの分岐が退化するため）。
+    """
+    rng = np.random.default_rng(seed)
+    return pd.DataFrame(
+        {
+            "NDVI": rng.normal(size=n),
+            "NDBI": rng.normal(size=n),
+            "NDWI": rng.normal(size=n),
+            TARGET_COLUMN: rng.normal(size=n),
+        }
+    )
+
+
+class TestRunRandomSplitModels:
+    """run_random_split_models のスモークテスト。"""
+
+    def test_returns_result_with_expected_shapes_and_keys(self) -> None:
+        """train/testの分割比率、metrics・重要度辞書のキー構成を検証する。"""
+        sampled = _linear_sample_dataframe(n=100)
+
+        result = run_random_split_models(sampled, random_state=42, rf_trees=5)
+
+        # test_size=0.2固定のため、100件なら test=20, train=80 になる。
+        assert len(result.x_train) == 80
+        assert len(result.x_test) == 20
+        assert set(result.linear_result["metrics"].keys()) == {"r2", "rmse", "mae"}
+        assert set(result.rf_result["metrics"].keys()) == {"r2", "rmse", "mae"}
+        assert set(result.standardized_coefficients.keys()) == set(FEATURE_COLUMNS)
+        assert set(result.rf_importance.keys()) == set(FEATURE_COLUMNS)
+        assert set(result.permutation_scores.keys()) == set(FEATURE_COLUMNS)
+
+
+class TestRunSpatialCvModels:
+    """run_spatial_cv_models のスモークテスト（fold集計と出力契約）。"""
+
+    def test_returns_fold_metrics_columns_expected_by_plot(self) -> None:
+        """プロット関数（save_spatial_cv_plot / save_model_comparison_plot）が
+        要求する列名・キー名を返す。列名の変更をここで検出する。
+        """
+        sampled = _linear_sample_dataframe(n=60)
+        block_ids = np.repeat(np.arange(6), 10)
+
+        summary, fold_metrics_df = run_spatial_cv_models(
+            sampled, block_ids, cv_splits=3, random_state=42, rf_trees=5
+        )
+
+        assert len(fold_metrics_df) == 3
+        for column in (
+            "fold",
+            "train_size",
+            "test_size",
+            "linear_r2",
+            "linear_rmse",
+            "linear_mae",
+            "rf_r2",
+            "rf_rmse",
+            "rf_mae",
+        ):
+            assert column in fold_metrics_df.columns
+        assert "r2_mean" in summary["linear_regression"]
+        assert "r2_mean" in summary["random_forest"]
+        assert summary["cv_splits"] == 3

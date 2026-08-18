@@ -13,3 +13,6 @@ rasterio
 h5py
 requests
 scipy>=1.9
+scikit-learn
+matplotlib
+shap

@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,8 +36,10 @@ import pandas as pd  # noqa: E402
 from sklearn.ensemble import RandomForestRegressor  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
-from src.analysis.urban_params.canonical_grid import CELL_ID_STRIDE, split_cell_id  # noqa: E402
+from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
 from src.common.analysis_dataset import (  # noqa: E402
+    IN_ANALYSIS_AREA_COLUMN,
+    LST_VALID_RATIO_COLUMN,
     filter_valid_rows,
     load_analysis_dataset,
     sample_dataset,
@@ -50,13 +54,10 @@ from src.common.model_metrics import (  # noqa: E402
     sanitize_vif_for_json,
     summarize_metric_dicts,
 )
+from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.regression_models import fit_linear_regression, fit_random_forest  # noqa: E402
 from src.common.shap_report import compute_shap_outputs  # noqa: E402
-from src.common.spatial_cv import (  # noqa: E402
-    assign_spatial_blocks,
-    compute_block_cells,
-    split_by_spatial_blocks,
-)
+from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
 from src.common.summary import save_summary  # noqa: E402
 
 # 分析対象は着手時点で30m・単一観測日（2023-07-07 03:23:29Z）に限定する
@@ -138,25 +139,56 @@ def resolve_output_stem(dataset_path: Path) -> str:
     return dataset_path.stem
 
 
-def assign_canonical_blocks(
-    cell_ids: np.ndarray, block_size_m: int, scale: int
-) -> tuple[np.ndarray, dict[str, int]]:
-    """cell_idから正準グリッドのrow/colを復元し、空間ブロックIDを割り当てる。
+def build_observation_label(output_stem: str) -> str:
+    """出力接頭辞から観測日時ラベルを生成する。
 
-    `canonical_grid.split_cell_id()` によるデコードと `spatial_cv` によるブロック
-    割り当ての結線を担う。`spatial_cv` モジュールはanalysis層の `canonical_grid`
-    へ依存させない設計のため、この結線はエントリスクリプト側で行う。
+    `resolve_output_stem` の戻り値（例:
+    `dataset_satellite_only_20230707_032329_hanoi_30m`）に含まれる
+    `{8桁の日付}_{6桁の時刻}` を `"2023-07-07 03:23:29"` のような可読な形式へ
+    整形する。プロット・SHAP図のタイトルに使うためのラベルであり、ファイル名
+    そのもの（`resolve_output_stem`）とは用途が異なる。
 
     Args:
-        cell_ids: 正準グリッドの `cell_id` 配列。
-        block_size_m: ブロックの一辺の長さ（メートル）。
-        scale: 正準グリッドの解像度（メートル/セル）。
+        output_stem: `resolve_output_stem` の戻り値。
     Returns:
-        block_id配列と、ブロック統計情報の辞書（`assign_spatial_blocks` の戻り値）。
+        可読な観測日時ラベル。該当パターンが見つからない場合は `output_stem`
+        をそのまま返す（プロットタイトルが空になるより分かりやすいため）。
     """
-    row, col = split_cell_id(cell_ids)
-    block_cells = compute_block_cells(block_size_m, scale)
-    return assign_spatial_blocks(row, col, block_cells, CELL_ID_STRIDE)
+    match = re.search(r"(\d{8})_(\d{6})", output_stem)
+    if match is None:
+        return output_stem
+
+    raw_date, raw_time = match.groups()
+    date_label = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
+    time_label = f"{raw_time[:2]}:{raw_time[2:4]}:{raw_time[4:6]}"
+    return f"{date_label} {time_label}"
+
+
+def validate_scale_matches_dataset(dataset_path: Path, scale: int) -> None:
+    """`--scale` とデータセットのファイル名から読み取れる解像度の整合性を検証する。
+
+    分析用データセットGeoPackage自体は解像度を保持しない（`cell_id` のデコード
+    結果である row/col はスケール非依存の絶対インデックスであり、その物理サイズ
+    はスケールに依存する）。そのため、`--dataset-path` と `--scale` の不一致は
+    ファイル名の命名規則（`src.analysis.build_dataset.resolve_dataset_path` が
+    付与する末尾の `_{scale}m`）でしか検出できない。不一致のまま実行すると、
+    誤ったブロックサイズでSpatial CVが静かに実行されるため、ここで早期に
+    検出する。
+
+    Args:
+        dataset_path: 分析用データセットGeoPackageのパス。
+        scale: `--scale` で指定された正準グリッドの解像度（m）。
+    Raises:
+        ValueError: ファイル名末尾が `_{scale}m` と一致しない場合。
+    """
+    expected_suffix = f"_{scale}m"
+    if not dataset_path.stem.endswith(expected_suffix):
+        raise ValueError(
+            f"--scale（{scale}）とデータセットのファイル名（{dataset_path.name}）が"
+            f"一致しない可能性があります。ファイル名は「{expected_suffix}」で終わる"
+            "ことを想定しています。正しい--scaleを指定するか、対応するデータセットを"
+            "指定してください。"
+        )
 
 
 def build_filtered_sample(
@@ -195,27 +227,24 @@ class RandomSplitResult:
 
     `dict[str, object]` ではなく型付きの構造体にすることで、キー名の
     打ち間違いを実行時のKeyErrorではなく型チェッカで検出できるようにする。
+    標準化係数・重要度は `linear_result` / `rf_result` の中に既に含まれており
+    二重管理を避けるため、専用フィールドは持たせない
+    （例: 標準化係数は `linear_result["standardized_coefficients"]` で参照する）。
 
     Attributes:
         x_train: 学習用説明変数。
         x_test: 評価用説明変数。
         linear_result: 線形回帰の評価結果（`metrics` と `standardized_coefficients` を含む）。
-        standardized_coefficients: 線形回帰の標準化係数。
         rf_model: 学習済みランダムフォレストモデル。
         rf_result: RFの評価結果（`metrics` / `feature_importance` /
             `permutation_importance` を含む）。
-        rf_importance: RFの不純度ベース重要度。
-        permutation_scores: RFのPermutation重要度。
     """
 
     x_train: pd.DataFrame
     x_test: pd.DataFrame
     linear_result: dict[str, object]
-    standardized_coefficients: dict[str, float]
     rf_model: RandomForestRegressor
     rf_result: dict[str, object]
-    rf_importance: dict[str, float]
-    permutation_scores: dict[str, float]
 
 
 def run_random_split_models(
@@ -236,21 +265,16 @@ def run_random_split_models(
         x, y, test_size=0.2, random_state=random_state
     )
 
-    linear_result, standardized_coefficients, _ = fit_linear_regression(
-        x_train, x_test, y_train, y_test
-    )
-    rf_model, rf_result, rf_importance, permutation_scores, _ = fit_random_forest(
+    linear_result, _, _ = fit_linear_regression(x_train, x_test, y_train, y_test)
+    rf_model, rf_result, _, _, _ = fit_random_forest(
         x_train, x_test, y_train, y_test, random_state=random_state, n_estimators=rf_trees
     )
     return RandomSplitResult(
         x_train=x_train,
         x_test=x_test,
         linear_result=linear_result,
-        standardized_coefficients=standardized_coefficients,
         rf_model=rf_model,
         rf_result=rf_result,
-        rf_importance=rf_importance,
-        permutation_scores=permutation_scores,
     )
 
 
@@ -284,8 +308,15 @@ def run_spatial_cv_models(
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
         linear_result, _, _ = fit_linear_regression(x_train, x_test, y_train, y_test)
+        # 各foldではmetricsしか使わないため、permutation importanceの計算は省略する。
         _, rf_result, _, _, _ = fit_random_forest(
-            x_train, x_test, y_train, y_test, random_state=random_state, n_estimators=rf_trees
+            x_train,
+            x_test,
+            y_train,
+            y_test,
+            random_state=random_state,
+            n_estimators=rf_trees,
+            compute_permutation_importance=False,
         )
 
         linear_metrics.append(linear_result["metrics"])
@@ -324,26 +355,48 @@ def main() -> None:
     args.dataset_path = args.dataset_path.resolve()
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    validate_scale_matches_dataset(args.dataset_path, args.scale)
     output_stem = resolve_output_stem(args.dataset_path)
-    observation_label = output_stem
+    observation_label = build_observation_label(output_stem)
 
-    dataframe = load_analysis_dataset(args.dataset_path)
+    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
+    required_columns = [
+        "cell_id",
+        "lon",
+        "lat",
+        *FEATURE_COLUMNS,
+        TARGET_COLUMN,
+        IN_ANALYSIS_AREA_COLUMN,
+        LST_VALID_RATIO_COLUMN,
+    ]
+    dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
     sampled = build_filtered_sample(
         dataframe,
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
         sample_size=args.sample_size,
         random_state=args.random_state,
     )
+    if sampled.empty:
+        raise ValueError(
+            f"フィルタ後の有効な行がありません: {args.dataset_path}"
+            "（--lst-valid-ratio-thresholdの設定や対象日のデータ範囲を確認してください）。"
+        )
 
     sampled_path = args.output_dir / f"{output_stem}_sample_{args.sample_size}.csv"
     sampled.to_csv(sampled_path, index=False)
 
-    vif = compute_vif(sampled[FEATURE_COLUMNS])
-    random_split = run_random_split_models(sampled, args.random_state, args.rf_trees)
-
+    # block_size_m/cv_splitsの設定検証を、高コストなモデル学習（run_random_split_models
+    # 等）より前に行う。split_by_spatial_blocksの戻り値は後段のrun_spatial_cv_modelsで
+    # 再計算するが、fold分割自体はインデックス操作のみで軽量なため、ここでの重複呼び出し
+    # コストは無視できる。
     block_ids, block_info = assign_canonical_blocks(
         sampled["cell_id"].to_numpy(), args.block_size_m, args.scale
     )
+    split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
+
+    vif = compute_vif(sampled[FEATURE_COLUMNS])
+    random_split = run_random_split_models(sampled, args.random_state, args.rf_trees)
+
     spatial_cv_summary, spatial_cv_folds = run_spatial_cv_models(
         sampled, block_ids, args.cv_splits, args.random_state, args.rf_trees
     )
@@ -352,18 +405,17 @@ def main() -> None:
         "n_blocks": block_info["n_blocks"],
     }
 
+    standardized_coefficients = random_split.linear_result["standardized_coefficients"]
+    rf_importance = random_split.rf_result["feature_importance"]
+    permutation_scores = random_split.rf_result["permutation_importance"]
     feature_importance_df = pd.DataFrame(
         {
             "feature": FEATURE_COLUMNS,
             "linear_abs_standardized_coefficient": [
-                abs(random_split.standardized_coefficients[feature]) for feature in FEATURE_COLUMNS
+                abs(standardized_coefficients[feature]) for feature in FEATURE_COLUMNS
             ],
-            "random_forest_importance": [
-                random_split.rf_importance[feature] for feature in FEATURE_COLUMNS
-            ],
-            "permutation_importance": [
-                random_split.permutation_scores[feature] for feature in FEATURE_COLUMNS
-            ],
+            "random_forest_importance": [rf_importance[feature] for feature in FEATURE_COLUMNS],
+            "permutation_importance": [permutation_scores[feature] for feature in FEATURE_COLUMNS],
             "vif": [vif[feature] for feature in FEATURE_COLUMNS],
         }
     )
@@ -386,8 +438,8 @@ def main() -> None:
     )
     save_feature_importance_plot(
         importance_plot_path,
-        random_split.standardized_coefficients,
-        random_split.rf_importance,
+        standardized_coefficients,
+        rf_importance,
         observation_label,
     )
     save_spatial_cv_plot(spatial_cv_plot_path, spatial_cv_folds)
@@ -410,8 +462,8 @@ def main() -> None:
 
     result = {
         "scenario": "Satellite Only",
-        "dataset_path": str(args.dataset_path.relative_to(PROJECT_ROOT)),
-        "sample_path": str(sampled_path.relative_to(PROJECT_ROOT)),
+        "dataset_path": to_project_relative_string(args.dataset_path),
+        "sample_path": to_project_relative_string(sampled_path),
         "sample_size": int(len(sampled)),
         "train_size": int(len(random_split.x_train)),
         "test_size": int(len(random_split.x_test)),
@@ -424,21 +476,23 @@ def main() -> None:
         "spatial_cv": {
             **spatial_cv_summary,
             "outputs": {
-                "fold_metrics_csv": str(spatial_cv_folds_path.relative_to(PROJECT_ROOT)),
-                "spatial_cv_png": str(spatial_cv_plot_path.relative_to(PROJECT_ROOT)),
+                "fold_metrics_csv": to_project_relative_string(spatial_cv_folds_path),
+                "spatial_cv_png": to_project_relative_string(spatial_cv_plot_path),
             },
         },
         **sanitize_vif_for_json(vif),
         "shap": shap_result,
         "outputs": {
-            "feature_importance_csv": str(feature_importance_path.relative_to(PROJECT_ROOT)),
-            "model_comparison_png": str(comparison_plot_path.relative_to(PROJECT_ROOT)),
-            "feature_importance_png": str(importance_plot_path.relative_to(PROJECT_ROOT)),
+            "feature_importance_csv": to_project_relative_string(feature_importance_path),
+            "model_comparison_png": to_project_relative_string(comparison_plot_path),
+            "feature_importance_png": to_project_relative_string(importance_plot_path),
         },
     }
 
     result_path = args.output_dir / f"{output_stem}_results.json"
     save_summary(result, result_path)
+    # 長時間処理の事後診断ができるよう、保存内容をそのままログにも残す。
+    print(json.dumps(result, ensure_ascii=False, indent=2))
     print(f"結果を保存しました: {result_path}")
 
 

@@ -9,20 +9,19 @@ import pandas as pd
 import pytest
 from sklearn.ensemble import RandomForestRegressor
 
-from src.common import shap_report as shap_report_module
 from src.common.shap_report import compute_shap_outputs
 
 # matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
 
 
 @pytest.fixture
-def project_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """shap_reportモジュールのPROJECT_ROOTをtmp_pathへ差し替える。
+def project_root(tmp_path: Path) -> Path:
+    """出力先ディレクトリの基準パス。
 
-    compute_shap_outputsは出力パスをPROJECT_ROOTからの相対パスとして記録する
-    ため、標準のtmp_path（PROJECT_ROOT外）ではrelative_to()が失敗する。
+    compute_shap_outputsはto_project_relative_string()でPROJECT_ROOT相対パスへ
+    変換するが、tmp_path（PROJECT_ROOT外）に対しては絶対パスへフォールバックする
+    設計のため、以前のようなPROJECT_ROOTのmonkeypatchは不要。
     """
-    monkeypatch.setattr(shap_report_module, "PROJECT_ROOT", tmp_path)
     return tmp_path
 
 
@@ -68,10 +67,9 @@ class TestComputeShapOutputs:
         assert summary_path.stat().st_size > 0
         assert bar_path.exists()
         assert bar_path.stat().st_size > 0
-        # relative_to() の区切り文字はOS依存（Windowsは \）のため、Pathで比較する。
-        assert Path(shap_result["outputs"]["shap_importance_csv"]) == Path(
-            "out/test_shap_importance.csv"
-        )
+        # output_dirはPROJECT_ROOT外（tmp_path）のため、to_project_relative_string()は
+        # 絶対パスへフォールバックする。区切り文字の差異を避けるためPathで比較する。
+        assert Path(shap_result["outputs"]["shap_importance_csv"]) == importance_path.resolve()
 
     def test_creates_one_dependence_plot_per_feature(self, project_root: Path) -> None:
         """渡した特徴量数だけdependenceプロットが生成される。"""

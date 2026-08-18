@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Sequence
 
 import geopandas as gpd
 import pandas as pd
@@ -18,9 +19,14 @@ IN_ANALYSIS_AREA_COLUMN = "IN_ANALYSIS_AREA"
 # LSTのセル内有効画素率。VALID_SATELLITE_MASKはLSTの被覆率を包含しないため、
 # 別途このしきい値でフィルタする（研究上の判断。既定値は呼び出し側が指定する）。
 LST_VALID_RATIO_COLUMN = "LST_VALID_RATIO"
+# filter_valid_rowsが既定で==1を要求する品質列。Satellite Onlyシナリオではこの
+# 1列のみだが、Limited/FullシナリオはVALID_GIS_MASK等の追加の品質軸を持つ
+# （`src.analysis.build_dataset.add_quality_columns` 参照）ため、呼び出し側が
+# `required_mask_columns` で追加できるようにしている。
+DEFAULT_REQUIRED_MASK_COLUMNS: tuple[str, ...] = (IN_ANALYSIS_AREA_COLUMN,)
 
 
-def load_analysis_dataset(dataset_path: Path) -> pd.DataFrame:
+def load_analysis_dataset(dataset_path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame:
     """分析用データセットGeoPackageを読み込む。
 
     `src.analysis.build_dataset` が生成するデータセットは `cell_id` をキーとする
@@ -29,10 +35,13 @@ def load_analysis_dataset(dataset_path: Path) -> pd.DataFrame:
 
     Args:
         dataset_path: `src.analysis.build_dataset` が生成したGeoPackageのパス。
+        columns: 読み込む列名。`None`（既定）の場合は全列を読み込む。後段の
+            `filter_valid_rows` / `sample_dataset` で実際に使う列だけを指定すると、
+            使わない列（他シナリオ用の品質列等）の読込コストを避けられる。
     Returns:
         `cell_id` / `lon` / `lat` / 特徴量 / 品質列を含むDataFrame。
     """
-    return pd.DataFrame(gpd.read_file(dataset_path))
+    return pd.DataFrame(gpd.read_file(dataset_path, columns=columns))
 
 
 def filter_valid_rows(
@@ -40,12 +49,13 @@ def filter_valid_rows(
     feature_columns: list[str],
     target_column: str,
     lst_valid_ratio_threshold: float,
+    required_mask_columns: Sequence[str] = DEFAULT_REQUIRED_MASK_COLUMNS,
 ) -> pd.DataFrame:
     """品質列に基づき、分析に使う有効な行だけを残す。
 
     以下をすべて満たす行を残す。
 
-    - `IN_ANALYSIS_AREA == 1`
+    - `required_mask_columns`（既定は `IN_ANALYSIS_AREA` のみ）がすべて `== 1`
     - `feature_columns` と `target_column` がすべて非NULL
     - `LST_VALID_RATIO >= lst_valid_ratio_threshold`
 
@@ -58,10 +68,15 @@ def filter_valid_rows(
         feature_columns: 非NULLを要求する説明変数の列名リスト。
         target_column: 非NULLを要求する目的変数の列名（通常 `"LST"`）。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限（この値以上を残す）。
+        required_mask_columns: `== 1` を要求する品質列名（既定は `IN_ANALYSIS_AREA`
+            のみ）。Limited/Fullシナリオで `VALID_GIS_MASK` 等の追加の品質軸を
+            課したい場合に、この共通モジュールを変更せず呼び出し側から渡せる。
     Returns:
         フィルタ後のデータフレーム（インデックスは0始まりに振り直し済み）。
     """
-    mask = dataframe[IN_ANALYSIS_AREA_COLUMN] == 1
+    mask = pd.Series(True, index=dataframe.index)
+    for column in required_mask_columns:
+        mask &= dataframe[column] == 1
     for column in [*feature_columns, target_column]:
         mask &= dataframe[column].notna()
     mask &= dataframe[LST_VALID_RATIO_COLUMN] >= lst_valid_ratio_threshold

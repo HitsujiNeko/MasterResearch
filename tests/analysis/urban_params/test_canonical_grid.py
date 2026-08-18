@@ -32,6 +32,7 @@ from src.analysis.urban_params.canonical_grid import (
     INDEX_MAX,
     SNAP_UNIT_M,
     CanonicalGridSpec,
+    assign_canonical_blocks,
     build_canonical_grid,
     is_supported_resolution,
     iter_cell_blocks,
@@ -340,6 +341,30 @@ def test_split_cell_id_float_raises() -> None:
     """小数の cell_id はValueErrorになる（make_cell_id と対称にするため）。"""
     with pytest.raises(ValueError, match="整数で指定してください"):
         split_cell_id(1.9)
+
+
+def test_assign_canonical_blocks_decodes_cell_id_and_assigns_blocks() -> None:
+    """cell_idをデコードしたrow/colから、ブロックサイズに応じたblock_idを割り当てる。
+
+    block_size_m=2700, scale=30 -> block_cells=90。row=0,col=0 と row=0,col=90
+    は異なるブロック（90セル区切りの境界をまたぐ）になるはず。
+    """
+    cell_ids = np.asarray(make_cell_id(np.array([0, 0]), np.array([0, 90])))
+
+    block_ids, info = assign_canonical_blocks(cell_ids, block_size_m=2700, scale=30)
+
+    assert block_ids[0] != block_ids[1]
+    assert info["n_blocks"] == 2
+
+
+def test_assign_canonical_blocks_same_block_for_cells_within_block_size() -> None:
+    """同じブロック内のセルは同じblock_idになる。"""
+    cell_ids = np.asarray(make_cell_id(np.array([0, 1]), np.array([0, 1])))
+
+    block_ids, info = assign_canonical_blocks(cell_ids, block_size_m=2700, scale=30)
+
+    assert block_ids[0] == block_ids[1]
+    assert info["n_blocks"] == 1
 
 
 def test_cell_id_accepts_empty_arrays() -> None:

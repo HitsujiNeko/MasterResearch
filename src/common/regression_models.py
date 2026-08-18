@@ -93,6 +93,7 @@ def fit_random_forest(
     y_test: pd.Series,
     random_state: int,
     n_estimators: int,
+    compute_permutation_importance: bool = True,
 ) -> tuple[
     RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray
 ]:
@@ -105,9 +106,13 @@ def fit_random_forest(
         y_test: 評価用目的変数。
         random_state: 乱数シード（モデル学習・permutation importance共通）。
         n_estimators: 決定木本数。
+        compute_permutation_importance: Permutation重要度を計算するかどうか。
+            Permutation重要度は特徴量数×n_repeats回の追加スコアリングを要し、
+            呼び出し側がmetricsしか使わない場合（例: Spatial CVの各fold）は
+            無駄な計算になるため、`False` で計算自体を省略できる。
     Returns:
-        学習済みモデル、評価結果、不純度ベース重要度、Permutation重要度、
-        予測値のタプル。
+        学習済みモデル、評価結果、不純度ベース重要度、Permutation重要度
+        （`compute_permutation_importance=False` の場合は空の辞書）、予測値のタプル。
     Raises:
         ValueError: x_trainとx_testの列が一致しない場合。
     """
@@ -128,18 +133,20 @@ def fit_random_forest(
         for feature, score in zip(feature_names, model.feature_importances_, strict=True)
     }
 
-    permutation = permutation_importance(
-        model,
-        x_test,
-        y_test,
-        n_repeats=10,
-        random_state=random_state,
-        n_jobs=1,
-    )
-    permutation_scores = {
-        feature: float(score)
-        for feature, score in zip(feature_names, permutation.importances_mean, strict=True)
-    }
+    permutation_scores: dict[str, float] = {}
+    if compute_permutation_importance:
+        permutation = permutation_importance(
+            model,
+            x_test,
+            y_test,
+            n_repeats=10,
+            random_state=random_state,
+            n_jobs=1,
+        )
+        permutation_scores = {
+            feature: float(score)
+            for feature, score in zip(feature_names, permutation.importances_mean, strict=True)
+        }
 
     result = {
         "metrics": compute_metrics(y_test, y_pred),

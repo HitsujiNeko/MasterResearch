@@ -18,6 +18,21 @@ import numpy as np
 import pandas as pd
 
 
+def _finalize_figure(fig: plt.Figure, output_path: Path) -> None:
+    """figureのレイアウトを整えて画像として保存し、閉じる。
+
+    本モジュールの3関数で同じ保存手順（tight_layout・savefig・close）が
+    繰り返されるため、共通化する。dpi・bbox_inchesの変更を1箇所に集約する。
+
+    Args:
+        fig: 保存対象のfigure。
+        output_path: 出力画像パス。
+    """
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def save_model_comparison_plot(
     output_path: Path,
     random_linear_metrics: dict[str, float],
@@ -55,9 +70,7 @@ def save_model_comparison_plot(
         axes[index].grid(axis="y", alpha=0.3)
 
     fig.suptitle(f"Model Performance Comparison {observation_label}")
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    _finalize_figure(fig, output_path)
 
 
 def save_feature_importance_plot(
@@ -99,9 +112,7 @@ def save_feature_importance_plot(
     ax.set_title(f"Feature Importance {observation_label}")
     ax.grid(axis="y", alpha=0.3)
     ax.legend()
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    _finalize_figure(fig, output_path)
 
 
 def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> None:
@@ -134,6 +145,4 @@ def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> No
         axes[index].grid(alpha=0.3)
 
     axes[0].legend()
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    _finalize_figure(fig, output_path)

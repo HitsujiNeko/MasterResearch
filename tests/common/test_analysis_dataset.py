@@ -39,6 +39,25 @@ class TestLoadAnalysisDataset:
         assert list(result["cell_id"]) == [1, 2]
         assert isinstance(result, pd.DataFrame)
 
+    def test_reads_only_requested_columns(self, tmp_path: Path) -> None:
+        """columnsを指定すると、その列だけを読み込む（不要な列の読込を避ける）。"""
+        table = pd.DataFrame(
+            {
+                "cell_id": [1, 2],
+                "lon": [105.8, 105.9],
+                "lat": [21.0, 21.1],
+                "NDVI": [0.4, 0.5],
+            }
+        )
+        dataset_path = tmp_path / "dataset.gpkg"
+        write_attribute_table(table, dataset_path, layer_name="dataset")
+
+        result = load_analysis_dataset(dataset_path, columns=["cell_id", "NDVI"])
+
+        # 列の並び順はストレージ側の格納順に依存するため、集合で比較する。
+        assert set(result.columns) == {"cell_id", "NDVI"}
+        assert list(result["cell_id"]) == [1, 2]
+
 
 def _sample_dataframe() -> pd.DataFrame:
     """フィルタ条件の各分岐を1件ずつ含む合成データ。
@@ -129,6 +148,61 @@ class TestFilterValidRows:
         )
 
         assert 4 not in list(result["cell_id"])
+
+    def test_keeps_row_at_lst_valid_ratio_threshold_boundary(self) -> None:
+        """LST_VALID_RATIOがしきい値と完全一致する行は残る（>=境界）。
+
+        `>=` が `>` に書き換わるオフバイワン回帰を検出するため、しきい値未満の
+        行が除外されることだけでなく、しきい値ちょうどの行が残ることも検証する。
+        """
+        dataframe = pd.DataFrame(
+            {
+                "cell_id": [1],
+                "IN_ANALYSIS_AREA": [1],
+                "NDVI": [0.4],
+                "NDBI": [-0.1],
+                "NDWI": [0.2],
+                "LST": [35.0],
+                "LST_VALID_RATIO": [0.5],
+            }
+        )
+
+        result = filter_valid_rows(
+            dataframe,
+            feature_columns=["NDVI", "NDBI", "NDWI"],
+            target_column="LST",
+            lst_valid_ratio_threshold=0.5,
+        )
+
+        assert list(result["cell_id"]) == [1]
+
+    def test_excludes_rows_failing_additional_required_mask_column(self) -> None:
+        """required_mask_columnsに追加した列が0の行は、他の条件を満たしていても除外される。
+
+        Limited/FullシナリオでVALID_GIS_MASK等の追加の品質軸を課す場合を想定する。
+        """
+        dataframe = pd.DataFrame(
+            {
+                "cell_id": [1, 2],
+                "IN_ANALYSIS_AREA": [1, 1],
+                "NDVI": [0.4, 0.4],
+                "NDBI": [-0.1, -0.1],
+                "NDWI": [0.2, 0.2],
+                "LST": [35.0, 35.0],
+                "LST_VALID_RATIO": [0.9, 0.9],
+                "VALID_GIS_MASK": [1, 0],  # cell_id=2のみVALID_GIS_MASK=0
+            }
+        )
+
+        result = filter_valid_rows(
+            dataframe,
+            feature_columns=["NDVI", "NDBI", "NDWI"],
+            target_column="LST",
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=["IN_ANALYSIS_AREA", "VALID_GIS_MASK"],
+        )
+
+        assert list(result["cell_id"]) == [1]
 
     def test_resets_index(self) -> None:
         """フィルタ後のインデックスは0始まりに振り直される。"""

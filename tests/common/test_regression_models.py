@@ -146,3 +146,30 @@ class TestFitRandomForest:
 
         with pytest.raises(ValueError, match="列"):
             fit_random_forest(x_train, x_test, y_train, y_test, random_state=0, n_estimators=10)
+
+    def test_skips_permutation_importance_when_disabled(self) -> None:
+        """compute_permutation_importance=Falseの場合、permutation重要度は空辞書になる。
+
+        Spatial CVの各foldのようにmetricsしか使わない呼び出しで、無駄な
+        permutation_importance計算（特徴量数×n_repeats回のスコアリング）を
+        省略できることを確認する。
+        """
+        x, y = _make_linear_dataset()
+        x_train, x_test = x.iloc[:150], x.iloc[150:]
+        y_train, y_test = y.iloc[:150], y.iloc[150:]
+
+        _, result, importance, permutation_scores, _ = fit_random_forest(
+            x_train,
+            x_test,
+            y_train,
+            y_test,
+            random_state=0,
+            n_estimators=20,
+            compute_permutation_importance=False,
+        )
+
+        assert permutation_scores == {}
+        assert result["permutation_importance"] == {}
+        # 不純度ベース重要度・metricsはcompute_permutation_importanceの影響を受けない。
+        assert set(importance.keys()) == {"feat_a", "feat_b"}
+        assert "r2" in result["metrics"]

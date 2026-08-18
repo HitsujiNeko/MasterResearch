@@ -2,8 +2,9 @@
 
 実データでのフルパイプライン実行（RF学習・SHAP計算等の重い処理）は動作確認
 手順で扱い、ここでは薄いエントリとしての結線部分のみを対象とする:
-CLI引数の解釈、split_cell_id()からブロック割り当てまでの結線、
-フィルタ条件の組み立て、出力パス解決。
+CLI引数の解釈、フィルタ条件の組み立て、出力パス解決。cell_idデコードから
+ブロック割り当てまでの結線（assign_canonical_blocks）は
+tests/analysis/urban_params/test_canonical_grid.py で検証する。
 """
 
 from __future__ import annotations
@@ -20,14 +21,14 @@ from src.analysis.analysis_rq3_satellite_only import (
     DEFAULT_SCALE_M,
     FEATURE_COLUMNS,
     TARGET_COLUMN,
-    assign_canonical_blocks,
     build_filtered_sample,
+    build_observation_label,
     parse_arguments,
     resolve_output_stem,
     run_random_split_models,
     run_spatial_cv_models,
+    validate_scale_matches_dataset,
 )
-from src.analysis.urban_params.canonical_grid import make_cell_id
 
 
 class TestParseArguments:
@@ -77,30 +78,41 @@ class TestResolveOutputStem:
         assert resolve_output_stem(path) == "dataset_satellite_only_20230707_032329_hanoi_30m"
 
 
-class TestAssignCanonicalBlocks:
-    """assign_canonical_blocks のテスト（split_cell_id -> assign_spatial_blocksの結線）。"""
+class TestValidateScaleMatchesDataset:
+    """validate_scale_matches_dataset のテスト。"""
 
-    def test_decodes_cell_id_and_assigns_blocks(self) -> None:
-        """cell_idをデコードしたrow/colから、ブロックサイズに応じたblock_idを割り当てる。
+    def test_accepts_matching_scale(self) -> None:
+        """ファイル名末尾が--scaleと一致する場合は例外にならない。"""
+        path = Path("data/output/datasets/dataset_satellite_only_20230707_032329_hanoi_30m.gpkg")
 
-        block_size_m=2700, scale=30 -> block_cells=90。row=0,col=0 と row=0,col=90
-        は異なるブロック（90セル区切りの境界をまたぐ）になるはず。
+        validate_scale_matches_dataset(path, scale=30)
+
+    def test_raises_when_scale_does_not_match_filename(self) -> None:
+        """ファイル名末尾が--scaleと一致しない場合はValueErrorになる。
+
+        90mデータセットに--scale=30を指定するような設定ミスを、誤ったブロック
+        サイズでSpatial CVが静かに実行される前に検出する。
         """
-        cell_ids = np.asarray(make_cell_id(np.array([0, 0]), np.array([0, 90])))
+        path = Path("data/output/datasets/dataset_satellite_only_20230707_032329_hanoi_90m.gpkg")
 
-        block_ids, info = assign_canonical_blocks(cell_ids, block_size_m=2700, scale=30)
+        with pytest.raises(ValueError, match="--scale"):
+            validate_scale_matches_dataset(path, scale=30)
 
-        assert block_ids[0] != block_ids[1]
-        assert info["n_blocks"] == 2
 
-    def test_same_block_for_cells_within_block_size(self) -> None:
-        """同じブロック内のセルは同じblock_idになる。"""
-        cell_ids = np.asarray(make_cell_id(np.array([0, 1]), np.array([0, 1])))
+class TestBuildObservationLabel:
+    """build_observation_label のテスト。"""
 
-        block_ids, info = assign_canonical_blocks(cell_ids, block_size_m=2700, scale=30)
+    def test_formats_date_and_time_from_output_stem(self) -> None:
+        """8桁の日付・6桁の時刻を可読な形式へ整形する。"""
+        label = build_observation_label("dataset_satellite_only_20230707_032329_hanoi_30m")
 
-        assert block_ids[0] == block_ids[1]
-        assert info["n_blocks"] == 1
+        assert label == "2023-07-07 03:23:29"
+
+    def test_returns_output_stem_when_pattern_not_found(self) -> None:
+        """日付・時刻パターンが見つからない場合はoutput_stemをそのまま返す。"""
+        label = build_observation_label("dataset_without_date")
+
+        assert label == "dataset_without_date"
 
 
 def _quality_dataframe(n: int = 10) -> pd.DataFrame:
@@ -197,9 +209,11 @@ class TestRunRandomSplitModels:
         assert len(result.x_test) == 20
         assert set(result.linear_result["metrics"].keys()) == {"r2", "rmse", "mae"}
         assert set(result.rf_result["metrics"].keys()) == {"r2", "rmse", "mae"}
-        assert set(result.standardized_coefficients.keys()) == set(FEATURE_COLUMNS)
-        assert set(result.rf_importance.keys()) == set(FEATURE_COLUMNS)
-        assert set(result.permutation_scores.keys()) == set(FEATURE_COLUMNS)
+        # 標準化係数・重要度はlinear_result/rf_resultの中に含まれ、専用フィールド
+        # としては持たない（二重管理を避けるため）。
+        assert set(result.linear_result["standardized_coefficients"].keys()) == set(FEATURE_COLUMNS)
+        assert set(result.rf_result["feature_importance"].keys()) == set(FEATURE_COLUMNS)
+        assert set(result.rf_result["permutation_importance"].keys()) == set(FEATURE_COLUMNS)
 
 
 class TestRunSpatialCvModels:

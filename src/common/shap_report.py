@@ -15,7 +15,23 @@ import pandas as pd
 import shap
 from sklearn.ensemble import RandomForestRegressor
 
-from src.common.config import PROJECT_ROOT
+from src.common.paths import to_project_relative_string
+
+
+def _finalize_current_figure(output_path: Path, title: str) -> None:
+    """現在のmatplotlib figureにタイトルを付けて保存し、閉じる。
+
+    `compute_shap_outputs` 内の3箇所（summary/bar/dependence）で同じ
+    保存手順が繰り返されるため、共通化する。
+
+    Args:
+        output_path: 保存先の画像パス。
+        title: 図に付けるタイトル。
+    """
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=180, bbox_inches="tight")
+    plt.close()
 
 
 def _validate_shap_feature_columns(
@@ -70,8 +86,9 @@ def compute_shap_outputs(
         model: 学習済みのランダムフォレストモデル。
         shap_features: SHAP計算対象データ（特徴量列のみ）。
         background_features: SHAP背景データ（特徴量列のみ、shap_featuresと同じ列）。
-        output_dir: 出力先ディレクトリ（`PROJECT_ROOT` 配下である必要がある。
-            結果に含めるパスを `PROJECT_ROOT` からの相対パスとして記録するため）。
+        output_dir: 出力先ディレクトリ。結果に含めるパスは `to_project_relative_string()`
+            で `PROJECT_ROOT` からの相対パスへ変換して記録する（`PROJECT_ROOT` 配下
+            でない場合は絶対パスのまま記録する）。
         output_stem: 出力ファイル名の接頭辞。
         observation_label: 図タイトルに使う観測日時ラベル。
     Returns:
@@ -101,18 +118,12 @@ def compute_shap_outputs(
     summary_path = output_dir / f"{output_stem}_shap_summary.png"
     plt.figure(figsize=(8, 5))
     shap.summary_plot(shap_values.values, shap_features, show=False)
-    plt.title(f"SHAP value distribution {observation_label}")
-    plt.tight_layout()
-    plt.savefig(summary_path, dpi=180, bbox_inches="tight")
-    plt.close()
+    _finalize_current_figure(summary_path, f"SHAP value distribution {observation_label}")
 
     bar_path = output_dir / f"{output_stem}_shap_bar.png"
     plt.figure(figsize=(8, 5))
     shap.summary_plot(shap_values.values, shap_features, plot_type="bar", show=False)
-    plt.title(f"SHAP value distribution {observation_label}")
-    plt.tight_layout()
-    plt.savefig(bar_path, dpi=180, bbox_inches="tight")
-    plt.close()
+    _finalize_current_figure(bar_path, f"SHAP value distribution {observation_label}")
 
     dependence_paths: dict[str, str] = {}
     for feature in feature_names:
@@ -124,11 +135,10 @@ def compute_shap_outputs(
             show=False,
             interaction_index="auto",
         )
-        plt.title(f"SHAP value distribution {observation_label}: {feature}")
-        plt.tight_layout()
-        plt.savefig(dependence_path, dpi=180, bbox_inches="tight")
-        plt.close()
-        dependence_paths[feature] = str(dependence_path.relative_to(PROJECT_ROOT))
+        _finalize_current_figure(
+            dependence_path, f"SHAP value distribution {observation_label}: {feature}"
+        )
+        dependence_paths[feature] = to_project_relative_string(dependence_path)
 
     shap_result = {
         "sample_size": int(len(shap_features)),
@@ -137,9 +147,9 @@ def compute_shap_outputs(
             row["feature"]: float(row["mean_abs_shap"]) for _, row in shap_importance_df.iterrows()
         },
         "outputs": {
-            "shap_importance_csv": str(shap_importance_path.relative_to(PROJECT_ROOT)),
-            "shap_summary_png": str(summary_path.relative_to(PROJECT_ROOT)),
-            "shap_bar_png": str(bar_path.relative_to(PROJECT_ROOT)),
+            "shap_importance_csv": to_project_relative_string(shap_importance_path),
+            "shap_summary_png": to_project_relative_string(summary_path),
+            "shap_bar_png": to_project_relative_string(bar_path),
             "shap_dependence_png": dependence_paths,
         },
     }

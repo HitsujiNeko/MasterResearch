@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.common.config import PROJECT_ROOT
@@ -30,6 +31,7 @@ matplotlib.use("Agg")
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from sklearn.ensemble import RandomForestRegressor  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
 from src.analysis.urban_params.canonical_grid import CELL_ID_STRIDE, split_cell_id  # noqa: E402
@@ -88,15 +90,26 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="RQ3のSatellite Onlyシナリオをcell_id結合の新経路で評価する。"
     )
-    parser.add_argument("--dataset-path", type=Path, default=DEFAULT_DATASET_PATH)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--dataset-path", type=Path, default=DEFAULT_DATASET_PATH, help="入力GeoPackageのパス"
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="出力先ディレクトリ"
+    )
     parser.add_argument(
         "--scale", type=int, default=DEFAULT_SCALE_M, help="正準グリッドの解像度（m）"
     )
-    parser.add_argument("--lst-valid-ratio-threshold", type=float, default=0.5)
-    parser.add_argument("--sample-size", type=int, default=100_000)
-    parser.add_argument("--random-state", type=int, default=42)
-    parser.add_argument("--cv-splits", type=int, default=5)
+    parser.add_argument(
+        "--lst-valid-ratio-threshold",
+        type=float,
+        default=0.5,
+        help="LST_VALID_RATIOの下限（この値以上のセルを残す）",
+    )
+    parser.add_argument(
+        "--sample-size", type=int, default=100_000, help="抽出するサンプル数（0で全件）"
+    )
+    parser.add_argument("--random-state", type=int, default=42, help="乱数シード")
+    parser.add_argument("--cv-splits", type=int, default=5, help="Spatial CVの分割数（2以上）")
     parser.add_argument(
         "--block-size-m",
         type=int,
@@ -108,9 +121,9 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             "この900m倍数の性質は既定値以外を指定した場合には保証されない。"
         ),
     )
-    parser.add_argument("--shap-sample-size", type=int, default=2_000)
-    parser.add_argument("--shap-background-size", type=int, default=500)
-    parser.add_argument("--rf-trees", type=int, default=300)
+    parser.add_argument("--shap-sample-size", type=int, default=2_000, help="SHAP評価サンプル数")
+    parser.add_argument("--shap-background-size", type=int, default=500, help="SHAP背景データ数")
+    parser.add_argument("--rf-trees", type=int, default=300, help="ランダムフォレストの決定木本数")
     return parser.parse_args(argv)
 
 
@@ -176,9 +189,38 @@ def build_filtered_sample(
     return sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
 
 
+@dataclass(frozen=True)
+class RandomSplitResult:
+    """ランダム分割による学習・評価結果。
+
+    `dict[str, object]` ではなく型付きの構造体にすることで、キー名の
+    打ち間違いを実行時のKeyErrorではなく型チェッカで検出できるようにする。
+
+    Attributes:
+        x_train: 学習用説明変数。
+        x_test: 評価用説明変数。
+        linear_result: 線形回帰の評価結果（`metrics` と `standardized_coefficients` を含む）。
+        standardized_coefficients: 線形回帰の標準化係数。
+        rf_model: 学習済みランダムフォレストモデル。
+        rf_result: RFの評価結果（`metrics` / `feature_importance` /
+            `permutation_importance` を含む）。
+        rf_importance: RFの不純度ベース重要度。
+        permutation_scores: RFのPermutation重要度。
+    """
+
+    x_train: pd.DataFrame
+    x_test: pd.DataFrame
+    linear_result: dict[str, object]
+    standardized_coefficients: dict[str, float]
+    rf_model: RandomForestRegressor
+    rf_result: dict[str, object]
+    rf_importance: dict[str, float]
+    permutation_scores: dict[str, float]
+
+
 def run_random_split_models(
     sampled: pd.DataFrame, random_state: int, rf_trees: int
-) -> dict[str, object]:
+) -> RandomSplitResult:
     """ランダム分割で線形回帰・RFを学習・評価する。
 
     Args:
@@ -186,7 +228,7 @@ def run_random_split_models(
         random_state: 乱数シード。
         rf_trees: RFの決定木本数。
     Returns:
-        学習データ・評価結果・学習済みRFモデルを含む辞書。
+        学習データ・評価結果・学習済みRFモデルを含む構造体。
     """
     x = sampled[FEATURE_COLUMNS]
     y = sampled[TARGET_COLUMN]
@@ -200,16 +242,16 @@ def run_random_split_models(
     rf_model, rf_result, rf_importance, permutation_scores, _ = fit_random_forest(
         x_train, x_test, y_train, y_test, random_state=random_state, n_estimators=rf_trees
     )
-    return {
-        "x_train": x_train,
-        "x_test": x_test,
-        "linear_result": linear_result,
-        "standardized_coefficients": standardized_coefficients,
-        "rf_model": rf_model,
-        "rf_result": rf_result,
-        "rf_importance": rf_importance,
-        "permutation_scores": permutation_scores,
-    }
+    return RandomSplitResult(
+        x_train=x_train,
+        x_test=x_test,
+        linear_result=linear_result,
+        standardized_coefficients=standardized_coefficients,
+        rf_model=rf_model,
+        rf_result=rf_result,
+        rf_importance=rf_importance,
+        permutation_scores=permutation_scores,
+    )
 
 
 def run_spatial_cv_models(
@@ -314,14 +356,13 @@ def main() -> None:
         {
             "feature": FEATURE_COLUMNS,
             "linear_abs_standardized_coefficient": [
-                abs(random_split["standardized_coefficients"][feature])
-                for feature in FEATURE_COLUMNS
+                abs(random_split.standardized_coefficients[feature]) for feature in FEATURE_COLUMNS
             ],
             "random_forest_importance": [
-                random_split["rf_importance"][feature] for feature in FEATURE_COLUMNS
+                random_split.rf_importance[feature] for feature in FEATURE_COLUMNS
             ],
             "permutation_importance": [
-                random_split["permutation_scores"][feature] for feature in FEATURE_COLUMNS
+                random_split.permutation_scores[feature] for feature in FEATURE_COLUMNS
             ],
             "vif": [vif[feature] for feature in FEATURE_COLUMNS],
         }
@@ -337,29 +378,29 @@ def main() -> None:
     spatial_cv_plot_path = args.output_dir / f"{output_stem}_spatial_cv.png"
     save_model_comparison_plot(
         comparison_plot_path,
-        random_split["linear_result"]["metrics"],
-        random_split["rf_result"]["metrics"],
+        random_split.linear_result["metrics"],
+        random_split.rf_result["metrics"],
         spatial_cv_summary["linear_regression"],
         spatial_cv_summary["random_forest"],
         observation_label,
     )
     save_feature_importance_plot(
         importance_plot_path,
-        random_split["standardized_coefficients"],
-        random_split["rf_importance"],
+        random_split.standardized_coefficients,
+        random_split.rf_importance,
         observation_label,
     )
     save_spatial_cv_plot(spatial_cv_plot_path, spatial_cv_folds)
 
-    shap_source = random_split["x_test"].reset_index(drop=True)
+    shap_source = random_split.x_test.reset_index(drop=True)
     shap_sample_size = min(args.shap_sample_size, len(shap_source))
-    background_size = min(args.shap_background_size, len(random_split["x_train"]))
+    background_size = min(args.shap_background_size, len(random_split.x_train))
     shap_features = shap_source.sample(n=shap_sample_size, random_state=args.random_state)
-    background_features = random_split["x_train"].sample(
+    background_features = random_split.x_train.sample(
         n=background_size, random_state=args.random_state
     )
     shap_result, _ = compute_shap_outputs(
-        model=random_split["rf_model"],
+        model=random_split.rf_model,
         shap_features=shap_features,
         background_features=background_features,
         output_dir=args.output_dir,
@@ -372,13 +413,13 @@ def main() -> None:
         "dataset_path": str(args.dataset_path.relative_to(PROJECT_ROOT)),
         "sample_path": str(sampled_path.relative_to(PROJECT_ROOT)),
         "sample_size": int(len(sampled)),
-        "train_size": int(len(random_split["x_train"])),
-        "test_size": int(len(random_split["x_test"])),
+        "train_size": int(len(random_split.x_train)),
+        "test_size": int(len(random_split.x_test)),
         "features": FEATURE_COLUMNS,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
         "random_split": {
-            "linear_regression": random_split["linear_result"],
-            "random_forest": random_split["rf_result"],
+            "linear_regression": random_split.linear_result,
+            "random_forest": random_split.rf_result,
         },
         "spatial_cv": {
             **spatial_cv_summary,

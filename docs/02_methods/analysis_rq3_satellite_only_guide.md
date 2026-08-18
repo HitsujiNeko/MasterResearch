@@ -33,7 +33,8 @@
 - `lon`, `lat`: セル中心の座標
 - `LST`: 目的変数（予測したい値、°C）
 - `NDVI`, `NDBI`, `NDWI`: 説明変数（予測に使う特徴量）
-- `IN_ANALYSIS_AREA`, `LST_VALID_RATIO`, `VALID_SATELLITE_MASK`: 品質管理列（フィルタに使用。3節参照）
+- `IN_ANALYSIS_AREA`, `LST_VALID_RATIO`: 品質管理列（フィルタに使用。3節参照）
+- `VALID_SATELLITE_MASK`: 品質管理列。ただし独立のフィルタ条件には使わない（この列は「NDVI / NDBI / NDWI のいずれかが非NULL」というORで定義されており、3列すべての非NULLを要求する時点で包含されるため）
 
 ---
 
@@ -60,12 +61,12 @@
    - 線形回帰（X・y双方を標準化）とランダムフォレスト（RF）を学習
    - R2, RMSE, MAEを算出（`model_metrics.compute_metrics`）
 
-5. **特徴量重要度の算出**（`model_metrics.compute_vif`）
+5. **特徴量重要度の算出**（`regression_models` の戻り値 + `model_metrics.compute_vif`）
 
-   - 線形回帰: 標準化係数の絶対値
-   - RF: 不純度ベース重要度
-   - RF: permutation importance
-   - 参考: VIF（多重共線性の確認）
+   - 線形回帰: 標準化係数の絶対値（`fit_linear_regression` の戻り値）
+   - RF: 不純度ベース重要度（`fit_random_forest` の戻り値）
+   - RF: permutation importance（`fit_random_forest` の戻り値）
+   - 参考: VIF（多重共線性の確認）（`model_metrics.compute_vif`）
 
 6. **Spatial CVで評価**（`spatial_cv.assign_spatial_blocks` / `split_by_spatial_blocks`）
 
@@ -209,7 +210,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 - `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_*.png`: SHAP可視化
 - `*_results.json`: 全結果の要約
 
-旧経路の出力先（`data/output/satellite_only/`）とは分離している。集計単位・格子が異なる別物であるため（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節）。
+旧経路の出力先（`data/output/satellite_only/`）とは分離しています。集計単位・格子が異なる別物であるためです（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節）。
 
 ---
 
@@ -225,7 +226,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
   --rf-trees 300
 ```
 
-引数を省略すると、既定値（30m・`20230707_032329`観測・block-size-m=2700等）で実行される。データセットが未生成の場合は先に `build_dataset.py` で生成する（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6章参照）。
+引数を省略すると、既定値（30m・`20230707_032329`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6章参照）。
 
 ---
 

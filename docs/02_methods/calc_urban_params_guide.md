@@ -17,7 +17,7 @@
 | 章・節 | 1行要約 | 収録ファイル |
 |---|---|---|
 | 1. 本ガイドの位置づけ | 実装設計書としての目的と、変数の採否・出力仕様・データソース候補の正本の切り分け | 本ファイル |
-| 1.1 正本の境界 | 採否は `urban_structure_parameters.md`、出力仕様は本ガイド6章、データソース候補は `available_gis_data.md` が正本 | 本ファイル |
+| 1.1 正本の境界 | 採否は `urban_structure_parameters.md`、出力仕様は `calc_urban_params_io_spec.md` 6章、データソース候補は `available_gis_data.md` が正本 | 本ファイル |
 | 3. 用語と空間整合ルール | LST・公開GIS・測量GISの有効カバレッジの違いと、分析時の空間整合手順 | 本ファイル |
 | 4. スコープ定義 | 算出フェーズ・結合フェーズの担当範囲と非担当範囲 | 本ファイル |
 | 5. 入力仕様（再定義） | 必須入力・パラメータセット別入力（GIS）・任意入力（衛星指標・LSTラスタ） | [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) |

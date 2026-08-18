@@ -1,7 +1,7 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-04-08  
-**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)  
+**最終更新**: 2026-08-17  
+**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
 ---
@@ -21,69 +21,72 @@
 
 ポイントは、ランダム分割よりSpatial CVのほうが厳しめに性能を評価できることです。
 
+**このスクリプトは「薄いエントリ」です。** 実際の処理（フィルタ・サンプリング・モデル学習・SHAP・プロット）は `src/common/` 配下の共通モジュールに委譲しており、`analysis_rq3_satellite_only.py` 自体はデータセットパス・特徴量列・出力先の組み立てとCLI引数の解釈のみを担います。Limited / Full シナリオでも同じ共通モジュールを再利用する前提です。
+
 ---
 
 ## 2. 入力データと列
 
-このコードで使う主な列は次の6列です。
+入力は `src.analysis.build_dataset` が生成した `cell_id` 結合のGeoPackageです（旧実装のピクセル単位CSVではありません）。このコードで使う主な列は次のとおりです。
 
-- `lon`, `lat`: 座標
-- `LST`: 目的変数（予測したい値）
+- `cell_id`: 正準グリッドのセルID（`row * 1000000 + col` で採番）
+- `lon`, `lat`: セル中心の座標
+- `LST`: 目的変数（予測したい値、°C）
 - `NDVI`, `NDBI`, `NDWI`: 説明変数（予測に使う特徴量）
-
-目的変数と説明変数の関係は以下です。
-
-- 目的変数: `LST`
-- 説明変数: `NDVI`, `NDBI`, `NDWI`
+- `IN_ANALYSIS_AREA`, `LST_VALID_RATIO`: 品質管理列（フィルタに使用。3節参照）
+- `VALID_SATELLITE_MASK`: 品質管理列。ただし独立のフィルタ条件には使わない（この列は「NDVI / NDBI / NDWI のいずれかが非NULL」というORで定義されており、3列すべての非NULLを要求する時点で包含されるため）
 
 ---
 
 ## 3. 処理全体の流れ
 
-処理は大きく8段階です。
+処理は大きく9段階です（`src/common/` 内の担当モジュールを併記）。
 
-1. **引数を読む**
+1. **引数を読む**（`parse_arguments`）
 
-- 入力CSV、サンプル数、CV分割数、RF木本数などを受け取る
+   - データセットパス、しきい値、サンプル数、CV分割数、RF木本数などを受け取る
 
-1. **大規模CSVからサンプリング**
+2. **データセットを読み込む**（`analysis_dataset.load_analysis_dataset`）
 
-- 全件を一気にメモリに載せず、チャンクごとに読み込み
-- 優先度サンプリングで指定件数を抽出
+   - `cell_id` をキーとする属性テーブル（ジオメトリなし）を読み込む
 
-1. **ランダム分割で学習・評価**
+3. **品質列でフィルタし、サンプリングする**（`analysis_dataset.filter_valid_rows` / `sample_dataset`）
 
-- 学習80% / テスト20%
-- 線形回帰とランダムフォレスト（RF）を学習
-- R2, RMSE, MAEを算出
+   - `IN_ANALYSIS_AREA == 1` かつ特徴量・目的変数が非NULL かつ `LST_VALID_RATIO >= しきい値`（既定0.5）
+   - フィルタ→サンプリングの順（ブロック割り当てより先。ブロック割り当てを先にすると各ブロックのセル数が不均等に減るため）
 
-1. **特徴量重要度の算出**
+4. **ランダム分割で学習・評価**（`regression_models.fit_linear_regression` / `fit_random_forest`）
 
-- 線形回帰: 標準化係数の絶対値
-- RF: 不純度ベース重要度
-- RF: permutation importance
-- 参考: VIF（多重共線性の確認）
+   - 学習80% / テスト20%
+   - 線形回帰（X・y双方を標準化）とランダムフォレスト（RF）を学習
+   - R2, RMSE, MAEを算出（`model_metrics.compute_metrics`）
 
-1. **Spatial CVで評価**
+5. **特徴量重要度の算出**（`regression_models` の戻り値 + `model_metrics.compute_vif`）
 
-- 経度・緯度を分位でビニングして空間ブロック作成
-- GroupKFoldで空間ブロック単位に学習/評価を分離
-- foldごとの性能を記録し、平均と標準偏差を算出
+   - 線形回帰: 標準化係数の絶対値（`fit_linear_regression` の戻り値）
+   - RF: 不純度ベース重要度（`fit_random_forest` の戻り値）
+   - RF: permutation importance（`fit_random_forest` の戻り値）
+   - 参考: VIF（多重共線性の確認）（`model_metrics.compute_vif`）
 
-1. **可視化の保存**
+6. **Spatial CVで評価**（`spatial_cv.assign_spatial_blocks` / `split_by_spatial_blocks`）
 
-- モデル比較図
-- 特徴量重要度図
-- Spatial CVのfold別性能図
+   - 正準グリッドの row/col（`cell_id` をデコードして取得）を物理的に等間隔なブロックへ分割
+   - GroupKFoldで空間ブロック単位に学習/評価を分離
+   - foldごとの性能を記録し、平均と標準偏差を算出（`model_metrics.summarize_metric_dicts`）
 
-1. **SHAP解析**
+7. **可視化の保存**（`analysis_plots.save_*`）
 
-- RFモデルに対してSHAP値を計算
-- 平均絶対SHAPを算出し、summary/bar/dependence図を保存
+   - モデル比較図、特徴量重要度図、Spatial CVのfold別性能図
 
-1. **結果JSONを保存**
+8. **SHAP解析**（`shap_report.compute_shap_outputs`）
 
-- 評価値、重要度、SHAP結果、出力ファイルパスをまとめて保存
+   - RFモデルに対してSHAP値を計算
+   - 平均絶対SHAPを算出し、summary/bar/dependence図を保存
+
+9. **結果JSONを保存**（`src.common.summary.save_summary`）
+
+   - 評価値、重要度、SHAP結果、出力ファイルパスをまとめて保存
+   - VIFがInfになった場合は `null` に変換し、Infだった変数名を別キー（`vif_non_finite_features`）に記録する（`model_metrics.sanitize_vif_for_json`）
 
 ---
 
@@ -151,7 +154,7 @@ $$
 - VIF > 10: 強い多重共線性の疑い
 
 注意: VIFが高いことは「モデルが必ず悪い」という意味ではありません。  
-ここでは「線形係数の解釈には慎重になるべき」という警告として使います。
+ここでは「線形係数の解釈には慎重になるべき」という警告として使います。実際に本分析でもNDVI・NDWIのVIFは10を大きく超えており、結果ドキュメントでは線形係数を補助的な情報として扱っています（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 5.3節）。
 
 ---
 
@@ -162,6 +165,22 @@ $$
 
 Spatial CVでは、地理的にまとまったブロック単位で分けるため、
 「未知の場所にどれだけ一般化できるか」をより現実的に評価できます。
+
+### ブロックの作り方（新経路での変更点）
+
+旧実装は経度・緯度をそれぞれ分位ビン化して掛け合わせる方式でしたが、ブロックの物理サイズがデータ密度に依存して不均一になる問題がありました。
+
+新経路では、正準グリッドの row / col（絶対インデックス）を `block_size_m // scale` セルで整数除算し、物理的に等間隔なブロックを作ります。
+
+```text
+block_row = row // block_cells
+block_col = col // block_cells
+block_id  = block_row * block_id_stride + block_col
+```
+
+- ブロックサイズはメートル指定（`--block-size-m`、既定 `2700m`）
+- ブロック原点はデータに依存させない（観測データの最小値を原点にしない）ため、しきい値・スケールを変えてもブロック境界がずれない
+- **限界**: ブロック境界に位置するセルは、隣接ブロックと別foldに分かれる可能性が残る。この影響を定量化した結果は結果ドキュメントを参照（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 4.5節）
 
 ---
 
@@ -179,7 +198,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 
 ## 7. 主な出力ファイル
 
-`data/output/satellite_only/<obs_key>/` に次が出ます（接頭辞はデータセット名に依存）。
+`data/output/satellite_only_cellbased/<観測日時>/` に次が出ます（接頭辞はデータセットファイル名に依存）。
 
 - `*_sample_*.csv`: サンプリング結果
 - `*_feature_importance.csv`: 係数・重要度・VIF
@@ -191,18 +210,23 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 - `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_*.png`: SHAP可視化
 - `*_results.json`: 全結果の要約
 
+旧経路の出力先（`data/output/satellite_only/`）とは分離しています。集計単位・格子が異なる別物であるためです（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節）。
+
 ---
 
 ## 8. 実行例
 
 ```powershell
-python src/analysis/analysis_rq3_satellite_only.py \
-  --dataset-path data/output/satellite_only/20230707_032329Z/satellite_only_20230707_20230707_032329Z_dataset.csv \
-  --sample-size 100000 \
-  --cv-splits 5 \
-  --spatial-bins 8 \
+python -m src.analysis.analysis_rq3_satellite_only `
+  --dataset-path data/output/datasets/dataset_satellite_only_20230707_032329_hanoi_30m.gpkg `
+  --lst-valid-ratio-threshold 0.5 `
+  --sample-size 100000 `
+  --cv-splits 5 `
+  --block-size-m 2700 `
   --rf-trees 300
 ```
+
+引数を省略すると、既定値（30m・`20230707_032329`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6章参照）。
 
 ---
 
@@ -211,9 +235,9 @@ python src/analysis/analysis_rq3_satellite_only.py \
 統計に不慣れな場合は、次の順で読むと理解しやすいです。
 
 1. `main()` で全体フローを確認
-2. `fit_linear_regression()` と `fit_random_forest()` でモデル比較の軸を理解
-3. `run_spatial_cv()` で空間評価の考え方を理解
-4. `compute_shap_outputs()` で解釈可能性の見方を理解
+2. `src.common.regression_models.fit_linear_regression()` と `fit_random_forest()` でモデル比較の軸を理解
+3. `run_spatial_cv_models()` と `src.common.spatial_cv.assign_spatial_blocks()` で空間評価の考え方を理解
+4. `src.common.shap_report.compute_shap_outputs()` で解釈可能性の見方を理解
 
 ---
 
@@ -227,6 +251,9 @@ python src/analysis/analysis_rq3_satellite_only.py \
 
 - **つまずき3**: VIFが高いと悪いモデルなのか  
   線形回帰の係数解釈には注意が必要、という警告指標です。
+
+- **つまずき4**: 旧結果ドキュメントと数値が違う  
+  集計単位（ピクセル vs セル）・格子・観測日数・Spatial CV方式が異なる別物です。直接比較しないでください（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 0節）。
 
 ---
 

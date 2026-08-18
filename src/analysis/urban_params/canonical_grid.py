@@ -36,6 +36,7 @@ from shapely.geometry.base import BaseGeometry
 from src.common.geo_metadata import BBox
 from src.common.geopackage import remove_geopackage, replace_geopackage
 from src.common.paths import resolve_relative_to_project_root
+from src.common.spatial_cv import assign_spatial_blocks, compute_block_cells
 
 from .config import ANALYSIS_EXTENT_LAYER_KEY, CITY_CONFIG, PROJECT_ROOT
 from .io import bbox_from_layer, get_layer_resource, read_layer_dataframe
@@ -338,6 +339,29 @@ def split_cell_id(cell_id: int | np.ndarray) -> tuple[int, int] | tuple[np.ndarr
     if np.ndim(cell_id) == 0:
         return int(row), int(col)
     return row, col
+
+
+def assign_canonical_blocks(
+    cell_ids: np.ndarray, block_size_m: int, scale: int
+) -> tuple[np.ndarray, dict[str, int]]:
+    """cell_idから正準グリッドのrow/colを復元し、空間ブロックIDを割り当てる。
+
+    `split_cell_id()` によるデコードと `src.common.spatial_cv` によるブロック割り
+    当ての結線を担う。この結線自体はシナリオ（Satellite Only / Limited / Full）
+    非依存のため、各シナリオのエントリスクリプトが個別に持つのではなく、
+    正準グリッドを扱うこのモジュールに置く（`src.common.spatial_cv` はanalysis層
+    への依存を持たない設計のため、逆方向のこの結線はこちらの責務になる）。
+
+    Args:
+        cell_ids: 正準グリッドの `cell_id` 配列。
+        block_size_m: ブロックの一辺の長さ（メートル）。
+        scale: 正準グリッドの解像度（メートル/セル）。
+    Returns:
+        block_id配列と、ブロック統計情報の辞書（`assign_spatial_blocks` の戻り値）。
+    """
+    row, col = split_cell_id(cell_ids)
+    block_cells = compute_block_cells(block_size_m, scale)
+    return assign_spatial_blocks(row, col, block_cells, CELL_ID_STRIDE)
 
 
 def _parent_id_columns(rows: np.ndarray, cols: np.ndarray, res_m: float) -> dict[str, np.ndarray]:

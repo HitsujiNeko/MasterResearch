@@ -1,7 +1,11 @@
-# 作成者: GitHub Copilot
-# 作成日: 2026-04-08
-# 概要: RQ3の衛星データのみシナリオを対象に、ランダム分割・Spatial CV・SHAPで評価する。
-"""RQ3の衛星データのみシナリオを評価するスクリプト。"""
+"""RQ3の衛星データのみシナリオを、cell_id結合の新経路で評価するスクリプト。
+
+データセットパス・特徴量列・出力先のみを持つ薄いエントリであり、実際の処理
+（フィルタ・サンプリング・モデル学習・Spatial CV・SHAP・プロット）はすべて
+`src.common` 配下の共通モジュールに委譲する。旧実装（ピクセル単位・CSV経路）
+とは集計単位・格子・観測日数・Spatial CV方式が異なる別経路であり、
+出力先ディレクトリも旧実装（`data/output/satellite_only/`）とは分ける。
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ import argparse
 import json
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.common.config import PROJECT_ROOT
@@ -23,354 +28,295 @@ os.environ["PATH"] = os.pathsep.join([*CONDA_PATH_PREFIX, os.environ.get("PATH",
 
 # GDAL関連のPATH設定後にimportする必要があるため、E402を許容する
 import matplotlib  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-import shap  # noqa: E402
-from sklearn.ensemble import RandomForestRegressor  # noqa: E402
-from sklearn.inspection import permutation_importance  # noqa: E402
-from sklearn.linear_model import LinearRegression  # noqa: E402
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score  # noqa: E402
-from sklearn.model_selection import GroupKFold, train_test_split  # noqa: E402
-from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
 
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "satellite_only" / "20230707_032329Z"
-COORD_COLUMNS = ["lon", "lat"]
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from sklearn.ensemble import RandomForestRegressor  # noqa: E402
+from sklearn.model_selection import train_test_split  # noqa: E402
+
+from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
+from src.common.analysis_dataset import (  # noqa: E402
+    IN_ANALYSIS_AREA_COLUMN,
+    LST_VALID_RATIO_COLUMN,
+    filter_valid_rows,
+    load_analysis_dataset,
+    sample_dataset,
+)
+from src.common.analysis_plots import (  # noqa: E402
+    save_feature_importance_plot,
+    save_model_comparison_plot,
+    save_spatial_cv_plot,
+)
+from src.common.model_metrics import (  # noqa: E402
+    compute_vif,
+    sanitize_vif_for_json,
+    summarize_metric_dicts,
+)
+from src.common.paths import to_project_relative_string  # noqa: E402
+from src.common.regression_models import fit_linear_regression, fit_random_forest  # noqa: E402
+from src.common.shap_report import compute_shap_outputs  # noqa: E402
+from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
+from src.common.summary import save_summary  # noqa: E402
+
+# 分析対象は着手時点で30m・単一観測日（2023-07-07 03:23:29Z）に限定する
+# （30m/90mは当該観測日のテーブルのみ整備済みのため。他日時の拡張は別途行う）。
+DEFAULT_DATASET_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "output"
+    / "datasets"
+    / "dataset_satellite_only_20230707_032329_hanoi_30m.gpkg"
+)
+# 旧経路（data/output/satellite_only/）とは集計単位・格子が異なる別物のため、
+# 出力先ディレクトリを分ける。
+DEFAULT_OUTPUT_DIR = (
+    PROJECT_ROOT / "data" / "output" / "satellite_only_cellbased" / "20230707_032329"
+)
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 TARGET_COLUMN = "LST"
-ALL_COLUMNS = [*COORD_COLUMNS, TARGET_COLUMN, *FEATURE_COLUMNS]
+DEFAULT_SCALE_M = 30
 
 
-def build_observation_label(output_stem: str) -> str:
-    """出力接頭辞から観測日時ラベルを生成する。"""
-
-    date_match = re.search(r"(\d{8})", output_stem)
-    time_match = re.search(r"(\d{6}Z)", output_stem)
-    if date_match is None:
-        return output_stem
-
-    raw_date = date_match.group(1)
-    date_label = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
-    if time_match is None:
-        return date_label
-
-    raw_time = time_match.group(1)
-    time_label = f"{raw_time[:2]}:{raw_time[2:4]}:{raw_time[4:6]}Z"
-    return f"{date_label} {time_label}"
-
-
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """コマンドライン引数を解析する。
 
     Args:
-        なし
+        argv: 解析対象の引数リスト。`None` の場合は `sys.argv` から読む
+            （テストで既定値以外を指定しやすくするための引数）。
     Returns:
-        argparse.Namespace: 解析済みの引数オブジェクト
+        解析済みの引数オブジェクト。
     """
     parser = argparse.ArgumentParser(
-        description="Run Satellite Only analysis with random split, Spatial CV, and SHAP."
+        description="RQ3のSatellite Onlyシナリオをcell_id結合の新経路で評価する。"
     )
     parser.add_argument(
-        "--dataset-path",
-        type=Path,
-        default=DEFAULT_OUTPUT_DIR / "satellite_only_20230707_20230707_032329Z_dataset.csv",
+        "--dataset-path", type=Path, default=DEFAULT_DATASET_PATH, help="入力GeoPackageのパス"
     )
-    parser.add_argument("--sample-size", type=int, default=100_000)
-    parser.add_argument("--chunksize", type=int, default=200_000)
-    parser.add_argument("--random-state", type=int, default=42)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--cv-splits", type=int, default=5)
-    parser.add_argument("--spatial-bins", type=int, default=8)
-    parser.add_argument("--shap-sample-size", type=int, default=2_000)
-    parser.add_argument("--shap-background-size", type=int, default=500)
-    parser.add_argument("--rf-trees", type=int, default=300)
-    return parser.parse_args()
+    parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="出力先ディレクトリ"
+    )
+    parser.add_argument(
+        "--scale", type=int, default=DEFAULT_SCALE_M, help="正準グリッドの解像度（m）"
+    )
+    parser.add_argument(
+        "--lst-valid-ratio-threshold",
+        type=float,
+        default=0.5,
+        help="LST_VALID_RATIOの下限（この値以上のセルを残す）",
+    )
+    parser.add_argument(
+        "--sample-size", type=int, default=100_000, help="抽出するサンプル数（0で全件）"
+    )
+    parser.add_argument("--random-state", type=int, default=42, help="乱数シード")
+    parser.add_argument("--cv-splits", type=int, default=5, help="Spatial CVの分割数（2以上）")
+    parser.add_argument(
+        "--block-size-m",
+        type=int,
+        default=2_700,
+        help=(
+            "Spatial CVのブロックサイズ（m）。scaleの倍数である必要がある"
+            "（compute_block_cellsが検証する）。既定の2700mはSNAP_UNIT_M（900m）の"
+            "倍数でもあり、30/90/300mのいずれでもブロック境界が厳密に一致するが、"
+            "この900m倍数の性質は既定値以外を指定した場合には保証されない。"
+        ),
+    )
+    parser.add_argument("--shap-sample-size", type=int, default=2_000, help="SHAP評価サンプル数")
+    parser.add_argument("--shap-background-size", type=int, default=500, help="SHAP背景データ数")
+    parser.add_argument("--rf-trees", type=int, default=300, help="ランダムフォレストの決定木本数")
+    return parser.parse_args(argv)
 
 
-def infer_dataset_read_kwargs(dataset_path: Path) -> dict:
-    """CSVヘッダー有無を判定し、読み込み引数を返す。
+def resolve_output_stem(dataset_path: Path) -> str:
+    """データセットパスから出力ファイル名の接頭辞を求める。
 
     Args:
-        dataset_path (Path): 入力CSVのパス
+        dataset_path: 分析用データセットGeoPackageのパス。
     Returns:
-        dict: pandas.read_csvに渡す追加引数
+        出力ファイル名の接頭辞（データセットファイル名の拡張子を除いた部分）。
     """
-    with dataset_path.open("r", encoding="utf-8") as file:
-        first_line = file.readline().strip()
-
-    expected_header = ",".join(ALL_COLUMNS)
-    if first_line == expected_header:
-        return {}
-
-    return {"header": None, "names": ALL_COLUMNS}
+    return dataset_path.stem
 
 
-def build_priority_sample(
-    dataset_path: Path,
+def build_observation_label(output_stem: str) -> str:
+    """出力接頭辞から観測日時ラベルを生成する。
+
+    `resolve_output_stem` の戻り値（例:
+    `dataset_satellite_only_20230707_032329_hanoi_30m`）に含まれる
+    `{8桁の日付}_{6桁の時刻}` を `"2023-07-07 03:23:29"` のような可読な形式へ
+    整形する。プロット・SHAP図のタイトルに使うためのラベルであり、ファイル名
+    そのもの（`resolve_output_stem`）とは用途が異なる。
+
+    Args:
+        output_stem: `resolve_output_stem` の戻り値。
+    Returns:
+        可読な観測日時ラベル。該当パターンが見つからない場合は `output_stem`
+        をそのまま返す（プロットタイトルが空になるより分かりやすいため）。
+    """
+    match = re.search(r"(\d{8})_(\d{6})", output_stem)
+    if match is None:
+        return output_stem
+
+    raw_date, raw_time = match.groups()
+    date_label = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
+    time_label = f"{raw_time[:2]}:{raw_time[2:4]}:{raw_time[4:6]}"
+    return f"{date_label} {time_label}"
+
+
+def validate_scale_matches_dataset(dataset_path: Path, scale: int) -> None:
+    """`--scale` とデータセットのファイル名から読み取れる解像度の整合性を検証する。
+
+    分析用データセットGeoPackage自体は解像度を保持しない（`cell_id` のデコード
+    結果である row/col はスケール非依存の絶対インデックスであり、その物理サイズ
+    はスケールに依存する）。そのため、`--dataset-path` と `--scale` の不一致は
+    ファイル名の命名規則（`src.analysis.build_dataset.resolve_dataset_path` が
+    付与する末尾の `_{scale}m`）でしか検出できない。不一致のまま実行すると、
+    誤ったブロックサイズでSpatial CVが静かに実行されるため、ここで早期に
+    検出する。
+
+    Args:
+        dataset_path: 分析用データセットGeoPackageのパス。
+        scale: `--scale` で指定された正準グリッドの解像度（m）。
+    Raises:
+        ValueError: ファイル名末尾が `_{scale}m` と一致しない場合。
+    """
+    expected_suffix = f"_{scale}m"
+    if not dataset_path.stem.endswith(expected_suffix):
+        raise ValueError(
+            f"--scale（{scale}）とデータセットのファイル名（{dataset_path.name}）が"
+            f"一致しない可能性があります。ファイル名は「{expected_suffix}」で終わる"
+            "ことを想定しています。正しい--scaleを指定するか、対応するデータセットを"
+            "指定してください。"
+        )
+
+
+def build_filtered_sample(
+    dataframe: pd.DataFrame,
+    lst_valid_ratio_threshold: float,
     sample_size: int,
-    chunksize: int,
     random_state: int,
 ) -> pd.DataFrame:
-    """大規模CSVから優先度サンプリングで一様サンプルを作成する。
+    """品質列フィルタとサンプリングを、フィルタ→サンプリングの順に適用する。
+
+    ブロック割り当てより先にサンプリングを行う必要があるため
+    （ブロック割り当てを先にすると各ブロックのセル数が不均等に減り、
+    fold のサイズ均衡が崩れる）、呼び出し側はこの関数の戻り値を使って
+    ブロック割り当てを行う。
 
     Args:
-        dataset_path (Path): 入力CSVのパス
-        sample_size (int): 最終的に抽出するサンプル数
-        chunksize (int): 1回あたりの読み込み行数
-        random_state (int): 乱数シード
+        dataframe: `load_analysis_dataset` の戻り値。
+        lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
+        sample_size: 抽出するサンプル数（0で全件）。
+        random_state: 乱数シード。
     Returns:
-        pd.DataFrame: サンプリング後のデータフレーム
+        フィルタ・サンプリング後のデータフレーム。
     """
-    rng = np.random.default_rng(random_state)
-    sampled: pd.DataFrame | None = None
-    csv_kwargs = infer_dataset_read_kwargs(dataset_path)
-
-    # 全チャンクに乱数優先度を付与し、優先度上位のみ保持することで
-    # メモリ使用量を抑えながら全体からの一様抽出を近似する。
-    for chunk in pd.read_csv(dataset_path, usecols=ALL_COLUMNS, chunksize=chunksize, **csv_kwargs):
-        chunk = chunk.copy()
-        chunk["priority"] = rng.random(len(chunk))
-        if sampled is None:
-            sampled = chunk
-        else:
-            sampled = pd.concat([sampled, chunk], ignore_index=True)
-        if len(sampled) > sample_size:
-            sampled = sampled.nlargest(sample_size, "priority").reset_index(drop=True)
-
-    if sampled is None or sampled.empty:
-        raise ValueError(f"No valid rows found in dataset: {dataset_path}")
-
-    return sampled.drop(columns="priority").reset_index(drop=True)
-
-
-def compute_metrics(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, float]:
-    """回帰評価指標を計算する。
-
-    Args:
-        y_true (pd.Series): 正解値
-        y_pred (np.ndarray): 予測値
-    Returns:
-        dict[str, float]: R2, RMSE, MAEを格納した辞書
-    """
-    return {
-        "r2": float(r2_score(y_true, y_pred)),
-        "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
-        "mae": float(mean_absolute_error(y_true, y_pred)),
-    }
-
-
-def summarize_metric_dicts(metric_dicts: list[dict[str, float]]) -> dict[str, float]:
-    """評価指標辞書の平均と標準偏差を集計する。
-
-    Args:
-        metric_dicts (list[dict[str, float]]): foldごとの評価指標辞書
-    Returns:
-        dict[str, float]: 各指標の平均・標準偏差を含む辞書
-    """
-    summary: dict[str, float] = {}
-    for metric_name in metric_dicts[0]:
-        values = np.array([metrics[metric_name] for metrics in metric_dicts], dtype=np.float64)
-        summary[f"{metric_name}_mean"] = float(values.mean())
-        summary[f"{metric_name}_std"] = float(values.std(ddof=0))
-    return summary
-
-
-def compute_vif(dataframe: pd.DataFrame) -> dict[str, float]:
-    """説明変数ごとのVIFを計算する。
-
-    Args:
-        dataframe (pd.DataFrame): 説明変数のみを含むデータフレーム
-    Returns:
-        dict[str, float]: 変数名をキー、VIFを値とする辞書
-    """
-    vif_values: dict[str, float] = {}
-    for column in dataframe.columns:
-        y = dataframe[column]
-        x = dataframe.drop(columns=column)
-        model = LinearRegression()
-        model.fit(x, y)
-        r_squared = model.score(x, y)
-        if r_squared >= 0.999999:
-            vif_values[column] = float("inf")
-            continue
-        vif_values[column] = float(1.0 / (1.0 - r_squared))
-    return vif_values
-
-
-def fit_linear_regression(
-    x_train: pd.DataFrame,
-    x_test: pd.DataFrame,
-    y_train: pd.Series,
-    y_test: pd.Series,
-) -> tuple[dict[str, object], dict[str, float], np.ndarray]:
-    """標準化した線形回帰モデルを学習し、評価結果を返す。
-
-    Args:
-        x_train (pd.DataFrame): 学習用説明変数
-        x_test (pd.DataFrame): 評価用説明変数
-        y_train (pd.Series): 学習用目的変数
-        y_test (pd.Series): 評価用目的変数
-    Returns:
-        tuple[dict[str, object], dict[str, float], np.ndarray]:
-            評価結果辞書、標準化係数、予測値
-    """
-    x_scaler = StandardScaler()
-    y_scaler = StandardScaler()
-
-    x_train_scaled = x_scaler.fit_transform(x_train)
-    x_test_scaled = x_scaler.transform(x_test)
-    y_train_scaled = y_scaler.fit_transform(y_train.to_numpy().reshape(-1, 1)).ravel()
-
-    model = LinearRegression()
-    model.fit(x_train_scaled, y_train_scaled)
-
-    y_pred_scaled = model.predict(x_test_scaled)
-    y_pred = y_scaler.inverse_transform(y_pred_scaled.reshape(-1, 1)).ravel()
-
-    standardized_coefficients = {
-        feature: float(coef) for feature, coef in zip(FEATURE_COLUMNS, model.coef_, strict=True)
-    }
-    result = {
-        "metrics": compute_metrics(y_test, y_pred),
-        "standardized_coefficients": standardized_coefficients,
-    }
-    return result, standardized_coefficients, y_pred
-
-
-def fit_random_forest(
-    x_train: pd.DataFrame,
-    x_test: pd.DataFrame,
-    y_train: pd.Series,
-    y_test: pd.Series,
-    random_state: int,
-    n_estimators: int,
-) -> tuple[
-    RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray
-]:
-    """ランダムフォレスト回帰を学習し、評価と重要度を返す。
-
-    Args:
-        x_train (pd.DataFrame): 学習用説明変数
-        x_test (pd.DataFrame): 評価用説明変数
-        y_train (pd.Series): 学習用目的変数
-        y_test (pd.Series): 評価用目的変数
-        random_state (int): 乱数シード
-        n_estimators (int): 決定木本数
-    Returns:
-        tuple[
-            RandomForestRegressor, dict[str, object], dict[str, float], dict[str, float], np.ndarray
-        ]:
-            学習済みモデル、評価結果、不純度ベース重要度、Permutation重要度、予測値
-    """
-    model = RandomForestRegressor(
-        n_estimators=n_estimators,
-        min_samples_leaf=5,
-        random_state=random_state,
-        n_jobs=1,
+    filtered = filter_valid_rows(
+        dataframe,
+        feature_columns=FEATURE_COLUMNS,
+        target_column=TARGET_COLUMN,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
     )
-    model.fit(x_train, y_train)
-    y_pred = model.predict(x_test)
-
-    impurity_importance = {
-        feature: float(score)
-        for feature, score in zip(FEATURE_COLUMNS, model.feature_importances_, strict=True)
-    }
-
-    permutation = permutation_importance(
-        model,
-        x_test,
-        y_test,
-        n_repeats=10,
-        random_state=random_state,
-        n_jobs=1,
-    )
-    permutation_scores = {
-        feature: float(score)
-        for feature, score in zip(FEATURE_COLUMNS, permutation.importances_mean, strict=True)
-    }
-
-    result = {
-        "metrics": compute_metrics(y_test, y_pred),
-        "feature_importance": impurity_importance,
-        "permutation_importance": permutation_scores,
-    }
-    return model, result, impurity_importance, permutation_scores, y_pred
+    return sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
 
 
-def build_spatial_groups(
-    dataframe: pd.DataFrame, spatial_bins: int
-) -> tuple[pd.Series, dict[str, int]]:
-    """経度・緯度の分位ビンから空間グループIDを作成する。
+@dataclass(frozen=True)
+class RandomSplitResult:
+    """ランダム分割による学習・評価結果。
+
+    `dict[str, object]` ではなく型付きの構造体にすることで、キー名の
+    打ち間違いを実行時のKeyErrorではなく型チェッカで検出できるようにする。
+    標準化係数・重要度は `linear_result` / `rf_result` の中に既に含まれており
+    二重管理を避けるため、専用フィールドは持たせない
+    （例: 標準化係数は `linear_result["standardized_coefficients"]` で参照する）。
+
+    Attributes:
+        x_train: 学習用説明変数。
+        x_test: 評価用説明変数。
+        linear_result: 線形回帰の評価結果（`metrics` と `standardized_coefficients` を含む）。
+        rf_model: 学習済みランダムフォレストモデル。
+        rf_result: RFの評価結果（`metrics` / `feature_importance` /
+            `permutation_importance` を含む）。
+    """
+
+    x_train: pd.DataFrame
+    x_test: pd.DataFrame
+    linear_result: dict[str, object]
+    rf_model: RandomForestRegressor
+    rf_result: dict[str, object]
+
+
+def run_random_split_models(
+    sampled: pd.DataFrame, random_state: int, rf_trees: int
+) -> RandomSplitResult:
+    """ランダム分割で線形回帰・RFを学習・評価する。
 
     Args:
-        dataframe (pd.DataFrame): 座標列を含むデータフレーム
-        spatial_bins (int): 経度・緯度それぞれの分割数
+        sampled: フィルタ・サンプリング後のデータ。
+        random_state: 乱数シード。
+        rf_trees: RFの決定木本数。
     Returns:
-        tuple[pd.Series, dict[str, int]]: グループID列とグループ情報
+        学習データ・評価結果・学習済みRFモデルを含む構造体。
     """
-    # 経度・緯度を分位で離散化して格子ブロックを作る。
-    # 同一ブロック内を同じgroupとしてSpatial CVでリークを抑える。
-    lon_bins = pd.qcut(dataframe["lon"], q=spatial_bins, labels=False, duplicates="drop")
-    lat_bins = pd.qcut(dataframe["lat"], q=spatial_bins, labels=False, duplicates="drop")
-
-    lon_codes = lon_bins.astype(int)
-    lat_codes = lat_bins.astype(int)
-    lat_multiplier = int(lat_codes.max()) + 1
-    groups = lon_codes * lat_multiplier + lat_codes
-
-    info = {
-        "lon_bins": int(lon_codes.max()) + 1,
-        "lat_bins": int(lat_codes.max()) + 1,
-        "n_groups": int(groups.nunique()),
-    }
-    return groups, info
-
-
-def run_spatial_cv(
-    sampled: pd.DataFrame,
-    cv_splits: int,
-    spatial_bins: int,
-    random_state: int,
-    n_estimators: int,
-) -> tuple[dict[str, object], pd.DataFrame]:
-    """Spatial block CVで線形回帰とRFの汎化性能を比較する。
-
-    Args:
-        sampled (pd.DataFrame): サンプリング済みデータ
-        cv_splits (int): CV分割数
-        spatial_bins (int): 空間ブロック分割数
-        random_state (int): 乱数シード
-        n_estimators (int): RFの決定木本数
-    Returns:
-        tuple[dict[str, object], pd.DataFrame]: 集計結果とfold別結果
-    """
-    groups, group_info = build_spatial_groups(sampled, spatial_bins=spatial_bins)
     x = sampled[FEATURE_COLUMNS]
     y = sampled[TARGET_COLUMN]
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=random_state
+    )
 
-    splitter = GroupKFold(n_splits=cv_splits)
+    linear_result, _, _ = fit_linear_regression(x_train, x_test, y_train, y_test)
+    rf_model, rf_result, _, _, _ = fit_random_forest(
+        x_train, x_test, y_train, y_test, random_state=random_state, n_estimators=rf_trees
+    )
+    return RandomSplitResult(
+        x_train=x_train,
+        x_test=x_test,
+        linear_result=linear_result,
+        rf_model=rf_model,
+        rf_result=rf_result,
+    )
+
+
+def run_spatial_cv_models(
+    sampled: pd.DataFrame,
+    block_ids: np.ndarray,
+    cv_splits: int,
+    random_state: int,
+    rf_trees: int,
+) -> tuple[dict[str, object], pd.DataFrame]:
+    """空間ブロックCVで線形回帰・RFを学習・評価する。
+
+    Args:
+        sampled: フィルタ・サンプリング後のデータ。
+        block_ids: `assign_canonical_blocks` の戻り値（サンプルごとのblock_id）。
+        cv_splits: 分割数。
+        random_state: 乱数シード。
+        rf_trees: RFの決定木本数。
+    Returns:
+        集計結果と、fold別の評価指標データフレームのタプル。
+    """
+    x = sampled[FEATURE_COLUMNS]
+    y = sampled[TARGET_COLUMN]
+    folds = split_by_spatial_blocks(block_ids, n_splits=cv_splits)
+
     fold_rows: list[dict[str, float | int]] = []
     linear_metrics: list[dict[str, float]] = []
     rf_metrics: list[dict[str, float]] = []
-
-    for fold_index, (train_idx, test_idx) in enumerate(
-        splitter.split(x, y, groups=groups), start=1
-    ):
-        x_train = x.iloc[train_idx]
-        x_test = x.iloc[test_idx]
-        y_train = y.iloc[train_idx]
-        y_test = y.iloc[test_idx]
+    for fold_index, (train_idx, test_idx) in enumerate(folds, start=1):
+        x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
         linear_result, _, _ = fit_linear_regression(x_train, x_test, y_train, y_test)
+        # 各foldではmetricsしか使わないため、permutation importanceの計算は省略する。
         _, rf_result, _, _, _ = fit_random_forest(
             x_train,
             x_test,
             y_train,
             y_test,
             random_state=random_state,
-            n_estimators=n_estimators,
+            n_estimators=rf_trees,
+            compute_permutation_importance=False,
         )
 
         linear_metrics.append(linear_result["metrics"])
@@ -390,213 +336,15 @@ def run_spatial_cv(
         )
 
     summary = {
-        "group_definition": "quantile lon/lat blocks",
         "cv_splits": cv_splits,
-        "group_info": group_info,
         "linear_regression": summarize_metric_dicts(linear_metrics),
         "random_forest": summarize_metric_dicts(rf_metrics),
     }
     return summary, pd.DataFrame(fold_rows)
 
 
-def save_model_comparison_plot(
-    output_path: Path,
-    random_linear_metrics: dict[str, float],
-    random_rf_metrics: dict[str, float],
-    spatial_linear_metrics: dict[str, float],
-    spatial_rf_metrics: dict[str, float],
-    observation_label: str,
-) -> None:
-    """ランダム分割とSpatial CVのモデル比較図を保存する。
-
-    Args:
-        output_path (Path): 出力画像パス
-        random_linear_metrics (dict[str, float]): ランダム分割の線形回帰指標
-        random_rf_metrics (dict[str, float]): ランダム分割のRF指標
-        spatial_linear_metrics (dict[str, float]): Spatial CVの線形回帰指標
-        spatial_rf_metrics (dict[str, float]): Spatial CVのRF指標
-    Returns:
-        None
-    """
-    metric_names = ["r2", "rmse", "mae"]
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
-
-    for index, metric_name in enumerate(metric_names):
-        values = [
-            random_linear_metrics[metric_name],
-            random_rf_metrics[metric_name],
-            spatial_linear_metrics[f"{metric_name}_mean"],
-            spatial_rf_metrics[f"{metric_name}_mean"],
-        ]
-        axes[index].bar(
-            ["Linear\nRandom", "RF\nRandom", "Linear\nSpatialCV", "RF\nSpatialCV"],
-            values,
-            color=["#4c78a8", "#f58518", "#72b7b2", "#e45756"],
-        )
-        axes[index].set_title(metric_name.upper())
-        axes[index].grid(axis="y", alpha=0.3)
-
-    fig.suptitle(f"Model Performance Comparison {observation_label}")
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-
-
-def save_feature_importance_plot(
-    output_path: Path,
-    standardized_coefficients: dict[str, float],
-    rf_importance: dict[str, float],
-    observation_label: str,
-) -> None:
-    """線形回帰とRFの特徴量重要度比較図を保存する。
-
-    Args:
-        output_path (Path): 出力画像パス
-        standardized_coefficients (dict[str, float]): 線形回帰の標準化係数
-        rf_importance (dict[str, float]): RFの特徴量重要度
-    Returns:
-        None
-    """
-    linear_values = [abs(standardized_coefficients[feature]) for feature in FEATURE_COLUMNS]
-    rf_values = [rf_importance[feature] for feature in FEATURE_COLUMNS]
-    x_positions = np.arange(len(FEATURE_COLUMNS))
-    width = 0.35
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar(
-        x_positions - width / 2, linear_values, width=width, label="|Linear coef|", color="#54a24b"
-    )
-    ax.bar(x_positions + width / 2, rf_values, width=width, label="RF importance", color="#e45756")
-    ax.set_xticks(x_positions, FEATURE_COLUMNS)
-    ax.set_title(f"Feature Importance {observation_label}")
-    ax.grid(axis="y", alpha=0.3)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-
-
-def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> None:
-    """Spatial CVのfold別性能推移を可視化して保存する。
-
-    Args:
-        output_path (Path): 出力画像パス
-        fold_metrics_df (pd.DataFrame): fold別評価指標データ
-    Returns:
-        None
-    """
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
-    metrics = [("r2", "R²"), ("rmse", "RMSE"), ("mae", "MAE")]
-
-    for index, (metric_suffix, title) in enumerate(metrics):
-        axes[index].plot(
-            fold_metrics_df["fold"],
-            fold_metrics_df[f"linear_{metric_suffix}"],
-            marker="o",
-            label="Linear",
-            color="#4c78a8",
-        )
-        axes[index].plot(
-            fold_metrics_df["fold"],
-            fold_metrics_df[f"rf_{metric_suffix}"],
-            marker="o",
-            label="RF",
-            color="#e45756",
-        )
-        axes[index].set_title(f"Spatial CV {title}")
-        axes[index].set_xlabel("Fold")
-        axes[index].grid(alpha=0.3)
-
-    axes[0].legend()
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-
-
-def compute_shap_outputs(
-    model: RandomForestRegressor,
-    shap_features: pd.DataFrame,
-    background_features: pd.DataFrame,
-    output_dir: Path,
-    output_stem: str,
-    observation_label: str,
-) -> tuple[dict[str, object], pd.DataFrame]:
-    """SHAP値を計算し、重要度表と可視化画像を保存する。
-
-    Args:
-        model (RandomForestRegressor): 学習済みRFモデル
-        shap_features (pd.DataFrame): SHAP計算対象データ
-        background_features (pd.DataFrame): SHAP背景データ
-        output_dir (Path): 出力先ディレクトリ
-        output_stem (str): 出力ファイル名の接頭辞
-    Returns:
-        tuple[dict[str, object], pd.DataFrame]: SHAP集計結果辞書と重要度データ
-    """
-    explainer = shap.TreeExplainer(model, data=background_features, feature_names=FEATURE_COLUMNS)
-    shap_values = explainer(shap_features)
-
-    # 各特徴量の寄与の大きさを比較するため、絶対SHAP値の平均を算出する。
-    mean_abs_values = np.abs(shap_values.values).mean(axis=0)
-    shap_importance_df = pd.DataFrame(
-        {
-            "feature": FEATURE_COLUMNS,
-            "mean_abs_shap": mean_abs_values,
-        }
-    ).sort_values("mean_abs_shap", ascending=False)
-
-    shap_importance_path = output_dir / f"{output_stem}_shap_importance.csv"
-    shap_importance_df.to_csv(shap_importance_path, index=False)
-
-    summary_path = output_dir / f"{output_stem}_shap_summary.png"
-    plt.figure(figsize=(8, 5))
-    shap.summary_plot(shap_values.values, shap_features, show=False)
-    plt.title(f"SHAP value distribution {observation_label}")
-    plt.tight_layout()
-    plt.savefig(summary_path, dpi=180, bbox_inches="tight")
-    plt.close()
-
-    bar_path = output_dir / f"{output_stem}_shap_bar.png"
-    plt.figure(figsize=(8, 5))
-    shap.summary_plot(shap_values.values, shap_features, plot_type="bar", show=False)
-    plt.title(f"SHAP value distribution {observation_label}")
-    plt.tight_layout()
-    plt.savefig(bar_path, dpi=180, bbox_inches="tight")
-    plt.close()
-
-    dependence_paths: dict[str, str] = {}
-    for feature in FEATURE_COLUMNS:
-        dependence_path = output_dir / f"{output_stem}_shap_dependence_{feature}.png"
-        shap.dependence_plot(
-            feature,
-            shap_values.values,
-            shap_features,
-            show=False,
-            interaction_index="auto",
-        )
-        plt.title(f"SHAP value distribution {observation_label}: {feature}")
-        plt.tight_layout()
-        plt.savefig(dependence_path, dpi=180, bbox_inches="tight")
-        plt.close()
-        dependence_paths[feature] = str(dependence_path.relative_to(PROJECT_ROOT))
-
-    shap_result = {
-        "sample_size": int(len(shap_features)),
-        "background_size": int(len(background_features)),
-        "mean_abs_shap": {
-            row["feature"]: float(row["mean_abs_shap"]) for _, row in shap_importance_df.iterrows()
-        },
-        "outputs": {
-            "shap_importance_csv": str(shap_importance_path.relative_to(PROJECT_ROOT)),
-            "shap_summary_png": str(summary_path.relative_to(PROJECT_ROOT)),
-            "shap_bar_png": str(bar_path.relative_to(PROJECT_ROOT)),
-            "shap_dependence_png": dependence_paths,
-        },
-    }
-    return shap_result, shap_importance_df
-
-
 def main() -> None:
-    """衛星データのみシナリオの分析を実行して結果を保存する。
+    """衛星データのみシナリオの分析（cell_id結合の新経路）を実行して結果を保存する。
 
     Args:
         なし
@@ -607,49 +355,59 @@ def main() -> None:
     args.dataset_path = args.dataset_path.resolve()
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output_stem = args.dataset_path.stem.removesuffix("_dataset")
+    validate_scale_matches_dataset(args.dataset_path, args.scale)
+    output_stem = resolve_output_stem(args.dataset_path)
     observation_label = build_observation_label(output_stem)
 
-    sampled = build_priority_sample(
-        dataset_path=args.dataset_path,
+    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
+    required_columns = [
+        "cell_id",
+        "lon",
+        "lat",
+        *FEATURE_COLUMNS,
+        TARGET_COLUMN,
+        IN_ANALYSIS_AREA_COLUMN,
+        LST_VALID_RATIO_COLUMN,
+    ]
+    dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
+    sampled = build_filtered_sample(
+        dataframe,
+        lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
         sample_size=args.sample_size,
-        chunksize=args.chunksize,
         random_state=args.random_state,
     )
+    if sampled.empty:
+        raise ValueError(
+            f"フィルタ後の有効な行がありません: {args.dataset_path}"
+            "（--lst-valid-ratio-thresholdの設定や対象日のデータ範囲を確認してください）。"
+        )
 
     sampled_path = args.output_dir / f"{output_stem}_sample_{args.sample_size}.csv"
     sampled.to_csv(sampled_path, index=False)
 
-    x = sampled[FEATURE_COLUMNS]
-    y = sampled[TARGET_COLUMN]
-    x_train, x_test, y_train, y_test = train_test_split(
-        x,
-        y,
-        test_size=0.2,
-        random_state=args.random_state,
+    # block_size_m/cv_splitsの設定検証を、高コストなモデル学習（run_random_split_models
+    # 等）より前に行う。split_by_spatial_blocksの戻り値は後段のrun_spatial_cv_modelsで
+    # 再計算するが、fold分割自体はインデックス操作のみで軽量なため、ここでの重複呼び出し
+    # コストは無視できる。
+    block_ids, block_info = assign_canonical_blocks(
+        sampled["cell_id"].to_numpy(), args.block_size_m, args.scale
     )
+    split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
 
-    vif = compute_vif(x)
-    linear_result, standardized_coefficients, _ = fit_linear_regression(
-        x_train, x_test, y_train, y_test
-    )
-    rf_model, rf_result, rf_importance, permutation_scores, _ = fit_random_forest(
-        x_train,
-        x_test,
-        y_train,
-        y_test,
-        random_state=args.random_state,
-        n_estimators=args.rf_trees,
-    )
+    vif = compute_vif(sampled[FEATURE_COLUMNS])
+    random_split = run_random_split_models(sampled, args.random_state, args.rf_trees)
 
-    spatial_cv_summary, spatial_cv_folds = run_spatial_cv(
-        sampled=sampled,
-        cv_splits=args.cv_splits,
-        spatial_bins=args.spatial_bins,
-        random_state=args.random_state,
-        n_estimators=args.rf_trees,
+    spatial_cv_summary, spatial_cv_folds = run_spatial_cv_models(
+        sampled, block_ids, args.cv_splits, args.random_state, args.rf_trees
     )
+    spatial_cv_summary["block_definition"] = {
+        "block_size_m": args.block_size_m,
+        "n_blocks": block_info["n_blocks"],
+    }
 
+    standardized_coefficients = random_split.linear_result["standardized_coefficients"]
+    rf_importance = random_split.rf_result["feature_importance"]
+    permutation_scores = random_split.rf_result["permutation_importance"]
     feature_importance_df = pd.DataFrame(
         {
             "feature": FEATURE_COLUMNS,
@@ -672,8 +430,8 @@ def main() -> None:
     spatial_cv_plot_path = args.output_dir / f"{output_stem}_spatial_cv.png"
     save_model_comparison_plot(
         comparison_plot_path,
-        linear_result["metrics"],
-        rf_result["metrics"],
+        random_split.linear_result["metrics"],
+        random_split.rf_result["metrics"],
         spatial_cv_summary["linear_regression"],
         spatial_cv_summary["random_forest"],
         observation_label,
@@ -686,13 +444,15 @@ def main() -> None:
     )
     save_spatial_cv_plot(spatial_cv_plot_path, spatial_cv_folds)
 
-    shap_source = x_test.reset_index(drop=True)
+    shap_source = random_split.x_test.reset_index(drop=True)
     shap_sample_size = min(args.shap_sample_size, len(shap_source))
-    background_size = min(args.shap_background_size, len(x_train))
+    background_size = min(args.shap_background_size, len(random_split.x_train))
     shap_features = shap_source.sample(n=shap_sample_size, random_state=args.random_state)
-    background_features = x_train.sample(n=background_size, random_state=args.random_state)
+    background_features = random_split.x_train.sample(
+        n=background_size, random_state=args.random_state
+    )
     shap_result, _ = compute_shap_outputs(
-        model=rf_model,
+        model=random_split.rf_model,
         shap_features=shap_features,
         background_features=background_features,
         output_dir=args.output_dir,
@@ -702,35 +462,38 @@ def main() -> None:
 
     result = {
         "scenario": "Satellite Only",
-        "dataset_path": str(args.dataset_path.relative_to(PROJECT_ROOT)),
-        "sample_path": str(sampled_path.relative_to(PROJECT_ROOT)),
+        "dataset_path": to_project_relative_string(args.dataset_path),
+        "sample_path": to_project_relative_string(sampled_path),
         "sample_size": int(len(sampled)),
-        "train_size": int(len(x_train)),
-        "test_size": int(len(x_test)),
+        "train_size": int(len(random_split.x_train)),
+        "test_size": int(len(random_split.x_test)),
         "features": FEATURE_COLUMNS,
+        "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
         "random_split": {
-            "linear_regression": linear_result,
-            "random_forest": rf_result,
+            "linear_regression": random_split.linear_result,
+            "random_forest": random_split.rf_result,
         },
         "spatial_cv": {
             **spatial_cv_summary,
             "outputs": {
-                "fold_metrics_csv": str(spatial_cv_folds_path.relative_to(PROJECT_ROOT)),
-                "spatial_cv_png": str(spatial_cv_plot_path.relative_to(PROJECT_ROOT)),
+                "fold_metrics_csv": to_project_relative_string(spatial_cv_folds_path),
+                "spatial_cv_png": to_project_relative_string(spatial_cv_plot_path),
             },
         },
-        "vif": vif,
+        **sanitize_vif_for_json(vif),
         "shap": shap_result,
         "outputs": {
-            "feature_importance_csv": str(feature_importance_path.relative_to(PROJECT_ROOT)),
-            "model_comparison_png": str(comparison_plot_path.relative_to(PROJECT_ROOT)),
-            "feature_importance_png": str(importance_plot_path.relative_to(PROJECT_ROOT)),
+            "feature_importance_csv": to_project_relative_string(feature_importance_path),
+            "model_comparison_png": to_project_relative_string(comparison_plot_path),
+            "feature_importance_png": to_project_relative_string(importance_plot_path),
         },
     }
 
     result_path = args.output_dir / f"{output_stem}_results.json"
-    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    save_summary(result, result_path)
+    # 長時間処理の事後診断ができるよう、保存内容をそのままログにも残す。
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(f"結果を保存しました: {result_path}")
 
 
 if __name__ == "__main__":

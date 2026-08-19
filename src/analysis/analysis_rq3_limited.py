@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.common.config import PROJECT_ROOT
@@ -216,13 +217,40 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
     return filled, int(fillable_mask.sum())
 
 
+@dataclass(frozen=True)
+class FilteredSampleResult:
+    """build_filtered_sample の戻り値。
+
+    補完件数を3段階（データセット全体・フィルタ後の母数・最終的な分析サンプル）で
+    別々に保持する。段階ごとに規模が大きく異なり（ROI全体で数百万セル→フィルタ後の
+    有効域→既定10万件のサンプル）、取り違えると研究記述の母数を誤るため、
+    フィールド名で明示的に区別する（`dict[str, object]` にしないのは
+    `RandomSplitResult` と同じ理由）。
+
+    Attributes:
+        sampled: フィルタ・サンプリング後のデータフレーム（学習・評価に使う実体）。
+        dataset_filled_cell_count: 入力 `dataframe`（フィルタ・サンプリング前の
+            全体）での建物高さ補完セル数。
+        population_size: フィルタ後・サンプリング前の母数（有効域のセル数）。
+        population_filled_cell_count: `population_size` のうち建物高さ補完セル数。
+        sample_filled_cell_count: 最終的な分析サンプル（`sampled`）に残った
+            補完セル数。
+    """
+
+    sampled: pd.DataFrame
+    dataset_filled_cell_count: int
+    population_size: int
+    population_filled_cell_count: int
+    sample_filled_cell_count: int
+
+
 def build_filtered_sample(
     dataframe: pd.DataFrame,
     lst_valid_ratio_threshold: float,
     sample_size: int,
     random_state: int,
     required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
-) -> tuple[pd.DataFrame, int, int]:
+) -> FilteredSampleResult:
     """建物高さの補完→品質列フィルタ→サンプリングの順に適用する。
 
     `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
@@ -232,16 +260,14 @@ def build_filtered_sample(
 
     ブロック割り当てより先にサンプリングを行う必要があるため
     （ブロック割り当てを先にすると各ブロックのセル数が不均等に減り、
-    fold のサイズ均衡が崩れる）、呼び出し側はこの関数の戻り値を使って
-    ブロック割り当てを行う。
+    fold のサイズ均衡が崩れる）、呼び出し側はこの関数の戻り値（`sampled`）を
+    使ってブロック割り当てを行う。
 
-    補完件数はデータセット全体（フィルタ・サンプリング前）と、最終的な分析
-    サンプル（フィルタ・サンプリング後）の両方を別々に返す。前者は入力
-    `dataframe` の規模（ROI全体で数百万セル）に対する集計、後者は実際に
-    学習・評価に使う `sampled`（既定10万件）に対する集計であり、両者は一致
-    しない（フィルタ・サンプリングで多くの補完セルが脱落するため）。同じ
-    results.json内で `sample_size`/`train_size`/`test_size` と並べて解釈
-    する際に取り違えないよう、呼び出し側は用途に応じて使い分けること。
+    補完件数はデータセット全体・フィルタ後の母数（サンプリング前）・最終的な
+    分析サンプル（フィルタ・サンプリング後）の3段階で別々に返す
+    （`FilteredSampleResult` 参照）。フィルタ後の母数は `filtered`
+    （サンプリングの直前に既に計算済みのデータフレーム）の件数を読むだけであり、
+    RF学習等の重い処理を追加で行うわけではない。
 
     Args:
         dataframe: `load_analysis_dataset` の戻り値（未加工。補完前でよい）。
@@ -252,8 +278,7 @@ def build_filtered_sample(
             のみ（主結果）。`--require-valid-gis-mask` 指定時は呼び出し側が
             `VALID_GIS_MASK` を追加する（感度分析）。
     Returns:
-        フィルタ・サンプリング後のデータフレーム、データセット全体での補完
-        セル数、最終的な分析サンプルに残った補完セル数のタプル。
+        `FilteredSampleResult`。
     """
     filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
     filtered = filter_valid_rows(
@@ -263,10 +288,19 @@ def build_filtered_sample(
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
         required_mask_columns=required_mask_columns,
     )
+    population_size = len(filtered)
+    population_filled_cell_count = int(filtered[BUILDING_HEIGHT_FILLED_COLUMN].sum())
+
     sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
     sample_filled_cell_count = int(sampled[BUILDING_HEIGHT_FILLED_COLUMN].sum())
     sampled = sampled.drop(columns=[BUILDING_HEIGHT_FILLED_COLUMN])
-    return sampled, dataset_filled_cell_count, sample_filled_cell_count
+    return FilteredSampleResult(
+        sampled=sampled,
+        dataset_filled_cell_count=dataset_filled_cell_count,
+        population_size=population_size,
+        population_filled_cell_count=population_filled_cell_count,
+        sample_filled_cell_count=sample_filled_cell_count,
+    )
 
 
 def main() -> None:
@@ -301,15 +335,14 @@ def main() -> None:
         VALID_GIS_MASK_COLUMN,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    sampled, dataset_building_height_fill_count, sample_building_height_fill_count = (
-        build_filtered_sample(
-            dataframe,
-            lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
-            sample_size=args.sample_size,
-            random_state=args.random_state,
-            required_mask_columns=required_mask_columns,
-        )
+    filtered_sample_result = build_filtered_sample(
+        dataframe,
+        lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
+        sample_size=args.sample_size,
+        random_state=args.random_state,
+        required_mask_columns=required_mask_columns,
     )
+    sampled = filtered_sample_result.sampled
     if sampled.empty:
         raise ValueError(
             f"フィルタ後の有効な行がありません: {args.dataset_path}"
@@ -417,12 +450,16 @@ def main() -> None:
             "columns": BUILDING_HEIGHT_COLUMNS,
             # dataset_filled_cell_count: フィルタ・サンプリング前のデータセット全体
             # （ROI全体で数百万セル規模）での補完件数。
+            # population_size / population_filled_cell_count: 品質列フィルタ後・
+            # サンプリング前の母数（有効域のセル数）と、そのうちの補完件数。
             # sample_filled_cell_count: 実際に学習・評価に使った sample_size 件の
             # 分析サンプルに残った補完件数（sample_size/train_size/test_sizeと同じ
-            # 母集団）。両者は一致しない（フィルタ・サンプリングで大半の補完セルが
+            # 母集団）。3者は一致しない（フィルタ・サンプリングで補完セルの一部が
             # 脱落するため）。
-            "dataset_filled_cell_count": dataset_building_height_fill_count,
-            "sample_filled_cell_count": sample_building_height_fill_count,
+            "dataset_filled_cell_count": filtered_sample_result.dataset_filled_cell_count,
+            "population_size": filtered_sample_result.population_size,
+            "population_filled_cell_count": filtered_sample_result.population_filled_cell_count,
+            "sample_filled_cell_count": filtered_sample_result.sample_filled_cell_count,
         },
         "random_split": {
             "linear_regression": random_split.linear_result,

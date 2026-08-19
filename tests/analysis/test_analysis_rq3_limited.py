@@ -194,18 +194,22 @@ def _quality_dataframe(n: int = 10) -> pd.DataFrame:
 
 
 class TestBuildFilteredSample:
-    """build_filtered_sample のテスト（建物高さ補完→フィルタ→サンプリングの結線）。"""
+    """build_filtered_sample のテスト（建物高さ補完→フィルタ→サンプリングの結線）。
+
+    戻り値は FilteredSampleResult（sampled / dataset_filled_cell_count /
+    population_size / population_filled_cell_count / sample_filled_cell_count）。
+    """
 
     def test_uses_module_feature_columns_for_filtering(self) -> None:
         """FEATURE_COLUMNS（9変数）とLSTの非NULLをフィルタ条件に使う。"""
         dataframe = _quality_dataframe()
         dataframe.loc[0, "NDVI"] = np.nan  # FEATURE_COLUMNSの1つがNULL -> 除外されるはず
 
-        result, _, _ = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
         )
 
-        assert len(result) == len(dataframe) - 1
+        assert len(result.sampled) == len(dataframe) - 1
         assert set(FEATURE_COLUMNS) == {
             "BUILD_COV",
             "BUILD_DEN",
@@ -232,23 +236,23 @@ class TestBuildFilteredSample:
         dataframe = _quality_dataframe(n=10)
         dataframe.loc[:4, IN_ANALYSIS_AREA_COLUMN] = 0  # cell_id 0-4 を対象外にする
 
-        result, _, _ = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe, lst_valid_ratio_threshold=0.5, sample_size=3, random_state=42
         )
 
-        assert len(result) == 3
-        assert set(result["cell_id"]).issubset({5, 6, 7, 8, 9})
+        assert len(result.sampled) == 3
+        assert set(result.sampled["cell_id"]).issubset({5, 6, 7, 8, 9})
 
     def test_respects_lst_valid_ratio_threshold(self) -> None:
         """LST_VALID_RATIOのしきい値が正しく渡される。"""
         dataframe = _quality_dataframe()
         dataframe[LST_VALID_RATIO_COLUMN] = 0.3
 
-        result, _, _ = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
         )
 
-        assert len(result) == 0
+        assert len(result.sampled) == 0
 
     def test_default_required_mask_columns_ignore_valid_gis_mask(self) -> None:
         """既定（required_mask_columns未指定）ではVALID_GIS_MASKを課さない。
@@ -259,11 +263,11 @@ class TestBuildFilteredSample:
         dataframe = _quality_dataframe()
         dataframe.loc[0, VALID_GIS_MASK_COLUMN] = 0
 
-        result, _, _ = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
         )
 
-        assert len(result) == len(dataframe)
+        assert len(result.sampled) == len(dataframe)
 
     def test_require_valid_gis_mask_excludes_zero_rows(self) -> None:
         """required_mask_columnsにVALID_GIS_MASKを追加すると==0の行が除外される
@@ -272,7 +276,7 @@ class TestBuildFilteredSample:
         dataframe = _quality_dataframe()
         dataframe.loc[0, VALID_GIS_MASK_COLUMN] = 0
 
-        result, _, _ = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
@@ -280,15 +284,16 @@ class TestBuildFilteredSample:
             required_mask_columns=(IN_ANALYSIS_AREA_COLUMN, VALID_GIS_MASK_COLUMN),
         )
 
-        assert len(result) == len(dataframe) - 1
+        assert len(result.sampled) == len(dataframe) - 1
 
     def test_fills_building_heights_before_filtering(self) -> None:
         """呼び出し側が補完を挟まなくても、内部で建物高さの0補完を先に適用する
         （fill_missing_building_heightsとの呼び出し順序をこの関数に閉じ込める結線を検証する）。
 
-        全行がフィルタを通過するデータのため、dataset_filled_cell_countと
-        sample_filled_cell_countは一致する（両者が乖離するケースは
-        test_dataset_and_sample_fill_counts_differ_when_filter_excludes_filled_rows
+        全行がフィルタを通過するデータのため、dataset_filled_cell_count・
+        population_filled_cell_count・sample_filled_cell_countはすべて一致する
+        （3者が乖離するケースは
+        test_dataset_population_and_sample_fill_counts_differ_when_filter_excludes_filled_rows
         で検証する）。
         """
         dataframe = _quality_dataframe()
@@ -296,24 +301,26 @@ class TestBuildFilteredSample:
         dataframe.loc[0, "BUILD_H_MEAN"] = np.nan
         dataframe.loc[0, "BUILD_H_MAX"] = np.nan
 
-        result, dataset_fill_count, sample_fill_count = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
         )
 
-        assert dataset_fill_count == 1
-        assert sample_fill_count == 1
+        assert result.dataset_filled_cell_count == 1
+        assert result.population_size == len(dataframe)
+        assert result.population_filled_cell_count == 1
+        assert result.sample_filled_cell_count == 1
         # 補完されていれば非NULLフィルタを通過し、除外されない。
-        assert len(result) == len(dataframe)
-        assert result.loc[result["cell_id"] == 0, "BUILD_H_MEAN"].iloc[0] == 0.0
+        assert len(result.sampled) == len(dataframe)
+        assert result.sampled.loc[result.sampled["cell_id"] == 0, "BUILD_H_MEAN"].iloc[0] == 0.0
         # 内部一時列（BUILDING_HEIGHT_FILLED_COLUMN）は最終的な戻り値に残さない。
-        assert "_BUILDING_HEIGHT_FILLED" not in result.columns
+        assert "_BUILDING_HEIGHT_FILLED" not in result.sampled.columns
 
-    def test_dataset_and_sample_fill_counts_differ_when_filter_excludes_filled_rows(self) -> None:
-        """補完対象セルがフィルタで除外される場合、dataset_filled_cell_countは
-        sample_filled_cell_countより大きくなる（両者が常に一致するとは限らない
-        ことを固定する回帰テスト。フィルタ・サンプリング前の生データフレーム
-        全体に対する補完件数を、フィルタ・サンプリング後の最終サンプルの件数
-        （sample_size/train_size/test_sizeと同じ母集団）と取り違えると、
+    def test_dataset_population_and_sample_fill_counts_differ_when_filter_excludes_filled_rows(
+        self,
+    ) -> None:
+        """補完対象セルがフィルタで除外される場合、dataset_filled_cell_count・
+        population_filled_cell_count・sample_filled_cell_countは一致しない
+        （3者が常に一致するとは限らないことを固定する回帰テスト。取り違えると
         研究成果の記述が実態と乖離するため）。
         """
         dataframe = _quality_dataframe(n=10)
@@ -321,13 +328,28 @@ class TestBuildFilteredSample:
         dataframe.loc[0, "BUILD_COV"] = 0.0
         dataframe.loc[0, "BUILD_H_MEAN"] = np.nan
         dataframe.loc[0, "BUILD_H_MAX"] = np.nan
-        # cell_id 0 をIN_ANALYSIS_AREAで除外し、補完はされるがサンプルには残らない
-        # 状態を作る。
+        # cell_id 0 をIN_ANALYSIS_AREAで除外し、補完はされるがフィルタ後の母数にも
+        # 最終サンプルにも残らない状態を作る。
         dataframe.loc[0, IN_ANALYSIS_AREA_COLUMN] = 0
 
-        _, dataset_fill_count, sample_fill_count = build_filtered_sample(
+        result = build_filtered_sample(
             dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
         )
 
-        assert dataset_fill_count == 1
-        assert sample_fill_count == 0
+        assert result.dataset_filled_cell_count == 1
+        assert result.population_size == len(dataframe) - 1  # cell_id 0 が除外される
+        assert result.population_filled_cell_count == 0
+        assert result.sample_filled_cell_count == 0
+
+    def test_population_size_reflects_filtered_row_count_before_sampling(self) -> None:
+        """population_sizeはサンプリング前のフィルタ後件数を反映する
+        （sample_sizeでさらに間引かれた後の件数とは異なる）。
+        """
+        dataframe = _quality_dataframe(n=10)
+
+        result = build_filtered_sample(
+            dataframe, lst_valid_ratio_threshold=0.5, sample_size=3, random_state=42
+        )
+
+        assert result.population_size == 10
+        assert len(result.sampled) == 3

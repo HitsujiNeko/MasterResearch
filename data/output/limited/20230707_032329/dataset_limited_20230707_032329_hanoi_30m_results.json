@@ -27,6 +27,8 @@
       "BUILD_H_MAX"
     ],
     "dataset_filled_cell_count": 2781934,
+    "population_size": 1901920,
+    "population_filled_cell_count": 1513662,
     "sample_filled_cell_count": 79619
   },
   "random_split": {

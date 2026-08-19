@@ -509,7 +509,7 @@ RQ3 は、現在次の順で進める。
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
 | **Phase 3** | 近傍変数算出 | `calc_neighborhood_vars.py` | 🟡 中 |
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
-| **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など | 🔴 高 |
+| **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など | ✅ 完了 |
 | **Phase 5** | `Full` シナリオ比較（RQ3） | `analysis_rq3_full.py` など | 🟡 中 |
 | **Phase 6** | RQ1 / RQ2 本分析 | `analysis_rq1.py`, `analysis_rq2.py` | 🟢 後 |
 | **Phase 6** | 可視化・図表作成 | `visualize_*.py` | 🟢 後 |
@@ -536,4 +536,5 @@ RQ3 は、現在次の順で進める。
 >
 > - 測量由来 GIS の整備状況や解釈を変えた場合: [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)  
 > - `Satellite Only` の分析結果を変えた場合: [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)（旧経路）/ [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)（新経路）  
+> - `Limited` の分析結果を変えた場合: [limited_analysis_results.md](../03_results/limited_analysis_results.md)  
 > - ドキュメント構成や参照先を変えた場合: [docs/README.md](../README.md)

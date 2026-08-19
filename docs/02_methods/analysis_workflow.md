@@ -222,7 +222,7 @@ NoData（-9999等）は設定されていない。分析時にNaNを欠損とし
 | 内容 | 正本 |
 |---|---|
 | どの説明変数を採用するか（採否ステータス・概念定義・単位・根拠文献・対応RQ） | [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) |
-| 採用済みパラメータの出力仕様（列名・算出方法・実装状況） | [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章 |
+| 採用済みパラメータの出力仕様（列名・算出方法・実装状況） | [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章 |
 
 データソースの候補比較・空間解像度・ライセンスは [available_gis_data.md](../01_planning/available_gis_data.md) を参照する。
 
@@ -239,7 +239,7 @@ LSTの空間解像度（30m）を基準としつつ、**30m / 90m / 300m の3ス
 | **グリッド解像度** | 30m / 90m / 300m の3スケール（既定）。スケール間の比較が RQ2 の評価軸となる |
 | **CRS** | 入力/出力はWGS84（EPSG:4326）。ただし面積・長さ計算は投影座標系（m単位）で実施 |
 | **集計方法** | 各グリッドセル内の面積・長さ・個数を空間集計。被覆率は補助グリッド（既定10m）を経由する |
-| **出力形式** | パラメータセットごと・スケールごとの GeoPackage（`cell_id` キーの属性テーブル）。列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章 |
+| **出力形式** | パラメータセットごと・スケールごとの GeoPackage（`cell_id` キーの属性テーブル）。列構成は [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章 |
 
 > **スケールは列名のサフィックスではなくディレクトリ階層で表現する**（旧実装の `NDVI_30` のような `_<scale>` サフィックスは廃止した）。  
 > 3スケールの選択は、Step 3.3 の近傍リング設計とは別の軸である（下記）。
@@ -252,7 +252,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 > **本節は未実装の設計案である（採否・詳細は未確定）。** 以下の `_0` / `_30_60` 等のリング型
 > サフィックスは現行の出力仕様ではない。実装済みの出力はスケール別ディレクトリに分けた
 > パラメータテーブル（列名にスケールを含まない）であり、正本は
-> [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章である。
+> [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章である。
 > 5章の分析ケース（5.2）に現れるリング型の列名も同様に設計案として読むこと。
 
 | スケール名 | 範囲 | 変数名サフィックス | 例（建物被覆率） |
@@ -286,7 +286,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 ### 4.1 データセット構造
 
-分析用データセットは、LST と Step 3 で算出した都市構造パラメータをセル単位で結合したものである。**都市構造パラメータ側の列構成は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6章を正本とする**。
+分析用データセットは、LST と Step 3 で算出した都市構造パラメータをセル単位で結合したものである。**都市構造パラメータ側の列構成は [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章を正本とする**。
 
 以下は結合後のデータセットが取り得る列の一覧である。LST は `urban_params` が出力する `lst_*` テーブル（観測ファイル単位）として算出し、`build_dataset.py` が他のテーブルと同様に `--tables` で結合する（3.4）。LST専用の結合スクリプトは持たない。
 
@@ -307,9 +307,9 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 **列名にスケールのサフィックスは付かない。** スケールはディレクトリ階層とファイル名で表現する。
 
-**出力される列は結合したテーブルによって変わる。** 品質管理列は**判定材料となる列がある場合のみ付与される**（全セル0の列を出すと「確認したうえで無効と判定した」と読めてしまうため）。建物・道路を結合しなければ `VALID_GIS_MASK` / `MISSING_REASON` は付かず、衛星指標を結合しなければ `VALID_SATELLITE_MASK` は付かない。旧 wide CSV は常に全列を持っていたため、**列の存在を前提にしたコードは修正が必要である**。詳細は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.3節を正本とする。
+**出力される列は結合したテーブルによって変わる。** 品質管理列は**判定材料となる列がある場合のみ付与される**（全セル0の列を出すと「確認したうえで無効と判定した」と読めてしまうため）。建物・道路を結合しなければ `VALID_GIS_MASK` / `MISSING_REASON` は付かず、衛星指標を結合しなければ `VALID_SATELLITE_MASK` は付かない。旧 wide CSV は常に全列を持っていたため、**列の存在を前提にしたコードは修正が必要である**。詳細は [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.3節を正本とする。
 
-**`MISSING_REASON` は NULL（値が得られていない = `missing_gis_data`）と0（地物が無い = `no_gis_feature`）を区別する。** 結合したテーブルの世代違いが「地物が無い地域」として分析へ流れ込むことを防ぐためである。判定基準は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.3節を正本とする。
+**`MISSING_REASON` は NULL（値が得られていない = `missing_gis_data`）と0（地物が無い = `no_gis_feature`）を区別する。** 結合したテーブルの世代違いが「地物が無い地域」として分析へ流れ込むことを防ぐためである。判定基準は [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.3節を正本とする。
 
 **`DATA_SOURCE` / `SCENARIO` は廃止した。** テーブル名（`build_gba` 等）と結合対象の選択が同じ情報を持つためである。
 
@@ -321,7 +321,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | Step 3 の出力（算出） | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（**パラメータセットごと・スケールごとに分かれる**） | 実装済み |
 | Step 3 の出力（結合） | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg`（`--tables` に `lst_*` を含めれば `LST` 列も持つ） | 実装済み |
 
-> **旧出力**: `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（wide CSV）は残置しているが、再生成の手段は持たない。再設計前後で算出値が変わっていないことは照合済みである（[calc_urban_params_guide.md](calc_urban_params_guide.md) 11.2節）。
+> **旧出力**: `data/output/urban_params/urban_params_<scenario>_<city_id>_<scale>m.csv`（wide CSV）は残置しているが、再生成の手段は持たない。再設計前後で算出値が変わっていないことは照合済みである（[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) 11.2節）。
 
 ### 4.1.1 Satellite Only の現行出力（2026-04-21）
 
@@ -340,7 +340,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 > 本節は**4.1 とは別のパイプライン**の出力である。観測日ごとのピクセル単位データセット（30m 固定）であり、
 > 4.1 のマルチスケール出力（`cell_id` キーのテーブル）とは生成経路が異なる。
 >
-> **2026-08-14時点の補足**: 本節が参照する生成経路（`build_satellite_only_dataset.py`）は cell_id 化に伴い削除済みであり、上表の出力を再現する手段はツリー内に存在しない。新経路（`urban_params` の `lst_*` テーブル + `build_dataset.py`）との仕様上の差異は [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節を参照。本節自体は2026-04-21時点の記録として据え置く。
+> **2026-08-14時点の補足**: 本節が参照する生成経路（`build_satellite_only_dataset.py`）は cell_id 化に伴い削除済みであり、上表の出力を再現する手段はツリー内に存在しない。新経路（`urban_params` の `lst_*` テーブル + `build_dataset.py`）との仕様上の差異は [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節を参照。本節自体は2026-04-21時点の記録として据え置く。
 
 ### 4.2 品質管理
 

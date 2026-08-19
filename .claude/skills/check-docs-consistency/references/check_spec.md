@@ -40,10 +40,10 @@ bibliography_consistency.py・freshness.py）。**判定ロジックはスクリ
 
 | # | 事実 | 正本 | 写しの所在（照合先） |
 |---|---|---|---|
-| 1 | シナリオ定義（Satellite Only / Limited / Full の構成データ） | `CLAUDE.md` 最小用語集 | `docs/02_methods/analysis_workflow.md`（**同一ファイル内に複数箇所。行単位で照合**）、`docs/01_planning/research_guide.md`、`docs/02_methods/calc_urban_params_guide.md`、`docs/03_results/satellite_only_analysis_results.md`、`docs/04_archive/claude_project_knowledge.md` |
-| 2 | 採用データ選定結果（DEM=FABDEM、建物=GBA、道路=OSM、LULC=GLC_FCS30D 等） | `docs/01_planning/gis_data/gis_data_*.md`（カテゴリ別詳細） | `docs/01_planning/available_gis_data.md`（§2 結論の要点・§3 採用データ一覧）、`docs/02_methods/analysis_workflow.md`、`docs/02_methods/calc_urban_params_guide.md`、`docs/04_archive/claude_project_knowledge.md` |
+| 1 | シナリオ定義（Satellite Only / Limited / Full の構成データ） | `CLAUDE.md` 最小用語集 | `docs/02_methods/analysis_workflow.md`（**同一ファイル内に複数箇所。行単位で照合**）、`docs/01_planning/research_guide.md`、`docs/02_methods/calc_urban_params/calc_urban_params_io_spec.md`、`docs/03_results/satellite_only_analysis_results.md`、`docs/04_archive/claude_project_knowledge.md` |
+| 2 | 採用データ選定結果（DEM=FABDEM、建物=GBA、道路=OSM、LULC=GLC_FCS30D 等） | `docs/01_planning/gis_data/gis_data_*.md`（カテゴリ別詳細） | `docs/01_planning/available_gis_data.md`（§2 結論の要点・§3 採用データ一覧）、`docs/02_methods/analysis_workflow.md`、`docs/02_methods/calc_urban_params/calc_urban_params_io_spec.md`、`docs/04_archive/claude_project_knowledge.md` |
 | 3-a | `EPSG:4326`（WGS84）＝ 入出力の基準 CRS | `CLAUDE.md` 最小用語集 | `docs/` 配下と `CLAUDE.md` を対象に Grep `EPSG:` で得た全ヒット箇所（決定的規則）。ヒット例: `analysis_workflow.md`、`qgis_operation_guidelines.md`、`gee_calc_satellite_indices.md`、`claude_project_knowledge.md` |
-| 3-b | `EPSG:5897`（VN-2000 / TM-3 zone 482）＝ 測量データの正本 CRS | `docs/01_planning/gis_data/gis_data_dem.md` | `docs/02_methods/calc_urban_params_guide.md`、`docs/03_results/survey_gis_data_preparation_status.md`、`docs/02_methods/analysis_workflow.md` |
+| 3-b | `EPSG:5897`（VN-2000 / TM-3 zone 482）＝ 測量データの正本 CRS | `docs/01_planning/gis_data/gis_data_dem.md` | `docs/02_methods/calc_urban_params/calc_urban_params_processing_design.md`、`docs/03_results/survey_gis_data_preparation_status.md`、`docs/02_methods/analysis_workflow.md` |
 | 4 | RQ1-3 の文言（**RQ の定義文のみ**を対象。`[RQ1参考]`・`RQ3◎` 等の関連度タグは対象外） | `docs/01_planning/research_guide.md` | `CLAUDE.md`、`docs/04_archive/claude_project_knowledge.md`、ルート `README.md` |
 | 5 | ROI 定義（対象都市＝ハノイ行政区画／BBOX 座標） | `docs/02_methods/analysis_workflow.md`（`analyze_spatial_extents.py` 由来の値） | `docs/01_planning/gis_data/gis_data_buildings.md`、`docs/01_planning/gis_data/gis_data_lulc.md` |
 

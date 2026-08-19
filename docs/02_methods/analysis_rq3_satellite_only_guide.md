@@ -1,7 +1,7 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
 **最終更新**: 2026-08-17  
-**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節  
+**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
 ---
@@ -210,7 +210,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 - `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_*.png`: SHAP可視化
 - `*_results.json`: 全結果の要約
 
-旧経路の出力先（`data/output/satellite_only/`）とは分離しています。集計単位・格子が異なる別物であるためです（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6.7節）。
+旧経路の出力先（`data/output/satellite_only/`）とは分離しています。集計単位・格子が異なる別物であるためです（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節）。
 
 ---
 
@@ -226,7 +226,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
   --rf-trees 300
 ```
 
-引数を省略すると、既定値（30m・`20230707_032329`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_guide.md](calc_urban_params_guide.md) 6章参照）。
+引数を省略すると、既定値（30m・`20230707_032329`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章参照）。
 
 ---
 

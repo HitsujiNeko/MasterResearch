@@ -265,7 +265,7 @@
 | ❌ 不採用（重複） | TanDEM-X（DLR独立版） | Copernicus GLO-30と同一の原データ、追加取得不要 |
 
 > 研究者の判断により FABDEM v1.2 を採用確定した（CC BY-NC-SA 4.0・非商用・帰属文必須を了承のうえ）。  
-> パラメータセット `elev_fabdem` の `ELEV_MEAN`（セル平均標高）および `ELEV_VALID_RATIO`（セル内のDEM有効画素率）として実装済みである。算出仕様は [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md) 6.4節を正本とする。
+> パラメータセット `elev_fabdem` の `ELEV_MEAN`（セル平均標高）および `ELEV_VALID_RATIO`（セル内のDEM有効画素率）として実装済みである。算出仕様は [calc_urban_params_io_spec.md](../../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.4節を正本とする。
 
 ### 7.2 採用ファイルパス
 

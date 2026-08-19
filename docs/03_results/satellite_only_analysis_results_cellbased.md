@@ -1,7 +1,7 @@
 # Satellite Only 分析結果（cell_id結合経路）
 
 **最終更新**: 2026-08-17  
-**関連ドキュメント**: [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
+**関連ドキュメント**: [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -17,7 +17,7 @@
 | 観測日数 | 3観測日 | 1観測日（`20230707_032329`） |
 | Spatial CV | 経緯度の分位ビン（ブロックの物理サイズが不均一） | row/colベースの物理的に等間隔なブロック |
 
-格子が一致しないため、セル単位の対応づけによる差分評価もできない（[calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6.7節）。旧結果はピクセル単位の先行結果として引き続き保持する。
+格子が一致しないため、セル単位の対応づけによる差分評価もできない（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節）。旧結果はピクセル単位の先行結果として引き続き保持する。
 
 ---
 

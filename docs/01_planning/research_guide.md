@@ -205,7 +205,7 @@ MLRによる寄与率定量化<sup>[6]</sup>との比較を通じた頑健性の
 異種データを同一グリッド上で対応付けるための前処理と分析手順は [analysis_workflow.md](../02_methods/analysis_workflow.md) の Step 1〜Step 3 を正本とする。パラメータそのものについては、次のとおり正本が分かれる。
 
 * **どの説明変数を採用するか**（採否ステータス・概念定義・単位・根拠文献・対応RQ）: [urban_structure_parameters.md](urban_structure_parameters.md)
-* **採用済みパラメータの出力仕様**（列名・算出方法・実装状況）: [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) 6章
+* **採用済みパラメータの出力仕様**（列名・算出方法・実装状況）: [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6章
 * **データソースの候補比較**（空間解像度・ライセンス・カバレッジ）: [available_gis_data.md](available_gis_data.md)
 
 **近傍変数**とは、当該ピクセル（即時効果）だけでなく、その周囲の同心円リング範囲で算出した都市構造パラメータを指す。S5<sup>[5]</sup>は30m解像度において「近傍効果 > 即時効果」を示しており（相関0.956）、近傍変数の導入はRQ2（空間スケールの影響）の評価に不可欠である。リング幅・変数命名・実装方針の設計案は同ワークフローの Step 3.3 に置いているが、**現時点では未実装の設計案であり確定していない**。現行の実装は 30 / 90 / 300m のグリッド解像度によるスケール比較である。
@@ -370,7 +370,7 @@ From Data to Insights: Modeling Urban Land Surface Temperature Using Geospatial 
 
 * [analysis_workflow.md](../02_methods/analysis_workflow.md) - 分析ワークフロー仕様書。入出力・グリッド設計・近傍変数・モデル・実装スケジュール・未確定事項の正本
 * [urban_structure_parameters.md](urban_structure_parameters.md) - 都市構造パラメータの採否（採用 / 保留 / 不採用）の正本
-* [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md) - 採用済みパラメータの出力仕様（列名・算出方法・実装状況）の正本
+* [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) - 採用済みパラメータの出力仕様（列名・算出方法・実装状況）の正本
 * [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md) - `Satellite Only` の分析仕様（Spatial CV 等）
 * [fig2_satellite_only_workflow.mmd](../03_results/fig2_satellite_only_workflow.mmd) - ワークフロー図
 * [gee_calc_LST.md](../02_methods/gee_calc_LST.md) - LST算出スクリプトの仕様書

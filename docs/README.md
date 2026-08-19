@@ -79,7 +79,7 @@ docs/
 | [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) | QGIS MCP活用ガイド | データ確認・レイヤー操作・スタイル適用・Map Theme切り替え・Processing実行のユースケース別操作例、CRS確認手順（rasterio/GeoPandas側で判定） | `qgis/` |
 | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | QGIS-MCPの既知の制約と回避策の台帳（対象ツール／症状／回避策／最小再現手順／確認バージョン）・新規機能の採否記録・バージョン追随ポリシーと更新チェックリスト、レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max・マルチバンドのband）、大規模レイヤーのクラッシュ条件の切り分け、スクリーンショットの構図・命名規則、カテゴリ値ラスタの配色確認順序、execute_code/Processing実行時の注意、Python×QGISネイティブのクロスチェック手順、検証時のプロジェクト衛生 | `qgis/` |
 | [claude_workflow_regression_tests.md](02_methods/claude_workflow_regression_tests.md) | Claude Code運用ルール回帰テスト項目書 | deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点のテスト項目書（正本・再利用）と実施結果記録 | `.claude/settings.json`, `.claude/commands/`, `.claude/skills/shared/` |
-| [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保 | 全Pythonスクリプト |
+| [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保、AIエージェントの読み取り規律 | 全Pythonスクリプト |
 
 ### 📊 03_results - 研究結果
 

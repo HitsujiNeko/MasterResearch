@@ -73,6 +73,7 @@
 2. コード変更時は [CodingRule.md](docs/02_methods/CodingRule.md) の規約・テスト方針・「15. 実装前後チェックリスト」に従う
 3. 長時間・大規模処理では中間結果の保存・進捗表示・ログ出力を行う
 4. QGIS-MCP を使う作業では [qgis_operation_guidelines.md](docs/02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](docs/02_methods/qgis_mcp_usage_guide.md) を読み込んでから操作する
+5. ツール呼び出し・ファイル読み取りはコンテキスト消費を抑える規律に従う（詳細: [CodingRule.md](docs/02_methods/CodingRule.md) 16章）
 
 ### 禁止事項
 

@@ -1,10 +1,9 @@
-"""RQ3の衛星データのみシナリオを、cell_id結合の新経路で評価するスクリプト。
+"""RQ3のLimitedシナリオ（衛星データ + 公開GIS）を、cell_id結合の新経路で評価するスクリプト。
 
-データセットパス・特徴量列・出力先のみを持つ薄いエントリであり、実際の処理
+`analysis_rq3_satellite_only.py` と同じ「薄いエントリ」構成であり、実際の処理
 （フィルタ・サンプリング・モデル学習・Spatial CV・SHAP・プロット）はすべて
-`src.common` 配下の共通モジュールに委譲する。旧実装（ピクセル単位・CSV経路）
-とは集計単位・格子・観測日数・Spatial CV方式が異なる別経路であり、
-出力先ディレクトリも旧実装（`data/output/satellite_only/`）とは分ける。
+`src.common` 配下の共通モジュールに委譲する。Limited固有の前処理（建物高さの
+0補完）のみ本スクリプトに置く（詳細は `fill_missing_building_heights` を参照）。
 """
 
 from __future__ import annotations
@@ -33,6 +32,7 @@ import pandas as pd  # noqa: E402
 
 from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
 from src.common.analysis_dataset import (  # noqa: E402
+    DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_COLUMN,
     LST_VALID_RATIO_COLUMN,
     filter_valid_rows,
@@ -60,22 +60,34 @@ from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
 from src.common.summary import save_summary  # noqa: E402
 
 # 分析対象は着手時点で30m・単一観測日（2023-07-07 03:23:29Z）に限定する
-# （30m/90mは当該観測日のテーブルのみ整備済みのため。他日時の拡張は別途行う）。
+# （Satellite Onlyと同じ制約。他日時・他スケールの拡張は別途行う）。
 DEFAULT_DATASET_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "output"
-    / "datasets"
-    / "dataset_satellite_only_20230707_032329_hanoi_30m.gpkg"
+    PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20230707_032329_hanoi_30m.gpkg"
 )
-# 旧経路（data/output/satellite_only/）とは集計単位・格子が異なる別物のため、
-# 出力先ディレクトリを分ける。
-DEFAULT_OUTPUT_DIR = (
-    PROJECT_ROOT / "data" / "output" / "satellite_only_cellbased" / "20230707_032329"
-)
-FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / "20230707_032329"
+FEATURE_COLUMNS = [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "BUILD_H_MAX",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "NDVI",
+    "NDBI",
+    "NDWI",
+]
 TARGET_COLUMN = "LST"
 DEFAULT_SCALE_M = 30
+VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
+# 建物高さが取れる建物が1つも無いセルでNULLになる列（`_aggregate_heights`参照）。
+BUILDING_HEIGHT_COLUMNS = ["BUILD_H_MEAN", "BUILD_H_MAX"]
+# BUILDING_HEIGHT_COLUMNSの0補完可否を判定する基準列（0なら「建物が無い」ため0mとみなす）。
+BUILD_COVERAGE_COLUMN = "BUILD_COV"
+# 建物高さを補完した行を追跡するための内部一時列。フィルタ・サンプリングを経ても
+# どのセルが補完対象だったかを追えるようにするための列で、`filter_valid_rows` /
+# `sample_dataset` は列を素通りさせる（`.loc[mask]` / `.sample()` は他の列を
+# 保持するため）。最終的な戻り値（`sampled`）には残さない（内部実装の詳細のため）。
+BUILDING_HEIGHT_FILLED_COLUMN = "_BUILDING_HEIGHT_FILLED"
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -88,7 +100,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         解析済みの引数オブジェクト。
     """
     parser = argparse.ArgumentParser(
-        description="RQ3のSatellite Onlyシナリオをcell_id結合の新経路で評価する。"
+        description="RQ3のLimitedシナリオをcell_id結合の新経路で評価する。"
     )
     parser.add_argument(
         "--dataset-path", type=Path, default=DEFAULT_DATASET_PATH, help="入力GeoPackageのパス"
@@ -104,6 +116,14 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=0.5,
         help="LST_VALID_RATIOの下限（この値以上のセルを残す）",
+    )
+    parser.add_argument(
+        "--require-valid-gis-mask",
+        action="store_true",
+        help=(
+            "指定すると VALID_GIS_MASK == 1 のセルに限定する感度分析として実行する"
+            "（既定は VALID_GIS_MASK を課さず有効域全体を対象にする）。"
+        ),
     )
     parser.add_argument(
         "--sample-size", type=int, default=100_000, help="抽出するサンプル数（0で全件）"
@@ -127,15 +147,73 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def resolve_output_stem(dataset_path: Path) -> str:
-    """データセットパスから出力ファイル名の接頭辞を求める。
+def resolve_output_stem(dataset_path: Path, require_valid_gis_mask: bool) -> str:
+    """データセットパスとフィルタ条件から出力ファイル名の接頭辞を求める。
+
+    主結果と感度分析（`--require-valid-gis-mask`）を同一ディレクトリへ出力しても
+    上書きしないよう、感度分析側の接頭辞にのみ `_gismask` を付与する。これにより
+    出力ファイル名自体がフィルタ条件を示す。
 
     Args:
         dataset_path: 分析用データセットGeoPackageのパス。
+        require_valid_gis_mask: `VALID_GIS_MASK == 1` を課す感度分析かどうか。
     Returns:
-        出力ファイル名の接頭辞（データセットファイル名の拡張子を除いた部分）。
+        出力ファイル名の接頭辞。
     """
-    return dataset_path.stem
+    stem = dataset_path.stem
+    if require_valid_gis_mask:
+        return f"{stem}_gismask"
+    return stem
+
+
+def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """建物が存在しないセルに限り、建物高さ列のNULLを0で補完する。
+
+    `BUILD_H_MEAN`/`BUILD_H_MAX` は、高さが取れる建物が1つも無いセルでNULLになる
+    （`src.analysis.urban_params.params.buildings._aggregate_heights`）。この
+    NULLには「建物が無い」（`BUILD_COV == 0`）場合と「建物はあるが高さが得られ
+    ない」（`BUILD_COV > 0`）場合の2種類が混在する。前者のみ「建物が無い ⇒
+    建物高さ0m」として0補完し、後者は真の欠落として補完せず、後段の
+    `filter_valid_rows` の非NULL要求で除外させる。
+
+    9変数構成を維持したまま有効域を最大化するためのLimited固有の判断であり、
+    シナリオ非依存の `filter_valid_rows` へ暗黙に波及させないよう、共通モジュール
+    ではなくこのエントリスクリプト側に置く。呼び出し側は `filter_valid_rows` の
+    **前**にこの関数を適用する必要がある。
+
+    Args:
+        dataframe: `load_analysis_dataset` の戻り値
+            （`BUILDING_HEIGHT_COLUMNS` と `BUILD_COVERAGE_COLUMN` を含む）。
+    Returns:
+        補完後のデータフレームと、補完したセル数（`BUILDING_HEIGHT_COLUMNS` の
+        いずれかを補完した行数。両列とも同時にNULL/非NULLになる想定のため、
+        実質的にはどちらの列で数えても同じ値になる）のタプル。
+    Raises:
+        ValueError: `dataframe` に `BUILDING_HEIGHT_COLUMNS`/`BUILD_COVERAGE_COLUMN`
+            のいずれかの列が存在しない場合。
+    """
+    required_columns = [*BUILDING_HEIGHT_COLUMNS, BUILD_COVERAGE_COLUMN]
+    missing_columns = [column for column in required_columns if column not in dataframe.columns]
+    if missing_columns:
+        raise ValueError(f"次の列がデータセットに存在しません: {missing_columns}")
+
+    filled = dataframe.copy()
+    # BUILD_COVはfine grid（0/1の二値マスク）の平均で算出される（buildings.py の
+    # aggregate_mean_from_fine_mask）。建物が1つも無いセルは全画素0のため、
+    # 浮動小数点演算を経ずに厳密な0.0になる（0/Nの除算に丸め誤差は生じない）。
+    # そのため「==0」の完全一致比較で「建物が無い」ケースを漏れなく検出できる。
+    no_building_mask = filled[BUILD_COVERAGE_COLUMN] == 0
+    fillable_mask = pd.Series(False, index=filled.index)
+    for column in BUILDING_HEIGHT_COLUMNS:
+        column_mask = no_building_mask & filled[column].isna()
+        fillable_mask |= column_mask
+        filled.loc[column_mask, column] = 0.0
+
+    # フィルタ・サンプリング後も「どのセルが補完対象だったか」を追跡できるよう、
+    # マスクを列としても残す（呼び出し側の build_filtered_sample が、最終的な
+    # 分析サンプルに残った補完セル数を集計するために使う）。
+    filled[BUILDING_HEIGHT_FILLED_COLUMN] = fillable_mask
+    return filled, int(fillable_mask.sum())
 
 
 def build_filtered_sample(
@@ -143,33 +221,56 @@ def build_filtered_sample(
     lst_valid_ratio_threshold: float,
     sample_size: int,
     random_state: int,
-) -> pd.DataFrame:
-    """品質列フィルタとサンプリングを、フィルタ→サンプリングの順に適用する。
+    required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
+) -> tuple[pd.DataFrame, int, int]:
+    """建物高さの補完→品質列フィルタ→サンプリングの順に適用する。
+
+    `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
+    必要がある（先に非NULL要求で欠損域を除外すると、補完すべきだった行まで
+    落ちてしまうため）。この順序依存を呼び出し側（`main()`）に持たせず本関数に
+    閉じ込めることで、呼び出し順を誤って補完が空振りする回帰を構造的に防ぐ。
 
     ブロック割り当てより先にサンプリングを行う必要があるため
     （ブロック割り当てを先にすると各ブロックのセル数が不均等に減り、
     fold のサイズ均衡が崩れる）、呼び出し側はこの関数の戻り値を使って
     ブロック割り当てを行う。
 
+    補完件数はデータセット全体（フィルタ・サンプリング前）と、最終的な分析
+    サンプル（フィルタ・サンプリング後）の両方を別々に返す。前者は入力
+    `dataframe` の規模（ROI全体で数百万セル）に対する集計、後者は実際に
+    学習・評価に使う `sampled`（既定10万件）に対する集計であり、両者は一致
+    しない（フィルタ・サンプリングで多くの補完セルが脱落するため）。同じ
+    results.json内で `sample_size`/`train_size`/`test_size` と並べて解釈
+    する際に取り違えないよう、呼び出し側は用途に応じて使い分けること。
+
     Args:
-        dataframe: `load_analysis_dataset` の戻り値。
+        dataframe: `load_analysis_dataset` の戻り値（未加工。補完前でよい）。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
         sample_size: 抽出するサンプル数（0で全件）。
         random_state: 乱数シード。
+        required_mask_columns: `== 1` を要求する品質列名。既定は `IN_ANALYSIS_AREA`
+            のみ（主結果）。`--require-valid-gis-mask` 指定時は呼び出し側が
+            `VALID_GIS_MASK` を追加する（感度分析）。
     Returns:
-        フィルタ・サンプリング後のデータフレーム。
+        フィルタ・サンプリング後のデータフレーム、データセット全体での補完
+        セル数、最終的な分析サンプルに残った補完セル数のタプル。
     """
+    filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
     filtered = filter_valid_rows(
-        dataframe,
+        filled,
         feature_columns=FEATURE_COLUMNS,
         target_column=TARGET_COLUMN,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
     )
-    return sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    sample_filled_cell_count = int(sampled[BUILDING_HEIGHT_FILLED_COLUMN].sum())
+    sampled = sampled.drop(columns=[BUILDING_HEIGHT_FILLED_COLUMN])
+    return sampled, dataset_filled_cell_count, sample_filled_cell_count
 
 
 def main() -> None:
-    """衛星データのみシナリオの分析（cell_id結合の新経路）を実行して結果を保存する。
+    """Limitedシナリオの分析（cell_id結合の新経路）を実行して結果を保存する。
 
     Args:
         なし
@@ -181,8 +282,12 @@ def main() -> None:
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     validate_scale_matches_dataset(args.dataset_path, args.scale)
-    output_stem = resolve_output_stem(args.dataset_path)
+    output_stem = resolve_output_stem(args.dataset_path, args.require_valid_gis_mask)
     observation_label = build_observation_label(output_stem)
+
+    required_mask_columns = DEFAULT_REQUIRED_MASK_COLUMNS
+    if args.require_valid_gis_mask:
+        required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, VALID_GIS_MASK_COLUMN)
 
     # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
     required_columns = [
@@ -193,13 +298,17 @@ def main() -> None:
         TARGET_COLUMN,
         IN_ANALYSIS_AREA_COLUMN,
         LST_VALID_RATIO_COLUMN,
+        VALID_GIS_MASK_COLUMN,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    sampled = build_filtered_sample(
-        dataframe,
-        lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
-        sample_size=args.sample_size,
-        random_state=args.random_state,
+    sampled, dataset_building_height_fill_count, sample_building_height_fill_count = (
+        build_filtered_sample(
+            dataframe,
+            lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
+            sample_size=args.sample_size,
+            random_state=args.random_state,
+            required_mask_columns=required_mask_columns,
+        )
     )
     if sampled.empty:
         raise ValueError(
@@ -294,7 +403,7 @@ def main() -> None:
     )
 
     result = {
-        "scenario": "Satellite Only",
+        "scenario": "Limited",
         "dataset_path": to_project_relative_string(args.dataset_path),
         "sample_path": to_project_relative_string(sampled_path),
         "sample_size": int(len(sampled)),
@@ -302,6 +411,19 @@ def main() -> None:
         "test_size": int(len(random_split.x_test)),
         "features": FEATURE_COLUMNS,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
+        "require_valid_gis_mask": args.require_valid_gis_mask,
+        "required_mask_columns": list(required_mask_columns),
+        "building_height_fill": {
+            "columns": BUILDING_HEIGHT_COLUMNS,
+            # dataset_filled_cell_count: フィルタ・サンプリング前のデータセット全体
+            # （ROI全体で数百万セル規模）での補完件数。
+            # sample_filled_cell_count: 実際に学習・評価に使った sample_size 件の
+            # 分析サンプルに残った補完件数（sample_size/train_size/test_sizeと同じ
+            # 母集団）。両者は一致しない（フィルタ・サンプリングで大半の補完セルが
+            # 脱落するため）。
+            "dataset_filled_cell_count": dataset_building_height_fill_count,
+            "sample_filled_cell_count": sample_building_height_fill_count,
+        },
         "random_split": {
             "linear_regression": random_split.linear_result,
             "random_forest": random_split.rf_result,

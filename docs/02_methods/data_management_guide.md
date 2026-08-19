@@ -121,6 +121,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
   - `data/satellite/`（衛星由来データ）
   - `data/output/satellite_only/*/*_dataset.csv`（大容量中間生成物）
   - `data/output/satellite_only/*/*_sample_100000.csv`（大容量サンプルCSV）
+  - `data/output/limited/*/*_sample_*.csv`（大容量サンプルCSV。Limitedシナリオ分析）
   - `data/output/urban_params/*.csv`（都市構造パラメータCSV）
 - ファイルベースの除外
   - `data/BSHorizon/input/merge_DH_elevation_points.csv`（正本 `data/output/survey_translated/merge_DH_elevation_points.csv` から `prepare_bs_horizon_input.py` で再生成可能なため）
@@ -132,6 +133,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 
 - `data/output/satellite_only/*/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 - `data/output/satellite_only/*/*_sample_100000.csv` も同様に大容量のため、Git管理外とする
+- `data/output/limited/*/*_sample_*.csv` はLimitedシナリオ分析（`analysis_rq3_limited.py`）のサンプルCSV（1件あたり10MB超）を想定し、Git管理外とする
 
 ### 7.2 認証情報（APIトークン）の扱い
 

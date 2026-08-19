@@ -1,0 +1,159 @@
+{
+  "scenario": "Limited",
+  "dataset_path": "data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg",
+  "sample_path": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_sample_100000.csv",
+  "sample_size": 100000,
+  "train_size": 80000,
+  "test_size": 20000,
+  "features": [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "BUILD_H_MAX",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "lst_valid_ratio_threshold": 0.5,
+  "require_valid_gis_mask": true,
+  "required_mask_columns": [
+    "IN_ANALYSIS_AREA",
+    "VALID_GIS_MASK"
+  ],
+  "building_height_fill": {
+    "columns": [
+      "BUILD_H_MEAN",
+      "BUILD_H_MAX"
+    ],
+    "dataset_filled_cell_count": 2781918,
+    "population_size": 631885,
+    "population_filled_cell_count": 243627,
+    "sample_filled_cell_count": 38552
+  },
+  "random_split": {
+    "linear_regression": {
+      "metrics": {
+        "r2": 0.6800676584243774,
+        "rmse": 1.1951908722873663,
+        "mae": 0.9235560297966003
+      },
+      "standardized_coefficients": {
+        "BUILD_COV": 0.05500201880931854,
+        "BUILD_DEN": -0.0061630308628082275,
+        "BUILD_H_MEAN": 0.10733520239591599,
+        "BUILD_H_MAX": -0.04842548072338104,
+        "ROAD_DEN": 0.043273601680994034,
+        "ELEV_MEAN": -0.07242309302091599,
+        "NDVI": -0.12277062237262726,
+        "NDBI": 0.7253047823905945,
+        "NDWI": -0.11947296559810638
+      }
+    },
+    "random_forest": {
+      "metrics": {
+        "r2": 0.7416707633162918,
+        "rmse": 1.0739770220072347,
+        "mae": 0.8237994704369321
+      },
+      "feature_importance": {
+        "BUILD_COV": 0.00530938545682822,
+        "BUILD_DEN": 0.005899567147277627,
+        "BUILD_H_MEAN": 0.017465035689035076,
+        "BUILD_H_MAX": 0.015988136955595693,
+        "ROAD_DEN": 0.024081655557399342,
+        "ELEV_MEAN": 0.08129973022613131,
+        "NDVI": 0.03154103182642117,
+        "NDBI": 0.7765706112224026,
+        "NDWI": 0.04184484591890906
+      },
+      "permutation_importance": {
+        "BUILD_COV": 0.0006946436932477984,
+        "BUILD_DEN": 0.0012867777934018388,
+        "BUILD_H_MEAN": 0.010099193758936309,
+        "BUILD_H_MAX": 0.005333532700266219,
+        "ROAD_DEN": 0.008493848812551963,
+        "ELEV_MEAN": 0.0996016417424212,
+        "NDVI": 0.025986508071266966,
+        "NDBI": 0.8298024055811342,
+        "NDWI": 0.04923371880326348
+      }
+    }
+  },
+  "spatial_cv": {
+    "cv_splits": 5,
+    "linear_regression": {
+      "r2_mean": 0.6757914543151855,
+      "r2_std": 0.012243863660515858,
+      "rmse_mean": 1.1978666669102833,
+      "rmse_std": 0.039324030777081284,
+      "mae_mean": 0.9280358552932739,
+      "mae_std": 0.0209597858542678
+    },
+    "random_forest": {
+      "r2_mean": 0.7233289505112367,
+      "r2_std": 0.02385276180856426,
+      "rmse_mean": 1.1048052440315388,
+      "rmse_std": 0.028252898351675434,
+      "mae_mean": 0.8485083655733157,
+      "mae_std": 0.019302397371059186
+    },
+    "block_definition": {
+      "block_size_m": 2700,
+      "n_blocks": 299
+    },
+    "outputs": {
+      "fold_metrics_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_spatial_cv_folds.csv",
+      "spatial_cv_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_spatial_cv.png"
+    }
+  },
+  "vif": {
+    "BUILD_COV": 3.006779459320735,
+    "BUILD_DEN": 3.054509280294272,
+    "BUILD_H_MEAN": 36.24027096149858,
+    "BUILD_H_MAX": 41.41520323477282,
+    "ROAD_DEN": 1.112960485867302,
+    "ELEV_MEAN": 1.0608480225306371,
+    "NDVI": 21.4928010228069,
+    "NDBI": 3.6269956380193835,
+    "NDWI": 16.75739200525778
+  },
+  "vif_non_finite_features": [],
+  "shap": {
+    "sample_size": 2000,
+    "background_size": 500,
+    "mean_abs_shap": {
+      "NDBI": 1.1433943756347962,
+      "ELEV_MEAN": 0.3319425860678544,
+      "NDVI": 0.13097917842078588,
+      "NDWI": 0.11768520005489541,
+      "BUILD_H_MEAN": 0.10520459968076135,
+      "BUILD_H_MAX": 0.06147647608743039,
+      "ROAD_DEN": 0.0504320505743136,
+      "BUILD_COV": 0.012178370256746245,
+      "BUILD_DEN": 0.01209581816112514
+    },
+    "outputs": {
+      "shap_importance_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_importance.csv",
+      "shap_summary_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_summary.png",
+      "shap_bar_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_bar.png",
+      "shap_dependence_png": {
+        "BUILD_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_BUILD_COV.png",
+        "BUILD_DEN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_BUILD_DEN.png",
+        "BUILD_H_MEAN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_BUILD_H_MEAN.png",
+        "BUILD_H_MAX": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_BUILD_H_MAX.png",
+        "ROAD_DEN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_ROAD_DEN.png",
+        "ELEV_MEAN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_ELEV_MEAN.png",
+        "NDVI": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_NDVI.png",
+        "NDBI": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_NDBI.png",
+        "NDWI": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_shap_dependence_NDWI.png"
+      }
+    }
+  },
+  "outputs": {
+    "feature_importance_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_feature_importance.csv",
+    "model_comparison_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_model_comparison.png",
+    "feature_importance_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_feature_importance.png"
+  }
+}

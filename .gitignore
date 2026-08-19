@@ -37,6 +37,7 @@ SSD/
 data/output/satellite_only/*/*_dataset.csv
 data/output/satellite_only/*/*_sample_*.csv
 data/output/satellite_only_cellbased/*/*_sample_*.csv
+data/output/limited/*/*_sample_*.csv
 data/output/urban_params/*.csv
 
 # GIS空間データ（大容量）は追跡しない

@@ -236,7 +236,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
 
 1. `main()` で全体フローを確認
 2. `src.common.regression_models.fit_linear_regression()` と `fit_random_forest()` でモデル比較の軸を理解
-3. `run_spatial_cv_models()` と `src.common.spatial_cv.assign_spatial_blocks()` で空間評価の考え方を理解
+3. `src.common.analysis_runs.run_spatial_cv_models()` と `src.common.spatial_cv.assign_spatial_blocks()` で空間評価の考え方を理解
 4. `src.common.shap_report.compute_shap_outputs()` で解釈可能性の見方を理解
 
 ---

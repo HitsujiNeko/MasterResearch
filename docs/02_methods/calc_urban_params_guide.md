@@ -19,7 +19,11 @@
 | 1. 本ガイドの位置づけ | 実装設計書としての目的と、変数の採否・出力仕様・データソース候補の正本の切り分け | 本ファイル |
 | 1.1 正本の境界 | 採否は `urban_structure_parameters.md`、出力仕様は `calc_urban_params_io_spec.md` 6章、データソース候補は `available_gis_data.md` が正本 | 本ファイル |
 | 3. 用語と空間整合ルール | LST・公開GIS・測量GISの有効カバレッジの違いと、分析時の空間整合手順 | 本ファイル |
+| 3.1 重要な前提 | LST・公開GIS・測量GISのカバレッジに関する前提 | 本ファイル |
+| 3.2 分析時の空間整合 | ROIとシナリオ別GIS有効域の交差による分析対象の決定 | 本ファイル |
 | 4. スコープ定義 | 算出フェーズ・結合フェーズの担当範囲と非担当範囲 | 本ファイル |
+| 4.1 担当範囲 | 算出フェーズと結合フェーズの責務 | 本ファイル |
+| 4.2 非担当範囲 | LST算出・モデル構築・可視化の対象外範囲 | 本ファイル |
 | 5. 入力仕様（再定義） | 必須入力・パラメータセット別入力（GIS）・任意入力（衛星指標・LSTラスタ） | [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) |
 | 6. 出力仕様 | 出力構成・パラメータテーブル・品質管理列・GIS由来パラメータ・分析用データセット・新旧差異 | [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) |
 | 7. 処理設計 | モジュール構成・関数責務・正準グリッド・格子整合・入力レイヤ読み込み | [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md) |

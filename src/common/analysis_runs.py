@@ -118,7 +118,16 @@ def run_random_split_models(
         rf_trees: RFの決定木本数。
     Returns:
         学習データ・評価結果・学習済みRFモデルを含む構造体。
+    Raises:
+        ValueError: `sampled` が2行未満の場合。`train_test_split` は
+            `test_size=0.2` 固定のため、1行以下では有効な学習/評価分割を
+            作れず、sklearn内部の分かりにくい例外になる。ここで早期に
+            日本語のエラーメッセージへ変換する。
     """
+    if len(sampled) < 2:
+        raise ValueError(
+            f"ランダム分割による評価には2行以上のデータが必要です（sampled={len(sampled)}行）。"
+        )
     x = sampled[feature_columns]
     y = sampled[target_column]
     x_train, x_test, y_train, y_test = train_test_split(
@@ -159,6 +168,12 @@ def run_spatial_cv_models(
         rf_trees: RFの決定木本数。
     Returns:
         集計結果と、fold別の評価指標データフレームのタプル。
+    Raises:
+        ValueError: いずれかのfoldのテスト行数が2未満の場合。`GroupKFold`
+            はブロック単位で分割するため、fold当たりの行数を保証しない。
+            テスト行が1件だと `r2_score` が例外を出さずNaNを返し
+            （sklearnの既知の仕様）、`results.json` へ不定値が気づかれずに
+            混入するため、ここで明示的に検出して停止する。
     """
     x = sampled[feature_columns]
     y = sampled[target_column]
@@ -168,6 +183,12 @@ def run_spatial_cv_models(
     linear_metrics: list[dict[str, float]] = []
     rf_metrics: list[dict[str, float]] = []
     for fold_index, (train_idx, test_idx) in enumerate(folds, start=1):
+        if len(test_idx) < 2:
+            raise ValueError(
+                f"Spatial CVの各テストfoldには2行以上必要です"
+                f"（fold {fold_index}: {len(test_idx)}行）。block_size_mを小さくする、"
+                "またはcv_splitsを減らしてブロック当たりの行数を確保してください。"
+            )
         x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 

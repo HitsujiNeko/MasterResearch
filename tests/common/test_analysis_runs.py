@@ -122,6 +122,19 @@ class TestRunRandomSplitModels:
         assert list(result.x_train.columns) == ["OTHER_FEATURE"]
         assert set(result.rf_result["feature_importance"].keys()) == {"OTHER_FEATURE"}
 
+    def test_raises_when_sampled_has_fewer_than_two_rows(self) -> None:
+        """sampledが1行以下の場合、train_test_splitのsklearn内部例外ではなく
+        分かりやすい日本語ValueErrorになる。
+        """
+        sampled = pd.DataFrame(
+            {feature: [0.0] for feature in FEATURE_COLUMNS} | {TARGET_COLUMN: [0.0]}
+        )
+
+        with pytest.raises(ValueError, match="2行以上"):
+            run_random_split_models(
+                sampled, FEATURE_COLUMNS, TARGET_COLUMN, random_state=42, rf_trees=5
+            )
+
 
 class TestRunSpatialCvModels:
     """run_spatial_cv_models のスモークテスト（fold集計と出力契約）。"""
@@ -159,3 +172,25 @@ class TestRunSpatialCvModels:
         assert "r2_mean" in summary["linear_regression"]
         assert "r2_mean" in summary["random_forest"]
         assert summary["cv_splits"] == 3
+
+    def test_raises_when_a_fold_has_fewer_than_two_test_rows(self) -> None:
+        """あるfoldのテスト行数が1件だと、r2_scoreがNaNを返す（sklearnの既知の
+        仕様）のではなく、分かりやすい日本語ValueErrorで停止する。
+
+        block 0（5行）とblock 1（1行）の2ブロックをcv_splits=2で分割すると、
+        block 1のみのfoldはテスト行数1になる（GroupKFoldはブロック単位で
+        まるごと1つのfoldへ割り当てるため）。
+        """
+        sampled = _linear_sample_dataframe(n=6)
+        block_ids = np.array([0, 0, 0, 0, 0, 1])
+
+        with pytest.raises(ValueError, match="2行以上"):
+            run_spatial_cv_models(
+                sampled,
+                FEATURE_COLUMNS,
+                TARGET_COLUMN,
+                block_ids,
+                cv_splits=2,
+                random_state=42,
+                rf_trees=5,
+            )

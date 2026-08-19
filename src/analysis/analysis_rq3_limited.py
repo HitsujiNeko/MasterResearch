@@ -82,8 +82,11 @@ DEFAULT_SCALE_M = 30
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
 # 建物高さが取れる建物が1つも無いセルでNULLになる列（`_aggregate_heights`参照）。
 BUILDING_HEIGHT_COLUMNS = ["BUILD_H_MEAN", "BUILD_H_MAX"]
-# BUILDING_HEIGHT_COLUMNSの0補完可否を判定する基準列（0なら「建物が無い」ため0mとみなす）。
+# BUILDING_HEIGHT_COLUMNSの0補完可否を判定する基準列。両方0なら「建物が無い」ため
+# 0mとみなす（BUILD_COV単独では小規模建物の取りこぼしを誤検出するため、
+# BUILD_DENとのAND条件にする。fill_missing_building_heightsのdocstring参照）。
 BUILD_COVERAGE_COLUMN = "BUILD_COV"
+BUILD_DENSITY_COLUMN = "BUILD_DEN"
 # 建物高さを補完した行を追跡するための内部一時列。フィルタ・サンプリングを経ても
 # どのセルが補完対象だったかを追えるようにするための列で、`filter_valid_rows` /
 # `sample_dataset` は列を素通りさせる（`.loc[mask]` / `.sample()` は他の列を
@@ -172,10 +175,19 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
 
     `BUILD_H_MEAN`/`BUILD_H_MAX` は、高さが取れる建物が1つも無いセルでNULLになる
     （`src.analysis.urban_params.params.buildings._aggregate_heights`）。この
-    NULLには「建物が無い」（`BUILD_COV == 0`）場合と「建物はあるが高さが得られ
-    ない」（`BUILD_COV > 0`）場合の2種類が混在する。前者のみ「建物が無い ⇒
-    建物高さ0m」として0補完し、後者は真の欠落として補完せず、後段の
-    `filter_valid_rows` の非NULL要求で除外させる。
+    NULLには「建物が無い」場合と「建物はあるが高さが得られない」場合の2種類が
+    混在する。前者のみ「建物が無い ⇒ 建物高さ0m」として0補完し、後者は真の欠落
+    として補完せず、後段の `filter_valid_rows` の非NULL要求で除外させる。
+
+    「建物が無い」の判定は `BUILD_COV == 0`（被覆率）単独ではなく
+    `BUILD_COV == 0 AND BUILD_DEN == 0`（棟数密度も0）で行う。`BUILD_COV` は
+    fineグリッドへのラスタ化による近似であり、`docs/01_planning/gis_data/
+    gis_data_buildings.md`「小さい建物の取りこぼし」に実測があるとおり、
+    30mでは建物の重心が存在するセル（`BUILD_DEN > 0`）の14.0%で
+    `BUILD_COV == 0` になる（GBAの建物の80.7%が100m²未満で、fine 10mセルの
+    中心を1つも含まない場合に被覆率へ寄与しないため）。`BUILD_DEN`
+    は高さ集計と同じ建物重心の帰属方式であり、`BUILD_COV` 単独より
+    「建物が無い」の判定に適する。
 
     9変数構成を維持したまま有効域を最大化するためのLimited固有の判断であり、
     シナリオ非依存の `filter_valid_rows` へ暗黙に波及させないよう、共通モジュール
@@ -184,26 +196,28 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
 
     Args:
         dataframe: `load_analysis_dataset` の戻り値
-            （`BUILDING_HEIGHT_COLUMNS` と `BUILD_COVERAGE_COLUMN` を含む）。
+            （`BUILDING_HEIGHT_COLUMNS`・`BUILD_COVERAGE_COLUMN`・
+            `BUILD_DENSITY_COLUMN` を含む）。
     Returns:
         補完後のデータフレームと、補完したセル数（`BUILDING_HEIGHT_COLUMNS` の
         いずれかを補完した行数。両列とも同時にNULL/非NULLになる想定のため、
         実質的にはどちらの列で数えても同じ値になる）のタプル。
     Raises:
-        ValueError: `dataframe` に `BUILDING_HEIGHT_COLUMNS`/`BUILD_COVERAGE_COLUMN`
-            のいずれかの列が存在しない場合。
+        ValueError: `dataframe` に `BUILDING_HEIGHT_COLUMNS`・
+            `BUILD_COVERAGE_COLUMN`・`BUILD_DENSITY_COLUMN` のいずれかの列が
+            存在しない場合。
     """
-    required_columns = [*BUILDING_HEIGHT_COLUMNS, BUILD_COVERAGE_COLUMN]
+    required_columns = [*BUILDING_HEIGHT_COLUMNS, BUILD_COVERAGE_COLUMN, BUILD_DENSITY_COLUMN]
     missing_columns = [column for column in required_columns if column not in dataframe.columns]
     if missing_columns:
         raise ValueError(f"次の列がデータセットに存在しません: {missing_columns}")
 
     filled = dataframe.copy()
-    # BUILD_COVはfine grid（0/1の二値マスク）の平均で算出される（buildings.py の
-    # aggregate_mean_from_fine_mask）。建物が1つも無いセルは全画素0のため、
-    # 浮動小数点演算を経ずに厳密な0.0になる（0/Nの除算に丸め誤差は生じない）。
-    # そのため「==0」の完全一致比較で「建物が無い」ケースを漏れなく検出できる。
-    no_building_mask = filled[BUILD_COVERAGE_COLUMN] == 0
+    # BUILD_COV・BUILD_DENはいずれも建物が1つも無いセルで演算を経ずに厳密な0.0
+    # になる（BUILD_COVはfine grid二値マスクの平均、BUILD_DENは建物カウントの
+    # 面積除算。いずれも分子が整数0であり丸め誤差は生じない）ため、「==0」の
+    # 完全一致比較で「建物が無い」ケースを検出できる。
+    no_building_mask = (filled[BUILD_COVERAGE_COLUMN] == 0) & (filled[BUILD_DENSITY_COLUMN] == 0)
     fillable_mask = pd.Series(False, index=filled.index)
     for column in BUILDING_HEIGHT_COLUMNS:
         column_mask = no_building_mask & filled[column].isna()

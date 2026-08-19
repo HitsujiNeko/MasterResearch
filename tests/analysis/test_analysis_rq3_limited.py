@@ -20,6 +20,7 @@ import pytest
 
 from src.analysis.analysis_rq3_limited import (
     BUILD_COVERAGE_COLUMN,
+    BUILD_DENSITY_COLUMN,
     DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_SCALE_M,
@@ -105,13 +106,14 @@ class TestFillMissingBuildingHeights:
             {
                 "cell_id": [0, 1, 2, 3],
                 BUILD_COVERAGE_COLUMN: [0.0, 0.0, 0.3, 0.5],
+                BUILD_DENSITY_COLUMN: [0.0, 0.0, 5.0, 3.0],
                 "BUILD_H_MEAN": [np.nan, np.nan, np.nan, 12.0],
                 "BUILD_H_MAX": [np.nan, np.nan, np.nan, 18.0],
             }
         )
 
-    def test_fills_zero_only_when_no_building_coverage(self) -> None:
-        """BUILD_COV == 0 かつ高さNULLの行のみ0で補完する。"""
+    def test_fills_zero_only_when_no_building_coverage_and_no_building_density(self) -> None:
+        """BUILD_COV == 0 かつ BUILD_DEN == 0（建物が無い）かつ高さNULLの行のみ0で補完する。"""
         dataframe = self._dataframe()
 
         filled, fill_count = fill_missing_building_heights(dataframe)
@@ -130,6 +132,29 @@ class TestFillMissingBuildingHeights:
 
         assert pd.isna(filled.loc[2, "BUILD_H_MEAN"])
         assert pd.isna(filled.loc[2, "BUILD_H_MAX"])
+
+    def test_does_not_fill_when_coverage_is_zero_but_density_is_positive(self) -> None:
+        """BUILD_COV == 0 でも BUILD_DEN > 0（建物の重心はある）なら補完しない
+        （ローカルレビューで検出した回帰テスト。30mではBUILD_DEN>0のセルの14.0%が
+        BUILD_COV==0になることが docs/01_planning/gis_data/gis_data_buildings.md
+        「小さい建物の取りこぼし」で実測されており、BUILD_COV単独では小規模建物を
+        「建物が無い」と誤判定する）。
+        """
+        dataframe = pd.DataFrame(
+            {
+                "cell_id": [0],
+                BUILD_COVERAGE_COLUMN: [0.0],
+                BUILD_DENSITY_COLUMN: [3.0],
+                "BUILD_H_MEAN": [np.nan],
+                "BUILD_H_MAX": [np.nan],
+            }
+        )
+
+        filled, fill_count = fill_missing_building_heights(dataframe)
+
+        assert fill_count == 0
+        assert pd.isna(filled.loc[0, "BUILD_H_MEAN"])
+        assert pd.isna(filled.loc[0, "BUILD_H_MAX"])
 
     def test_leaves_non_missing_values_untouched(self) -> None:
         """既に値がある行はそのまま維持される。"""
@@ -159,6 +184,7 @@ class TestFillMissingBuildingHeights:
             {
                 "cell_id": [0],
                 BUILD_COVERAGE_COLUMN: [1e-6],
+                BUILD_DENSITY_COLUMN: [0.0],
                 "BUILD_H_MEAN": [np.nan],
                 "BUILD_H_MAX": [np.nan],
             }
@@ -298,6 +324,7 @@ class TestBuildFilteredSample:
         """
         dataframe = _quality_dataframe()
         dataframe.loc[0, "BUILD_COV"] = 0.0
+        dataframe.loc[0, "BUILD_DEN"] = 0.0
         dataframe.loc[0, "BUILD_H_MEAN"] = np.nan
         dataframe.loc[0, "BUILD_H_MAX"] = np.nan
 
@@ -324,8 +351,9 @@ class TestBuildFilteredSample:
         研究成果の記述が実態と乖離するため）。
         """
         dataframe = _quality_dataframe(n=10)
-        # cell_id 0: 建物高さを補完対象にする（BUILD_COV==0 かつ高さNULL）。
+        # cell_id 0: 建物高さを補完対象にする（BUILD_COV==0 かつBUILD_DEN==0 かつ高さNULL）。
         dataframe.loc[0, "BUILD_COV"] = 0.0
+        dataframe.loc[0, "BUILD_DEN"] = 0.0
         dataframe.loc[0, "BUILD_H_MEAN"] = np.nan
         dataframe.loc[0, "BUILD_H_MAX"] = np.nan
         # cell_id 0 をIN_ANALYSIS_AREAで除外し、補完はされるがフィルタ後の母数にも

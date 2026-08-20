@@ -261,6 +261,51 @@ def raster_overlaps_grid(raster_path: Path, grid_spec: GridSpec) -> bool:
     return left < maxx and right > minx and bottom < maxy and top > miny
 
 
+def warn_if_band_description_unexpected(
+    raster_path: Path,
+    band_index: int,
+    expected_keyword: str,
+    kind_label: str,
+) -> None:
+    """バンド説明が期待するキーワードを含まない場合に警告する。
+
+    **バンド番号の取り違えは黙って通る。** ファイルは存在し、範囲も重なり、有効画素も
+    あるため、既存の警告経路はいずれも発火しない。それでいて出力される値は単位も意味も
+    違う。人口ラスタは band 1 にカウント（人/セル）、band 2 に密度（人/km²）を持ち、
+    カウントを集約しても密度として成立し得る大きさの値になるため、出力を眺めるだけでは
+    誤りに気づけない。
+
+    **バンド説明を持たないラスタでは何もしない。** 説明は任意のメタデータであり、
+    無いことを異常として扱うと正常な入力まで警告で埋まる。照合は「説明があり、かつ
+    期待と食い違う」場合に限る。
+
+    Args:
+        raster_path: 入力ラスタファイルの絶対パス。
+        band_index: 対象バンド番号（1始まり）。
+        expected_keyword: バンド説明に含まれるべき語（大文字小文字は区別しない）。
+        kind_label: 警告文に使う入力種別のラベル（例: ``人口``）。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
+    """
+    with rasterio.open(raster_path) as src:
+        _validate_band_index(src, band_index, raster_path)
+        description = src.descriptions[band_index - 1]
+
+    if description is None:
+        return
+    if expected_keyword.lower() in str(description).lower():
+        return
+
+    warnings.warn(
+        f"{kind_label}ラスタの band {band_index} の説明は '{description}' であり、"
+        f" 期待する '{expected_keyword}' を含みません。バンド番号の取り違えを疑って"
+        "ください。値は出力されますが、意味と単位が想定と異なります:"
+        f" {raster_path}",
+        stacklevel=3,
+    )
+
+
 def aggregate_mean_and_valid_ratio(
     raster_path: Path,
     grid_spec: GridSpec,

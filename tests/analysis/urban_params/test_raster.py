@@ -18,6 +18,7 @@ from src.analysis.urban_params.params.raster import (
     aggregate_valid_ratio_to_grid,
     coarse_grid_bounds,
     raster_overlaps_grid,
+    warn_if_band_description_unexpected,
 )
 from src.common.geo_metadata import BBox
 
@@ -326,3 +327,91 @@ def test_aggregate_mean_and_valid_ratio_does_not_warn_for_normal_input(tmp_path:
         )
 
     assert not [record for record in caught if "全セルNaN" in str(record.message)]
+
+
+def _write_described_raster(path: Path, descriptions: tuple[str | None, ...]) -> None:
+    """バンド説明を指定した多バンドラスタを書き出す。
+
+    Args:
+        path: 出力先のGeoTIFFパス。
+        descriptions: バンドごとの説明。``None`` を含めると未設定バンドを作れる。
+    """
+    band_count = len(descriptions)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=2,
+        count=band_count,
+        dtype="float32",
+        crs="EPSG:3857",
+        transform=from_origin(0, 20, 10, 10),
+    ) as dst:
+        for band_index in range(1, band_count + 1):
+            dst.write(np.full((2, 2), float(band_index), dtype=np.float32), band_index)
+        dst.descriptions = descriptions
+
+
+def test_warn_if_band_description_unexpected_warns_on_mismatch(tmp_path: Path) -> None:
+    """期待するキーワードを含まないバンド説明では警告する。"""
+    raster_path = tmp_path / "described.tif"
+    _write_described_raster(raster_path, ("population_count", "population_density_per_km2"))
+
+    with pytest.warns(UserWarning, match="バンド番号の取り違え"):
+        warn_if_band_description_unexpected(raster_path, 1, "density", "人口")
+
+
+def test_warn_if_band_description_unexpected_accepts_matching_band(tmp_path: Path) -> None:
+    """期待するキーワードを含むバンド説明では警告しない。"""
+    raster_path = tmp_path / "described_ok.tif"
+    _write_described_raster(raster_path, ("population_count", "population_density_per_km2"))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_if_band_description_unexpected(raster_path, 2, "density", "人口")
+
+    assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
+
+
+def test_warn_if_band_description_unexpected_ignores_case(tmp_path: Path) -> None:
+    """バンド説明の照合は大文字小文字を区別しない。
+
+    説明の表記はデータ提供元・取得スクリプトによって揺れるため、大小の違いだけで
+    警告が出ると、正常な入力まで警告に埋もれる。
+    """
+    raster_path = tmp_path / "described_upper.tif"
+    _write_described_raster(raster_path, ("Population_DENSITY_per_km2",))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_if_band_description_unexpected(raster_path, 1, "density", "人口")
+
+    assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
+
+
+def test_warn_if_band_description_unexpected_skips_raster_without_descriptions(
+    tmp_path: Path,
+) -> None:
+    """バンド説明を持たないラスタでは何もしない。
+
+    説明は任意のメタデータであり、無いことを異常として扱うと正常な入力まで
+    警告で埋まる。照合は「説明があり、かつ期待と食い違う」場合に限る。
+    """
+    raster_path = tmp_path / "undescribed.tif"
+    _write_test_raster(raster_path, np.ones((2, 2), dtype=np.float32), from_origin(0, 20, 10, 10))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_if_band_description_unexpected(raster_path, 1, "density", "人口")
+
+    assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
+
+
+def test_warn_if_band_description_unexpected_rejects_out_of_range_band(tmp_path: Path) -> None:
+    """範囲外のバンド番号は、素のIndexErrorではなくValueErrorで弾く。"""
+    raster_path = tmp_path / "described_range.tif"
+    _write_described_raster(raster_path, ("population_density_per_km2",))
+
+    with pytest.raises(ValueError, match="バンド番号が範囲外です"):
+        warn_if_band_description_unexpected(raster_path, 3, "density", "人口")

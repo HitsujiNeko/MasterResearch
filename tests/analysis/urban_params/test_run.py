@@ -14,9 +14,11 @@ import rasterio
 from rasterio.transform import from_origin
 
 from src.analysis.urban_params.canonical_grid import build_canonical_grid
-from src.analysis.urban_params.config import ParamSet
+from src.analysis.urban_params.config import PARAM_SETS, ParamSet
 from src.analysis.urban_params.run import (
+    PARAM_MODULES,
     ParamTask,
+    apply_column_suffix,
     build_lst_task,
     build_param_tasks,
     build_satellite_task,
@@ -639,6 +641,45 @@ def test_param_set_columns_match_computed_columns(city_environment: dict[str, An
     for table_name in ("build_gba", "road_osm", "mask_roi", "elev_fabdem"):
         task = build_param_tasks([table_name], city_environment["city_cfg"], ANALYSIS_CRS)[0]
         validate_computed_columns(task, task.compute(bbox, grid_spec))
+
+
+def test_apply_column_suffix_renames_every_column() -> None:
+    """接尾辞を指定すると、算出結果のすべての列名へ付与される。
+
+    片方の列にしか付かないと、``POP_DEN`` だけが衝突を免れて ``POP_VALID_RATIO`` が
+    衝突する、という半端な状態になる。
+    """
+    columns = {
+        "POP_DEN": np.zeros((2, 2), dtype=np.float32),
+        "POP_VALID_RATIO": np.ones((2, 2), dtype=np.float32),
+    }
+
+    renamed = apply_column_suffix(columns, "LANDSCAN2023")
+
+    assert set(renamed) == {"POP_DEN_LANDSCAN2023", "POP_VALID_RATIO_LANDSCAN2023"}
+    np.testing.assert_array_equal(
+        renamed["POP_VALID_RATIO_LANDSCAN2023"], np.ones((2, 2), dtype=np.float32)
+    )
+
+
+def test_apply_column_suffix_keeps_columns_when_suffix_is_empty() -> None:
+    """接尾辞を宣言しないパラメータセットでは列名を変えない。"""
+    columns = {"ELEV_MEAN": np.zeros((2, 2), dtype=np.float32)}
+
+    assert apply_column_suffix(columns, "") == columns
+
+
+def test_every_param_set_has_registered_module() -> None:
+    """PARAM_SETS のモジュール名は必ず PARAM_MODULES に登録されている。
+
+    登録漏れは ``build_param_tasks()`` の ``PARAM_MODULES[...]`` で素の ``KeyError``
+    になり、``--params`` の選択肢には現れるのに実行だけが落ちる。パラメータセットを
+    追加した時点で気づけるよう、宣言どうしの対応を検査する。
+    """
+    declared = {param_set.module_name for param_set in PARAM_SETS.values()}
+    missing = declared - set(PARAM_MODULES)
+
+    assert not missing, f"PARAM_MODULES に未登録のモジュールです: {sorted(missing)}"
 
 
 def test_param_set_dataclass_is_immutable() -> None:

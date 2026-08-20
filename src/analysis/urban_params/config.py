@@ -145,6 +145,21 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 "path": "data/gis/dem/fabdem/fabdem_hanoi_dem.tif",
                 "band": 1,
             },
+            # 人口グリッドはいずれも band 1 がカウント（人/セル）、band 2 が取得
+            # スクリプトの導出した密度（人/km²）である。参照するのは band 2 のみで、
+            # カウントを平均集約するとセル面積に依存した無意味な値になる。
+            "worldpop2020": {
+                "path": "data/gis/population/worldpop/worldpop_hanoi_2020.tif",
+                "band": 2,
+            },
+            "landscan2020": {
+                "path": "data/gis/population/landscan/landscan_hanoi_2020.tif",
+                "band": 2,
+            },
+            "landscan2023": {
+                "path": "data/gis/population/landscan/landscan_hanoi_2023.tif",
+                "band": 2,
+            },
         },
     }
 }
@@ -167,12 +182,19 @@ class ParamSet:
         input_key: 入力の設定キー。
         columns: 出力する列名。``compute()`` の戻り値がこの通りかを実行時に検証し、
             同じ列名を持つべき別ソース版どうしの食い違いを検知する。
+            ``column_suffix`` がある場合は接尾辞を付けたあとの最終的な列名を指す。
+        column_suffix: 算出モジュールが返した列名へ付けるデータソース由来の接尾辞。
+            空文字列（既定）なら何も付けない。**別ソース版を同一データセットへ同時に
+            結合する必要があるパラメータにのみ指定する。** 算出モジュールは自分が
+            どのデータソースを処理しているかを知らずに済み、接尾辞の付与は
+            ``run.py`` の ``apply_column_suffix()`` が一手に担う。
     """
 
     module_name: str
     input_kind: Literal["layer", "raster"]
     input_key: str
     columns: tuple[str, ...]
+    column_suffix: str = ""
 
 
 # 列名にスケールのサフィックスは付けない。ファイル自体がスケール別ディレクトリへ
@@ -180,12 +202,51 @@ class ParamSet:
 BUILDING_COLUMNS = ("BUILD_COV", "BUILD_DEN", "BUILD_H_MEAN", "BUILD_H_MAX")
 ROAD_COLUMNS = ("ROAD_DEN",)
 
+# 人口密度の列名（データソース接尾辞を付ける**前**の基底名）。``params/population.py``
+# が返すのはこの名前であり、実際に出力される列名は接尾辞つきになる。
+POPULATION_BASE_COLUMNS = ("POP_DEN", "POP_VALID_RATIO")
+
+
+def population_param_set(raster_key: str, source_suffix: str) -> ParamSet:
+    """データソース接尾辞つきの列名を持つ人口パラメータセットを組み立てる。
+
+    **人口だけは別ソース版で列名を分ける。** 建物（``build_gba`` / ``build_dc``）や
+    夜間光（``ntl_viirs2023`` / ``ntl_bm2023``）は同一概念の「差し替え候補」であり、
+    同じ列名にすることで感度分析が結合先の差し替えだけで済む。一方、人口の3版は
+    概念（居住人口 / 実効人口）も観測年も異なる**別変数**であり、説明力の差が
+    「人口概念の差」によるものか「観測年の差」によるものかを分離するには、同一
+    データセットへ**同時に**結合する必要がある。列名を共有したままだと
+    ``build_dataset.py`` の ``join_tables()`` が列名衝突として結合を拒否する。
+
+    Args:
+        raster_key: ``CITY_CONFIG[都市]["rasters"]`` のキー。
+        source_suffix: 列名へ付けるデータソース識別子（大文字・例: ``WORLDPOP2020``）。
+
+    Returns:
+        接尾辞つきの列名を宣言したパラメータセット。
+    """
+    return ParamSet(
+        "population",
+        "raster",
+        raster_key,
+        tuple(f"{name}_{source_suffix}" for name in POPULATION_BASE_COLUMNS),
+        column_suffix=source_suffix,
+    )
+
+
 PARAM_SETS: dict[str, ParamSet] = {
     "build_gba": ParamSet("buildings", "layer", "open_buildings", BUILDING_COLUMNS),
     "build_dc": ParamSet("buildings", "layer", "dc", BUILDING_COLUMNS),
     "road_osm": ParamSet("roads", "layer", "open_roads", ROAD_COLUMNS),
     "road_gt": ParamSet("roads", "layer", "gt", ROAD_COLUMNS),
     "elev_fabdem": ParamSet("elevation", "raster", "fabdem", ("ELEV_MEAN", "ELEV_VALID_RATIO")),
+    # 人口は3版を並置する。WorldPopは居住人口・約92.77m、LandScanは実効人口・約928mで
+    # 概念と解像度が異なる。LandScan 2020 は「対照」であり、2023との比較で人口概念を
+    # 固定して観測年だけを変えられる（WorldPopはベトナムの提供が2020年までのため、
+    # 居住人口側で年を振ることはできない）。3版とも同時に結合できるよう列名を分ける。
+    "pop_worldpop2020": population_param_set("worldpop2020", "WORLDPOP2020"),
+    "pop_landscan2020": population_param_set("landscan2020", "LANDSCAN2020"),
+    "pop_landscan2023": population_param_set("landscan2023", "LANDSCAN2023"),
     "mask_roi": ParamSet("mask", "layer", ANALYSIS_EXTENT_LAYER_KEY, ("IN_ANALYSIS_AREA",)),
 }
 

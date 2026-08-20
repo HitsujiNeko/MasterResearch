@@ -57,6 +57,26 @@ from .raster import aggregate_mean_and_valid_ratio, warn_if_band_description_une
 RADIANCE_BAND_NAMES = ("avg_radiance", "ntl_near_nadir")
 
 
+def validate_resource(resource: RasterResource) -> None:
+    """入力ラスタが放射輝度の主バンドを指しているかを検証する。
+
+    **``compute()`` ではなく入力解決の段階で呼ぶ。** バンド番号の取り違えは設定の
+    誤りであり、他の入力検証と同じくすべてのタスク分をまとめて先に確かめたほうが、
+    スケールごとの進捗出力に紛れない。同じファイルをスケールの数だけ開き直さずに
+    済むという利点もある。呼び出しは ``run.py`` の ``build_param_tasks()`` が担う。
+
+    主バンド以外を指しても値は出るため、集約後の統計を見ても気づけない（``cf_cvg``
+    は51-96で放射輝度と桁が重なり、``avg_radiance_masked`` に至っては主バンドと
+    ほぼ同じ値になる）。
+
+    Args:
+        resource: 解決済みの夜間光ラスタ。
+    """
+    warn_if_band_description_unexpected(
+        resource.path, resource.band_index, RADIANCE_BAND_NAMES, "夜間光", exact=True
+    )
+
+
 def compute(
     resource: RasterResource | None,
     bbox_analysis: BBox,
@@ -66,7 +86,8 @@ def compute(
 
     Args:
         resource: 夜間光ラスタ（未指定シナリオでは ``None``）。放射輝度の主バンドを
-            指す ``band_index`` を持つこと。
+            指す ``band_index`` を持つこと。バンドの取り違えは入力解決時の
+            ``validate_resource()`` が検査する。
         bbox_analysis: 解析用CRS上の検索範囲。集約先の範囲は ``grid_spec`` が
             保持するため本関数では参照しないが、他パラメータモジュールと
             シグネチャを揃えるために受け取る。
@@ -80,13 +101,6 @@ def compute(
     """
     if resource is None:
         return {}
-
-    # 主バンド以外を指していないかを先に確かめる。取り違えても値は出るため、集約後の
-    # 統計を見ても気づけない（``cf_cvg`` は51-96で放射輝度と桁が重なり、
-    # ``avg_radiance_masked`` に至っては主バンドとほぼ同じ値になる）。
-    warn_if_band_description_unexpected(
-        resource.path, resource.band_index, RADIANCE_BAND_NAMES, "夜間光", exact=True
-    )
 
     # 都市とデータセットの取り違えや切り出し範囲の誤りでは、ファイルが存在するため
     # 入力解決（io.get_optional_raster_resource）を素通りし、全セルNaNの列が黙って

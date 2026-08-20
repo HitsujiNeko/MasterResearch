@@ -129,6 +129,56 @@ def _write_dem(path: Path) -> None:
         dst.write(np.full((20, 20), 30.0, dtype=np.float32), 1)
 
 
+def _write_population_raster(path: Path) -> None:
+    """解析範囲を覆う2バンドの人口ラスタを書き出す。
+
+    実データ（WorldPop / LandScan）と同じく band 1 にカウント、band 2 に密度を置く。
+    バンド説明も実データに合わせ、``population.validate_resource()`` の照合が通る
+    状態にする。
+    """
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=2,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 200.0, 10.0, 10.0),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((20, 20), 12.0, dtype=np.float32), 1)
+        dst.write(np.full((20, 20), 1200.0, dtype=np.float32), 2)
+        dst.descriptions = ("population_count", "population_density_per_km2")
+
+
+def _write_nightlight_raster(path: Path, primary_band_name: str) -> None:
+    """解析範囲を覆う夜間光ラスタを書き出す。
+
+    主バンド（band 1）の説明はデータセットごとに異なるため引数で受け取る
+    （VIIRS DNB は ``avg_radiance``、Black Marble は ``ntl_near_nadir``）。
+
+    Args:
+        path: 出力先のGeoTIFFパス。
+        primary_band_name: band 1 に付けるバンド説明。
+    """
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=1,
+        dtype="float32",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 200.0, 10.0, 10.0),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((20, 20), 5.4, dtype=np.float32), 1)
+        dst.set_band_description(1, primary_band_name)
+
+
 def _write_indices_raster(path: Path) -> None:
     """NDVI/NDBI/NDWI のバンド説明を持つ衛星指標ラスタを書き出す。"""
     with rasterio.open(
@@ -218,6 +268,9 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     _write_building_layer(data_dir / "buildings.gpkg")
     _write_road_layer(data_dir / "roads.gpkg")
     _write_dem(data_dir / "dem.tif")
+    _write_population_raster(data_dir / "population.tif")
+    _write_nightlight_raster(data_dir / "nightlight_viirs.tif", "avg_radiance")
+    _write_nightlight_raster(data_dir / "nightlight_bm.tif", "ntl_near_nadir")
     _write_indices_raster(data_dir / SATELLITE_FILE_NAME)
     _write_lst_raster(data_dir / LST_FILE_NAME)
 
@@ -235,7 +288,16 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
             },
             "open_roads": {"path": "data/roads.gpkg", "layer": "data", "crs_epsg": ANALYSIS_EPSG},
         },
-        "rasters": {"fabdem": {"path": "data/dem.tif", "band": 1}},
+        # 人口3版は同じ合成ラスタを指す。ここで確かめたいのはデータソースごとの値の
+        # 違いではなく、接尾辞つきの列名が宣言どおりに組み立てられることだからである。
+        "rasters": {
+            "fabdem": {"path": "data/dem.tif", "band": 1},
+            "worldpop2020": {"path": "data/population.tif", "band": 2},
+            "landscan2020": {"path": "data/population.tif", "band": 2},
+            "landscan2023": {"path": "data/population.tif", "band": 2},
+            "viirs2023": {"path": "data/nightlight_viirs.tif", "band": 1},
+            "bm2023": {"path": "data/nightlight_bm.tif", "band": 1},
+        },
     }
 
     # 入力・出力ともにテンポラリ配下で完結させる。PROJECT_ROOT は各モジュールが

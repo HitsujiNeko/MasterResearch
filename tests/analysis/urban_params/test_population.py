@@ -267,30 +267,59 @@ def test_compute_reads_density_band_not_count_band(tmp_path: Path) -> None:
     density_result = population.compute(
         RasterResource(raster_path, DENSITY_BAND), ANALYSIS_BBOX, _build_grid_spec()
     )["POP_DEN"]
-    # カウントバンドを指した場合は、値が出るだけに黙って通さず警告する。
-    with pytest.warns(UserWarning, match="バンド番号の取り違え"):
-        count_result = population.compute(
-            RasterResource(raster_path, COUNT_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )["POP_DEN"]
+    count_result = population.compute(
+        RasterResource(raster_path, COUNT_BAND), ANALYSIS_BBOX, _build_grid_spec()
+    )["POP_DEN"]
 
     assert density_result[0, 0] == pytest.approx(10.0, abs=0.1)
     # カウントバンドは密度の10倍で書いてあるため、読み分けができていれば値が異なる。
     assert count_result[0, 0] == pytest.approx(100.0, abs=1.0)
 
 
-def test_compute_does_not_warn_for_density_band(tmp_path: Path) -> None:
+def test_validate_resource_warns_for_count_band(tmp_path: Path) -> None:
+    """カウントバンド（band 1）を指した入力は、算出を始める前に警告する。
+
+    取り違えても値は出るため、集約後の統計を見ても気づけない。検証は ``compute()``
+    ではなく入力解決時に行うため、警告もそちらの経路から出る。
+    """
+    raster_path = tmp_path / "pop_bands.tif"
+    _write_population_raster(raster_path, _uniform_density(1000.0))
+
+    with pytest.warns(UserWarning, match="バンド番号の取り違え"):
+        population.validate_resource(RasterResource(raster_path, COUNT_BAND))
+
+
+def test_validate_resource_does_not_warn_for_density_band(tmp_path: Path) -> None:
     """密度バンドを指した通常の入力では、バンド説明の警告を出さない。"""
     raster_path = tmp_path / "pop_ok.tif"
     _write_population_raster(raster_path, _uniform_density(1000.0))
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        population.compute(
-            RasterResource(raster_path, DENSITY_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )
+        population.validate_resource(RasterResource(raster_path, DENSITY_BAND))
 
     # バンド説明に関する警告のみを対象にする（依存ライブラリの無関係な警告では失敗させない）。
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
+
+
+def test_density_band_keywords_match_fetch_script_output_name() -> None:
+    """照合キーワードは、取得スクリプトが付ける密度バンド名に含まれる。
+
+    ``DENSITY_BAND_KEYWORDS`` は ``fetch_population_hanoi.py`` が書き出すバンド名への
+    仮定である。取得側の名前を変えると、この検査は「正常な入力に毎回警告を出す」か
+    「取り違えを素通りさせる」かのどちらかに黙って壊れる。バンドの取り違えは出力統計に
+    現れないため、検査が壊れていること自体に気づけない。
+    """
+    from src.preprocessing.fetch_population_hanoi import BAND_COUNT_NAME, BAND_DENSITY_NAME
+
+    for keyword in population.DENSITY_BAND_KEYWORDS:
+        assert keyword in BAND_DENSITY_NAME.lower(), (
+            f"密度バンド名 '{BAND_DENSITY_NAME}' が照合キーワード '{keyword}' を含みません"
+        )
+        # カウントバンドが同じ語を含むと、取り違えを検知できなくなる。
+        assert keyword not in BAND_COUNT_NAME.lower(), (
+            f"カウントバンド名 '{BAND_COUNT_NAME}' が照合キーワード '{keyword}' を含みます"
+        )
 
 
 def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:

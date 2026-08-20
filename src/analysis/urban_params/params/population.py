@@ -64,6 +64,24 @@ HECTARES_PER_SQUARE_KM = 100.0
 DENSITY_BAND_KEYWORDS = ("density",)
 
 
+def validate_resource(resource: RasterResource) -> None:
+    """入力ラスタが密度バンドを指しているかを検証する。
+
+    **``compute()`` ではなく入力解決の段階で呼ぶ。** バンド番号の取り違えは設定の
+    誤りであり、他の入力検証と同じくすべてのタスク分をまとめて先に確かめたほうが、
+    スケールごとの進捗出力に紛れない。同じファイルをスケールの数だけ開き直さずに
+    済むという利点もある。呼び出しは ``run.py`` の ``build_param_tasks()`` が担う。
+
+    カウントバンド（band 1）を指しても値は出るため、集約後の統計を見ても気づけない。
+
+    Args:
+        resource: 解決済みの人口ラスタ。
+    """
+    warn_if_band_description_unexpected(
+        resource.path, resource.band_index, DENSITY_BAND_KEYWORDS, "人口"
+    )
+
+
 def compute(
     resource: RasterResource | None,
     bbox_analysis: BBox,
@@ -74,7 +92,8 @@ def compute(
     Args:
         resource: 人口ラスタ（未指定シナリオでは ``None``）。密度バンド（人/km²）を
             指す ``band_index`` を持つこと。カウントバンドを指すと単位が人/haに
-            ならないが、値域の妥当性は本関数では検査しない。
+            ならないが、バンドの取り違えは入力解決時の ``validate_resource()`` が
+            検査する（本関数は値域の妥当性を検査しない）。
         bbox_analysis: 解析用CRS上の検索範囲。集約先の範囲は ``grid_spec`` が
             保持するため本関数では参照しないが、他パラメータモジュールと
             シグネチャを揃えるために受け取る。
@@ -92,12 +111,6 @@ def compute(
     """
     if resource is None:
         return {}
-
-    # カウントバンド（band 1）を指していないかを先に確かめる。取り違えても値は出るため、
-    # 集約後の統計を見ても気づけない。
-    warn_if_band_description_unexpected(
-        resource.path, resource.band_index, DENSITY_BAND_KEYWORDS, "人口"
-    )
 
     # 都市とデータセットの取り違えや切り出し範囲の誤りでは、ファイルが存在するため
     # 入力解決（io.get_optional_raster_resource）を素通りし、全セルNaNの列が黙って

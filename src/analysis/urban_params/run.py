@@ -314,6 +314,27 @@ def resolve_param_resource(
     raise ValueError(f"未知の入力種別です: {param_set.input_kind}")
 
 
+def validate_param_resource(module: ModuleType, resource: LayerResource | RasterResource) -> None:
+    """算出モジュールが入力固有の検証を持つ場合に、それを実行する。
+
+    **入力解決と同じ段階で呼ぶ。** バンド番号の取り違えのような設定の誤りは、算出を
+    始める前に、他の入力検証とまとめて報告されるべきである。``compute()`` の中で
+    確かめるとスケールごとの進捗出力に紛れるうえ、同じファイルをスケールの数だけ
+    開き直すことになる。
+
+    検証を持つかどうかはモジュール側の任意とする。すべての算出モジュールに空の
+    ``validate_resource()`` を置かせると、検証が要るモジュールと要らないモジュールの
+    区別が付かなくなるためである。
+
+    Args:
+        module: ``PARAM_MODULES`` が保持する算出モジュール。
+        resource: ``resolve_param_resource()`` が解決した入力。
+    """
+    validator = getattr(module, "validate_resource", None)
+    if validator is not None:
+        validator(resource)
+
+
 def apply_column_suffix(columns: dict[str, np.ndarray], suffix: str) -> dict[str, np.ndarray]:
     """算出結果の列名へ、データソース由来の接尾辞を付ける。
 
@@ -346,7 +367,9 @@ def build_param_tasks(
     """パラメータセット名の一覧から算出タスクを組み立てる。
 
     **入力の解決はすべてのタスク分をまとめて先に行う。** 1つ目の出力を書き終えてから
-    2つ目の入力が見つからずに失敗すると、中途半端な出力が残るためである。
+    2つ目の入力が見つからずに失敗すると、中途半端な出力が残るためである。バンド番号の
+    取り違えのような入力固有の検証（``validate_param_resource()``）も同じ理由でここに
+    置き、算出を始める前にまとめて報告する。
 
     Args:
         param_names: 算出するパラメータセット名の一覧。
@@ -361,6 +384,7 @@ def build_param_tasks(
         param_set = PARAM_SETS[table_name]
         module = PARAM_MODULES[param_set.module_name]
         resource = resolve_param_resource(city_cfg, param_set, analysis_crs)
+        validate_param_resource(module, resource)
 
         def compute(
             bbox_analysis: BBox,

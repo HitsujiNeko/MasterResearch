@@ -408,6 +408,26 @@ def test_warn_if_band_description_unexpected_skips_raster_without_descriptions(
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
 
 
+@pytest.mark.parametrize("blank_description", ["", "   "])
+def test_warn_if_band_description_unexpected_treats_blank_as_missing(
+    tmp_path: Path, blank_description: str
+) -> None:
+    """空文字・空白のみのバンド説明は「説明が無い」として扱う。
+
+    未設定のバンド説明を ``None`` ではなく空文字で返すドライバがあり、これを不一致と
+    みなすと正常な入力に毎回警告が出る。警告そのものが信用されなくなるため、
+    ``None`` の場合と同じく何もしない。
+    """
+    raster_path = tmp_path / f"blank_{len(blank_description)}.tif"
+    _write_described_raster(raster_path, (blank_description,))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_if_band_description_unexpected(raster_path, 1, ("density",), "人口")
+
+    assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
+
+
 def test_warn_if_band_description_unexpected_rejects_out_of_range_band(tmp_path: Path) -> None:
     """範囲外のバンド番号は、素のIndexErrorではなくValueErrorで弾く。"""
     raster_path = tmp_path / "described_range.tif"

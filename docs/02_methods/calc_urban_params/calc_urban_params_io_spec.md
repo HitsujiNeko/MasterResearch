@@ -51,9 +51,16 @@
 | `road_osm` | `params/roads.py` | `layers.open_roads`（OSM） | `ROAD_DEN` |
 | `road_gt` | `params/roads.py` | `layers.gt`（測量GIS） | 同上 |
 | `elev_fabdem` | `params/elevation.py` | `rasters.fabdem` | `ELEV_MEAN` / `ELEV_VALID_RATIO` |
+| `pop_worldpop2020` | `params/population.py` | `rasters.worldpop2020`（band 2） | `POP_DEN_WORLDPOP2020` / `POP_VALID_RATIO_WORLDPOP2020` |
+| `pop_landscan2020` | `params/population.py` | `rasters.landscan2020`（band 2） | `POP_DEN_LANDSCAN2020` / `POP_VALID_RATIO_LANDSCAN2020` |
+| `pop_landscan2023` | `params/population.py` | `rasters.landscan2023`（band 2） | `POP_DEN_LANDSCAN2023` / `POP_VALID_RATIO_LANDSCAN2023` |
+| `ntl_viirs2023` | `params/nightlight.py` | `rasters.viirs2023`（band 1） | `NTL_MEAN` / `NTL_VALID_RATIO` |
+| `ntl_bm2023` | `params/nightlight.py` | `rasters.bm2023`（band 1） | 同上 |
 | `mask_roi` | `params/mask.py` | `layers.roi` | `IN_ANALYSIS_AREA` |
 
-**同じ列名の別ソース版を並置できる**（`build_gba` と `build_dc`、`road_osm` と `road_gt`）ことが、感度分析を「結合先の差し替えだけ」で済ませる要である。`PARAM_SETS` は各セットが返すべき列を宣言し、`compute()` の戻り値と実行時に突き合わせて、別ソース版どうしで列が食い違う状態を検知する。
+**同じ列名の別ソース版を並置できる**（`build_gba` と `build_dc`、`road_osm` と `road_gt`、`ntl_viirs2023` と `ntl_bm2023`）ことが、感度分析を「結合先の差し替えだけ」で済ませる要である。`PARAM_SETS` は各セットが返すべき列を宣言し、`compute()` の戻り値と実行時に突き合わせて、別ソース版どうしで列が食い違う状態を検知する。
+
+**人口の3版だけは例外で、列名にデータソース接尾辞を付けて区別する。** 差し替え候補ではなく、概念も観測年も異なる別変数であり、同一データセットへ同時に結合するためである（6.4節）。接尾辞つきの列名は `PARAM_SETS` が宣言し、付与そのものは `run.py: apply_column_suffix()` が担う。
 
 **シナリオは算出側では扱わない。** シナリオは「どのテーブルを結合するか」の選択へ還元されており、`SCENARIO_TABLES`（シナリオ → 結合するテーブル名の一覧）として結合フェーズが持つ（6.6節）。
 
@@ -66,11 +73,13 @@
 - **建物ポリゴン**: `data/gis/buildings/hanoi_gba_buildings.gpkg`（GlobalBuildingAtlas 由来）
 - **道路ライン**: `data/gis/roads/hanoi_osm_roads.gpkg`（OpenStreetMap / Geofabrik 由来）
 - **オープンソースDEMラスタ**: `data/gis/dem/fabdem/fabdem_hanoi_dem.tif`（FABDEM v1.2、EPSG:4326、約30m）
+- **人口ラスタ**: `data/gis/population/worldpop/worldpop_hanoi_2020.tif` / `data/gis/population/landscan/landscan_hanoi_2020.tif` / `data/gis/population/landscan/landscan_hanoi_2023.tif`（いずれも **band 2** の密度バンド、EPSG:4326。3版は差し替え候補ではなく別変数として並置する。6.4節）
+- **夜間光ラスタ**: `data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif`（主候補）／`data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif`（副候補）。いずれも **band 1**、EPSG:4326（6.4節）
 
 **設計未確定の入力**（採用済みだが入力源・算出方法が未確定）
 
 - 植生（植生被覆率）: 土地被覆分類ラスタの植生クラス（入力源未確定。6.4節参照）
-- 土地被覆クラス別面積率・人口密度・夜間光: いずれもラスタ入力。Hanoi ROI での取得は完了しているが、**同一概念に複数の候補データセットがあり、どれを入力とするかが未確定**である（候補の比較は [available_gis_data.md](../../01_planning/available_gis_data.md) を参照）
+- 土地被覆クラス別面積率: ラスタ入力。Hanoi ROI での取得は完了しているが、**同一概念に複数の候補データセットがあり、どれを入力とするかが未確定**である（候補の比較は [available_gis_data.md](../../01_planning/available_gis_data.md) を参照）
 
 > 建物データの比較候補として Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` を検討したが、Limited シナリオの採用は GlobalBuildingAtlas で確定している（詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md)）。  
 > なお Hanoi ROI では Microsoft 建物データが西側行政区画を十分に覆っていない。比較用に用いる場合、建物データの有効カバレッジ外では被覆率・棟数密度の `0` が建物不存在を意味しない点に注意する。

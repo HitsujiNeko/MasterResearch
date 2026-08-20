@@ -45,6 +45,8 @@ src/analysis/
       buildings.py    # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
       roads.py        # 道路パラメータ（ROAD_DEN）
       elevation.py    # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
+      population.py   # 人口密度パラメータ（POP_DEN/POP_VALID_RATIO。列名にデータソース接尾辞）
+      nightlight.py   # 夜間光パラメータ（NTL_MEAN/NTL_VALID_RATIO）
       mask.py         # 解析対象域フラグ（IN_ANALYSIS_AREA）
     run.py            # main(): パラメータセット単位・マルチスケール出力のオーケストレーション
     verify_values.py  # 旧 wide CSV との値照合（検証専用。11.2節）

@@ -238,6 +238,51 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
   - **解釈上の注意**: 入力ラスタの外周より外側（画素が1つも無い領域）が占める分は比率に反映されないため、ラスタの矩形範囲を一部しか含まないセルでは実際の被覆より高い値になり得る。現行の入力（ROIでcrop済みのDEM）では解析BBox最外周のセルに限られる
   - **`ELEV_COUNT`（セル内の有効点数）は出力しない**（スケールによって画素数の意味が変わり、比率のほうがスケール間で比較可能なため）
 
+- **`POP_DEN_{データソース}`（人口密度, 人/ha）**: 設計確定・実装済（パラメータセット `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023`）
+  - **入力**: `data/gis/population/worldpop/worldpop_hanoi_2020.tif`、`data/gis/population/landscan/landscan_hanoi_2020.tif`、`data/gis/population/landscan/landscan_hanoi_2023.tif`。いずれも **band 2**（`population_density_per_km2`、EPSG:4326、nodata `-9999`）
+  - **算出方法**: 標高・LSTと共通の `aggregate_mean_and_valid_ratio()` により coarse グリッドへ `Resampling.average` で再投影し、得られたセル平均密度（人/km²）を **100 で割って人/ha** とする
+  - **`grid.cell_area_ha()` は使わない**: 密度バンドは取得スクリプトが行ごとに WGS84 楕円体上の実面積で算出している（[gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.2節）。平面セル面積で割り直すと、実面積に基づく値を近似で上書きすることになる。1 km² = 100 ha の定数換算で足りる
+  - **カウントバンド（band 1）を合計集約する経路は採らない**: カウントは合計保存量であり合計集約を要するが、本経路が集約するのは合計保存量ではない密度であり平均集約が妥当である。本研究はセル単位の密度のみを説明変数に用いるため、人口総数を保存する利点も活かせない
+  - **列名にデータソース接尾辞を付ける**: `POP_DEN_WORLDPOP2020` / `POP_DEN_LANDSCAN2020` / `POP_DEN_LANDSCAN2023`。3版は差し替え候補ではなく、概念（居住人口／実効人口）も観測年も異なる**別変数**であり、説明力の差を分離するには同一データセットへ同時に結合する必要がある。列名を共有すると `build_dataset.py` の `join_tables()` が列名衝突として結合を拒否する。付与は `run.py: apply_column_suffix()` が担い、算出モジュールは自分がどのデータセットを処理しているかを知らない
+  - **欠測規約**: 有効カバレッジ外は **NaN**。`0` は「データが無い」ではなく**人口ゼロの実測値**であり、両者を同一視しない
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**。連続量であり「0より大きければ有効」という基準が成り立たないためで、標高と同じ理由である（6.3節）
+  - **セルの信頼度**: 平均はセル内の**有効画素のみ**で取るため、値の有無だけでは部分被覆セルを判別できない。判別には `POP_VALID_RATIO_{データソース}` を用いる
+  - **解釈上の注意**:
+    - WorldPop は**居住人口**、LandScan は**実効人口**（昼間の人口移動を考慮）であり概念が異なる。集計レベルでは一致するが、セル単位では都心で LandScan が大きく上回る（[gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.5節）
+    - **真の集約が成立するのは WorldPop の 300m のみ**である。ハノイの緯度での画素実寸から求めた1セルあたり画素数は、WorldPop（約 86.7m × 92.3m）が 30m で 0.11・90m で 1.01・300m で 11.3、LandScan（約 866.6m × 922.6m）は 300m でも 0.11 にとどまる。WorldPop の 90m は実質的なリサンプリング、30m は1画素が約9セルへ広がる内挿であり、隣接セルが同じ値を共有する
+    - この差は出力値にも現れる。`POP_DEN` の最大値は WorldPop が 685.66 → 680.96 → 671.11 人/ha とスケールとともに減少する（集約でピークが平滑化される）のに対し、LandScan は3スケールとも 830.98 人/ha で変化しない（画素値がそのまま複写される）
+    - RQ2 は **WorldPop にのみ**割り当てる（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §1.4・§2.1）
+  - **詳細**: [gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.7節
+
+- **`POP_VALID_RATIO_{データソース}`（人口ラスタ有効画素率, 0-1）**: 設計確定・実装済（`POP_DEN_{データソース}` と同じパラメータセット）
+  - **入力**: `POP_DEN_{データソース}` と同一のラスタ・同一バンド
+  - **算出方法**: 有効画素を1・nodataを0とした配列を、`POP_DEN` と同じ `Resampling.average` で coarse グリッドへ再投影する
+  - **必要性**: WorldPop は大規模水域を無効画素とするため（無効画素の83%が水域。[gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.4節）、部分被覆セルが無視できない割合で生じる。実測では有効画素率が 1.0 未満のセルが 30m で 3.8%・90m で 5.9%・**300m で 13.7%**、0.5 未満のセルが 300m で 4.7% である（2026-08-20 の CLI 検証）
+  - **セル全体を母数とする密度**: `POP_DEN × POP_VALID_RATIO` で得られる。平均は有効画素のみで取るため、水域が大半を占めるセルでも陸地部分の密度がそのまま `POP_DEN` に入る
+  - **欠測規約**: ラスタ範囲外のセルは `NaN` ではなく **`0.0`**（`ELEV_VALID_RATIO` と揃える）
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**
+  - **解釈上の注意**: 入力ラスタの外周より外側が占める分は比率に反映されないため、ラスタの矩形範囲を一部しか含まないセルでは実際の被覆より高い値になり得る（`ELEV_VALID_RATIO` と同じ制限）
+
+- **`NTL_MEAN`（夜間光強度, nW·cm⁻²·sr⁻¹）**: 設計確定・実装済（パラメータセット `ntl_viirs2023` / `ntl_bm2023`）
+  - **入力**: `data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif`（**band 1** = `avg_radiance`）および `data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif`（**band 1** = `ntl_near_nadir`）。いずれも EPSG:4326、nodata `-9999`
+  - **算出方法**: 標高・人口と共通の `aggregate_mean_and_valid_ratio()` により coarse グリッドへ `Resampling.average` で再投影し、セル平均放射輝度を得る
+  - **面積正規化しない**: 放射輝度は面積に比例しない**強度量**であり、人口密度のように /ha へ割ると意味を失う
+  - **列名は2版で共有する**: VIIRS DNB を主候補・Black Marble を副候補とする**差し替え関係**であり（主バンド同士の Pearson r = 0.976）、感度分析は結合先テーブルの差し替えだけで済む。人口密度と異なりデータソース接尾辞は付けない
+  - **VIIRS DNB の band 2（`avg_radiance_masked`）は使わない**: 背景と判定された画素の扱いは配布データ側に依存し、本ファイル・本ROIでは **0 として現れた**（[gis_data_nighttime_lights.md](../../01_planning/gis_data/gis_data_nighttime_lights.md) 5.1節）。0で現れる限り「電力由来の光が検出されなかった」ことと「観測できなかった」ことの区別が値の上で失われる
+  - **欠測規約**: 有効カバレッジ外は **NaN**。`0` は実測値であり欠測ではない（Black Marble の `ntl_near_nadir` は ROI 内の最小値が 0.000 で、実際に0を含む）
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（人口密度と同じ理由）
+  - **解釈上の注意**:
+    - **全解析スケールで実質的な内挿になる**。ハノイの緯度での画素実寸は約 433.3m × 461.3m（約 0.200 km²）で、1セルあたり画素数は 30m で 0.005・90m で 0.041・300m でも 0.450 にとどまる。`NTL_MEAN` の最大値は3スケールとも変化しない（VIIRS 96.10 / Black Marble 213.98）
+    - このため **RQ2 は割り当てない**（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §1.4・§2.1）
+    - ROI内に飽和は認められない（両データセットとも p99/max が 0.21〜0.35）。都心部でも階調を説明変数として利用できる
+  - **詳細**: [gis_data_nighttime_lights.md](../../01_planning/gis_data/gis_data_nighttime_lights.md) 4.1節
+
+- **`NTL_VALID_RATIO`（夜間光ラスタ有効画素率, 0-1）**: 設計確定・実装済（`NTL_MEAN` と同じパラメータセット）
+  - **入力**: `NTL_MEAN` と同一のラスタ・同一バンド
+  - **算出方法**: `POP_VALID_RATIO_{データソース}` と同一
+  - **ほぼ定数列になる**: 両データセットとも ROI 全域で有効画素率 1.0 であり、1.0 未満のセルは解析BBox最外周に限られる（30m で 1.0%・300m で 4.8%）。説明変数としての情報量は乏しい。それでも出力するのは、集約関数が2列を対で返すため片方を捨てるほうが実装が増えること、および将来の入力差し替え時にカバレッジ低下を検知できることによる
+  - **欠測規約・解釈上の注意**: `POP_VALID_RATIO_{データソース}` と同一
+
 > `full` シナリオの標高は設計未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
 
 #### 採用済み・設計未確定のパラメータ（別途設計確定）
@@ -246,11 +291,10 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 
 - `GREEN_COV`（植生被覆率, 0-1）: 入力源未確定。stubモジュールも未作成
 - 土地被覆クラス別面積率: クラス体系・出力するクラスの粒度がいずれも未確定。列名も未定
-- 人口密度・夜間光強度: 候補データセットが複数あり入力が未確定。いずれも連続量ラスタのため、標高と同じラスタ集約経路（[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.2節 Step B）を用いる見込み
 
 > **採用していないパラメータは本節に列挙しない。** 採否の一覧と保留の見直し時期は [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) を正本とする（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
-> スケール間（30/90/300m）で値の意味を揃えるため、密度系パラメータは面積あたり（/ha）に正規化する。算出には `grid.cell_area_ha()` を使用する。
+> スケール間（30/90/300m）で値の意味を揃えるため、密度系パラメータは面積あたり（/ha）に正規化する。算出には `grid.cell_area_ha()` を使用する。**例外は `POP_DEN_{データソース}`** であり、入力の密度バンドが取得時に楕円体実面積で算出済みであるため、平面セル面積ではなく定数（1 km² = 100 ha）で換算する（同節の該当項目を参照）。
 
 ### 6.5 出力列と算出モジュールの対応
 
@@ -269,8 +313,10 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `ROAD_DEN` | `road_osm` / `road_gt` テーブル | `params/roads.py: compute()` → `geometry.compute_line_length()` / `grid.cell_area_ha()` | **確定・実装済** |
 | `ELEV_MEAN` | `elev_fabdem` テーブル | `params/elevation.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` | **確定・実装済** |
 | `ELEV_VALID_RATIO` | `elev_fabdem` テーブル | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`ELEV_COUNT` は出力しない） |
+| `POP_DEN_{データソース}`, `POP_VALID_RATIO_{データソース}` | `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` テーブル | `params/population.py: compute()` → `params/raster.py: aggregate_mean_and_valid_ratio()`（接尾辞は `run.py: apply_column_suffix()` が付与） | **確定・実装済** |
+| `NTL_MEAN`, `NTL_VALID_RATIO` | `ntl_viirs2023` / `ntl_bm2023` テーブル | `params/nightlight.py: compute()` → `params/raster.py: aggregate_mean_and_valid_ratio()` | **確定・実装済** |
 | `GREEN_COV` | （未割当） | （未割当） | **採用済み・設計未確定**。stubモジュールも未作成。入力源の確定が必要 |
-| 土地被覆クラス別面積率・人口密度・夜間光強度（列名未定） | （未割当） | （未割当） | **採用済み・設計未確定**。入力データセットの選定と算出方法の確定が必要 |
+| 土地被覆クラス別面積率（列名未定） | （未割当） | （未割当） | **採用済み・設計未確定**。クラス体系と出力するクラスの粒度の確定が必要 |
 
 **`DATA_SOURCE` / `SCENARIO` は廃止した**（6.3節）。
 

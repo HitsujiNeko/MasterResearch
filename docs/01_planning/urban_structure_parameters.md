@@ -1,6 +1,6 @@
 # 都市構造パラメータの採否
 
-**最終更新**: 2026-08-06  
+**最終更新**: 2026-08-20  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [available_gis_data.md](available_gis_data.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md)  
 **前提知識**: RQ1-RQ3、3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）、都市構造パラメータの定義（[research_guide.md](research_guide.md) §5.3）
 

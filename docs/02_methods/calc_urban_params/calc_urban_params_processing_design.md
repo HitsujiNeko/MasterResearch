@@ -1,6 +1,6 @@
 # calc_urban_params 処理設計
 
-**最終更新**: 2026-08-18
+**最終更新**: 2026-08-20
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章、[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章（入出力仕様）
 

@@ -1,6 +1,6 @@
 # 人口密度データの調査・評価
 
-**最終更新**: 2026-08-06  
+**最終更新**: 2026-08-20  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 

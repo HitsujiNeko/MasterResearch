@@ -79,6 +79,9 @@ GRID_COLUMNS = (CELL_ID_COLUMN, "lon", "lat")
 # ではなく「誰も住んでいない」という実測値であるため、「0より大きければ有効」という
 # 基準が成り立たない。許可リスト方式のため列挙しなければ自動的に除外されるが、
 # 明示しないと「入れ忘れ」と区別が付かないため理由を残す。
+#
+# 夜間光（``nightlight``）も同様に除く。放射輝度は連続量であり、0は「電力由来の光が
+# 検出されなかった」という実測値である。
 GIS_INDICATOR_MODULES = frozenset({"buildings", "roads"})
 
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"

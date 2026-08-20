@@ -58,7 +58,10 @@ HECTARES_PER_SQUARE_KM = 100.0
 # 密度バンドのバンド説明に含まれるべき語。WorldPop・LandScanとも取得スクリプトが
 # ``population_density_per_km2`` を付与しており、カウントバンド（``population_count``）
 # を指した場合はこの語を含まないため取り違えを検知できる。
-DENSITY_BAND_KEYWORD = "density"
+#
+# 夜間光と違い**部分一致で照合する**。同じ語を含む紛らわしい兄弟バンドが無く、かつ
+# 他の人口グリッド（GHS-POP等）を追加した際に説明の表記が違っても語が残れば通るためである。
+DENSITY_BAND_KEYWORDS = ("density",)
 
 
 def compute(
@@ -93,7 +96,7 @@ def compute(
     # カウントバンド（band 1）を指していないかを先に確かめる。取り違えても値は出るため、
     # 集約後の統計を見ても気づけない。
     warn_if_band_description_unexpected(
-        resource.path, resource.band_index, DENSITY_BAND_KEYWORD, "人口"
+        resource.path, resource.band_index, DENSITY_BAND_KEYWORDS, "人口"
     )
 
     # 都市とデータセットの取り違えや切り出し範囲の誤りでは、ファイルが存在するため

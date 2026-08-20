@@ -160,6 +160,20 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 "path": "data/gis/population/landscan/landscan_hanoi_2023.tif",
                 "band": 2,
             },
+            # 夜間光はいずれも band 1 が放射輝度の主バンドである。VIIRS DNB の
+            # band 2（avg_radiance_masked）は背景と判定した画素を欠測にせず0へ
+            # 置き換えるため使わない（欠測と実測0の区別が値の上で失われる）。
+            "viirs2023": {
+                "path": "data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif",
+                "band": 1,
+            },
+            "bm2023": {
+                # 1行に収めると行長上限（100）を1文字超えるため括弧で折る。
+                "path": (
+                    "data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif"
+                ),
+                "band": 1,
+            },
         },
     }
 }
@@ -201,6 +215,12 @@ class ParamSet:
 # 分かれるため冗長であり、結合時に列名がスケールへ依存すると扱いにくいためである。
 BUILDING_COLUMNS = ("BUILD_COV", "BUILD_DEN", "BUILD_H_MEAN", "BUILD_H_MAX")
 ROAD_COLUMNS = ("ROAD_DEN",)
+
+# 夜間光はVIIRS DNBを主候補・Black Marbleを副候補とする**差し替え関係**であり、
+# 建物・道路と同じく列名を共有する（主バンド同士の相関は Pearson r = 0.976。ただし
+# これはVIIRSグリッド上で両者が重なる16,579画素での値で、ROI全体の統計ではない）。
+# 人口3版のように同一データセットへ同時結合する用途は無いため、接尾辞は付けない。
+NIGHTLIGHT_COLUMNS = ("NTL_MEAN", "NTL_VALID_RATIO")
 
 # 人口密度の列名（データソース接尾辞を付ける**前**の基底名）。``params/population.py``
 # が返すのはこの名前であり、実際に出力される列名は接尾辞つきになる。
@@ -247,6 +267,8 @@ PARAM_SETS: dict[str, ParamSet] = {
     "pop_worldpop2020": population_param_set("worldpop2020", "WORLDPOP2020"),
     "pop_landscan2020": population_param_set("landscan2020", "LANDSCAN2020"),
     "pop_landscan2023": population_param_set("landscan2023", "LANDSCAN2023"),
+    "ntl_viirs2023": ParamSet("nightlight", "raster", "viirs2023", NIGHTLIGHT_COLUMNS),
+    "ntl_bm2023": ParamSet("nightlight", "raster", "bm2023", NIGHTLIGHT_COLUMNS),
     "mask_roi": ParamSet("mask", "layer", ANALYSIS_EXTENT_LAYER_KEY, ("IN_ANALYSIS_AREA",)),
 }
 

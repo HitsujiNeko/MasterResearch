@@ -264,8 +264,10 @@ def raster_overlaps_grid(raster_path: Path, grid_spec: GridSpec) -> bool:
 def warn_if_band_description_unexpected(
     raster_path: Path,
     band_index: int,
-    expected_keyword: str,
+    expected: tuple[str, ...],
     kind_label: str,
+    *,
+    exact: bool = False,
 ) -> None:
     """バンド説明が期待するキーワードを含まない場合に警告する。
 
@@ -279,11 +281,29 @@ def warn_if_band_description_unexpected(
     無いことを異常として扱うと正常な入力まで警告で埋まる。照合は「説明があり、かつ
     期待と食い違う」場合に限る。
 
+    受け付ける値を複数取れるようにしているのは、同じパラメータを別データセットから
+    算出する場合に、正しいバンドの説明がデータセットごとに異なるためである（夜間光の
+    主バンドは VIIRS DNB が ``avg_radiance``、Black Marble が ``ntl_near_nadir`` で
+    共通語を持たない）。**いずれか1つに合致すれば正常とみなす。**
+
+    照合方法は用途で選ぶ。
+
+    - 部分一致（既定）: 同じ語を含む別バンドが存在しない場合に使う。説明の表記揺れや
+      データセット追加に強い。人口は ``population_density_per_km2`` に対し ``density``
+      で照合しており、将来ほかの人口グリッドを追加しても語が残れば通る。
+    - 完全一致（``exact=True``）: **紛らわしい兄弟バンドが同じ語を含む場合に使う。**
+      夜間光の ``avg_radiance_masked`` ・ ``max_radiance`` ・ ``ntl_all_angle`` は
+      いずれも主バンドと語を共有し、値の大きさも近いため、部分一致では取り違えを
+      検知できない。
+
     Args:
         raster_path: 入力ラスタファイルの絶対パス。
         band_index: 対象バンド番号（1始まり）。
-        expected_keyword: バンド説明に含まれるべき語（大文字小文字は区別しない）。
+        expected: 受理するバンド説明の候補（大文字小文字は区別しない）。``exact`` が
+            ``False`` なら説明に含まれるべき語として、``True`` なら説明全体と一致
+            すべき名前として扱う。
         kind_label: 警告文に使う入力種別のラベル（例: ``人口``）。
+        exact: ``True`` なら完全一致で照合する。
 
     Raises:
         ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
@@ -294,12 +314,25 @@ def warn_if_band_description_unexpected(
 
     if description is None:
         return
-    if expected_keyword.lower() in str(description).lower():
+
+    lowered = str(description).lower()
+    accepted = [item.lower() for item in expected]
+    if exact:
+        matched = lowered in accepted
+    else:
+        matched = any(item in lowered for item in accepted)
+    if matched:
         return
 
+    listed = " / ".join(f"'{item}'" for item in expected)
+    # 候補が1件でも複数でも自然に読める文面にする（「いずれも」は1件だと不自然）。
+    if exact:
+        relation = f"期待するバンド説明（{listed}）と一致しません"
+    else:
+        relation = f"期待する語（{listed}）を含みません"
     warnings.warn(
         f"{kind_label}ラスタの band {band_index} の説明は '{description}' であり、"
-        f" 期待する '{expected_keyword}' を含みません。バンド番号の取り違えを疑って"
+        f" {relation}。バンド番号の取り違えを疑って"
         "ください。値は出力されますが、意味と単位が想定と異なります:"
         f" {raster_path}",
         stacklevel=3,

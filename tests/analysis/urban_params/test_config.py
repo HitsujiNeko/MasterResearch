@@ -23,6 +23,7 @@ CITY_KEY = "hanoi"
     [
         (("build_gba", "build_dc"), "建物"),
         (("road_osm", "road_gt"), "道路"),
+        (("ntl_viirs2023", "ntl_bm2023"), "夜間光"),
     ],
 )
 def test_param_sets_of_same_module_declare_identical_columns(

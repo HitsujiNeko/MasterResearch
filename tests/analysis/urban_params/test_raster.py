@@ -359,7 +359,7 @@ def test_warn_if_band_description_unexpected_warns_on_mismatch(tmp_path: Path) -
     _write_described_raster(raster_path, ("population_count", "population_density_per_km2"))
 
     with pytest.warns(UserWarning, match="バンド番号の取り違え"):
-        warn_if_band_description_unexpected(raster_path, 1, "density", "人口")
+        warn_if_band_description_unexpected(raster_path, 1, ("density",), "人口")
 
 
 def test_warn_if_band_description_unexpected_accepts_matching_band(tmp_path: Path) -> None:
@@ -369,7 +369,7 @@ def test_warn_if_band_description_unexpected_accepts_matching_band(tmp_path: Pat
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        warn_if_band_description_unexpected(raster_path, 2, "density", "人口")
+        warn_if_band_description_unexpected(raster_path, 2, ("density",), "人口")
 
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
 
@@ -385,7 +385,7 @@ def test_warn_if_band_description_unexpected_ignores_case(tmp_path: Path) -> Non
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        warn_if_band_description_unexpected(raster_path, 1, "density", "人口")
+        warn_if_band_description_unexpected(raster_path, 1, ("density",), "人口")
 
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
 
@@ -403,7 +403,7 @@ def test_warn_if_band_description_unexpected_skips_raster_without_descriptions(
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        warn_if_band_description_unexpected(raster_path, 1, "density", "人口")
+        warn_if_band_description_unexpected(raster_path, 1, ("density",), "人口")
 
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
 
@@ -414,4 +414,77 @@ def test_warn_if_band_description_unexpected_rejects_out_of_range_band(tmp_path:
     _write_described_raster(raster_path, ("population_density_per_km2",))
 
     with pytest.raises(ValueError, match="バンド番号が範囲外です"):
-        warn_if_band_description_unexpected(raster_path, 3, "density", "人口")
+        warn_if_band_description_unexpected(raster_path, 3, ("density",), "人口")
+
+
+def test_warn_if_band_description_unexpected_accepts_any_of_multiple_candidates(
+    tmp_path: Path,
+) -> None:
+    """候補のいずれか1つに合致すれば警告しない。
+
+    同じパラメータを別データセットから算出する場合、正しいバンドの説明が
+    データセットごとに異なる（夜間光の主バンドは VIIRS DNB が ``avg_radiance``、
+    Black Marble が ``ntl_near_nadir``）。片方しか通らない照合だと正しい入力に
+    警告が出て、警告そのものが信用されなくなる。
+    """
+    candidates = ("avg_radiance", "ntl_near_nadir")
+    for band_name in candidates:
+        raster_path = tmp_path / f"{band_name}.tif"
+        _write_described_raster(raster_path, (band_name,))
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            warn_if_band_description_unexpected(raster_path, 1, candidates, "夜間光", exact=True)
+
+        assert not [
+            record for record in caught if "バンド番号の取り違え" in str(record.message)
+        ], f"{band_name} で誤検知しました"
+
+
+def test_warn_if_band_description_unexpected_warns_when_nothing_matches(
+    tmp_path: Path,
+) -> None:
+    """候補にどれも合致しないバンド説明では警告し、候補を文面に示す。"""
+    raster_path = tmp_path / "coverage.tif"
+    _write_described_raster(raster_path, ("cf_cvg",))
+
+    with pytest.warns(UserWarning, match="'avg_radiance' / 'ntl_near_nadir'"):
+        warn_if_band_description_unexpected(
+            raster_path, 1, ("avg_radiance", "ntl_near_nadir"), "夜間光", exact=True
+        )
+
+
+@pytest.mark.parametrize("sibling_band", ["avg_radiance_masked", "max_radiance", "ntl_all_angle"])
+def test_exact_mode_detects_sibling_bands_that_share_a_word(
+    tmp_path: Path, sibling_band: str
+) -> None:
+    """完全一致では、主バンドと語を共有する兄弟バンドも取り違えとして検知する。
+
+    **部分一致ではこれらを素通りさせる。** 夜間光の兄弟バンドは主バンドと値の
+    大きさも近く（``avg_radiance_masked`` のROI平均は 5.307 対 主バンド 5.407）、
+    出力統計を見ても判別できないため、検知できないと検査の意味が薄れる。
+    """
+    raster_path = tmp_path / f"{sibling_band}.tif"
+    _write_described_raster(raster_path, (sibling_band,))
+
+    with pytest.warns(UserWarning, match="バンド番号の取り違え"):
+        warn_if_band_description_unexpected(
+            raster_path, 1, ("avg_radiance", "ntl_near_nadir"), "夜間光", exact=True
+        )
+
+
+def test_substring_mode_lets_sibling_bands_pass(tmp_path: Path) -> None:
+    """部分一致は、語を共有する兄弟バンドを通す（この差が完全一致を選ぶ理由）。
+
+    部分一致が劣っているわけではなく、人口のように紛らわしい兄弟バンドが無い場合は
+    表記揺れやデータセット追加に強い。両モードの適用範囲を取り違えないよう、
+    差そのものを固定しておく。
+    """
+    raster_path = tmp_path / "masked.tif"
+    _write_described_raster(raster_path, ("avg_radiance_masked",))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_if_band_description_unexpected(raster_path, 1, ("radiance",), "夜間光")
+
+    assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]

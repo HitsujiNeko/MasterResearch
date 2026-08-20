@@ -1,6 +1,6 @@
 """ラスタをグリッドへ集約するモジュール（衛星指標 NDVI/NDBI/NDWI と共通の集約基盤）。
 
-セル平均と有効画素率の2列を対で出すパラメータ（標高・LST）は
+セル平均と有効画素率の2列を対で出すパラメータ（標高・LST・人口密度・夜間光）は
 ``aggregate_mean_and_valid_ratio()`` を共通の入口として使う。
 """
 
@@ -261,6 +261,84 @@ def raster_overlaps_grid(raster_path: Path, grid_spec: GridSpec) -> bool:
     return left < maxx and right > minx and bottom < maxy and top > miny
 
 
+def warn_if_band_description_unexpected(
+    raster_path: Path,
+    band_index: int,
+    expected: tuple[str, ...],
+    kind_label: str,
+    *,
+    exact: bool = False,
+) -> None:
+    """バンド説明が期待するキーワードを含まない場合に警告する。
+
+    **バンド番号の取り違えは黙って通る。** ファイルは存在し、範囲も重なり、有効画素も
+    あるため、既存の警告経路はいずれも発火しない。それでいて出力される値は単位も意味も
+    違う。人口ラスタは band 1 にカウント（人/セル）、band 2 に密度（人/km²）を持ち、
+    カウントを集約しても密度として成立し得る大きさの値になるため、出力を眺めるだけでは
+    誤りに気づけない。
+
+    **バンド説明を持たないラスタでは何もしない。** 説明は任意のメタデータであり、
+    無いことを異常として扱うと正常な入力まで警告で埋まる。照合は「説明があり、かつ
+    期待と食い違う」場合に限る。
+
+    受け付ける値を複数取れるようにしているのは、同じパラメータを別データセットから
+    算出する場合に、正しいバンドの説明がデータセットごとに異なるためである（夜間光の
+    主バンドは VIIRS DNB が ``avg_radiance``、Black Marble が ``ntl_near_nadir`` で
+    共通語を持たない）。**いずれか1つに合致すれば正常とみなす。**
+
+    照合方法は用途で選ぶ。
+
+    - 部分一致（既定）: 同じ語を含む別バンドが存在しない場合に使う。説明の表記揺れや
+      データセット追加に強い。人口は ``population_density_per_km2`` に対し ``density``
+      で照合しており、将来ほかの人口グリッドを追加しても語が残れば通る。
+    - 完全一致（``exact=True``）: **紛らわしい兄弟バンドが同じ語を含む場合に使う。**
+      夜間光の ``avg_radiance_masked`` ・ ``max_radiance`` ・ ``ntl_all_angle`` は
+      いずれも主バンドと語を共有し、値の大きさも近いため、部分一致では取り違えを
+      検知できない。
+
+    Args:
+        raster_path: 入力ラスタファイルの絶対パス。
+        band_index: 対象バンド番号（1始まり）。
+        expected: 受理するバンド説明の候補（大文字小文字は区別しない）。``exact`` が
+            ``False`` なら説明に含まれるべき語として、``True`` なら説明全体と一致
+            すべき名前として扱う。
+        kind_label: 警告文に使う入力種別のラベル（例: ``人口``）。
+        exact: ``True`` なら完全一致で照合する。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
+    """
+    with rasterio.open(raster_path) as src:
+        _validate_band_index(src, band_index, raster_path)
+        description = src.descriptions[band_index - 1]
+
+    if description is None:
+        return
+
+    lowered = str(description).strip().lower()
+    accepted = [item.lower() for item in expected]
+    if exact:
+        matched = lowered in accepted
+    else:
+        matched = any(item in lowered for item in accepted)
+    if matched:
+        return
+
+    listed = " / ".join(f"'{item}'" for item in expected)
+    # 候補が1件でも複数でも自然に読める文面にする（「いずれも」は1件だと不自然）。
+    if exact:
+        relation = f"期待するバンド説明（{listed}）と一致しません"
+    else:
+        relation = f"期待する語（{listed}）を含みません"
+    warnings.warn(
+        f"{kind_label}ラスタの band {band_index} の説明は '{description}' であり、"
+        f" {relation}。バンド番号の取り違えを疑って"
+        "ください。値は出力されますが、意味と単位が想定と異なります:"
+        f" {raster_path}",
+        stacklevel=3,
+    )
+
+
 def aggregate_mean_and_valid_ratio(
     raster_path: Path,
     grid_spec: GridSpec,
@@ -271,7 +349,9 @@ def aggregate_mean_and_valid_ratio(
 ) -> dict[str, np.ndarray]:
     """セル平均値とセル内有効画素率の2列を対で算出する。
 
-    標高（``ELEV_MEAN`` / ``ELEV_VALID_RATIO``）とLST（``LST`` / ``LST_VALID_RATIO``）は
+    標高（``ELEV_MEAN`` / ``ELEV_VALID_RATIO``）・LST（``LST`` / ``LST_VALID_RATIO``）・
+    人口密度（``POP_DEN_*`` / ``POP_VALID_RATIO_*``）・
+    夜間光（``NTL_MEAN`` / ``NTL_VALID_RATIO``）は
     集約の手順が同一のため、ここへ集約する。**平均はセル内の有効画素のみで取るため、
     セルの一部しか覆われていなくても値は ``NaN`` にならない。** セルの信頼度は
     有効画素率の列で判断する。``NaN`` の件数だけでは部分被覆のセルを捕捉できず、

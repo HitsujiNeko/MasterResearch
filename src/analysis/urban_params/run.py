@@ -70,7 +70,7 @@ from .io import (
     get_optional_raster_resource,
     layer_cache,
 )
-from .params import buildings, elevation, lst, mask, raster, roads
+from .params import buildings, elevation, lst, mask, nightlight, population, raster, roads
 from .tables import (
     CELL_ID_COLUMN,
     aligned_bbox,
@@ -87,6 +87,8 @@ PARAM_MODULES = {
     "buildings": buildings,
     "roads": roads,
     "elevation": elevation,
+    "population": population,
+    "nightlight": nightlight,
     "mask": mask,
 }
 
@@ -312,6 +314,30 @@ def resolve_param_resource(
     raise ValueError(f"未知の入力種別です: {param_set.input_kind}")
 
 
+def apply_column_suffix(columns: dict[str, np.ndarray], suffix: str) -> dict[str, np.ndarray]:
+    """算出結果の列名へ、データソース由来の接尾辞を付ける。
+
+    **付与をここで一手に引き受けるのは、算出モジュールを入力データセットから独立に
+    保つためである。** ``params/population.py`` は「密度ラスタを集約して人/haにする」
+    以上のことを知らずに済み、WorldPopとLandScanのどちらを処理しているかで分岐しない。
+
+    接尾辞は ``config.PARAM_SETS`` の宣言（``column_suffix``）に基づく明示的なもので
+    あり、``build_dataset.py`` の ``join_tables()`` が拒否する「衝突時の暗黙リネーム」
+    とは別物である。付与後の列名は ``ParamSet.columns`` として宣言され、
+    ``validate_computed_columns()`` が突き合わせる。
+
+    Args:
+        columns: 算出モジュールが返した列名から配列への辞書。
+        suffix: 付ける接尾辞。空文字列の場合は何もしない。
+
+    Returns:
+        接尾辞を付けた列名の辞書（``suffix`` が空なら引数をそのまま返す）。
+    """
+    if not suffix:
+        return columns
+    return {f"{name}_{suffix}": values for name, values in columns.items()}
+
+
 def build_param_tasks(
     param_names: list[str],
     city_cfg: dict[str, object],
@@ -341,9 +367,12 @@ def build_param_tasks(
             grid_spec: GridSpec,
             _module: ModuleType = module,
             _resource: LayerResource | RasterResource = resource,
+            _suffix: str = param_set.column_suffix,
         ) -> dict[str, np.ndarray]:
-            """標準シグネチャの ``compute()`` を呼ぶ。"""
-            return _module.compute(_resource, bbox_analysis, grid_spec)
+            """標準シグネチャの ``compute()`` を呼び、宣言された接尾辞を付ける。"""
+            return apply_column_suffix(
+                _module.compute(_resource, bbox_analysis, grid_spec), _suffix
+            )
 
         tasks.append(ParamTask(table_name, compute, param_set.columns))
     return tasks
@@ -472,8 +501,16 @@ def validate_computed_columns(task: ParamTask, columns: dict[str, np.ndarray]) -
         )
 
 
-# 有効画素率の列を判別する接尾辞（``ELEV_VALID_RATIO`` / ``LST_VALID_RATIO``）。
-VALID_RATIO_COLUMN_SUFFIX = "_VALID_RATIO"
+# 有効画素率の列を判別する目印（``ELEV_VALID_RATIO`` / ``LST_VALID_RATIO``）。
+#
+# **末尾一致ではなく部分一致で判定する。** ``ParamSet.column_suffix`` を持つパラメータ
+# ではデータソース接尾辞が後ろに付き（``POP_VALID_RATIO_WORLDPOP2020``）、末尾一致だと
+# 取りこぼす。取りこぼしても列は出力されるため、**部分被覆セルの件数が黙って報告され
+# なくなる**という、欠測より気づきにくい形で現れる。
+#
+# 品質管理列（``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK``）はこの目印を含まないため、
+# 部分一致にしても誤検出しない。
+VALID_RATIO_COLUMN_MARKER = "_VALID_RATIO"
 
 # 有効画素率の分布として件数を報告する閾値。
 VALID_RATIO_REPORT_THRESHOLDS = (1.0, 0.5)
@@ -491,7 +528,7 @@ def summarize_valid_ratio(table: pd.DataFrame) -> None:
     Args:
         table: 出力したテーブル（``cell_id`` 列を含む）。
     """
-    ratio_columns = [name for name in table.columns if name.endswith(VALID_RATIO_COLUMN_SUFFIX)]
+    ratio_columns = [name for name in table.columns if VALID_RATIO_COLUMN_MARKER in name]
     for column_name in ratio_columns:
         values = table[column_name].to_numpy(dtype=np.float64, na_value=np.nan)
         total = values.size

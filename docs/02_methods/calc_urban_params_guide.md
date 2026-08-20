@@ -1,6 +1,6 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-18
+**最終更新**: 2026-08-20
 **関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)
 **前提知識**: RQ1-RQ3、CRS（WGS84/投影座標系）、ラスタ/ベクタ処理の基礎
 
@@ -30,7 +30,7 @@
 | 8. CRS・単位ルール | 投影座標系・単位の統一ルール | [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md) |
 | 9. 例外処理と堅牢性 | 入力欠損・異常値への対応方針 | [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md) |
 | 10. CLI仕様 | 算出フェーズ・結合フェーズのコマンドラインオプション | [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) |
-| 11. 検証項目（最低限） | ユニットテスト・旧wide CSVとの値照合・QGISでの目視確認 | [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) |
+| 11. 検証項目（最低限） | ユニットテスト・旧wide CSVとの値照合・QGISでの目視確認・人口密度・夜間光のCLI検証結果 | [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) |
 | 13. 更新ルール | 実装変更時の同時更新・履歴記録・カタログ整合の維持 | 本ファイル |
 
 ---

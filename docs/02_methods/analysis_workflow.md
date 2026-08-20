@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-08-14  
+**最終更新**: 2026-08-20  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -525,7 +525,8 @@ RQ3 は、現在次の順で進める。
 | 公開建物データ | GlobalBuildingAtlas を `Limited` の主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM を主候補 | 道路種別と欠測率の QA を続ける |
 | 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TV の利用方法を確定する（TH は水域パラメータ未採用のため対象外） |
-| 人口密度データ | WorldPop・LandScan とも取得済み。説明変数として採用確定 | どちらを入力とするかを RQ1 のモデル構築で比較して決める。解像度が解析スケールより粗い点の扱いも整理する |
+| 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み | どの版を `Limited` の変数セットへ入れるかを、多重共線性の診断とあわせて判断する |
+| 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある | `Limited` の変数セットへ入れるかを、人口密度と同様に多重共線性の診断とあわせて判断する（全解析スケールで実質的な内挿になるため、RQ2 には割り当てない） |
 | 訓練・テスト分割 | Satellite Only では Spatial CV 実施済み | Limited / Full でも同一評価法を維持する |
 | 季節変動の扱い | 夏季2観測 + 乾季1観測 | 追加季節データの取得可否を検討 |
 

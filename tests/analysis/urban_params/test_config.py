@@ -67,9 +67,9 @@ def test_population_param_sets_declare_distinct_columns() -> None:
     for name, param_set in population_sets.items():
         for column in param_set.columns:
             previous = owner_of_column.get(column)
-            assert (
-                previous is None
-            ), f"人口の別ソース版で列名が重複しています: {column}（{previous} と {name}）"
+            assert previous is None, (
+                f"人口の別ソース版で列名が重複しています: {column}（{previous} と {name}）"
+            )
             owner_of_column[column] = name
 
 
@@ -157,6 +157,6 @@ def test_raster_param_sets_declare_band_index() -> None:
     """
     for key, entry in CITY_CONFIG[CITY_KEY]["rasters"].items():
         assert "band" in entry, f"バンド番号が未指定です: {key}"
-        assert (
-            isinstance(entry["band"], int) and entry["band"] >= 1
-        ), f"バンド番号は1以上の整数である必要があります: {key}={entry['band']}"
+        assert isinstance(entry["band"], int) and entry["band"] >= 1, (
+            f"バンド番号は1以上の整数である必要があります: {key}={entry['band']}"
+        )

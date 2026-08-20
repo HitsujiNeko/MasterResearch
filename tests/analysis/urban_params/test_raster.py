@@ -436,9 +436,9 @@ def test_warn_if_band_description_unexpected_accepts_any_of_multiple_candidates(
             warnings.simplefilter("always")
             warn_if_band_description_unexpected(raster_path, 1, candidates, "夜間光", exact=True)
 
-        assert not [
-            record for record in caught if "バンド番号の取り違え" in str(record.message)
-        ], f"{band_name} で誤検知しました"
+        assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)], (
+            f"{band_name} で誤検知しました"
+        )
 
 
 def test_warn_if_band_description_unexpected_warns_when_nothing_matches(

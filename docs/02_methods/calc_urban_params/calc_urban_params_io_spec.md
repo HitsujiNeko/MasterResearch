@@ -259,7 +259,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
   - **解釈上の注意**:
     - WorldPop は**居住人口**、LandScan は**実効人口**（昼間の人口移動を考慮）であり概念が異なる。集計レベルでは一致するが、セル単位では都心で LandScan が大きく上回る（[gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.5節）
     - **真の集約が成立するのは WorldPop の 300m のみ**である。ハノイの緯度での画素実寸から求めた1セルあたり画素数は、WorldPop（約 86.7m × 92.3m）が 30m で 0.11・90m で 1.01・300m で 11.3、LandScan（約 866.6m × 922.6m）は 300m でも 0.11 にとどまる。WorldPop の 90m は実質的なリサンプリング、30m は1画素が約9セルへ広がる内挿であり、隣接セルが同じ値を共有する
-    - この差は出力値にも現れる。`POP_DEN` の最大値は WorldPop が 685.66 → 680.96 → 671.11 人/ha とスケールとともに減少する（集約でピークが平滑化される）のに対し、LandScan は3スケールとも 830.98 人/ha で変化しない（画素値がそのまま複写される）
+    - この差は出力値にも現れる。`POP_DEN` の最大値は WorldPop が 685.66 → 680.96 → 671.11 人/ha とスケールとともに減少する（集約でピークが平滑化される）のに対し、LandScan は3スケールとも変化しない（2020 は 830.98 人/ha、2023 は 969.47 人/ha のまま。画素値がそのまま複写される）
     - RQ2 は **WorldPop にのみ**割り当てる（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §1.4・§2.1）
   - **詳細**: [gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.7節
 

@@ -27,7 +27,9 @@ dependencies:
   - h5py=3.16
   - requests=2.32
   - pyyaml
-  - ruff
+  # CI（.github/workflows/ci.yml）と pre-commit のフックに合わせて固定する。
+  # ローカルの lint が別バージョンだと、手元で通してから CI の lint だけが落ちる
+  - ruff=0.16.0
   - pre-commit
   - pytest
   - pip

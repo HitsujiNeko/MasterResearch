@@ -679,12 +679,26 @@ def test_param_set_columns_match_computed_columns(city_environment: dict[str, An
     """PARAM_SETS の宣言列と compute() の実際の出力列が一致する。
 
     宣言が実装から乖離すると、感度分析で結合先を差し替えたときに列が揃わない。
+
+    **接尾辞つきのパラメータセット（``pop_*``）を必ず含める。** 接尾辞は宣言（config）
+    と付与（``build_param_tasks()`` のクロージャ）が別の場所にあり、付与側だけが抜けても
+    単体テストは通る（``apply_column_suffix()`` は単体で検証され、宣言側の検査は基底名の
+    定数と突き合わせるだけである）。両者を通す経路はここにしかない。
     """
     canonical = build_canonical_grid(BBox(*ROI_BOUNDS), ANALYSIS_CRS, 20.0)
     grid_spec = build_aligned_grid(canonical, FINE_RES_M)
     bbox = aligned_bbox(canonical)
 
-    for table_name in ("build_gba", "road_osm", "mask_roi", "elev_fabdem"):
+    for table_name in (
+        "build_gba",
+        "road_osm",
+        "mask_roi",
+        "elev_fabdem",
+        "pop_worldpop2020",
+        "pop_landscan2023",
+        "ntl_viirs2023",
+        "ntl_bm2023",
+    ):
         task = build_param_tasks([table_name], city_environment["city_cfg"], ANALYSIS_CRS)[0]
         validate_computed_columns(task, task.compute(bbox, grid_spec))
 
@@ -713,6 +727,24 @@ def test_apply_column_suffix_keeps_columns_when_suffix_is_empty() -> None:
     columns = {"ELEV_MEAN": np.zeros((2, 2), dtype=np.float32)}
 
     assert apply_column_suffix(columns, "") == columns
+
+
+def test_build_param_tasks_validates_bands_before_computing(
+    city_environment: dict[str, Any],
+) -> None:
+    """バンド番号の取り違えは、算出を始める前の入力解決の段階で警告する。
+
+    ``compute()`` の中で確かめると、警告がスケールごとの進捗出力に紛れるうえ、
+    最初のスケールを書き出したあとでしか誤りが分からない。他の入力検証と同じく
+    まとめて先に報告することを、``build_param_tasks()`` の呼び出しだけで固定する
+    （``compute()`` は一度も呼ばない）。
+    """
+    city_cfg = city_environment["city_cfg"]
+    # 密度（band 2）ではなくカウント（band 1）を指す設定にする。
+    city_cfg["rasters"]["worldpop2020"]["band"] = 1
+
+    with pytest.warns(UserWarning, match="バンド番号の取り違え"):
+        build_param_tasks(["pop_worldpop2020"], city_cfg, ANALYSIS_CRS)
 
 
 def test_every_param_set_has_registered_module() -> None:

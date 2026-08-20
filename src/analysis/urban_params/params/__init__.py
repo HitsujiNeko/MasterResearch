@@ -26,4 +26,13 @@
 ラスタを入力とするため第1引数が ``RasterResource | None`` である。
 
 ``raster.py`` のみ、衛星指標ラスタの検出結果辞書を受け取る別シグネチャを持つ。
+
+入力そのものの妥当性を確かめる必要があるモジュールは、任意で次の関数を追加できる。
+
+    def validate_resource(resource: LayerResource | RasterResource) -> None:
+
+``run.py`` の ``build_param_tasks()`` が入力解決の直後に1回だけ呼ぶ。``compute()``
+の中で確かめるとスケールごとに繰り返され、算出を始めてからでないと誤りが分からない。
+現在は ``population.py`` ・ ``nightlight.py`` が、1ファイルに複数バンドを持つ入力で
+バンド番号の取り違えを検知するために提供している。
 """

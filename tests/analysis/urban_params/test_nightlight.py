@@ -187,25 +187,27 @@ def test_compute_interpolates_because_raster_is_coarser_than_every_scale(
     )
 
 
-def test_compute_warns_when_band_is_not_radiance(tmp_path: Path) -> None:
-    """観測数バンド（cf_cvg）を指すと警告する。
+def test_validate_resource_warns_when_band_is_not_radiance(tmp_path: Path) -> None:
+    """観測数バンド（cf_cvg）を指すと、算出を始める前に警告する。
 
     ``cf_cvg`` は51-96の値を取り、放射輝度と桁が重なる。取り違えても集約後の統計は
-    もっともらしく見えるため、値を眺めるだけでは気づけない。
+    もっともらしく見えるため、値を眺めるだけでは気づけない。検証は ``compute()``
+    ではなく入力解決時に行うため、警告もそちらの経路から出る。
     """
     raster_path = tmp_path / "ntl_bands.tif"
     _write_nightlight_raster(raster_path, np.full((8, 8), 5.0, dtype=np.float32))
 
     with pytest.warns(UserWarning, match="バンド番号の取り違え"):
-        result = nightlight.compute(
-            RasterResource(raster_path, COVERAGE_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )
+        nightlight.validate_resource(RasterResource(raster_path, COVERAGE_BAND))
 
-    # 警告は出るが処理は続き、観測数の値がそのまま入る（黙って落とさない）。
+    # 警告は出るが算出は止めない（黙って落とさない）。観測数の値がそのまま入る。
+    result = nightlight.compute(
+        RasterResource(raster_path, COVERAGE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+    )
     assert result["NTL_MEAN"][0, 0] == pytest.approx(74.0, abs=0.5)
 
 
-def test_compute_warns_when_masked_band_is_selected(tmp_path: Path) -> None:
+def test_validate_resource_warns_when_masked_band_is_selected(tmp_path: Path) -> None:
     """背景を0置換した band 2（avg_radiance_masked）を指すと警告する。
 
     **本モジュールが明示的に退けているバンドである。** それでいて値は主バンドとほぼ
@@ -216,12 +218,10 @@ def test_compute_warns_when_masked_band_is_selected(tmp_path: Path) -> None:
     _write_nightlight_raster(raster_path, np.full((8, 8), 5.0, dtype=np.float32))
 
     with pytest.warns(UserWarning, match="avg_radiance_masked"):
-        nightlight.compute(
-            RasterResource(raster_path, MASKED_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )
+        nightlight.validate_resource(RasterResource(raster_path, MASKED_BAND))
 
 
-def test_compute_warns_when_max_radiance_band_is_selected(tmp_path: Path) -> None:
+def test_validate_resource_warns_when_max_radiance_band_is_selected(tmp_path: Path) -> None:
     """最大放射輝度バンド（band 4）を指すと警告する。
 
     平均ではなく最大であるため意味が異なるが、単位も桁も同じでもっともらしく見える。
@@ -230,12 +230,10 @@ def test_compute_warns_when_max_radiance_band_is_selected(tmp_path: Path) -> Non
     _write_nightlight_raster(raster_path, np.full((8, 8), 5.0, dtype=np.float32))
 
     with pytest.warns(UserWarning, match="max_radiance"):
-        nightlight.compute(
-            RasterResource(raster_path, MAX_RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )
+        nightlight.validate_resource(RasterResource(raster_path, MAX_RADIANCE_BAND))
 
 
-def test_compute_warns_when_all_angle_band_is_selected(tmp_path: Path) -> None:
+def test_validate_resource_warns_when_all_angle_band_is_selected(tmp_path: Path) -> None:
     """Black Marble の全視野角合成（band 2）を指すと警告する。
 
     近直下視合成（主バンド）とは観測条件が異なるが、``ntl_`` の語幹を共有するため
@@ -249,9 +247,7 @@ def test_compute_warns_when_all_angle_band_is_selected(tmp_path: Path) -> None:
     )
 
     with pytest.warns(UserWarning, match="ntl_all_angle"):
-        nightlight.compute(
-            RasterResource(raster_path, ALL_ANGLE_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )
+        nightlight.validate_resource(RasterResource(raster_path, ALL_ANGLE_BAND))
 
 
 @pytest.mark.parametrize(
@@ -264,7 +260,7 @@ def test_compute_warns_when_all_angle_band_is_selected(tmp_path: Path) -> None:
         ),
     ],
 )
-def test_compute_accepts_primary_band_of_both_datasets(
+def test_validate_resource_accepts_primary_band_of_both_datasets(
     tmp_path: Path, descriptions: tuple[str, ...], label: str
 ) -> None:
     """主バンドの名前がデータセット間で異なっても、正しい入力では警告しない。
@@ -279,9 +275,7 @@ def test_compute_accepts_primary_band_of_both_datasets(
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        nightlight.compute(
-            RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
-        )
+        nightlight.validate_resource(RasterResource(raster_path, RADIANCE_BAND))
 
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
 

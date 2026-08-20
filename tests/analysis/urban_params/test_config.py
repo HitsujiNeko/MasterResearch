@@ -11,6 +11,7 @@ from src.analysis.urban_params.config import (
     PARAM_SETS,
     PARAMS_OUTPUT_PARTS,
     POPULATION_BASE_COLUMNS,
+    ParamSet,
     grid_layer_name,
     resolve_table_path,
 )
@@ -85,15 +86,44 @@ def test_population_columns_follow_source_suffix_rule() -> None:
         assert param_set.columns == expected, f"{name} の列名が接尾辞規則と一致しません"
 
 
-def test_param_sets_without_suffix_keep_module_column_names() -> None:
-    """接尾辞を宣言しないパラメータセットは、列名をそのまま使う。
+def test_column_suffix_is_declared_consistently_within_each_module() -> None:
+    """接尾辞の宣言はモジュール単位で揃い、列名は基底名＋接尾辞になる。
 
-    接尾辞は人口のような「同時結合が要る別変数」に限る例外であり、既定は無付与である。
+    **特定のモジュール名を例外として書かない。** 「人口だけが接尾辞を持つ」と固定すると、
+    同時結合が要る別ソースを他のパラメータへ追加したとき（設定のコメントは GHS-POP 等の
+    追加を想定している）に、規約違反ではないのにテストが落ちる。逆に、人口モジュールへ
+    接尾辞を宣言し忘れたセットを足しても、例外側に落ちるため検知できない。
+
+    固定するのは規約そのもの、すなわち「同じモジュールの別ソース版は接尾辞の有無が揃い、
+    接尾辞を外せば同一の基底名になる」という不変条件である。これが崩れると、片方だけが
+    列名衝突を免れる半端な状態や、``run.py`` の ``apply_column_suffix()`` が組み立てる
+    列名と宣言列の食い違いが生じる。
     """
+    sets_by_module: dict[str, list[tuple[str, ParamSet]]] = {}
     for name, param_set in PARAM_SETS.items():
-        if param_set.module_name == "population":
-            continue
-        assert param_set.column_suffix == "", f"{name} に想定外の接尾辞があります"
+        sets_by_module.setdefault(param_set.module_name, []).append((name, param_set))
+
+    for module_name, entries in sets_by_module.items():
+        suffixed = [name for name, param_set in entries if param_set.column_suffix]
+        assert len(suffixed) in (0, len(entries)), (
+            f"{module_name} で接尾辞の有無が揃っていません（宣言あり: {sorted(suffixed)}）"
+        )
+
+        base_columns: set[tuple[str, ...]] = set()
+        for name, param_set in entries:
+            if not param_set.column_suffix:
+                base_columns.add(param_set.columns)
+                continue
+            tail = f"_{param_set.column_suffix}"
+            for column in param_set.columns:
+                assert column.endswith(tail), (
+                    f"{name} の列 {column} が接尾辞 {tail} で終わっていません"
+                )
+            base_columns.add(tuple(column[: -len(tail)] for column in param_set.columns))
+
+        assert len(base_columns) == 1, (
+            f"{module_name} の別ソース版で基底の列名が揃っていません: {sorted(base_columns)}"
+        )
 
 
 def test_grid_layer_name_matches_canonical_grid_naming() -> None:

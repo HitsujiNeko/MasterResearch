@@ -279,7 +279,8 @@ def warn_if_band_description_unexpected(
 
     **バンド説明を持たないラスタでは何もしない。** 説明は任意のメタデータであり、
     無いことを異常として扱うと正常な入力まで警告で埋まる。照合は「説明があり、かつ
-    期待と食い違う」場合に限る。
+    期待と食い違う」場合に限る。未設定の説明が ``None`` で返るか空文字で返るかは
+    ドライバに依存するため、**空白のみの説明も「説明が無い」として扱う**。
 
     受け付ける値を複数取れるようにしているのは、同じパラメータを別データセットから
     算出する場合に、正しいバンドの説明がデータセットごとに異なるためである（夜間光の
@@ -312,10 +313,13 @@ def warn_if_band_description_unexpected(
         _validate_band_index(src, band_index, raster_path)
         description = src.descriptions[band_index - 1]
 
-    if description is None:
+    lowered = "" if description is None else str(description).strip().lower()
+    # 空文字・空白のみの説明は「説明が無い」と同じに扱う。未設定のバンド説明を
+    # ``None`` ではなく空文字で返すドライバがあり、ここで弾かないと候補のどれにも
+    # 一致せず、正常な入力に対して警告が出る。
+    if not lowered:
         return
 
-    lowered = str(description).strip().lower()
     accepted = [item.lower() for item in expected]
     if exact:
         matched = lowered in accepted

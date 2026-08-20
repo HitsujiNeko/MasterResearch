@@ -82,6 +82,14 @@ GRID_COLUMNS = (CELL_ID_COLUMN, "lon", "lat")
 #
 # 夜間光（``nightlight``）も同様に除く。放射輝度は連続量であり、0は「電力由来の光が
 # 検出されなかった」という実測値である。
+#
+# **夜間光は ``VALID_SATELLITE_MASK`` の判定材料にもしない。** こちらは「0より大きければ
+# 有効」ではなく「非NULLなら有効」という被覆の基準であり、上の理由はそのままでは当て
+# はまらない。除くのは別の理由による。``VALID_SATELLITE_MASK`` は観測1回分の衛星指標
+# （``idx_*``）が当該セルで得られているかを表す列であり、雲マスクによる欠測の有無を
+# 追跡するためにある。夜間光は年次コンポジットで観測日時に紐づかず、ROI全域で有効画素率
+# がほぼ1.0であるため、判定材料に加えると観測ごとの欠測が薄まって列の意味が失われる。
+# 夜間光セル自体の信頼度は対で出力される ``NTL_VALID_RATIO`` で判断する。
 GIS_INDICATOR_MODULES = frozenset({"buildings", "roads"})
 
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
@@ -430,6 +438,11 @@ def classify_value_columns(
     （``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK``）の判定材料にもしないため、
     戻り値のどちらにも含めず読み飛ばす（列自体はデータセットへ残る）。目的変数と
     説明変数の有効性を混ぜないためである。
+
+    ``PARAM_SETS`` のテーブルのうち ``GIS_INDICATOR_MODULES`` に無いもの（標高・人口
+    密度・夜間光・解析対象域フラグ）も、どちらにも含めず読み飛ばす。**衛星由来である
+    夜間光を ``VALID_SATELLITE_MASK`` からも外している点を含め、除外の理由は
+    ``GIS_INDICATOR_MODULES`` の定義に併記している。**
 
     Args:
         table_names: 結合したテーブル名の一覧。

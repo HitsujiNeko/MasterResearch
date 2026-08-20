@@ -1,6 +1,6 @@
 """ラスタをグリッドへ集約するモジュール（衛星指標 NDVI/NDBI/NDWI と共通の集約基盤）。
 
-セル平均と有効画素率の2列を対で出すパラメータ（標高・LST）は
+セル平均と有効画素率の2列を対で出すパラメータ（標高・LST・人口密度・夜間光）は
 ``aggregate_mean_and_valid_ratio()`` を共通の入口として使う。
 """
 
@@ -315,7 +315,7 @@ def warn_if_band_description_unexpected(
     if description is None:
         return
 
-    lowered = str(description).lower()
+    lowered = str(description).strip().lower()
     accepted = [item.lower() for item in expected]
     if exact:
         matched = lowered in accepted
@@ -349,7 +349,9 @@ def aggregate_mean_and_valid_ratio(
 ) -> dict[str, np.ndarray]:
     """セル平均値とセル内有効画素率の2列を対で算出する。
 
-    標高（``ELEV_MEAN`` / ``ELEV_VALID_RATIO``）とLST（``LST`` / ``LST_VALID_RATIO``）は
+    標高（``ELEV_MEAN`` / ``ELEV_VALID_RATIO``）・LST（``LST`` / ``LST_VALID_RATIO``）・
+    人口密度（``POP_DEN_*`` / ``POP_VALID_RATIO_*``）・
+    夜間光（``NTL_MEAN`` / ``NTL_VALID_RATIO``）は
     集約の手順が同一のため、ここへ集約する。**平均はセル内の有効画素のみで取るため、
     セルの一部しか覆われていなくても値は ``NaN`` にならない。** セルの信頼度は
     有効画素率の列で判断する。``NaN`` の件数だけでは部分被覆のセルを捕捉できず、

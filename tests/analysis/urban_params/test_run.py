@@ -613,6 +613,52 @@ def test_summarize_valid_ratio_reports_partial_coverage_counts(
     assert "0.5未満 2 件" in captured
 
 
+def test_summarize_valid_ratio_detects_columns_with_source_suffix(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """データソース接尾辞が付いた有効画素率の列も報告対象にする。
+
+    ``ParamSet.column_suffix`` を持つパラメータでは接尾辞が後ろに付くため
+    （``POP_VALID_RATIO_WORLDPOP2020``）、末尾一致で判定すると取りこぼす。
+    **取りこぼしても列は出力される**ため、部分被覆セルの件数が黙って報告されなく
+    なるという、欠測より気づきにくい形で現れる。
+    """
+    table = pd.DataFrame(
+        {
+            "cell_id": np.arange(4, dtype=np.int64),
+            "POP_DEN_WORLDPOP2020": np.array([10.0, 20.0, 30.0, 40.0], dtype=np.float32),
+            "POP_VALID_RATIO_WORLDPOP2020": np.array([1.0, 0.8, 0.4, 0.0], dtype=np.float32),
+        }
+    )
+
+    summarize_valid_ratio(table)
+
+    captured = capsys.readouterr().out
+    assert "POP_VALID_RATIO_WORLDPOP2020" in captured
+    assert "1.0未満 3 件" in captured
+    assert "0.5未満 2 件" in captured
+
+
+def test_summarize_valid_ratio_ignores_quality_mask_columns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """品質管理列（VALID_GIS_MASK等）は有効画素率として扱わない。
+
+    判定を部分一致にしたため、``VALID`` を含む別種の列を巻き込まないことを固定する。
+    """
+    table = pd.DataFrame(
+        {
+            "cell_id": np.arange(2, dtype=np.int64),
+            "VALID_GIS_MASK": np.array([1, 0], dtype=np.int64),
+            "VALID_SATELLITE_MASK": np.array([1, 1], dtype=np.int64),
+        }
+    )
+
+    summarize_valid_ratio(table)
+
+    assert capsys.readouterr().out == ""
+
+
 def test_summarize_valid_ratio_ignores_tables_without_ratio_columns(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

@@ -501,8 +501,16 @@ def validate_computed_columns(task: ParamTask, columns: dict[str, np.ndarray]) -
         )
 
 
-# 有効画素率の列を判別する接尾辞（``ELEV_VALID_RATIO`` / ``LST_VALID_RATIO``）。
-VALID_RATIO_COLUMN_SUFFIX = "_VALID_RATIO"
+# 有効画素率の列を判別する目印（``ELEV_VALID_RATIO`` / ``LST_VALID_RATIO``）。
+#
+# **末尾一致ではなく部分一致で判定する。** ``ParamSet.column_suffix`` を持つパラメータ
+# ではデータソース接尾辞が後ろに付き（``POP_VALID_RATIO_WORLDPOP2020``）、末尾一致だと
+# 取りこぼす。取りこぼしても列は出力されるため、**部分被覆セルの件数が黙って報告され
+# なくなる**という、欠測より気づきにくい形で現れる。
+#
+# 品質管理列（``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK``）はこの目印を含まないため、
+# 部分一致にしても誤検出しない。
+VALID_RATIO_COLUMN_MARKER = "_VALID_RATIO"
 
 # 有効画素率の分布として件数を報告する閾値。
 VALID_RATIO_REPORT_THRESHOLDS = (1.0, 0.5)
@@ -520,7 +528,7 @@ def summarize_valid_ratio(table: pd.DataFrame) -> None:
     Args:
         table: 出力したテーブル（``cell_id`` 列を含む）。
     """
-    ratio_columns = [name for name in table.columns if name.endswith(VALID_RATIO_COLUMN_SUFFIX)]
+    ratio_columns = [name for name in table.columns if VALID_RATIO_COLUMN_MARKER in name]
     for column_name in ratio_columns:
         values = table[column_name].to_numpy(dtype=np.float64, na_value=np.nan)
         total = values.size

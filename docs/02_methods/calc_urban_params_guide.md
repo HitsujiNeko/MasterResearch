@@ -30,7 +30,7 @@
 | 8. CRS・単位ルール | 投影座標系・単位の統一ルール | [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md) |
 | 9. 例外処理と堅牢性 | 入力欠損・異常値への対応方針 | [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md) |
 | 10. CLI仕様 | 算出フェーズ・結合フェーズのコマンドラインオプション | [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) |
-| 11. 検証項目（最低限） | ユニットテスト・旧wide CSVとの値照合・QGISでの目視確認 | [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) |
+| 11. 検証項目（最低限） | ユニットテスト・旧wide CSVとの値照合・QGISでの目視確認・人口密度・夜間光のCLI検証結果 | [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) |
 | 13. 更新ルール | 実装変更時の同時更新・履歴記録・カタログ整合の維持 | 本ファイル |
 
 ---

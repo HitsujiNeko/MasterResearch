@@ -1,6 +1,6 @@
 # calc_urban_params CLI・検証
 
-**最終更新**: 2026-08-18
+**最終更新**: 2026-08-20
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md)
 **前提知識**: [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章、[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7章（処理設計）
 
@@ -18,6 +18,7 @@
 | 11.1 ユニットテスト | `pytest` によるテスト方針 |
 | 11.2 旧 wide CSV との値照合（`verify_values.py`） | 旧原点との差異と照合方法 |
 | 11.3 QGIS での目視確認 | 結合結果・分布の妥当性確認 |
+| 11.4 人口密度・夜間光のCLI検証結果 | 15組み合わせの行数・値域・有効画素率の実測 |
 
 ---
 
@@ -91,6 +92,8 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`hanoi_gba_buildings.gpkg`（`build_gba`、GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`build_dc`（`merge_DC.gpkg`）は高さ属性を持たないため、高さ列は NaN になる。
 - **`params/elevation.py`（`ELEV_MEAN` / `ELEV_VALID_RATIO`）**: 設計確定・実装済み。FABDEM v1.2（`fabdem_hanoi_dem.tif`、`elev_fabdem`）を coarse グリッドへ平均再投影し、セル平均標高（m）とセル内のDEM有効画素率（0-1）を算出する。`ELEV_COUNT` は出力しない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
 - **`params/lst.py`（`LST` / `LST_VALID_RATIO`）**: 設計確定・実装済み。LSTラスタ（`--lst-file`）を coarse グリッドへ平均再投影し、セル平均地表面温度（°C）とセル内のLST有効画素率（0-1）を算出する。目的変数であり `VALID_SATELLITE_MASK` の判定材料には含めない（[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.3節）。集約後の有効値の中央値が摂氏として妥当な範囲（-60〜90°C）の外なら警告する（ケルビン取り違えの検知。正常なLSTを弾かない広さに取る）。
+- **`params/population.py`（`POP_DEN_{データソース}` / `POP_VALID_RATIO_{データソース}`）**: 設計確定・実装済み。人口グリッド（`worldpop_hanoi_2020.tif` / `landscan_hanoi_{2020,2023}.tif`）の**密度バンド（band 2、人/km²）**を coarse グリッドへ平均再投影し、100 で割ってセル平均人口密度（人/ha）とセル内の有効画素率（0-1）を算出する。`grid.cell_area_ha()` は使わない（理由は [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節）。3版は列名にデータソース接尾辞が付き（`run.py: apply_column_suffix()`）、同一データセットへ同時に結合できる。カウントバンド（band 1）を誤って指した場合は、バンド説明の照合で警告する（値は出力されるため統計を見ても気づけないため）。
+- **`params/nightlight.py`（`NTL_MEAN` / `NTL_VALID_RATIO`）**: 設計確定・実装済み。夜間光ラスタ（`viirs_dnb_hanoi_2023.tif` / `black_marble_vnp46a4_hanoi_2023.tif`）の**主バンド（band 1）**を coarse グリッドへ平均再投影し、セル平均放射輝度（nW·cm⁻²·sr⁻¹）とセル内の有効画素率（0-1）を算出する。放射輝度は面積に比例しない強度量のため面積正規化しない。主バンド以外（`avg_radiance_masked` / `max_radiance` / `ntl_all_angle` / `cf_cvg` 等）を指した場合は、バンド説明の**完全一致**照合で警告する。部分一致では兄弟バンドが主バンドと語を共有するため素通りする。
 - **`params/mask.py`（`IN_ANALYSIS_AREA`）**: 設計確定・実装済み。ROI ポリゴンの被覆率が0より大きいセルを1とする。
 - 衛星指標・LSTは `INDICES_*.tif` / `LST_*.tif` のバンド説明（衛星指標: NDVI, NDBI, NDWI／LST: LST）から検出・検証する。
 - 実行には `fiona`, `pyogrio`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
@@ -124,9 +127,24 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - 値が摂氏として妥当な範囲に収まる（実データ実測 min 13.50 / max 63.27°C）。集約後の中央値がケルビン相当（約270〜320）でないことを確認する
 - `LST` は有効カバレッジ外・雲被覆セルが `NaN` であり、`LST_VALID_RATIO` は有効画素が無いセルを `0.0` とする（`NaN` にしない、両列の整合）
 - `LST_VALID_RATIO` の分布（1未満・0.5未満の件数）をスケール別に記録する。実データは雲マスクにより有効画素率が25.4〜45.7%と低いため、**`NaN` の件数だけでは部分被覆セルを捕捉できず、有効カバレッジを過大評価する**
-  - この件数は算出時に自動で出力される（`run.py: summarize_valid_ratio()`）。`_VALID_RATIO` で終わる列を対象とするため、`ELEV_VALID_RATIO` も同時に報告される。min/mean/max だけでは分布の偏りが読めないため、`describe()` とは別に件数を出す
+  - この件数は算出時に自動で出力される（`run.py: summarize_valid_ratio()`）。`_VALID_RATIO` を**含む**列を対象とするため、`ELEV_VALID_RATIO` や接尾辞つきの `POP_VALID_RATIO_{データソース}` も同時に報告される（末尾一致で判定していた時期は接尾辞つきの列を取りこぼしていた）。min/mean/max だけでは分布の偏りが読めないため、`describe()` とは別に件数を出す
 - 結合後のデータセットで `VALID_SATELLITE_MASK` が `NDVI`/`NDBI`/`NDWI` のみから決まり、`LST` の有無で変わらない（[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.3節）
 - `IN_ANALYSIS_AREA == 1` のセルにおける `LST` 非 NULL 件数を記録する
+
+**人口密度（`POP_DEN_{データソース}` / `POP_VALID_RATIO_{データソース}`）の検証観点**
+
+- `POP_DEN` を100倍した値（人/km²）が、入力データセットの密度統計と整合する。**単位を誤ると値が2桁ずれるが、密度としてはどちらもあり得る大きさになるため、出力を眺めるだけでは気づけない**
+- 値 `0` が実測値として保持され、`NaN`（有効画素なし）と区別される
+- `POP_VALID_RATIO` が 0-1 に収まり、`POP_DEN` が `NaN` のセルで `0.0` になっている（両列の整合）
+- 部分被覆セルの件数をスケール別に記録する。WorldPop は大規模水域を無効画素とするため件数が無視できない
+- **スケール間で最大値の挙動を確認する。** 真の集約が成立する入力では集約によりピークが平滑化されて最大値が下がり、内挿にとどまる入力では画素値がそのまま複写されるため変化しない。解像度と解析スケールの関係を、画素数の計算とは独立に出力側から確かめる手段になる
+
+**夜間光強度（`NTL_MEAN` / `NTL_VALID_RATIO`）の検証観点**
+
+- 値域が入力ラスタの主バンド統計と整合する。面積正規化していないこと（強度量であるため）を値の水準で確認する
+- 値 `0` が実測値として保持される（Black Marble の `ntl_near_nadir` は ROI 内の最小値が 0.000）
+- 全解析スケールで最大値が変化しない（どのスケールでも内挿であることの確認。RQ2 を割り当てない根拠と対応する）
+- `NTL_VALID_RATIO` はほぼ定数列（ROI 全域で 1.0）であり、1.0 未満のセルは解析BBox最外周に限られる
 
 ### 11.1 ユニットテスト
 
@@ -191,3 +209,51 @@ python -m src.analysis.urban_params.verify_values --city hanoi \
 - `IN_ANALYSIS_AREA = 0` は**ちょうど 35 セル**で、すべて ROI 境界上にある。[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.1節の「交差 ⊇ `IN_ANALYSIS_AREA`」と一致する
 
 > **QGIS-MCP の制約**: `add_table_join` は結合を登録するが結合レイヤの参照を解決しないため、`layer.resolveReferences(QgsProject.instance())` を呼ぶまで結合フィールドが現れない。
+
+### 11.4 人口密度・夜間光の CLI 検証結果（2026-08-20）
+
+5つのパラメータセットを3スケールで算出し、15組み合わせすべてを確認した。
+
+```bash
+python -m src.analysis.urban_params --city hanoi \
+  --params pop_worldpop2020 pop_landscan2020 pop_landscan2023 ntl_viirs2023 ntl_bm2023 \
+  --scales 30 90 300
+```
+
+**行数**: 30m 3,739,454 / 90m 417,694 / 300m 38,235。3スケールとも既存テーブル（`elev_fabdem`）と一致した。
+
+**値域の整合**: `POP_DEN` を100倍した値が入力データセットの密度統計と一致した。単位換算の妥当性を実データで裏づけている。
+
+| 入力 | 30m の最大値（人/ha） | ×100（人/km²） | [gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.1節 |
+|---|---|---|---|
+| WorldPop 2020 | 685.655518 | 68,565.6 | 68,565.6 |
+| LandScan 2020 | 830.982178 | 83,098.2 | 83,098.2 |
+| LandScan 2023 | 969.472900 | 96,947.3 | 96,947.3 |
+
+夜間光も同様に一致した（VIIRS DNB は最大 96.099991 に対し記録 96.100、Black Marble は 213.979843 に対し 213.980、平均 6.72 に対し 6.712）。Black Marble の最小値は 0.000 のままであり、**実測値の0が欠測に落ちていない**ことを確認した。
+
+**集約と内挿の差が最大値の挙動に現れた**（11章の検証観点に対応）。
+
+| 入力 | 30m | 90m | 300m | 解釈 |
+|---|---|---|---|---|
+| WorldPop 2020 | 685.66 | 680.96 | 671.11 | **減少** — 集約でピークが平滑化される |
+| LandScan 2020/2023 | 830.98 / 969.47 | 同左 | 同左 | **不変** — 画素値がそのまま複写される |
+| VIIRS DNB | 96.099991 | 96.099991 | 96.099991 | 不変 |
+| Black Marble | 213.979843 | 213.979843 | 213.979843 | 不変 |
+
+真の集約が成立するのは WorldPop の 300m だけであるという画素数の計算（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §1.4）と独立に一致する。
+
+**有効画素率の分布**（`1.0` 未満／`0.5` 未満のセル数の割合）。
+
+| 入力 | 30m | 90m | 300m |
+|---|---|---|---|
+| WorldPop 2020 | 3.8% / 3.1% | 5.9% / 3.5% | **13.7% / 4.7%** |
+| LandScan 2020/2023 | 1.6% / 1.5% | 2.2% / 1.8% | 4.6% / 2.8% |
+| VIIRS DNB | 1.0% / 0.9% | 1.7% / 1.2% | 4.8% / 2.5% |
+| Black Marble | 1.0% / 0.9% | 1.7% / 1.2% | 4.7% / 2.5% |
+
+WorldPop が一貫して高いのは、大規模水域を無効画素とするためである（無効画素の83%が水域）。300m では 13.7% のセルが部分被覆であり、**`POP_DEN` を「セル全体の平均密度」として読むと過大評価になる**。セル全体を母数とする密度が必要な場合は `POP_DEN × POP_VALID_RATIO` を用いる。
+
+**欠測と警告**: 全15組み合わせで、グリッド非重複・全面欠測・バンド取り違えのいずれの警告も発生しなかった。
+
+> **この検証で発見した不具合**: 当初、人口の有効画素率が上表のように報告されず、夜間光の分だけが出力されていた。`summarize_valid_ratio()` が `_VALID_RATIO` で**終わる**列を対象としており、データソース接尾辞が付いた `POP_VALID_RATIO_WORLDPOP2020` を取りこぼしていたためである。列自体は正常に出力されるため、欠測ではなく「サマリーが出ない」という気づきにくい形で現れた。判定を部分一致へ変更して解消している。

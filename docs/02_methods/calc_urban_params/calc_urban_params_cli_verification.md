@@ -1,6 +1,6 @@
 # calc_urban_params CLI・検証
 
-**最終更新**: 2026-08-20
+**最終更新**: 2026-08-22
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md)
 **前提知識**: [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章、[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7章（処理設計）
 
@@ -19,6 +19,7 @@
 | 11.2 旧 wide CSV との値照合（`verify_values.py`） | 旧原点との差異と照合方法 |
 | 11.3 QGIS での目視確認 | 結合結果・分布の妥当性確認 |
 | 11.4 人口密度・夜間光のCLI検証結果 | 15組み合わせの行数・値域・有効画素率の実測 |
+| 11.5 人口密度・夜間光の目視確認（画像保存） | 5列を着色表示し画像として保存、分布の妥当性確認 |
 
 ---
 
@@ -257,3 +258,23 @@ WorldPop が一貫して高いのは、大規模水域を無効画素とする�
 **欠測と警告**: 全15組み合わせで、グリッド非重複・全面欠測・バンド取り違えのいずれの警告も発生しなかった。
 
 > **この検証で発見した不具合**: 当初、人口の有効画素率が上表のように報告されず、夜間光の分だけが出力されていた。`summarize_valid_ratio()` が `_VALID_RATIO` で**終わる**列を対象としており、データソース接尾辞が付いた `POP_VALID_RATIO_WORLDPOP2020` を取りこぼしていたためである。列自体は正常に出力されるため、欠測ではなく「サマリーが出ない」という気づきにくい形で現れた。判定を部分一致へ変更して解消している。
+
+### 11.5 人口密度・夜間光の目視確認（画像保存）（2026-08-22）
+
+11.4節はCLIが出力した値の検証であり、画像保存・目視確認は当時の完了条件に含まれておらず未実施のまま残っていた。11.3節と同じ要領で、正準グリッド `grid_300m` に人口密度3種・夜間光2種のパラメータテーブルをベクタレイヤ結合し、5列（`POP_DEN_WORLDPOP2020` / `POP_DEN_LANDSCAN2020` / `POP_DEN_LANDSCAN2023` / `NTL_MEAN`×VIIRS DNB・Black Marble）を個別に着色表示して確認した。図は `images/urban_params/urban_params_{列名}_hanoi_300m.png` に保存している。夜間光は2データソースで列名（`NTL_MEAN`）を共有するため、ファイル名にデータソース接尾辞（`_viirs` / `_bm`）を付す。
+
+**確認の観点**: 建物被覆率等の既存パラメータとの傾向比較ではなく、**`images/gis_data/population/`・`images/gis_data/nighttime_lights/` の入力データ実測図と分布が対応しているか**を確認した。算出結果（集約後のセル平均値）が入力（元ラスタ）を正しく反映しているかを問う検証であるため。
+
+**分類方式**: 固定閾値・配色。`qgis/styles/population_density.qml`（人口密度、閾値は人/km²単位を人/haへ換算）・`qgis/styles/nighttime_lights_radiance.qml`（夜間光、単位はnW·cm⁻²·sr⁻¹で一致）の配色をそのまま流用し、`QgsRendererRange` を手動構築した。データセット間・実データ画像との比較で同じ色が同じ値を意味するようにするためで、Quantile等の相対分類（分布に応じて境界が変わる）では比較にならない。
+
+この過程で、分類走査を伴う `QgsGraduatedSymbolRenderer.createRenderer(mode=Quantile)` の直接呼び出しでQGIS本体が応答不能になる事例に遭遇した。回避策・詳細は[qgis_operation_guidelines.md](../qgis_operation_guidelines.md#グラフィカルな属性分類quantile等でのクラッシュ)に記録した。
+
+**枠線**: 既定のシンボルはセル境界に枠線が付き、300mグリッドの細かいセルでは枠線の黒がセル自体の塗り色（特に低い値の暗い色）を覆って濃く見えてしまう。枠線を`NoPen`にして解消した。
+
+| 確認項目 | 結果 |
+|---|---|
+| 入力データ実測図との分布対応 | 5図とも `images/gis_data/` の実測図（`population_worldpop_hanoi_2020.png` 等）と同じ空間パターン（都心集中・道路沿いの帯状分布・周辺部の低密度）を再現している |
+| WorldPop と LandScan の300m集約後の見え方の違い | 元解像度の実測図（[gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.6節）では都心集中がLandScanの方がWorldPopより急峻だが、300m集約図では逆にLandScanの高い値の面積がWorldPopより広く見える。矛盾ではなく、11.4節の「集約と内挿の差」に対応する現象である。WorldPopは300mへの真の集約でピークが平滑化される（減少）のに対し、LandScanは1kmという粗い元解像度のため300mでも実質的に内挿（画素値がそのまま複写）となり、都心の高い値が面的にそのまま広がって見える |
+| VIIRS DNB と Black Marble の違い | 両者とも都心に高輝度エリアが集中し、分布パターンはおおむね一致する（主バンド間の高い相関 Pearson r=0.976 と整合する。[gis_data_nighttime_lights.md](../../01_planning/gis_data/gis_data_nighttime_lights.md) 5.3節） |
+
+ユーザー・Claude双方で目視確認済み。

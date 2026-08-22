@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-08-20  
+**最終更新**: 2026-08-22  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -70,14 +70,14 @@ docs/
 | [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `urban_params` パッケージ 設計ガイド（ハブ・索引） | 本ガイドの位置づけ・正本の境界、用語と空間整合ルール、スコープ定義、更新ルール。**5〜11章は `calc_urban_params/` 配下の3ファイルへ分割済み**であり、節ごとの収録先は本ファイルの索引を参照 | `src/analysis/urban_params/`, `src/analysis/build_dataset.py` |
 | [calc_urban_params_io_spec.md](02_methods/calc_urban_params/calc_urban_params_io_spec.md) | `urban_params` 入出力仕様 | 入力仕様（必須入力・パラメータセット別入力・衛星指標/LSTラスタ）、出力仕様（パラメータテーブル、品質管理列、GIS由来パラメータ、分析用データセット、新旧差異） | `src/analysis/urban_params/params/`, `src/analysis/build_dataset.py` |
 | [calc_urban_params_processing_design.md](02_methods/calc_urban_params/calc_urban_params_processing_design.md) | `urban_params` 処理設計 | モジュール構成・関数責務、全シナリオ共通の正準グリッド（`cell_id` 採番・GeoPackage出力）、格子整合とテーブル化、CRS・単位ルール、例外処理と堅牢性 | `src/analysis/urban_params/` |
-| [calc_urban_params_cli_verification.md](02_methods/calc_urban_params/calc_urban_params_cli_verification.md) | `urban_params` CLI・検証 | 算出/結合フェーズのCLIオプション、現在の実装状況、ユニットテスト方針、旧wide CSVとの値照合、QGISでの目視確認、人口密度・夜間光のCLI検証結果 | `src/analysis/urban_params/`, `src/analysis/build_dataset.py` |
+| [calc_urban_params_cli_verification.md](02_methods/calc_urban_params/calc_urban_params_cli_verification.md) | `urban_params` CLI・検証 | 算出/結合フェーズのCLIオプション、現在の実装状況、ユニットテスト方針、旧wide CSVとの値照合、QGISでの目視確認、人口密度・夜間光のCLI検証結果、人口密度・夜間光の目視確認（画像保存） | `src/analysis/urban_params/`, `src/analysis/build_dataset.py` |
 | [gee_calc_satellite_indices.md](02_methods/gee_calc_satellite_indices.md) | 衛星指標算出仕様書 | NDVI/NDBI/NDWI算出式、QAマスク、スケーリング、統計出力の仕様と根拠 | `src/gee/gee_calc_satellite_indices.py` |
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |
 | [gee_calc_LST.md](02_methods/gee_calc_LST.md) | LST算出仕様書 | gee_calc_LST.pyの詳細仕様、入出力定義 | `src/gee/gee_calc_LST.py` |
 | [skill_operation_rules.md](02_methods/skill_operation_rules.md) | スキル運用ルール | 作成・変更の承認ルール（行為ベース）、`shared/` 共通リファレンス運用、プロジェクト固有ルール | `.claude/skills/` |
 | [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) | QGIS MCP活用ガイド | データ確認・レイヤー操作・スタイル適用・Map Theme切り替え・Processing実行のユースケース別操作例、CRS確認手順（rasterio/GeoPandas側で判定） | `qgis/` |
-| [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | QGIS-MCPの既知の制約と回避策の台帳（対象ツール／症状／回避策／最小再現手順／確認バージョン）・新規機能の採否記録・バージョン追随ポリシーと更新チェックリスト、レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max・マルチバンドのband）、大規模レイヤーのクラッシュ条件の切り分け、スクリーンショットの構図・命名規則、カテゴリ値ラスタの配色確認順序、execute_code/Processing実行時の注意、Python×QGISネイティブのクロスチェック手順、検証時のプロジェクト衛生 | `qgis/` |
+| [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) | QGIS運用ガイドライン | QGIS-MCPの既知の制約と回避策の台帳（対象ツール／症状／回避策／最小再現手順／確認バージョン）・新規機能の採否記録・バージョン追随ポリシーと更新チェックリスト、レイヤー命名規則、CRS統一方針、保存先ルール、ラスター疑似カラースタイル作成時の注意（classificationMin/Max・マルチバンドのband）、大規模レイヤーのクラッシュ条件の切り分け、グラフィカルな属性分類（Quantile等）でのクラッシュ、スクリーンショットの構図・命名規則、カテゴリ値ラスタの配色確認順序、execute_code/Processing実行時の注意、Python×QGISネイティブのクロスチェック手順、検証時のプロジェクト衛生 | `qgis/` |
 | [claude_workflow_regression_tests.md](02_methods/claude_workflow_regression_tests.md) | Claude Code運用ルール回帰テスト項目書 | deny発火・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点のテスト項目書（正本・再利用）と実施結果記録 | `.claude/settings.json`, `.claude/commands/`, `.claude/skills/shared/` |
 | [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保、AIエージェントの読み取り規律 | 全Pythonスクリプト・全Markdownドキュメント（AIエージェントのツール利用を含む） |
 

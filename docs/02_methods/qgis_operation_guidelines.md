@@ -1,6 +1,6 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-08-04
+**最終更新**: 2026-08-22
 **関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
@@ -185,6 +185,14 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 - **一時的な検証・作図中**（アルゴリズムの突合や特定レイヤーの作図など、プロジェクトの永続構成を変えるつもりがない）: `save_project()`は**明示的に指示されない限り呼ばない**。可視性変更・テーマ適用・一時レイヤ追加を行った場合は、元の状態（テーマの再適用等）に戻し、追加した一時レイヤを`remove_layer()`で片付けてからセッションを終える
 
 両者は排他ではなく「今どちらの場面か」で判断する。判断に迷う場合は、プロジェクトの永続構成を変える意図があるかで切り分ける。
+
+## グラフィカルな属性分類（Quantile等）でのクラッシュ
+
+`QgsGraduatedSymbolRenderer.createRenderer()` に `Mode.Quantile` を渡すと、複数テーブルを結合した多列（cell_id結合5テーブル・19列）・38,235件のベクタレイヤに対する分類走査で、QGIS本体が応答不能になった事例がある。`execute_code`の応答がソケットタイムアウトし、以降`ping`も含めQGIS-MCPサーバー自体に接続できなくなった（プラグイン・QGIS本体の再起動が必要だった）。件数自体は「大規模レイヤーの取り扱い」の対象（GBA建物約307万件等）に比べて小さく、結合による列数の多さか、Quantile分類が内部で行う全件ソートが負荷になったかは**未確認**である。
+
+**回避策**: `NULL` / `NaN`（有効画素なしのセル）を除外した有限値について、QGIS外（Python + `pyogrio` / `numpy.percentile`等）で分類の境界値を事前計算し、`QgsRendererRange`を境界値から手動構築して`QgsGraduatedSymbolRenderer`に設定する。QGIS側では計算済み境界に色を割り当てるだけで済み、分類走査（`createRenderer`のmode計算）を行わずに済む。EqualInterval等の均等分類（`set_layer_style`ツールの既定）は同条件で試していないため、Quantileモード固有の問題かは切り分けられていない。
+
+**欠損値の扱い**: `numpy.percentile`は入力に`NaN`が含まれると結果へ伝播させる（`NaN`を無視しない）ため、境界値の計算前に`values[np.isfinite(values)]`等で有限値のみへ絞り込む。実測値`0`は欠損ではないため除外してはならない。境界を`QgsRendererRange`で範囲指定すると、値が`NULL`（`NaN`）のセルはどの範囲にも属さず、既定では非表示（透過）になる。これは意図した挙動であり、有効画素なしのセルを可視化上も欠測として扱える。
 
 ## データ取得タスクにおけるスタイル成果物（.qml）の扱い
 

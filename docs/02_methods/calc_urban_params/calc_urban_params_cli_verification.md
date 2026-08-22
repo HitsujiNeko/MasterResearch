@@ -261,7 +261,7 @@ WorldPop が一貫して高いのは、大規模水域を無効画素とする�
 
 ### 11.5 人口密度・夜間光の目視確認（画像保存）（2026-08-22）
 
-11.4節はCLIが出力した値の検証であり、画像保存・目視確認は未実施のまま残っていた（#256完了条件の記載漏れ）。11.3節と同じ要領で、正準グリッド `grid_300m` に人口密度3種・夜間光2種のパラメータテーブルをベクタレイヤ結合し、5列（`POP_DEN_WORLDPOP2020` / `POP_DEN_LANDSCAN2020` / `POP_DEN_LANDSCAN2023` / `NTL_MEAN`×VIIRS DNB・Black Marble）を個別に着色表示して確認した。図は `images/urban_params/urban_params_{列名}_hanoi_300m.png` に保存している。夜間光は2データソースで列名（`NTL_MEAN`）を共有するため、ファイル名にデータソース接尾辞（`_viirs` / `_bm`）を付す。
+11.4節はCLIが出力した値の検証であり、画像保存・目視確認は当時の完了条件に含まれておらず未実施のまま残っていた。11.3節と同じ要領で、正準グリッド `grid_300m` に人口密度3種・夜間光2種のパラメータテーブルをベクタレイヤ結合し、5列（`POP_DEN_WORLDPOP2020` / `POP_DEN_LANDSCAN2020` / `POP_DEN_LANDSCAN2023` / `NTL_MEAN`×VIIRS DNB・Black Marble）を個別に着色表示して確認した。図は `images/urban_params/urban_params_{列名}_hanoi_300m.png` に保存している。夜間光は2データソースで列名（`NTL_MEAN`）を共有するため、ファイル名にデータソース接尾辞（`_viirs` / `_bm`）を付す。
 
 **確認の観点**: 建物被覆率等の既存パラメータとの傾向比較ではなく、**`images/gis_data/population/`・`images/gis_data/nighttime_lights/` の入力データ実測図と分布が対応しているか**を確認した。算出結果（集約後のセル平均値）が入力（元ラスタ）を正しく反映しているかを問う検証であるため。
 
@@ -274,7 +274,7 @@ WorldPop が一貫して高いのは、大規模水域を無効画素とする�
 | 確認項目 | 結果 |
 |---|---|
 | 入力データ実測図との分布対応 | 5図とも `images/gis_data/` の実測図（`population_worldpop_hanoi_2020.png` 等）と同じ空間パターン（都心集中・道路沿いの帯状分布・周辺部の低密度）を再現している |
-| WorldPop と LandScan の違い | WorldPop（居住人口）は都心により鋭く集中し、LandScan（実効人口）は業務エリア等を含みより広い範囲で高い値が分布する。人口概念の差として妥当な現れ方であり、実測図の違いとも一致する |
-| VIIRS DNB と Black Marble の違い | 両者とも都心に高輝度エリアが集中し、分布パターンはおおむね一致する（11.4節の主バンド間の高い相関 r=0.976 と整合する） |
+| WorldPop と LandScan の300m集約後の見え方の違い | 元解像度の実測図（[gis_data_population.md](../../01_planning/gis_data/gis_data_population.md) 6.6節）では都心集中がLandScanの方がWorldPopより急峻だが、300m集約図では逆にLandScanの高い値の面積がWorldPopより広く見える。矛盾ではなく、11.4節の「集約と内挿の差」に対応する現象である。WorldPopは300mへの真の集約でピークが平滑化される（減少）のに対し、LandScanは1kmという粗い元解像度のため300mでも実質的に内挿（画素値がそのまま複写）となり、都心の高い値が面的にそのまま広がって見える |
+| VIIRS DNB と Black Marble の違い | 両者とも都心に高輝度エリアが集中し、分布パターンはおおむね一致する（主バンド間の高い相関 Pearson r=0.976 と整合する。[gis_data_nighttime_lights.md](../../01_planning/gis_data/gis_data_nighttime_lights.md) 5.3節） |
 
 ユーザー・Claude双方で目視確認済み。

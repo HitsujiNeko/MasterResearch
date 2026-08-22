@@ -1,6 +1,6 @@
 # 土地利用データ（LULC）の調査・評価
 
-**最終更新**: 2026-07-26  
+**最終更新**: 2026-08-22  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義（NDVI/NDBI等の衛星由来指標との違い）
 
@@ -101,6 +101,7 @@
 - **参考データ**: `ESA WorldCover`（静的だが分類が安定、妥当性確認用）。`OSM landuse`は面的な網羅性が未確認のため、特定施設の位置確認等の補助用途に留める。
 - **不採用**: `Copernicus Global Land Cover`（解像度100mが粗すぎる）、`GlobeLand30`（アクセス手段がスクリプト化困難でライセンスも不明瞭）。
 - `GLC_FCS30D` と `Esri Sentinel-2 10m LULC` の取得スクリプトは作成済みで、Hanoi ROIでのデータ取得・確認も完了している（Section 5・Section 6）。`Dynamic World` の取得は別タスクとして切り出す。
+- 上記2データセットを入力とする土地被覆クラス別面積率（列名・出力クラス・規約）の出力仕様の正本は [calc_urban_params_io_spec.md](../../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.4節である。
 
 ---
 

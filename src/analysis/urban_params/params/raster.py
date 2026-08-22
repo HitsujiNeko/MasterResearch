@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -404,6 +405,137 @@ def aggregate_mean_and_valid_ratio(
             )
 
     return {mean_column: mean_values, ratio_column: valid_ratio}
+
+
+def aggregate_class_fractions_to_grid(
+    raster_path: Path,
+    grid_spec: GridSpec,
+    band_index: int,
+    class_lookup: np.ndarray,
+    class_values: Sequence[int],
+    kind_label: str,
+) -> tuple[dict[int, np.ndarray], np.ndarray]:
+    """カテゴリラスタ（土地被覆等）をクラス別面積率へ集約する。
+
+    クラスごとに二値マスク（当該クラスへ写像される画素を1、それ以外を0とした
+    ``float32`` 配列）を1クラスずつ作り、``aggregate_valid_ratio_to_grid()`` と
+    同じ ``Resampling.average``・``init_dest_nodata=False`` で coarse グリッドへ
+    再投影する。得られる値は「セル内の全寄与画素に占める当該クラスの割合」であり、
+    ``class_values`` 全クラス分を合計すると「``class_values`` のいずれかへ写像
+    される画素の割合」（``fraction_sum``）になる。出力の面積率は ``fraction_sum``
+    （クリップ前の値）を分母として正規化するため、有効セルでの合計は構成として
+    厳密に1になる（float32の丸めは残るため、呼び出し側の検証は ``np.isclose`` で
+    行うこと）。クリップ後の値を分母にすると、丸め誤差で総和が1をわずかに超えた
+    セルだけ分母が1.0へ切り詰められ、合計が1を超えてしまうため使わない。
+
+    **7クラス分のマスクを同時に保持しない。** 大きなラスタ（Esri: 約6,980万画素）
+    で float32 マスクを7枚同時に持つと約1.95 GBに達し、これ自体がメモリの
+    ピークになる。1クラスずつ生成・再投影してから破棄することで、ピークを
+    共通クラス配列（uint8）＋マスク1枚＋coarse出力配列に抑える。同じ理由で、
+    画素値から共通クラスIDへの写像も添字表引きで1回に畳み、以降はスカラ比較
+    （``common == class_value``）で済ませる。
+
+    nodata画素は「共通クラス配列でIDを0（``COMMON_INVALID`` 相当）にする」
+    ことで全マスクから除外する。``reproject()`` に ``src_nodata`` を渡さない
+    のは、渡すとクラスごとに寄与画素の集合が変わり、``fraction_sum`` を分母に
+    した「和が1」という性質が崩れるためである
+    （``aggregate_valid_ratio_to_grid()`` が ``src_nodata`` を渡さないのも同じ
+    理由による）。
+
+    全セルが欠測になった場合は警告する。判定は ``(fraction_sum > 0).any()`` が
+    偽であることとし、``aggregate_mean_and_valid_ratio()`` と同様に
+    ``raster_overlaps_grid()`` で「グリッドと重なっていない」のか「重なっては
+    いるが写像できる画素が無い」のかを切り分けてから文言を選ぶ。
+
+    Args:
+        raster_path: 入力ラスタファイルの絶対パス。
+        grid_spec: 集約先のグリッド仕様。
+        band_index: 読み込むバンド番号（1始まり）。
+        class_lookup: 画素値から共通クラスIDへの添字表（呼び出し元が構築して
+            渡す。本関数は添字表を引くだけで、写像表そのものには依存しない）。
+        class_values: 出力する共通クラスID（対応する列を持たせたいクラスのみ。
+            例: 雪氷を除く7クラス）。
+        kind_label: 警告文に使う入力種別のラベル（例: ``土地被覆``）。
+
+    Returns:
+        ``(正規化済みクラス別面積率, 有効画素率)`` のタプル。
+        - 正規化済みクラス別面積率: ``{共通クラスID: 配列}``。写像できる画素が
+          1つも無いセルは ``NaN``。
+        - 有効画素率: 0-1にクリップした ``fraction_sum``。ラスタ範囲外・写像
+          画素が無いセルは ``0.0``（``NaN`` ではない）。
+
+    Raises:
+        ValueError: ``band_index`` がラスタのバンド数の範囲外の場合。
+    """
+    with rasterio.open(raster_path) as src:
+        _validate_band_index(src, band_index, raster_path)
+        nodata = _resolve_nodata(src, band_index)
+        band = src.read(band_index)
+        src_transform = src.transform
+        src_crs = src.crs
+
+    valid_mask = _valid_pixel_mask(band, nodata)
+    mappable = valid_mask & (band < class_lookup.size)
+
+    common = np.zeros(band.shape, dtype=np.uint8)
+    common[mappable] = class_lookup[band[mappable]]
+    # band・valid_mask・mappableは共通クラス配列への写像が済めば不要になる。
+    # 入力ラスタと同サイズの配列（Esriで各約70MB）を早期に解放し、以降の
+    # ループ中のピークメモリへ積み上げないようにする。
+    del band, valid_mask, mappable
+
+    fraction_sum = np.zeros(grid_spec.coarse_shape, dtype=np.float32)
+    raw_fractions: dict[int, np.ndarray] = {}
+    for class_value in class_values:
+        class_mask = (common == class_value).astype(np.float32)
+        dst_array = np.zeros(grid_spec.coarse_shape, dtype=np.float32)
+        reproject(
+            source=class_mask,
+            destination=dst_array,
+            src_transform=src_transform,
+            src_crs=src_crs,
+            dst_transform=grid_spec.coarse_transform,
+            dst_crs=grid_spec.analysis_crs,
+            resampling=Resampling.average,
+            # 寄与する画素が1つも無いセルは、初期値0.0（＝当該クラスの割合0）
+            # のまま残す。
+            init_dest_nodata=False,
+            num_threads=2,
+        )
+        raw_fractions[class_value] = dst_array
+        fraction_sum += dst_array
+
+    valid_ratio = np.clip(fraction_sum, 0.0, 1.0)
+
+    normalized_fractions: dict[int, np.ndarray] = {}
+    for class_value, fraction in raw_fractions.items():
+        normalized_fractions[class_value] = np.divide(
+            fraction,
+            fraction_sum,
+            out=np.full(grid_spec.coarse_shape, np.nan, dtype=np.float32),
+            where=fraction_sum > 0,
+        )
+
+    if not (fraction_sum > 0).any():
+        # 重なり判定はこの異常時にしか行わない。正常な入力ではラスタを開き直す
+        # コストが掛からないようにするためである。
+        if raster_overlaps_grid(raster_path, grid_spec):
+            warnings.warn(
+                f"{kind_label}ラスタは解析グリッドと重なっていますが、対象クラスへ"
+                "写像できる画素が1つもありません。各クラスの面積率列は全セルNaNに"
+                "なります。nodata値・写像表の取り違えを疑ってください:"
+                f" {raster_path}",
+                stacklevel=3,
+            )
+        else:
+            warnings.warn(
+                f"{kind_label}ラスタが解析グリッドと重なりません。各クラスの面積率"
+                "列は全セルNaNになります。都市の取り違え・切り出し範囲の誤りを"
+                f"疑ってください: {raster_path}",
+                stacklevel=3,
+            )
+
+    return normalized_fractions, valid_ratio
 
 
 def compute(

@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-08-20
+**最終更新**: 2026-08-22
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -56,6 +56,8 @@
 | `pop_landscan2023` | `params/population.py` | `rasters.landscan2023`（band 2） | `POP_DEN_LANDSCAN2023` / `POP_VALID_RATIO_LANDSCAN2023` |
 | `ntl_viirs2023` | `params/nightlight.py` | `rasters.viirs2023`（band 1） | `NTL_MEAN` / `NTL_VALID_RATIO` |
 | `ntl_bm2023` | `params/nightlight.py` | `rasters.bm2023`（band 1） | 同上 |
+| `lulc_glc2022` | `params/lulc.py` | `rasters.glc2022`（GLC_FCS30D 2022年、band 1、主ソース） | `LULC_WATER_COV` / `LULC_TREE_COV` / `LULC_CROP_COV` / `LULC_BUILT_COV` / `LULC_RANGE_COV` / `LULC_WETLAND_COV` / `LULC_BARE_COV` / `LULC_VALID_RATIO` |
+| `lulc_esri2022` | `params/lulc.py` | `rasters.esri2022`（Esri Sentinel-2 10m LULC 2022年、band 1、感度分析用の副ソース） | 同上 |
 | `mask_roi` | `params/mask.py` | `layers.roi` | `IN_ANALYSIS_AREA` |
 
 **同じ列名の別ソース版を並置できる**（`build_gba` と `build_dc`、`road_osm` と `road_gt`、`ntl_viirs2023` と `ntl_bm2023`）ことが、感度分析を「結合先の差し替えだけ」で済ませる要である。`PARAM_SETS` は各セットが返すべき列を宣言し、`compute()` の戻り値と実行時に突き合わせて、別ソース版どうしで列が食い違う状態を検知する。
@@ -75,11 +77,7 @@
 - **オープンソースDEMラスタ**: `data/gis/dem/fabdem/fabdem_hanoi_dem.tif`（FABDEM v1.2、EPSG:4326、約30m）
 - **人口ラスタ**: `data/gis/population/worldpop/worldpop_hanoi_2020.tif` / `data/gis/population/landscan/landscan_hanoi_2020.tif` / `data/gis/population/landscan/landscan_hanoi_2023.tif`（いずれも **band 2** の密度バンド、EPSG:4326。3版は差し替え候補ではなく別変数として並置する。6.4節）
 - **夜間光ラスタ**: `data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif`（主候補）／`data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif`（副候補）。いずれも **band 1**、EPSG:4326（6.4節）
-
-**設計未確定の入力**（採用済みだが入力源・算出方法が未確定）
-
-- 植生（植生被覆率）: 土地被覆分類ラスタの植生クラス（入力源未確定。6.4節参照）
-- 土地被覆クラス別面積率: ラスタ入力。Hanoi ROI での取得は完了しているが、**同一概念に複数の候補データセットがあり、どれを入力とするかが未確定**である（候補の比較は [available_gis_data.md](../../01_planning/available_gis_data.md) を参照）
+- **土地被覆ラスタ**: `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（GLC_FCS30D 2022年、主ソース）／`data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif`（Esri Sentinel-2 10m LULC 2022年、感度分析用の副ソース）。いずれも **band 1**、EPSG:4326。植生（植生被覆率）は独立入力を持たず、土地被覆クラス別面積率の樹林・草地低木クラスの読み替えである（6.4節）
 
 > 建物データの比較候補として Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` を検討したが、Limited シナリオの採用は GlobalBuildingAtlas で確定している（詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md)）。  
 > なお Hanoi ROI では Microsoft 建物データが西側行政区画を十分に覆っていない。比較用に用いる場合、建物データの有効カバレッジ外では被覆率・棟数密度の `0` が建物不存在を意味しない点に注意する。
@@ -292,16 +290,55 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
   - **ほぼ定数列になる**: 両データセットとも ROI 全域で有効画素率 1.0 であり、1.0 未満のセルは解析BBox最外周に限られる（30m で 1.0%・300m で 4.8%）。説明変数としての情報量は乏しい。それでも出力するのは、集約関数が2列を対で返すため片方を捨てるほうが実装が増えること、および将来の入力差し替え時にカバレッジ低下を検知できることによる
   - **欠測規約・解釈上の注意**: `POP_VALID_RATIO_{データソース}` と同一
 
+- **`LULC_{クラス}_COV`（土地被覆クラス別面積率, 0-1）**: 設計確定・実装未着手（パラメータセット `lulc_glc2022` / `lulc_esri2022`）
+  - **入力**: `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（GLC_FCS30D 2022年、band 1、主ソース）／`data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif`（Esri Sentinel-2 10m LULC 2022年、band 1、感度分析用の副ソース）。主ソース・副ソースの位置づけは [gis_data_lulc.md](../../01_planning/gis_data/gis_data_lulc.md) §4 を踏襲する
+  - **出力クラス**: 共通クラス体系のうち**雪氷を除く7クラス**（判断日 2026-08-21）。写像表は `src/analysis/compare_lulc_esri_glc.py` の定数として実データで検証済みである
+
+    | 列名 | クラス | GLCクラスID | Esriクラス値 |
+    |---|---|---|---|
+    | `LULC_WATER_COV` | 水域 | 210 | 1 |
+    | `LULC_TREE_COV` | 樹林 | 51・52・61・62・71・72・81・82・91・92 | 2 |
+    | `LULC_CROP_COV` | 農地 | 10・11・12・20 | 5 |
+    | `LULC_BUILT_COV` | 市街地（不透水面） | 190 | 7 |
+    | `LULC_RANGE_COV` | 草地・低木 | 120・121・122・130・140・150・152・153 | 11 |
+    | `LULC_WETLAND_COV` | 湿地 | 181〜187 | 4 |
+    | `LULC_BARE_COV` | 裸地 | 200・201・202 | 8 |
+
+    `LULC_RANGE_COV` の列名は rangeland（草地・低木を含む牧草・粗放利用地の総称）に由来する。**ROI 内で0画素のクラス（裸地）も列としては出力する。** 出現クラスに応じて列構成を変えると、都市が変わるたびにスキーマが変化して都市間比較ができなくなるためである。
+  - **採用しなかった代替案**:
+
+    | 案 | 却下理由 |
+    |---|---|
+    | GLC 35クラス（または ROI 出現15クラス）をそのまま出力 | 微小クラスが情報を持たず列数だけが増える（ROI 出現15クラスのうち9クラスが1%未満・最小0.00%＝46画素）。Esri との対応も付かない |
+    | 主要4クラス（農地・市街地・樹林・水域）に絞る | 和が1にならなくなるため構成制約は消えるが、湿地（GLC 1.77%）・草地低木を捨てる根拠が無く恣意的である |
+
+  - **母数**: セル内の「上記7クラスへ写像される画素」。7クラスの和は定義により厳密に1になる。母数から外れる画素は nodata（GLC の Filled value 0・250、Esri の 0 No Data・10 Clouds）・雪氷（GLC 220 / Esri 9。ベトナムの対象都市で構造的に出現し得ないため定義から除く）・共通クラスへ写像できない画素であり、いずれも同一に「無効」として扱う
+  - **写像される画素が1つも無いセルの規約**: 各クラス面積率は **NaN**（比が定義できないため）、`LULC_VALID_RATIO` は **0.0**（`ELEV_VALID_RATIO` と揃える）
+  - **面積率の `0` の意味**: そのクラスが存在しないという実測値であり、欠測ではない
+  - **構成制約（和=1）への対処**: 本パラメータテーブル（算出フェーズ）は7クラスすべてを出力する。構成制約の解消（参照クラスの除外）は分析フェーズの責務とし、判断根拠は [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §2.2 を正本とする
+  - **P8 植生被覆率との関係**: P8 は独立した出力列を持たない。`LULC_TREE_COV`・`LULC_RANGE_COV` の読み替えである。判断根拠は urban_structure_parameters.md §2.2 を正本とする
+  - **P11 水域被覆率・P14 不透水面率（保留）との関係**: `LULC_WATER_COV`・`LULC_BUILT_COV` は概念的に重なるが、P11・P14 は専用プロダクト由来の独立パラメータであり定義が異なる。詳細は urban_structure_parameters.md §2.2 を正本とする
+  - **`BUILD_COV` との区別**: `LULC_BUILT_COV` は土地被覆分類上の市街地（不透水面）クラスの面積率であり、建物ポリゴンから算出する `BUILD_COV`（建物被覆率）とは入力データも対象物も異なる。市街地/不透水面は建物のほか道路・駐車場等の人工被覆も含むため、`LULC_BUILT_COV ≥ BUILD_COV` が一般に成り立つ
+  - **列名共有（データソース接尾辞を付けない）**: GLC・Esri のいずれで算出しても同じ列名（`LULC_{クラス}_COV`）を用いる。同一データセットへ同時に結合しないため `join_tables()` の列名衝突が起きず、感度分析は結合先テーブルの差し替えだけで完結する。人口密度のように接尾辞を付けるのは「概念も観測年も異なる別変数を同時に投入する」場合に限られるが、GLC と Esri は同時投入を意図していない
+  - **列名共有は測定量の等価性を主張しない**:
+    - **クラス別に代替可能性が成立しない。** 湿地は GLC 基準の一致率 0.03%、草地・低木は 4.68%、裸地は GLC 側 ROI 内0画素であり、これらのクラスをデータセット跨ぎで解釈してはならない
+    - **市街地は定義が異なる。** GLC の Impervious surfaces は人工被覆、Esri の Built area は建造環境であり、同じ物理量の2通りの推定値ではない
+    - **スケール特性も異なる。** GLC の画素実寸はハノイの緯度で約 28.0m × 29.8m（約 836 m²）で、1セルあたり画素数は 30m で 1.08・90m で 9.69・300m で 108 にとどまる（FABDEM と transform が完全一致）。**30m スケールでは面積率が実質的に 0/1 の二値に近づく。** 一方 Esri の画素実寸は約 9.65m × 10.27m（約 99 m²）で 1セルあたり画素数は 30m で 9.08・90m で 81.7・300m で 908 であり、**30m でも真の集約が成立する。** 同じ列名を共有していても 30m での値の性質は両者で大きく異なる
+    - 面積率は画素数比として算出してよい。基準グリッドは投影座標系だが入力ラスタは EPSG:4326 であり画素の地上面積は緯度で変わるが、ROI の緯度幅では差は1%未満である
+  - **見直し余地**: 建物フットプリントを基準とした市街地クラスの妥当性検証の結果によって GLC と Esri を同時併存させる必要が生じた場合は、`run.py: apply_column_suffix()` による接尾辞方式へ後付けで切り替えられる（人口密度で実装済みの機構）。列の再設計は不要である。この検証が対象とするのは市街地クラスのみであり、他クラスの代替可能性は検証後も未検証のまま残る。主ソース選択・参照クラス選定（urban_structure_parameters.md §2.2）も、多重共線性の最終診断の結果しだいで見直す余地がある
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**。7クラスの和が有効セルで必ず1になるため、判定材料に含めると ROI 内のほぼ全セルが有効と判定され、本列群の「建物・道路データが当該セルに存在するか」という本来の意味が失われる。実装上は `build_dataset.py` の `GIS_INDICATOR_MODULES`（現在 `{"buildings", "roads"}`）に `lulc` を加えないことで実現する
+  - **集約経路（実装方法）**: 本節は出力仕様のみを定める。集約経路（クラス別バイナリマスクの平均集約等）の確定は後続タスクへ送る
+  - **詳細**: [gis_data_lulc.md](../../01_planning/gis_data/gis_data_lulc.md)
+
+- **`LULC_VALID_RATIO`（土地被覆データ有効画素率, 0-1）**: 設計確定・実装未着手（`LULC_{クラス}_COV` と同じパラメータセット）
+  - **入力**: `LULC_{クラス}_COV` と同一のラスタ
+  - **定義**: セル内の全画素のうち、出力7クラスへ写像される画素の割合（`ELEV_VALID_RATIO` / `POP_VALID_RATIO_{データソース}` / `NTL_VALID_RATIO` の前例に倣う）
+  - **母数を「有効画素」ではなく「出力7クラスへ写像される画素」とする理由**: 雪氷を定義から外したため、「有効画素」を母数にすると雪氷や写像不能画素が分母にだけ入って和が1未満になる経路が無言で残る（Esri 側には共通クラスへ写像できなかった画素が実在する）。母数を写像先クラスに閉じることで「和 = 1」を定義により保証する。代償として本列は nodata と雪氷を区別しないが、対象都市で雪氷は構造的に出現しないため実害が無い
+  - **セル全体を母数とする面積率**: `クラス面積率 × LULC_VALID_RATIO` で得られる（`POP_DEN` と同じ関係）
+  - **欠測規約**: ラスタ範囲外のセルは `NaN` ではなく **`0.0`**（`ELEV_VALID_RATIO` と揃える）
+  - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**（理由は上記 `LULC_{クラス}_COV` と同一）
+
 > `full` シナリオの標高は設計未確定である（現状は出力しない）。測量GISの `merge_DH.gpkg`（点・等高線）による標高、または FABDEM の暫定適用のいずれを採るかは別途判断する。
-
-#### 採用済み・設計未確定のパラメータ（別途設計確定）
-
-以下は**採用済みだが**入力データ・算出方法が未確定であり、パラメータ単位で設計確定後に出力仕様へ追加する。列名は暫定であり、確定時に見直す。
-
-- `GREEN_COV`（植生被覆率, 0-1）: 入力源未確定。stubモジュールも未作成
-- 土地被覆クラス別面積率: クラス体系・出力するクラスの粒度がいずれも未確定。列名も未定
-
-> **採用していないパラメータは本節に列挙しない。** 採否の一覧と保留の見直し時期は [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) を正本とする（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 > スケール間（30/90/300m）で値の意味を揃えるため、密度系パラメータは面積あたり（/ha）に正規化する。算出には `grid.cell_area_ha()` を使用する。**例外は `POP_DEN_{データソース}`** であり、入力の密度バンドが取得時に楕円体実面積で算出済みであるため、平面セル面積ではなく定数（1 km² = 100 ha）で換算する（同節の該当項目を参照）。
 
@@ -324,8 +361,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `ELEV_VALID_RATIO` | `elev_fabdem` テーブル | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`ELEV_COUNT` は出力しない） |
 | `POP_DEN_{データソース}`, `POP_VALID_RATIO_{データソース}` | `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` テーブル | `params/population.py: compute()` → `params/raster.py: aggregate_mean_and_valid_ratio()`（接尾辞は `run.py: apply_column_suffix()` が付与） | **確定・実装済** |
 | `NTL_MEAN`, `NTL_VALID_RATIO` | `ntl_viirs2023` / `ntl_bm2023` テーブル | `params/nightlight.py: compute()` → `params/raster.py: aggregate_mean_and_valid_ratio()` | **確定・実装済** |
-| `GREEN_COV` | （未割当） | （未割当） | **採用済み・設計未確定**。stubモジュールも未作成。入力源の確定が必要 |
-| 土地被覆クラス別面積率（列名未定） | （未割当） | （未割当） | **採用済み・設計未確定**。クラス体系と出力するクラスの粒度の確定が必要 |
+| `LULC_WATER_COV`, `LULC_TREE_COV`, `LULC_CROP_COV`, `LULC_BUILT_COV`, `LULC_RANGE_COV`, `LULC_WETLAND_COV`, `LULC_BARE_COV`, `LULC_VALID_RATIO` | `lulc_glc2022` / `lulc_esri2022` テーブル | `params/lulc.py`（未作成）→ 集約経路は後続タスクで確定 | **設計確定・実装未着手** |
 
 **`DATA_SOURCE` / `SCENARIO` は廃止した**（6.3節）。
 

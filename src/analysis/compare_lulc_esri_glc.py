@@ -39,6 +39,14 @@ from rasterio.features import geometry_mask
 from rasterio.warp import reproject
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.lulc_classes import (
+    COMMON_BUILT,
+    COMMON_CLASS_LABELS,
+    COMMON_INVALID,
+    ESRI_TO_COMMON,
+    GLC_TO_COMMON,
+    map_to_common_classes,
+)
 from src.common.paths import to_project_relative_string
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
@@ -56,78 +64,9 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
 # GLC の 30m セルを何分割して Esri を評価するか（30m / 3 = 10m でネイティブ解像度に一致）
 SUBDIVISION_FACTOR = 3
 
-# 共通クラス体系。GLC 35 クラスと Esri 9 クラスの双方を写像できる最小粒度として定めた。
-COMMON_INVALID = 0
-COMMON_WATER = 1
-COMMON_FOREST = 2
-COMMON_CROPLAND = 3
-COMMON_BUILT = 4
-COMMON_GRASS_SHRUB = 5
-COMMON_BARE = 6
-COMMON_WETLAND = 7
-COMMON_SNOW_ICE = 8
-
-COMMON_CLASS_LABELS: dict[int, str] = {
-    COMMON_WATER: "水域",
-    COMMON_FOREST: "樹林",
-    COMMON_CROPLAND: "農地",
-    COMMON_BUILT: "市街地（不透水面）",
-    COMMON_GRASS_SHRUB: "草地・低木",
-    COMMON_BARE: "裸地",
-    COMMON_WETLAND: "湿地",
-    COMMON_SNOW_ICE: "雪氷",
-}
-
-# GLC_FCS30D（35クラス）→ 共通クラス
-GLC_TO_COMMON: dict[int, int] = {
-    10: COMMON_CROPLAND,
-    11: COMMON_CROPLAND,
-    12: COMMON_CROPLAND,
-    20: COMMON_CROPLAND,
-    51: COMMON_FOREST,
-    52: COMMON_FOREST,
-    61: COMMON_FOREST,
-    62: COMMON_FOREST,
-    71: COMMON_FOREST,
-    72: COMMON_FOREST,
-    81: COMMON_FOREST,
-    82: COMMON_FOREST,
-    91: COMMON_FOREST,
-    92: COMMON_FOREST,
-    120: COMMON_GRASS_SHRUB,
-    121: COMMON_GRASS_SHRUB,
-    122: COMMON_GRASS_SHRUB,
-    130: COMMON_GRASS_SHRUB,
-    140: COMMON_GRASS_SHRUB,
-    150: COMMON_GRASS_SHRUB,
-    152: COMMON_GRASS_SHRUB,
-    153: COMMON_GRASS_SHRUB,
-    181: COMMON_WETLAND,
-    182: COMMON_WETLAND,
-    183: COMMON_WETLAND,
-    184: COMMON_WETLAND,
-    185: COMMON_WETLAND,
-    186: COMMON_WETLAND,
-    187: COMMON_WETLAND,
-    190: COMMON_BUILT,
-    200: COMMON_BARE,
-    201: COMMON_BARE,
-    202: COMMON_BARE,
-    210: COMMON_WATER,
-    220: COMMON_SNOW_ICE,
-}
-
-# Esri 10m LULC（9クラス）→ 共通クラス
-ESRI_TO_COMMON: dict[int, int] = {
-    1: COMMON_WATER,
-    2: COMMON_FOREST,
-    4: COMMON_WETLAND,
-    5: COMMON_CROPLAND,
-    7: COMMON_BUILT,
-    8: COMMON_BARE,
-    9: COMMON_SNOW_ICE,
-    11: COMMON_GRASS_SHRUB,
-}
+# 共通クラス体系・写像表（GLC_TO_COMMON・ESRI_TO_COMMON・COMMON_CLASS_LABELS）は
+# `src/analysis/urban_params/params/lulc.py` と共用するため `src.common.lulc_classes`
+# へ切り出した（上記 import）。
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -255,28 +194,6 @@ def majority_vote_blocks(
     is_tied = (counts == max_counts[:, :, None]).sum(axis=2) > 1
     voted = np.where(has_valid, voted, 0).astype(array.dtype)
     return voted, np.logical_and(is_tied, has_valid)
-
-
-def map_to_common_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndarray:
-    """クラス値配列を共通クラス体系へ写像する。
-
-    写像表に無い値（無効値・体系外の値）は 0（無効）にする。
-
-    Args:
-        array (np.ndarray): 元のクラス値配列。
-        mapping (dict[int, int]): 元クラス値から共通クラス値への対応。
-
-    Returns:
-        np.ndarray: 共通クラス値の配列（uint8）。
-    """
-    lookup = np.zeros(int(max(mapping)) + 1, dtype=np.uint8)
-    for source_value, common_value in mapping.items():
-        lookup[source_value] = common_value
-
-    common = np.zeros(array.shape, dtype=np.uint8)
-    in_range = array < lookup.size
-    common[in_range] = lookup[array[in_range]]
-    return common
 
 
 def resample_esri_to_subgrid(

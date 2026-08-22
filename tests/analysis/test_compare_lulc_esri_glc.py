@@ -19,6 +19,12 @@ from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
 from src.analysis import compare_lulc_esri_glc as target
+from src.common.lulc_classes import (
+    COMMON_CROPLAND,
+    COMMON_FOREST,
+    COMMON_GRASS_SHRUB,
+    COMMON_WATER,
+)
 
 
 class TestSubdividedTransform:
@@ -156,24 +162,24 @@ class TestMapToCommonClasses:
         result = target.map_to_common_classes(array, target.GLC_TO_COMMON)
 
         assert [int(value) for value in result[0]] == [
-            target.COMMON_CROPLAND,
-            target.COMMON_CROPLAND,
+            COMMON_CROPLAND,
+            COMMON_CROPLAND,
             target.COMMON_BUILT,
-            target.COMMON_WATER,
+            COMMON_WATER,
         ]
 
     def test_maps_esri_classes_to_common_scheme(self) -> None:
-        """Esri の 9 クラスが共通クラスへ写像される。"""
+        """Esri の複数クラスが共通クラスへ写像される。"""
         array = np.array([[1, 2, 5, 7, 11]], dtype=np.uint8)
 
         result = target.map_to_common_classes(array, target.ESRI_TO_COMMON)
 
         assert [int(value) for value in result[0]] == [
-            target.COMMON_WATER,
-            target.COMMON_FOREST,
-            target.COMMON_CROPLAND,
+            COMMON_WATER,
+            COMMON_FOREST,
+            COMMON_CROPLAND,
             target.COMMON_BUILT,
-            target.COMMON_GRASS_SHRUB,
+            COMMON_GRASS_SHRUB,
         ]
 
     def test_unmapped_values_become_invalid(self) -> None:
@@ -444,29 +450,13 @@ class TestYearMismatch:
         assert caplog.text == ""
 
 
-class TestClassMappings:
-    """クラス写像表そのものの整合性テスト。"""
+class TestBuildClassCorrespondence:
+    """build_class_correspondence のテスト。
 
-    def test_all_glc_classes_are_mapped(self) -> None:
-        """GLC の 35 クラスすべてに写像先がある（写像漏れを防ぐ）。"""
-        from src.preprocessing.fetch_glc_fcs30d_hanoi import CLASS_LABELS as glc_labels
-
-        assert set(glc_labels) == set(target.GLC_TO_COMMON)
-
-    def test_all_valid_esri_classes_are_mapped(self) -> None:
-        """Esri の有効クラスすべてに写像先がある（無効値は除く）。"""
-        from src.preprocessing.fetch_esri_lulc_hanoi import CLASS_LABELS as esri_labels
-        from src.preprocessing.fetch_esri_lulc_hanoi import FILLED_VALUES as esri_filled
-
-        expected = set(esri_labels) - set(esri_filled)
-        assert expected == set(target.ESRI_TO_COMMON)
-
-    def test_mapping_targets_are_defined_common_classes(self) -> None:
-        """写像先はすべて定義済みの共通クラスである。"""
-        defined = set(target.COMMON_CLASS_LABELS)
-
-        assert set(target.GLC_TO_COMMON.values()) <= defined
-        assert set(target.ESRI_TO_COMMON.values()) <= defined
+    写像表そのものの網羅性・整合性（GLC/Esri の全クラスに写像先があるか等）は
+    共用元の `tests/common/test_lulc_classes.py` で確認する。ここでは
+    `compare_lulc_esri_glc.py` 固有の対応表構築ロジックのみを対象とする。
+    """
 
     def test_correspondence_covers_every_common_class(self) -> None:
         """対応表は共通クラスを網羅する。"""
@@ -480,7 +470,7 @@ class TestClassMappings:
         """農地は GLC 側が 4 クラス・Esri 側が 1 クラスの多対1になる。"""
         correspondence = target.build_class_correspondence()
         cropland = next(
-            entry for entry in correspondence if entry["common_class"] == target.COMMON_CROPLAND
+            entry for entry in correspondence if entry["common_class"] == COMMON_CROPLAND
         )
 
         assert len(cropland["glc_classes"]) == 4

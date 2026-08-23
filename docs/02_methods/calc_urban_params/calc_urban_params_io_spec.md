@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-08-22
+**最終更新**: 2026-08-23
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -19,7 +19,7 @@
 | 6.1 パラメータテーブル | 算出フェーズの出力（`cell_id` キーのGeoPackage） |
 | 6.2 条件付きテーブル | 衛星由来・LST由来の条件付き出力 |
 | 6.3 品質管理列 | `VALID_GIS_MASK` / `VALID_SATELLITE_MASK` / `MISSING_REASON` 等の導出規則 |
-| 6.4 GIS由来パラメータ | 確定済み・実装未着手のGIS由来パラメータ一覧 |
+| 6.4 GIS由来パラメータ | 確定済みのGIS由来パラメータ一覧 |
 | 6.5 出力列と算出モジュールの対応 | 列名と `params/*.py` の対応表 |
 | 6.6 分析用データセット | 結合フェーズの出力（分析用データセット） |
 | 6.7 新旧の差異と比較可能性（Satellite Only） | 旧経路・新経路の仕様差と比較不可の理由 |
@@ -290,7 +290,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
   - **ほぼ定数列になる**: 両データセットとも ROI 全域で有効画素率 1.0 であり、1.0 未満のセルは解析BBox最外周に限られる（30m で 1.0%・300m で 4.8%）。説明変数としての情報量は乏しい。それでも出力するのは、集約関数が2列を対で返すため片方を捨てるほうが実装が増えること、および将来の入力差し替え時にカバレッジ低下を検知できることによる
   - **欠測規約・解釈上の注意**: `POP_VALID_RATIO_{データソース}` と同一
 
-- **`LULC_{クラス}_COV`（土地被覆クラス別面積率, 0-1）**: 設計確定・実装未着手（パラメータセット `lulc_glc2022` / `lulc_esri2022`）
+- **`LULC_{クラス}_COV`（土地被覆クラス別面積率, 0-1）**: 設計確定・実装済（パラメータセット `lulc_glc2022` / `lulc_esri2022`）
   - **入力**: `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（GLC_FCS30D 2022年、band 1、主ソース）／`data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif`（Esri Sentinel-2 10m LULC 2022年、band 1、感度分析用の副ソース）。主ソース・副ソースの位置づけは [gis_data_lulc.md](../../01_planning/gis_data/gis_data_lulc.md) §4 を踏襲する
   - **出力クラス**: 共通クラス体系のうち**雪氷を除く7クラス**（判断日 2026-08-21）。写像表は `src/analysis/compare_lulc_esri_glc.py` の定数として実データで検証済みである
 
@@ -327,10 +327,10 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
     - 面積率は画素数比として算出してよい。基準グリッドは投影座標系だが入力ラスタは EPSG:4326 であり画素の地上面積は緯度で変わるが、ROI の緯度幅では差は1%未満である
   - **見直し余地**: 建物フットプリントを基準とした市街地クラスの妥当性検証の結果によって GLC と Esri を同時併存させる必要が生じた場合は、`run.py: apply_column_suffix()` による接尾辞方式へ後付けで切り替えられる（人口密度で実装済みの機構）。列の再設計は不要である。この検証が対象とするのは市街地クラスのみであり、他クラスの代替可能性は検証後も未検証のまま残る。主ソース選択・参照クラス選定（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §2.2）も、多重共線性の最終診断の結果しだいで見直す余地がある
   - **品質管理列との関係**: `VALID_GIS_MASK` の判定材料に**含めない**。7クラスの和が有効セルで必ず1になるため、判定材料に含めると ROI 内のほぼ全セルが有効と判定され、本列群の「建物・道路データが当該セルに存在するか」という本来の意味が失われる。実装上は `build_dataset.py` の `GIS_INDICATOR_MODULES`（現在 `{"buildings", "roads"}`）に `lulc` を加えないことで実現する
-  - **集約経路（実装方法）**: 本節は出力仕様のみを定める。集約経路（クラス別バイナリマスクの平均集約等）の確定は後続タスクへ送る
+  - **集約経路（実装方法）**: クラスごとに二値マスク（当該クラスへ写像される画素を1、それ以外を0とした配列）を1クラスずつ生成し、`Resampling.average` で coarse グリッドへ再投影する。7クラス分の割合の合計（`fraction_sum`）をクリップ前の値のまま分母として各クラスを正規化するため、有効セルでの合計は構成として厳密に1になる（`np.isclose` で判定）。7マスクを同時に保持すると大きなラスタ（Esri: 約6,980万画素）で約1.95GBに達するため、1クラスずつ生成・再投影してから破棄する。nodata画素は共通クラス配列側でIDを0にすることで除外し、`reproject()` には `src_nodata` を渡さない（渡すとクラスごとに寄与画素集合が変わり「和=1」が壊れる）。実装は `params/lulc.py: compute()` → `params/raster.py: aggregate_class_fractions_to_grid()`
   - **詳細**: [gis_data_lulc.md](../../01_planning/gis_data/gis_data_lulc.md)
 
-- **`LULC_VALID_RATIO`（土地被覆データ有効画素率, 0-1）**: 設計確定・実装未着手（`LULC_{クラス}_COV` と同じパラメータセット）
+- **`LULC_VALID_RATIO`（土地被覆データ有効画素率, 0-1）**: 設計確定・実装済（`LULC_{クラス}_COV` と同じパラメータセット）
   - **入力**: `LULC_{クラス}_COV` と同一のラスタ
   - **定義**: セル内の全画素のうち、出力7クラスへ写像される画素の割合（`ELEV_VALID_RATIO` / `POP_VALID_RATIO_{データソース}` / `NTL_VALID_RATIO` の前例に倣う）
   - **母数を「有効画素」ではなく「出力7クラスへ写像される画素」とする理由**: 雪氷を定義から外したため、「有効画素」を母数にすると雪氷や写像不能画素が分母にだけ入って和が1未満になる経路が無言で残る（Esri 側には共通クラスへ写像できなかった画素が実在する）。母数を写像先クラスに閉じることで「和 = 1」を定義により保証する。代償として本列は nodata と雪氷を区別しないが、対象都市で雪氷は構造的に出現しないため実害が無い
@@ -361,7 +361,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `ELEV_VALID_RATIO` | `elev_fabdem` テーブル | `params/elevation.py: compute()` → `params/raster.py: aggregate_valid_ratio_to_grid()` | **確定・実装済**（`ELEV_COUNT` は出力しない） |
 | `POP_DEN_{データソース}`, `POP_VALID_RATIO_{データソース}` | `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` テーブル | `params/population.py: compute()` → `params/raster.py: aggregate_mean_and_valid_ratio()`（接尾辞は `run.py: apply_column_suffix()` が付与） | **確定・実装済** |
 | `NTL_MEAN`, `NTL_VALID_RATIO` | `ntl_viirs2023` / `ntl_bm2023` テーブル | `params/nightlight.py: compute()` → `params/raster.py: aggregate_mean_and_valid_ratio()` | **確定・実装済** |
-| `LULC_WATER_COV`, `LULC_TREE_COV`, `LULC_CROP_COV`, `LULC_BUILT_COV`, `LULC_RANGE_COV`, `LULC_WETLAND_COV`, `LULC_BARE_COV`, `LULC_VALID_RATIO` | `lulc_glc2022` / `lulc_esri2022` テーブル | `params/lulc.py`（未作成）→ 集約経路は後続タスクで確定 | **設計確定・実装未着手** |
+| `LULC_WATER_COV`, `LULC_TREE_COV`, `LULC_CROP_COV`, `LULC_BUILT_COV`, `LULC_RANGE_COV`, `LULC_WETLAND_COV`, `LULC_BARE_COV`, `LULC_VALID_RATIO` | `lulc_glc2022` / `lulc_esri2022` テーブル | `params/lulc.py: compute()` → `params/raster.py: aggregate_class_fractions_to_grid()` | **確定・実装済** |
 
 **`DATA_SOURCE` / `SCENARIO` は廃止した**（6.3節）。
 

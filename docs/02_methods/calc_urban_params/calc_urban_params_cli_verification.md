@@ -1,6 +1,6 @@
 # calc_urban_params CLI・検証
 
-**最終更新**: 2026-08-22
+**最終更新**: 2026-08-23
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md)
 **前提知識**: [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章、[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7章（処理設計）
 
@@ -20,6 +20,7 @@
 | 11.3 QGIS での目視確認 | 結合結果・分布の妥当性確認 |
 | 11.4 人口密度・夜間光のCLI検証結果 | 15組み合わせの行数・値域・有効画素率の実測 |
 | 11.5 人口密度・夜間光の目視確認（画像保存） | 5列を着色表示し画像として保存、分布の妥当性確認 |
+| 11.6 土地被覆クラス別面積率のCLI検証結果 | 6組み合わせの行数・構成比・スケール間挙動・有効画素率の実測 |
 
 ---
 
@@ -96,6 +97,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - **`params/population.py`（`POP_DEN_{データソース}` / `POP_VALID_RATIO_{データソース}`）**: 設計確定・実装済み。人口グリッド（`worldpop_hanoi_2020.tif` / `landscan_hanoi_{2020,2023}.tif`）の**密度バンド（band 2、人/km²）**を coarse グリッドへ平均再投影し、100 で割ってセル平均人口密度（人/ha）とセル内の有効画素率（0-1）を算出する。`grid.cell_area_ha()` は使わない（理由は [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節）。3版は列名にデータソース接尾辞が付き（`run.py: apply_column_suffix()`）、同一データセットへ同時に結合できる。カウントバンド（band 1）を誤って指した場合は、バンド説明の照合で警告する（値は出力されるため統計を見ても気づけないため）。
 - **`params/nightlight.py`（`NTL_MEAN` / `NTL_VALID_RATIO`）**: 設計確定・実装済み。夜間光ラスタ（`viirs_dnb_hanoi_2023.tif` / `black_marble_vnp46a4_hanoi_2023.tif`）の**主バンド（band 1）**を coarse グリッドへ平均再投影し、セル平均放射輝度（nW·cm⁻²·sr⁻¹）とセル内の有効画素率（0-1）を算出する。放射輝度は面積に比例しない強度量のため面積正規化しない。主バンド以外（`avg_radiance_masked` / `max_radiance` / `ntl_all_angle` / `cf_cvg` 等）を指した場合は、バンド説明の**完全一致**照合で警告する。部分一致では兄弟バンドが主バンドと語を共有するため素通りする。
 - **`params/mask.py`（`IN_ANALYSIS_AREA`）**: 設計確定・実装済み。ROI ポリゴンの被覆率が0より大きいセルを1とする。
+- **`params/lulc.py`（`LULC_{クラス}_COV` / `LULC_VALID_RATIO`）**: 設計確定・実装済み。土地被覆ラスタ（`glc_fcs30d_hanoi_2022.tif` / `esri_lulc_hanoi_2022.tif`、パラメータセット `lulc_glc2022` / `lulc_esri2022`）の画素値を共通クラス体系（[src/common/lulc_classes.py](../../../src/common/lulc_classes.py)）へ写像し、雪氷を除く7クラスの面積率とセル内有効画素率を算出する。クラスごとの二値マスクを1クラスずつ`Resampling.average`で再投影し、クリップ前の合計を分母に正規化する（詳細は[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.2節）。データセット（GLC/Esri）の識別は画素値からは行えないため、`RasterResource.class_scheme` の明示的な宣言に依存し、未設定・未知の値は `params/lulc.py: validate_resource()` が入力解決の段階で停止する。`GIS_INDICATOR_MODULES` には加えない（7クラスの和が有効セルで必ず1になるため、`VALID_GIS_MASK` 本来の意味が失われる）。
 - 衛星指標・LSTは `INDICES_*.tif` / `LST_*.tif` のバンド説明（衛星指標: NDVI, NDBI, NDWI／LST: LST）から検出・検証する。
 - 実行には `fiona`, `pyogrio`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
 - **旧 wide CSV（`data/output/urban_params/*.csv`）は残置する。** 再生成の手段は持たない（旧原点での算出は `verify_values.py` が担う）。
@@ -146,6 +148,17 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - 値 `0` が実測値として保持される（Black Marble の `ntl_near_nadir` は ROI 内の最小値が 0.000）
 - 全解析スケールで最大値が変化しない（どのスケールでも内挿であることの確認。RQ2 を割り当てない根拠と対応する）
 - `NTL_VALID_RATIO` はほぼ定数列（ROI 全域で 1.0）であり、1.0 未満のセルは解析BBox最外周に限られる
+
+**土地被覆クラス別面積率（`LULC_{クラス}_COV` / `LULC_VALID_RATIO`）の検証観点**
+
+- `IN_ANALYSIS_AREA == 1` のセルで7クラスの面積率の合計が1.0である（`np.isclose`。float32の丸めが残るため厳密一致では判定しない）
+- 入力ラスタのクラス構成比（写像画素を母数とした画素数比）と、有効セルの面積率の加重平均が同水準である。市街地はソース間で定義差（GLCのImpervious surfacesは人工被覆、Esriの Built areaは建造環境）により値が大きく異なるが、これは実装の誤りではない
+- スケール間の挙動がデータセットの画素実寸から予想される特性と整合する。GLCは1セルあたり画素数が少ないため30mで面積率が実質的に0/1の二値へ近づき、90m・300mで中間値が増える。Esriは1セルあたり画素数が多いため30mでも中間値を持つ
+- `LULC_VALID_RATIO` の分布（1.0未満・0.5未満の件数）をスケール別に記録する（`run.py: summarize_valid_ratio()` が自動出力する）
+- 30mで `LULC_VALID_RATIO == 0` のセル数（寄与画素が1つも無く全クラスNaNになったセル）を記録する。GLCは1セルあたりの画素数が少ないため、この経路で寄与画素ゼロのセルが大量発生しないかが実測リスクである
+- 裸地クラスなど、ROI内で0画素のデータセットがあっても列は出力され値が`0.0`になる（列構成をデータで変えていないことの確認）
+- 警告（グリッド非重複・全面欠測・`class_scheme` 未設定）が発生しないこと
+- `build_dataset.py` の結合が `ValueError: テーブルの種別を判別できません` にならず完走し、`VALID_GIS_MASK` の分布が土地被覆の追加前後で変わらない（`GIS_INDICATOR_MODULES` に含めていないことの確認）
 
 ### 11.1 ユニットテスト
 
@@ -278,3 +291,60 @@ WorldPop が一貫して高いのは、大規模水域を無効画素とする�
 | VIIRS DNB と Black Marble の違い | 両者とも都心に高輝度エリアが集中し、分布パターンはおおむね一致する（主バンド間の高い相関 Pearson r=0.976 と整合する。[gis_data_nighttime_lights.md](../../01_planning/gis_data/gis_data_nighttime_lights.md) 5.3節） |
 
 ユーザー・Claude双方で目視確認済み。
+
+### 11.6 土地被覆クラス別面積率の CLI 検証結果（2026-08-23）
+
+```bash
+python -m src.analysis.urban_params --city hanoi --params lulc_glc2022 lulc_esri2022 --scales 30 90 300
+```
+
+**行数**: 30m 3,739,454 / 90m 417,694 / 300m 38,235。3スケールとも既存テーブル（`elev_fabdem`）と一致した。
+
+**値域と構成制約**: 全スケール・全列で面積率は0-1に収まった。`IN_ANALYSIS_AREA == 1` のセルで7クラスの面積率合計が `np.isclose` で1.0と一致することを確認した（実装が「構成として」保証する性質であり、単体テスト・CLI実測の双方で崩れていない）。
+
+**入力ラスタのクラス構成比との整合**（30m、写像画素を母数とした画素数比 vs 有効セルの面積率の加重平均）。
+
+| クラス | GLC 画素数比 | GLC 面積率(mean) | Esri 画素数比 | Esri 面積率(mean) |
+|---|---|---|---|---|
+| 農地 | 65.56% | 65.52% | 41.99% | 41.95% |
+| 市街地 | 19.99% | 19.95% | 39.27% | 39.22% |
+| 樹林 | 6.68% | 6.71% | 7.85% | 7.87% |
+| 水域 | 5.50% | 5.54% | 9.63% | 9.70% |
+| 湿地 | 1.77% | 1.78% | 0.06% | 0.06% |
+| 草地・低木 | 0.50% | 0.50% | 1.04% | 1.04% |
+| 裸地 | 0.00% | 0.00% | 0.15% | 0.15% |
+
+いずれも画素数比と面積率の加重平均が同水準であり、集約が入力のクラス構成を正しく反映していることを確認した。**市街地はソース間で 20.0% 対 39.2% と大きく異なる**が、これは[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節が述べる定義差（GLCの Impervious surfacesは人工被覆、Esriの Built areaは建造環境）の現れであり、実装の誤りではない。
+
+**スケール間の挙動**（`LULC_BUILT_COV` が1画素でも市街地を含むセルのうち、値が中間（0.05-0.95）であるセルの割合）。セル全体（値0のセルを含む）で割合を取ると、市街地が存在しないセルが多数を占めて指標が支配されてしまうため、母数を「市街地が存在するセル」に絞った。
+
+| データセット | 30m | 90m | 300m |
+|---|---|---|---|
+| GLC | 43.4% | 67.5% | 69.2% |
+| Esri | 16.9% | 37.6% | 66.9% |
+
+両データセットとも、スケールが粗くなるほど中間値の割合が増える。**Esriは30mでも中間値を持ち**（0%ではない）、[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節が述べる「Esriは30mでも真の集約が成立する」というスケール特性の差と整合する。**ただし、GLCとEsriの相対比較では、1セルあたり画素数が少ないGLCの方が中間値の割合が高いという、画素実寸のみからの単純な予測（画素数が少ないほど二値化しやすい）とは逆の結果になった。** 市街地クラスの境界形状・GLC_FCS30D自体の分類過程（30m解像度での分類に伴う平滑化の可能性）が影響していると考えられるが、本検証（市街地クラス・単一都市）だけでは原因を特定できない。GLC/Esriの二値化傾向の優劣を主張する根拠としては使わず、両データセットともスケールとともに中間値が増えるという共通傾向の確認にとどめる。
+
+**`LULC_VALID_RATIO` の分布**（1.0未満・0.5未満のセル数の割合、`run.py: summarize_valid_ratio()` の自動出力）。
+
+| データセット | 30m | 90m | 300m |
+|---|---|---|---|
+| GLC | 0.6% / 0.3% | 2.2% / 0.8% | 8.6% / 2.5% |
+| Esri | 0.6% / 0.3% | 2.0% / 0.8% | 7.3% / 2.4% |
+
+**30mで `LULC_VALID_RATIO == 0` のセル数**（寄与画素が1つも無く全クラスNaNになったセル）: GLC 1,893件（0.0506%）、Esri 697件（0.0186%）。GLCは1セルあたり1.08画素と実測リスクとして最も懸念していた条件だが、大量発生には至らなかった。GLCはFABDEMとtransformが完全一致（[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節）で`ELEV_VALID_RATIO`の30m実測が破綻していないことと整合する。
+
+**裸地クラス**: GLCは全セル`0.0`（mean/maxとも0.0）、Esriは`0.0`以外を持つセルが存在する（mean 0.0015、max 1.0）。列構成をデータで変えていないことを確認した。
+
+**欠測と警告**: 6組み合わせ（2データセット×3スケール）すべてで、グリッド非重複・全面欠測・`class_scheme`未設定の警告はいずれも発生しなかった。
+
+**結合フェーズへの影響確認**:
+
+```bash
+# 基準（土地被覆なし）
+python -m src.analysis.build_dataset --city hanoi --scenario limited --scale 300
+# 土地被覆あり
+python -m src.analysis.build_dataset --city hanoi --scenario limited --tables lulc_glc2022 --scale 300 --name limited_with_lulc
+```
+
+結合は `ValueError: テーブルの種別を判別できません` にならず完走した（`lulc_glc2022` が `PARAM_SETS` 経由で読み飛ばし側へ分岐している）。`VALID_GIS_MASK` の分布は追加前後で完全に一致した（`0` が4,101セル・`1` が34,134セルで同一）。`GIS_INDICATOR_MODULES` に `lulc` を加えていないことの効果を実データで確認した。

@@ -1,6 +1,6 @@
 # 公園近接距離データの調査・評価
 
-**最終更新**: 2026-08-06  
+**最終更新**: 2026-08-23  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md), [gis_data_lulc.md](gis_data_lulc.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義（NDVI/植生被覆率との違い）
 
@@ -10,7 +10,7 @@
 
 先行研究S4（建物密度・道路密度）、S5（構成・配置の分離評価）、S6・S8（GVF/SVF等の緑被関連指標）を踏まえ、緑地の「量」（NDVI・植生被覆率）だけでなく、「公園という都市計画上の緑地空間までの近接性」を都市構造パラメータとして評価する。本資料では、公園ポリゴンとして識別可能なオープンソースデータ候補を調査する。
 
-緑被の「量」を表す指標としては、衛星由来のNDVIが算出済みであり、土地被覆由来の植生被覆率（`GREEN_COV`）も採用済みである（ただし入力源・算出方法は設計未確定で、**未実装**である）。土地利用データ（[gis_data_lulc.md](gis_data_lulc.md)）の樹木・草地クラスも緑被の量に対応する。本資料が扱うのは、それらとは異なる「計画された公園空間」としての近接性である。
+緑被の「量」を表す指標としては、衛星由来のNDVIが算出済みであり、土地被覆由来の植生被覆率（P8）も採用済みである。P8 は独立した出力列を持たず、`LULC_TREE_COV`（樹林）・`LULC_RANGE_COV`（草地・低木）の読み替えとして**実装済み**である（[calc_urban_params_io_spec.md](../../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.4節）。土地利用データ（[gis_data_lulc.md](gis_data_lulc.md)）の樹木・草地クラスも緑被の量に対応する。本資料が扱うのは、それらとは異なる「計画された公園空間」としての近接性である。
 
 Hanoi ROIでの実データは未取得である。採否は [urban_structure_parameters.md](../urban_structure_parameters.md) を正本とし、本資料では扱わない。
 
@@ -63,7 +63,7 @@ Hanoi ROIでの実データは未取得である。採否は [urban_structure_pa
 
 - **主候補**: `OSM 公園データ`。都市計画上の「公園」という概念を最も直接的に表現でき、本研究で確立済みの取得パイプライン（Geofabrik + `ogr2ogr`）をそのまま流用できる。
 - **比較候補**: `Chen et al. 全球都市緑地データキューブ`。ハノイが対象都市に含まれる場合、Sentinel-2ベースの独立した緑地検出結果としてOSM公園データとのクロスチェックに使える。ただし対象都市への包含が未確認のため、取得スクリプト作成時に最初に確認する。
-- **参考データ**: `ESA WorldCover/Dynamic World`の緑被クラスは、公園以外の緑被も含むため、公園近接距離の主要データとしては採用しない。植生被覆率（`GREEN_COV`）の入力候補としては引き続き検討する（[gis_data_lulc.md](gis_data_lulc.md)参照）。
+- **参考データ**: `ESA WorldCover/Dynamic World`の緑被クラスは、公園以外の緑被も含むため、公園近接距離の主要データとしては採用しない。植生被覆率（P8）は GLC_FCS30D / Esri 10m LULC（`LULC_TREE_COV`・`LULC_RANGE_COV`）で実装済みであり、本節（公園近接距離）の対象外（[gis_data_lulc.md](gis_data_lulc.md)参照）。
 - **不採用**: `Copernicus Urban Atlas`（ベトナム非対応）、`WDPA`（概念不一致・再配布制限）、`UN-Habitat統計`（都市単位の集計値でグリッド単位の距離算出に使えない）。
 - `OSM 公園データ`と`Chen et al. データキューブ`はPythonスクリプト経由（`ogr2ogr` / Figshare直接DL）で取得可能なため、**取得スクリプト作成タスクとして別Issueを起票**する（優先度はユーザーに確認の上で起票）。
 

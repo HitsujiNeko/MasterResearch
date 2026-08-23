@@ -108,17 +108,16 @@ def compute(
   - `LULC_VALID_RATIO`: セル内の「出力7クラスへ写像される画素」の割合（0-1）
   - **カテゴリカルラスタのため、連続量と同じ `Resampling.average` は画素値そのものには使えない。** クラスごとに二値マスク（当該クラスへ写像される画素を1、それ以外を0とした配列）を1クラスずつ生成し、その二値マスクを `Resampling.average` で coarse グリッドへ再投影することで面積率を得る。7クラス分の割合の合計（クリップ前の `fraction_sum`）を分母として各クラスを正規化するため、有効セルでの合計は構成として厳密に1になる。7マスクを同時に保持すると大きなラスタ（Esri: 約6,980万画素）で約1.95GBに達するため、1クラスずつ生成・再投影してから破棄する
   - 詳細（母数の定義・欠測規約・除算の実装・nodataの除外方法）は [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節を正本とする
+- 植生被覆率（P8 / 土地被覆クラス別面積率の読み替え）
+  - `GREEN_COV`: **独立した出力列は持たない。** `LULC_TREE_COV`（樹林）・`LULC_RANGE_COV`（草地・低木）の読み替えとして実体化した（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §2.2）
 
 **設計未確定**（採用済み）
 
-- 植生（土地被覆分類ラスタの植生クラス / 測量GIS の TV）
-  - `GREEN_COV`: 植生被覆率
-  - **独立した出力列は持たない。** `LULC_TREE_COV`（樹林）・`LULC_RANGE_COV`（草地・低木）の読み替えとして実体化した（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §2.2）
 - 測量GIS由来の標高（DH）
   - `full` シナリオ向けに、点属性から数値標高を抽出しセル平均を算出する案を第一候補とする
 
 > 測量由来GISのレイヤ意味は最終的に固定し切れていない部分があるため、  
-> 特に `GREEN_COV` および `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
+> `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
 > `limited` シナリオの建物データソースは GlobalBuildingAtlas（`hanoi_gba_buildings.gpkg`）、標高は FABDEM v1.2 を使用する。
 
 **共通基盤関数の算出手法と制約**:

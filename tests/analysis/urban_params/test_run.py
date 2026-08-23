@@ -698,6 +698,8 @@ def test_param_set_columns_match_computed_columns(city_environment: dict[str, An
         "pop_landscan2023",
         "ntl_viirs2023",
         "ntl_bm2023",
+        "lulc_glc2022",
+        "lulc_esri2022",
     ):
         task = build_param_tasks([table_name], city_environment["city_cfg"], ANALYSIS_CRS)[0]
         validate_computed_columns(task, task.compute(bbox, grid_spec))

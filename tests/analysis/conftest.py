@@ -179,6 +179,37 @@ def _write_nightlight_raster(path: Path, primary_band_name: str) -> None:
         dst.set_band_description(1, primary_band_name)
 
 
+def _write_lulc_raster(path: Path, row_ranges_by_value: dict[int, tuple[int, int]]) -> None:
+    """解析範囲を覆うカテゴリラスタ（土地被覆）を書き出す。
+
+    行帯ごとに単一の画素値を敷く単純な構成にすることで、どのクラスがどの
+    面積を占めるかをテスト側で計算しやすくする。指定しなかった行は
+    nodata（0）のまま残る。
+
+    Args:
+        path: 出力先のGeoTIFFパス。
+        row_ranges_by_value: 画素値から `(開始行, 終了行)`（終端は排他的）への
+            辞書。範囲は20列すべてに敷く。
+    """
+    data = np.zeros((20, 20), dtype=np.uint8)
+    for value, (row_start, row_end) in row_ranges_by_value.items():
+        data[row_start:row_end, :] = value
+
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=1,
+        dtype="uint8",
+        crs=ANALYSIS_CRS,
+        transform=from_origin(0.0, 200.0, 10.0, 10.0),
+        nodata=0,
+    ) as dst:
+        dst.write(data, 1)
+
+
 def _write_indices_raster(path: Path) -> None:
     """NDVI/NDBI/NDWI のバンド説明を持つ衛星指標ラスタを書き出す。"""
     with rasterio.open(
@@ -271,6 +302,35 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     _write_population_raster(data_dir / "population.tif")
     _write_nightlight_raster(data_dir / "nightlight_viirs.tif", "avg_radiance")
     _write_nightlight_raster(data_dir / "nightlight_bm.tif", "ntl_near_nadir")
+    # GLC・Esriとも、雪氷を除く7クラス全部・雪氷・nodata（末尾4行）を含む構成にする。
+    # 行の割り当てはio_spec.md 6.4節の対応表に合わせる（農地・樹林・市街地・水域・
+    # 草地低木・湿地・裸地の順）。
+    _write_lulc_raster(
+        data_dir / "lulc_glc.tif",
+        {
+            10: (0, 2),
+            51: (2, 4),
+            190: (4, 6),
+            210: (6, 8),
+            120: (8, 10),
+            181: (10, 12),
+            200: (12, 14),
+            220: (14, 16),
+        },
+    )
+    _write_lulc_raster(
+        data_dir / "lulc_esri.tif",
+        {
+            5: (0, 2),
+            2: (2, 4),
+            7: (4, 6),
+            1: (6, 8),
+            11: (8, 10),
+            4: (10, 12),
+            8: (12, 14),
+            9: (14, 16),
+        },
+    )
     _write_indices_raster(data_dir / SATELLITE_FILE_NAME)
     _write_lst_raster(data_dir / LST_FILE_NAME)
 
@@ -297,6 +357,16 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
             "landscan2023": {"path": "data/population.tif", "band": 2},
             "viirs2023": {"path": "data/nightlight_viirs.tif", "band": 1},
             "bm2023": {"path": "data/nightlight_bm.tif", "band": 1},
+            "glc2022": {
+                "path": "data/lulc_glc.tif",
+                "band": 1,
+                "class_scheme": "glc2022",
+            },
+            "esri2022": {
+                "path": "data/lulc_esri.tif",
+                "band": 1,
+                "class_scheme": "esri2022",
+            },
         },
     }
 

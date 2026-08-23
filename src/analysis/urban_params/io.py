@@ -67,10 +67,16 @@ class RasterResource:
     Attributes:
         path: ラスタファイルの絶対パス。
         band_index: 読み込むバンド番号（1始まり）。
+        class_scheme: カテゴリラスタの分類体系を識別する名前
+            （``src.common.lulc_classes.CLASS_SCHEMES`` のキー）。連続量ラスタ
+            では使わないため既定値は空文字列。``params/lulc.py`` が、画素値から
+            は判別できないデータセットの分類体系（GLC/Esri）を識別するために
+            使う。
     """
 
     path: Path
     band_index: int
+    class_scheme: str = ""
 
 
 @dataclass
@@ -235,6 +241,8 @@ def get_optional_raster_resource(
     Returns:
         ``raster_key`` が ``None`` の場合は ``None``。
         それ以外は解決済みのパスとバンド番号を保持する ``RasterResource``。
+        ``class_scheme`` は設定に無ければ空文字列になる（連続量ラスタでは
+        未設定のままでよい）。
 
     Raises:
         ValueError: ``raster_key`` が ``city_cfg["rasters"]`` に存在しない場合、
@@ -256,7 +264,9 @@ def get_optional_raster_resource(
     if not raster_path.exists():
         raise FileNotFoundError(f"ラスタファイルが見つかりません: {raster_path}")
 
-    return RasterResource(raster_path, int(raster_cfg["band"]))
+    return RasterResource(
+        raster_path, int(raster_cfg["band"]), str(raster_cfg.get("class_scheme", ""))
+    )
 
 
 def bbox_from_layer(resource: LayerResource, analysis_crs: CRS) -> BBox:

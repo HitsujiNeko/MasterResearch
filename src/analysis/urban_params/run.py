@@ -70,7 +70,7 @@ from .io import (
     get_optional_raster_resource,
     layer_cache,
 )
-from .params import buildings, elevation, lst, mask, nightlight, population, raster, roads
+from .params import buildings, elevation, lst, lulc, mask, nightlight, population, raster, roads
 from .tables import (
     CELL_ID_COLUMN,
     aligned_bbox,
@@ -89,6 +89,7 @@ PARAM_MODULES = {
     "elevation": elevation,
     "population": population,
     "nightlight": nightlight,
+    "lulc": lulc,
     "mask": mask,
 }
 

@@ -133,6 +133,9 @@ def map_to_common_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndar
     """
     lookup = build_class_lookup(mapping)
     common = np.zeros(array.shape, dtype=np.uint8)
-    in_range = array < lookup.size
+    # array >= 0 も判定に加える。符号付き整数dtypeの負値はNumPyの負インデックス
+    # 解釈により添字表の末尾から参照され、意図しない別クラスへ静かに誤分類
+    # されうる（現行の入力はuint8で負値を持たないが、将来の入力dtypeに対する防御）。
+    in_range = (array >= 0) & (array < lookup.size)
     common[in_range] = lookup[array[in_range]]
     return common

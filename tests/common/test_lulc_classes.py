@@ -104,6 +104,19 @@ class TestMapToCommonClasses:
 
         assert int(result[0, 0]) == target.COMMON_INVALID
 
+    def test_negative_values_become_invalid_not_negative_indexed(self) -> None:
+        """負の画素値はNumPyの負インデックス解釈で誤分類されず COMMON_INVALID になる。
+
+        符号付きdtype（int16等）の負値・未定義fill値を想定した回帰テスト。
+        ガードが無いと `-11` は添字表の末尾から11番目（GLCでは画素値210＝水域）
+        を参照してしまう。
+        """
+        array = np.array([[-11]], dtype=np.int16)
+
+        result = target.map_to_common_classes(array, target.GLC_TO_COMMON)
+
+        assert int(result[0, 0]) == target.COMMON_INVALID
+
     def test_returns_uint8_array_of_same_shape(self) -> None:
         """出力は入力と同じ形状の uint8 配列になる。"""
         array = np.array([[1, 2], [4, 5]], dtype=np.uint8)

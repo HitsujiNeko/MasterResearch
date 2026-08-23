@@ -523,9 +523,14 @@ _TEST_CLASS_VALUES = [1, 2]
 
 
 def _write_category_raster(
-    path: Path, data: np.ndarray, transform: rasterio.Affine, *, nodata: int | None = None
+    path: Path,
+    data: np.ndarray,
+    transform: rasterio.Affine,
+    *,
+    nodata: int | None = None,
+    dtype: str = "uint8",
 ) -> None:
-    """テスト用のカテゴリラスタ（uint8）を書き出す。"""
+    """テスト用のカテゴリラスタ（既定はuint8）を書き出す。"""
     with rasterio.open(
         path,
         "w",
@@ -533,7 +538,7 @@ def _write_category_raster(
         height=data.shape[0],
         width=data.shape[1],
         count=1,
-        dtype="uint8",
+        dtype=dtype,
         crs="EPSG:3857",
         transform=transform,
         nodata=nodata,
@@ -626,6 +631,29 @@ def test_nodata_pixel_is_excluded_even_if_its_value_maps_to_a_class(tmp_path: Pa
     # nodata（値1、1画素）を除いた3画素はすべてクラス2
     assert fractions[1][0, 0] == pytest.approx(0.0, abs=1e-5)
     assert fractions[2][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert valid_ratio[0, 0] == pytest.approx(0.75, abs=1e-5)
+
+
+def test_negative_pixel_values_are_excluded_not_negative_indexed(tmp_path: Path) -> None:
+    """負の画素値（符号付きdtype）はNumPyの負インデックス解釈で誤分類されず除外される。
+
+    ガードが無いと負値は添字表の末尾側を参照してしまい、無関係なクラスへ
+    誤分類される。現行の入力（GLC・Esriとも uint8）では発生しないが、
+    将来の符号付き整数入力に対する回帰テスト。
+    """
+    # 4画素中1画素が負値(-1)。残り3画素はクラス1。
+    data = np.array([[1, 1], [1, -1]], dtype=np.int16)
+    tif_path = tmp_path / "negative.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10), dtype="int16")
+
+    fractions, valid_ratio = aggregate_class_fractions_to_grid(
+        tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+    )
+
+    # 母数は写像可能な3画素に閉じるため、クラス1の割合は1.0のまま
+    assert fractions[1][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert (fractions[1][0, 0] + fractions[2][0, 0]) == pytest.approx(1.0, abs=1e-5)
+    # 有効画素率は写像可能画素の割合（4画素中3画素）
     assert valid_ratio[0, 0] == pytest.approx(0.75, abs=1e-5)
 
 

@@ -475,7 +475,10 @@ def aggregate_class_fractions_to_grid(
         src_crs = src.crs
 
     valid_mask = _valid_pixel_mask(band, nodata)
-    mappable = valid_mask & (band < class_lookup.size)
+    # band >= 0 も判定に加える。符号付き整数dtypeの負値はNumPyの負インデックス
+    # 解釈により添字表の末尾から参照され、意図しない別クラスへ静かに誤分類
+    # されうる（現行の入力はuint8で負値を持たないが、将来の入力dtypeに対する防御）。
+    mappable = valid_mask & (band >= 0) & (band < class_lookup.size)
 
     common = np.zeros(band.shape, dtype=np.uint8)
     common[mappable] = class_lookup[band[mappable]]

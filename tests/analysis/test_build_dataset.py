@@ -468,6 +468,37 @@ def test_classify_value_columns_excludes_elevation_and_mask() -> None:
     assert satellite_columns == []
 
 
+def test_classify_value_columns_excludes_lulc_from_both_masks() -> None:
+    """土地被覆（lulc_* テーブル）は VALID_GIS_MASK / VALID_SATELLITE_MASK の判定材料に含めない。
+
+    7クラスの面積率の和は有効セルで必ず1になるため、判定材料に含めると ROI 内の
+    ほぼ全セルが有効と判定され、``VALID_GIS_MASK`` 本来の意味（建物・道路データが
+    当該セルに存在するか）が失われる。``GIS_INDICATOR_MODULES`` に ``lulc`` を
+    加えないことで実現しており、その効果をユニットテストで固定する。
+    """
+    tables = {
+        "build_gba": _one_row(["BUILD_COV"]),
+        SATELLITE_TABLE_NAME: _one_row(["NDVI"]),
+        "lulc_glc2022": _one_row(
+            [
+                "LULC_WATER_COV",
+                "LULC_TREE_COV",
+                "LULC_CROP_COV",
+                "LULC_BUILT_COV",
+                "LULC_RANGE_COV",
+                "LULC_WETLAND_COV",
+                "LULC_BARE_COV",
+                "LULC_VALID_RATIO",
+            ]
+        ),
+    }
+
+    gis_columns, satellite_columns = classify_value_columns(list(tables), tables)
+
+    assert gis_columns == ["BUILD_COV"]
+    assert satellite_columns == ["NDVI"]
+
+
 def test_classify_value_columns_rejects_unknown_table() -> None:
     """PARAM_SETS にも衛星指標の命名規則にも該当しないテーブルはValueErrorになる。"""
     tables = {"mystery": _one_row(["SOMETHING"])}

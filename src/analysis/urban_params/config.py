@@ -174,6 +174,21 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 ),
                 "band": 1,
             },
+            # 土地被覆はデータセットごとに分類体系（クラス値の意味）が異なる
+            # カテゴリラスタであり、band 1 の画素値だけでは体系を判別できない
+            # （値 10・11 が両体系に存在するが意味が異なる）ため、写像表を選ぶ
+            # 手がかりとして class_scheme を明示する（src.common.lulc_classes の
+            # CLASS_SCHEMES のキーと対応させる）。
+            "glc2022": {
+                "path": "data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif",
+                "band": 1,
+                "class_scheme": "glc2022",
+            },
+            "esri2022": {
+                "path": "data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif",
+                "band": 1,
+                "class_scheme": "esri2022",
+            },
         },
     }
 }
@@ -226,6 +241,20 @@ NIGHTLIGHT_COLUMNS = ("NTL_MEAN", "NTL_VALID_RATIO")
 # が返すのはこの名前であり、実際に出力される列名は接尾辞つきになる。
 POPULATION_BASE_COLUMNS = ("POP_DEN", "POP_VALID_RATIO")
 
+# 土地被覆はGLC・Esriのいずれで算出しても同じ列名を使う（差し替え関係。人口密度と
+# 異なり同一データセットへ同時結合しないため接尾辞は付けない）。7クラス（雪氷を
+# 除く）＋有効画素率。列名から共通クラスIDへの対応は ``params/lulc.py`` が持つ。
+LULC_COLUMNS = (
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_CROP_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV",
+    "LULC_BARE_COV",
+    "LULC_VALID_RATIO",
+)
+
 
 def population_param_set(raster_key: str, source_suffix: str) -> ParamSet:
     """データソース接尾辞つきの列名を持つ人口パラメータセットを組み立てる。
@@ -269,6 +298,10 @@ PARAM_SETS: dict[str, ParamSet] = {
     "pop_landscan2023": population_param_set("landscan2023", "LANDSCAN2023"),
     "ntl_viirs2023": ParamSet("nightlight", "raster", "viirs2023", NIGHTLIGHT_COLUMNS),
     "ntl_bm2023": ParamSet("nightlight", "raster", "bm2023", NIGHTLIGHT_COLUMNS),
+    # 主ソース（GLC_FCS30D）・副ソース（Esri 10m LULC）。位置づけは
+    # gis_data_lulc.md 4章を参照。同時結合しないため列名は共有する。
+    "lulc_glc2022": ParamSet("lulc", "raster", "glc2022", LULC_COLUMNS),
+    "lulc_esri2022": ParamSet("lulc", "raster", "esri2022", LULC_COLUMNS),
     "mask_roi": ParamSet("mask", "layer", ANALYSIS_EXTENT_LAYER_KEY, ("IN_ANALYSIS_AREA",)),
 }
 

@@ -13,6 +13,7 @@ from rasterio.transform import from_origin
 
 from src.analysis.urban_params.grid import build_grid
 from src.analysis.urban_params.params.raster import (
+    aggregate_class_fractions_to_grid,
     aggregate_mean_and_valid_ratio,
     aggregate_raster_to_grid,
     aggregate_valid_ratio_to_grid,
@@ -508,3 +509,231 @@ def test_substring_mode_lets_sibling_bands_pass(tmp_path: Path) -> None:
         warn_if_band_description_unexpected(raster_path, 1, ("radiance",), "夜間光")
 
     assert not [record for record in caught if "バンド番号の取り違え" in str(record.message)]
+
+
+# ---------------------------------------------------------------------------
+# aggregate_class_fractions_to_grid
+# ---------------------------------------------------------------------------
+
+# テスト用の添字表（画素値 -> 共通クラスID）。画素値0は無効値、1・2がクラスA・
+# クラスB、3は添字表の範囲外（写像対象外）とする。src.common.lulc_classes には
+# 依存させず、raster.py が添字表を引くだけで完結することを確認する。
+_TEST_CLASS_LOOKUP = np.array([0, 1, 2], dtype=np.uint8)
+_TEST_CLASS_VALUES = [1, 2]
+
+
+def _write_category_raster(
+    path: Path,
+    data: np.ndarray,
+    transform: rasterio.Affine,
+    *,
+    nodata: int | None = None,
+    dtype: str = "uint8",
+) -> None:
+    """テスト用のカテゴリラスタ（既定はuint8）を書き出す。"""
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=data.shape[0],
+        width=data.shape[1],
+        count=1,
+        dtype=dtype,
+        crs="EPSG:3857",
+        transform=transform,
+        nodata=nodata,
+    ) as dst:
+        dst.write(data, 1)
+
+
+def _grid_spec_0_to_20():
+    """解析範囲 0-20m 四方・coarse 20m（1セルのみ）のグリッド仕様を返す。"""
+    return build_grid(
+        BBox(0.0, 0.0, 20.0, 20.0), CRS.from_epsg(3857), coarse_res_m=20.0, fine_res_m=10.0
+    )
+
+
+def test_class_fractions_sum_to_one_for_fully_mappable_cells(tmp_path: Path) -> None:
+    """写像可能画素のみのセルでは、クラス別面積率の合計が1.0になる。"""
+    data = np.array(
+        [
+            [1, 1, 2, 2],
+            [1, 2, 1, 2],
+            [2, 2, 1, 1],
+            [1, 1, 2, 2],
+        ],
+        dtype=np.uint8,
+    )
+    tif_path = tmp_path / "category.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 40, 10, 10))
+
+    fractions, valid_ratio = aggregate_class_fractions_to_grid(
+        tif_path, _grid_spec_0_to_40(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+    )
+
+    total = fractions[1] + fractions[2]
+    np.testing.assert_allclose(total, 1.0, rtol=1e-5)
+    np.testing.assert_allclose(valid_ratio, 1.0, atol=1e-5)
+
+
+def test_rejects_duplicate_class_values(tmp_path: Path) -> None:
+    """class_values に重複した共通クラスIDが含まれると ValueError になる。
+
+    重複を許すと fraction_sum が二重計上され、正規化後の全クラスの面積率が
+    静かに縮小する（LULC_VALID_RATIO はクリップされるため異常に気づけない）。
+    """
+    data = np.array([[1, 1], [1, 2]], dtype=np.uint8)
+    tif_path = tmp_path / "duplicate.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10))
+
+    with pytest.raises(ValueError, match="重複した共通クラスID"):
+        aggregate_class_fractions_to_grid(
+            tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, [1, 1, 2], "テスト"
+        )
+
+
+def test_class_fraction_matches_pixel_count_ratio(tmp_path: Path) -> None:
+    """クラス別面積率は、そのクラスへ写像される画素の割合と一致する。"""
+    # クラス1が3画素・クラス2が1画素
+    data = np.array([[1, 1], [1, 2]], dtype=np.uint8)
+    tif_path = tmp_path / "ratio.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10))
+
+    fractions, _ = aggregate_class_fractions_to_grid(
+        tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+    )
+
+    assert fractions[1][0, 0] == pytest.approx(0.75, abs=1e-5)
+    assert fractions[2][0, 0] == pytest.approx(0.25, abs=1e-5)
+
+
+@pytest.mark.parametrize(
+    ("data", "dtype"),
+    [
+        pytest.param(np.array([[1, 1], [1, 3]], dtype=np.uint8), "uint8", id="out_of_range_value"),
+        pytest.param(np.array([[1, 1], [1, -1]], dtype=np.int16), "int16", id="negative_value"),
+    ],
+)
+def test_unmapped_values_are_excluded_from_denominator(
+    tmp_path: Path, data: np.ndarray, dtype: str
+) -> None:
+    """写像表に無い値（範囲外の値・負の値）は分子・分母の双方から除かれる。
+
+    負の画素値（符号付きdtype）は、ガードが無いとNumPyの負インデックス解釈で
+    添字表の末尾側を参照してしまい、無関係なクラスへ誤分類される。現行の入力
+    （GLC・Esriとも uint8）では発生しないが、将来の符号付き整数入力に対する
+    回帰テストを兼ねる。面積率の合計は1のまま、有効画素率だけが1.0未満になる。
+    """
+    # 4画素中1画素が写像対象外（添字表の範囲外、または負値）。残り3画素はクラス1。
+    tif_path = tmp_path / "unmapped.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10), dtype=dtype)
+
+    fractions, valid_ratio = aggregate_class_fractions_to_grid(
+        tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+    )
+
+    # 母数は写像可能な3画素に閉じるため、クラス1の割合は1.0のまま
+    assert fractions[1][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert (fractions[1][0, 0] + fractions[2][0, 0]) == pytest.approx(1.0, abs=1e-5)
+    # 有効画素率は写像可能画素の割合（4画素中3画素）
+    assert valid_ratio[0, 0] == pytest.approx(0.75, abs=1e-5)
+
+
+def test_nodata_pixel_is_excluded_even_if_its_value_maps_to_a_class(tmp_path: Path) -> None:
+    """nodata画素は、その値が写像表にあるクラスへ写像される値であっても除外する。
+
+    ``reproject()`` に ``src_nodata`` を渡す代わりに、共通クラス配列側でIDを
+    0にすることで除外している。この経路を通らないと、将来nodata値が写像先
+    クラス値と衝突した場合に「和が1」という性質が壊れる。
+    """
+    # 画素値1はクラス1に写像される値だが、nodata=1として設定する
+    data = np.array([[1, 2], [2, 2]], dtype=np.uint8)
+    tif_path = tmp_path / "nodata_collides.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10), nodata=1)
+
+    fractions, valid_ratio = aggregate_class_fractions_to_grid(
+        tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+    )
+
+    # nodata（値1、1画素）を除いた3画素はすべてクラス2
+    assert fractions[1][0, 0] == pytest.approx(0.0, abs=1e-5)
+    assert fractions[2][0, 0] == pytest.approx(1.0, abs=1e-5)
+    assert valid_ratio[0, 0] == pytest.approx(0.75, abs=1e-5)
+
+
+def test_cell_with_no_mappable_pixel_becomes_nan_with_zero_ratio(tmp_path: Path) -> None:
+    """写像可能画素が1つも無いセルは、各クラスがNaN・有効画素率が0.0になる。"""
+    # 全画素が添字表の範囲外の値(3)
+    data = np.full((2, 2), 3, dtype=np.uint8)
+    tif_path = tmp_path / "all_unmapped.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10))
+
+    with pytest.warns(UserWarning, match="写像できる画素が1つもありません"):
+        fractions, valid_ratio = aggregate_class_fractions_to_grid(
+            tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+        )
+
+    assert np.isnan(fractions[1]).all()
+    assert np.isnan(fractions[2]).all()
+    assert valid_ratio[0, 0] == pytest.approx(0.0, abs=1e-5)
+    assert not np.isnan(valid_ratio).any()
+
+
+def test_cells_outside_raster_extent_get_same_missing_convention(tmp_path: Path) -> None:
+    """ラスタ範囲外のセルも、写像画素ゼロと同じ欠測規約に落ちる。"""
+    # ラスタは左上2x2セルのみを覆い、グリッド全体(2x2セル)の右下側は範囲外
+    data = np.array([[1, 1], [1, 1]], dtype=np.uint8)
+    tif_path = tmp_path / "partial_coverage.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 40, 10, 10))
+
+    fractions, valid_ratio = aggregate_class_fractions_to_grid(
+        tif_path, _grid_spec_0_to_40(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+    )
+
+    # 右下セル(1, 1)はラスタ範囲外
+    assert np.isnan(fractions[1][1, 1])
+    assert np.isnan(fractions[2][1, 1])
+    assert valid_ratio[1, 1] == pytest.approx(0.0, abs=1e-5)
+
+
+def test_warns_when_overlapping_but_no_mappable_pixel(tmp_path: Path) -> None:
+    """重なってはいるが写像可能画素が無い場合、「重なりません」ではない警告を出す。"""
+    data = np.full((4, 4), 3, dtype=np.uint8)  # 全画素が添字表の範囲外
+    tif_path = tmp_path / "all_unmapped_overlap.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 40, 10, 10))
+
+    with pytest.warns(UserWarning, match="写像できる画素が1つもありません") as caught:
+        aggregate_class_fractions_to_grid(
+            tif_path, _grid_spec_0_to_40(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+        )
+
+    assert not [record for record in caught if "重なりません" in str(record.message)]
+
+
+def test_warns_when_raster_does_not_overlap_grid(tmp_path: Path) -> None:
+    """グリッドと重ならないラスタでは「重なりません」と警告する。"""
+    data = np.full((4, 4), 1, dtype=np.uint8)
+    tif_path = tmp_path / "far_away_category.tif"
+    _write_category_raster(tif_path, data, from_origin(100000, 100000, 10, 10))
+
+    with pytest.warns(UserWarning, match="重なりません"):
+        fractions, _ = aggregate_class_fractions_to_grid(
+            tif_path, _grid_spec_0_to_40(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+        )
+
+    assert np.isnan(fractions[1]).all()
+
+
+def test_does_not_warn_for_normal_category_input(tmp_path: Path) -> None:
+    """写像可能画素があるラスタでは警告しない（重なり判定のためにラスタを開き直さない）。"""
+    data = np.array([[1, 2], [1, 2]], dtype=np.uint8)
+    tif_path = tmp_path / "normal_category.tif"
+    _write_category_raster(tif_path, data, from_origin(0, 20, 10, 10))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        aggregate_class_fractions_to_grid(
+            tif_path, _grid_spec_0_to_20(), 1, _TEST_CLASS_LOOKUP, _TEST_CLASS_VALUES, "テスト"
+        )
+
+    assert not caught

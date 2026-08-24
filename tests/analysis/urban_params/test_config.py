@@ -25,6 +25,7 @@ CITY_KEY = "hanoi"
         (("build_gba", "build_dc"), "建物"),
         (("road_osm", "road_gt"), "道路"),
         (("ntl_viirs2023", "ntl_bm2023"), "夜間光"),
+        (("lulc_glc2022", "lulc_esri2022"), "土地被覆"),
     ],
 )
 def test_param_sets_of_same_module_declare_identical_columns(
@@ -189,4 +190,31 @@ def test_raster_param_sets_declare_band_index() -> None:
         assert "band" in entry, f"バンド番号が未指定です: {key}"
         assert isinstance(entry["band"], int) and entry["band"] >= 1, (
             f"バンド番号は1以上の整数である必要があります: {key}={entry['band']}"
+        )
+
+
+def test_lulc_param_sets_declare_known_class_scheme() -> None:
+    """``lulc`` モジュールを参照する ParamSet のラスタ設定は、既知の class_scheme を宣言する。
+
+    ``params/lulc.py: validate_resource()`` は実行時チェックであり、CLI を実際に
+    回すまで宣言漏れに気づけない。画素値の分布から分類体系を推定する経路は
+    採れない（値 10・11 が GLC/Esri の両体系に存在するが意味が異なるため）ため、
+    設定漏れは黙って誤った写像表を適用する結果につながる。CLI実行前に静的に
+    弾けるよう、``test_raster_param_sets_declare_band_index()`` と同じ形で検査する。
+    """
+    from src.common.lulc_classes import CLASS_SCHEMES
+
+    lulc_raster_keys = {
+        param_set.input_key
+        for param_set in PARAM_SETS.values()
+        if param_set.module_name == "lulc" and param_set.input_kind == "raster"
+    }
+    assert lulc_raster_keys, "lulc を参照する ParamSet が見つかりません"
+
+    for key in lulc_raster_keys:
+        entry = CITY_CONFIG[CITY_KEY]["rasters"][key]
+        scheme = entry.get("class_scheme", "")
+        assert scheme in CLASS_SCHEMES, (
+            f"rasters['{key}'] の class_scheme が未知です（値: '{scheme}'）。"
+            f" CLASS_SCHEMES のいずれか（{sorted(CLASS_SCHEMES)}）を指定してください。"
         )

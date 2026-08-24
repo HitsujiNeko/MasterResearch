@@ -1,6 +1,6 @@
 # calc_urban_params 処理設計
 
-**最終更新**: 2026-08-20
+**最終更新**: 2026-08-23
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章、[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章（入出力仕様）
 
@@ -47,6 +47,7 @@ src/analysis/
       elevation.py    # 標高パラメータ（ELEV_MEAN/ELEV_VALID_RATIO）
       population.py   # 人口密度パラメータ（POP_DEN/POP_VALID_RATIO。列名にデータソース接尾辞）
       nightlight.py   # 夜間光パラメータ（NTL_MEAN/NTL_VALID_RATIO）
+      lulc.py         # 土地被覆クラス別面積率（LULC_*_COV/LULC_VALID_RATIO。雪氷を除く7クラス）
       mask.py         # 解析対象域フラグ（IN_ANALYSIS_AREA）
     run.py            # main(): パラメータセット単位・マルチスケール出力のオーケストレーション
     verify_values.py  # 旧 wide CSV との値照合（検証専用。11.2節）
@@ -102,19 +103,21 @@ def compute(
 - 夜間光強度（ラスタ / 2026-08-20 確定）
   - 放射輝度は面積に比例しない**強度量**であるため、標高と同じくラスタ集約経路（Step C と共通の集約関数）でセル平均を取る。面積正規化は行わない
 - 入力ラスタの解像度と解析スケールの関係は**データセットによって異なる**。判定は公称解像度ではなく対象地域の緯度における画素実寸で行う。実測値と RQ2 割当への影響は [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §1.4 を正本とする
+- 土地被覆クラス別面積率（GLC_FCS30D / Esri 10m LULC、パラメータセット `lulc_glc2022` / `lulc_esri2022`）
+  - `LULC_{クラス}_COV`: 共通クラス体系（雪氷を除く7クラス）へ写像したうえでのクラス別面積率（0-1）
+  - `LULC_VALID_RATIO`: セル内の「出力7クラスへ写像される画素」の割合（0-1）
+  - **カテゴリカルラスタのため、連続量と同じ `Resampling.average` は画素値そのものには使えない。** クラスごとに二値マスク（当該クラスへ写像される画素を1、それ以外を0とした配列）を1クラスずつ生成し、その二値マスクを `Resampling.average` で coarse グリッドへ再投影することで面積率を得る。7クラス分の割合の合計（クリップ前の `fraction_sum`）を分母として各クラスを正規化するため、有効セルでの合計は構成として厳密に1になる。7マスクを同時に保持すると大きなラスタ（Esri: 約6,980万画素）で約1.95GBに達するため、1クラスずつ生成・再投影してから破棄する
+  - 詳細（母数の定義・欠測規約・除算の実装・nodataの除外方法）は [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節を正本とする
+- 植生被覆率（P8 / 土地被覆クラス別面積率の読み替え）
+  - `GREEN_COV`: **独立した出力列は持たない。** `LULC_TREE_COV`（樹林）・`LULC_RANGE_COV`（草地・低木）の読み替えとして実体化した（[urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) §2.2）
 
 **設計未確定**（採用済み）
 
-- 植生（土地被覆分類ラスタの植生クラス / 測量GIS の TV）
-  - `GREEN_COV`: 植生被覆率
-  - 採否の正本は本パラメータを「**土地被覆分類の植生クラスに由来する面積比**」と定義している。土地利用タグ（OSM `landuse=*` 等）を入力に用いる場合は、**どのタグを植生クラスとみなすかの分類規則を定めてから**候補に加える。規則を定めずに用いると、正本の定義とは別概念の列を出力することになる
-- 土地被覆クラス別面積率（土地被覆ラスタ）
-  - **カテゴリカルラスタ**のため、連続量を対象とする `Resampling.average` は使えない。クラスごとの画素割合を集約する処理を別途設計する
 - 測量GIS由来の標高（DH）
   - `full` シナリオ向けに、点属性から数値標高を抽出しセル平均を算出する案を第一候補とする
 
 > 測量由来GISのレイヤ意味は最終的に固定し切れていない部分があるため、  
-> 特に `GREEN_COV` および `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
+> `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
 > `limited` シナリオの建物データソースは GlobalBuildingAtlas（`hanoi_gba_buildings.gpkg`）、標高は FABDEM v1.2 を使用する。
 
 **共通基盤関数の算出手法と制約**:
@@ -124,6 +127,7 @@ def compute(
 | `compute_polygon_coverage` | fineマスク（`rasterize` + `all_touched=False`）→ coarse平均 | ピクセル中心判定のため、fine解像度（10m）未満の細いポリゴンは被覆率0になり得る。`params/*.py` の本実装時に `all_touched=True` の検討が必要 |
 | `compute_line_length` | 各ラインとcoarseセルポリゴンの `intersection.length` 合計 | 幾何学的に正確。半開セル矩形で境界二重計上を防止 |
 | `count_polygon_centroids` | ポリゴン重心をcoarseセルへ割り当て | 重心が範囲外のポリゴンはカウントしない |
+| `aggregate_class_fractions_to_grid` | 画素値を添字表引きで共通クラスIDへ写像 → クラスごとに二値マスクを1クラスずつ生成 → `Resampling.average` で coarse へ再投影 → クリップ前の合計で正規化 | 7マスクを同時に保持しない（大きなラスタでメモリピークになるため）。nodata画素は共通クラス配列側でIDを0にして除外し、`reproject()` に `src_nodata` は渡さない（渡すと「和=1」が壊れる） |
 
 ### 7.3 Step C: 衛星由来指標（任意）
 
@@ -347,6 +351,7 @@ cell_id = make_cell_id(canonical_row, canonical_col)
   - **原因を2つに切り分けてから文言を選ぶ。** 「ラスタがグリッドと重なっていない」（都市の取り違え・切り出し範囲の誤り）と「重なってはいるが有効画素が1つも無い」（**全面が雲マスクの観測**・nodata値の取り違え）は、どちらも全セル `NaN` という同じ結果になる一方、対処がまったく異なる。判定は `raster_overlaps_grid()` がラスタの記録範囲とグリッド範囲の交差で行い、**画素値は読まない**
   - 切り分けは全セル `NaN` のときにしか行わない。正常な入力でラスタを開き直すコストを掛けないためである
   - **LSTでは「重なっているが全面欠測」が現実に起こり得る**（実データの有効画素率は25.4〜45.7%）。これを「重なりません」と報告すると、実際の原因（観測日の選び直し）から遠ざけてしまう
+  - **土地被覆（`params/raster.py: aggregate_class_fractions_to_grid()`）も同じ切り分けを行う。** 判定条件は「写像可能な画素の割合（`fraction_sum`）が全セルで0」であり、`aggregate_mean_and_valid_ratio()` の「セル平均が全セル `NaN`」に相当する
 - `compute()` の戻り値が `PARAM_SETS` の宣言列と食い違う場合は、不足・余分を示して停止する（別ソース版どうしで列が揃わなくなるため）
 - 出力先への差し替えに失敗した場合（QGIS等が開いたまま等）は、対処を示す日本語メッセージへ包み直し、書き出し済みの一時ファイルは回収できるよう残す
 - エラーメッセージは日本語で明示

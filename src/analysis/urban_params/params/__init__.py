@@ -22,8 +22,8 @@
 空辞書は上記の検証が「宣言列の不足」として ``ValueError`` にするため、**未実装の
 モジュールが空辞書を返して黙って列が消える、という逃げ道は無い**。
 
-``elevation.py`` ・ ``population.py`` ・ ``nightlight.py`` は、ベクタレイヤではなく
-ラスタを入力とするため第1引数が ``RasterResource | None`` である。
+``elevation.py`` ・ ``population.py`` ・ ``nightlight.py`` ・ ``lulc.py`` は、
+ベクタレイヤではなくラスタを入力とするため第1引数が ``RasterResource | None`` である。
 
 ``raster.py`` のみ、衛星指標ラスタの検出結果辞書を受け取る別シグネチャを持つ。
 

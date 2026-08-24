@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from src.common.array_lookup import in_lookup_range
+
 # 共通クラス体系。GLC 35クラスと Esri（写像対象8クラス）の双方を写像できる
 # 最小粒度として定めた。0 は「写像表に無い値（無効値・体系外）」を表す。
 COMMON_INVALID = 0
@@ -111,7 +113,20 @@ def build_class_lookup(mapping: dict[int, int]) -> np.ndarray:
 
     Returns:
         np.ndarray: 添字表（uint8、長さは `max(mapping) + 1`）。
+
+    Raises:
+        ValueError: `mapping` のキーに負の値が含まれる場合。NumPyの負インデックス
+            解釈により `lookup[source_value] = ...` が配列の末尾側を静かに
+            上書きしてしまう（絶対値が配列サイズを超える場合はIndexError）ため、
+            添字表の構築段階で弾く。
     """
+    negative_keys = [source_value for source_value in mapping if source_value < 0]
+    if negative_keys:
+        raise ValueError(
+            "写像表のキーに負の値が含まれています（NumPyの負インデックス解釈により"
+            f"添字表の末尾を誤って上書きするため禁止する）: {sorted(negative_keys)}"
+        )
+
     lookup = np.zeros(int(max(mapping)) + 1, dtype=np.uint8)
     for source_value, common_value in mapping.items():
         lookup[source_value] = common_value
@@ -133,9 +148,6 @@ def map_to_common_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndar
     """
     lookup = build_class_lookup(mapping)
     common = np.zeros(array.shape, dtype=np.uint8)
-    # array >= 0 も判定に加える。符号付き整数dtypeの負値はNumPyの負インデックス
-    # 解釈により添字表の末尾から参照され、意図しない別クラスへ静かに誤分類
-    # されうる（現行の入力はuint8で負値を持たないが、将来の入力dtypeに対する防御）。
-    in_range = (array >= 0) & (array < lookup.size)
+    in_range = in_lookup_range(array, lookup.size)
     common[in_range] = lookup[array[in_range]]
     return common

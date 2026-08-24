@@ -71,6 +71,17 @@ class TestBuildClassLookup:
 
         assert int(lookup[30]) == target.COMMON_INVALID
 
+    def test_rejects_negative_keys(self) -> None:
+        """写像表のキーに負の値が含まれると ValueError になる。
+
+        ガードが無いと `lookup[-1] = ...` がNumPyの負インデックス解釈で添字表の
+        末尾（他の正当なクラスに対応するスロット）を静かに上書きしてしまう。
+        現行の GLC_TO_COMMON・ESRI_TO_COMMON は非負キーのみだが、将来この共通
+        モジュールへ負のfill値をキーに持つ写像表が追加されることへの回帰テスト。
+        """
+        with pytest.raises(ValueError, match="負の値"):
+            target.build_class_lookup({10: target.COMMON_CROPLAND, -1: target.COMMON_INVALID})
+
 
 class TestMapToCommonClasses:
     """map_to_common_classes のテスト。"""

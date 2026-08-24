@@ -177,22 +177,21 @@ def test_compute_outputs_zero_valued_column_for_class_absent_in_roi(tmp_path: Pa
     np.testing.assert_allclose(result["LULC_BARE_COV"][1, :], 0.0, atol=1e-5)
 
 
-def test_validate_resource_rejects_missing_class_scheme(tmp_path: Path) -> None:
-    """class_scheme が未設定（既定値の空文字列）だと ValueError になる。"""
+@pytest.mark.parametrize("class_scheme", [None, "unknown_scheme"], ids=["missing", "unknown"])
+def test_validate_resource_rejects_invalid_class_scheme(
+    tmp_path: Path, class_scheme: str | None
+) -> None:
+    """class_scheme が未設定（既定値の空文字列）または未知の値だと ValueError になる。"""
     raster_path = tmp_path / "lulc.tif"
     _write_category_raster(raster_path, _GLC_ROWS)
+    resource = (
+        RasterResource(raster_path, BAND_INDEX)
+        if class_scheme is None
+        else RasterResource(raster_path, BAND_INDEX, class_scheme)
+    )
 
     with pytest.raises(ValueError, match="未設定または未知"):
-        lulc.validate_resource(RasterResource(raster_path, BAND_INDEX))
-
-
-def test_validate_resource_rejects_unknown_class_scheme(tmp_path: Path) -> None:
-    """class_scheme が CLASS_SCHEMES に無い値だと ValueError になる。"""
-    raster_path = tmp_path / "lulc.tif"
-    _write_category_raster(raster_path, _GLC_ROWS)
-
-    with pytest.raises(ValueError, match="未設定または未知"):
-        lulc.validate_resource(RasterResource(raster_path, BAND_INDEX, "unknown_scheme"))
+        lulc.validate_resource(resource)
 
 
 @pytest.mark.parametrize("class_scheme", ["glc2022", "esri2022"])

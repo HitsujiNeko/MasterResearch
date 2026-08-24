@@ -292,7 +292,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 
 - **`LULC_{クラス}_COV`（土地被覆クラス別面積率, 0-1）**: 設計確定・実装済（パラメータセット `lulc_glc2022` / `lulc_esri2022`）
   - **入力**: `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（GLC_FCS30D 2022年、band 1、主ソース）／`data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif`（Esri Sentinel-2 10m LULC 2022年、band 1、感度分析用の副ソース）。主ソース・副ソースの位置づけは [gis_data_lulc.md](../../01_planning/gis_data/gis_data_lulc.md) §4 を踏襲する
-  - **出力クラス**: 共通クラス体系のうち**雪氷を除く7クラス**（判断日 2026-08-21）。写像表は `src/analysis/compare_lulc_esri_glc.py` の定数として実データで検証済みである
+  - **出力クラス**: 共通クラス体系のうち**雪氷を除く7クラス**（判断日 2026-08-21）。写像表は `src/common/lulc_classes.py` の定数として定義され、実データでの検証は `src/analysis/compare_lulc_esri_glc.py` の一致度比較で行われている
 
     | 列名 | クラス | GLCクラスID | Esriクラス値 |
     |---|---|---|---|

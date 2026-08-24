@@ -40,15 +40,17 @@ from src.analysis.analysis_rq3_limited import (
     fill_missing_building_heights,
     parse_arguments,
     resolve_feature_columns,
+    resolve_filter_columns,
     resolve_output_stem,
     summarize_vegetation_shap,
 )
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN, LST_VALID_RATIO_COLUMN
 
-# 既定条件（--variable-set both / --population-source worldpop2020）の説明変数。
-# build_filtered_sample はモジュール定数ではなく引数で列を受け取るため、テスト側で
-# 既定構成を1度だけ解決して使い回す。
+# 既定条件（--variable-set both / --population-source worldpop2020）の説明変数と、
+# 非NULLを要求するフィルタ列。build_filtered_sample はモジュール定数ではなく引数で
+# 列を受け取るため、テスト側で1度だけ解決して使い回す。
 DEFAULT_FEATURE_COLUMNS = resolve_feature_columns(DEFAULT_VARIABLE_SET, DEFAULT_POPULATION_SOURCES)
+DEFAULT_FILTER_COLUMNS = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
 
 
 class TestParseArguments:
@@ -309,7 +311,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -317,11 +319,10 @@ class TestBuildFilteredSample:
 
         assert len(result.sampled) == len(dataframe) - 1
 
-    def test_ignores_columns_outside_the_given_feature_set(self) -> None:
-        """投入しない候補列のNULLはフィルタ条件に影響しない。
+    def test_uses_given_columns_not_a_module_constant(self) -> None:
+        """モジュール定数ではなく、渡された列だけをフィルタ条件に使う。
 
-        変数セットを spectral に絞れば土地被覆列が欠測していても母数が減らない。
-        モジュール定数ではなく引数の列を見ていることの検証にあたる。
+        分光指数のみを渡した場合、土地被覆列が欠測していても母数が減らない。
         """
         dataframe = _quality_dataframe()
         dataframe.loc[0, "LULC_BUILT_COV"] = np.nan
@@ -329,7 +330,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=spectral_columns,
+            filter_columns=spectral_columns,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -353,7 +354,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=3,
             random_state=42,
@@ -369,7 +370,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -388,7 +389,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -405,7 +406,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -432,7 +433,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -468,7 +469,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -487,7 +488,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
-            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=3,
             random_state=42,
@@ -566,6 +567,15 @@ class TestResolveFeatureColumns:
         """未知の人口ソースは原因の分かる例外にする。"""
         with pytest.raises(ValueError, match="未知の人口密度データソース"):
             resolve_feature_columns("spectral", ["worldpop2019"])
+
+    def test_raises_with_the_right_reason_when_none_is_combined(self) -> None:
+        """none の併用は「未知のデータソース」ではなく併用不可として拒否する。
+
+        CLI経由では parse_arguments が先に弾くが、関数を直接呼ぶ経路で誤った
+        理由のエラーになると原因の特定を誤らせる。
+        """
+        with pytest.raises(ValueError, match="併用できません"):
+            resolve_feature_columns("spectral", ["none", "worldpop2020"])
 
 
 class TestVariableSetArguments:
@@ -716,3 +726,102 @@ class TestSummarizeVegetationShap:
         assert result["columns"] == ["LULC_TREE_COV"]
         assert result["excluded_columns"] == ["LULC_RANGE_COV"]
         assert result["mean_abs_shap_sum"] == pytest.approx(0.4)
+
+
+class TestResolveFilterColumns:
+    """resolve_filter_columns のテスト。
+
+    フィルタ列を投入列と一致させると、変数セットごとにフィルタ後の母数が変わり、
+    「分光指数 vs 被覆率型のどちらが LST をよりよく説明するか」の比較が母数差の
+    影響と混ざる。ここではその分離を固定する。
+    """
+
+    def test_is_constant_across_variable_sets(self) -> None:
+        """フィルタ列は変数セットの指定を受け取らない（構成に依らず一定）。"""
+        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+
+        assert filter_columns == resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+
+    def test_is_a_superset_of_every_variable_set(self) -> None:
+        """フィルタ列はどの変数セットの投入列も包含する。"""
+        filter_columns = set(resolve_filter_columns(DEFAULT_POPULATION_SOURCES))
+
+        for variable_set in ("spectral", "coverage", "both"):
+            assert set(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES)).issubset(
+                filter_columns
+            )
+
+    def test_always_requires_spectral_columns(self) -> None:
+        """分光指数は coverage 構成でも非NULLを要求する。
+
+        `filter_valid_rows` は VALID_SATELLITE_MASK を独立の条件として課さず、
+        分光指数の非NULL要求が包含することを前提にしている。投入列でフィルタすると
+        coverage のときだけこの前提が崩れ、分光指数がすべてNULLのセル（雲マスク
+        由来の欠測）が母集団へ混入する。
+        """
+        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+
+        assert set(SPECTRAL_FEATURE_COLUMNS).issubset(set(filter_columns))
+
+    def test_requires_only_the_selected_population_versions(self) -> None:
+        """人口は選択した版のみ要求する（投入しない版の欠測で母数を減らさない）。"""
+        filter_columns = resolve_filter_columns(["worldpop2020"])
+
+        assert "POP_DEN_WORLDPOP2020" in filter_columns
+        assert "POP_DEN_LANDSCAN2020" not in filter_columns
+        assert "POP_DEN_LANDSCAN2023" not in filter_columns
+
+
+class TestPopulationIsEqualAcrossVariableSets:
+    """変数セットを変えてもフィルタ後の母数が変わらないことの回帰テスト。"""
+
+    def test_same_row_count_for_every_variable_set(self) -> None:
+        """分光指数がすべてNULLのセルは、どの変数セットでも同じように除外される。"""
+        dataframe = _quality_dataframe(n=10)
+        # 雲マスク由来の欠測を模す（VALID_SATELLITE_MASK == 0 に相当する状態）。
+        for column in SPECTRAL_FEATURE_COLUMNS:
+            dataframe.loc[0, column] = np.nan
+
+        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        row_counts = set()
+        for variable_set in ("spectral", "coverage", "both"):
+            result = build_filtered_sample(
+                dataframe,
+                filter_columns=filter_columns,
+                lst_valid_ratio_threshold=0.5,
+                sample_size=0,
+                random_state=42,
+            )
+            row_counts.add(len(result.sampled))
+            # 投入列は構成ごとに変わるが、母数には影響しない。
+            assert len(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES)) > 0
+
+        assert row_counts == {len(dataframe) - 1}
+
+    def test_coverage_would_leak_cloudy_cells_without_the_fix(self) -> None:
+        """投入列でフィルタすると coverage だけ母数が増えることを示す（退行の検出）。
+
+        修正の効果を測るため、あえて coverage の投入列でフィルタした場合と比較する。
+        両者の母数が一致してしまうと、この回帰テストは意味を失う。
+        """
+        dataframe = _quality_dataframe(n=10)
+        for column in SPECTRAL_FEATURE_COLUMNS:
+            dataframe.loc[0, column] = np.nan
+
+        with_fix = build_filtered_sample(
+            dataframe,
+            filter_columns=resolve_filter_columns(DEFAULT_POPULATION_SOURCES),
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
+        )
+        without_fix = build_filtered_sample(
+            dataframe,
+            filter_columns=resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES),
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
+        )
+
+        assert len(with_fix.sampled) == len(dataframe) - 1
+        assert len(without_fix.sampled) == len(dataframe)

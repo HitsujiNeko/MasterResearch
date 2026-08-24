@@ -267,10 +267,19 @@ def resolve_population_columns(population_sources: Sequence[str]) -> list[str]:
     Returns:
         投入する人口密度の列名リスト。`POPULATION_SOURCE_NONE` を指定した場合は空。
     Raises:
-        ValueError: 未知のデータソース識別子が含まれる場合。
+        ValueError: 未知のデータソース識別子が含まれる場合、または
+            `POPULATION_SOURCE_NONE` が他の値と併用されている場合。
     """
     if list(population_sources) == [POPULATION_SOURCE_NONE]:
         return []
+
+    # 併用は `parse_arguments` でも弾いているが、本関数を直接呼ぶ経路では
+    # 「未知のデータソース」という誤った理由のエラーになるため、ここでも判定する。
+    if POPULATION_SOURCE_NONE in population_sources:
+        raise ValueError(
+            f"{POPULATION_SOURCE_NONE} は他の人口密度データソースと併用できません: "
+            f"{list(population_sources)}。"
+        )
 
     unknown = [source for source in population_sources if source not in POPULATION_SOURCE_COLUMNS]
     if unknown:
@@ -315,6 +324,30 @@ def resolve_feature_columns(variable_set: str, population_sources: Sequence[str]
     return feature_columns
 
 
+def resolve_filter_columns(population_sources: Sequence[str]) -> list[str]:
+    """非NULLを要求してフィルタに使う列名を、変数セットに依らず一定に組み立てる。
+
+    **モデルへ投入する列（`resolve_feature_columns`）とは別物である。** フィルタ列を
+    投入列と一致させると、変数セットごとにフィルタ後の母数が変わり、本スクリプトの
+    目的である「分光指数 vs 被覆率型のどちらが LST をよりよく説明するか」の比較が
+    母数差の影響と混ざる。比較軸（`--variable-set`）で母数を揃えるため、3構成の
+    和集合＝`both` の列を常に要求する。
+
+    これは衛星有効性の担保も兼ねる。`filter_valid_rows` は `VALID_SATELLITE_MASK`
+    を独立の条件として課さず、「分光指数の非NULL要求が包含する」ことを前提にして
+    いる。投入列でフィルタすると `coverage` 構成でこの前提が崩れ、分光指数が
+    すべてNULLのセル（雲マスク由来の欠測）が `coverage` のときだけ母集団へ
+    混入する。
+
+    Args:
+        population_sources: `--population-source` の値。人口だけは選択した版のみを
+            要求する（3版すべてを要求すると、投入しない版の欠測で母数が減るため）。
+    Returns:
+        非NULLを要求する列名リスト。
+    """
+    return resolve_feature_columns(VARIABLE_SET_BOTH, population_sources)
+
+
 def drop_constant_features(
     dataframe: pd.DataFrame, feature_columns: Sequence[str]
 ) -> tuple[list[str], list[str]]:
@@ -327,6 +360,13 @@ def drop_constant_features(
     データ依存の判定にするのは、ソース固定の除外リストでは対応できないためである。
     たとえば主ソース GLC_FCS30D はハノイROIに裸地クラスの画素を1つも持たないため
     `LULC_BARE_COV` が全セルで厳密に0.0になるが、副ソース Esri では非0になりうる。
+
+    **判定は母集団ではなく、渡されたデータフレーム（実運用では分析サンプル）を
+    対象に行う。** VIF も同じサンプルで算出するため、判定対象を揃えないと
+    「母集団では非定数だがサンプルでは定数」の列が残って VIF が `inf` になる。
+    代償として、母集団での出現頻度が低いクラスは `--sample-size` /
+    `--random-state` によって除外されたりされなかったりしうる。ラン間で構成が
+    変わったことを後から追えるよう、除外した列名は結果JSONへ記録する。
 
     Args:
         dataframe: 判定対象のデータフレーム（`feature_columns` を含む）。
@@ -504,7 +544,7 @@ class FilteredSampleResult:
 
 def build_filtered_sample(
     dataframe: pd.DataFrame,
-    feature_columns: Sequence[str],
+    filter_columns: Sequence[str],
     lst_valid_ratio_threshold: float,
     sample_size: int,
     random_state: int,
@@ -530,10 +570,9 @@ def build_filtered_sample(
 
     Args:
         dataframe: `load_analysis_dataset` の戻り値（未加工。補完前でよい）。
-        feature_columns: 非NULLを要求する説明変数の列名（`resolve_feature_columns`
-            の戻り値）。変数セットによって列数が変わるため、モジュール定数では
-            なく引数で受け取る。**構成ごとにフィルタ後の母数が変わりうる**点に
-            注意する（全列の非NULLを要求するため、列を増やすと母数は減りうる）。
+        filter_columns: 非NULLを要求する列名（`resolve_filter_columns` の戻り値）。
+            **モデルへ投入する列とは別物**であり、変数セットに依らず同じ列を
+            渡すことで構成間の母数を揃える（理由は `resolve_filter_columns`）。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
         sample_size: 抽出するサンプル数（0で全件）。
         random_state: 乱数シード。
@@ -546,7 +585,7 @@ def build_filtered_sample(
     filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
     filtered = filter_valid_rows(
         filled,
-        feature_columns=list(feature_columns),
+        feature_columns=list(filter_columns),
         target_column=TARGET_COLUMN,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
         required_mask_columns=required_mask_columns,
@@ -638,6 +677,9 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     validate_scale_matches_dataset(args.dataset_path, args.scale)
     feature_columns = resolve_feature_columns(args.variable_set, args.population_source)
+    # フィルタ列は変数セットに依らず一定にして、構成間の母数を揃える
+    # （`resolve_filter_columns` の docstring に理由を記す）。
+    filter_columns = resolve_filter_columns(args.population_source)
     output_stem = resolve_output_stem(
         args.dataset_path,
         args.variable_set,
@@ -657,26 +699,26 @@ def main() -> None:
         "cell_id",
         "lon",
         "lat",
-        *dict.fromkeys([*feature_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
+        *dict.fromkeys([*filter_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
         TARGET_COLUMN,
         IN_ANALYSIS_AREA_COLUMN,
         LST_VALID_RATIO_COLUMN,
         VALID_GIS_MASK_COLUMN,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    missing_feature_columns = [
-        column for column in feature_columns if column not in dataframe.columns
-    ]
-    if missing_feature_columns:
+    # フィルタ列は投入列の上位集合であり、変数セットに依らず全て必要になる。
+    missing_columns = [column for column in filter_columns if column not in dataframe.columns]
+    if missing_columns:
         raise ValueError(
-            f"次の説明変数の列がデータセットに存在しません: {missing_feature_columns}"
-            f"（{args.dataset_path}）。--variable-set / --population-source の指定と、"
-            "データセットの生成時に結合したテーブルを確認してください。"
+            f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"
+            f"（{args.dataset_path}）。--variable-set の選択に関わらず、構成間で母数を"
+            "揃えるため分光指数・土地被覆の両方を要求します。--population-source の"
+            "指定と、データセットの生成時に結合したテーブルを確認してください。"
         )
 
     filtered_sample_result = build_filtered_sample(
         dataframe,
-        feature_columns=feature_columns,
+        filter_columns=filter_columns,
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
         sample_size=args.sample_size,
         random_state=args.random_state,
@@ -724,6 +766,14 @@ def main() -> None:
         "population_sources": list(args.population_source),
         "features": model_feature_columns,
         "requested_features": feature_columns,
+        # フィルタ列は投入列と別で、変数セットに依らず一定にしている。構成間で
+        # 母数が揃っていることを結果から検証できるよう、列そのものを記録する。
+        "filter_columns": filter_columns,
+        "filter_columns_note": (
+            "非NULLを要求する列は変数セットに依らず一定にし、spectral / coverage / both の"
+            "母数を揃えている。投入列でフィルタすると coverage のときだけ衛星有効性の条件"
+            "（分光指数の非NULL要求が VALID_SATELLITE_MASK を包含する前提）が外れる。"
+        ),
         "dropped_constant_features": dropped_constant_features,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
         "require_valid_gis_mask": args.require_valid_gis_mask,

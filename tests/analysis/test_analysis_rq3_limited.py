@@ -19,19 +19,36 @@ import pandas as pd
 import pytest
 
 from src.analysis.analysis_rq3_limited import (
+    ALL_CANDIDATE_FEATURE_COLUMNS,
+    BASE_FEATURE_COLUMNS,
     BUILD_COVERAGE_COLUMN,
     BUILD_DENSITY_COLUMN,
     DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_DIR,
+    DEFAULT_POPULATION_SOURCES,
     DEFAULT_SCALE_M,
-    FEATURE_COLUMNS,
+    DEFAULT_VARIABLE_SET,
+    LULC_FEATURE_COLUMNS,
+    LULC_REFERENCE_COLUMN,
+    NIGHTLIGHT_FEATURE_COLUMNS,
+    SPECTRAL_FEATURE_COLUMNS,
     VALID_GIS_MASK_COLUMN,
+    VEGETATION_COVERAGE_COLUMNS,
+    build_candidate_correlation_frame,
     build_filtered_sample,
+    drop_constant_features,
     fill_missing_building_heights,
     parse_arguments,
+    resolve_feature_columns,
     resolve_output_stem,
+    summarize_vegetation_shap,
 )
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN, LST_VALID_RATIO_COLUMN
+
+# 既定条件（--variable-set both / --population-source worldpop2020）の説明変数。
+# build_filtered_sample はモジュール定数ではなく引数で列を受け取るため、テスト側で
+# 既定構成を1度だけ解決して使い回す。
+DEFAULT_FEATURE_COLUMNS = resolve_feature_columns(DEFAULT_VARIABLE_SET, DEFAULT_POPULATION_SOURCES)
 
 
 class TestParseArguments:
@@ -77,25 +94,67 @@ class TestParseArguments:
 class TestResolveOutputStem:
     """resolve_output_stem のテスト。"""
 
-    def test_main_result_uses_dataset_filename_stem(self) -> None:
-        """主結果（感度分析でない）はデータセットファイル名そのものを使う。"""
-        path = Path("data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg")
+    _DATASET_PATH = Path("data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg")
 
+    def test_appends_variable_set(self) -> None:
+        """変数セットは常に接頭辞へ付与し、構成の異なるランの出力を分ける。"""
         assert (
-            resolve_output_stem(path, require_valid_gis_mask=False)
-            == "dataset_limited_20230707_032329_hanoi_30m"
+            resolve_output_stem(
+                self._DATASET_PATH,
+                "both",
+                DEFAULT_POPULATION_SOURCES,
+                require_valid_gis_mask=False,
+            )
+            == "dataset_limited_20230707_032329_hanoi_30m_both"
+        )
+        assert (
+            resolve_output_stem(
+                self._DATASET_PATH,
+                "coverage",
+                DEFAULT_POPULATION_SOURCES,
+                require_valid_gis_mask=False,
+            )
+            == "dataset_limited_20230707_032329_hanoi_30m_coverage"
         )
 
-    def test_sensitivity_analysis_appends_gismask_suffix(self) -> None:
-        """感度分析（--require-valid-gis-mask）は接頭辞に_gismaskを付与し、
-        主結果の出力ファイルと衝突しないようにする。
+    def test_omits_population_part_for_default_sources(self) -> None:
+        """人口ソースが既定のままなら接頭辞に現れない
+        （既存の出力名との差分を変数セットの追加だけに抑えるため）。
         """
-        path = Path("data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg")
-
-        assert (
-            resolve_output_stem(path, require_valid_gis_mask=True)
-            == "dataset_limited_20230707_032329_hanoi_30m_gismask"
+        stem = resolve_output_stem(
+            self._DATASET_PATH,
+            "both",
+            DEFAULT_POPULATION_SOURCES,
+            require_valid_gis_mask=False,
         )
+
+        assert "pop_" not in stem
+
+    def test_appends_population_sources_when_changed(self) -> None:
+        """既定から変えた人口ソースは指定順に接頭辞へ現れる。"""
+        assert (
+            resolve_output_stem(
+                self._DATASET_PATH,
+                "both",
+                ["landscan2020", "landscan2023"],
+                require_valid_gis_mask=False,
+            )
+            == "dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2020_pop_landscan2023"
+        )
+
+    def test_sensitivity_analysis_appends_gismask_suffix_last(self) -> None:
+        """感度分析（--require-valid-gis-mask）の印は末尾に付ける
+        （感度分析の印を末尾に置く既存の規約を保つ）。
+        """
+        stem = resolve_output_stem(
+            self._DATASET_PATH,
+            "coverage",
+            ["none"],
+            require_valid_gis_mask=True,
+        )
+
+        assert stem == "dataset_limited_20230707_032329_hanoi_30m_coverage_pop_none_gismask"
+        assert stem.endswith("_gismask")
 
 
 class TestFillMissingBuildingHeights:
@@ -198,22 +257,39 @@ class TestFillMissingBuildingHeights:
 
 
 def _quality_dataframe(n: int = 10) -> pd.DataFrame:
-    """フィルタを全件通過する合成データセット（9特徴量 + 品質列）。"""
+    """フィルタを全件通過する合成データセット（拡張後の全候補列 + 品質列）。
+
+    値は行ごとに少しずつ変えている。全行同値にすると全列が定数列になり、
+    `drop_constant_features` の検証が「定数列だけを落とす」ことの確認にならない
+    ためである。
+    """
+    steps = [index / max(n, 1) for index in range(n)]
     return pd.DataFrame(
         {
             "cell_id": range(n),
             IN_ANALYSIS_AREA_COLUMN: [1] * n,
             VALID_GIS_MASK_COLUMN: [1] * n,
-            "BUILD_COV": [0.2] * n,
-            "BUILD_DEN": [5.0] * n,
-            "BUILD_H_MEAN": [10.0] * n,
-            "BUILD_H_MAX": [15.0] * n,
-            "ROAD_DEN": [50.0] * n,
-            "ELEV_MEAN": [8.0] * n,
-            "NDVI": [0.4] * n,
-            "NDBI": [-0.1] * n,
-            "NDWI": [0.2] * n,
-            "LST": [35.0] * n,
+            "BUILD_COV": [0.2 + step for step in steps],
+            "BUILD_DEN": [5.0 + step for step in steps],
+            "BUILD_H_MEAN": [10.0 + step for step in steps],
+            "BUILD_H_MAX": [15.0 + step for step in steps],
+            "ROAD_DEN": [50.0 + step for step in steps],
+            "ELEV_MEAN": [8.0 + step for step in steps],
+            "NDVI": [0.4 - step for step in steps],
+            "NDBI": [-0.1 + step for step in steps],
+            "NDWI": [0.2 + step for step in steps],
+            "LULC_WATER_COV": [0.05 + step for step in steps],
+            "LULC_TREE_COV": [0.10 + step for step in steps],
+            "LULC_CROP_COV": [0.60 - step for step in steps],
+            "LULC_BUILT_COV": [0.15 + step for step in steps],
+            "LULC_RANGE_COV": [0.05 + step for step in steps],
+            "LULC_WETLAND_COV": [0.03 + step for step in steps],
+            "LULC_BARE_COV": [0.02 + step for step in steps],
+            "NTL_MEAN": [12.0 + step for step in steps],
+            "POP_DEN_WORLDPOP2020": [100.0 + step for step in steps],
+            "POP_DEN_LANDSCAN2020": [120.0 + step for step in steps],
+            "POP_DEN_LANDSCAN2023": [130.0 + step for step in steps],
+            "LST": [35.0 + step for step in steps],
             LST_VALID_RATIO_COLUMN: [0.9] * n,
         }
     )
@@ -226,27 +302,40 @@ class TestBuildFilteredSample:
     population_size / population_filled_cell_count / sample_filled_cell_count）。
     """
 
-    def test_uses_module_feature_columns_for_filtering(self) -> None:
-        """FEATURE_COLUMNS（9変数）とLSTの非NULLをフィルタ条件に使う。"""
+    def test_uses_given_feature_columns_for_filtering(self) -> None:
+        """渡された feature_columns とLSTの非NULLをフィルタ条件に使う。"""
         dataframe = _quality_dataframe()
-        dataframe.loc[0, "NDVI"] = np.nan  # FEATURE_COLUMNSの1つがNULL -> 除外されるはず
+        dataframe.loc[0, "NDVI"] = np.nan  # 投入した特徴量の1つがNULL -> 除外されるはず
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
         )
 
         assert len(result.sampled) == len(dataframe) - 1
-        assert set(FEATURE_COLUMNS) == {
-            "BUILD_COV",
-            "BUILD_DEN",
-            "BUILD_H_MEAN",
-            "BUILD_H_MAX",
-            "ROAD_DEN",
-            "ELEV_MEAN",
-            "NDVI",
-            "NDBI",
-            "NDWI",
-        }
+
+    def test_ignores_columns_outside_the_given_feature_set(self) -> None:
+        """投入しない候補列のNULLはフィルタ条件に影響しない。
+
+        変数セットを spectral に絞れば土地被覆列が欠測していても母数が減らない。
+        モジュール定数ではなく引数の列を見ていることの検証にあたる。
+        """
+        dataframe = _quality_dataframe()
+        dataframe.loc[0, "LULC_BUILT_COV"] = np.nan
+        spectral_columns = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES)
+
+        result = build_filtered_sample(
+            dataframe,
+            feature_columns=spectral_columns,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
+        )
+
+        assert len(result.sampled) == len(dataframe)
 
     def test_applies_filter_before_sampling(self) -> None:
         """フィルタで除外された行はサンプリング対象に含まれない
@@ -263,7 +352,11 @@ class TestBuildFilteredSample:
         dataframe.loc[:4, IN_ANALYSIS_AREA_COLUMN] = 0  # cell_id 0-4 を対象外にする
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=3, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=3,
+            random_state=42,
         )
 
         assert len(result.sampled) == 3
@@ -275,7 +368,11 @@ class TestBuildFilteredSample:
         dataframe[LST_VALID_RATIO_COLUMN] = 0.3
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
         )
 
         assert len(result.sampled) == 0
@@ -290,7 +387,11 @@ class TestBuildFilteredSample:
         dataframe.loc[0, VALID_GIS_MASK_COLUMN] = 0
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
         )
 
         assert len(result.sampled) == len(dataframe)
@@ -304,6 +405,7 @@ class TestBuildFilteredSample:
 
         result = build_filtered_sample(
             dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,
@@ -329,7 +431,11 @@ class TestBuildFilteredSample:
         dataframe.loc[0, "BUILD_H_MAX"] = np.nan
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
         )
 
         assert result.dataset_filled_cell_count == 1
@@ -361,7 +467,11 @@ class TestBuildFilteredSample:
         dataframe.loc[0, IN_ANALYSIS_AREA_COLUMN] = 0
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
         )
 
         assert result.dataset_filled_cell_count == 1
@@ -376,8 +486,233 @@ class TestBuildFilteredSample:
         dataframe = _quality_dataframe(n=10)
 
         result = build_filtered_sample(
-            dataframe, lst_valid_ratio_threshold=0.5, sample_size=3, random_state=42
+            dataframe,
+            feature_columns=DEFAULT_FEATURE_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=3,
+            random_state=42,
         )
 
         assert result.population_size == 10
         assert len(result.sampled) == 3
+
+
+class TestResolveFeatureColumns:
+    """resolve_feature_columns のテスト。"""
+
+    def test_variable_set_swaps_only_spectral_and_coverage_blocks(self) -> None:
+        """差し替わるのは分光指数と土地被覆のブロックだけで、共通ベースは全構成に入る。
+
+        比較軸を「分光 vs 被覆率」に絞るための設計を固定する。
+        """
+        common = {*BASE_FEATURE_COLUMNS, *NIGHTLIGHT_FEATURE_COLUMNS, "POP_DEN_WORLDPOP2020"}
+
+        spectral = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES)
+        coverage = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)
+        both = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+
+        assert common.issubset(set(spectral))
+        assert common.issubset(set(coverage))
+        assert common.issubset(set(both))
+        assert set(spectral) - common == set(SPECTRAL_FEATURE_COLUMNS)
+        assert set(coverage) - common == set(LULC_FEATURE_COLUMNS)
+        assert set(both) - common == {*SPECTRAL_FEATURE_COLUMNS, *LULC_FEATURE_COLUMNS}
+
+    def test_variable_set_counts(self) -> None:
+        """3構成の名目変数数（11 / 14 / 17）を固定する。"""
+        assert len(resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES)) == 11
+        assert len(resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)) == 14
+        assert len(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)) == 17
+
+    def test_excludes_lulc_reference_class(self) -> None:
+        """参照クラス（農地）は説明変数に含めない。
+
+        7クラスの面積率の和が有効セルで1になるため、そのまま投入すると
+        ダミー変数トラップと同一構造の完全な線形従属になる。
+        """
+        coverage = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)
+
+        assert LULC_REFERENCE_COLUMN not in coverage
+        assert LULC_REFERENCE_COLUMN in ALL_CANDIDATE_FEATURE_COLUMNS
+
+    def test_excludes_vegetation_coverage_as_independent_variable(self) -> None:
+        """植生被覆率は独立した説明変数として投入しない（SHAPの事後合算で読む）。"""
+        both = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+
+        assert "LULC_VEGETATION_COV" not in both
+        # 合算の材料となるクラス列そのものは投入される。
+        assert set(VEGETATION_COVERAGE_COLUMNS).issubset(set(both))
+
+    def test_multiple_population_sources_are_all_included(self) -> None:
+        """人口を複数指定すると、指定順にすべて投入される。"""
+        columns = resolve_feature_columns("spectral", ["worldpop2020", "landscan2023"])
+
+        assert "POP_DEN_WORLDPOP2020" in columns
+        assert "POP_DEN_LANDSCAN2023" in columns
+        assert columns.index("POP_DEN_WORLDPOP2020") < columns.index("POP_DEN_LANDSCAN2023")
+
+    def test_population_source_none_drops_population_columns(self) -> None:
+        """none を指定すると人口の列を1つも投入しない。"""
+        columns = resolve_feature_columns("spectral", ["none"])
+
+        assert not [column for column in columns if column.startswith("POP_DEN_")]
+
+    def test_raises_for_unsupported_variable_set(self) -> None:
+        """対応外の変数セットは原因の分かる例外にする。"""
+        with pytest.raises(ValueError, match="対応していない変数セット"):
+            resolve_feature_columns("unknown", DEFAULT_POPULATION_SOURCES)
+
+    def test_raises_for_unknown_population_source(self) -> None:
+        """未知の人口ソースは原因の分かる例外にする。"""
+        with pytest.raises(ValueError, match="未知の人口密度データソース"):
+            resolve_feature_columns("spectral", ["worldpop2019"])
+
+
+class TestVariableSetArguments:
+    """--variable-set / --population-source / --diagnose-only のCLI検証。"""
+
+    def test_defaults(self) -> None:
+        """既定は both / worldpop2020 単独 / 診断のみでない。"""
+        args = parse_arguments([])
+
+        assert args.variable_set == DEFAULT_VARIABLE_SET
+        assert args.population_source == list(DEFAULT_POPULATION_SOURCES)
+        assert args.diagnose_only is False
+
+    def test_accepts_multiple_population_sources(self) -> None:
+        """人口ソースは複数受け取れる（3版同時投入へ切り替えられるようにする）。"""
+        args = parse_arguments(
+            ["--population-source", "worldpop2020", "landscan2020", "landscan2023"]
+        )
+
+        assert args.population_source == ["worldpop2020", "landscan2020", "landscan2023"]
+
+    def test_rejects_none_combined_with_other_sources(self) -> None:
+        """none は他の値と併用できない（人口を投入するのかしないのかが定まらないため）。"""
+        with pytest.raises(SystemExit):
+            parse_arguments(["--population-source", "none", "worldpop2020"])
+
+    def test_rejects_duplicated_population_sources(self) -> None:
+        """同じ人口ソースの重複指定は拒否する（同一列の二重投入は完全共線になる）。"""
+        with pytest.raises(SystemExit):
+            parse_arguments(["--population-source", "worldpop2020", "worldpop2020"])
+
+    def test_rejects_unknown_variable_set(self) -> None:
+        """対応外の変数セットはargparseの段階で拒否する。"""
+        with pytest.raises(SystemExit):
+            parse_arguments(["--variable-set", "unknown"])
+
+
+class TestDropConstantFeatures:
+    """drop_constant_features のテスト。"""
+
+    def test_drops_only_zero_variance_columns(self) -> None:
+        """分散0の列だけを除外し、他の列は順序を保って残す。"""
+        dataframe = pd.DataFrame(
+            {
+                "varying": [1.0, 2.0, 3.0],
+                "constant": [0.0, 0.0, 0.0],
+                "also_varying": [5.0, 4.0, 3.0],
+            }
+        )
+
+        kept, dropped = drop_constant_features(dataframe, ["varying", "constant", "also_varying"])
+
+        assert kept == ["varying", "also_varying"]
+        assert dropped == ["constant"]
+
+    def test_drops_all_zero_coverage_column(self) -> None:
+        """ROIに1画素も存在しないクラスの被覆率（全セル0.0）を除外する。
+
+        主ソースGLCのハノイROIでは裸地クラスの画素が0であり、LULC_BARE_COV が
+        定数列になる。残すとVIFが inf になり、実体のある共線性と区別できなくなる。
+        """
+        dataframe = _quality_dataframe()
+        dataframe["LULC_BARE_COV"] = 0.0
+
+        kept, dropped = drop_constant_features(
+            dataframe, resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)
+        )
+
+        assert dropped == ["LULC_BARE_COV"]
+        assert "LULC_BARE_COV" not in kept
+
+
+class TestBuildCandidateCorrelationFrame:
+    """build_candidate_correlation_frame のテスト。"""
+
+    def test_targets_all_candidate_columns_not_the_model_features(self) -> None:
+        """相関行列の対象は変数セットに依らず全候補列である。
+
+        人口3版どうし・参照クラスを含む土地被覆7クラス全部のように、特定の
+        変数セットには同時に入らない組み合わせも診断対象に含める。
+        """
+        dataframe = _quality_dataframe()
+
+        frame, missing = build_candidate_correlation_frame(dataframe)
+
+        assert list(frame.columns) == ALL_CANDIDATE_FEATURE_COLUMNS
+        assert missing == []
+        assert LULC_REFERENCE_COLUMN in frame.columns
+        assert {
+            "POP_DEN_WORLDPOP2020",
+            "POP_DEN_LANDSCAN2020",
+            "POP_DEN_LANDSCAN2023",
+        }.issubset(set(frame.columns))
+
+    def test_drops_rows_with_missing_candidate_values(self) -> None:
+        """候補列に欠測を含む行は落とす（ペアワイズ削除で母数が揃わなくなるため）。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[0, "LULC_CROP_COV"] = np.nan
+
+        frame, _ = build_candidate_correlation_frame(dataframe)
+
+        assert len(frame) == 9
+
+    def test_reports_candidate_columns_absent_from_dataset(self) -> None:
+        """データセットに無い候補列は結果から外し、名前を報告する。"""
+        dataframe = _quality_dataframe().drop(columns=["NTL_MEAN"])
+
+        frame, missing = build_candidate_correlation_frame(dataframe)
+
+        assert "NTL_MEAN" not in frame.columns
+        assert missing == ["NTL_MEAN"]
+
+
+class TestSummarizeVegetationShap:
+    """summarize_vegetation_shap のテスト。"""
+
+    def test_sums_mean_abs_shap_of_vegetation_classes(self) -> None:
+        """樹林・草地低木の平均絶対SHAP値を合算する（SHAP値は加法的）。"""
+        mean_abs_shap = {
+            "LULC_TREE_COV": 0.4,
+            "LULC_RANGE_COV": 0.1,
+            "LULC_BUILT_COV": 0.9,
+        }
+
+        result = summarize_vegetation_shap(mean_abs_shap, list(mean_abs_shap))
+
+        assert result is not None
+        assert result["columns"] == VEGETATION_COVERAGE_COLUMNS
+        assert result["excluded_columns"] == []
+        assert result["mean_abs_shap_sum"] == pytest.approx(0.5)
+
+    def test_returns_none_when_no_vegetation_column_in_model(self) -> None:
+        """分光指数のみの構成では合算する対象が無いため None を返す。"""
+        spectral = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES)
+        mean_abs_shap = dict.fromkeys(spectral, 0.1)
+
+        assert summarize_vegetation_shap(mean_abs_shap, spectral) is None
+
+    def test_reports_excluded_columns_when_partially_present(self) -> None:
+        """一部の植生クラスだけが投入されている場合、欠けた列名を記録する
+        （定数列として除外されたケースを合算結果から追えるようにする）。
+        """
+        mean_abs_shap = {"LULC_TREE_COV": 0.4}
+
+        result = summarize_vegetation_shap(mean_abs_shap, ["LULC_TREE_COV"])
+
+        assert result is not None
+        assert result["columns"] == ["LULC_TREE_COV"]
+        assert result["excluded_columns"] == ["LULC_RANGE_COV"]
+        assert result["mean_abs_shap_sum"] == pytest.approx(0.4)

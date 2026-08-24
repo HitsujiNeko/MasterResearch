@@ -4,6 +4,11 @@
 （フィルタ・サンプリング・モデル学習・Spatial CV・SHAP・プロット）はすべて
 `src.common` 配下の共通モジュールに委譲する。Limited固有の前処理（建物高さの
 0補完）のみ本スクリプトに置く（詳細は `fill_missing_building_heights` を参照）。
+
+説明変数はブロック単位で保持し、`--variable-set` で分光指数（NDVI/NDBI/NDWI）と
+土地被覆クラス別面積率のどちらを投入するかを切り替える。多重共線性の診断のみを
+行いたい場合は `--diagnose-only` を指定すると、モデル学習・SHAPを実行せずに
+相関行列・VIF・フィルタ後母数だけを出力して終了する。
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +47,7 @@ from src.common.analysis_dataset import (  # noqa: E402
     sample_dataset,
 )
 from src.common.analysis_plots import (  # noqa: E402
+    save_correlation_heatmap,
     save_feature_importance_plot,
     save_model_comparison_plot,
     save_spatial_cv_plot,
@@ -52,6 +59,8 @@ from src.common.analysis_runs import (  # noqa: E402
     validate_scale_matches_dataset,
 )
 from src.common.model_metrics import (  # noqa: E402
+    CORRELATION_METHODS,
+    compute_correlation_matrix,
     compute_vif,
     sanitize_vif_for_json,
 )
@@ -66,17 +75,76 @@ DEFAULT_DATASET_PATH = (
     PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20230707_032329_hanoi_30m.gpkg"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / "20230707_032329"
-FEATURE_COLUMNS = [
+# 説明変数はブロック単位で持ち、`resolve_feature_columns()` が変数セットの指定に
+# 応じて組み立てる。比較軸を「分光指数 vs 被覆率型」に絞るため、差し替えるのは
+# SPECTRAL と LULC の2ブロックだけで、それ以外は全構成に共通して入れる。
+BASE_FEATURE_COLUMNS = [
     "BUILD_COV",
     "BUILD_DEN",
     "BUILD_H_MEAN",
     "BUILD_H_MAX",
     "ROAD_DEN",
     "ELEV_MEAN",
-    "NDVI",
-    "NDBI",
-    "NDWI",
 ]
+SPECTRAL_FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
+NIGHTLIGHT_FEATURE_COLUMNS = ["NTL_MEAN"]
+
+# 土地被覆は雪氷を除く7クラスすべてがテーブルに出力される。7クラスの面積率の和は
+# 有効セルで1になるため、そのまま投入するとダミー変数トラップと同一構造の完全な
+# 線形従属になる。参照クラスを1つ除外して構成制約を解消する（除外するクラスは
+# ROI で最大の農地。urban_structure_parameters.md §2.2 が正本）。
+LULC_ALL_COVERAGE_COLUMNS = [
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_CROP_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV",
+    "LULC_BARE_COV",
+]
+LULC_REFERENCE_COLUMN = "LULC_CROP_COV"
+LULC_FEATURE_COLUMNS = [
+    column for column in LULC_ALL_COVERAGE_COLUMNS if column != LULC_REFERENCE_COLUMN
+]
+
+# 植生被覆率（樹林＋草地低木）は独立した説明変数として投入せず、SHAP値を事後に
+# 合算して読む。独立列にすると植生クラスの合計が土地被覆構成比に対して完全な線形
+# 従属となり、本スクリプトが診断しようとしている多重共線性が形を変えて再発する
+# （同 §2.2）。SHAP値は加法的であるため、グループ寄与としての合算は妥当である。
+VEGETATION_COVERAGE_COLUMNS = ["LULC_TREE_COV", "LULC_RANGE_COV"]
+
+# 人口密度のデータソース識別子と、対応する列名。3版は概念（居住人口／実効人口）も
+# 観測年も異なる別変数であり、データセットには3版とも結合されている。モデルへ
+# 投入する版は `--population-source` で選ぶ。
+POPULATION_SOURCE_COLUMNS = {
+    "worldpop2020": "POP_DEN_WORLDPOP2020",
+    "landscan2020": "POP_DEN_LANDSCAN2020",
+    "landscan2023": "POP_DEN_LANDSCAN2023",
+}
+# 人口を1変数も投入しない構成を指定するための値。他の値とは併用できない。
+POPULATION_SOURCE_NONE = "none"
+DEFAULT_POPULATION_SOURCES = ["worldpop2020"]
+
+# 変数セットの選択肢。spectral / coverage は分光指数と被覆率型のどちらが LST を
+# よりよく説明するかを対比するための構成であり、both は両方を投入した構成。
+VARIABLE_SET_SPECTRAL = "spectral"
+VARIABLE_SET_COVERAGE = "coverage"
+VARIABLE_SET_BOTH = "both"
+VARIABLE_SETS = (VARIABLE_SET_SPECTRAL, VARIABLE_SET_COVERAGE, VARIABLE_SET_BOTH)
+DEFAULT_VARIABLE_SET = VARIABLE_SET_BOTH
+
+# 相関行列の対象となる「拡張後の全候補列」。VIF が実際に投入した特徴量列を対象と
+# するのに対し、相関行列は変数セットの選択によらず同じ範囲で算出する。人口3版
+# どうし・参照クラスを含む土地被覆7クラス全部のように、特定の変数セットには同時に
+# 入らない組み合わせも診断対象に含めるためである。
+ALL_CANDIDATE_FEATURE_COLUMNS = [
+    *BASE_FEATURE_COLUMNS,
+    *SPECTRAL_FEATURE_COLUMNS,
+    *LULC_ALL_COVERAGE_COLUMNS,
+    *NIGHTLIGHT_FEATURE_COLUMNS,
+    *POPULATION_SOURCE_COLUMNS.values(),
+]
+
 TARGET_COLUMN = "LST"
 DEFAULT_SCALE_M = 30
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
@@ -148,26 +216,202 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--shap-sample-size", type=int, default=2_000, help="SHAP評価サンプル数")
     parser.add_argument("--shap-background-size", type=int, default=500, help="SHAP背景データ数")
     parser.add_argument("--rf-trees", type=int, default=300, help="ランダムフォレストの決定木本数")
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--variable-set",
+        choices=VARIABLE_SETS,
+        default=DEFAULT_VARIABLE_SET,
+        help=(
+            "投入する説明変数の構成。spectral は分光指数（NDVI/NDBI/NDWI）のみ、"
+            "coverage は土地被覆クラス別面積率のみ、both は両方を投入する"
+            "（建物・道路・標高・人口・夜間光はいずれの構成にも共通して入る）。"
+        ),
+    )
+    parser.add_argument(
+        "--population-source",
+        nargs="+",
+        choices=[*POPULATION_SOURCE_COLUMNS, POPULATION_SOURCE_NONE],
+        default=list(DEFAULT_POPULATION_SOURCES),
+        help=(
+            "モデルへ投入する人口密度のデータソース（複数指定可）。"
+            f"{POPULATION_SOURCE_NONE} は人口を投入しない指定であり、他の値とは併用できない。"
+        ),
+    )
+    parser.add_argument(
+        "--diagnose-only",
+        action="store_true",
+        help=(
+            "相関行列・VIF・フィルタ後母数のみを出力し、モデル学習・SHAPを実行せずに"
+            "終了する（多重共線性の診断を、RF学習を待たずに行うための入口）。"
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    sources = args.population_source
+    duplicated = sorted({source for source in sources if sources.count(source) > 1})
+    if duplicated:
+        parser.error(f"--population-source に重複した指定があります: {duplicated}")
+    if POPULATION_SOURCE_NONE in args.population_source and len(args.population_source) > 1:
+        parser.error(
+            f"--population-source の {POPULATION_SOURCE_NONE} は他の値と併用できません: "
+            f"{args.population_source}"
+        )
+    return args
 
 
-def resolve_output_stem(dataset_path: Path, require_valid_gis_mask: bool) -> str:
-    """データセットパスとフィルタ条件から出力ファイル名の接頭辞を求める。
+def resolve_population_columns(population_sources: Sequence[str]) -> list[str]:
+    """人口密度のデータソース指定を列名へ変換する。
 
-    主結果と感度分析（`--require-valid-gis-mask`）を同一ディレクトリへ出力しても
-    上書きしないよう、感度分析側の接頭辞にのみ `_gismask` を付与する。これにより
-    出力ファイル名自体がフィルタ条件を示す。
+    Args:
+        population_sources: `--population-source` の値
+            （`POPULATION_SOURCE_COLUMNS` のキー、または `POPULATION_SOURCE_NONE`）。
+    Returns:
+        投入する人口密度の列名リスト。`POPULATION_SOURCE_NONE` を指定した場合は空。
+    Raises:
+        ValueError: 未知のデータソース識別子が含まれる場合。
+    """
+    if list(population_sources) == [POPULATION_SOURCE_NONE]:
+        return []
+
+    unknown = [source for source in population_sources if source not in POPULATION_SOURCE_COLUMNS]
+    if unknown:
+        raise ValueError(
+            f"未知の人口密度データソースです: {unknown}"
+            f"（対応: {', '.join(POPULATION_SOURCE_COLUMNS)}）。"
+        )
+    return [POPULATION_SOURCE_COLUMNS[source] for source in population_sources]
+
+
+def resolve_feature_columns(variable_set: str, population_sources: Sequence[str]) -> list[str]:
+    """変数セットと人口ソースの指定から、モデルへ投入する説明変数の列名を組み立てる。
+
+    共通ベース（建物・道路・標高・人口・夜間光）を先に並べ、差し替え対象の
+    ブロック（分光指数・土地被覆クラス別面積率）を後ろに置く。列順は
+    重要度CSV・VIF・SHAPの並び順にそのまま現れるため、構成間で共通部分の
+    並びが揃うようにしている。
+
+    Args:
+        variable_set: `VARIABLE_SETS` のいずれか。
+        population_sources: `--population-source` の値。
+    Returns:
+        説明変数の列名リスト。
+    Raises:
+        ValueError: `variable_set` が対応外の場合、または `population_sources` に
+            未知のデータソース識別子が含まれる場合。
+    """
+    if variable_set not in VARIABLE_SETS:
+        raise ValueError(
+            f"対応していない変数セットです: {variable_set}（対応: {', '.join(VARIABLE_SETS)}）。"
+        )
+
+    feature_columns = [
+        *BASE_FEATURE_COLUMNS,
+        *resolve_population_columns(population_sources),
+        *NIGHTLIGHT_FEATURE_COLUMNS,
+    ]
+    if variable_set in (VARIABLE_SET_SPECTRAL, VARIABLE_SET_BOTH):
+        feature_columns.extend(SPECTRAL_FEATURE_COLUMNS)
+    if variable_set in (VARIABLE_SET_COVERAGE, VARIABLE_SET_BOTH):
+        feature_columns.extend(LULC_FEATURE_COLUMNS)
+    return feature_columns
+
+
+def drop_constant_features(
+    dataframe: pd.DataFrame, feature_columns: Sequence[str]
+) -> tuple[list[str], list[str]]:
+    """分散が0の特徴量列を、モデル学習・VIF算出の対象から外す。
+
+    定数列を残すと `compute_vif` の補助回帰が決定係数1.0を返し、**VIFが `inf`
+    （完全共線）と報告される**。これは実体のある共線性ではなく定数列に起因する
+    偽陽性であり、多重共線性の診断そのものを汚染する。
+
+    データ依存の判定にするのは、ソース固定の除外リストでは対応できないためである。
+    たとえば主ソース GLC_FCS30D はハノイROIに裸地クラスの画素を1つも持たないため
+    `LULC_BARE_COV` が全セルで厳密に0.0になるが、副ソース Esri では非0になりうる。
+
+    Args:
+        dataframe: 判定対象のデータフレーム（`feature_columns` を含む）。
+        feature_columns: 判定する説明変数の列名。
+    Returns:
+        （残した列名リスト, 除外した列名リスト）のタプル。順序は
+        `feature_columns` の並びを保つ。
+    """
+    kept: list[str] = []
+    dropped: list[str] = []
+    for column in feature_columns:
+        # nunique() は既定でNaNを数えない。ここへ来る時点で filter_valid_rows により
+        # 特徴量列は非NULLに揃っているため、0または1なら定数列とみなせる。
+        if dataframe[column].nunique(dropna=True) <= 1:
+            dropped.append(column)
+            continue
+        kept.append(column)
+    return kept, dropped
+
+
+def summarize_vegetation_shap(
+    mean_abs_shap: dict[str, float], feature_columns: Sequence[str]
+) -> dict[str, object] | None:
+    """植生被覆率の寄与を、土地被覆クラス列のSHAP値の事後合算として求める。
+
+    植生被覆率は独立した説明変数として投入しない（モジュール冒頭の
+    `VEGETATION_COVERAGE_COLUMNS` のコメント参照）。代わりに樹林・草地低木の
+    平均絶対SHAP値を合算し、グループ寄与として記録する。
+
+    Args:
+        mean_abs_shap: `compute_shap_outputs` が返す `mean_abs_shap`
+            （特徴量名をキー、平均絶対SHAP値を値とする辞書）。
+        feature_columns: 実際にモデルへ投入した説明変数の列名。
+    Returns:
+        合算結果の辞書。植生クラス列が1つもモデルに入っていない場合は `None`
+        （分光指数のみの構成では合算する対象が無いため）。
+    """
+    included = [column for column in VEGETATION_COVERAGE_COLUMNS if column in feature_columns]
+    if not included:
+        return None
+
+    return {
+        "columns": included,
+        "excluded_columns": [
+            column for column in VEGETATION_COVERAGE_COLUMNS if column not in included
+        ],
+        "mean_abs_shap_sum": float(sum(mean_abs_shap[column] for column in included)),
+        "note": (
+            "植生被覆率は独立変数として投入せず、樹林・草地低木クラスの平均絶対SHAP値を"
+            "事後合算したグループ寄与として記録する。"
+        ),
+    }
+
+
+def resolve_output_stem(
+    dataset_path: Path,
+    variable_set: str,
+    population_sources: Sequence[str],
+    require_valid_gis_mask: bool,
+) -> str:
+    """データセットパスと実行条件から出力ファイル名の接頭辞を求める。
+
+    構成の異なるランを同一ディレクトリへ出力しても上書きしないよう、
+    `{データセットstem}_{変数セット}[_pop_{ソース}...][_gismask]` の順で組み立てる。
+    これにより出力ファイル名自体が実行条件を示す。
+
+    - **人口ソースは既定（`DEFAULT_POPULATION_SOURCES`）の場合は付けない。**
+      既定から変えたランだけが名前に現れるようにして、既存の出力名との差分を
+      変数セットの追加だけに抑えるためである。
+    - **`_gismask` は末尾に置く。** 感度分析の印を末尾に付ける既存の規約を保つ。
 
     Args:
         dataset_path: 分析用データセットGeoPackageのパス。
+        variable_set: `VARIABLE_SETS` のいずれか。
+        population_sources: `--population-source` の値。
         require_valid_gis_mask: `VALID_GIS_MASK == 1` を課す感度分析かどうか。
     Returns:
         出力ファイル名の接頭辞。
     """
-    stem = dataset_path.stem
+    parts = [dataset_path.stem, variable_set]
+    if list(population_sources) != list(DEFAULT_POPULATION_SOURCES):
+        parts.extend(f"pop_{source}" for source in population_sources)
     if require_valid_gis_mask:
-        return f"{stem}_gismask"
-    return stem
+        parts.append("gismask")
+    return "_".join(parts)
 
 
 def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -260,6 +504,7 @@ class FilteredSampleResult:
 
 def build_filtered_sample(
     dataframe: pd.DataFrame,
+    feature_columns: Sequence[str],
     lst_valid_ratio_threshold: float,
     sample_size: int,
     random_state: int,
@@ -285,6 +530,10 @@ def build_filtered_sample(
 
     Args:
         dataframe: `load_analysis_dataset` の戻り値（未加工。補完前でよい）。
+        feature_columns: 非NULLを要求する説明変数の列名（`resolve_feature_columns`
+            の戻り値）。変数セットによって列数が変わるため、モジュール定数では
+            なく引数で受け取る。**構成ごとにフィルタ後の母数が変わりうる**点に
+            注意する（全列の非NULLを要求するため、列を増やすと母数は減りうる）。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
         sample_size: 抽出するサンプル数（0で全件）。
         random_state: 乱数シード。
@@ -297,7 +546,7 @@ def build_filtered_sample(
     filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
     filtered = filter_valid_rows(
         filled,
-        feature_columns=FEATURE_COLUMNS,
+        feature_columns=list(feature_columns),
         target_column=TARGET_COLUMN,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
         required_mask_columns=required_mask_columns,
@@ -317,6 +566,64 @@ def build_filtered_sample(
     )
 
 
+def build_candidate_correlation_frame(
+    dataframe: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[str]]:
+    """相関行列の対象となる全候補列を抜き出し、欠測を含む行を落とす。
+
+    **相関行列はモデルへ投入した特徴量ではなく `ALL_CANDIDATE_FEATURE_COLUMNS`
+    を対象とする。** 人口3版どうし・参照クラスを含む土地被覆7クラス全部のように、
+    特定の変数セットには同時に入らない組み合わせも診断したいためである。
+
+    欠測行を落とすのは、`compute_correlation_matrix` の欠測処理がペアワイズ削除
+    であり、放置すると**セルごとに母数の異なる相関行列**になって係数どうしを
+    比べられなくなるためである。落とした結果の行数は呼び出し側が記録する。
+
+    Args:
+        dataframe: フィルタ・サンプリング後のデータフレーム。
+    Returns:
+        （候補列のみを持つ欠測なしのデータフレーム, データセットに存在しなかった
+        候補列名のリスト）のタプル。
+    """
+    available = [column for column in ALL_CANDIDATE_FEATURE_COLUMNS if column in dataframe.columns]
+    missing = [
+        column for column in ALL_CANDIDATE_FEATURE_COLUMNS if column not in dataframe.columns
+    ]
+    return dataframe[available].dropna(), missing
+
+
+def save_correlation_outputs(
+    candidate_frame: pd.DataFrame,
+    output_dir: Path,
+    output_stem: str,
+    observation_label: str,
+) -> dict[str, str]:
+    """相関行列をCSVとヒートマップで保存する。
+
+    Pearson を主とするが、被覆率型の変数は細かいスケールで0へ偏りやすく線形相関
+    だけでは関係を取りこぼしうるため、Spearman も併せて出力する。方法ごとに図を
+    分けるのは、1枚にまとめるとどちらの係数を描いた図か判別できなくなるためである。
+
+    Args:
+        candidate_frame: `build_candidate_correlation_frame` の戻り値の1つ目。
+        output_dir: 出力先ディレクトリ。
+        output_stem: 出力ファイル名の接頭辞。
+        observation_label: 図タイトルに使う観測日時ラベル。
+    Returns:
+        出力パス（`PROJECT_ROOT` からの相対文字列）を方法ごとに格納した辞書。
+    """
+    outputs: dict[str, str] = {}
+    for method in CORRELATION_METHODS:
+        matrix = compute_correlation_matrix(candidate_frame, method=method)
+        csv_path = output_dir / f"{output_stem}_correlation_{method}.csv"
+        matrix.to_csv(csv_path)
+        png_path = output_dir / f"{output_stem}_correlation_{method}.png"
+        save_correlation_heatmap(png_path, matrix, method.capitalize(), observation_label)
+        outputs[f"correlation_{method}_csv"] = to_project_relative_string(csv_path)
+        outputs[f"correlation_{method}_png"] = to_project_relative_string(png_path)
+    return outputs
+
+
 def main() -> None:
     """Limitedシナリオの分析（cell_id結合の新経路）を実行して結果を保存する。
 
@@ -330,7 +637,13 @@ def main() -> None:
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     validate_scale_matches_dataset(args.dataset_path, args.scale)
-    output_stem = resolve_output_stem(args.dataset_path, args.require_valid_gis_mask)
+    feature_columns = resolve_feature_columns(args.variable_set, args.population_source)
+    output_stem = resolve_output_stem(
+        args.dataset_path,
+        args.variable_set,
+        args.population_source,
+        args.require_valid_gis_mask,
+    )
     observation_label = build_observation_label(output_stem)
 
     required_mask_columns = DEFAULT_REQUIRED_MASK_COLUMNS
@@ -338,19 +651,32 @@ def main() -> None:
         required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, VALID_GIS_MASK_COLUMN)
 
     # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
+    # 相関行列は全候補列を対象とするため、モデルへ投入しない候補列も読み込む
+    # （dict.fromkeys で順序を保ったまま重複を除く）。
     required_columns = [
         "cell_id",
         "lon",
         "lat",
-        *FEATURE_COLUMNS,
+        *dict.fromkeys([*feature_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
         TARGET_COLUMN,
         IN_ANALYSIS_AREA_COLUMN,
         LST_VALID_RATIO_COLUMN,
         VALID_GIS_MASK_COLUMN,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
+    missing_feature_columns = [
+        column for column in feature_columns if column not in dataframe.columns
+    ]
+    if missing_feature_columns:
+        raise ValueError(
+            f"次の説明変数の列がデータセットに存在しません: {missing_feature_columns}"
+            f"（{args.dataset_path}）。--variable-set / --population-source の指定と、"
+            "データセットの生成時に結合したテーブルを確認してください。"
+        )
+
     filtered_sample_result = build_filtered_sample(
         dataframe,
+        feature_columns=feature_columns,
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
         sample_size=args.sample_size,
         random_state=args.random_state,
@@ -362,6 +688,65 @@ def main() -> None:
             f"フィルタ後の有効な行がありません: {args.dataset_path}"
             "（--lst-valid-ratio-thresholdの設定や対象日のデータ範囲を確認してください）。"
         )
+
+    # 分散0の列を残すと compute_vif が inf を返し、実体のある共線性と区別できなく
+    # なるため、VIF算出・モデル学習の前に外す（drop_constant_features 参照）。
+    model_feature_columns, dropped_constant_features = drop_constant_features(
+        sampled, feature_columns
+    )
+    if len(model_feature_columns) < 2:
+        raise ValueError(
+            "分散0の列を除外した結果、説明変数が2列未満になりました: "
+            f"{model_feature_columns}（除外: {dropped_constant_features}）。"
+        )
+
+    candidate_frame, missing_candidate_columns = build_candidate_correlation_frame(sampled)
+    correlation_outputs = save_correlation_outputs(
+        candidate_frame, args.output_dir, output_stem, observation_label
+    )
+    vif = compute_vif(sampled[model_feature_columns])
+    # VIFと相関行列は対象範囲が異なる。後から結果を読む人が取り違えないよう、
+    # それぞれの対象列を明示的に記録する。
+    diagnostics_scope = {
+        "vif_columns": model_feature_columns,
+        "correlation_columns": list(candidate_frame.columns),
+        "correlation_row_count": int(len(candidate_frame)),
+        "correlation_missing_columns": missing_candidate_columns,
+        "sample_row_count": int(len(sampled)),
+        "note": (
+            "VIFはモデルへ投入した特徴量列、相関行列は拡張後の全候補列を対象とする。"
+            "相関行列は候補列に欠測を含む行を落として算出しているため、"
+            "correlation_row_count は sample_row_count 以下になりうる。"
+        ),
+    }
+    run_conditions = {
+        "variable_set": args.variable_set,
+        "population_sources": list(args.population_source),
+        "features": model_feature_columns,
+        "requested_features": feature_columns,
+        "dropped_constant_features": dropped_constant_features,
+        "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
+        "require_valid_gis_mask": args.require_valid_gis_mask,
+        "required_mask_columns": list(required_mask_columns),
+    }
+
+    if args.diagnose_only:
+        diagnostics = {
+            "scenario": "Limited",
+            "mode": "diagnose_only",
+            "dataset_path": to_project_relative_string(args.dataset_path),
+            **run_conditions,
+            "population_size": filtered_sample_result.population_size,
+            "sample_size": int(len(sampled)),
+            "diagnostics_scope": diagnostics_scope,
+            **sanitize_vif_for_json(vif),
+            "outputs": correlation_outputs,
+        }
+        diagnostics_path = args.output_dir / f"{output_stem}_diagnostics.json"
+        save_summary(diagnostics, diagnostics_path)
+        print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
+        print(f"診断結果を保存しました: {diagnostics_path}")
+        return
 
     sampled_path = args.output_dir / f"{output_stem}_sample_{args.sample_size}.csv"
     sampled.to_csv(sampled_path, index=False)
@@ -375,14 +760,13 @@ def main() -> None:
     )
     split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
 
-    vif = compute_vif(sampled[FEATURE_COLUMNS])
     random_split = run_random_split_models(
-        sampled, FEATURE_COLUMNS, TARGET_COLUMN, args.random_state, args.rf_trees
+        sampled, model_feature_columns, TARGET_COLUMN, args.random_state, args.rf_trees
     )
 
     spatial_cv_summary, spatial_cv_folds = run_spatial_cv_models(
         sampled,
-        FEATURE_COLUMNS,
+        model_feature_columns,
         TARGET_COLUMN,
         block_ids,
         args.cv_splits,
@@ -399,13 +783,17 @@ def main() -> None:
     permutation_scores = random_split.rf_result["permutation_importance"]
     feature_importance_df = pd.DataFrame(
         {
-            "feature": FEATURE_COLUMNS,
+            "feature": model_feature_columns,
             "linear_abs_standardized_coefficient": [
-                abs(standardized_coefficients[feature]) for feature in FEATURE_COLUMNS
+                abs(standardized_coefficients[feature]) for feature in model_feature_columns
             ],
-            "random_forest_importance": [rf_importance[feature] for feature in FEATURE_COLUMNS],
-            "permutation_importance": [permutation_scores[feature] for feature in FEATURE_COLUMNS],
-            "vif": [vif[feature] for feature in FEATURE_COLUMNS],
+            "random_forest_importance": [
+                rf_importance[feature] for feature in model_feature_columns
+            ],
+            "permutation_importance": [
+                permutation_scores[feature] for feature in model_feature_columns
+            ],
+            "vif": [vif[feature] for feature in model_feature_columns],
         }
     )
     feature_importance_path = args.output_dir / f"{output_stem}_feature_importance.csv"
@@ -448,6 +836,9 @@ def main() -> None:
         output_stem=output_stem,
         observation_label=observation_label,
     )
+    vegetation_shap = summarize_vegetation_shap(shap_result["mean_abs_shap"], model_feature_columns)
+    if vegetation_shap is not None:
+        shap_result["vegetation_coverage"] = vegetation_shap
 
     result = {
         "scenario": "Limited",
@@ -456,10 +847,8 @@ def main() -> None:
         "sample_size": int(len(sampled)),
         "train_size": int(len(random_split.x_train)),
         "test_size": int(len(random_split.x_test)),
-        "features": FEATURE_COLUMNS,
-        "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
-        "require_valid_gis_mask": args.require_valid_gis_mask,
-        "required_mask_columns": list(required_mask_columns),
+        **run_conditions,
+        "diagnostics_scope": diagnostics_scope,
         "building_height_fill": {
             "columns": BUILDING_HEIGHT_COLUMNS,
             # dataset_filled_cell_count: フィルタ・サンプリング前のデータセット全体
@@ -492,6 +881,7 @@ def main() -> None:
             "feature_importance_csv": to_project_relative_string(feature_importance_path),
             "model_comparison_png": to_project_relative_string(comparison_plot_path),
             "feature_importance_png": to_project_relative_string(importance_plot_path),
+            **correlation_outputs,
         },
     }
 

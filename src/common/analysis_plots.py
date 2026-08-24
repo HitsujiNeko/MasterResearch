@@ -184,8 +184,10 @@ def save_correlation_heatmap(
     figure_side = max(6.0, 0.55 * feature_count + 3.0)
 
     colormap = plt.get_cmap("coolwarm").copy()
-    # 定数列に由来するNaNを灰色で描き、相関0（中間色）と区別できるようにする。
-    colormap.set_bad("#dddddd")
+    # 定数列に由来するNaNは、カラーマップのどの値とも重ならない濃い灰色で描く。
+    # coolwarmの中間色（相関0付近）は淡い灰色であり、そこへ近い色を当てると
+    # 「相関が定義できない」セルと「無相関」のセルが見分けられなくなる。
+    colormap.set_bad("#6e6e6e")
 
     fig, ax = plt.subplots(figsize=(figure_side, figure_side))
     image = ax.imshow(

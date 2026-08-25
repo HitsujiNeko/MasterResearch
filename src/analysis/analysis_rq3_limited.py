@@ -110,7 +110,9 @@ LULC_FEATURE_COLUMNS = [
 # 植生被覆率（樹林＋草地低木）は独立した説明変数として投入せず、SHAP値を事後に
 # 合算して読む。独立列にすると植生クラスの合計が土地被覆構成比に対して完全な線形
 # 従属となり、本スクリプトが診断しようとしている多重共線性が形を変えて再発する
-# （同 §2.2）。SHAP値は加法的であるため、グループ寄与としての合算は妥当である。
+# （同 §2.2）。合算は平均絶対SHAP値どうしの和であり、グループ寄与の**上限**を
+# 与える（行ごとに符号が逆のセルでは打ち消しが起こるため、符号付きSHAP値を先に
+# 合算した場合の値以上になる）。順位の目安として読む。
 VEGETATION_COVERAGE_COLUMNS = ["LULC_TREE_COV", "LULC_RANGE_COV"]
 
 # 人口密度のデータソース識別子と、対応する列名。3版は概念（居住人口／実効人口）も
@@ -394,7 +396,9 @@ def summarize_vegetation_shap(
 
     植生被覆率は独立した説明変数として投入しない（モジュール冒頭の
     `VEGETATION_COVERAGE_COLUMNS` のコメント参照）。代わりに樹林・草地低木の
-    平均絶対SHAP値を合算し、グループ寄与として記録する。
+    平均絶対SHAP値を合算する。この合算は符号付きSHAP値を先に合算した場合と
+    一致せず、グループ寄与の**上限**にあたる（`VEGETATION_COVERAGE_COLUMNS`
+    のコメント参照）。
 
     Args:
         mean_abs_shap: `compute_shap_outputs` が返す `mean_abs_shap`
@@ -416,7 +420,8 @@ def summarize_vegetation_shap(
         "mean_abs_shap_sum": float(sum(mean_abs_shap[column] for column in included)),
         "note": (
             "植生被覆率は独立変数として投入せず、樹林・草地低木クラスの平均絶対SHAP値を"
-            "事後合算したグループ寄与として記録する。"
+            "事後合算した値を記録する。符号付きSHAP値を先に合算した場合と一致せず、"
+            "グループ寄与の上限にあたる。"
         ),
     }
 

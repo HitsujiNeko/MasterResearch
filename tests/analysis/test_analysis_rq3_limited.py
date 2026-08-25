@@ -866,7 +866,8 @@ class TestMainDiagnoseOnly:
         """フィルタに必要な列がデータセットに存在しない場合、ValueErrorを送出する。
 
         既定の --population-source（worldpop2020）が要求する列を合成データから
-        落とすことで、709-717行目の検証（データ読込直後、フィルタ実行前）を踏ませる。
+        落とすことで、main() の「フィルタに必要な列がデータセットに存在しません」
+        検証（load_analysis_dataset の直後、build_filtered_sample の前）を踏ませる。
         """
         dataframe = _quality_dataframe().drop(columns=["POP_DEN_WORLDPOP2020"])
         monkeypatch.setattr(
@@ -885,9 +886,9 @@ class TestMainDiagnoseOnly:
     ) -> None:
         """--diagnose-only指定時、モデル学習・SHAPを実行せず診断結果のみを保存する。
 
-        モデル学習・SHAP関数を「呼ばれたら失敗」に差し替えることで、783-799行目の
-        早期return分岐が実際に効いていること（後続のモデル学習コードへ進まない
-        こと）を確認する。
+        モデル学習・SHAP関数を「呼ばれたら失敗」に差し替えることで、main() の
+        `args.diagnose_only` による早期return分岐が実際に効いていること
+        （後続のモデル学習コードへ進まないこと）を確認する。
         """
         dataframe = _quality_dataframe(n=20)
         monkeypatch.setattr(

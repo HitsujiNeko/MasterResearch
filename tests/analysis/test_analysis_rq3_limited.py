@@ -264,37 +264,46 @@ class TestFillMissingBuildingHeights:
 def _quality_dataframe(n: int = 10) -> pd.DataFrame:
     """フィルタを全件通過する合成データセット（拡張後の全候補列 + 品質列）。
 
-    値は行ごとに少しずつ変えている。全行同値にすると全列が定数列になり、
-    `drop_constant_features` の検証が「定数列だけを落とす」ことの確認にならない
-    ためである。
+    値は列ごとに独立な変動を与える。全行同値にすると全列が定数列になり、
+    `drop_constant_features` の検証が「定数列だけを落とす」ことの確認にならない。
+    さらに、全列を同じ単調増加量（行番号由来の`step`）で作ると列どうしが完全な
+    線形従属になり、`compute_vif` の補助回帰が決定係数1.0を返して全列のVIFが
+    `inf` になる。これでは多重共線性の診断（本スクリプトの主目的）に対するテストが
+    「有限のVIFを返す」ことを検証できないため、固定シードの乱数で列ごとに独立な
+    変動を与え、再現性を保ちつつ有限のVIFが出る状態にする。
     """
-    steps = [index / max(n, 1) for index in range(n)]
+    rng = np.random.default_rng(seed=20230707)
+
+    def _values(base: float, spread: float) -> list[float]:
+        """基準値のまわりに、他の列とは独立な変動を与えた列を作る。"""
+        return (base + rng.normal(loc=0.0, scale=spread, size=n)).tolist()
+
     return pd.DataFrame(
         {
             "cell_id": range(n),
             IN_ANALYSIS_AREA_COLUMN: [1] * n,
             VALID_GIS_MASK_COLUMN: [1] * n,
-            "BUILD_COV": [0.2 + step for step in steps],
-            "BUILD_DEN": [5.0 + step for step in steps],
-            "BUILD_H_MEAN": [10.0 + step for step in steps],
-            "BUILD_H_MAX": [15.0 + step for step in steps],
-            "ROAD_DEN": [50.0 + step for step in steps],
-            "ELEV_MEAN": [8.0 + step for step in steps],
-            "NDVI": [0.4 - step for step in steps],
-            "NDBI": [-0.1 + step for step in steps],
-            "NDWI": [0.2 + step for step in steps],
-            "LULC_WATER_COV": [0.05 + step for step in steps],
-            "LULC_TREE_COV": [0.10 + step for step in steps],
-            "LULC_CROP_COV": [0.60 - step for step in steps],
-            "LULC_BUILT_COV": [0.15 + step for step in steps],
-            "LULC_RANGE_COV": [0.05 + step for step in steps],
-            "LULC_WETLAND_COV": [0.03 + step for step in steps],
-            "LULC_BARE_COV": [0.02 + step for step in steps],
-            "NTL_MEAN": [12.0 + step for step in steps],
-            "POP_DEN_WORLDPOP2020": [100.0 + step for step in steps],
-            "POP_DEN_LANDSCAN2020": [120.0 + step for step in steps],
-            "POP_DEN_LANDSCAN2023": [130.0 + step for step in steps],
-            "LST": [35.0 + step for step in steps],
+            "BUILD_COV": _values(0.2, 0.03),
+            "BUILD_DEN": _values(5.0, 1.0),
+            "BUILD_H_MEAN": _values(10.0, 2.0),
+            "BUILD_H_MAX": _values(15.0, 3.0),
+            "ROAD_DEN": _values(50.0, 10.0),
+            "ELEV_MEAN": _values(8.0, 2.0),
+            "NDVI": _values(0.4, 0.05),
+            "NDBI": _values(-0.1, 0.05),
+            "NDWI": _values(0.2, 0.05),
+            "LULC_WATER_COV": _values(0.05, 0.01),
+            "LULC_TREE_COV": _values(0.10, 0.02),
+            "LULC_CROP_COV": _values(0.60, 0.05),
+            "LULC_BUILT_COV": _values(0.15, 0.03),
+            "LULC_RANGE_COV": _values(0.05, 0.01),
+            "LULC_WETLAND_COV": _values(0.03, 0.01),
+            "LULC_BARE_COV": _values(0.02, 0.005),
+            "NTL_MEAN": _values(12.0, 2.0),
+            "POP_DEN_WORLDPOP2020": _values(100.0, 10.0),
+            "POP_DEN_LANDSCAN2020": _values(120.0, 10.0),
+            "POP_DEN_LANDSCAN2023": _values(130.0, 10.0),
+            "LST": _values(35.0, 1.0),
             LST_VALID_RATIO_COLUMN: [0.9] * n,
         }
     )

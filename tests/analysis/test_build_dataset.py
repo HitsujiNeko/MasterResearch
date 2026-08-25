@@ -863,14 +863,35 @@ def test_end_to_end_satellite_only_scenario_with_tables(city_environment: dict[s
 
 
 def test_end_to_end_scenario_expands_to_tables(city_environment: dict[str, Any]) -> None:
-    """--scenario は SCENARIO_TABLES を展開し、シナリオ名で出力する。"""
+    """--scenario は SCENARIO_TABLES を展開し、シナリオ名で出力する。
+
+    limited は建物・道路・標高に加えて土地被覆・夜間光・人口密度3版を結合する。
+    人口は3版とも同時に結合できることを、接尾辞つきの列が揃うことで確認する
+    （列名を共有していれば ``join_tables()`` が衝突として拒否するため、
+    結合が成立すること自体が接尾辞の効いている証拠になる）。
+    """
     _run_param_calculation(city_environment, ["--params", *SCENARIO_TABLES["limited"]])
     _run_build_dataset(city_environment, ["--scenario", "limited"])
 
     dataset = _read_dataset(city_environment, "limited")
 
-    assert {"BUILD_COV", "ROAD_DEN", "ELEV_MEAN", "IN_ANALYSIS_AREA"}.issubset(set(dataset.columns))
-    # 標高は VALID_GIS_MASK の判定材料に含めないため、建物・道路が無いセルは0のまま。
+    assert {
+        "BUILD_COV",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "IN_ANALYSIS_AREA",
+        "LULC_BUILT_COV",
+        "LULC_TREE_COV",
+        "LULC_VALID_RATIO",
+        "NTL_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "POP_DEN_LANDSCAN2020",
+        "POP_DEN_LANDSCAN2023",
+    }.issubset(set(dataset.columns))
+    # 土地被覆の副ソースは列名を共有する差し替え関係のため、シナリオ展開には含めない。
+    assert "lulc_esri2022" not in SCENARIO_TABLES["limited"]
+    assert "ntl_bm2023" not in SCENARIO_TABLES["limited"]
+    # 標高・土地被覆は VALID_GIS_MASK の判定材料に含めないため、建物・道路が無いセルは0のまま。
     assert (dataset[VALID_GIS_MASK_COLUMN] == 0).any()
 
 

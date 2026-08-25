@@ -384,8 +384,10 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | シナリオ | 結合するテーブル | `--scenario` での指定 |
 |---|---|---|
 | `satellite_only` | `mask_roi` | `--tables` に `idx_*` を伴う場合のみ可（下記） |
-| `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` | 可 |
+| `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` / `lulc_glc2022` / `ntl_viirs2023` / `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` | 可 |
 | `full` | `mask_roi` / `build_dc` / `road_gt` | 可 |
+
+**`limited` が土地被覆・夜間光の主ソースのみを列挙する理由**: `lulc_glc2022` と `lulc_esri2022`、`ntl_viirs2023` と `ntl_bm2023` は列名を共有する差し替え関係であり、同一データセットへ同時結合すると `join_tables()` が列名衝突として拒否する。副ソースでの感度分析は `--tables` に全テーブルを明示列挙した**別データセット**として生成する（`--scenario limited` を併用すると展開分の主ソースが混入して衝突するため、併用しない）。人口3版は列名に接尾辞が付いて衝突しないため、3版とも同時に結合する（6.4節）。
 
 衛星指標・LSTは観測ファイル単位のため `SCENARIO_TABLES` には列挙できない。結合時に観測日時つきのテーブル名（例: `idx_20230707_032329` / `lst_20230707_032329`）を `--tables` で明示する。
 

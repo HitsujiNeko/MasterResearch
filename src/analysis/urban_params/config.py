@@ -322,8 +322,27 @@ PARAM_SETS: dict[str, ParamSet] = {
 # 目的変数しか持たないデータセットが「衛星のみ」を名乗ることになるため）。
 SATELLITE_ONLY_SCENARIO = "satellite_only"
 
+#
+# ``limited`` は「衛星データ＋公開GIS」のシナリオであり、土地被覆・人口密度・夜間光は
+# いずれも公開GISに属するため、ここへ列挙する。**土地被覆・夜間光は主ソースのみを
+# 列挙する**（``lulc_glc2022`` / ``ntl_viirs2023``）。副ソース（``lulc_esri2022`` /
+# ``ntl_bm2023``）は列名を共有する差し替え関係であり、同一データセットへ同時結合すると
+# ``join_tables()`` が列名衝突として拒否するためである。副ソースでの感度分析は
+# ``--tables`` で全テーブルを明示列挙した別データセットとして生成する
+# （``--scenario`` を併用するとシナリオ展開分の主ソースが混入して衝突する）。
+# 人口3版は列名に接尾辞が付いて衝突しないため、3版とも同時に結合する。
 SCENARIO_TABLES: dict[str, tuple[str, ...]] = {
     SATELLITE_ONLY_SCENARIO: ("mask_roi",),
-    "limited": ("mask_roi", "build_gba", "road_osm", "elev_fabdem"),
+    "limited": (
+        "mask_roi",
+        "build_gba",
+        "road_osm",
+        "elev_fabdem",
+        "lulc_glc2022",
+        "ntl_viirs2023",
+        "pop_worldpop2020",
+        "pop_landscan2020",
+        "pop_landscan2023",
+    ),
     "full": ("mask_roi", "build_dc", "road_gt"),
 }

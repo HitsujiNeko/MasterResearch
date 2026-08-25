@@ -1,0 +1,312 @@
+{
+  "scenario": "Limited",
+  "dataset_path": "data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg",
+  "sample_path": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_sample_100000.csv",
+  "sample_size": 100000,
+  "train_size": 80000,
+  "test_size": 20000,
+  "variable_set": "both",
+  "population_sources": [
+    "landscan2023"
+  ],
+  "features": [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "BUILD_H_MAX",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "POP_DEN_LANDSCAN2023",
+    "NTL_MEAN",
+    "NDVI",
+    "NDBI",
+    "NDWI",
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV"
+  ],
+  "requested_features": [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "BUILD_H_MAX",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "POP_DEN_LANDSCAN2023",
+    "NTL_MEAN",
+    "NDVI",
+    "NDBI",
+    "NDWI",
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV",
+    "LULC_BARE_COV"
+  ],
+  "filter_columns": [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "BUILD_H_MAX",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "POP_DEN_LANDSCAN2023",
+    "NTL_MEAN",
+    "NDVI",
+    "NDBI",
+    "NDWI",
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV",
+    "LULC_BARE_COV"
+  ],
+  "filter_columns_note": "非NULLを要求する列は変数セットに依らず一定にし、spectral / coverage / both の母数を揃えている。投入列でフィルタすると coverage のときだけ衛星有効性の条件（分光指数の非NULL要求が VALID_SATELLITE_MASK を包含する前提）が外れる。",
+  "dropped_constant_features": [
+    "LULC_BARE_COV"
+  ],
+  "lst_valid_ratio_threshold": 0.5,
+  "require_valid_gis_mask": false,
+  "required_mask_columns": [
+    "IN_ANALYSIS_AREA"
+  ],
+  "diagnostics_scope": {
+    "vif_columns": [
+      "BUILD_COV",
+      "BUILD_DEN",
+      "BUILD_H_MEAN",
+      "BUILD_H_MAX",
+      "ROAD_DEN",
+      "ELEV_MEAN",
+      "POP_DEN_LANDSCAN2023",
+      "NTL_MEAN",
+      "NDVI",
+      "NDBI",
+      "NDWI",
+      "LULC_WATER_COV",
+      "LULC_TREE_COV",
+      "LULC_BUILT_COV",
+      "LULC_RANGE_COV",
+      "LULC_WETLAND_COV"
+    ],
+    "correlation_columns": [
+      "BUILD_COV",
+      "BUILD_DEN",
+      "BUILD_H_MEAN",
+      "BUILD_H_MAX",
+      "ROAD_DEN",
+      "ELEV_MEAN",
+      "NDVI",
+      "NDBI",
+      "NDWI",
+      "LULC_WATER_COV",
+      "LULC_TREE_COV",
+      "LULC_CROP_COV",
+      "LULC_BUILT_COV",
+      "LULC_RANGE_COV",
+      "LULC_WETLAND_COV",
+      "LULC_BARE_COV",
+      "NTL_MEAN",
+      "POP_DEN_WORLDPOP2020",
+      "POP_DEN_LANDSCAN2020",
+      "POP_DEN_LANDSCAN2023"
+    ],
+    "correlation_row_count": 98531,
+    "correlation_missing_columns": [],
+    "sample_row_count": 100000,
+    "note": "VIFはモデルへ投入した特徴量列、相関行列は拡張後の全候補列を対象とする。相関行列は候補列に欠測を含む行を落として算出しているため、correlation_row_count は sample_row_count 以下になりうる。"
+  },
+  "building_height_fill": {
+    "columns": [
+      "BUILD_H_MEAN",
+      "BUILD_H_MAX"
+    ],
+    "dataset_filled_cell_count": 2781918,
+    "population_size": 1864640,
+    "population_filled_cell_count": 1479989,
+    "sample_filled_cell_count": 79492
+  },
+  "random_split": {
+    "linear_regression": {
+      "metrics": {
+        "r2": 0.7595682144165039,
+        "rmse": 0.9800557638379225,
+        "mae": 0.7407565712928772
+      },
+      "standardized_coefficients": {
+        "BUILD_COV": 0.08165978640317917,
+        "BUILD_DEN": 0.030468463897705078,
+        "BUILD_H_MEAN": 0.06899596005678177,
+        "BUILD_H_MAX": -0.08799724280834198,
+        "ROAD_DEN": 0.028475910425186157,
+        "ELEV_MEAN": -0.17892161011695862,
+        "POP_DEN_LANDSCAN2023": 0.04118848592042923,
+        "NTL_MEAN": 0.14547020196914673,
+        "NDVI": -0.6016588807106018,
+        "NDBI": 0.2433794140815735,
+        "NDWI": -0.6098738312721252,
+        "LULC_WATER_COV": -0.15200263261795044,
+        "LULC_TREE_COV": -0.11914797872304916,
+        "LULC_BUILT_COV": 0.27230924367904663,
+        "LULC_RANGE_COV": 0.014769659377634525,
+        "LULC_WETLAND_COV": -0.048296160995960236
+      }
+    },
+    "random_forest": {
+      "metrics": {
+        "r2": 0.8584601607264969,
+        "rmse": 0.7519590542225293,
+        "mae": 0.5622701004915946
+      },
+      "feature_importance": {
+        "BUILD_COV": 0.0010928469155830056,
+        "BUILD_DEN": 0.0012852191011997608,
+        "BUILD_H_MEAN": 0.0034107209334294517,
+        "BUILD_H_MAX": 0.0033141853630486813,
+        "ROAD_DEN": 0.004606438377967589,
+        "ELEV_MEAN": 0.05419755541553837,
+        "POP_DEN_LANDSCAN2023": 0.03292846680353821,
+        "NTL_MEAN": 0.044353368311524456,
+        "NDVI": 0.11198620435632835,
+        "NDBI": 0.1531125819914211,
+        "NDWI": 0.04510316065383889,
+        "LULC_WATER_COV": 0.028690085082948107,
+        "LULC_TREE_COV": 0.0017648377861383467,
+        "LULC_BUILT_COV": 0.5127321733852545,
+        "LULC_RANGE_COV": 0.0003849040565518669,
+        "LULC_WETLAND_COV": 0.0010372514656893858
+      },
+      "permutation_importance": {
+        "BUILD_COV": 8.341670779112852e-05,
+        "BUILD_DEN": 0.00027477187250691816,
+        "BUILD_H_MEAN": 0.001610698650962572,
+        "BUILD_H_MAX": 0.0015482183559346386,
+        "ROAD_DEN": 0.0010972905425795543,
+        "ELEV_MEAN": 0.08281681513215229,
+        "POP_DEN_LANDSCAN2023": 0.038833415736107504,
+        "NTL_MEAN": 0.05265815424391793,
+        "NDVI": 0.17345098983950202,
+        "NDBI": 0.28796819926070344,
+        "NDWI": 0.05118680905043641,
+        "LULC_WATER_COV": 0.024448994685578172,
+        "LULC_TREE_COV": 0.001876913031938554,
+        "LULC_BUILT_COV": 0.1659676259741712,
+        "LULC_RANGE_COV": 0.00013302064478948328,
+        "LULC_WETLAND_COV": 0.0006452162615780188
+      }
+    }
+  },
+  "spatial_cv": {
+    "cv_splits": 5,
+    "linear_regression": {
+      "r2_mean": 0.7475760221481323,
+      "r2_std": 0.0326129453521573,
+      "rmse_mean": 0.9987580108416605,
+      "rmse_std": 0.023328861580912547,
+      "mae_mean": 0.7510784268379211,
+      "mae_std": 0.009670353871263125
+    },
+    "random_forest": {
+      "r2_mean": 0.8223391237892264,
+      "r2_std": 0.021785607438776156,
+      "rmse_mean": 0.8382958250590665,
+      "rmse_std": 0.02366857883812884,
+      "mae_mean": 0.6353068375252319,
+      "mae_std": 0.01177574724419434
+    },
+    "block_definition": {
+      "block_size_m": 2700,
+      "n_blocks": 302
+    },
+    "outputs": {
+      "fold_metrics_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_spatial_cv_folds.csv",
+      "spatial_cv_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_spatial_cv.png"
+    }
+  },
+  "vif": {
+    "BUILD_COV": 3.8654320728812452,
+    "BUILD_DEN": 3.961056214542605,
+    "BUILD_H_MEAN": 49.658477676615796,
+    "BUILD_H_MAX": 57.86005062732358,
+    "ROAD_DEN": 1.296502032012995,
+    "ELEV_MEAN": 1.7903779071256487,
+    "POP_DEN_LANDSCAN2023": 1.437361300104273,
+    "NTL_MEAN": 1.5869349555168288,
+    "NDVI": 25.365181645139977,
+    "NDBI": 2.345496381981753,
+    "NDWI": 27.04641535227434,
+    "LULC_WATER_COV": 1.7288256873170933,
+    "LULC_TREE_COV": 2.0328309420584607,
+    "LULC_BUILT_COV": 3.1462892193395,
+    "LULC_RANGE_COV": 1.011692718559477,
+    "LULC_WETLAND_COV": 1.0442208160315365
+  },
+  "vif_non_finite_features": [],
+  "shap": {
+    "sample_size": 2000,
+    "background_size": 500,
+    "mean_abs_shap": {
+      "NDBI": 0.5034509801152318,
+      "LULC_BUILT_COV": 0.421000682937616,
+      "NDVI": 0.29696142563900607,
+      "ELEV_MEAN": 0.20129794385594593,
+      "NTL_MEAN": 0.19857986416165752,
+      "POP_DEN_LANDSCAN2023": 0.1895439410911344,
+      "NDWI": 0.14246943565311826,
+      "LULC_WATER_COV": 0.0969054841109409,
+      "LULC_TREE_COV": 0.02220989878647677,
+      "BUILD_H_MEAN": 0.019564112767283957,
+      "ROAD_DEN": 0.014491059698318607,
+      "BUILD_H_MAX": 0.014268837277031316,
+      "LULC_WETLAND_COV": 0.006226069776411173,
+      "BUILD_COV": 0.0020455034086129258,
+      "BUILD_DEN": 0.00203212548048329,
+      "LULC_RANGE_COV": 0.0003871825009247368
+    },
+    "outputs": {
+      "shap_importance_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_importance.csv",
+      "shap_summary_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_summary.png",
+      "shap_bar_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_bar.png",
+      "shap_dependence_png": {
+        "BUILD_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_BUILD_COV.png",
+        "BUILD_DEN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_BUILD_DEN.png",
+        "BUILD_H_MEAN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_BUILD_H_MEAN.png",
+        "BUILD_H_MAX": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_BUILD_H_MAX.png",
+        "ROAD_DEN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_ROAD_DEN.png",
+        "ELEV_MEAN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_ELEV_MEAN.png",
+        "POP_DEN_LANDSCAN2023": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_POP_DEN_LANDSCAN2023.png",
+        "NTL_MEAN": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_NTL_MEAN.png",
+        "NDVI": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_NDVI.png",
+        "NDBI": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_NDBI.png",
+        "NDWI": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_NDWI.png",
+        "LULC_WATER_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_LULC_WATER_COV.png",
+        "LULC_TREE_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_LULC_TREE_COV.png",
+        "LULC_BUILT_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_LULC_BUILT_COV.png",
+        "LULC_RANGE_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_LULC_RANGE_COV.png",
+        "LULC_WETLAND_COV": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_shap_dependence_LULC_WETLAND_COV.png"
+      }
+    },
+    "vegetation_coverage": {
+      "columns": [
+        "LULC_TREE_COV",
+        "LULC_RANGE_COV"
+      ],
+      "excluded_columns": [],
+      "mean_abs_shap_sum": 0.022597081287401507,
+      "note": "植生被覆率は独立変数として投入せず、樹林・草地低木クラスの平均絶対SHAP値を事後合算したグループ寄与として記録する。"
+    }
+  },
+  "outputs": {
+    "feature_importance_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_feature_importance.csv",
+    "model_comparison_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_model_comparison.png",
+    "feature_importance_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_feature_importance.png",
+    "correlation_pearson_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_correlation_pearson.csv",
+    "correlation_pearson_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_correlation_pearson.png",
+    "correlation_spearman_csv": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_correlation_spearman.csv",
+    "correlation_spearman_png": "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_correlation_spearman.png"
+  }
+}

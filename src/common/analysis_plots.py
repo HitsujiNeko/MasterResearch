@@ -1,4 +1,4 @@
-"""モデル比較・特徴量重要度・Spatial CV foldの可視化を行う共通モジュール。
+"""モデル比較・特徴量重要度・Spatial CV fold・相関行列の可視化を行う共通モジュール。
 
 特徴量名はモジュールグローバルな定数ではなく、渡された辞書のキーから取得する
 ため、シナリオ（Satellite Only / Limited / Full）ごとに異なる特徴量集合でも
@@ -17,11 +17,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+# 相関行列ヒートマップへ数値を書き込む変数数の上限。これを超えるとセル数が
+# 二乗で増えて注記が判読不能になるため、色のみの表示へ切り替える。数値の正本は
+# 併せて出力する `*_correlation_*.csv` であり、図は共線構造の当たりを付けるための
+# ものと位置づける。
+CORRELATION_ANNOTATION_MAX_FEATURES = 15
+
 
 def _finalize_figure(fig: plt.Figure, output_path: Path) -> None:
     """figureのレイアウトを整えて画像として保存し、閉じる。
 
-    本モジュールの3関数で同じ保存手順（tight_layout・savefig・close）が
+    本モジュールの各関数で同じ保存手順（tight_layout・savefig・close）が
     繰り返されるため、共通化する。dpi・bbox_inchesの変更を1箇所に集約する。
 
     Args:
@@ -145,4 +151,68 @@ def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> No
         axes[index].grid(alpha=0.3)
 
     axes[0].legend()
+    _finalize_figure(fig, output_path)
+
+
+def save_correlation_heatmap(
+    output_path: Path,
+    correlation_matrix: pd.DataFrame,
+    method_label: str,
+    observation_label: str,
+) -> None:
+    """相関行列のヒートマップを保存する。
+
+    Args:
+        output_path: 出力画像パス。
+        correlation_matrix: `compute_correlation_matrix` の戻り値（正方行列で、
+            行ラベルと列ラベルが一致している必要がある）。
+        method_label: 相関係数の種類（図タイトルに使う。例: `Pearson`）。
+        observation_label: 図タイトルに使う観測日時ラベル。
+    Raises:
+        ValueError: `correlation_matrix` の行ラベルと列ラベルが一致しない場合。
+            素の描画エラーにすると原因が分かりにくいため。
+    """
+    if list(correlation_matrix.index) != list(correlation_matrix.columns):
+        raise ValueError(
+            "correlation_matrixの行ラベルと列ラベルが一致していません: "
+            f"{list(correlation_matrix.index)} vs {list(correlation_matrix.columns)}"
+        )
+
+    feature_names = [str(name) for name in correlation_matrix.columns]
+    feature_count = len(feature_names)
+    # 変数数に応じて図を広げないと、軸ラベルが重なって読めなくなる。
+    figure_side = max(6.0, 0.55 * feature_count + 3.0)
+
+    colormap = plt.get_cmap("coolwarm").copy()
+    # 定数列に由来するNaNは、カラーマップのどの値とも重ならない濃い灰色で描く。
+    # coolwarmの中間色（相関0付近）は淡い灰色であり、そこへ近い色を当てると
+    # 「相関が定義できない」セルと「無相関」のセルが見分けられなくなる。
+    colormap.set_bad("#6e6e6e")
+
+    fig, ax = plt.subplots(figsize=(figure_side, figure_side))
+    image = ax.imshow(
+        np.ma.masked_invalid(correlation_matrix.to_numpy(dtype=np.float64)),
+        cmap=colormap,
+        vmin=-1.0,
+        vmax=1.0,
+    )
+    ax.set_xticks(np.arange(feature_count), feature_names, rotation=90)
+    ax.set_yticks(np.arange(feature_count), feature_names)
+    ax.set_title(f"{method_label} Correlation {observation_label}")
+    fig.colorbar(image, ax=ax, shrink=0.8)
+
+    if feature_count <= CORRELATION_ANNOTATION_MAX_FEATURES:
+        for row_index in range(feature_count):
+            for column_index in range(feature_count):
+                value = correlation_matrix.iat[row_index, column_index]
+                ax.text(
+                    column_index,
+                    row_index,
+                    "n/a" if pd.isna(value) else f"{value:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="black",
+                )
+
     _finalize_figure(fig, output_path)

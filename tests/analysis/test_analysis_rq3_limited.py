@@ -12,6 +12,8 @@ tests/analysis/urban_params/test_canonical_grid.py で検証する。
 
 from __future__ import annotations
 
+import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -38,6 +40,7 @@ from src.analysis.analysis_rq3_limited import (
     build_filtered_sample,
     drop_constant_features,
     fill_missing_building_heights,
+    main,
     parse_arguments,
     resolve_feature_columns,
     resolve_filter_columns,
@@ -825,3 +828,96 @@ class TestPopulationIsEqualAcrossVariableSets:
 
         assert len(with_fix.sampled) == len(dataframe) - 1
         assert len(without_fix.sampled) == len(dataframe)
+
+
+class TestMainDiagnoseOnly:
+    """main() に新規追加した2つのロジックを検証する
+    （フィルタ列欠損時のValueError送出、--diagnose-only指定時のモデル学習・SHAP省略）。
+
+    データ読込（load_analysis_dataset）だけを合成データへ差し替え、実データや
+    実GeoPackageは使わない（薄いエントリとしての結線部分のみを対象とする方針は
+    本ファイル冒頭のdocstring参照）。
+    """
+
+    def _run_argv(self, dataset_path: Path, output_dir: Path, *extra_args: str) -> list[str]:
+        """main() が読むCLI引数を組み立てる（--diagnose-onlyを常に含める）。"""
+        return [
+            "analysis_rq3_limited.py",
+            "--dataset-path",
+            str(dataset_path),
+            "--output-dir",
+            str(output_dir),
+            "--diagnose-only",
+            *extra_args,
+        ]
+
+    def test_missing_filter_column_raises(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """フィルタに必要な列がデータセットに存在しない場合、ValueErrorを送出する。
+
+        既定の --population-source（worldpop2020）が要求する列を合成データから
+        落とすことで、709-717行目の検証（データ読込直後、フィルタ実行前）を踏ませる。
+        """
+        dataframe = _quality_dataframe().drop(columns=["POP_DEN_WORLDPOP2020"])
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(sys, "argv", self._run_argv(dataset_path, output_dir))
+
+        with pytest.raises(ValueError, match="POP_DEN_WORLDPOP2020"):
+            main()
+
+    def test_diagnose_only_skips_modeling_and_writes_diagnostics(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """--diagnose-only指定時、モデル学習・SHAPを実行せず診断結果のみを保存する。
+
+        モデル学習・SHAP関数を「呼ばれたら失敗」に差し替えることで、783-799行目の
+        早期return分岐が実際に効いていること（後続のモデル学習コードへ進まない
+        こと）を確認する。
+        """
+        dataframe = _quality_dataframe(n=20)
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("--diagnose-only指定時にモデル学習・SHAPが呼ばれてはならない")
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.run_random_split_models", _fail_if_called
+        )
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.run_spatial_cv_models", _fail_if_called
+        )
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.compute_shap_outputs", _fail_if_called
+        )
+
+        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            self._run_argv(dataset_path, output_dir, "--variable-set", "spectral"),
+        )
+
+        main()
+
+        diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
+        assert len(diagnostics_files) == 1
+        diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
+        assert diagnostics["scenario"] == "Limited"
+        assert diagnostics["mode"] == "diagnose_only"
+        assert diagnostics["variable_set"] == "spectral"
+        assert diagnostics["sample_size"] == len(dataframe)
+        assert diagnostics["population_size"] == len(dataframe)
+        assert "vif" in diagnostics
+        assert "correlation_pearson_csv" in diagnostics["outputs"]
+        # モデル学習・SHAP由来の結果ファイルは存在しない（診断のみで終了した証跡）。
+        assert not list(output_dir.glob("*_results.json"))

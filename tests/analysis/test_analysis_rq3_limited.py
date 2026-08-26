@@ -228,13 +228,13 @@ class TestResolveOutputStem:
     ) -> None:
         """既定を変えても出力名は動かない（既定基準ではなく both という値が基準）。
 
-        既定基準で省略すると、比較の結果 `DEFAULT_BUILDING_HEIGHT_MODE` を
-        `mean` へ変えた瞬間に mean の出力名が `_bh_mean` 無しの形へ移り、
-        `both` で実行済みの既存ランの出力ファイルを上書きする。
+        既定基準で省略すると、既定を変えた瞬間に新しい既定の出力名が `_bh_` 無しの
+        形へ移り、`both` で実行済みの既存ランの出力ファイルを上書きする。
+
+        既定を**現在の値とは別の値**へ差し替えて検証する。現在の既定
+        （`mean`）のまま差し替えても値が変わらず、検証にならないため。
         """
-        monkeypatch.setattr(
-            "src.analysis.analysis_rq3_limited.DEFAULT_BUILDING_HEIGHT_MODE", "mean"
-        )
+        monkeypatch.setattr("src.analysis.analysis_rq3_limited.DEFAULT_BUILDING_HEIGHT_MODE", "pc1")
 
         both_stem = resolve_output_stem(
             self._DATASET_PATH,

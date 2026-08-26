@@ -734,7 +734,9 @@ def _sanitize_finite_value(value: float, non_finite_keys: list[str], key: str) -
     Args:
         value: 検査する値。
         non_finite_keys: 非有限だった場合にキー名を追記するリスト（副作用あり）。
-        key: 記録するキー名。
+        key: 記録するキー名。**診断辞書の中でのパス**（例: `standardization.means.BUILD_H_MEAN`）
+            を渡す。値だけを見て該当箇所を辿れるようにするため、辞書の入れ子構造を
+            省略しない。
     Returns:
         有限なら `float`、非有限なら `None`。
     """
@@ -837,11 +839,15 @@ def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict
         ),
         "standardization": {
             "means": {
-                column: _sanitize_finite_value(value, non_finite_keys, f"means.{column}")
+                column: _sanitize_finite_value(
+                    value, non_finite_keys, f"standardization.means.{column}"
+                )
                 for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.mean_, strict=True)
             },
             "scales": {
-                column: _sanitize_finite_value(value, non_finite_keys, f"scales.{column}")
+                column: _sanitize_finite_value(
+                    value, non_finite_keys, f"standardization.scales.{column}"
+                )
                 for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.scale_, strict=True)
             },
         },

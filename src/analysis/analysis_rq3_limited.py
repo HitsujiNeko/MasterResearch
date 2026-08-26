@@ -7,10 +7,11 @@
 
 説明変数はブロック単位で保持し、`--variable-set` で分光指数（NDVI/NDBI/NDWI）と
 土地被覆クラス別面積率のどちらを投入するかを切り替える。建物高さブロック
-（`BUILD_H_MEAN`/`BUILD_H_MAX`）は強い相関を持つため、`--building-height` で
-どちらか1列だけを投入する構成・主成分へ合成する構成へ切り替えられる。多重共線性の
-診断のみを行いたい場合は `--diagnose-only` を指定すると、モデル学習・SHAPを
-実行せずに相関行列・VIF・フィルタ後母数だけを出力して終了する。
+（`BUILD_H_MEAN`/`BUILD_H_MAX`）は強い相関を持つため、既定では平均高さの1列のみを
+投入し、`--building-height` で2列とも投入する構成・最大高さのみの構成・主成分へ
+合成する構成へ切り替えられる。多重共線性の診断のみを行いたい場合は
+`--diagnose-only` を指定すると、モデル学習・SHAPを実行せずに相関行列・VIF・
+フィルタ後母数だけを出力して終了する。
 """
 
 from __future__ import annotations
@@ -150,7 +151,7 @@ DEFAULT_VARIABLE_SET = VARIABLE_SET_BOTH
 
 # 建物高さ構成の選択肢。`BUILD_H_MEAN` と `BUILD_H_MAX` は同一の建物ポリゴンから
 # 集計した高さであり強く相関するため、2列とも投入するとVIFが危険水準へ達する。
-# both は2列とも投入する現行構成、mean / max はどちらか1列だけを投入する構成、
+# both は2列とも投入する構成、mean / max はどちらか1列だけを投入する構成、
 # pc1 は2列を標準化して第1主成分へ合成した1列を投入する構成
 # （`resolve_building_height_columns` / `add_building_height_pc1` 参照）。
 BUILDING_HEIGHT_MODE_BOTH = "both"
@@ -163,7 +164,13 @@ BUILDING_HEIGHT_MODES = (
     BUILDING_HEIGHT_MODE_MAX,
     BUILDING_HEIGHT_MODE_PC1,
 )
-DEFAULT_BUILDING_HEIGHT_MODE = BUILDING_HEIGHT_MODE_BOTH
+# 既定は mean。3構成を同一セル上で比較した結果、VIFはいずれも危険水準を大きく下回り
+# （2.46〜2.89）、説明力・重要度・SHAPに区別できる差が無かったため、
+# 「セル内の平均建物高さ」として物理的な意味が直接読める生の観測列を採った
+# （比較の実測値と判断は `docs/03_results/limited_analysis_results.md` を正本とする）。
+# **出力名の省略基準は既定ではなく both という値であり**（`resolve_output_stem` 参照）、
+# この既定変更で既存ランの出力ファイル名は動かない。
+DEFAULT_BUILDING_HEIGHT_MODE = BUILDING_HEIGHT_MODE_MEAN
 # 主成分構成でのみ作る合成列。入力データセットには存在しない
 # （`add_building_height_pc1` が分析サンプル上で追加する）。
 BUILDING_HEIGHT_PC1_COLUMN = "BUILD_H_PC1"
@@ -267,6 +274,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             "モデルへ投入する建物高さ列の構成。both は BUILD_H_MEAN と BUILD_H_MAX を"
             "2列とも投入する、mean / max はどちらか1列だけを投入する、"
             "pc1 は2列を標準化して第1主成分へ合成した1列を投入する。"
+            "既定の mean は高さ2列の多重共線性を避けつつ意味が直接読める構成である。"
             "いずれの構成でも非NULLを要求するフィルタ列は2列のまま変えないため、"
             "構成間で分析サンプルは同一になる。"
         ),

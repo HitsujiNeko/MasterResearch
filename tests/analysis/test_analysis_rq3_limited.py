@@ -122,6 +122,7 @@ class TestResolveOutputStem:
                 "both",
                 DEFAULT_POPULATION_SOURCES,
                 require_valid_gis_mask=False,
+                building_height_mode="both",
             )
             == "dataset_limited_20230707_032329_hanoi_30m_both"
         )
@@ -131,6 +132,7 @@ class TestResolveOutputStem:
                 "coverage",
                 DEFAULT_POPULATION_SOURCES,
                 require_valid_gis_mask=False,
+                building_height_mode="both",
             )
             == "dataset_limited_20230707_032329_hanoi_30m_coverage"
         )
@@ -156,6 +158,7 @@ class TestResolveOutputStem:
                 "both",
                 ["landscan2020", "landscan2023"],
                 require_valid_gis_mask=False,
+                building_height_mode="both",
             )
             == "dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2020_pop_landscan2023"
         )
@@ -169,6 +172,7 @@ class TestResolveOutputStem:
             "coverage",
             ["none"],
             require_valid_gis_mask=True,
+            building_height_mode="both",
         )
 
         assert stem == "dataset_limited_20230707_032329_hanoi_30m_coverage_pop_none_gismask"
@@ -642,9 +646,11 @@ class TestResolveFeatureColumns:
         """
         common = {*BASE_FEATURE_COLUMNS, *NIGHTLIGHT_FEATURE_COLUMNS, "POP_DEN_WORLDPOP2020"}
 
-        spectral = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES)
-        coverage = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)
-        both = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+        # 建物高さ構成は変数セット軸と独立の軸であるため、ここでは both に固定して
+        # 「変数セットで差し替わるのは分光・被覆率の2ブロックだけ」を検証する。
+        spectral = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES, "both")
+        coverage = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES, "both")
+        both = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")
 
         assert common.issubset(set(spectral))
         assert common.issubset(set(coverage))
@@ -654,10 +660,20 @@ class TestResolveFeatureColumns:
         assert set(both) - common == {*SPECTRAL_FEATURE_COLUMNS, *LULC_FEATURE_COLUMNS}
 
     def test_variable_set_counts(self) -> None:
-        """3構成の名目変数数（11 / 14 / 17）を固定する。"""
-        assert len(resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES)) == 11
-        assert len(resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)) == 14
-        assert len(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)) == 17
+        """3構成の名目変数数を固定する。
+
+        建物高さ2列を投入する `both` 構成で 11 / 14 / 17、既定（高さ1列）で
+        10 / 13 / 16 になる。
+        """
+        for variable_set, both_count in (("spectral", 11), ("coverage", 14), ("both", 17)):
+            assert (
+                len(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES, "both"))
+                == both_count
+            )
+            assert (
+                len(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES))
+                == both_count - 1
+            )
 
     def test_excludes_lulc_reference_class(self) -> None:
         """参照クラス（農地）は説明変数に含めない。
@@ -711,12 +727,23 @@ class TestResolveFeatureColumns:
         with pytest.raises(ValueError, match="併用できません"):
             resolve_feature_columns("spectral", ["none", "worldpop2020"])
 
-    def test_default_building_height_mode_reproduces_the_base_block(self) -> None:
-        """建物高さを指定しない場合、共通ベースは従来の並び（高さ2列）のままになる。"""
-        columns = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+    def test_omitting_the_building_height_mode_uses_the_default(self) -> None:
+        """建物高さを指定しない場合、既定の構成が使われる。"""
+        explicit = resolve_feature_columns(
+            "both", DEFAULT_POPULATION_SOURCES, DEFAULT_BUILDING_HEIGHT_MODE
+        )
+
+        assert resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES) == explicit
+
+    def test_both_mode_reproduces_the_base_block(self) -> None:
+        """both を指定した場合、共通ベースは従来の並び（高さ2列）のままになる。
+
+        既定が mean へ変わった後も、both 構成そのものは以前と同じ列・同じ順序で
+        再現できる必要がある（ラン1〜10 との比較可能性を保つため）。
+        """
+        columns = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")
 
         assert columns[: len(BASE_FEATURE_COLUMNS)] == BASE_FEATURE_COLUMNS
-        assert DEFAULT_BUILDING_HEIGHT_MODE == "both"
 
     def test_building_height_mode_swaps_only_the_height_block(self) -> None:
         """差し替わるのは建物高さブロックだけで、他の列は構成間で1つも変わらない。"""
@@ -801,11 +828,16 @@ class TestVariableSetArguments:
         with pytest.raises(SystemExit):
             parse_arguments(["--variable-set", "unknown"])
 
-    def test_building_height_defaults_to_the_current_behaviour(self) -> None:
-        """--building-height の既定は現行動作であり、既存ランの再現性を壊さない。"""
+    def test_building_height_defaults_to_the_adopted_mode(self) -> None:
+        """--building-height の既定は採用構成（mean）である。
+
+        建物高さ3構成の比較の結果、平均高さ1列を投入する構成を採用した。既定を
+        固定しておくことで、以後のランが既定のまま共線性を持ち込まないようにする。
+        """
         args = parse_arguments([])
 
         assert args.building_height == DEFAULT_BUILDING_HEIGHT_MODE
+        assert DEFAULT_BUILDING_HEIGHT_MODE == "mean"
 
     @pytest.mark.parametrize("building_height_mode", ["both", "mean", "max", "pc1"])
     def test_accepts_every_building_height_mode(self, building_height_mode: str) -> None:
@@ -944,10 +976,15 @@ class TestResolveFilterColumns:
     """
 
     def test_is_constant_across_variable_sets(self) -> None:
-        """フィルタ列は変数セットの指定を受け取らない（構成に依らず一定）。"""
+        """フィルタ列は変数セット・建物高さ構成の指定を受け取らない（構成に依らず一定）。
+
+        既定の建物高さ構成が変わってもフィルタ列は `both` 相当のまま動かないことを
+        含めて固定する。動くと構成間・ラン間で母数が変わってしまう。
+        """
         filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
 
-        assert filter_columns == resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+        assert filter_columns == resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")
+        assert filter_columns != resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
 
     def test_is_a_superset_of_every_variable_set(self) -> None:
         """フィルタ列はどの変数セットの投入列も包含する。"""
@@ -1370,7 +1407,37 @@ class TestMainDiagnoseOnly:
     def test_both_mode_records_no_component_diagnostics(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        """既定（both）では主成分の診断情報を持たず、出力名にも建物高さは現れない。"""
+        """both では主成分の診断情報を持たず、出力名にも建物高さは現れない。
+
+        出力名の省略基準は既定値ではなく both という値であるため、既定が mean へ
+        変わった後も both のランの出力名は `_bh_` 無しのまま動かない。これにより
+        ラン1〜10 の既存の出力ファイルと衝突しない。
+        """
+        dataframe = _quality_dataframe(n=20)
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys, "argv", self._run_argv(dataset_path, output_dir, "--building-height", "both")
+        )
+
+        main()
+
+        diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
+        assert len(diagnostics_files) == 1
+        assert "_bh_" not in diagnostics_files[0].name
+        diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
+        assert diagnostics["building_height_mode"] == "both"
+        assert "building_height_pc1" not in diagnostics
+        assert set(BUILDING_HEIGHT_COLUMNS).issubset(set(diagnostics["features"]))
+
+    def test_default_run_uses_the_adopted_mode_and_names_the_output(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """引数を指定しないランは採用構成（mean）で走り、出力名に `_bh_mean` が付く。"""
         dataframe = _quality_dataframe(n=20)
         monkeypatch.setattr(
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
@@ -1384,11 +1451,13 @@ class TestMainDiagnoseOnly:
 
         diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
         assert len(diagnostics_files) == 1
-        assert "_bh_" not in diagnostics_files[0].name
+        assert "_bh_mean_" in diagnostics_files[0].name
         diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
-        assert diagnostics["building_height_mode"] == "both"
-        assert "building_height_pc1" not in diagnostics
-        assert set(BUILDING_HEIGHT_COLUMNS).issubset(set(diagnostics["features"]))
+        assert diagnostics["building_height_mode"] == "mean"
+        assert BUILDING_HEIGHT_MEAN_COLUMN in diagnostics["features"]
+        assert BUILDING_HEIGHT_MAX_COLUMN not in diagnostics["features"]
+        # 既定を変えてもフィルタ列は2列のままで、母数は変わらない。
+        assert set(BUILDING_HEIGHT_COLUMNS).issubset(set(diagnostics["filter_columns"]))
 
     def test_pc1_mode_swaps_the_model_columns_but_not_the_sample(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

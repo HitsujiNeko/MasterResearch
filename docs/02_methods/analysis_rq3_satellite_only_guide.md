@@ -1,7 +1,7 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-08-17  
-**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
+**最終更新**: 2026-08-26  
+**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
 ---
@@ -156,6 +156,12 @@ $$
 注意: VIFが高いことは「モデルが必ず悪い」という意味ではありません。  
 ここでは「線形係数の解釈には慎重になるべき」という警告として使います。実際に本分析でもNDVI・NDWIのVIFは10を大きく超えており、結果ドキュメントでは線形係数を補助的な情報として扱っています（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 5.3節）。
 
+#### 高VIFが係数に与える影響の実例
+
+「係数の解釈には慎重に」が具体的に何を意味するかは、Limited シナリオで実測されています。相関 +0.986 の2列（建物の平均高さと最大高さ）を両方投入すると VIF は 46.7・54.9 に達し、**大きさが同程度で符号が逆の一対の係数**（+0.126 と −0.144）が現れて、全16変数中の第6・7位という高い順位を占めていました。片方の列を外して VIF を 2.5 まで下げると、同じ変数の係数はほぼ0（**残る15変数中の最下位**）へ収束します。**同一のセル集合で比較した結果**であるため、標本の違いでは説明できません。
+
+つまり高VIFのもとでは、**係数の大きさも符号も実際の寄与を表さないこと**があります。順位が高いことを「支配的な変数である」根拠にしてはいけません。実例と対処の詳細は[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.4節を参照してください。
+
 ---
 
 ## 5. Spatial CVが必要な理由
@@ -250,7 +256,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
   算出原理が異なるため、ある程度の差は自然です。
 
 - **つまずき3**: VIFが高いと悪いモデルなのか  
-  線形回帰の係数解釈には注意が必要、という警告指標です。
+  線形回帰の係数解釈には注意が必要、という警告指標です。予測性能そのものは、共線性を解消してもほとんど変わらないことが実測されています（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.4節）。
 
 - **つまずき4**: 旧結果ドキュメントと数値が違う  
   集計単位（ピクセル vs セル）・格子・観測日数・Spatial CV方式が異なる別物です。直接比較しないでください（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 0節）。

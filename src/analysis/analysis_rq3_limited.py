@@ -6,15 +6,19 @@
 0補完）のみ本スクリプトに置く（詳細は `fill_missing_building_heights` を参照）。
 
 説明変数はブロック単位で保持し、`--variable-set` で分光指数（NDVI/NDBI/NDWI）と
-土地被覆クラス別面積率のどちらを投入するかを切り替える。多重共線性の診断のみを
-行いたい場合は `--diagnose-only` を指定すると、モデル学習・SHAPを実行せずに
-相関行列・VIF・フィルタ後母数だけを出力して終了する。
+土地被覆クラス別面積率のどちらを投入するかを切り替える。建物高さブロック
+（`BUILD_H_MEAN`/`BUILD_H_MAX`）は強い相関を持つため、既定では平均高さの1列のみを
+投入し、`--building-height` で2列とも投入する構成・最大高さのみの構成・主成分へ
+合成する構成へ切り替えられる。多重共線性の診断のみを行いたい場合は
+`--diagnose-only` を指定すると、モデル学習・SHAPを実行せずに相関行列・VIF・
+フィルタ後母数だけを出力して終了する。
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -36,6 +40,8 @@ import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 
 import pandas as pd  # noqa: E402
+from sklearn.decomposition import PCA  # noqa: E402
+from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
 from src.common.analysis_dataset import (  # noqa: E402
@@ -75,16 +81,25 @@ DEFAULT_DATASET_PATH = (
     PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20230707_032329_hanoi_30m.gpkg"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / "20230707_032329"
-# 説明変数はブロック単位で持ち、`resolve_feature_columns()` が変数セットの指定に
-# 応じて組み立てる。比較軸を「分光指数 vs 被覆率型」に絞るため、差し替えるのは
-# SPECTRAL と LULC の2ブロックだけで、それ以外は全構成に共通して入れる。
+# 説明変数はブロック単位で持ち、`resolve_feature_columns()` が変数セット・建物高さ
+# 構成の指定に応じて組み立てる。比較軸を「分光指数 vs 被覆率型」に絞るため、変数
+# セットで差し替えるのは SPECTRAL と LULC の2ブロックだけで、それ以外は全構成に
+# 共通して入れる。建物高さブロックはこれとは独立に `--building-height` で差し替える
+# （`resolve_building_height_columns` 参照）。
+BUILDING_FOOTPRINT_FEATURE_COLUMNS = ["BUILD_COV", "BUILD_DEN"]
+# 建物高さが取れる建物が1つも無いセルでNULLになる列（`_aggregate_heights`参照）。
+BUILDING_HEIGHT_MEAN_COLUMN = "BUILD_H_MEAN"
+BUILDING_HEIGHT_MAX_COLUMN = "BUILD_H_MAX"
+BUILDING_HEIGHT_COLUMNS = [BUILDING_HEIGHT_MEAN_COLUMN, BUILDING_HEIGHT_MAX_COLUMN]
+# 建物ブロック以外の共通ベース列。
+OTHER_BASE_FEATURE_COLUMNS = ["ROAD_DEN", "ELEV_MEAN"]
+# 共通ベースの既定の並び（建物高さ2列を投入する `both` 構成）。相関行列の対象列
+# （`ALL_CANDIDATE_FEATURE_COLUMNS`）は建物高さ構成に依らずこの並びを使うため、
+# 高さ2列を含んだ形のまま保つ。
 BASE_FEATURE_COLUMNS = [
-    "BUILD_COV",
-    "BUILD_DEN",
-    "BUILD_H_MEAN",
-    "BUILD_H_MAX",
-    "ROAD_DEN",
-    "ELEV_MEAN",
+    *BUILDING_FOOTPRINT_FEATURE_COLUMNS,
+    *BUILDING_HEIGHT_COLUMNS,
+    *OTHER_BASE_FEATURE_COLUMNS,
 ]
 SPECTRAL_FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 NIGHTLIGHT_FEATURE_COLUMNS = ["NTL_MEAN"]
@@ -135,6 +150,32 @@ VARIABLE_SET_BOTH = "both"
 VARIABLE_SETS = (VARIABLE_SET_SPECTRAL, VARIABLE_SET_COVERAGE, VARIABLE_SET_BOTH)
 DEFAULT_VARIABLE_SET = VARIABLE_SET_BOTH
 
+# 建物高さ構成の選択肢。`BUILD_H_MEAN` と `BUILD_H_MAX` は同一の建物ポリゴンから
+# 集計した高さであり強く相関するため、2列とも投入するとVIFが危険水準へ達する。
+# both は2列とも投入する構成、mean / max はどちらか1列だけを投入する構成、
+# pc1 は2列を標準化して第1主成分へ合成した1列を投入する構成
+# （`resolve_building_height_columns` / `add_building_height_pc1` 参照）。
+BUILDING_HEIGHT_MODE_BOTH = "both"
+BUILDING_HEIGHT_MODE_MEAN = "mean"
+BUILDING_HEIGHT_MODE_MAX = "max"
+BUILDING_HEIGHT_MODE_PC1 = "pc1"
+BUILDING_HEIGHT_MODES = (
+    BUILDING_HEIGHT_MODE_BOTH,
+    BUILDING_HEIGHT_MODE_MEAN,
+    BUILDING_HEIGHT_MODE_MAX,
+    BUILDING_HEIGHT_MODE_PC1,
+)
+# 既定は mean。3構成を同一セル上で比較した結果、VIFはいずれも危険水準を大きく下回り
+# （2.46〜2.89）、説明力・重要度・SHAPに区別できる差が無かったため、
+# 「セル内の平均建物高さ」として物理的な意味が直接読める生の観測列を採った
+# （比較の実測値と判断は `docs/03_results/limited_analysis_results.md` を正本とする）。
+# **出力名の省略基準は既定ではなく both という値であり**（`resolve_output_stem` 参照）、
+# この既定変更で既存ランの出力ファイル名は動かない。
+DEFAULT_BUILDING_HEIGHT_MODE = BUILDING_HEIGHT_MODE_MEAN
+# 主成分構成でのみ作る合成列。入力データセットには存在しない
+# （`add_building_height_pc1` が分析サンプル上で追加する）。
+BUILDING_HEIGHT_PC1_COLUMN = "BUILD_H_PC1"
+
 # 相関行列の対象となる「拡張後の全候補列」。VIF が実際に投入した特徴量列を対象と
 # するのに対し、相関行列は変数セットの選択によらず同じ範囲で算出する。人口3版
 # どうし・参照クラスを含む土地被覆7クラス全部のように、特定の変数セットには同時に
@@ -150,8 +191,6 @@ ALL_CANDIDATE_FEATURE_COLUMNS = [
 TARGET_COLUMN = "LST"
 DEFAULT_SCALE_M = 30
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
-# 建物高さが取れる建物が1つも無いセルでNULLになる列（`_aggregate_heights`参照）。
-BUILDING_HEIGHT_COLUMNS = ["BUILD_H_MEAN", "BUILD_H_MAX"]
 # BUILDING_HEIGHT_COLUMNSの0補完可否を判定する基準列。両方0なら「建物が無い」ため
 # 0mとみなす（BUILD_COV単独では小規模建物の取りこぼしを誤検出するため、
 # BUILD_DENとのAND条件にする。fill_missing_building_heightsのdocstring参照）。
@@ -229,6 +268,19 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--building-height",
+        choices=BUILDING_HEIGHT_MODES,
+        default=DEFAULT_BUILDING_HEIGHT_MODE,
+        help=(
+            "モデルへ投入する建物高さ列の構成。both は BUILD_H_MEAN と BUILD_H_MAX を"
+            "2列とも投入する、mean / max はどちらか1列だけを投入する、"
+            "pc1 は2列を標準化して第1主成分へ合成した1列を投入する。"
+            "既定の mean は高さ2列の多重共線性を避けつつ意味が直接読める構成である。"
+            "いずれの構成でも非NULLを要求するフィルタ列は2列のまま変えないため、"
+            "構成間で分析サンプルは同一になる。"
+        ),
+    )
+    parser.add_argument(
         "--population-source",
         nargs="+",
         choices=[*POPULATION_SOURCE_COLUMNS, POPULATION_SOURCE_NONE],
@@ -292,22 +344,62 @@ def resolve_population_columns(population_sources: Sequence[str]) -> list[str]:
     return [POPULATION_SOURCE_COLUMNS[source] for source in population_sources]
 
 
-def resolve_feature_columns(variable_set: str, population_sources: Sequence[str]) -> list[str]:
-    """変数セットと人口ソースの指定から、モデルへ投入する説明変数の列名を組み立てる。
+def resolve_building_height_columns(building_height_mode: str) -> list[str]:
+    """建物高さ構成の指定から、モデルへ投入する建物高さ列の列名を求める。
+
+    `BUILD_H_MEAN` と `BUILD_H_MAX` は同一の建物ポリゴンから集計した高さであり
+    強く相関する。2列とも投入するとVIFが危険水準（>10）に達し、標準化係数を
+    個別の寄与として読めなくなるため、投入する高さ列を切り替えられるようにする。
+
+    **`BUILDING_HEIGHT_MODE_PC1` が返す `BUILDING_HEIGHT_PC1_COLUMN` は入力データ
+    セットには存在しない合成列である**（`add_building_height_pc1` が分析サンプル上で
+    作る）。そのため非NULL要求のフィルタ列には使えず、`resolve_filter_columns` は
+    構成に依らず `BUILDING_HEIGHT_MODE_BOTH` を渡す。
+
+    Args:
+        building_height_mode: `BUILDING_HEIGHT_MODES` のいずれか。
+    Returns:
+        投入する建物高さ列の列名リスト。
+    Raises:
+        ValueError: `building_height_mode` が対応外の場合。
+    """
+    if building_height_mode not in BUILDING_HEIGHT_MODES:
+        raise ValueError(
+            f"対応していない建物高さ構成です: {building_height_mode}"
+            f"（対応: {', '.join(BUILDING_HEIGHT_MODES)}）。"
+        )
+    if building_height_mode == BUILDING_HEIGHT_MODE_BOTH:
+        return list(BUILDING_HEIGHT_COLUMNS)
+    if building_height_mode == BUILDING_HEIGHT_MODE_MEAN:
+        return [BUILDING_HEIGHT_MEAN_COLUMN]
+    if building_height_mode == BUILDING_HEIGHT_MODE_MAX:
+        return [BUILDING_HEIGHT_MAX_COLUMN]
+    return [BUILDING_HEIGHT_PC1_COLUMN]
+
+
+def resolve_feature_columns(
+    variable_set: str,
+    population_sources: Sequence[str],
+    building_height_mode: str = DEFAULT_BUILDING_HEIGHT_MODE,
+) -> list[str]:
+    """変数セット・建物高さ構成・人口ソースの指定から、モデルへ投入する説明変数の列名を組み立てる。
 
     共通ベース（建物・道路・標高・人口・夜間光）を先に並べ、差し替え対象の
     ブロック（分光指数・土地被覆クラス別面積率）を後ろに置く。列順は
     重要度CSV・VIF・SHAPの並び順にそのまま現れるため、構成間で共通部分の
-    並びが揃うようにしている。
+    並びが揃うようにしている。建物高さブロックも共通ベースの位置のまま
+    差し替えるため、`building_height_mode` を変えても他の列の並びは動かない。
 
     Args:
         variable_set: `VARIABLE_SETS` のいずれか。
         population_sources: `--population-source` の値。
+        building_height_mode: `BUILDING_HEIGHT_MODES` のいずれか。既定は
+            `DEFAULT_BUILDING_HEIGHT_MODE`。
     Returns:
         説明変数の列名リスト。
     Raises:
-        ValueError: `variable_set` が対応外の場合、または `population_sources` に
-            未知のデータソース識別子が含まれる場合。
+        ValueError: `variable_set` または `building_height_mode` が対応外の場合、
+            または `population_sources` に未知のデータソース識別子が含まれる場合。
     """
     if variable_set not in VARIABLE_SETS:
         raise ValueError(
@@ -315,7 +407,9 @@ def resolve_feature_columns(variable_set: str, population_sources: Sequence[str]
         )
 
     feature_columns = [
-        *BASE_FEATURE_COLUMNS,
+        *BUILDING_FOOTPRINT_FEATURE_COLUMNS,
+        *resolve_building_height_columns(building_height_mode),
+        *OTHER_BASE_FEATURE_COLUMNS,
         *resolve_population_columns(population_sources),
         *NIGHTLIGHT_FEATURE_COLUMNS,
     ]
@@ -341,13 +435,19 @@ def resolve_filter_columns(population_sources: Sequence[str]) -> list[str]:
     すべてNULLのセル（雲マスク由来の欠測）が `coverage` のときだけ母集団へ
     混入する。
 
+    建物高さ構成（`--building-height`）についても同じ理由で `both` を固定し、
+    **投入する高さ列が1本でも `BUILD_H_MEAN`・`BUILD_H_MAX` の両方に非NULLを要求
+    する**。片方だけを要求すると、もう片方だけが欠測のセルが構成によって出入りし、
+    3構成の比較が母数差と混ざる。主成分構成で投入する `BUILD_H_PC1` は入力データ
+    セットに存在しない合成列であり、そもそもフィルタ列には使えない。
+
     Args:
         population_sources: `--population-source` の値。人口だけは選択した版のみを
             要求する（3版すべてを要求すると、投入しない版の欠測で母数が減るため）。
     Returns:
         非NULLを要求する列名リスト。
     """
-    return resolve_feature_columns(VARIABLE_SET_BOTH, population_sources)
+    return resolve_feature_columns(VARIABLE_SET_BOTH, population_sources, BUILDING_HEIGHT_MODE_BOTH)
 
 
 def drop_constant_features(
@@ -431,16 +531,25 @@ def resolve_output_stem(
     variable_set: str,
     population_sources: Sequence[str],
     require_valid_gis_mask: bool,
+    building_height_mode: str = DEFAULT_BUILDING_HEIGHT_MODE,
 ) -> str:
     """データセットパスと実行条件から出力ファイル名の接頭辞を求める。
 
     構成の異なるランを同一ディレクトリへ出力しても上書きしないよう、
-    `{データセットstem}_{変数セット}[_pop_{ソース}...][_gismask]` の順で組み立てる。
-    これにより出力ファイル名自体が実行条件を示す。
+    `{データセットstem}_{変数セット}[_bh_{建物高さ}][_pop_{ソース}...][_gismask]`
+    の順で組み立てる。これにより出力ファイル名自体が実行条件を示す。
+
+    **省略の基準が人口ソースと建物高さで異なる。**
 
     - **人口ソースは既定（`DEFAULT_POPULATION_SOURCES`）の場合は付けない。**
       既定から変えたランだけが名前に現れるようにして、既存の出力名との差分を
       変数セットの追加だけに抑えるためである。
+    - **建物高さは既定ではなく `BUILDING_HEIGHT_MODE_BOTH` という値の場合に付けない。**
+      建物高さは比較の結果しだいで `DEFAULT_BUILDING_HEIGHT_MODE` そのものが
+      変わりうる軸である。既定を基準に省略すると、既定を変えた瞬間に新しい既定
+      （例: `mean`）の出力名が `_bh_mean` 無しの形へ移り、**`both` で実行済みの
+      既存ランの出力ファイルと衝突して上書きする**。値を基準にすれば既定を
+      変えても既存の出力名は動かない。
     - **`_gismask` は末尾に置く。** 感度分析の印を末尾に付ける既存の規約を保つ。
 
     Args:
@@ -448,10 +557,14 @@ def resolve_output_stem(
         variable_set: `VARIABLE_SETS` のいずれか。
         population_sources: `--population-source` の値。
         require_valid_gis_mask: `VALID_GIS_MASK == 1` を課す感度分析かどうか。
+        building_height_mode: `BUILDING_HEIGHT_MODES` のいずれか。既定は
+            `DEFAULT_BUILDING_HEIGHT_MODE`。
     Returns:
         出力ファイル名の接頭辞。
     """
     parts = [dataset_path.stem, variable_set]
+    if building_height_mode != BUILDING_HEIGHT_MODE_BOTH:
+        parts.append(f"bh_{building_height_mode}")
     if list(population_sources) != list(DEFAULT_POPULATION_SOURCES):
         parts.extend(f"pop_{source}" for source in population_sources)
     if require_valid_gis_mask:
@@ -610,6 +723,147 @@ def build_filtered_sample(
     )
 
 
+def _sanitize_finite_value(value: float, non_finite_keys: list[str], key: str) -> float | None:
+    """非有限値（Inf・NaN）を `None` へ置き換え、該当したキーを記録する。
+
+    `src.common.summary.save_summary` は `allow_nan=False` でありInf・NaNを例外に
+    するため、そのまま渡すとフル実行の**最終保存時**に落ちる（モデル学習・SHAPを
+    すべて終えた後であり、どの値が原因かも分からない）。`sanitize_vif_for_json` と
+    同じ方針で、値は `None` に落としつつ「非有限だった項目名」を別に残す。
+
+    Args:
+        value: 検査する値。
+        non_finite_keys: 非有限だった場合にキー名を追記するリスト（副作用あり）。
+        key: 記録するキー名。**診断辞書の中でのパス**（例: `standardization.means.BUILD_H_MEAN`）
+            を渡す。値だけを見て該当箇所を辿れるようにするため、辞書の入れ子構造を
+            省略しない。
+    Returns:
+        有限なら `float`、非有限なら `None`。
+    """
+    if math.isfinite(value):
+        return float(value)
+    non_finite_keys.append(key)
+    return None
+
+
+def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
+    """建物高さ2列を標準化し、第1主成分に合成した列を追加する。
+
+    `BUILD_H_MEAN` と `BUILD_H_MAX` を標準化した2変数の相関行列は `[[1, r], [r, 1]]`
+    であり、`r > 0` のとき第1主成分の固有ベクトルは `(1/√2, 1/√2)`・寄与率は
+    `(1 + r) / 2` になる。つまり主成分化は「2列の平均的な高さ水準」を1本に束ねる
+    操作であり、高さブロックの共線性を残さずに情報を保持する構成になる。
+    **`r < 0` では第1主成分が `(1/√2, -1/√2)` へ入れ替わるため、この形は無条件の
+    恒等式ではない。**
+
+    **fitは分析サンプル全体で1回だけ行い、Spatial CVのfold内では行わない。**
+    平均・尺度に由来するリークは既存パイプラインが既に除いており
+    （`src.common.regression_models.fit_linear_regression` は学習側だけで
+    `StandardScaler` をfitする）、全体fitのPC1が持ち込むfold依存は「高さ2列の
+    標準偏差の比」だけに限られる。この差による決定係数の変化は実測でモデル自身の
+    数値的なばらつきより小さく、共通モジュールへfold内変換の仕組みを持ち込む
+    コストに見合わないと判断した（判断の根拠は
+    `docs/03_results/limited_analysis_results.md` を正本とする）。
+
+    **主成分の符号は実装依存で不定なため、`BUILD_H_MEAN` に対する寄与が正になる
+    向きへ揃える。** 揃えないと「PC1が大きいほど建物が低い」という向きが偶発的に
+    生じ、標準化係数・SHAP値の符号解釈が反転する。単一主成分では
+    `cov(PC1, z_j) = λ * loadings[j]`（`λ > 0`）であり、相関の符号と loadings の
+    符号は一致するため、loadings の符号で判定する。
+
+    Args:
+        dataframe: 建物高さ2列を非NULLで含むデータフレーム
+            （`build_filtered_sample` の戻り値 `sampled` を想定）。
+    Returns:
+        `BUILDING_HEIGHT_PC1_COLUMN` を追加したデータフレーム（入力は変更しない）と、
+        主成分の診断情報（loadings・寄与率・標準化統計・元2列の相関・符号反転の
+        有無）の辞書のタプル。**診断情報の数値が非有限（高さ2列が定数に近く主成分が
+        縮退した場合）なら `None` へ置き換え、該当項目名を `non_finite_items` に
+        残す**（`_sanitize_finite_value` 参照）。
+    Raises:
+        ValueError: 建物高さ列が存在しない場合、または欠測が残っている場合。
+    """
+    missing_columns = [
+        column for column in BUILDING_HEIGHT_COLUMNS if column not in dataframe.columns
+    ]
+    if missing_columns:
+        raise ValueError(
+            f"建物高さの主成分化に必要な列がありません: {missing_columns}"
+            f"（必要: {BUILDING_HEIGHT_COLUMNS}）。"
+        )
+
+    heights = dataframe[BUILDING_HEIGHT_COLUMNS]
+    if bool(heights.isna().to_numpy().any()):
+        raise ValueError(
+            "建物高さ列に欠測が残っているため主成分化できません。"
+            "fill_missing_building_heights と filter_valid_rows を通した後の"
+            "データフレームを渡してください。"
+        )
+
+    scaler = StandardScaler()
+    standardized = scaler.fit_transform(heights.to_numpy(dtype=float))
+    pca = PCA(n_components=1)
+    scores = pca.fit_transform(standardized)[:, 0]
+    loadings = pca.components_[0]
+
+    mean_index = BUILDING_HEIGHT_COLUMNS.index(BUILDING_HEIGHT_MEAN_COLUMN)
+    sign_flipped = bool(loadings[mean_index] < 0)
+    if sign_flipped:
+        loadings = -loadings
+        scores = -scores
+
+    with_pc1 = dataframe.copy()
+    with_pc1[BUILDING_HEIGHT_PC1_COLUMN] = scores
+
+    # 高さ2列がともに定数の場合、標準化後が全て0になりPCAの寄与率・元2列の相関が
+    # NaNになる。そのまま残すと save_summary（allow_nan=False）がフル実行の最終保存
+    # 時に落ちるため、VIFと同じ方針で None へ落として項目名を別に残す。
+    non_finite_keys: list[str] = []
+    diagnostics: dict[str, object] = {
+        "column": BUILDING_HEIGHT_PC1_COLUMN,
+        "source_columns": list(BUILDING_HEIGHT_COLUMNS),
+        # fit対象は分析サンプル（既定10万件）であり、フィルタ前の母集団ではない。
+        # 記録する寄与率・loadingsもこのサンプル上の値である。
+        "fit_row_count": int(len(dataframe)),
+        "loadings": {
+            column: _sanitize_finite_value(value, non_finite_keys, f"loadings.{column}")
+            for column, value in zip(BUILDING_HEIGHT_COLUMNS, loadings, strict=True)
+        },
+        "explained_variance_ratio": _sanitize_finite_value(
+            pca.explained_variance_ratio_[0], non_finite_keys, "explained_variance_ratio"
+        ),
+        "source_correlation_pearson": _sanitize_finite_value(
+            heights[BUILDING_HEIGHT_MEAN_COLUMN].corr(heights[BUILDING_HEIGHT_MAX_COLUMN]),
+            non_finite_keys,
+            "source_correlation_pearson",
+        ),
+        "standardization": {
+            "means": {
+                column: _sanitize_finite_value(
+                    value, non_finite_keys, f"standardization.means.{column}"
+                )
+                for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.mean_, strict=True)
+            },
+            "scales": {
+                column: _sanitize_finite_value(
+                    value, non_finite_keys, f"standardization.scales.{column}"
+                )
+                for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.scale_, strict=True)
+            },
+        },
+        "sign_flipped": sign_flipped,
+        "non_finite_items": non_finite_keys,
+        "note": (
+            "主成分は分析サンプル全体で1回fitしており、Spatial CVのfold内では"
+            "fitし直していない。標準化はfitと同じサンプル上の平均・標準偏差による。"
+            "符号はBUILD_H_MEANへの寄与が正になる向きへ揃えてある。"
+            "non_finite_items が空でない場合、高さ2列が定数に近く主成分が縮退している"
+            "（該当項目の値は null に置き換えてある）。"
+        ),
+    }
+    return with_pc1, diagnostics
+
+
 def build_candidate_correlation_frame(
     dataframe: pd.DataFrame,
 ) -> tuple[pd.DataFrame, list[str]]:
@@ -681,8 +935,10 @@ def main() -> None:
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     validate_scale_matches_dataset(args.dataset_path, args.scale)
-    feature_columns = resolve_feature_columns(args.variable_set, args.population_source)
-    # フィルタ列は変数セットに依らず一定にして、構成間の母数を揃える
+    feature_columns = resolve_feature_columns(
+        args.variable_set, args.population_source, args.building_height
+    )
+    # フィルタ列は変数セット・建物高さ構成に依らず一定にして、構成間の母数を揃える
     # （`resolve_filter_columns` の docstring に理由を記す）。
     filter_columns = resolve_filter_columns(args.population_source)
     output_stem = resolve_output_stem(
@@ -690,6 +946,7 @@ def main() -> None:
         args.variable_set,
         args.population_source,
         args.require_valid_gis_mask,
+        args.building_height,
     )
     observation_label = build_observation_label(output_stem)
 
@@ -736,6 +993,13 @@ def main() -> None:
             "（--lst-valid-ratio-thresholdの設定や対象日のデータ範囲を確認してください）。"
         )
 
+    # 主成分列は分析サンプル（フィルタ・サンプリング後）を対象にfitするため、
+    # VIF算出・モデル学習の前かつ標本が確定した後のここで追加する。定数列の除外
+    # （drop_constant_features）より前に置き、合成後の列も同じ検査を通す。
+    building_height_pc1 = None
+    if args.building_height == BUILDING_HEIGHT_MODE_PC1:
+        sampled, building_height_pc1 = add_building_height_pc1(sampled)
+
     # 分散0の列を残すと compute_vif が inf を返し、実体のある共線性と区別できなく
     # なるため、VIF算出・モデル学習の前に外す（drop_constant_features 参照）。
     model_feature_columns, dropped_constant_features = drop_constant_features(
@@ -766,8 +1030,9 @@ def main() -> None:
             "correlation_row_count は sample_row_count 以下になりうる。"
         ),
     }
-    run_conditions = {
+    run_conditions: dict[str, object] = {
         "variable_set": args.variable_set,
+        "building_height_mode": args.building_height,
         "population_sources": list(args.population_source),
         "features": model_feature_columns,
         "requested_features": feature_columns,
@@ -784,6 +1049,10 @@ def main() -> None:
         "require_valid_gis_mask": args.require_valid_gis_mask,
         "required_mask_columns": list(required_mask_columns),
     }
+    if building_height_pc1 is not None:
+        # 主成分の向き・寄与率は結果の解釈に直結するため、診断のみの実行でも
+        # フル実行でも同じ内容を残す。
+        run_conditions["building_height_pc1"] = building_height_pc1
 
     if args.diagnose_only:
         diagnostics = {

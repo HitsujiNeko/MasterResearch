@@ -223,19 +223,16 @@ class TestResolveOutputStem:
 
         assert stem == (f"dataset_limited_20230707_032329_hanoi_30m_both_bh_{building_height_mode}")
 
-    def test_building_height_part_is_decided_by_value_not_by_default(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """既定を変えても出力名は動かない（既定基準ではなく both という値が基準）。
+    def test_building_height_part_is_decided_by_value_not_by_default(self) -> None:
+        """省略の基準は既定値ではなく `both` という値である。
 
         既定基準で省略すると、既定を変えた瞬間に新しい既定の出力名が `_bh_` 無しの
         形へ移り、`both` で実行済みの既存ランの出力ファイルを上書きする。
 
-        既定を**現在の値とは別の値**へ差し替えて検証する。現在の既定
-        （`mean`）のまま差し替えても値が変わらず、検証にならないため。
+        構成を明示指定した2ケースの比較で固定する。既定が `both` 以外である限り
+        （`test_default_mode_is_not_the_omission_criterion` が固定）、省略基準を
+        既定値へ書き換える実装ミスは `both` 側のアサーションで検出できる。
         """
-        monkeypatch.setattr("src.analysis.analysis_rq3_limited.DEFAULT_BUILDING_HEIGHT_MODE", "pc1")
-
         both_stem = resolve_output_stem(
             self._DATASET_PATH,
             "both",
@@ -254,6 +251,16 @@ class TestResolveOutputStem:
         assert both_stem == "dataset_limited_20230707_032329_hanoi_30m_both"
         assert mean_stem == "dataset_limited_20230707_032329_hanoi_30m_both_bh_mean"
         assert both_stem != mean_stem
+
+    def test_default_mode_is_not_the_omission_criterion(self) -> None:
+        """既定値は省略基準（`both`）と一致しない。
+
+        一致すると、既定で実行したランの出力名から `_bh_` が落ちて `both` の
+        既存ランと衝突する。同時に、上のテストが「省略基準を既定値へ書き換える
+        実装ミス」を検出できる前提でもある（既定と `both` が同じ値になると、
+        誤った実装でも同じ出力名を返してしまい検出できない）。
+        """
+        assert DEFAULT_BUILDING_HEIGHT_MODE != "both"
 
 
 class TestFillMissingBuildingHeights:

@@ -304,8 +304,8 @@ def calculate_effective_roi_coverage(
     戻り値は `*_valid_pixel_ratio` に合わせて 0-100 スケールに統一する。
 
     Args:
-        scene_coverage_ratio (float): ROIに対するシーンfootprintの被覆率（0-1）。
-        valid_pixel_ratio (float): ROI内の有効ピクセル率（0-100）。
+        scene_coverage_ratio (float | None): ROIに対するシーンfootprintの被覆率（0-1）。
+        valid_pixel_ratio (float | None): ROI内の有効ピクセル率（0-100）。
 
     Returns:
         float: 実効ROIカバー率（0-100）。入力が欠損（None/NaN）の場合はNaN。
@@ -330,9 +330,9 @@ def build_effective_roi_coverage_result(
     セル数を過大評価する。
 
     Args:
-        scene_coverage_ratio (float): ROIに対するシーンfootprintの被覆率（0-1）。
-        lst_valid_pixel_ratio (float): LSTの有効ピクセル率（0-100）。
-        indices_valid_pixel_ratio (float): 衛星指標の有効ピクセル率（0-100）。
+        scene_coverage_ratio (float | None): ROIに対するシーンfootprintの被覆率（0-1）。
+        lst_valid_pixel_ratio (float | None): LSTの有効ピクセル率（0-100）。
+        indices_valid_pixel_ratio (float | None): 衛星指標の有効ピクセル率（0-100）。
 
     Returns:
         dict[str, float]: `lst_effective_roi_coverage` / `indices_effective_roi_coverage` /

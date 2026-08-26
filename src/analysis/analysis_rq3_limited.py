@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -722,6 +723,27 @@ def build_filtered_sample(
     )
 
 
+def _sanitize_finite_value(value: float, non_finite_keys: list[str], key: str) -> float | None:
+    """非有限値（Inf・NaN）を `None` へ置き換え、該当したキーを記録する。
+
+    `src.common.summary.save_summary` は `allow_nan=False` でありInf・NaNを例外に
+    するため、そのまま渡すとフル実行の**最終保存時**に落ちる（モデル学習・SHAPを
+    すべて終えた後であり、どの値が原因かも分からない）。`sanitize_vif_for_json` と
+    同じ方針で、値は `None` に落としつつ「非有限だった項目名」を別に残す。
+
+    Args:
+        value: 検査する値。
+        non_finite_keys: 非有限だった場合にキー名を追記するリスト（副作用あり）。
+        key: 記録するキー名。
+    Returns:
+        有限なら `float`、非有限なら `None`。
+    """
+    if math.isfinite(value):
+        return float(value)
+    non_finite_keys.append(key)
+    return None
+
+
 def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
     """建物高さ2列を標準化し、第1主成分に合成した列を追加する。
 
@@ -753,7 +775,9 @@ def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict
     Returns:
         `BUILDING_HEIGHT_PC1_COLUMN` を追加したデータフレーム（入力は変更しない）と、
         主成分の診断情報（loadings・寄与率・標準化統計・元2列の相関・符号反転の
-        有無）の辞書のタプル。
+        有無）の辞書のタプル。**診断情報の数値が非有限（高さ2列が定数に近く主成分が
+        縮退した場合）なら `None` へ置き換え、該当項目名を `non_finite_items` に
+        残す**（`_sanitize_finite_value` 参照）。
     Raises:
         ValueError: 建物高さ列が存在しない場合、または欠測が残っている場合。
     """
@@ -789,6 +813,10 @@ def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict
     with_pc1 = dataframe.copy()
     with_pc1[BUILDING_HEIGHT_PC1_COLUMN] = scores
 
+    # 高さ2列がともに定数の場合、標準化後が全て0になりPCAの寄与率・元2列の相関が
+    # NaNになる。そのまま残すと save_summary（allow_nan=False）がフル実行の最終保存
+    # 時に落ちるため、VIFと同じ方針で None へ落として項目名を別に残す。
+    non_finite_keys: list[str] = []
     diagnostics: dict[str, object] = {
         "column": BUILDING_HEIGHT_PC1_COLUMN,
         "source_columns": list(BUILDING_HEIGHT_COLUMNS),
@@ -796,28 +824,35 @@ def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict
         # 記録する寄与率・loadingsもこのサンプル上の値である。
         "fit_row_count": int(len(dataframe)),
         "loadings": {
-            column: float(value)
+            column: _sanitize_finite_value(value, non_finite_keys, f"loadings.{column}")
             for column, value in zip(BUILDING_HEIGHT_COLUMNS, loadings, strict=True)
         },
-        "explained_variance_ratio": float(pca.explained_variance_ratio_[0]),
-        "source_correlation_pearson": float(
-            heights[BUILDING_HEIGHT_MEAN_COLUMN].corr(heights[BUILDING_HEIGHT_MAX_COLUMN])
+        "explained_variance_ratio": _sanitize_finite_value(
+            pca.explained_variance_ratio_[0], non_finite_keys, "explained_variance_ratio"
+        ),
+        "source_correlation_pearson": _sanitize_finite_value(
+            heights[BUILDING_HEIGHT_MEAN_COLUMN].corr(heights[BUILDING_HEIGHT_MAX_COLUMN]),
+            non_finite_keys,
+            "source_correlation_pearson",
         ),
         "standardization": {
             "means": {
-                column: float(value)
+                column: _sanitize_finite_value(value, non_finite_keys, f"means.{column}")
                 for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.mean_, strict=True)
             },
             "scales": {
-                column: float(value)
+                column: _sanitize_finite_value(value, non_finite_keys, f"scales.{column}")
                 for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.scale_, strict=True)
             },
         },
         "sign_flipped": sign_flipped,
+        "non_finite_items": non_finite_keys,
         "note": (
             "主成分は分析サンプル全体で1回fitしており、Spatial CVのfold内では"
             "fitし直していない。標準化はfitと同じサンプル上の平均・標準偏差による。"
             "符号はBUILD_H_MEANへの寄与が正になる向きへ揃えてある。"
+            "non_finite_items が空でない場合、高さ2列が定数に近く主成分が縮退している"
+            "（該当項目の値は null に置き換えてある）。"
         ),
     }
     return with_pc1, diagnostics

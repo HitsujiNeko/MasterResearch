@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -624,10 +625,14 @@ class TestResolveBuildingHeightColumns:
         assert BUILDING_HEIGHT_PC1_COLUMN not in ALL_CANDIDATE_FEATURE_COLUMNS
 
     def test_every_mode_is_supported(self) -> None:
-        """BUILDING_HEIGHT_MODES のすべてが解決でき、構成ごとに列が異なる。"""
+        """BUILDING_HEIGHT_MODES のすべてが解決でき、構成ごとに列が異なる。
+
+        構成を増やしたときに、解決漏れ（例外）と列の重複（実質同じ構成が2つある
+        状態）の両方を検出する。
+        """
         resolved = {mode: resolve_building_height_columns(mode) for mode in BUILDING_HEIGHT_MODES}
 
-        assert len(resolved) == len(BUILDING_HEIGHT_MODES)
+        assert all(columns for columns in resolved.values())
         assert len({tuple(columns) for columns in resolved.values()}) == len(BUILDING_HEIGHT_MODES)
 
     def test_raises_for_unsupported_mode(self) -> None:
@@ -978,13 +983,13 @@ class TestResolveFilterColumns:
     def test_is_constant_across_variable_sets(self) -> None:
         """フィルタ列は変数セット・建物高さ構成の指定を受け取らない（構成に依らず一定）。
 
-        既定の建物高さ構成が変わってもフィルタ列は `both` 相当のまま動かないことを
-        含めて固定する。動くと構成間・ラン間で母数が変わってしまう。
+        `resolve_filter_columns` は建物高さ構成を引数に取らず、内部で `both` を
+        固定して渡す。既定値（`DEFAULT_BUILDING_HEIGHT_MODE`）を読まないため、
+        既定が変わってもフィルタ列は動かない。動くと構成間・ラン間で母数が変わる。
         """
         filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
 
         assert filter_columns == resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")
-        assert filter_columns != resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
 
     def test_is_a_superset_of_every_variable_set(self) -> None:
         """フィルタ列はどの変数セットの投入列も包含する。"""
@@ -1236,6 +1241,40 @@ class TestAddBuildingHeightPc1:
         assert scales[BUILDING_HEIGHT_MEAN_COLUMN] == pytest.approx(
             float(frame[BUILDING_HEIGHT_MEAN_COLUMN].std(ddof=0))
         )
+
+    def test_degenerate_input_is_recorded_instead_of_breaking_the_json(self) -> None:
+        """高さ2列が定数の場合、非有限値をNoneへ落として該当項目名を残す。
+
+        標準化後が全て0になり寄与率・元2列の相関がNaNになる。そのまま残すと
+        `save_summary`（allow_nan=False）がフル実行の**最終保存時**に落ち、
+        モデル学習・SHAPをすべて終えた後で、どの値が原因かも分からない状態になる。
+        """
+        frame = pd.DataFrame(
+            {
+                BUILDING_HEIGHT_MEAN_COLUMN: [3.0] * 50,
+                BUILDING_HEIGHT_MAX_COLUMN: [7.0] * 50,
+            }
+        )
+
+        with warnings.catch_warnings():
+            # 定数列どうしの相関は0除算になる（NaNとして受け取るのが意図した挙動）。
+            warnings.simplefilter("ignore", RuntimeWarning)
+            _, diagnostics = add_building_height_pc1(frame)
+
+        assert diagnostics["non_finite_items"] == [
+            "explained_variance_ratio",
+            "source_correlation_pearson",
+        ]
+        assert diagnostics["explained_variance_ratio"] is None
+        assert diagnostics["source_correlation_pearson"] is None
+        # save_summary と同じ条件でJSONへ書き出せる（最終保存時に落ちない）。
+        json.dumps(diagnostics, allow_nan=False, ensure_ascii=False)
+
+    def test_finite_input_records_no_non_finite_items(self) -> None:
+        """通常の入力では非有限の項目は記録されない。"""
+        _, diagnostics = add_building_height_pc1(_building_height_frame(n=500))
+
+        assert diagnostics["non_finite_items"] == []
 
     def test_raises_for_missing_columns(self) -> None:
         """建物高さ列が無い場合は原因の分かる例外にする。"""

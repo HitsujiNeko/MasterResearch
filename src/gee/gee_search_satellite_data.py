@@ -753,10 +753,14 @@ def run_rerank_only(
     Raises:
         FileNotFoundError: `results_csv_path` が存在しない場合。
         ValueError: `results_csv_path` に必須列（`scene_coverage_ratio` 等）が
-            不足している場合。
+            不足している場合、または `results_csv_path` と `ranking_csv_path` が
+            同一パスの場合（後者の書き込みが前者を上書きし、既存行順を保つ要件が
+            崩れるため）。
     """
     if not results_csv_path.exists():
         raise FileNotFoundError(f"探索結果CSVが見つかりません: {results_csv_path}")
+    if results_csv_path.resolve() == ranking_csv_path.resolve():
+        raise ValueError("結果CSVとランキングCSVには異なるパスを指定してください。")
 
     # 既定の高速パーサーは浮動小数点値を round-trip 精度で読まないため、
     # 既存列の値が最終桁でわずかに変化しうる。既存行は変更しない前提のため

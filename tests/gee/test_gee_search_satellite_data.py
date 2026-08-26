@@ -177,6 +177,26 @@ def test_run_rerank_only_preserves_existing_column_precision(tmp_path: Path) -> 
     assert precise_value in updated_text
 
 
+def test_run_rerank_only_raises_when_output_paths_are_identical(tmp_path: Path) -> None:
+    """結果CSVとランキングCSVに同一パスを指定した場合、上書き事故を防ぐため例外を送出する。
+
+    後から書き込むランキングCSV（降順ソート済み）が結果CSV（行順維持）を上書きすると、
+    既存行順を保つ要件が壊れるため、書き込み前にパスの一致を検証する。
+    """
+    same_csv_path = tmp_path / "results.csv"
+    pd.DataFrame(
+        {
+            "observation_datetime_utc": ["2023-07-07T03:23:05"],
+            "scene_coverage_ratio": [0.934884],
+            "lst_valid_pixel_ratio": [95.571404],
+            "indices_valid_pixel_ratio": [94.901696],
+        }
+    ).to_csv(same_csv_path, index=False, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="異なるパス"):
+        search.run_rerank_only(results_csv_path=same_csv_path, ranking_csv_path=same_csv_path)
+
+
 def test_run_rerank_only_raises_when_results_csv_missing(tmp_path: Path) -> None:
     """探索結果CSVが存在しない場合は明示的に例外を送出する。"""
     missing_csv_path = tmp_path / "not_found.csv"

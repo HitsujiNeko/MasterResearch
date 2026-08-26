@@ -71,6 +71,7 @@ docs/
 | [calc_urban_params_io_spec.md](02_methods/calc_urban_params/calc_urban_params_io_spec.md) | `urban_params` 入出力仕様 | 入力仕様（必須入力・パラメータセット別入力・衛星指標/LSTラスタ）、出力仕様（パラメータテーブル、品質管理列、GIS由来パラメータ、分析用データセット、新旧差異） | `src/analysis/urban_params/params/`, `src/analysis/build_dataset.py` |
 | [calc_urban_params_processing_design.md](02_methods/calc_urban_params/calc_urban_params_processing_design.md) | `urban_params` 処理設計 | モジュール構成・関数責務、全シナリオ共通の正準グリッド（`cell_id` 採番・GeoPackage出力）、格子整合とテーブル化、CRS・単位ルール、例外処理と堅牢性 | `src/analysis/urban_params/` |
 | [calc_urban_params_cli_verification.md](02_methods/calc_urban_params/calc_urban_params_cli_verification.md) | `urban_params` CLI・検証 | 算出/結合フェーズのCLIオプション、現在の実装状況、ユニットテスト方針、旧wide CSVとの値照合、QGISでの目視確認、人口密度・夜間光/土地被覆クラス別面積率のCLI検証結果と目視確認（画像保存） | `src/analysis/urban_params/`, `src/analysis/build_dataset.py` |
+| [observation_selection.md](02_methods/observation_selection.md) | 観測（シーン）選定基準とROIカバー率 | 実効ROIカバー率の指標定義、GEE再探索なしの再ランキング結果、検討した代替案、採用観測の根拠、30m/90m/300mスケールでのROIカバー率実測値 | `src/gee/gee_search_satellite_data.py` |
 | [gee_calc_satellite_indices.md](02_methods/gee_calc_satellite_indices.md) | 衛星指標算出仕様書 | NDVI/NDBI/NDWI算出式、QAマスク、スケーリング、統計出力の仕様と根拠 | `src/gee/gee_calc_satellite_indices.py` |
 | [data_management_guide.md](02_methods/data_management_guide.md) | データ管理ガイド | 2層運用（Git + Google Drive）、.gitignore方針、再現性確保手順 | `data/`, `.gitignore` |
 | [calc_LST_report.md](02_methods/calc_LST_report.md) | LST算出レポート | SMW法の選定理由、処理結果、品質評価 | `src/gee/gee_calc_LST.py` |

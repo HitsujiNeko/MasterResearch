@@ -1,7 +1,3 @@
-# 作成者: Codex
-# 作成日: 2026-04-09
-# 概要: Landsat 8 シーンの探索結果を一覧化し、必要時に LST と衛星指標を同時出力する。
-
 """Google Earth Engine を用いた Landsat 8 シーン探索・同時出力プログラム。
 
 本スクリプトは、既存の `gee_calc_LST.py` と
@@ -24,6 +20,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import logging
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -61,6 +58,7 @@ from src.module.lst_smw import calculate_lst_smw
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "output" / "gee_search_satellite_data_results.csv"
+DEFAULT_RANKING_CSV = PROJECT_ROOT / "data" / "output" / "gee_search_observation_ranking.csv"
 ROI_COVERAGE_TOLERANCE = 0.999999
 
 
@@ -102,6 +100,20 @@ def parse_arguments() -> argparse.Namespace:
             "指定した観測日時だけをエクスポート対象にする。"
             "例: 2024-11-30T03:23:36 2023-07-23T03:23:09"
         ),
+    )
+    parser.add_argument(
+        "--rerank-only",
+        action="store_true",
+        help=(
+            "GEE へ接続せず、既存の探索結果CSVから実効ROIカバー率を算出し、"
+            "結果CSVへの列追加とランキングCSVの出力のみを行う。"
+        ),
+    )
+    parser.add_argument(
+        "--ranking-csv-path",
+        type=Path,
+        default=DEFAULT_RANKING_CSV,
+        help="--rerank-only 時のランキングCSV出力先。",
     )
     return parser.parse_args()
 
@@ -154,20 +166,19 @@ def filter_collection_by_target_dates(
     target_dates = sorted(
         {observation_datetime[:10] for observation_datetime in target_observation_datetimes}
     )
-    filtered_collection: ee.ImageCollection | None = None
 
-    for date_text in target_dates:
+    def _filter_by_date(date_text: str) -> ee.ImageCollection:
+        """指定日付（1日分）に絞り込んだコレクションを返す。"""
         start_date = dt.date.fromisoformat(date_text)
         end_date = (start_date + dt.timedelta(days=1)).isoformat()
-        daily_collection = collection.filterDate(date_text, end_date)
-        filtered_collection = (
-            daily_collection
-            if filtered_collection is None
-            else filtered_collection.merge(daily_collection)
-        )
+        return collection.filterDate(date_text, end_date)
 
-    if filtered_collection is None:
-        return collection.filterDate("1900-01-01", "1900-01-02")
+    # target_dates は非空（早期returnで空集合を除外済み）であるため、
+    # 先頭要素で初期化してから残りをmergeする。
+    filtered_collection = _filter_by_date(target_dates[0])
+    for date_text in target_dates[1:]:
+        filtered_collection = filtered_collection.merge(_filter_by_date(date_text))
+
     return filtered_collection
 
 
@@ -280,6 +291,68 @@ def build_indices_result(
     return {
         "indices_valid_pixel_ratio": valid_ratio,
         **index_stats,
+    }
+
+
+def calculate_effective_roi_coverage(
+    scene_coverage_ratio: float | None, valid_pixel_ratio: float | None
+) -> float:
+    """シーンのROI被覆率と有効ピクセル率から、実効ROIカバー率を算出する。
+
+    `scene_coverage_ratio` は 0-1 スケール、`valid_pixel_ratio` は 0-100 スケール
+    （`lst_valid_pixel_ratio` / `indices_valid_pixel_ratio` と同一）で受け取り、
+    戻り値は `*_valid_pixel_ratio` に合わせて 0-100 スケールに統一する。
+
+    Args:
+        scene_coverage_ratio (float | None): ROIに対するシーンfootprintの被覆率（0-1）。
+        valid_pixel_ratio (float | None): ROI内の有効ピクセル率（0-100）。
+
+    Returns:
+        float: 実効ROIカバー率（0-100）。入力が欠損（None/NaN）の場合はNaN。
+    """
+    if scene_coverage_ratio is None or valid_pixel_ratio is None:
+        return float("nan")
+    if math.isnan(scene_coverage_ratio) or math.isnan(valid_pixel_ratio):
+        return float("nan")
+    return float(scene_coverage_ratio) * float(valid_pixel_ratio)
+
+
+def build_effective_roi_coverage_result(
+    scene_coverage_ratio: float | None,
+    lst_valid_pixel_ratio: float | None,
+    indices_valid_pixel_ratio: float | None,
+) -> dict[str, float]:
+    """LST・指標それぞれの実効ROIカバー率と、選定キーとなる最小値をまとめる。
+
+    最小値を選定キーとするのは、`build_dataset.validate_observation_consistency()`
+    がLSTと衛星指標を同一観測に強制するため、分析に使えるのは両方が有効な
+    セルに限られるからである。平均を取ると片方の欠測が薄まり、実際に使える
+    セル数を過大評価する。
+
+    Args:
+        scene_coverage_ratio (float | None): ROIに対するシーンfootprintの被覆率（0-1）。
+        lst_valid_pixel_ratio (float | None): LSTの有効ピクセル率（0-100）。
+        indices_valid_pixel_ratio (float | None): 衛星指標の有効ピクセル率（0-100）。
+
+    Returns:
+        dict[str, float]: `lst_effective_roi_coverage` / `indices_effective_roi_coverage` /
+            `effective_roi_coverage`（前2列の最小値）を含む辞書。
+    """
+    lst_effective_roi_coverage = calculate_effective_roi_coverage(
+        scene_coverage_ratio, lst_valid_pixel_ratio
+    )
+    indices_effective_roi_coverage = calculate_effective_roi_coverage(
+        scene_coverage_ratio, indices_valid_pixel_ratio
+    )
+    if math.isnan(lst_effective_roi_coverage) or math.isnan(indices_effective_roi_coverage):
+        effective_roi_coverage = float("nan")
+    else:
+        effective_roi_coverage = min(lst_effective_roi_coverage, indices_effective_roi_coverage)
+
+    return {
+        "lst_effective_roi_coverage": lst_effective_roi_coverage,
+        "indices_effective_roi_coverage": indices_effective_roi_coverage,
+        "effective_roi_coverage": effective_roi_coverage,
     }
 
 
@@ -503,6 +576,13 @@ def process_scene(
     }
     result.update(lst_result)
     result.update(indices_result)
+    result.update(
+        build_effective_roi_coverage_result(
+            scene_coverage_ratio=scene_coverage_ratio,
+            lst_valid_pixel_ratio=lst_result["lst_valid_pixel_ratio"],
+            indices_valid_pixel_ratio=indices_result["indices_valid_pixel_ratio"],
+        )
+    )
     return result
 
 
@@ -601,9 +681,114 @@ def run(
     logger.info("探索結果CSV: %s", output_csv_path)
 
 
+EFFECTIVE_ROI_COVERAGE_SOURCE_COLUMNS = (
+    "scene_coverage_ratio",
+    "lst_valid_pixel_ratio",
+    "indices_valid_pixel_ratio",
+)
+EFFECTIVE_ROI_COVERAGE_OUTPUT_COLUMNS = (
+    "lst_effective_roi_coverage",
+    "indices_effective_roi_coverage",
+    "effective_roi_coverage",
+)
+
+
+def add_effective_roi_coverage_columns(results_df: pd.DataFrame) -> pd.DataFrame:
+    """探索結果DataFrameへ実効ROIカバー率3列を追加する。
+
+    Args:
+        results_df (pd.DataFrame): `scene_coverage_ratio` / `lst_valid_pixel_ratio` /
+            `indices_valid_pixel_ratio` を含む探索結果。
+
+    Returns:
+        pd.DataFrame: 実効ROIカバー率3列を追加したDataFrame（行順は変更しない）。
+
+    Raises:
+        ValueError: 実効ROIカバー率の算出に必要な列が不足している場合。
+    """
+    missing_columns = [
+        column_name
+        for column_name in EFFECTIVE_ROI_COVERAGE_SOURCE_COLUMNS
+        if column_name not in results_df.columns
+    ]
+    if missing_columns:
+        raise ValueError(f"実効ROIカバー率の算出に必要な列が不足しています: {missing_columns}")
+
+    augmented_df = results_df.copy()
+    if augmented_df.empty:
+        # 0行の場合 DataFrame.apply は関数を1度も呼ばず元の列をそのまま返すため、
+        # 出力列が欠けたままにならないよう空のfloat列として明示的に追加する。
+        for column_name in EFFECTIVE_ROI_COVERAGE_OUTPUT_COLUMNS:
+            augmented_df[column_name] = pd.Series(dtype="float64")
+        return augmented_df
+
+    effective_columns_df = augmented_df.apply(
+        lambda row: build_effective_roi_coverage_result(
+            row["scene_coverage_ratio"],
+            row["lst_valid_pixel_ratio"],
+            row["indices_valid_pixel_ratio"],
+        ),
+        axis=1,
+        result_type="expand",
+    )
+    for column_name in EFFECTIVE_ROI_COVERAGE_OUTPUT_COLUMNS:
+        augmented_df[column_name] = effective_columns_df[column_name]
+    return augmented_df
+
+
+def run_rerank_only(
+    results_csv_path: Path = DEFAULT_OUTPUT_CSV,
+    ranking_csv_path: Path = DEFAULT_RANKING_CSV,
+) -> None:
+    """GEEへ接続せず、既存の探索結果CSVから実効ROIカバー率を算出し直す。
+
+    既存の探索結果CSV（`results_csv_path`）へ実効ROIカバー率3列を追加した上で
+    上書き保存し、`effective_roi_coverage` 降順に並べ替えたランキングCSVを
+    `ranking_csv_path` へ出力する。GEEへの接続は行わない。
+
+    Args:
+        results_csv_path (Path): 探索結果CSVのパス（列追加のうえ上書きする）。
+        ranking_csv_path (Path): ランキングCSVの出力先。
+
+    Raises:
+        FileNotFoundError: `results_csv_path` が存在しない場合。
+        ValueError: `results_csv_path` に必須列（`scene_coverage_ratio` 等）が
+            不足している場合、または `results_csv_path` と `ranking_csv_path` が
+            同一パスの場合（後者の書き込みが前者を上書きし、既存行順を保つ要件が
+            崩れるため）。
+    """
+    if not results_csv_path.exists():
+        raise FileNotFoundError(f"探索結果CSVが見つかりません: {results_csv_path}")
+    if results_csv_path.resolve() == ranking_csv_path.resolve():
+        raise ValueError("結果CSVとランキングCSVには異なるパスを指定してください。")
+
+    # 既定の高速パーサーは浮動小数点値を round-trip 精度で読まないため、
+    # 既存列の値が最終桁でわずかに変化しうる。既存行は変更しない前提のため
+    # float_precision="round_trip" で読み込み、値の同一性を保つ。
+    results_df = pd.read_csv(results_csv_path, float_precision="round_trip")
+    augmented_df = add_effective_roi_coverage_columns(results_df)
+    augmented_df.to_csv(results_csv_path, index=False, encoding="utf-8")
+    logger.info("実効ROIカバー率列を追加しました: %s", results_csv_path)
+
+    ranked_df = augmented_df.sort_values("effective_roi_coverage", ascending=False).reset_index(
+        drop=True
+    )
+    ranking_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    ranked_df.to_csv(ranking_csv_path, index=False, encoding="utf-8")
+    logger.info("ランキングCSVを出力しました: %s", ranking_csv_path)
+
+
 def main() -> None:
     """エントリーポイント。"""
     args = parse_arguments()
+
+    if args.rerank_only:
+        run_rerank_only(
+            results_csv_path=args.output_csv_path,
+            ranking_csv_path=args.ranking_csv_path,
+        )
+        return
+
     target_observation_datetimes = None
     if args.target_observation_datetimes:
         target_observation_datetimes = {

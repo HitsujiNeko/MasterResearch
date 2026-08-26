@@ -1,7 +1,7 @@
 # Satellite Only 分析結果
 
-**最終更新**: 2026-04-21  
-**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md)  
+**最終更新**: 2026-08-26  
+**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -43,6 +43,15 @@
 
 採用理由は、ROI のカバー率と雲マスク後の LST・指標の有効画素率を比較した結果、  
 分析に使える品質を満たしていたためである。
+
+> **注記（2026-08-26追記）**: 観測選定基準を実効ROIカバー率へ見直した結果
+> （[observation_selection.md](../02_methods/observation_selection.md)）、2023-07-07の観測
+> `2023-07-07T03:23:29Z` はシーンfootprintがROIの**約半分**（実効ROIカバー率52.3%）しか
+> 覆っていないことが判明した。したがって本ドキュメントの2023-07-07分の結果は、ROI全体では
+> なく**ROI約半分の範囲**に基づく結果である。`2023-07-23` / `2024-11-30` の2観測は
+> 実効ROIカバー率がそれぞれ79.9% / 93.9%であり、この問題は生じていない。
+> `2023-07-07T03:23:05Z`（実効ROIカバー率88.7%）への差し替えによる再実行は、
+> 本ドキュメントの更新時点ではスコープ外とし、別タスクで扱う。
 
 ### 3.2 入力データ
 

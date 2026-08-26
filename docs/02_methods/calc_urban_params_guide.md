@@ -1,7 +1,7 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-22
-**関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)
+**最終更新**: 2026-08-26
+**関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md), [observation_selection.md](observation_selection.md)
 **前提知識**: RQ1-RQ3、CRS（WGS84/投影座標系）、ラスタ/ベクタ処理の基礎
 
 > 本ドキュメントは索引を兼ねたハブである。5〜11章は [calc_urban_params/](calc_urban_params/) 配下の3ファイルへ分割済み。各節がどのファイルにあるかは下記索引を参照。
@@ -55,6 +55,7 @@
 | どの説明変数を採用するか（採否ステータス・概念定義・単位・根拠文献・対応RQ） | [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) |
 | **採用済みパラメータの出力仕様（列名・算出方法・実装状況）** | **[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章** |
 | データソースの候補比較・空間解像度・ライセンス | [available_gis_data.md](../01_planning/available_gis_data.md) とそのカテゴリ別ドキュメント |
+| 採用する観測（Landsat 8シーン）の選定指標・根拠、ROIカバー率の実測値 | [observation_selection.md](observation_selection.md) |
 
 したがって**本ガイドには採否ステータス（採用 / 保留 / 不採用）を書かない**。採否は上記の正本を参照する。
 

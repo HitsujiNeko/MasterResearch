@@ -199,6 +199,28 @@ def test_aggregate_mean_max_from_fine_values_counts_valid_cells_before_clipping(
     assert np.isnan(max_array[0, 0])
 
 
+def test_aggregate_mean_max_from_fine_values_preserves_negative_valid_values() -> None:
+    """有効な負値はnodata置換の対象にならず、平均・最大に正しく反映される。
+
+    nodataより大きければ有効値として扱う契約のため、nodata未満ではない負値
+    （例: nodata=-10.0に対する-5.0）も有効値になりうる。集約前に0以上へ
+    クリップすると、この有効な負値が0.0に化けて平均が誤る
+    （CodeRabbitレビュー指摘、2026-08-27）。
+    """
+    nodata = -10.0
+    fine_values = np.array([[-5.0, -2.0], [nodata, nodata]], dtype=np.float32)
+
+    mean_array, max_array = aggregate_mean_max_from_fine_values(
+        fine_values, factor=2, nodata=nodata
+    )
+
+    # 有効値は-5.0と-2.0の2件（nodataの2件は分母に含めない）。
+    # クリップされていれば平均は(0.0+0.0)/2=0.0になってしまうが、
+    # 正しくは(-5.0+-2.0)/2=-3.5。
+    assert mean_array[0, 0] == pytest.approx(-3.5)
+    assert max_array[0, 0] == pytest.approx(-2.0)
+
+
 def test_compute_polygon_coverage_and_centroid_count(polygon_resource) -> None:
     """coarseセル(0, 0)を完全に覆うポリゴンは被覆率1・重心1件となる。"""
     grid_spec = build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, coarse_res_m=20.0, fine_res_m=10.0)

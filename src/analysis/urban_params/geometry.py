@@ -279,19 +279,22 @@ def aggregate_mean_max_from_fine_values(
     coarse_cols = cols // factor
     reshaped = fine_values.reshape(coarse_rows, factor, coarse_cols, factor)
 
-    # クリップ前に有効マスクを取る。クリップ後に「nodata以上」で数えると
+    # 置換前に有効マスクを取る。置換後に「nodataより大きい」で数えると
     # 分母が全fineセル数になり、平均が過小になる。
     valid = reshaped > nodata
     counts = valid.sum(axis=(1, 3))
 
-    # ブロック最大はクリップ前に取る。番兵値は有効値（>= 0を想定）より
-    # 小さいため、未被覆セルが混ざっていても直接取れる。
+    # ブロック最大は置換前に取る。番兵値は値域の下限未満（関数の前提）で
+    # 常に有効値より小さいため、未被覆セルが混ざっていても直接取れる。
+    # 有効値が負の場合でも成り立つ（0以上を仮定しない）。
     maxima = reshaped.max(axis=(1, 3))
 
-    # in-placeクリップ（このあと fine_values / reshaped は書き換わる）。
-    # np.where() で中間配列を作らないことで、fine解像度分のメモリ増加を
-    # 避ける。
-    np.maximum(fine_values, 0.0, out=fine_values)
+    # nodataセルだけを0.0へ置換する（in-place。このあと fine_values /
+    # reshaped は書き換わる）。有効値は負でも変更しない。np.maximum() で
+    # 全体を0以上にクリップすると、有効な負値まで0.0に化けて平均が誤る
+    # ため使わない。np.where() で中間配列を作らないことで、fine解像度分の
+    # メモリ増加を避ける。
+    np.copyto(reshaped, 0.0, where=~valid)
     # 300mはfactor=30で1ブロック900要素になるため、float32累算の丸めを
     # 避けるためdtype=np.float64を明示する。
     sums = reshaped.sum(axis=(1, 3), dtype=np.float64)

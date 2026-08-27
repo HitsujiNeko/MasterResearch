@@ -133,8 +133,8 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 
 > 根拠は [available_gis_data.md](../01_planning/available_gis_data.md) に整理している。  
 > Microsoft 建物データは、Hanoi ROI 西側で `105.46875E` 付近を境に欠落が確認された（現在の主ソースは GBA）。  
-> `BUILD_COV = 0` / `BUILD_DEN = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。  
-> **`BUILD_COV = 0` はカバレッジが十分な領域でも建物の不存在を意味しない**。ラスタ化の解像度より小さい建物は被覆率に寄与しないため、建物の有無は `BUILD_DEN` で判定する（詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3.5）。
+> `BUILD_COV = 0` かつ `BUILD_DEN = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。  
+> **`BUILD_COV = 0` はカバレッジが十分な領域でも建物の不存在を意味しない**。ラスタ化の解像度より小さい建物は被覆率に寄与しないためである。ただし `BUILD_DEN = 0` も同様に建物の不存在を意味しない（重心が隣セルにあり輪郭だけが張り出した大きい建物を取りこぼす）。したがって「`BUILD_COV > 0` **または** `BUILD_DEN > 0`」で建物の存在（十分条件）、「`BUILD_COV = 0` **かつ** `BUILD_DEN = 0`」で建物の不存在とみなす（実用上の近似。詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3.5）。
 
 ---
 

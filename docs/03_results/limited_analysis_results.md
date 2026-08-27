@@ -120,7 +120,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --tables mask_roi b
 
 `BUILD_H_MEAN`/`BUILD_H_MAX` は、高さが取れる建物が1つも無いセルでNULLになる。「建物が無い」の判定は `BUILD_COV == 0`（被覆率）単独ではなく、`BUILD_COV == 0 AND BUILD_DEN == 0`（棟数密度も0）で行う。
 
-`BUILD_COV` はfineグリッドへのラスタ化による近似であり、`gis_data_buildings.md`「小さい建物の取りこぼし」の実測によれば、30mでは建物の重心が存在するセル（`BUILD_DEN > 0`）の**14.0%**で `BUILD_COV == 0` になる（GBAの建物の80.7%が100m²未満で、fine 10mセルの中心を1つも含まない場合に被覆率へ寄与しないため）。`BUILD_DEN` は高さ集計と同じ建物重心の帰属方式であるため、`BUILD_COV` 単独より「建物が無い」の判定に適する。`BUILD_COV == 0` のみを基準にした場合、実データで16セル（有効域内）が誤って0補完される（`BUILD_DEN > 0` なのに `BUILD_COV == 0` かつ高さNULL）ことを確認した。
+`BUILD_COV` はfineグリッドへのラスタ化による近似であり、`gis_data_buildings.md`「小さい建物の取りこぼし」の実測によれば、30mでは建物の重心が存在するセル（`BUILD_DEN > 0`）の**14.0%**で `BUILD_COV == 0` になる（GBAの建物の80.7%が100m²未満で、fine 10mセルの中心を1つも含まない場合に被覆率へ寄与しないため）。ただし `BUILD_DEN` も逆方向に取りこぼす（重心が隣セルにあり輪郭だけが張り出した大きい建物）ため、`BUILD_DEN` 単独でも「建物が無い」の判定はできない。`BUILD_COV == 0` のみを基準にした場合、実データで16セル（有効域内）が誤って0補完される（`BUILD_DEN > 0` なのに `BUILD_COV == 0` かつ高さNULL）ことを確認した。
 
 この2条件のANDに基づき、`BUILD_COV == 0 AND BUILD_DEN == 0` のセルのみ「建物が無い ⇒ 建物高さ0m」として0補完し、`BUILD_COV > 0` または `BUILD_DEN > 0` なのに高さNULL（真の欠落）のセルは補完せず、後段の非NULL要求フィルタで除外した。
 

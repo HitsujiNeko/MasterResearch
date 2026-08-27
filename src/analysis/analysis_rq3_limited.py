@@ -582,14 +582,18 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
     として補完せず、後段の `filter_valid_rows` の非NULL要求で除外させる。
 
     「建物が無い」の判定は `BUILD_COV == 0`（被覆率）単独ではなく
-    `BUILD_COV == 0 AND BUILD_DEN == 0`（棟数密度も0）で行う。`BUILD_COV` は
-    fineグリッドへのラスタ化による近似であり、`docs/01_planning/gis_data/
-    gis_data_buildings.md`「小さい建物の取りこぼし」に実測があるとおり、
-    30mでは建物の重心が存在するセル（`BUILD_DEN > 0`）の14.0%で
-    `BUILD_COV == 0` になる（GBAの建物の80.7%が100m²未満で、fine 10mセルの
-    中心を1つも含まない場合に被覆率へ寄与しないため）。`BUILD_DEN`
-    は高さ集計と同じ建物重心の帰属方式であり、`BUILD_COV` 単独より
-    「建物が無い」の判定に適する。
+    `BUILD_COV == 0 AND BUILD_DEN == 0`（棟数密度も0）で行う。`BUILD_COV` と
+    `BUILD_DEN` は逆方向に取りこぼすため、どちらか一方だけでは「建物が無い」
+    を判定できない。`BUILD_COV` はfineグリッドへのラスタ化による近似であり、
+    `docs/01_planning/gis_data/gis_data_buildings.md`「小さい建物の取りこぼし」
+    に実測があるとおり、30mでは建物の重心が存在するセル（`BUILD_DEN > 0`）の
+    14.0%で `BUILD_COV == 0` になる（GBAの建物の80.7%が100m²未満で、fine 10m
+    セルの中心を1つも含まない場合に被覆率へ寄与しないため）。逆に `BUILD_DEN`
+    は建物重心の帰属方式であるため、輪郭だけが隣セルへ張り出した大きい建物を
+    取りこぼす（重心は隣セルに帰属する）。両者のANDを取ることで、どちらか
+    一方が拾えれば「建物が無い」とは判定しない実用上の近似としている
+    （AND条件も論理的な証明ではなく近似であり、重心が隣セルにあり、かつ
+    当該セル内でfineセル中心を1つも覆わない薄い張り出しは両方0になりうる）。
 
     9変数構成を維持したまま有効域を最大化するためのLimited固有の判断であり、
     シナリオ非依存の `filter_valid_rows` へ暗黙に波及させないよう、共通モジュール

@@ -11,15 +11,52 @@
     そのまま再利用しており、ロジックの二重化は生じない。
 
 帰属方式:
-    棟数密度と高さは、建物ポリゴンの重心が含まれるcoarseセルへ1棟をまるごと
-    帰属させる（按分しない）。棟数密度と高さが同じ「セルに属する建物」の集合を
-    共有するため、パラメータ間の整合性が取れる。被覆率のみ、fineグリッドへの
-    ラスタ化を経てcoarseへ平均集約するため面積按分となる。
+    棟数密度は、建物ポリゴンの重心が含まれるcoarseセルへ1棟をまるごと帰属させる
+    （按分しない）。
+
+    高さ（BUILD_H_MEAN・BUILD_H_MAX）は、棟数密度とは異なり**重なり方式と重心
+    方式を併用する**。有効高さを持つ建物のみをfineグリッドへ高さの値として
+    ラスタ化し（重なりは最も高い建物の高さを残す）、coarseセルごとに被覆fine
+    セルの高さの平均・最大を取るのが基本（重なり方式）である。
+
+    - ``BUILD_H_MEAN`` は重なり方式の値をそのまま使い、被覆fineセルが1つも
+      無いセル（NaN）のみ重心方式（棟数密度と同じ建物重心の帰属）で補完する。
+    - ``BUILD_H_MAX`` は重なり方式の最大と重心方式の最大を ``np.fmax()`` で
+      合成する（「重なり ∪ 重心」）。``BUILD_H_MEAN`` のような「NaNのセルのみ
+      補完」にしないのは、fineセル1個（100m²）より小さい建物が、重心の帰属先
+      とは別のセルでfine中心を1つも覆わずに落ちるケースを、重なり方式の
+      フォールバック（セルの有効高さ被覆がゼロ）だけでは救えないため。低い
+      大建物と高い小建物が同居するセルでは、大建物が被覆を作るためフォール
+      バックが発動せず、小建物の高さだけが失われる。``np.fmax()`` による合成
+      は現行（重心方式単独）の値を下回らない（``fmax(x, 現行値) >= 現行値``）。
+
+    この結果、``BUILD_H_MEAN`` と ``BUILD_H_MAX`` は「同じ建物集合の平均と
+    最大」ではなくなる（前者は重なり、後者は重なり∪重心）。棟数密度・被覆率・
+    高さの3パラメータが同じ「セルに属する建物」集合を共有するという設計は
+    高さの2列内でも成り立たない。
+
+    ``BUILD_H_MEAN`` の推定量としての定義は「セルの建物被覆部分における上端
+    高さ（重なる箇所は最も高い建物の高さを採る）の面積平均」であり、建物部分の
+    面積加重平均高さ**ではない**。両者は建物同士が重なる箇所でのみ食い違う。
+    上端高さを採るのは意図した選択であり、**有効高さを持つ建物に限り**
+    ``BUILD_COV * BUILD_H_MEAN * セル面積`` がfine解像度で離散化したLoD1
+    押し出し体積と厳密に一致する（``BUILD_COV`` は高さが無効な建物の
+    フットプリントも含むため、無効高さの建物が混在するセルではこの恒等式が
+    わずかに崩れる。ROI全体で無効高さは149棟のみのため影響は小さい）。
 
 検証:
-    QGISとの比較検証済み。ハノイ中心部のテスト領域（2.1km四方・建物13,779件）で、
-    BUILD_DEN・BUILD_H_MEAN・BUILD_H_MAX は QGIS の ``native:countpointsinpolygon`` /
-    ``native:joinbylocationsummary`` と float32 精度内（最大絶対誤差 1.0e-6 m）で一致した。
+    ``BUILD_DEN`` は帰属方式を変更していないため、QGISとの比較検証（ハノイ
+    中心部のテスト領域・2.1km四方・建物13,779件、``native:countpointsinpolygon``
+    と float32 精度内で一致）が引き続き有効である。
+
+    ``BUILD_H_MEAN`` / ``BUILD_H_MAX`` は本変更により、旧方式（重心方式単独）
+    で成立していた QGIS との 1.0e-6 m 厳密一致は成り立たなくなる（重なり方式が
+    fine解像度による離散化誤差を新規に持ち込むため）。新方式でのQGIS突合は
+    完了しており、重なりが無いセルに限定した主検証（30m）で相関0.986・平均
+    バイアス-0.012m・希釈係数 λ̂=0.968（``BUILD_COV`` の0.785を上回る）を得た。
+    ``BUILD_H_MAX`` は当初案（フォールバックのみの補完）より
+    ``np.fmax()`` による合成が全スケールで上回ることも実測済み。詳細な数値は
+    ``docs/01_planning/gis_data/gis_data_buildings.md`` 3.6節を参照。
 
     BUILD_COV は fine グリッドへのラスタ化による近似であり、面積按分の厳密値
     （``native:dissolve`` + ``native:intersection``）とは離散化の分だけ差が出る。
@@ -46,7 +83,19 @@
 
     セル内に有効な高さの建物が1棟も無い場合、平均・最大高さは 0.0 ではなく NaN
     とする。0.0 では「建物が無い」と「高さが不明」を区別できず、回帰分析で偽の
-    低高度セルを生むためである。
+    低高度セルを生むためである。有効高さを持つ建物が1棟も無いセル（無効高さの
+    建物のみを含むセル）は、重なり方式でも重心方式でも高さが得られないため
+    NULLのまま残る。
+
+    ``BUILD_H_MEAN`` は混成推定量である。大半のセルでは上端高さの面積平均だが、
+    重なり方式の被覆が無いセルでは重心方式の単純平均に切り替わる。この切替が
+    どのセルで起きたかは、出力テーブルからは厳密には判別できない
+    （``BUILD_COV == 0`` は判別の目安にすぎず、``BUILD_COV`` は高さが無効な
+    建物のフットプリントも含むため同値ではない）。さらに、被覆があるセルでも
+    fineセル中心を1つも覆わない小さい建物は重み0で落ちるため、宣言した推定量
+    （面積加重平均）から系統的にずれる。ハノイでは大フットプリント＝低層、
+    小フットプリント＝中高層という対応があるため、この取りこぼしは密集低層
+    地区で ``BUILD_H_MEAN`` を下方へ偏らせる。
 
 解釈上の注意:
     GlobalBuildingAtlas の高さ属性は衛星画像からの機械学習推定値であり、現地
@@ -78,8 +127,10 @@ import pandas as pd
 from ..geometry import (
     POLYGON_GEOM_TYPES,
     aggregate_mean_from_fine_mask,
+    aggregate_mean_max_from_fine_values,
     centroid_cell_indices,
     rasterize_binary_mask,
+    rasterize_max_value_field,
 )
 from ..grid import BBox, GridSpec, cell_area_ha
 from ..io import LayerResource, list_layer_fields, read_layer_dataframe
@@ -87,6 +138,9 @@ from ..io import LayerResource, list_layer_fields, read_layer_dataframe
 # 建物高さと、その推定分散を保持する属性列の名前。
 HEIGHT_FIELD = "height"
 HEIGHT_VARIANCE_FIELD = "var"
+
+# 高さラスタ化の番兵値。建物高さは0以上のため衝突しない。
+HEIGHT_RASTER_NODATA = -1.0
 
 
 def _filter_usable_polygons(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -251,13 +305,17 @@ def compute(
         name for name in (HEIGHT_FIELD, HEIGHT_VARIANCE_FIELD) if name in available_fields
     ]
     gdf = _filter_usable_polygons(read_layer_dataframe(resource, columns=height_columns))
+    geometries = gdf.geometry.to_numpy()
 
     fine_mask = rasterize_binary_mask(
-        geometries=gdf.geometry.to_numpy(),
+        geometries=geometries,
         out_shape=grid_spec.fine_shape,
         out_transform=grid_spec.fine_transform,
     )
     coverage = aggregate_mean_from_fine_mask(fine_mask, grid_spec.factor)
+    # 高さラスタ（float32で約280MB）を確保する前に解放し、ピークメモリ増分を
+    # fine_mask分（uint8で約70MB）だけ抑える。
+    del fine_mask
 
     centroids = gdf.geometry.centroid
     rows, cols, inside_mask = centroid_cell_indices(
@@ -271,12 +329,38 @@ def compute(
     building_counts = np.bincount(flat_indices, minlength=cell_count)
     density = building_counts / cell_area_ha(grid_spec)
 
-    heights = _valid_height_values(gdf)[inside_mask]
-    mean_heights, max_heights = _aggregate_heights(flat_indices, heights, cell_count)
+    # ラスタ化には全行版の高さ配列を使う（重心がグリッド外でもフットプリントが
+    # 張り出したセルへ値を焼くため）。重心方式は重心がグリッド内にある行だけに
+    # 絞った配列を使う。この2つを同名変数で使い回すと、絞り込みの有無が
+    # 静かに入れ替わって壊れるため、変数名を明確に分ける。
+    all_heights = _valid_height_values(gdf)
+    centroid_heights = all_heights[inside_mask]
+    mean_centroid, max_centroid = _aggregate_heights(flat_indices, centroid_heights, cell_count)
+    mean_centroid = mean_centroid.reshape(grid_spec.coarse_shape)
+    max_centroid = max_centroid.reshape(grid_spec.coarse_shape)
+
+    fine_heights = rasterize_max_value_field(
+        geometries=geometries,
+        values=all_heights,
+        out_shape=grid_spec.fine_shape,
+        out_transform=grid_spec.fine_transform,
+        nodata=HEIGHT_RASTER_NODATA,
+    )
+    mean_overlap, max_overlap = aggregate_mean_max_from_fine_values(
+        fine_heights, grid_spec.factor, nodata=HEIGHT_RASTER_NODATA
+    )
+
+    # BUILD_H_MEAN: 重なり方式の値をそのまま使い、被覆fineセルが1つも無い
+    # セル（NaN）のみ重心方式で補完する。
+    mean_heights = np.where(np.isnan(mean_overlap), mean_centroid, mean_overlap)
+    # BUILD_H_MAX: 重なり方式の最大と重心方式の最大をnp.fmax()で合成する
+    # （np.maximumではなくnp.fmaxを使う理由はモジュールdocstring「帰属方式」
+    # 節を参照。np.maximumはNaN側を伝播させ、片側のみ有効なセルもNaNになる）。
+    max_heights = np.fmax(max_overlap, max_centroid)
 
     return {
         "BUILD_COV": coverage.astype(np.float32),
         "BUILD_DEN": density.reshape(grid_spec.coarse_shape).astype(np.float32),
-        "BUILD_H_MEAN": mean_heights.reshape(grid_spec.coarse_shape).astype(np.float32),
-        "BUILD_H_MAX": max_heights.reshape(grid_spec.coarse_shape).astype(np.float32),
+        "BUILD_H_MEAN": mean_heights.astype(np.float32),
+        "BUILD_H_MAX": max_heights.astype(np.float32),
     }

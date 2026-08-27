@@ -42,17 +42,19 @@ from ..conftest import CITY, FINE_RES_M, SCALES
 # ---------------------------------------------------------------------------
 
 
-def test_compared_columns_cover_issue_targets() -> None:
-    """照合対象は Issue が指定する建物4種と道路である。"""
+def test_compared_columns_cover_expected_targets() -> None:
+    """照合対象は建物2種（被覆率・棟数密度）と道路である。"""
     assert set(COMPARED_COLUMNS) == {
         "BUILD_COV",
         "BUILD_DEN",
-        "BUILD_H_MEAN",
-        "BUILD_H_MAX",
         "ROAD_DEN",
     }
     # 標高は旧 CSV の生成後に算出内容が変わっているため含めない。
     assert "ELEV_MEAN" not in COMPARED_COLUMNS
+    # 建物高さは帰属方式の変更（重心方式から重なりベースとの併用へ）により
+    # 旧 wide CSV とは設計上必ず不一致になるため含めない。
+    assert "BUILD_H_MEAN" not in COMPARED_COLUMNS
+    assert "BUILD_H_MAX" not in COMPARED_COLUMNS
 
 
 def test_legacy_mask_layer_keys_record_old_behavior() -> None:

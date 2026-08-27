@@ -12,6 +12,7 @@ from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
 from src.analysis.urban_params.geometry import (
     aggregate_mean_from_fine_mask,
+    aggregate_mean_max_from_fine_values,
     aggregate_sum_from_fine_mask,
     centroid_cell_indices,
     compute_line_length,
@@ -22,6 +23,7 @@ from src.analysis.urban_params.geometry import (
     geometry_is_polygon,
     project_geometry_safe,
     rasterize_binary_mask,
+    rasterize_max_value_field,
 )
 from src.analysis.urban_params.grid import build_grid
 from src.analysis.urban_params.io import read_layer_dataframe
@@ -91,6 +93,132 @@ def test_aggregate_mean_and_sum_from_fine_mask() -> None:
 
     np.testing.assert_allclose(mean_array, expected_mean)
     np.testing.assert_allclose(sum_array, expected_sum)
+
+
+def test_rasterize_max_value_field_keeps_maximum_regardless_of_input_order() -> None:
+    """入力を降順で渡しても、内部ソートにより重なりセルには最大値が残る。"""
+    out_transform = from_origin(0, 8, 1, 1)
+    # 完全に重なる正方形（x[2,5), y[2,5)）を2つ用意する。
+    square = Polygon([(2, 2), (5, 2), (5, 5), (2, 5), (2, 2)])
+
+    # 値の降順（高い値を先に）で渡す。呼び出し側のソートに依存しない
+    # 契約であることを確認するため、意図的に昇順とは逆にする。
+    result = rasterize_max_value_field(
+        geometries=np.array([square, square], dtype=object),
+        values=np.array([12.0, 4.0]),
+        out_shape=(8, 8),
+        out_transform=out_transform,
+        nodata=-1.0,
+    )
+
+    assert result[3, 3] == pytest.approx(12.0)
+    # 被覆されていないセルは番兵値のまま残る。
+    assert result[0, 0] == pytest.approx(-1.0)
+
+
+def test_rasterize_max_value_field_skips_non_finite_values() -> None:
+    """NaN・infの値を持つジオメトリは焼かれず、セルは番兵値のまま残る。"""
+    out_transform = from_origin(0, 8, 1, 1)
+    polygon = Polygon([(2, 2), (5, 2), (5, 5), (2, 5), (2, 2)])
+
+    result = rasterize_max_value_field(
+        geometries=np.array([polygon, polygon], dtype=object),
+        values=np.array([np.nan, np.inf]),
+        out_shape=(8, 8),
+        out_transform=out_transform,
+        nodata=-1.0,
+    )
+
+    np.testing.assert_array_equal(result, -1.0)
+
+
+def test_rasterize_max_value_field_empty_geometries() -> None:
+    """ジオメトリが0件でも例外にならず、全セルが番兵値のままになる。"""
+    out_transform = from_origin(0, 8, 1, 1)
+
+    result = rasterize_max_value_field(
+        geometries=np.array([], dtype=object),
+        values=np.array([], dtype=np.float64),
+        out_shape=(8, 8),
+        out_transform=out_transform,
+        nodata=-1.0,
+    )
+
+    np.testing.assert_array_equal(result, -1.0)
+
+
+def test_aggregate_mean_max_from_fine_values_computes_block_statistics() -> None:
+    """fine値配列の2x2ブロックごとの平均・最大が、未被覆セルを除いて算出される。"""
+    nodata = -1.0
+    fine_values = np.array(
+        [
+            [4.0, 8.0, nodata, nodata],
+            [nodata, nodata, nodata, nodata],
+            [nodata, nodata, 6.0, nodata],
+            [nodata, nodata, nodata, nodata],
+        ],
+        dtype=np.float32,
+    )
+
+    mean_array, max_array = aggregate_mean_max_from_fine_values(
+        fine_values, factor=2, nodata=nodata
+    )
+
+    # ブロック(0,0): 有効値は4.0・8.0の2件（nodataの2件は分母に含めない）。
+    assert mean_array[0, 0] == pytest.approx(6.0)
+    assert max_array[0, 0] == pytest.approx(8.0)
+
+    # ブロック(0,1)・(1,0): 全fineセルがnodata → 平均・最大ともNaN。
+    assert np.isnan(mean_array[0, 1])
+    assert np.isnan(max_array[0, 1])
+    assert np.isnan(mean_array[1, 0])
+    assert np.isnan(max_array[1, 0])
+
+    # ブロック(1,1): 有効値1件のみ（6.0）。
+    assert mean_array[1, 1] == pytest.approx(6.0)
+    assert max_array[1, 1] == pytest.approx(6.0)
+
+
+def test_aggregate_mean_max_from_fine_values_counts_valid_cells_before_clipping() -> None:
+    """有効セル数はクリップ前に数えるため、全セルnodataのブロックはNaNになる。
+
+    クリップ（nodataを0.0へ寄せる処理）の後に「0以上」で有効判定すると、
+    nodataが0.0になって誤って有効値として数えられ、分母が全fineセル数
+    （このケースでは4）になってしまう。クリップ前に数えていれば有効件数は
+    0であり、NaNになる。
+    """
+    nodata = -1.0
+    fine_values = np.full((2, 2), nodata, dtype=np.float32)
+
+    mean_array, max_array = aggregate_mean_max_from_fine_values(
+        fine_values, factor=2, nodata=nodata
+    )
+
+    assert mean_array.shape == (1, 1)
+    assert np.isnan(mean_array[0, 0])
+    assert np.isnan(max_array[0, 0])
+
+
+def test_aggregate_mean_max_from_fine_values_preserves_negative_valid_values() -> None:
+    """有効な負値はnodata置換の対象にならず、平均・最大に正しく反映される。
+
+    nodataより大きければ有効値として扱う契約のため、nodata未満ではない負値
+    （例: nodata=-10.0に対する-5.0）も有効値になりうる。集約前に0以上へ
+    クリップすると、この有効な負値が0.0に化けて平均が誤る
+    （CodeRabbitレビュー指摘、2026-08-27）。
+    """
+    nodata = -10.0
+    fine_values = np.array([[-5.0, -2.0], [nodata, nodata]], dtype=np.float32)
+
+    mean_array, max_array = aggregate_mean_max_from_fine_values(
+        fine_values, factor=2, nodata=nodata
+    )
+
+    # 有効値は-5.0と-2.0の2件（nodataの2件は分母に含めない）。
+    # クリップされていれば平均は(0.0+0.0)/2=0.0になってしまうが、
+    # 正しくは(-5.0+-2.0)/2=-3.5。
+    assert mean_array[0, 0] == pytest.approx(-3.5)
+    assert max_array[0, 0] == pytest.approx(-2.0)
 
 
 def test_compute_polygon_coverage_and_centroid_count(polygon_resource) -> None:

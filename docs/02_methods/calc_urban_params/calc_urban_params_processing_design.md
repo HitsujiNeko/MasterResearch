@@ -88,7 +88,8 @@ def compute(
 - 建物（GBA / DC）
   - `BUILD_COV`: ポリゴン被覆率（fine→coarse平均、0-1）
   - `BUILD_DEN`: 棟数密度（棟/ha）
-  - `BUILD_H_MEAN` / `BUILD_H_MAX`: セル内建物の平均・最大高さ（m）
+  - `BUILD_H_MEAN`: セルの建物被覆部分における上端高さの面積平均（m）。重なりベース（重心方式で補完）
+  - `BUILD_H_MAX`: セルを覆う、またはセルに重心を持つ建物の最大高さ（m）。重なりベースと重心方式を `np.fmax()` で合成
 - 道路（OSM / GT）
   - `ROAD_DEN`: 道路密度（m/ha）
 - 標高（FABDEM、パラメータセット `elev_fabdem`）

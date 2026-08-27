@@ -147,8 +147,12 @@ def test_compute_max_is_not_less_than_mean(building_resource) -> None:
     assert np.all(result["BUILD_H_MAX"][valid_mask] >= result["BUILD_H_MEAN"][valid_mask])
 
 
-def test_compute_counts_only_centroid_cell(edge_building_resource) -> None:
-    """重心がグリッド外の建物は被覆率にのみ計上され、棟数密度・高さには入らない。"""
+def test_compute_fills_spanning_footprint_without_centroid(edge_building_resource) -> None:
+    """重心がグリッド外の建物は棟数密度に入らないが、張り出した被覆部分には高さが入る。
+
+    重心方式のみだった現行では高さは全セルNaNだったが、新方式（重なり方式との
+    併用）では、フットプリントが張り出したセル側にも高さが計上される。
+    """
     grid_spec = _build_test_grid()
 
     result = buildings.compute(edge_building_resource, ANALYSIS_BBOX, grid_spec)
@@ -157,10 +161,20 @@ def test_compute_counts_only_centroid_cell(edge_building_resource) -> None:
     assert result["BUILD_COV"].sum() == pytest.approx(1.0)
     assert result["BUILD_COV"][1, 3] == pytest.approx(0.5)
     assert result["BUILD_COV"][2, 3] == pytest.approx(0.5)
-    # 重心 (80, 40) は列添字が範囲外のため、棟数・高さには寄与しない。
+    # 重心 (80, 40) は列添字が範囲外のため、棟数密度には寄与しない。
     assert result["BUILD_DEN"].sum() == pytest.approx(0.0)
-    assert np.all(np.isnan(result["BUILD_H_MEAN"]))
-    assert np.all(np.isnan(result["BUILD_H_MAX"]))
+    # 高さは重なり方式により、張り出した被覆部分（fineセル中心を覆う範囲）
+    # から得られる。
+    assert result["BUILD_H_MEAN"][1, 3] == pytest.approx(12.0)
+    assert result["BUILD_H_MEAN"][2, 3] == pytest.approx(12.0)
+    assert result["BUILD_H_MAX"][1, 3] == pytest.approx(12.0)
+    assert result["BUILD_H_MAX"][2, 3] == pytest.approx(12.0)
+    # それ以外のセルには建物が無いためNaNのまま。
+    other_mask = np.ones(grid_spec.coarse_shape, dtype=bool)
+    other_mask[1, 3] = False
+    other_mask[2, 3] = False
+    assert np.all(np.isnan(result["BUILD_H_MEAN"][other_mask]))
+    assert np.all(np.isnan(result["BUILD_H_MAX"][other_mask]))
 
 
 def test_compute_empty_layer(empty_building_resource) -> None:
@@ -264,6 +278,115 @@ def test_compute_handles_multipolygon(multipolygon_building_resource) -> None:
     counts = count_polygon_centroids(multipolygon_building_resource, ANALYSIS_BBOX, grid_spec)
     np.testing.assert_allclose(result["BUILD_DEN"], counts / cell_area_ha(grid_spec))
     assert np.nanmax(result["BUILD_H_MEAN"]) == pytest.approx(12.0)
+
+
+def test_compute_overlap_mean_uses_top_height_area_average(overlap_building_resource) -> None:
+    """BUILD_H_MEANは重複箇所を二重計上しない、上端高さの面積平均になる。
+
+    セル(3, 0): 高さ4m・400m2の建物に、高さ12m・200m2の建物が完全に重なる。
+    上端高さの面積平均は (12+12+4+4)/4 = 8.0 m。二重計上した面積加重平均
+    （(400*4 + 200*12) / 600 = 6.67 m）とは異なる値になる。
+    """
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    assert result["BUILD_H_MEAN"][3, 0] == pytest.approx(8.0)
+    assert result["BUILD_H_MAX"][3, 0] == pytest.approx(12.0)
+
+
+def test_compute_overlap_fills_missing_overlap_with_centroid(overlap_building_resource) -> None:
+    """重なり方式の被覆が無いセルは、重心方式（従来の単純平均）で補完される。
+
+    セル(2, 2)の建物はfineセル中心をどれも覆わないため、重なり方式では
+    値が得られない。重心方式では重心がこのセルに属するため、補完によって
+    高さ25.0が得られる。
+    """
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    assert result["BUILD_H_MEAN"][2, 2] == pytest.approx(25.0)
+    assert result["BUILD_H_MAX"][2, 2] == pytest.approx(25.0)
+    # 被覆自体もfineセル中心を覆わないため0のまま（小さい建物の取りこぼし）。
+    assert result["BUILD_COV"][2, 2] == pytest.approx(0.0)
+    assert result["BUILD_DEN"][2, 2] > 0
+
+
+def test_compute_overlap_max_composes_overlap_and_centroid(overlap_building_resource) -> None:
+    """BUILD_H_MAXは重なり方式と重心方式の最大をnp.fmax()で合成する。
+
+    セル(0, 0)には、低い大建物（h=10.0, fine中心を覆う）と高い小建物
+    （h=30.0, fine中心をどれも覆わない）が同居する。重なり方式のみでは
+    小建物の高さ30.0を取りこぼすが、重心方式の最大との合成により救われる。
+    """
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    # BUILD_H_MEANは重なり方式のみ（小建物のfine被覆が無いため10.0のまま）。
+    assert result["BUILD_H_MEAN"][0, 0] == pytest.approx(10.0)
+    # BUILD_H_MAXは重心方式の最大（30.0）を合成で取り込む。
+    assert result["BUILD_H_MAX"][0, 0] == pytest.approx(30.0)
+
+
+def test_compute_overlap_fills_spanning_cell(overlap_building_resource) -> None:
+    """2セルにまたがる建物は、重心が無い側のセルにも重なり方式で高さが入る。
+
+    セル(3, 2)/(3, 3)にまたがる建物（h=15.0）の重心はセル(3, 3)側にのみ
+    属するが、セル(3, 2)側にも張り出した被覆部分から高さが得られる。
+    """
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    assert result["BUILD_H_MEAN"][3, 2] == pytest.approx(15.0)
+    assert result["BUILD_H_MAX"][3, 2] == pytest.approx(15.0)
+    assert result["BUILD_H_MEAN"][3, 3] == pytest.approx(15.0)
+    assert result["BUILD_H_MAX"][3, 3] == pytest.approx(15.0)
+
+
+def test_compute_overlap_max_not_less_than_mean(overlap_building_resource) -> None:
+    """4シナリオを含むレイヤでも BUILD_H_MAX >= BUILD_H_MEAN が成り立つ。"""
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+    valid_mask = np.isfinite(result["BUILD_H_MEAN"])
+
+    assert valid_mask.any()
+    assert np.all(result["BUILD_H_MAX"][valid_mask] >= result["BUILD_H_MEAN"][valid_mask])
+
+
+def test_compute_overlap_nan_sets_match_between_mean_and_max(overlap_building_resource) -> None:
+    """BUILD_H_MEANとBUILD_H_MAXのNaN集合が完全に一致する。
+
+    `fill_missing_building_heights`（analysis_rq3_limited.py）は両列が同時に
+    NULL/非NULLになることを前提にしており、この前提が崩れていないことを
+    確認する。
+    """
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    np.testing.assert_array_equal(np.isnan(result["BUILD_H_MEAN"]), np.isnan(result["BUILD_H_MAX"]))
+    # このフィクスチャでは5セル（(0,0)・(3,0)・(2,2)・(3,2)・(3,3)）のみ非NaN。
+    assert int((~np.isnan(result["BUILD_H_MEAN"])).sum()) == 5
+
+
+def test_compute_overlap_density_matches_centroid_count(overlap_building_resource) -> None:
+    """BUILD_DENは新方式でも重心方式のまま変わらない。"""
+    grid_spec = _build_test_grid()
+
+    result = buildings.compute(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+    counts = count_polygon_centroids(overlap_building_resource, ANALYSIS_BBOX, grid_spec)
+
+    np.testing.assert_allclose(result["BUILD_DEN"], counts / cell_area_ha(grid_spec))
+    # セル(0,0)・(3,0)は2棟、セル(2,2)・(3,3)は1棟、セル(3,2)は0棟。
+    assert result["BUILD_DEN"][0, 0] == pytest.approx(2.0 / cell_area_ha(grid_spec))
+    assert result["BUILD_DEN"][3, 0] == pytest.approx(2.0 / cell_area_ha(grid_spec))
+    assert result["BUILD_DEN"][2, 2] == pytest.approx(1.0 / cell_area_ha(grid_spec))
+    assert result["BUILD_DEN"][3, 3] == pytest.approx(1.0 / cell_area_ha(grid_spec))
+    assert result["BUILD_DEN"][3, 2] == pytest.approx(0.0)
 
 
 def test_compute_without_height_fields(polygon_resource) -> None:

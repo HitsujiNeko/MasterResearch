@@ -92,7 +92,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 > 本節の内容は冒頭メタ情報の「最終更新」時点のものである（見出しに日付を持たせると二重管理になり、実際に取り残されたことがあるため）。
 
 - **`params/roads.py`（`ROAD_DEN`）**: 設計確定・実装済み。`hanoi_osm_roads.gpkg`（`road_osm`）から車道のフィルタリング（ホワイトリスト + トンネル除外）を行い、セル内道路延長密度（m/ha）を算出する。
-- **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`hanoi_gba_buildings.gpkg`（`build_gba`、GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`build_dc`（`merge_DC.gpkg`）は高さ属性を持たないため、高さ列は NaN になる。
+- **`params/buildings.py`（`BUILD_COV` / `BUILD_DEN` / `BUILD_H_MEAN` / `BUILD_H_MAX`）**: 設計確定・実装済み。`hanoi_gba_buildings.gpkg`（`build_gba`、GBA、3,071,511 件）から被覆率・棟数密度・平均/最大高さを算出する。件数が多いため、本モジュールのみレイヤの一括読み込みと NumPy によるベクトル化集計を採る。`build_dc`（`merge_DC.gpkg`）は高さ属性を持たないため、高さ列は NaN になる。**高さ2列（`BUILD_H_MEAN` / `BUILD_H_MAX`）の帰属方式は 2026-08 に重心方式単独から重なりベースと重心方式の併用へ変更した**（詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md) 3.2節）。
 - **`params/elevation.py`（`ELEV_MEAN` / `ELEV_VALID_RATIO`）**: 設計確定・実装済み。FABDEM v1.2（`fabdem_hanoi_dem.tif`、`elev_fabdem`）を coarse グリッドへ平均再投影し、セル平均標高（m）とセル内のDEM有効画素率（0-1）を算出する。`ELEV_COUNT` は出力しない。DEMラスタは `.gitignore` の対象であり、ファイルが無い場合は `FileNotFoundError` で停止する（列が黙って欠けるのを防ぐため）。
 - **`params/lst.py`（`LST` / `LST_VALID_RATIO`）**: 設計確定・実装済み。LSTラスタ（`--lst-file`）を coarse グリッドへ平均再投影し、セル平均地表面温度（°C）とセル内のLST有効画素率（0-1）を算出する。目的変数であり `VALID_SATELLITE_MASK` の判定材料には含めない（[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.3節）。集約後の有効値の中央値が摂氏として妥当な範囲（-60〜90°C）の外なら警告する（ケルビン取り違えの検知。正常なLSTを弾かない広さに取る）。
 - **`params/population.py`（`POP_DEN_{データソース}` / `POP_VALID_RATIO_{データソース}`）**: 設計確定・実装済み。人口グリッド（`worldpop_hanoi_2020.tif` / `landscan_hanoi_{2020,2023}.tif`）の**密度バンド（band 2、人/km²）**を coarse グリッドへ平均再投影し、100 で割ってセル平均人口密度（人/ha）とセル内の有効画素率（0-1）を算出する。`grid.cell_area_ha()` は使わない（理由は [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節）。3版は列名にデータソース接尾辞が付き（`run.py: apply_column_suffix()`）、同一データセットへ同時に結合できる。カウントバンド（band 1）を誤って指した場合は、バンド説明の照合で警告する（値は出力されるため統計を見ても気づけないため）。
@@ -111,7 +111,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - 入力した衛星指標（`NDVI` 等）が出力され、値が妥当な範囲に収まる
 - 結合したデータセットの `lon`, `lat` がハノイ近傍範囲に入る
 - 同じコマンドを2回実行しても行数が倍にならない（追記経路を持たないこと）
-- `BUILD_H_MEAN` / `BUILD_H_MAX` の欠測が GeoPackage の NULL として保持される
+- `BUILD_H_MEAN` / `BUILD_H_MAX` の欠測が GeoPackage の NULL として保持される（新方式では有効高さを持つ建物が1棟も無いセルに限られる想定。詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md) 3.4節）
 - 衛星指標テーブルが観測日時つきの名前（`idx_20230707_032329` 等）で出力される
 - QGIS で正準グリッドのレイヤ（`grid_30m` 等）にベクタレイヤ結合で繋ぎ、`BUILD_COV` で着色表示して分布が妥当である
 - GIS由来パラメータ（[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節）を追加する際は、被覆率（0-1）・密度（負値なし）・有効カバレッジ内かどうかの確認を、各パラメータのサブIssueで検証項目として追加する
@@ -187,7 +187,7 @@ python -m src.analysis.urban_params.verify_values --city hanoi \
   --params build_gba road_osm --legacy-scenario limited --scales 30 90 300
 ```
 
-**照合結果（2026-08-12・ハノイ・`limited`）**: 3スケール・5列のすべてで**不一致 0 件・最大絶対差 0**、すなわちビット単位で完全に一致した。
+**帰属方式変更前の照合結果（2026-08-12・ハノイ・`limited`）**: 3スケール・5列のすべてで**不一致 0 件・最大絶対差 0**、すなわちビット単位で完全に一致した。
 
 | スケール | 行数（旧 CSV と一致） | 座標の最大差 | 照合結果 |
 |---|---|---|---|
@@ -197,10 +197,10 @@ python -m src.analysis.urban_params.verify_values --city hanoi \
 
 照合上の前提が2点ある。
 
-- **NaN 同士は一致として扱う。** `BUILD_H_MEAN` / `BUILD_H_MAX` の欠測規約が維持されていることを確認する必要があるため
+- **NaN 同士は一致として扱う。** 照合対象列（`BUILD_COV` / `BUILD_DEN` / `ROAD_DEN`）の欠測規約が維持されていることを確認する必要があるため（`BUILD_H_MEAN` / `BUILD_H_MAX` は帰属方式変更により照合対象から除外済み。上記「照合対象は建物2種と道路の3列」を参照）
 - **旧 CSV の保存精度（float32）へ揃えてから比較する。** 旧 CSV は float32 の値を「float32 として往復できる最短の10進表記」で保存しており、float64 として読むと元の float32 との間に最大で float32 の半 ULP のずれ（値1.0付近で約6e-8、値680付近で約3e-5）が残る。これは算出値の差ではなく表記の丸めによる差である
 
-照合対象は建物4種と道路の5列とする。標高は旧 CSV の生成後に算出内容が変わっており（`ELEV_VALID_RATIO` が未収録）、値の同一性を問える状態にない。
+照合対象は建物2種（`BUILD_COV` / `BUILD_DEN`）と道路の3列とする（2026-08 に建物4列から変更）。標高は旧 CSV の生成後に算出内容が変わっており（`ELEV_VALID_RATIO` が未収録）、値の同一性を問える状態にない。**`BUILD_H_MEAN` / `BUILD_H_MAX` も同じ理由で除外した。** 帰属方式を重心方式単独から重なりベースと重心方式の併用へ変更したため（[gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md) 3.2節）、この2列は旧 CSV と**設計上必ず不一致になる**。照合対象に残すと検証が常に失敗するため、`verify_values.py` の `COMPARED_COLUMNS` から外した。上表（2026-08-12実測）の「全5列一致」は帰属方式変更前の記録であり、`BUILD_H_MEAN` / `BUILD_H_MAX` を含めた最後の完全一致結果として残す。`BUILD_COV` / `BUILD_DEN` は変更していないため、3列照合は引き続き有効である。
 
 > **`verify_values.py` は検証専用であり、旧 CSV が役目を終えた時点で削除してよい。** 削除条件は (1) 再設計後の出力で分析を一巡し値の妥当性が確認できている、(2) `data/output/urban_params/*.csv` を参照する分析・ドキュメントが無くなっている、の2つをともに満たしたとき。削除時は対応するテストも併せて削除する。
 
@@ -219,7 +219,7 @@ python -m src.analysis.urban_params.verify_values --city hanoi \
 
 **欠測規約と品質管理列も図と数値で確認した。**
 
-- `BUILD_H_MEAN` / `BUILD_H_MAX`: NULL は 7,567 セル（19.8%）で、**2列の NULL が完全に一致**する（食い違い0件）。同一の除外条件で動いていることを示す
+- `BUILD_H_MEAN` / `BUILD_H_MAX`: NULL は 7,567 セル（19.8%）で、**2列の NULL が完全に一致**する（食い違い0件）。同一の除外条件で動いていることを示す（**この実測は帰属方式変更前（重心方式単独）の記録**。重なりベース化後の300mでは NULL 7,457 セルに変化したが、2列の NULL 完全一致という性質は変更後も維持されている。詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md) 3.4節）
 - `ELEV_MEAN` が NULL の 12 セルは**すべて `ELEV_VALID_RATIO = 0.0`**（違反0件）。11章の「両列の整合」を満たす
 - `IN_ANALYSIS_AREA = 0` は**ちょうど 35 セル**で、すべて ROI 境界上にある。[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.1節の「交差 ⊇ `IN_ANALYSIS_AREA`」と一致する
 

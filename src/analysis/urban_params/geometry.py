@@ -173,6 +173,138 @@ def rasterize_binary_mask(
     return (out_array > 0).astype(np.uint8)
 
 
+def rasterize_max_value_field(
+    geometries: np.ndarray,
+    values: np.ndarray,
+    out_shape: tuple[int, int],
+    out_transform: Affine,
+    nodata: float,
+    chunk_size: int = 5000,
+) -> np.ndarray:
+    """ジオメトリ群を属性値でfineグリッドへ焼き、重なりは最大値を残す。
+
+    「値の昇順で渡すこと」を呼び出し側の義務にすると、忘れても例外が出ずに
+    誤った値が返ってしまう（``rasterio`` 1.4.3で実測確認: 重なる2棟を降順に
+    渡すと最大値ではなく最後に焼いた値が残る）。そのためソートは本関数の
+    内部で行い、「最大値を焼く」という契約を関数名とシグネチャで表す。
+
+    Args:
+        geometries: ラスタ化対象のジオメトリ配列（解析用CRS上）。``(geom,
+            value)`` のタプル列ではなく配列で受けることで、大量件数でも
+            タプル生成のオーバーヘッドを避ける。
+        values: 各ジオメトリの値配列（``geometries`` と同じ長さ）。非有限値
+            （NaN・inf）の要素は焼かない。
+        out_shape: 出力配列の形状 (行数, 列数)。
+        out_transform: 出力配列のアフィン変換（fineグリッド用）。
+        nodata: いずれのジオメトリにも覆われないセルに残す番兵値。
+            ``values`` の値域の下限未満である必要がある（衝突すると
+            未被覆セルと実データを区別できなくなる）。
+        chunk_size: 一度に ``rasterize`` へ渡すジオメトリ数。
+
+    Returns:
+        セルを覆うジオメトリのうち最大の値を持つ ``float32`` 配列。
+        いずれのジオメトリにも覆われないセルは ``nodata`` のまま残る。
+    """
+    values_array = np.asarray(values, dtype=np.float64)
+    finite_mask = np.isfinite(values_array)
+    finite_geometries = np.asarray(geometries, dtype=object)[finite_mask]
+    finite_values = values_array[finite_mask]
+
+    # 値の昇順に安定ソートしてから merge_alg=replace で焼くことで、
+    # 後から焼いた（＝より大きい）値が残る。安定ソートでないと同値の
+    # 要素の順序が入力ごとに変わりうる。チャンク分割をまたいでも順序が
+    # 保たれるよう、ソートはチャンク分割の前に全体へ対して行う。
+    order = np.argsort(finite_values, kind="stable")
+    sorted_geometries = finite_geometries[order]
+    sorted_values = finite_values[order]
+
+    # fill は指定しない。out= を渡すと fill 引数は無視されることを
+    # rasterio 1.4.3で実測確認しているため、事前充填で番兵値を敷く。
+    out_array = np.full(out_shape, nodata, dtype=np.float32)
+    chunk: list[tuple[Any, float]] = []
+
+    for geom, value in zip(sorted_geometries, sorted_values):
+        chunk.append((geom, float(value)))
+        if len(chunk) >= chunk_size:
+            rasterize(
+                chunk,
+                out=out_array,
+                transform=out_transform,
+                merge_alg=MergeAlg.replace,
+                all_touched=False,
+            )
+            chunk.clear()
+
+    if chunk:
+        rasterize(
+            chunk,
+            out=out_array,
+            transform=out_transform,
+            merge_alg=MergeAlg.replace,
+            all_touched=False,
+        )
+
+    return out_array
+
+
+def aggregate_mean_max_from_fine_values(
+    fine_values: np.ndarray,
+    factor: int,
+    nodata: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """fine値配列をcoarseへ平均・最大集約する。
+
+    coarseセルごとに、値が入ったfineセル（``nodata`` でないセル）の平均と
+    最大を返す。値が入ったfineセルが1つも無いcoarseセルは、平均・最大とも
+    ``NaN`` とする。
+
+    **入力の ``fine_values`` を破壊的に消費する。** 内部でin-place演算に
+    よるクリップを行うため、呼び出し後に元の配列を集約前の値として
+    再利用してはならない（``rasterize_max_value_field()`` の戻り値をそのまま
+    渡し、以降参照しない使い方を前提とする）。
+
+    Args:
+        fine_values: fineグリッドの値配列 (行数, 列数)。``nodata`` で
+            未被覆セルを表す。
+        factor: coarse解像度がfine解像度の何倍かを示す整数。
+        nodata: 未被覆セルを表す番兵値。``fine_values`` の値域の下限未満
+            である必要がある。
+
+    Returns:
+        (平均, 最大) の組（いずれもcoarseグリッド形状の ``float32`` 配列）。
+        値が入ったfineセルが1つも無いcoarseセルはいずれも ``NaN``。
+    """
+    rows, cols = fine_values.shape
+    coarse_rows = rows // factor
+    coarse_cols = cols // factor
+    reshaped = fine_values.reshape(coarse_rows, factor, coarse_cols, factor)
+
+    # 置換前に有効マスクを取る。置換後に「nodataより大きい」で数えると
+    # 分母が全fineセル数になり、平均が過小になる。
+    valid = reshaped > nodata
+    counts = valid.sum(axis=(1, 3))
+
+    # ブロック最大は置換前に取る。番兵値は値域の下限未満（関数の前提）で
+    # 常に有効値より小さいため、未被覆セルが混ざっていても直接取れる。
+    # 有効値が負の場合でも成り立つ（0以上を仮定しない）。
+    maxima = reshaped.max(axis=(1, 3))
+
+    # nodataセルだけを0.0へ置換する（in-place。このあと fine_values /
+    # reshaped は書き換わる）。有効値は負でも変更しない。np.maximum() で
+    # 全体を0以上にクリップすると、有効な負値まで0.0に化けて平均が誤る
+    # ため使わない。np.where() で中間配列を作らないことで、fine解像度分の
+    # メモリ増加を避ける。
+    np.copyto(reshaped, 0.0, where=~valid)
+    # 300mはfactor=30で1ブロック900要素になるため、float32累算の丸めを
+    # 避けるためdtype=np.float64を明示する。
+    sums = reshaped.sum(axis=(1, 3), dtype=np.float64)
+
+    has_value = counts > 0
+    mean_values = np.where(has_value, sums / np.maximum(counts, 1), np.nan)
+    max_values = np.where(has_value, maxima, np.nan)
+    return mean_values.astype(np.float32), max_values.astype(np.float32)
+
+
 def iter_projected_geometries(
     resource: LayerResource,
     bbox_analysis: BBox,

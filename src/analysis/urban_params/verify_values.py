@@ -54,9 +54,12 @@ LEGACY_OUTPUT_PARTS = ("data", "output", "urban_params")
 # 同じマスクで行うために必要であり、再設計後の解析範囲（ROIへ一本化）とは別物である。
 LEGACY_MASK_LAYER_KEYS = {"satellite_only": "roi", "limited": "roi", "full": "rg"}
 
-# 照合対象の列（建物4種・道路）。標高は旧 CSV の生成後に算出内容が変わっており
+# 照合対象の列（建物2種・道路）。標高は旧 CSV の生成後に算出内容が変わっており
 # （``ELEV_VALID_RATIO`` が未収録）、値の同一性を問える状態にないため含めない。
-COMPARED_COLUMNS = ("BUILD_COV", "BUILD_DEN", "BUILD_H_MEAN", "BUILD_H_MAX", "ROAD_DEN")
+# 建物高さ（``BUILD_H_MEAN`` / ``BUILD_H_MAX``）も同じ理由で含めない。帰属方式を
+# 重心方式から重なりベース（重心方式との併用）へ変更しており、旧 wide CSV とは
+# 設計上必ず不一致になるため、照合対象に残すと検証が常に失敗する。
+COMPARED_COLUMNS = ("BUILD_COV", "BUILD_DEN", "ROAD_DEN")
 
 # 座標の突合に使う許容差（度）。約0.1mmに相当する。座標は行の対応づけのキーでは
 # なく、**順序ずれの検知にのみ**使うため、浮動小数点の完全一致には依存させない。

@@ -149,6 +149,48 @@ def building_resource(tmp_path: Path) -> LayerResource:
 
 
 @pytest.fixture()
+def overlap_building_resource(tmp_path: Path) -> LayerResource:
+    """重なりベースの高さ帰属（新方式）固有の挙動を検証するための建物レイヤ。
+
+    coarse_res=20m のグリッド（4x4セル）に、以下の4シナリオを独立したセルへ
+    配置する。既存の ``building_resource`` が使うセルとは重ならない。
+
+    - セル(0, 0): 低い大建物（h=10.0, 20x20＝400m2）と高い小建物（h=30.0,
+      4x4＝16m2）が同居する。小建物はfineセル中心 (5,65)・(15,65)・
+      (5,75)・(15,75) をどれも覆わない。``BUILD_H_MAX`` の「重なり∪重心」
+      合成規則（``np.fmax()``）を検証するためのケース
+      （期待値: ``BUILD_H_MEAN`` = 10.0・``BUILD_H_MAX`` = 30.0）
+    - セル(3, 0): 高さ12m・200m2の建物が、高さ4m・400m2の建物に完全に
+      重なる。上端高さ（重なる箇所は高い方）の面積平均（期待値8.0）に
+      なることを検証する。GPKGへは**高さの降順**（12.0 -> 4.0）で書き込み、
+      ``rasterize_max_value_field()`` の内部ソート契約を統合レベルでも
+      確認する
+    - セル(2, 2): 幅2mの小規模建物（h=25.0）。fineセル中心をどれも覆わない
+      ため被覆が発生せず、``BUILD_H_MEAN`` の重心方式による補完を検証する
+    - セル(3, 2) / セル(3, 3): 2セルにまたがる建物（h=15.0, x[50, 70)）。
+      重心はセル(3, 3)側にのみ属するが、セル(3, 2)側にも張り出した被覆
+      部分に高さが入ることを検証する
+    """
+    gpkg_path = tmp_path / "overlap_buildings.gpkg"
+    _write_building_layer(
+        gpkg_path,
+        [
+            # セル(0,0): 低い大建物 + 高い小建物。
+            {"bounds": (0.0, 60.0, 20.0, 80.0), "height": 10.0, "var": 1.0},
+            {"bounds": (8.0, 68.0, 12.0, 72.0), "height": 30.0, "var": 1.0},
+            # セル(3,0): 重なる2棟。高さの降順（12.0 -> 4.0）で書き込む。
+            {"bounds": (0.0, 0.0, 20.0, 10.0), "height": 12.0, "var": 1.0},
+            {"bounds": (0.0, 0.0, 20.0, 20.0), "height": 4.0, "var": 1.0},
+            # セル(2,2): fineセル中心をどれも覆わない小規模建物。
+            {"bounds": (41.0, 21.0, 43.0, 23.0), "height": 25.0, "var": 1.0},
+            # セル(3,2)/(3,3): 2セルにまたがる建物。重心はセル(3,3)側。
+            {"bounds": (50.0, 0.0, 70.0, 20.0), "height": 15.0, "var": 1.0},
+        ],
+    )
+    return _make_layer_resource(gpkg_path, "data")
+
+
+@pytest.fixture()
 def edge_building_resource(tmp_path: Path) -> LayerResource:
     """重心がグリッド範囲外に出る建物1棟だけを持つレイヤ。
 

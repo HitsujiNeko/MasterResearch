@@ -393,6 +393,15 @@ Hanoi ROI 全域で `build_gba.gpkg`（30m/90m/300m）を新方式で再算出�
 
 **脱落の解消**（`dataset_limited_20230707_032329_hanoi_30m.gpkg`、`fill_missing_building_heights()` 適用後）: LST有効セルのうち建物高さNULLで脱落するセル数は **53,784セル → 6セルへ99.99%解消**した（Issue記載の53,717との差はテーブル再生成による想定内の差）。残る6セルは有効高さを持つ建物が1棟も無いセルという既知の例外に該当する（3.4節）。
 
+### 3.8 主題図（可視化、30m/300m）
+
+建物4パラメータは算出方法（fine グリッドへのラスタ化・重心方式）の性質上、coarse 解像度によって見え方が大きく変わりうるため（3.5節・3.6節参照）、300m に加えて 30m の主題図も作成した。
+
+- **300m**: 既存4パラメータ主題図を新方式の値で再生成済み（`images/urban_params/urban_params_build_{cov,den,h_mean,h_max}_hanoi_300m.png`）。正準グリッド（`grid_300m`）と `build_gba.gpkg` を `cell_id` で結合したベクタポリゴンを、Quantile分類（Magmaカラーランプ）で着色した
+- **30m**: 同4パラメータの主題図を追加した（`..._hanoi_30m.png`）。30m では1セルが出力画像上でほぼ1ピクセルに相当し（300mの約100倍のセル数）、ベクタポリゴンとして描画すると重く判読性も落ちるため、`cell_id` から `row`/`col`（`canonical_grid.split_cell_id()`）を復元して直接ラスタ化（EPSG:5897、fine化と同じ考え方）し、EPSG:4326へ事前リプロジェクトしたうえで疑似カラー（`QgsSingleBandPseudoColorRenderer`、Discrete分類）で着色した
+- **分類方式は300m版と揃えていない**: `BUILD_COV` は3.5節の通り30mでは被覆率が「10段階（0 + fineセル9個分の非ゼロ9通り）」にしか量子化されず、300m版と同じ6class Quantileでは分位境界が低域で重複し分類が破綻する。そのため30m版の `BUILD_COV` は Unique Values 分類（10クラス、実測値と一致）に変更した。`BUILD_DEN` も棟数密度が離散値（30m実測で30通り）であり同様に境界が重複するため、Quantileの重複境界を統合し実効クラス数を5へ落とした（`pandas.qcut(..., duplicates="drop")` 相当）。`BUILD_H_MEAN` / `BUILD_H_MAX` は連続値で量子化の問題が無いため、300m版と同じ5class Quantileを維持した
+- ラスタ化・着色スクリプトはいずれもアドホックな使い捨てスクリプトで、300m版と同様にリポジトリには収録していない
+
 ---
 
 ## 4. 注意点

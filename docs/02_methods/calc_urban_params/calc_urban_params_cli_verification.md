@@ -187,7 +187,7 @@ python -m src.analysis.urban_params.verify_values --city hanoi \
   --params build_gba road_osm --legacy-scenario limited --scales 30 90 300
 ```
 
-**照合結果（2026-08-12・ハノイ・`limited`）**: 3スケール・5列のすべてで**不一致 0 件・最大絶対差 0**、すなわちビット単位で完全に一致した。
+**帰属方式変更前の照合結果（2026-08-12・ハノイ・`limited`）**: 3スケール・5列のすべてで**不一致 0 件・最大絶対差 0**、すなわちビット単位で完全に一致した。
 
 | スケール | 行数（旧 CSV と一致） | 座標の最大差 | 照合結果 |
 |---|---|---|---|

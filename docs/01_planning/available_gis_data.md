@@ -1,6 +1,6 @@
 # 利用可能な公開GISデータ候補
 
-**最終更新**: 2026-08-06  
+**最終更新**: 2026-08-27  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [urban_structure_parameters.md](urban_structure_parameters.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [CodingRule.md](../02_methods/CodingRule.md)  
 **前提知識**: RQ1-RQ3、都市構造パラメータの定義、GISデータのCRS・解像度・ライセンス差
 

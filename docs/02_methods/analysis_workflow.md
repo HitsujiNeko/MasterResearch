@@ -134,7 +134,8 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 > 根拠は [available_gis_data.md](../01_planning/available_gis_data.md) に整理している。  
 > Microsoft 建物データは、Hanoi ROI 西側で `105.46875E` 付近を境に欠落が確認された（現在の主ソースは GBA）。  
 > `BUILD_COV = 0` かつ `BUILD_DEN = 0` を建物不存在として解釈する前に、建物データの有効カバレッジ内かを必ず確認する。  
-> **`BUILD_COV = 0` はカバレッジが十分な領域でも建物の不存在を意味しない**。ラスタ化の解像度より小さい建物は被覆率に寄与しないためである。ただし `BUILD_DEN = 0` も同様に建物の不存在を意味しない（重心が隣セルにあり輪郭だけが張り出した大きい建物を取りこぼす）。したがって「`BUILD_COV > 0` **または** `BUILD_DEN > 0`」で建物の存在（十分条件）、「`BUILD_COV = 0` **かつ** `BUILD_DEN = 0`」で建物の不存在とみなす（実用上の近似。詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3.5）。
+> **`BUILD_COV = 0` はカバレッジが十分な領域でも建物の不存在を意味しない**。ラスタ化の解像度より小さい建物は被覆率に寄与しないためである。ただし `BUILD_DEN = 0` も同様に建物の不存在を意味しない（重心が隣セルにあり輪郭だけが張り出した大きい建物を取りこぼす）。したがって「`BUILD_COV > 0` **または** `BUILD_DEN > 0`」で建物の存在（十分条件）、「`BUILD_COV = 0` **かつ** `BUILD_DEN = 0`」で建物の不存在とみなす（実用上の近似。詳細は [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) セクション 3.5）。  
+> **上記の近似は、建物データがROI全域をカバーしていることを前提とする。** `fill_missing_building_heights`（`src/analysis/analysis_rq3_limited.py`）は `BUILD_COV = 0` かつ `BUILD_DEN = 0` のセルを「建物が無い」として高さ0mへ補完するが、建物データ固有のカバレッジ確認（データが届いていない領域かどうか）は行っていない。現在の主ソース（GBA）はROI全域取得済みでこの前提が成立しているため実害はないが（[available_gis_data.md](../01_planning/available_gis_data.md) 参照）、`VALID_GIS_MASK` / `MISSING_REASON`（`src/analysis/build_dataset.py`）は建物・道路の合成判定であり建物単独のカバレッジ保証にはならない。将来カバレッジが不完全な建物データソースへ切り替える場合は、建物専用のカバレッジ確認を補完条件に追加する必要がある。
 
 ---
 

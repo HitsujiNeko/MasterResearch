@@ -600,6 +600,14 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
     ではなくこのエントリスクリプト側に置く。呼び出し側は `filter_valid_rows` の
     **前**にこの関数を適用する必要がある。
 
+    **前提（未対応の既知の制約）**: 建物データがROI全域をカバーしていることを
+    前提とし、建物データ固有のカバレッジ確認（データが届いていない領域かどうか）
+    は行わない。現在の主ソース（GBA）はROI全域取得済みでこの前提が成立している
+    （`docs/01_planning/available_gis_data.md` 参照）が、カバレッジが不完全な
+    建物データソースへ切り替えた場合、カバレッジ外のセルを「建物が無い」として
+    誤って0.0補完しうる。詳細は `docs/02_methods/analysis_workflow.md` の
+    該当節を参照。
+
     Args:
         dataframe: `load_analysis_dataset` の戻り値
             （`BUILDING_HEIGHT_COLUMNS`・`BUILD_COVERAGE_COLUMN`・

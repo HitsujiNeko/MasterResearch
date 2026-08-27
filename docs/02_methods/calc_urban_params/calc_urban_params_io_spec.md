@@ -217,7 +217,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
   - **入力**: `data/gis/buildings/hanoi_gba_buildings.gpkg`（GlobalBuildingAtlas 由来）
   - `BUILD_COV`（建物被覆率, 0-1）: fine グリッドへラスタ化し coarse セルへ平均集約
   - `BUILD_DEN`（建物棟数密度, 棟/ha）: 重心が属するセルごとの棟数を `cell_area_ha()` で正規化
-  - `BUILD_H_MEAN` / `BUILD_H_MAX`（建物高さ, m）: 重心が属するセルごとの有効高さの平均・最大
+  - `BUILD_H_MEAN` / `BUILD_H_MAX`（建物高さ, m）: 重なりベースと重心方式の併用（`BUILD_H_MEAN` は有効高さを fine グリッドへラスタ化し coarse セルへ平均集約した値を基本とし、被覆が無いセルのみ重心方式で補完。`BUILD_H_MAX` は重なり方式の最大と重心方式の最大を `np.fmax()` で合成）。詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md) 3.2節
   - **高さの除外条件**: 推定分散または高さ自体が負・欠測の建物を高さ集計から除外（被覆率・棟数密度からは除外しない）
   - **欠測規約**: セル内に有効高さの建物が無い場合、高さは 0.0 ではなく **NaN**
   - **解釈上の注意**: `BUILD_COV = 0` は建物の不存在を意味しない（30m では建物のあるセルの14%が該当）。逆に `BUILD_DEN = 0` も建物の不存在を意味しない（重心が隣セルにある大きい建物を取りこぼす）ため、どちらか一方では判定できない。「`BUILD_COV > 0` または `BUILD_DEN > 0`」で存在（十分条件）、「`BUILD_COV = 0` かつ `BUILD_DEN = 0`」で不存在とみなす（実用上の近似）

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.common.config import PROJECT_ROOT
@@ -38,6 +39,7 @@ from src.common.analysis_dataset import (  # noqa: E402
     filter_valid_rows,
     load_analysis_dataset,
     sample_dataset,
+    summarize_filter_dropout,
 )
 from src.common.analysis_plots import (  # noqa: E402
     save_feature_importance_plot,
@@ -76,6 +78,13 @@ DEFAULT_OUTPUT_DIR = (
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 TARGET_COLUMN = "LST"
 DEFAULT_SCALE_M = 30
+# Spatial CVのブロックサイズ（m）の既定値。argparseの`default`と
+# `build_filtered_sample`の既定値の両方がこの定数を参照する
+# （`--block-size-m`のhelp文言に既定値の性質の説明がある）。
+DEFAULT_BLOCK_SIZE_M = 2_700
+# フィルタ脱落診断（summarize_filter_dropout）の要因グループ定義。Satellite Only
+# はFEATURE_COLUMNS（分光指数）以外の非NULL要求列を持たないため、1グループのみ。
+FILTER_DROPOUT_COLUMN_GROUPS = {"spectral_indices": list(FEATURE_COLUMNS)}
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -113,7 +122,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--block-size-m",
         type=int,
-        default=2_700,
+        default=DEFAULT_BLOCK_SIZE_M,
         help=(
             "Spatial CVのブロックサイズ（m）。scaleの倍数である必要がある"
             "（compute_block_cellsが検証する）。既定の2700mはSNAP_UNIT_M（900m）の"
@@ -138,34 +147,88 @@ def resolve_output_stem(dataset_path: Path) -> str:
     return dataset_path.stem
 
 
+@dataclass(frozen=True)
+class FilteredSampleResult:
+    """build_filtered_sample の戻り値。
+
+    `sampled` と `filter_dropout` を1つのオブジェクトにまとめて返す
+    （`dict[str, object]` にしないのは、Limitedの `FilteredSampleResult`
+    ―`src.analysis.analysis_rq3_limited` ― と同じ理由: フィールド名で
+    明示的に区別し、取り違えを防ぐため）。
+
+    Attributes:
+        sampled: フィルタ・サンプリング後のデータフレーム（学習・評価に使う実体）。
+        filter_dropout: `summarize_filter_dropout` が返すフィルタ脱落診断
+            （`src.common.analysis_dataset` 参照）。基準段階（target_available）
+            からの脱落の内訳を要因グループ別に持つ。
+    """
+
+    sampled: pd.DataFrame
+    filter_dropout: dict[str, object]
+
+
 def build_filtered_sample(
     dataframe: pd.DataFrame,
     lst_valid_ratio_threshold: float,
     sample_size: int,
     random_state: int,
-) -> pd.DataFrame:
-    """品質列フィルタとサンプリングを、フィルタ→サンプリングの順に適用する。
+    block_size_m: int = DEFAULT_BLOCK_SIZE_M,
+    scale: int = DEFAULT_SCALE_M,
+) -> FilteredSampleResult:
+    """品質列フィルタ→サンプリング→フィルタ脱落診断の順に適用する。
 
-    ブロック割り当てより先にサンプリングを行う必要があるため
-    （ブロック割り当てを先にすると各ブロックのセル数が不均等に減り、
-    fold のサイズ均衡が崩れる）、呼び出し側はこの関数の戻り値を使って
-    ブロック割り当てを行う。
+    **Spatial CV用のブロック割り当てとは別物**として、フィルタ脱落診断
+    （`summarize_filter_dropout`）用のブロックIDを本関数の内側で計算する。
+    Spatial CV用のブロック割り当ては `main()` がサンプリング後の `sampled`
+    （既定10万件）を対象に行う（ブロック割り当てを先にすると各ブロックの
+    セル数が不均等に減り、fold のサイズ均衡が崩れるため。この呼び出し順は
+    変更しない）のに対し、診断用は品質列フィルタ適用前の `dataframe` の
+    **全行**を対象に行う必要がある（`src.analysis.analysis_rq3_limited` の
+    `build_filtered_sample` と同じ設計判断）。1回の実行でブロック割り当てが
+    2回走るが、対象母集団が別物であり統合しない。
+
+    **意図的な挙動変更**: `block_size_m` が `scale` の倍数であることの検証
+    （`compute_block_cells`）は、本関数がブロック割り当てを内包したことで
+    従来より早い時点（フィルタ・サンプリングより前）で発火するようになる。
+    設定ミスをより早く検出する方向の変更であり、フィルタ結果の行集合自体は
+    変えない。
 
     Args:
         dataframe: `load_analysis_dataset` の戻り値。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
         sample_size: 抽出するサンプル数（0で全件）。
         random_state: 乱数シード。
+        block_size_m: フィルタ脱落診断用ブロックの一辺の長さ（m）。既定は
+            `DEFAULT_BLOCK_SIZE_M`。
+        scale: 正準グリッドの解像度（m/セル）。既定は `DEFAULT_SCALE_M`。
     Returns:
-        フィルタ・サンプリング後のデータフレーム。
+        `FilteredSampleResult`。
     """
+    dropout_block_ids, _ = assign_canonical_blocks(
+        dataframe["cell_id"].to_numpy(), block_size_m, scale
+    )
+
     filtered = filter_valid_rows(
         dataframe,
         feature_columns=FEATURE_COLUMNS,
         target_column=TARGET_COLUMN,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
     )
-    return sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+
+    filter_dropout = summarize_filter_dropout(
+        dataframe,
+        feature_columns=FEATURE_COLUMNS,
+        target_column=TARGET_COLUMN,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        summary_columns=FEATURE_COLUMNS,
+        column_groups=FILTER_DROPOUT_COLUMN_GROUPS,
+        block_id=dropout_block_ids,
+        block_size_m=block_size_m,
+        sampled_row_count=len(sampled),
+    )
+
+    return FilteredSampleResult(sampled=sampled, filter_dropout=filter_dropout)
 
 
 def main() -> None:
@@ -195,12 +258,15 @@ def main() -> None:
         LST_VALID_RATIO_COLUMN,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    sampled = build_filtered_sample(
+    filtered_sample_result = build_filtered_sample(
         dataframe,
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
         sample_size=args.sample_size,
         random_state=args.random_state,
+        block_size_m=args.block_size_m,
+        scale=args.scale,
     )
+    sampled = filtered_sample_result.sampled
     if sampled.empty:
         raise ValueError(
             f"フィルタ後の有効な行がありません: {args.dataset_path}"
@@ -302,6 +368,7 @@ def main() -> None:
         "test_size": int(len(random_split.x_test)),
         "features": FEATURE_COLUMNS,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
+        "filter_dropout": filtered_sample_result.filter_dropout,
         "random_split": {
             "linear_regression": random_split.linear_result,
             "random_forest": random_split.rf_result,

@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-08-22  
+**最終更新**: 2026-08-28  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -91,7 +91,7 @@ docs/
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果（旧経路・ピクセル単位） | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | （2026-04-21時点のスクリプトによる記録。`analysis_rq3_satellite_only.py` はcell_id結合経路へ書き換え済みのため再現不可） |
 | [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（新経路・cell_id結合） | 1観測日（30m）のベースライン、物理的に等間隔なブロックによるSpatial CV、SHAP、境界セル影響の概算 | `src/analysis/analysis_rq3_satellite_only.py` |
-| [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合） | 分析ランの台帳（1ラン=1行）、ラン間で共通の処理条件、モデル性能・変数重要度・多重共線性をランを横断して整理。建物高さ構成軸（both/mean/max/pc1）の比較と採用構成の根拠を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
+| [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合） | 分析ランの台帳（1ラン=1行）、ラン間で共通の処理条件（フィルタ脱落の要因別内訳・分布の切り詰め・空間的な集中を含む診断出力の読み方）、モデル性能・変数重要度・多重共線性をランを横断して整理。建物高さ構成軸（both/mean/max/pc1）の比較と採用構成の根拠を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
 
 ### 📦 04_archive - アーカイブ・先行研究
 

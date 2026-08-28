@@ -2,9 +2,15 @@
 
 実データでのフルパイプライン実行（RF学習・SHAP計算等の重い処理）は動作確認
 手順で扱い、ここでは薄いエントリとしての結線部分のみを対象とする:
-CLI引数の解釈、出力パス解決、建物高さの補完、フィルタ条件の組み立て。
-cell_idデコードからブロック割り当てまでの結線（assign_canonical_blocks）は
-tests/analysis/urban_params/test_canonical_grid.py で検証する。
+CLI引数の解釈、出力パス解決、建物高さの補完、フィルタ条件の組み立て、
+フィルタ脱落診断（filter_dropout）への結線。
+cell_idデコード・ブロック割り当てそのもの（assign_canonical_blocks・
+compute_block_cells）の正しさは tests/analysis/urban_params/test_canonical_grid.py
+で検証する。`build_filtered_sample` はフィルタ脱落診断用のブロックIDを内側で
+自ら計算するようになった（Spatial CV用のブロック割り当てとは対象母集団が別物で、
+`main()` 側に残る）ため、ここでは「その結果を診断へ正しく結線しているか」
+（`block_size_m` が `scale` の倍数でない場合に本関数の時点で例外になること等）
+のみを対象とする。
 観測ラベル生成・スケール検証・ランダム分割/Spatial CV学習パイプラインは
 `src.common.analysis_runs` へ集約済みのため、tests/common/test_analysis_runs.py
 で検証する（Rule of Two: Satellite Onlyと重複した実装をそちらへ抽出済み）。
@@ -34,6 +40,7 @@ from src.analysis.analysis_rq3_limited import (
     BUILDING_HEIGHT_MEAN_COLUMN,
     BUILDING_HEIGHT_MODES,
     BUILDING_HEIGHT_PC1_COLUMN,
+    DEFAULT_BLOCK_SIZE_M,
     DEFAULT_BUILDING_HEIGHT_MODE,
     DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_DIR,
@@ -44,6 +51,7 @@ from src.analysis.analysis_rq3_limited import (
     LULC_REFERENCE_COLUMN,
     NIGHTLIGHT_FEATURE_COLUMNS,
     OTHER_BASE_FEATURE_COLUMNS,
+    POPULATION_SOURCE_NONE,
     SPECTRAL_FEATURE_COLUMNS,
     VALID_GIS_MASK_COLUMN,
     VEGETATION_COVERAGE_COLUMNS,
@@ -57,6 +65,7 @@ from src.analysis.analysis_rq3_limited import (
     resolve_building_height_columns,
     resolve_feature_columns,
     resolve_filter_columns,
+    resolve_filter_dropout_column_groups,
     resolve_output_stem,
     summarize_vegetation_shap,
 )
@@ -85,7 +94,7 @@ class TestParseArguments:
         assert args.sample_size == 100_000
         assert args.random_state == 42
         assert args.cv_splits == 5
-        assert args.block_size_m == 2_700
+        assert args.block_size_m == DEFAULT_BLOCK_SIZE_M
         assert args.shap_sample_size == 2_000
         assert args.shap_background_size == 500
         assert args.rf_trees == 300
@@ -610,6 +619,52 @@ class TestBuildFilteredSample:
         assert result.population_size == 10
         assert len(result.sampled) == 3
 
+    def test_filter_dropout_reflects_population_and_stage_counts(self) -> None:
+        """filter_dropoutはfeature_columns由来の脱落を段階別母数として反映する
+        （FilteredSampleResult.filter_dropoutへの結線を検証する）。
+        """
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[0, "NDVI"] = np.nan  # 1件を非NULL要求で除外する
+
+        result = build_filtered_sample(
+            dataframe,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
+        )
+        stages = result.filter_dropout["stages"]
+
+        assert stages["dataset_row_count"] == len(dataframe)
+        # IN_ANALYSIS_AREA・LST・LST_VALID_RATIOは全行有効なため、
+        # target_availableはdataset_row_countと一致する。
+        assert stages["target_available"] == len(dataframe)
+        # feature_complete（=population_size・=len(sampled)）はNDVI除外分だけ減る。
+        assert stages["feature_complete"] == len(dataframe) - 1
+        assert stages["feature_complete"] == result.population_size
+        assert stages["sampled"] == len(result.sampled)
+        assert result.filter_dropout["dropped_count"] == 1
+
+    def test_raises_when_block_size_m_is_not_multiple_of_scale(self) -> None:
+        """block_size_mがscaleの倍数でない場合、build_filtered_sampleの時点で例外にする。
+
+        フィルタ脱落診断用のブロック割り当て（assign_canonical_blocks →
+        compute_block_cells）を本関数が内包したことにより、この検証は
+        `--diagnose-only` の早期returnより前倒しで発火するようになった
+        （意図的な挙動変更。計画書「ブロック割り当ての前倒しに伴う挙動変更」参照）。
+        """
+        dataframe = _quality_dataframe()
+
+        with pytest.raises(ValueError, match="倍数"):
+            build_filtered_sample(
+                dataframe,
+                filter_columns=DEFAULT_FILTER_COLUMNS,
+                lst_valid_ratio_threshold=0.5,
+                sample_size=0,
+                random_state=42,
+                block_size_m=100,  # 既定scale（30）の倍数ではない
+            )
+
 
 class TestResolveBuildingHeightColumns:
     """resolve_building_height_columns のテスト。"""
@@ -1057,6 +1112,64 @@ class TestResolveFilterColumns:
         assert BUILDING_HEIGHT_PC1_COLUMN not in filter_columns
 
 
+class TestResolveFilterDropoutColumnGroups:
+    """resolve_filter_dropout_column_groups のテスト。
+
+    `summarize_filter_dropout` は `summary_columns` と `column_groups` の列集合が
+    完全に一致することを検証するため、ここでの分類結果はその前提を満たしている
+    必要がある（`test_every_filter_column_is_classified_exactly_once` で固定する）。
+    """
+
+    def test_classifies_building_height_population_and_nighttime_light(self) -> None:
+        """建物高さ・人口・夜間光の列を、対応する要因グループへ分類する。"""
+        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+
+        groups = resolve_filter_dropout_column_groups(filter_columns)
+
+        assert groups["building_height"] == list(BUILDING_HEIGHT_COLUMNS)
+        assert groups["population"] == ["POP_DEN_WORLDPOP2020"]
+        assert groups["nighttime_light"] == list(NIGHTLIGHT_FEATURE_COLUMNS)
+
+    def test_other_group_contains_remaining_columns(self) -> None:
+        """建物高さ・人口・夜間光のいずれにも属さない列は"other"にまとまる。"""
+        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+
+        groups = resolve_filter_dropout_column_groups(filter_columns)
+
+        assert "NDVI" in groups["other"]
+        assert "ELEV_MEAN" in groups["other"]
+        assert "LULC_BUILT_COV" in groups["other"]
+        assert "BUILD_H_MEAN" not in groups["other"]
+        assert "POP_DEN_WORLDPOP2020" not in groups["other"]
+        assert "NTL_MEAN" not in groups["other"]
+
+    def test_every_filter_column_is_classified_exactly_once(self) -> None:
+        """全フィルタ列がいずれか1つのグループにのみ分類される
+        （重複所属・分類漏れが無いこと。summarize_filter_dropoutのcolumn_groups
+        検証を満たすための前提を固定する）。
+        """
+        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+
+        groups = resolve_filter_dropout_column_groups(filter_columns)
+
+        classified = [column for columns in groups.values() for column in columns]
+        assert sorted(classified) == sorted(filter_columns)
+        assert len(classified) == len(set(classified))
+
+    def test_population_group_is_empty_when_population_source_is_none(self) -> None:
+        """--population-source noneのとき、populationグループは空になる
+        （summarize_filter_dropoutは空グループも許容する）。
+        """
+        filter_columns = resolve_filter_columns([POPULATION_SOURCE_NONE])
+
+        groups = resolve_filter_dropout_column_groups(filter_columns)
+
+        assert groups["population"] == []
+        assert "POP_DEN_WORLDPOP2020" not in [
+            column for columns in groups.values() for column in columns
+        ]
+
+
 class TestPopulationIsEqualAcrossVariableSets:
     """変数セットを変えてもフィルタ後の母数が変わらないことの回帰テスト。"""
 
@@ -1449,6 +1562,34 @@ class TestMainDiagnoseOnly:
         assert "correlation_pearson_csv" in diagnostics["outputs"]
         # モデル学習・SHAP由来の結果ファイルは存在しない（診断のみで終了した証跡）。
         assert not list(output_dir.glob("*_results.json"))
+
+    def test_diagnose_only_output_includes_filter_dropout(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """--diagnose-only の出力に filter_dropout キーが含まれる
+        （FilteredSampleResult.filter_dropout を diagnose_only のJSONへ結線した
+        ことの確認）。diagnose_only のJSONは building_height_fill を持たないため、
+        Limited固有のキー名への言及（note）はここでは付与しない。
+        """
+        dataframe = _quality_dataframe(n=20)
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(sys, "argv", self._run_argv(dataset_path, output_dir))
+
+        main()
+
+        diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
+        diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
+
+        assert "filter_dropout" in diagnostics
+        assert diagnostics["filter_dropout"]["stages"]["feature_complete"] == len(dataframe)
+        assert diagnostics["filter_dropout"]["base_stage"] == "target_available"
+        assert "building_height_fill" not in diagnostics
+        assert "building_height_fill" not in diagnostics["filter_dropout"]["note"]
 
     def test_both_mode_records_no_component_diagnostics(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

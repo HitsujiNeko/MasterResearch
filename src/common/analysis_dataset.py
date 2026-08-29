@@ -251,6 +251,14 @@ def summarize_filter_dropout(
     `feature_columns` 自体の欠落は呼び出し側の既存の検証で先に例外になるため、
     この緩和で診断が実態とずれることはない）。
 
+    **`columns.exclusive_null_count`（列単位の排他判定）は `summary_columns` の
+    範囲内でのみ排他性を判定する。** `feature_columns` に `summary_columns` に
+    含まれない列がある場合、その列だけがNULLの行は「他の集計対象列はどれも
+    NULLでない」行として扱われ、`exclusive_null_count` が実態（`feature_columns`
+    全体を基準にした排他性）より多く出うる。呼び出し側（Limited・Satellite
+    Only）はいずれも `feature_columns` と同じ列を `summary_columns` に渡している
+    ため現状は一致するが、両者が食い違う呼び出しでは値がずれる。
+
     Args:
         dataframe: 診断対象のデータフレーム（`filter_valid_rows` に渡す
             `dataframe` と同じものを想定。Limitedでは建物高さ補完後のフレーム）。
@@ -345,6 +353,9 @@ def summarize_filter_dropout(
 
     # 列ごとの排他判定は「NULL列数のカウンタ配列」を1本持ち回る形にし、
     # 列ごとのブールマスクを同時に保持しない（メモリ増を抑える設計判断）。
+    # null_count_per_rowはpresent_summary_columns（summary_columnsのうち存在する
+    # 列）だけを数えるため、exclusive_null_countの排他性もsummary_columnsの範囲に
+    # 限られる（docstring参照）。
     target_available_frame = dataframe.loc[target_available, frame_columns]
     is_null = target_available_frame[present_summary_columns].isna()
     null_count_per_row = is_null.sum(axis=1)

@@ -789,6 +789,8 @@ class TestSummarizeFilterDropout:
         assert before["std"] is None
         # min・p1・p25はInfの影響を受けない値のはずで、有限のまま返る。
         assert before["min"] == pytest.approx(10.0)
+        assert before["p1"] == pytest.approx(10.2)
+        assert before["p25"] == pytest.approx(15.0)
 
     def test_handles_nullable_extension_dtype_mask_column_with_missing_value(self) -> None:
         """required_mask_columnsにpd.NAを含むnullable拡張dtype列を渡しても例外にならない。

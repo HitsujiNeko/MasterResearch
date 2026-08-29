@@ -6,10 +6,20 @@ fiona
 pyogrio>=0.11
 pyproj
 shapely
-pandas
-numpy
+# environment.yml が pandas=2.2 / numpy=1.26 にピンしているのに合わせ、下限だけで
+# なく上限も明示する。ピンなしだとCIがpipでその時点の最新版（例: pandas 3.0/
+# numpy 2.4というメジャーバージョン）を取得し、ローカルで検証していない挙動が
+# CIだけで再現しうる。
+pandas>=2.2,<2.3
+numpy>=1.26,<1.27
 tqdm
 rasterio
+# rasterioの推移的依存。3.0台はAffine * tupleの行列乗算でPendingDeprecationWarning
+# を出すようになり、warningの非発生を厳密にassertするテスト
+# （test_raster.py::test_does_not_warn_for_normal_category_input）が落ちる。
+# environment.yml が明示的に宣言していないため conda 環境では 2.x が推移的に
+# 解決されているが、pip はピン無しで3.0台を選ぶため明示的に上限を示す。
+affine<3
 h5py
 requests
 scipy>=1.9

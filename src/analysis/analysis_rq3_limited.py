@@ -51,6 +51,7 @@ from src.common.analysis_dataset import (  # noqa: E402
     filter_valid_rows,
     load_analysis_dataset,
     sample_dataset,
+    summarize_filter_dropout,
 )
 from src.common.analysis_plots import (  # noqa: E402
     save_correlation_heatmap,
@@ -190,6 +191,10 @@ ALL_CANDIDATE_FEATURE_COLUMNS = [
 
 TARGET_COLUMN = "LST"
 DEFAULT_SCALE_M = 30
+# Spatial CVのブロックサイズ（m）の既定値。argparseの`default`と
+# `build_filtered_sample`の既定値の両方がこの定数を参照する
+# （`--block-size-m`のhelp文言に既定値の性質の説明がある）。
+DEFAULT_BLOCK_SIZE_M = 2_700
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
 # BUILDING_HEIGHT_COLUMNSの0補完可否を判定する基準列。両方0なら「建物が無い」ため
 # 0mとみなす（BUILD_COV単独では小規模建物の取りこぼしを誤検出するため、
@@ -246,7 +251,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--block-size-m",
         type=int,
-        default=2_700,
+        default=DEFAULT_BLOCK_SIZE_M,
         help=(
             "Spatial CVのブロックサイズ（m）。scaleの倍数である必要がある"
             "（compute_block_cellsが検証する）。既定の2700mはSNAP_UNIT_M（900m）の"
@@ -448,6 +453,41 @@ def resolve_filter_columns(population_sources: Sequence[str]) -> list[str]:
         非NULLを要求する列名リスト。
     """
     return resolve_feature_columns(VARIABLE_SET_BOTH, population_sources, BUILDING_HEIGHT_MODE_BOTH)
+
+
+def resolve_filter_dropout_column_groups(filter_columns: Sequence[str]) -> dict[str, list[str]]:
+    """フィルタ列を、脱落診断（`summarize_filter_dropout`）の要因グループへ分類する。
+
+    `filter_columns`（`resolve_filter_columns` の戻り値）の全列を
+    `"building_height"` / `"population"` / `"nighttime_light"` / `"other"` の
+    いずれか1つに分類する。どの列をどの要因とみなすかはLimited固有の判断であり、
+    シナリオ非依存の `summarize_filter_dropout` へ埋め込まず、このエントリ
+    スクリプト側に置く。
+
+    `BUILD_H_MEAN`・`BUILD_H_MAX` は同一の建物ポリゴンから集計した高さで、
+    同時にNULL/非NULLになる想定のため1グループにまとめる
+    （`fill_missing_building_heights` のdocstring参照）。`--population-source`
+    に `none` を指定した場合、`filter_columns` に人口密度列が含まれないため
+    `"population"` は空リストになりうる（`summarize_filter_dropout` は空の
+    グループも許容する）。
+
+    Args:
+        filter_columns: `resolve_filter_columns` の戻り値。
+    Returns:
+        グループ名をキー、そのグループに属する列名リストを値とする辞書。
+        `filter_columns` の並び順を保つ。
+    """
+    building_height = [c for c in filter_columns if c in BUILDING_HEIGHT_COLUMNS]
+    population = [c for c in filter_columns if c in POPULATION_SOURCE_COLUMNS.values()]
+    nighttime_light = [c for c in filter_columns if c in NIGHTLIGHT_FEATURE_COLUMNS]
+    classified = {*building_height, *population, *nighttime_light}
+    other = [c for c in filter_columns if c not in classified]
+    return {
+        "building_height": building_height,
+        "population": population,
+        "nighttime_light": nighttime_light,
+        "other": other,
+    }
 
 
 def drop_constant_features(
@@ -663,6 +703,9 @@ class FilteredSampleResult:
         population_filled_cell_count: `population_size` のうち建物高さ補完セル数。
         sample_filled_cell_count: 最終的な分析サンプル（`sampled`）に残った
             補完セル数。
+        filter_dropout: `summarize_filter_dropout` が返すフィルタ脱落診断
+            （`src.common.analysis_dataset` 参照）。基準段階（target_available）
+            からの脱落の内訳を要因グループ別に持つ。
     """
 
     sampled: pd.DataFrame
@@ -670,6 +713,7 @@ class FilteredSampleResult:
     population_size: int
     population_filled_cell_count: int
     sample_filled_cell_count: int
+    filter_dropout: dict[str, object]
 
 
 def build_filtered_sample(
@@ -679,18 +723,34 @@ def build_filtered_sample(
     sample_size: int,
     random_state: int,
     required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
+    block_size_m: int = DEFAULT_BLOCK_SIZE_M,
+    scale: int = DEFAULT_SCALE_M,
 ) -> FilteredSampleResult:
-    """建物高さの補完→品質列フィルタ→サンプリングの順に適用する。
+    """建物高さの補完→品質列フィルタ→サンプリング→フィルタ脱落診断の順に適用する。
 
     `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
     必要がある（先に非NULL要求で欠損域を除外すると、補完すべきだった行まで
     落ちてしまうため）。この順序依存を呼び出し側（`main()`）に持たせず本関数に
     閉じ込めることで、呼び出し順を誤って補完が空振りする回帰を構造的に防ぐ。
 
-    ブロック割り当てより先にサンプリングを行う必要があるため
-    （ブロック割り当てを先にすると各ブロックのセル数が不均等に減り、
-    fold のサイズ均衡が崩れる）、呼び出し側はこの関数の戻り値（`sampled`）を
-    使ってブロック割り当てを行う。
+    **Spatial CV用のブロック割り当てとは別物**として、フィルタ脱落診断
+    （`summarize_filter_dropout`）用のブロックIDを本関数の内側で計算する。
+    Spatial CV用のブロック割り当ては `main()` がサンプリング後の `sampled`
+    （既定10万件）を対象に行う（ブロック割り当てを先にすると各ブロックの
+    セル数が不均等に減り、fold のサイズ均衡が崩れるため。この呼び出し順は
+    変更しない）のに対し、診断用は補完後フレーム `filled` の**全行**
+    （既定30mで約373万件）を対象に行う必要がある。基準段階
+    （target_available）の行だけをデコードする案は、その行を選び出すために
+    呼び出し側がマスク条件を書き直すことになり不採用とした
+    （フィルタ条件を二重定義しない設計判断。`resolve_filter_dropout_column_groups`
+    参照）。1回の実行でブロック割り当てが2回走るが、対象母集団が別物であり
+    統合しない。
+
+    **意図的な挙動変更**: `block_size_m` が `scale` の倍数であることの検証
+    （`compute_block_cells`）は、従来は `--diagnose-only` の早期returnより
+    後（フル実行時のみ）に発火していたが、本関数がブロック割り当てを内包した
+    ことで `--diagnose-only` でも発火するようになる。設定ミスをより早く検出
+    する方向の変更であり、フィルタ結果の行集合自体は変えない。
 
     補完件数はデータセット全体・フィルタ後の母数（サンプリング前）・最終的な
     分析サンプル（フィルタ・サンプリング後）の3段階で別々に返す
@@ -703,16 +763,28 @@ def build_filtered_sample(
         filter_columns: 非NULLを要求する列名（`resolve_filter_columns` の戻り値）。
             **モデルへ投入する列とは別物**であり、変数セットに依らず同じ列を
             渡すことで構成間の母数を揃える（理由は `resolve_filter_columns`）。
+            フィルタ脱落診断の `feature_columns`・`summary_columns` の両方に
+            同じ列を渡す（マスク構築と内訳集計を同じ列基準で揃えるため）。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
         sample_size: 抽出するサンプル数（0で全件）。
         random_state: 乱数シード。
         required_mask_columns: `== 1` を要求する品質列名。既定は `IN_ANALYSIS_AREA`
             のみ（主結果）。`--require-valid-gis-mask` 指定時は呼び出し側が
             `VALID_GIS_MASK` を追加する（感度分析）。
+        block_size_m: フィルタ脱落診断用ブロックの一辺の長さ（m）。既定は
+            `DEFAULT_BLOCK_SIZE_M`。
+        scale: 正準グリッドの解像度（m/セル）。既定は `DEFAULT_SCALE_M`。
     Returns:
         `FilteredSampleResult`。
     """
     filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
+
+    # フィルタ脱落診断用のブロックID。filledの全行（品質列フィルタ適用前）を
+    # 対象にデコードし、summarize_filter_dropoutへ位置対応の配列として渡す。
+    dropout_block_ids, _ = assign_canonical_blocks(
+        filled["cell_id"].to_numpy(), block_size_m, scale
+    )
+
     filtered = filter_valid_rows(
         filled,
         feature_columns=list(filter_columns),
@@ -725,6 +797,20 @@ def build_filtered_sample(
 
     sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
     sample_filled_cell_count = int(sampled[BUILDING_HEIGHT_FILLED_COLUMN].sum())
+
+    filter_dropout = summarize_filter_dropout(
+        filled,
+        feature_columns=list(filter_columns),
+        target_column=TARGET_COLUMN,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        summary_columns=list(filter_columns),
+        column_groups=resolve_filter_dropout_column_groups(filter_columns),
+        block_id=dropout_block_ids,
+        block_size_m=block_size_m,
+        sampled_row_count=len(sampled),
+        required_mask_columns=required_mask_columns,
+    )
+
     sampled = sampled.drop(columns=[BUILDING_HEIGHT_FILLED_COLUMN])
     return FilteredSampleResult(
         sampled=sampled,
@@ -732,6 +818,7 @@ def build_filtered_sample(
         population_size=population_size,
         population_filled_cell_count=population_filled_cell_count,
         sample_filled_cell_count=sample_filled_cell_count,
+        filter_dropout=filter_dropout,
     )
 
 
@@ -997,6 +1084,8 @@ def main() -> None:
         sample_size=args.sample_size,
         random_state=args.random_state,
         required_mask_columns=required_mask_columns,
+        block_size_m=args.block_size_m,
+        scale=args.scale,
     )
     sampled = filtered_sample_result.sampled
     if sampled.empty:
@@ -1075,6 +1164,7 @@ def main() -> None:
             "population_size": filtered_sample_result.population_size,
             "sample_size": int(len(sampled)),
             "diagnostics_scope": diagnostics_scope,
+            "filter_dropout": filtered_sample_result.filter_dropout,
             **sanitize_vif_for_json(vif),
             "outputs": correlation_outputs,
         }
@@ -1176,6 +1266,25 @@ def main() -> None:
     if vegetation_shap is not None:
         shap_result["vegetation_coverage"] = vegetation_shap
 
+    # summarize_filter_dropout（src.common.analysis_dataset）はシナリオ非依存の
+    # 共通関数のため、Limited固有のキー名（building_height_fill.population_size）
+    # への言及をnoteへ持たせない。この対応関係はLimitedの結果JSONでのみ成立する
+    # 事実であるため、ここで追記する（diagnose_onlyのJSONはbuilding_height_fill
+    # を持たないため追記しない）。
+    # summarize_filter_dropoutが返すnoteは句点で終わる前提で、区切りを挟まず
+    # そのまま連結している（`src.common.analysis_dataset.summarize_filter_dropout`
+    # の実装を参照）。共通側のnoteが句点で終わらない形へ変わると、ここで文が
+    # 途中結合されて読みにくくなる点に注意する。
+    filter_dropout = {
+        **filtered_sample_result.filter_dropout,
+        "note": (
+            filtered_sample_result.filter_dropout["note"]
+            + "stages.feature_completeは、building_height_fill.population_sizeと"
+            "同値になる（本キー: filter_dropoutは診断のみ・building_height_fillは"
+            "既存の互換キーであり、両方に同じ値が残る）。"
+        ),
+    }
+
     result = {
         "scenario": "Limited",
         "dataset_path": to_project_relative_string(args.dataset_path),
@@ -1200,6 +1309,7 @@ def main() -> None:
             "population_filled_cell_count": filtered_sample_result.population_filled_cell_count,
             "sample_filled_cell_count": filtered_sample_result.sample_filled_cell_count,
         },
+        "filter_dropout": filter_dropout,
         "random_split": {
             "linear_regression": random_split.linear_result,
             "random_forest": random_split.rf_result,

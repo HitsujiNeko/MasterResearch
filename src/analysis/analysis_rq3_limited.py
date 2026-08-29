@@ -1271,6 +1271,10 @@ def main() -> None:
     # への言及をnoteへ持たせない。この対応関係はLimitedの結果JSONでのみ成立する
     # 事実であるため、ここで追記する（diagnose_onlyのJSONはbuilding_height_fill
     # を持たないため追記しない）。
+    # summarize_filter_dropoutが返すnoteは句点で終わる前提で、区切りを挟まず
+    # そのまま連結している（`src.common.analysis_dataset.summarize_filter_dropout`
+    # の実装を参照）。共通側のnoteが句点で終わらない形へ変わると、ここで文が
+    # 途中結合されて読みにくくなる点に注意する。
     filter_dropout = {
         **filtered_sample_result.filter_dropout,
         "note": (

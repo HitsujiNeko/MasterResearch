@@ -16,6 +16,7 @@ from src.analysis.build_dataset import (
     VALID_NTL_MASK_COLUMN,
     VALID_SATELLITE_MASK_COLUMN,
     WATER_COVERAGE_COLUMN,
+    WATER_DOMINANT_THRESHOLD,
     add_auxiliary_quality_columns,
     add_quality_columns,
     classify_value_columns,
@@ -174,6 +175,31 @@ def test_parse_arguments_removes_duplicate_tables() -> None:
     )
 
     assert args.tables == ["build_gba", "road_osm"]
+
+
+def test_parse_arguments_water_dominant_threshold_defaults_to_the_primary_value() -> None:
+    """--water-dominant-threshold の既定値は主結果の基準（WATER_DOMINANT_THRESHOLD）。"""
+    args = parse_arguments(["--scale", "30", "--scenario", "limited"])
+
+    assert args.water_dominant_threshold == pytest.approx(WATER_DOMINANT_THRESHOLD)
+
+
+def test_parse_arguments_accepts_custom_water_dominant_threshold() -> None:
+    """--water-dominant-threshold は感度分析用に既定値以外を指定できる。"""
+    args = parse_arguments(
+        ["--scale", "30", "--scenario", "limited", "--water-dominant-threshold", "0.8"]
+    )
+
+    assert args.water_dominant_threshold == pytest.approx(0.8)
+
+
+@pytest.mark.parametrize("threshold", ["-0.1", "1.1"])
+def test_parse_arguments_rejects_water_dominant_threshold_out_of_range(threshold: str) -> None:
+    """--water-dominant-threshold が0.0〜1.0の範囲外なら弾く（被覆率のため）。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(
+            ["--scale", "30", "--scenario", "limited", "--water-dominant-threshold", threshold]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1156,6 +1182,42 @@ def test_end_to_end_scenario_expands_to_tables(city_environment: dict[str, Any])
         # 合成データは水域被覆・人口とも欠測を作り込んでいないため、水域優位0補完の
         # フラグ列は存在するが全セル0になる（列自体が結線されていることの確認）。
         assert (dataset[population_filled_flag_column(suffix)] == 0).all()
+
+
+def test_end_to_end_custom_water_dominant_threshold_flows_through_to_the_report(
+    city_environment: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--water-dominant-threshold の指定値が補完処理・報告まで届く。
+
+    CLI引数 → main() → build_dataset() →
+    fill_missing_population_for_water_dominant_cells() → report_population_fill()
+    の結線を、コンソール出力に指定した閾値が現れることで確認する
+    （合成データは水域優位×NULLの重なりを作り込んでいないため、補完件数自体は
+    既定・カスタムのいずれでも0件になる。閾値の受け渡しの確認に限定する）。
+    """
+    _run_param_calculation(city_environment, ["--params", "pop_worldpop2020", "lulc_glc2022"])
+
+    _run_build_dataset(
+        city_environment,
+        ["--tables", "pop_worldpop2020", "lulc_glc2022", "--name", "custom_threshold"],
+    )
+    default_output = capsys.readouterr().out
+    assert f"LULC_WATER_COV >= {WATER_DOMINANT_THRESHOLD}" in default_output
+
+    _run_build_dataset(
+        city_environment,
+        [
+            "--tables",
+            "pop_worldpop2020",
+            "lulc_glc2022",
+            "--name",
+            "custom_threshold_08",
+            "--water-dominant-threshold",
+            "0.8",
+        ],
+    )
+    custom_output = capsys.readouterr().out
+    assert "LULC_WATER_COV >= 0.8" in custom_output
 
 
 def test_end_to_end_missing_table_stops_before_writing(

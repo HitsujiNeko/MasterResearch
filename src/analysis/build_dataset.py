@@ -345,6 +345,15 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="出力ルート。既定は data/output/datasets。",
     )
+    parser.add_argument(
+        "--water-dominant-threshold",
+        type=float,
+        default=WATER_DOMINANT_THRESHOLD,
+        help="水域優位セルとみなす LULC_WATER_COV の下限。この値以上かつ人口密度が"
+        "NULLのセルを0で補完する（fill_missing_population_for_water_dominant_cellsの"
+        f"docstring参照）。既定は{WATER_DOMINANT_THRESHOLD}（主結果の基準）。"
+        "感度分析では別名（--name）を指定して別データセットとして出力する。",
+    )
 
     args = parser.parse_args(argv)
     if args.scale <= 0:
@@ -352,6 +361,12 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     if not is_supported_resolution(float(args.scale)):
         parser.error(
             f"--scale には {SNAP_UNIT_M:.0f}m の約数を指定してください（指定値: {args.scale}）。"
+        )
+    if not 0.0 <= args.water_dominant_threshold <= 1.0:
+        parser.error(
+            "--water-dominant-threshold には0.0以上1.0以下の値を指定してください"
+            f"（指定値: {args.water_dominant_threshold}）。LULC_WATER_COV は被覆率であり"
+            "この範囲外の値を取らないため。"
         )
     if not args.scenario and not args.tables:
         parser.error("--scenario と --tables の少なくとも一方を指定してください。")
@@ -727,6 +742,7 @@ def build_dataset(
     scale: int,
     grid_path: Path,
     params_dir: Path | None,
+    water_dominant_threshold: float = WATER_DOMINANT_THRESHOLD,
 ) -> tuple[pd.DataFrame, dict[str, int]]:
     """指定テーブルを ``cell_id`` で結合し、分析用データセットを組み立てる。
 
@@ -736,6 +752,10 @@ def build_dataset(
         scale: coarseグリッド解像度（m）。
         grid_path: 正準グリッドGeoPackageのパス。
         params_dir: パラメータテーブルの格納ルート。
+        water_dominant_threshold: 水域優位セルの人口0補完に使う
+            ``LULC_WATER_COV`` の下限。既定は ``WATER_DOMINANT_THRESHOLD``
+            （0.9・主結果の基準）。感度分析で変えられるよう引数化している
+            （``fill_missing_population_for_water_dominant_cells`` 参照）。
 
     Returns:
         (データセット, 人口密度列名をキーとした水域優位0補完のセル数の辞書)
@@ -771,7 +791,7 @@ def build_dataset(
     # 前に適用する（理由は両関数のdocstring参照）。GIS・衛星の品質管理列
     # （add_quality_columns）は人口・夜間光と無関係なため、順序はどちらでもよい。
     dataset, population_filled_counts = fill_missing_population_for_water_dominant_cells(
-        dataset, table_names
+        dataset, table_names, water_dominant_threshold=water_dominant_threshold
     )
     gis_columns, satellite_columns = classify_value_columns(table_names, tables)
     dataset = add_quality_columns(dataset, gis_columns, satellite_columns)
@@ -836,14 +856,19 @@ def main(argv: list[str] | None = None) -> None:
     print("結合するテーブル:", ", ".join(table_names))
 
     dataset, population_filled_counts = build_dataset(
-        table_names, args.city, args.scale, grid_path, params_dir
+        table_names,
+        args.city,
+        args.scale,
+        grid_path,
+        params_dir,
+        water_dominant_threshold=args.water_dominant_threshold,
     )
 
     output_path = resolve_dataset_path(dataset_name, args.city, args.scale, output_dir)
     write_attribute_table(dataset, output_path, dataset_name)
 
     summarize_dataset(dataset)
-    report_population_fill(population_filled_counts, WATER_DOMINANT_THRESHOLD)
+    report_population_fill(population_filled_counts, args.water_dominant_threshold)
     print("出力先:", output_path)
 
 

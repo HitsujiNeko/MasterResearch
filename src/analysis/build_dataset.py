@@ -54,6 +54,7 @@ from src.analysis.urban_params.config import (
     SATELLITE_ONLY_SCENARIO,
     SATELLITE_TABLE_PREFIX,
     SCENARIO_TABLES,
+    ParamSet,
     grid_layer_name,
     resolve_table_path,
 )
@@ -115,6 +116,27 @@ VALID_NTL_MASK_COLUMN = "VALID_NTL_MASK"
 # ``POPULATION_BASE_COLUMNS`` の1列目（密度）を判定材料とし、2列目（有効画素率）は
 # 対象にしない。
 _POPULATION_DENSITY_PREFIX = f"{POPULATION_BASE_COLUMNS[0]}_"
+
+
+def _population_density_column(param_set: ParamSet) -> str:
+    """人口の ``ParamSet`` から、密度列（有効画素率列を除く）の列名を求める。
+
+    ``add_auxiliary_quality_columns`` と ``fill_missing_population_for_water_dominant_cells``
+    の両方が必要とするため、列名解決のロジックを1箇所にまとめる（二重定義を避ける）。
+
+    Args:
+        param_set: ``PARAM_SETS`` の値のうち、``module_name`` が
+            ``POPULATION_MODULE_NAME`` であるもの。
+    Returns:
+        密度列の列名（例: ``"POP_DEN_WORLDPOP2020"``）。
+    Raises:
+        StopIteration: ``param_set.columns`` に密度列（接頭辞が一致する列）が
+            1つも無い場合（``population_param_set`` の宣言が壊れていない限り
+            起こらない）。
+    """
+    return next(
+        column for column in param_set.columns if column.startswith(_POPULATION_DENSITY_PREFIX)
+    )
 
 
 def valid_population_mask_column(column_suffix: str) -> str:
@@ -210,9 +232,7 @@ def fill_missing_population_for_water_dominant_cells(
         param_set = PARAM_SETS.get(table_name)
         if param_set is None or param_set.module_name != POPULATION_MODULE_NAME:
             continue
-        density_column = next(
-            column for column in param_set.columns if column.startswith(_POPULATION_DENSITY_PREFIX)
-        )
+        density_column = _population_density_column(param_set)
         fillable_mask = water_dominant_mask & result[density_column].isna()
         result.loc[fillable_mask, density_column] = 0.0
         result[population_filled_flag_column(param_set.column_suffix)] = fillable_mask.astype(
@@ -725,11 +745,7 @@ def add_auxiliary_quality_columns(dataset: pd.DataFrame, table_names: list[str])
             density_column = NIGHTLIGHT_COLUMNS[0]
             result[VALID_NTL_MASK_COLUMN] = result[density_column].notna().astype(np.int8)
         elif param_set.module_name == POPULATION_MODULE_NAME:
-            density_column = next(
-                column
-                for column in param_set.columns
-                if column.startswith(_POPULATION_DENSITY_PREFIX)
-            )
+            density_column = _population_density_column(param_set)
             mask_column = valid_population_mask_column(param_set.column_suffix)
             result[mask_column] = result[density_column].notna().astype(np.int8)
 

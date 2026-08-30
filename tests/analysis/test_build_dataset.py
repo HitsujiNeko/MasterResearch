@@ -1220,6 +1220,71 @@ def test_end_to_end_custom_water_dominant_threshold_flows_through_to_the_report(
     assert "LULC_WATER_COV >= 0.8" in custom_output
 
 
+def test_end_to_end_water_dominant_null_cell_becomes_valid_after_fill(
+    city_environment: dict[str, Any],
+) -> None:
+    """水域優位×人口NULLのセルが、build_dataset() 経由で実際に補完・有効判定される。
+
+    単体テスト（`test_fill_missing_population_*` / `test_add_auxiliary_quality_columns_*`）は
+    2つの関数をそれぞれ正しい順序で個別に呼んだ場合のみを検証しており、
+    `build_dataset()` 内でこの2関数の呼び出し順が入れ替わる回帰は検知できない
+    （`fill_missing_population_for_water_dominant_cells` を後にすると、品質列が
+    「NULLのまま」の状態で有効域を判定してしまい `VALID_POP_WORLDPOP2020_MASK` が
+    誤って0になる）。合成のパラメータテーブルを直接書き出し、`build_dataset()` を
+    実際に通した結果で確認する。
+    """
+    cell_ids = city_environment["cell_ids_by_scale"][TARGET_SCALE]
+    water_dominant_null_cell = int(cell_ids[0])
+    ordinary_cell = int(cell_ids[1])
+
+    params_root = city_environment["root"] / "params" / CITY / f"{TARGET_SCALE}m"
+    _write_table(
+        params_root / "pop_worldpop2020.gpkg",
+        "pop_worldpop2020",
+        pd.DataFrame(
+            {
+                "cell_id": np.array([water_dominant_null_cell, ordinary_cell], dtype=np.int64),
+                "POP_DEN_WORLDPOP2020": np.array([np.nan, 3.0], dtype=np.float32),
+                "POP_VALID_RATIO_WORLDPOP2020": np.array([0.0, 1.0], dtype=np.float32),
+            }
+        ),
+    )
+    _write_table(
+        params_root / "lulc_glc2022.gpkg",
+        "lulc_glc2022",
+        pd.DataFrame(
+            {
+                "cell_id": np.array([water_dominant_null_cell, ordinary_cell], dtype=np.int64),
+                "LULC_WATER_COV": np.array([0.95, 0.1], dtype=np.float32),
+                "LULC_TREE_COV": np.array([0.0, 0.4], dtype=np.float32),
+                "LULC_CROP_COV": np.array([0.0, 0.3], dtype=np.float32),
+                "LULC_BUILT_COV": np.array([0.05, 0.2], dtype=np.float32),
+                "LULC_RANGE_COV": np.array([0.0, 0.0], dtype=np.float32),
+                "LULC_WETLAND_COV": np.array([0.0, 0.0], dtype=np.float32),
+                "LULC_BARE_COV": np.array([0.0, 0.0], dtype=np.float32),
+                "LULC_VALID_RATIO": np.array([1.0, 1.0], dtype=np.float32),
+            }
+        ),
+    )
+
+    _run_build_dataset(
+        city_environment,
+        ["--tables", "pop_worldpop2020", "lulc_glc2022", "--name", "water_fill_e2e"],
+    )
+
+    dataset = _read_dataset(city_environment, "water_fill_e2e").set_index("cell_id")
+    filled_column = population_filled_flag_column("WORLDPOP2020")
+    mask_column = valid_population_mask_column("WORLDPOP2020")
+
+    assert dataset.loc[water_dominant_null_cell, "POP_DEN_WORLDPOP2020"] == pytest.approx(0.0)
+    assert dataset.loc[water_dominant_null_cell, filled_column] == 1
+    # 呼び出し順を守っていれば、補完済みの実測0を有効域品質列が正しく拾う。
+    assert dataset.loc[water_dominant_null_cell, mask_column] == 1
+    # 対照セル（水域優位でなく、元から値がある）は補完・フラグの対象にならない。
+    assert dataset.loc[ordinary_cell, filled_column] == 0
+    assert dataset.loc[ordinary_cell, mask_column] == 1
+
+
 def test_end_to_end_missing_table_stops_before_writing(
     city_environment: dict[str, Any],
 ) -> None:

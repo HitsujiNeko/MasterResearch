@@ -28,6 +28,29 @@ LST_VALID_RATIO_COLUMN = "LST_VALID_RATIO"
 DEFAULT_REQUIRED_MASK_COLUMNS: tuple[str, ...] = (IN_ANALYSIS_AREA_COLUMN,)
 
 
+def valid_population_mask_column(column_suffix: str) -> str:
+    """人口ソースの接尾辞から、対応する有効域品質列名を組み立てる。
+
+    人口は複数版（WorldPop・LandScan2020・LandScan2023等）を同一データセットへ
+    同時に結合するため、有効域の品質列もソースごとに分ける（1本にまとめると、
+    分析側が選んだソースと無関係な別ソースの欠測に有効域が引きずられるため）。
+
+    列名の生成規則を `src.analysis.build_dataset`（品質列を付与する側）と
+    `src.analysis.analysis_rq3_limited`（品質列を読む側）の両方で共有するために
+    ここへ置く。生成規則を2箇所に文字列として重複定義すると、どちらか一方だけを
+    変更した場合に列名が食い違い、片方は新しい列を書き出す一方でもう片方は古い
+    列名を要求して停止する。
+
+    Args:
+        column_suffix: 列名へ付けるデータソース識別子
+            （`src.analysis.urban_params.config.ParamSet.column_suffix`。
+            例: ``"WORLDPOP2020"``）。
+    Returns:
+        対応する有効域品質列名（例: ``"VALID_POP_WORLDPOP2020_MASK"``）。
+    """
+    return f"VALID_POP_{column_suffix}_MASK"
+
+
 def load_analysis_dataset(dataset_path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame:
     """分析用データセットGeoPackageを読み込む。
 

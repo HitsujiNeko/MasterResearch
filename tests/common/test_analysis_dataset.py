@@ -16,7 +16,26 @@ from src.common.analysis_dataset import (
     load_analysis_dataset,
     sample_dataset,
     summarize_filter_dropout,
+    valid_population_mask_column,
 )
+
+
+class TestValidPopulationMaskColumn:
+    """valid_population_mask_column のテスト。
+
+    src.analysis.build_dataset（品質列を付与する側）と
+    src.analysis.analysis_rq3_limited（品質列を読む側）の両方が本関数を使うため、
+    列名の生成規則をここで固定する（重複定義に戻る回帰を防ぐ）。
+    """
+
+    def test_builds_the_expected_column_name(self) -> None:
+        assert valid_population_mask_column("WORLDPOP2020") == "VALID_POP_WORLDPOP2020_MASK"
+
+    def test_differs_by_suffix(self) -> None:
+        """ソースごとに別の列名になる（1本にまとめて他ソースの欠測を引きずらない）。"""
+        assert valid_population_mask_column("WORLDPOP2020") != valid_population_mask_column(
+            "LANDSCAN2020"
+        )
 
 
 class TestLoadAnalysisDataset:

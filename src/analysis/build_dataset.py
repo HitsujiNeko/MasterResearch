@@ -63,6 +63,7 @@ from src.analysis.urban_params.tables import (
     read_grid_frame,
     write_attribute_table,
 )
+from src.common.analysis_dataset import valid_population_mask_column
 from src.common.paths import resolve_relative_to_project_root
 
 # 正準グリッドから引き継ぐ列。座標はパラメータテーブルではなくグリッドが保持する。
@@ -139,23 +140,10 @@ def _population_density_column(param_set: ParamSet) -> str:
     )
 
 
-def valid_population_mask_column(column_suffix: str) -> str:
-    """人口ソースの接尾辞から、対応する有効域品質列名を組み立てる。
-
-    人口は3版（WorldPop・LandScan2020・LandScan2023）を同一データセットへ同時に
-    結合するため（``PARAM_SETS`` の ``population_param_set`` 参照）、品質列も
-    ソースごとに分ける。1本にまとめると、分析側が選んだソースと無関係な別ソースの
-    欠測に有効域が引きずられるためである
-    （``src.analysis.analysis_rq3_limited.resolve_filter_columns`` 参照）。
-
-    Args:
-        column_suffix: 列名へ付けるデータソース識別子（``ParamSet.column_suffix``。
-            例: ``"WORLDPOP2020"``）。
-    Returns:
-        対応する有効域品質列名（例: ``"VALID_POP_WORLDPOP2020_MASK"``）。
-    """
-    return f"VALID_POP_{column_suffix}_MASK"
-
+# ``valid_population_mask_column`` は ``src.common.analysis_dataset`` で定義する。
+# 品質列を付与する本ファイルと、品質列を読む
+# ``src.analysis.analysis_rq3_limited`` の両方が同じ列名生成規則を必要とするため、
+# どちらか一方に文字列として重複定義すると、変更漏れで列名が食い違いうる。
 
 # 水域優位セルの人口密度欠測を0で補完する基準。``LULC_WATER_COV >= 0.9`` を
 # 「水域優位」とみなす基準は、``diagnose_nodata_dropout.py``・結果ドキュメントが

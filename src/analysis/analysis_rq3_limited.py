@@ -52,6 +52,7 @@ from src.common.analysis_dataset import (  # noqa: E402
     load_analysis_dataset,
     sample_dataset,
     summarize_filter_dropout,
+    valid_population_mask_column,
 )
 from src.common.analysis_plots import (  # noqa: E402
     save_correlation_heatmap,
@@ -144,15 +145,14 @@ POPULATION_SOURCE_NONE = "none"
 DEFAULT_POPULATION_SOURCES = ["worldpop2020"]
 
 # 人口ソース識別子から、対応する有効域品質列名（`build_dataset.py` の
-# `add_auxiliary_quality_columns` が付与する列）への対応。列名は
-# `build_dataset.valid_population_mask_column` が組み立てるものと一致させる
-# （2つのスクリプトの結合を避けるため文字列として重複定義しており、対応が
-# 崩れていないことは `test_end_to_end_scenario_expands_to_tables`
-# （`build_dataset.py`側）と本ファイルのテストの双方で個別に固定している）。
+# `add_auxiliary_quality_columns` が付与する列）への対応。列名の生成規則は
+# `src.common.analysis_dataset.valid_population_mask_column` を共有し、
+# `build_dataset.py` 側と文字列として重複定義しない（列名が食い違う回帰を
+# 構造的に防ぐ）。接尾辞はソース識別子の大文字形であり、`ParamSet.column_suffix`
+# の命名規則（`src.analysis.urban_params.config.population_param_set` 参照）と
+# 一致する。
 POPULATION_SOURCE_MASK_COLUMNS = {
-    "worldpop2020": "VALID_POP_WORLDPOP2020_MASK",
-    "landscan2020": "VALID_POP_LANDSCAN2020_MASK",
-    "landscan2023": "VALID_POP_LANDSCAN2023_MASK",
+    source: valid_population_mask_column(source.upper()) for source in POPULATION_SOURCE_COLUMNS
 }
 # 夜間光の有効域品質列。`NIGHTLIGHT_FEATURE_COLUMNS` はどの変数セットでも常に
 # 投入するため、人口ソースの選択に関わらず常に要求する。

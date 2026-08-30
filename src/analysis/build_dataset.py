@@ -135,6 +135,94 @@ def valid_population_mask_column(column_suffix: str) -> str:
     return f"VALID_POP_{column_suffix}_MASK"
 
 
+# 水域優位セルの人口密度欠測を0で補完する基準。``LULC_WATER_COV >= 0.9`` を
+# 「水域優位」とみなす基準は、``diagnose_nodata_dropout.py``・結果ドキュメントが
+# 水域セルの残存率を報告する際の基準と揃えている。値をこのファイルへ独立に持つのは、
+# 分析スクリプト（``analysis_rq3_limited.py`` に依存する ``diagnose_nodata_dropout.py``
+# を含む）を import すると、matplotlib・scikit-learn 等の重い依存とGDAL関連の
+# `PATH` 書き換えまで引き継いでしまうためである（本ファイルはデータ結合のみを
+# 責務とする）。
+WATER_DOMINANT_THRESHOLD = 0.9
+WATER_COVERAGE_COLUMN = "LULC_WATER_COV"
+
+
+def population_filled_flag_column(column_suffix: str) -> str:
+    """人口ソースの接尾辞から、水域優位0補完のフラグ列名を組み立てる。
+
+    ``fill_missing_population_for_water_dominant_cells`` が付与する列であり、
+    「データが無い（NULL）」と「水域優位につき0を補完した（実測ではない0）」を
+    区別するために持つ。人口密度・有効画素率どうしと同じ理由（連続量であり
+    0が実測値でありうる）で ``MISSING_REASON`` の値だけでは表現できない。
+
+    Args:
+        column_suffix: 列名へ付けるデータソース識別子（``ParamSet.column_suffix``。
+            例: ``"WORLDPOP2020"``）。
+    Returns:
+        対応するフラグ列名（例: ``"POP_FILLED_WORLDPOP2020"``）。
+    """
+    return f"POP_FILLED_{column_suffix}"
+
+
+def fill_missing_population_for_water_dominant_cells(
+    dataset: pd.DataFrame,
+    table_names: list[str],
+    water_dominant_threshold: float = WATER_DOMINANT_THRESHOLD,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    """水域優位セルの人口密度欠測を0で補完する。
+
+    WorldPopは大規模水域を無効値としており、この無効値マスクは92m画素単位の
+    粗さを持つため、水域セルと隣接する30mセルも巻き込んでNULLになる
+    （`docs/01_planning/gis_data/gis_data_population.md` 参照）。水域に人口0を
+    与えるのは妥当な判断のため、**水域優位（``LULC_WATER_COV >= water_dominant_threshold``）
+    のセルに限り**NULLを0で補完する。
+
+    **水域優位以外のNULLは補完しない。** 水域被覆0（92m画素の外縁が対象セルに
+    掛かっているだけの陸地）・部分水域（水域と陸地が混在し「判断保留」の状態）は、
+    このまま0を与えると誤りになる。原因ごとに対処を分ける判断が本方針の核心であり、
+    水域優位以外のセルへの対処（残す・別途分析する等）はこの関数の範囲外とする。
+
+    **本関数は ``add_auxiliary_quality_columns`` より前に適用する必要がある。**
+    補完後の値は非NULLになるため、後段の有効域品質列（``VALID_POP_<ソース>_MASK``）
+    が「補完済みの実測0」を正しく有効と判定できる。
+
+    Args:
+        dataset: 結合済みのデータフレーム（``LULC_WATER_COV`` を含む想定）。
+        table_names: 結合したテーブル名の一覧（人口ソースの検出に使う）。
+        water_dominant_threshold: 水域優位とみなす ``LULC_WATER_COV`` の下限。
+            既定は ``WATER_DOMINANT_THRESHOLD``（0.9）。感度分析で変更する
+            ことを想定し引数化している。
+    Returns:
+        (補完後のデータフレーム, 人口密度列名をキーとした補完セル数の辞書)。
+        ``LULC_WATER_COV`` が結合されていない場合、水域優位かどうかを判定
+        できないため補完を行わず、空の辞書をそのまま返す
+        （``add_quality_columns`` が判定材料の列が無い場合に品質管理列自体を
+        付与しない方針と同じ理由。全セル0のフラグ列は「確認したうえで
+        補完不要と判定した」ように読めてしまうため出さない）。
+    """
+    result = dataset.copy()
+    if WATER_COVERAGE_COLUMN not in result.columns:
+        return result, {}
+
+    water_dominant_mask = result[WATER_COVERAGE_COLUMN] >= water_dominant_threshold
+    filled_counts: dict[str, int] = {}
+
+    for table_name in table_names:
+        param_set = PARAM_SETS.get(table_name)
+        if param_set is None or param_set.module_name != POPULATION_MODULE_NAME:
+            continue
+        density_column = next(
+            column for column in param_set.columns if column.startswith(_POPULATION_DENSITY_PREFIX)
+        )
+        fillable_mask = water_dominant_mask & result[density_column].isna()
+        result.loc[fillable_mask, density_column] = 0.0
+        result[population_filled_flag_column(param_set.column_suffix)] = fillable_mask.astype(
+            np.int8
+        )
+        filled_counts[density_column] = int(fillable_mask.sum())
+
+    return result, filled_counts
+
+
 # ``MISSING_REASON`` が取る値。
 #
 # ``no_gis_feature`` と ``missing_gis_data`` を分けるのは、両者が意味も対処も異なる
@@ -598,9 +686,9 @@ def add_auxiliary_quality_columns(dataset: pd.DataFrame, table_names: list[str])
     列を読むのは、動的に名前が決まる衛星指標テーブルを扱うためであり、
     ``PARAM_SETS`` に列挙された人口・夜間光には当てはまらない）。
 
-    **水域優位セルの人口0補完（別途実装）はこの関数より前に適用する想定である。**
-    補完後の値は非NULLになるため、この関数はそのまま「補完済みの実測0」を有効と
-    判定する。
+    **``fill_missing_population_for_water_dominant_cells`` はこの関数より前に
+    適用する必要がある。** 補完後の値は非NULLになるため、この関数はそのまま
+    「補完済みの実測0」を有効と判定する。
 
     Args:
         dataset: 結合済みのデータフレーム（``join_tables`` の戻り値、または
@@ -639,7 +727,7 @@ def build_dataset(
     scale: int,
     grid_path: Path,
     params_dir: Path | None,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, dict[str, int]]:
     """指定テーブルを ``cell_id`` で結合し、分析用データセットを組み立てる。
 
     Args:
@@ -650,10 +738,12 @@ def build_dataset(
         params_dir: パラメータテーブルの格納ルート。
 
     Returns:
-        ``cell_id`` / ``lon`` / ``lat`` に各テーブルの列と品質管理列
-        （``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK`` / 人口・夜間光の
-        有効域品質列。後者は結合したテーブルに応じて
-        ``add_auxiliary_quality_columns`` が付与する）を加えたデータフレーム。
+        (データセット, 人口密度列名をキーとした水域優位0補完のセル数の辞書)
+        のタプル。データセットは ``cell_id`` / ``lon`` / ``lat`` に各テーブルの
+        列と品質管理列（``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK`` / 人口・
+        夜間光の有効域品質列 / 水域優位0補完のフラグ列）を加えたもの。補完セル数の
+        辞書は ``fill_missing_population_for_water_dominant_cells`` の戻り値を
+        そのまま返す（呼び出し側の ``main()`` がコンソールへ報告するため）。
 
     Raises:
         ValueError: 結合するテーブルが1つも無い場合、または観測日時の異なる観測
@@ -677,9 +767,16 @@ def build_dataset(
     report_match_counts(base, tables)
 
     dataset = join_tables(base, tables)
+    # 水域優位セルの人口0補完は、有効域品質列（add_auxiliary_quality_columns）より
+    # 前に適用する（理由は両関数のdocstring参照）。GIS・衛星の品質管理列
+    # （add_quality_columns）は人口・夜間光と無関係なため、順序はどちらでもよい。
+    dataset, population_filled_counts = fill_missing_population_for_water_dominant_cells(
+        dataset, table_names
+    )
     gis_columns, satellite_columns = classify_value_columns(table_names, tables)
     dataset = add_quality_columns(dataset, gis_columns, satellite_columns)
-    return add_auxiliary_quality_columns(dataset, table_names)
+    dataset = add_auxiliary_quality_columns(dataset, table_names)
+    return dataset, population_filled_counts
 
 
 def summarize_dataset(dataset: pd.DataFrame) -> None:
@@ -697,6 +794,26 @@ def summarize_dataset(dataset: pd.DataFrame) -> None:
     print("欠損のある列（NULL 件数）:", flush=True)
     for column_name, count in missing_columns.items():
         print(f"  {column_name}: {int(count):,}", flush=True)
+
+
+def report_population_fill(filled_counts: dict[str, int], water_dominant_threshold: float) -> None:
+    """水域優位セルの人口0補完の結果を標準出力する。
+
+    「データが無い」と「補完した実測0」を区別できるようにするための報告
+    （`fill_missing_population_for_water_dominant_cells` のdocstring参照）。
+    人口テーブルが1つも結合されていない場合（`filled_counts` が空）は、
+    補完の判定自体を行っていないため何も出力しない。
+
+    Args:
+        filled_counts: `build_dataset` が返す、人口密度列名をキーとした
+            補完セル数の辞書。
+        water_dominant_threshold: 補完に用いた `LULC_WATER_COV` の下限。
+    """
+    if not filled_counts:
+        return
+    print(f"水域優位セル（LULC_WATER_COV >= {water_dominant_threshold}）の人口0補完:", flush=True)
+    for column_name, count in filled_counts.items():
+        print(f"  {column_name}: {count:,} セル補完", flush=True)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -718,12 +835,15 @@ def main(argv: list[str] | None = None) -> None:
     print("データセット名:", dataset_name)
     print("結合するテーブル:", ", ".join(table_names))
 
-    dataset = build_dataset(table_names, args.city, args.scale, grid_path, params_dir)
+    dataset, population_filled_counts = build_dataset(
+        table_names, args.city, args.scale, grid_path, params_dir
+    )
 
     output_path = resolve_dataset_path(dataset_name, args.city, args.scale, output_dir)
     write_attribute_table(dataset, output_path, dataset_name)
 
     summarize_dataset(dataset)
+    report_population_fill(population_filled_counts, WATER_DOMINANT_THRESHOLD)
     print("出力先:", output_path)
 
 

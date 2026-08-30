@@ -77,12 +77,12 @@ class TestClassifyDropoutGroup:
             (True, True, True, "all_sources"),
         ],
     )
-    def test_全ての組み合わせが一意のグループ名へ分類される(
+    def test_classifies_every_combination_to_a_unique_group_name(
         self, worldpop: bool, landscan: bool, nightlight: bool, expected: str
     ) -> None:
         assert classify_dropout_group(worldpop, landscan, nightlight) == expected
 
-    def test_欠測が1つも無い場合は例外になる(self) -> None:
+    def test_raises_when_nothing_is_missing(self) -> None:
         """脱落セルでないものが母集団へ混入した場合に、黙って分類されないことを確かめる。"""
         with pytest.raises(ValueError, match="脱落セルではない"):
             classify_dropout_group(False, False, False)
@@ -102,11 +102,13 @@ class TestClassifyWaterClass:
             (1.0, "water_dominant"),
         ],
     )
-    def test_被覆率が区分の境界で正しく分かれる(self, coverage: float, expected: str) -> None:
+    def test_splits_correctly_at_coverage_class_boundaries(
+        self, coverage: float, expected: str
+    ) -> None:
         assert classify_water_class(coverage) == expected
 
     @pytest.mark.parametrize("missing", [None, float("nan")])
-    def test_欠測は0と区別してunknownになる(self, missing: float | None) -> None:
+    def test_missing_value_becomes_unknown_not_absent(self, missing: float | None) -> None:
         """水域被覆自体が欠測のセルを陸地（0）として数えないことを確かめる。"""
         assert classify_water_class(missing) == "water_unknown"
 
@@ -114,7 +116,7 @@ class TestClassifyWaterClass:
 class TestBuildDropoutWhereClause:
     """脱落セル抽出のSQL条件。"""
 
-    def test_母数はROI内であってLSTの有無に依らない(self) -> None:
+    def test_population_is_roi_wide_regardless_of_lst_validity(self) -> None:
         """LSTを条件に入れると、脱落規模が観測フットプリントに左右されてしまう。"""
         clause = build_dropout_where_clause()
         assert f'"{ANALYSIS_AREA_COLUMN}" = 1' in clause
@@ -155,25 +157,23 @@ class TestLoadDropoutCells:
         pyogrio.write_dataframe(table, path, layer="cells", driver="GPKG")
         return path
 
-    def test_ジオメトリを持たないテーブルから点ジオメトリを構築する(
-        self, dataset_path: Path
-    ) -> None:
+    def test_builds_point_geometry_from_a_geometryless_table(self, dataset_path: Path) -> None:
         """データセットは lon/lat 列のみを持つ属性テーブルであり、点を組み立てる必要がある。"""
         cells = load_dropout_cells(dataset_path, layer="cells")
         assert isinstance(cells, gpd.GeoDataFrame)
         assert cells.crs is not None and cells.crs.to_epsg() == 4326
         assert cells.geometry.iloc[0].x == pytest.approx(ROI_MIN_LON + 0.01)
 
-    def test_脱落していないセルとROI外セルは読み込まれない(self, dataset_path: Path) -> None:
+    def test_excludes_non_dropout_and_outside_roi_cells(self, dataset_path: Path) -> None:
         cells = load_dropout_cells(dataset_path, layer="cells")
         assert sorted(cells["cell_id"]) == [1, 2, 4]
 
-    def test_LSTが欠測の脱落セルも読み込まれる(self, dataset_path: Path) -> None:
+    def test_includes_dropout_cells_with_missing_lst(self, dataset_path: Path) -> None:
         """観測フットプリント外のセルを落とすと、脱落規模が観測依存になってしまう。"""
         cells = load_dropout_cells(dataset_path, layer="cells")
         assert 4 in set(cells["cell_id"])
 
-    def test_母数はROI内の全セルになる(self, dataset_path: Path) -> None:
+    def test_counts_all_roi_cells_as_the_base(self, dataset_path: Path) -> None:
         """脱落率の分母がLST有効セルではなくROI内全セルであることを確かめる。"""
         assert count_base_cells(dataset_path, layer="cells") == 4
 
@@ -196,7 +196,7 @@ def _build_cells(rows: list[dict[str, object]]) -> gpd.GeoDataFrame:
 class TestAddDropoutClassification:
     """欠測パターンからの列付与。"""
 
-    def test_欠測パターンごとにグループと水域区分が付く(self) -> None:
+    def test_assigns_group_and_water_class_per_missingness_pattern(self) -> None:
         cells = _build_cells(
             [
                 {
@@ -223,9 +223,7 @@ class TestAddDropoutClassification:
         assert list(classified["dropout_group"]) == ["worldpop_only", "landscan_nightlight"]
         assert list(classified["water_class"]) == ["water_dominant", "water_absent"]
 
-    def test_LandScanの欠測が食い違う場合に警告が出る(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_warns_when_landscan_years_disagree(self, caplog: pytest.LogCaptureFixture) -> None:
         """2020を代表として分類するため、食い違いが黙って誤分類になることを防ぐ。"""
         cells = _build_cells(
             [
@@ -244,7 +242,7 @@ class TestAddDropoutClassification:
             add_dropout_classification(cells)
         assert "LandScan 2020 と 2023" in caplog.text
 
-    def test_欠測が一致していれば警告は出ない(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_no_warning_when_landscan_years_agree(self, caplog: pytest.LogCaptureFixture) -> None:
         cells = _build_cells(
             [
                 {
@@ -286,7 +284,7 @@ class TestAddDropoutClassification:
         classified = add_dropout_classification(cells)
         assert list(classified["dropout_group"]) == ["landscan_only"]
 
-    def test_入力のGeoDataFrameを変更しない(self) -> None:
+    def test_does_not_mutate_the_input(self) -> None:
         """呼び出し元が保持する元データを壊さないことを確かめる。"""
         cells = _build_cells(
             [
@@ -308,7 +306,9 @@ class TestAddDropoutClassification:
 class TestAddRoiEdgeDistance:
     """ROI境界からの距離。"""
 
-    def test_ROI内は正_ROI外は負の距離になる(self, roi_geometry: Polygon) -> None:
+    def test_distance_is_positive_inside_and_negative_outside_roi(
+        self, roi_geometry: Polygon
+    ) -> None:
         cells = _build_cells(
             [
                 # ROI中心付近（境界から遠い）
@@ -323,7 +323,7 @@ class TestAddRoiEdgeDistance:
         assert result["roi_edge_distance_m"].iloc[0] > 0
         assert result["roi_edge_distance_m"].iloc[1] < 0
 
-    def test_距離がメートル単位で妥当な大きさになる(self, roi_geometry: Polygon) -> None:
+    def test_distance_is_a_plausible_size_in_meters(self, roi_geometry: Polygon) -> None:
         """緯度0.05度（約5.5km）内側の点が、その程度の距離として算出されることを確かめる。
 
         投影の取り違え（度のまま距離を計算する等）を検出するための確認である。
@@ -333,7 +333,7 @@ class TestAddRoiEdgeDistance:
         distance = float(result["roi_edge_distance_m"].iloc[0])
         assert 4_000 < distance < 7_000
 
-    def test_境界上の点は距離ほぼ0になる(self, roi_geometry: Polygon) -> None:
+    def test_distance_is_near_zero_on_the_boundary(self, roi_geometry: Polygon) -> None:
         cells = _build_cells([{"lon": ROI_MIN_LON, "lat": ROI_MIN_LAT + 0.05}])
         result = add_roi_edge_distance(cells, roi_geometry)
         assert abs(float(result["roi_edge_distance_m"].iloc[0])) < 1.0
@@ -342,18 +342,18 @@ class TestAddRoiEdgeDistance:
 class TestResolveMetricCrs:
     """距離計算に用いる投影座標系の決定。"""
 
-    def test_ROIからUTM帯が推定される(self, roi_geometry: Polygon) -> None:
+    def test_infers_utm_zone_from_roi(self, roi_geometry: Polygon) -> None:
         """対象都市が変わってもUTM帯が追随することを、ハノイの帯で確かめる。"""
         assert resolve_metric_crs(roi_geometry) == "EPSG:32648"
 
-    def test_明示指定が推定より優先される(self, roi_geometry: Polygon) -> None:
+    def test_explicit_crs_overrides_the_inferred_one(self, roi_geometry: Polygon) -> None:
         assert resolve_metric_crs(roi_geometry, "EPSG:3405") == "EPSG:3405"
 
 
 class TestSummarizeGroupDistances:
     """距離分布の要約。"""
 
-    def test_画素サイズ以内の割合が算出される(self) -> None:
+    def test_computes_the_within_pixel_size_ratio(self) -> None:
         distances = pd.Series([10.0, 100.0, 500.0, 1_000.0])
         summary = summarize_group_distances(distances, {"coarse": 920.0, "fine": 92.0})
         assert summary["within_coarse_pixel_ratio"] == 0.75
@@ -376,7 +376,7 @@ class TestSummarizeGroupDistances:
 class TestSummarizeDropout:
     """要因グループ別サマリ。"""
 
-    def test_空の入力では一致確認がNoneになる(self) -> None:
+    def test_empty_input_makes_agreement_none(self) -> None:
         """空系列の all() が True になるため、未確認をTrueと取り違えないことを確かめる。"""
         empty = _build_cells(
             [
@@ -429,7 +429,7 @@ class TestSummarizeDropout:
         )
         return add_roi_edge_distance(add_dropout_classification(cells), roi_geometry)
 
-    def test_境界帯型と内部マスク型が距離で判別できる(
+    def test_distinguishes_boundary_band_from_internal_mask_by_distance(
         self, classified_cells: gpd.GeoDataFrame
     ) -> None:
         """本スクリプトの目的である「2つの原因の切り分け」が数値で成り立つことを確かめる。"""
@@ -441,21 +441,21 @@ class TestSummarizeDropout:
         assert landscan["within_landscan_pixel_ratio"] == 1.0
         assert worldpop["within_landscan_pixel_ratio"] == 0.0
 
-    def test_脱落率が母数に対して算出される(self, classified_cells: gpd.GeoDataFrame) -> None:
+    def test_computes_dropout_ratio_against_the_base(
+        self, classified_cells: gpd.GeoDataFrame
+    ) -> None:
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["dropout_cell_count"] == 2
         assert summary["dropout_ratio"] == 0.002
         assert summary["groups"]["worldpop_only"]["dropout_ratio"] == 0.001
 
-    def test_観測で実際に効いた分が群別に併記される(
-        self, classified_cells: gpd.GeoDataFrame
-    ) -> None:
+    def test_records_per_group_lst_valid_counts(self, classified_cells: gpd.GeoDataFrame) -> None:
         """母数はROI全域だが、当該観測での影響も読めることを確かめる。"""
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["dropout_lst_valid_count"] == 2
         assert summary["groups"]["worldpop_only"]["lst_valid_count"] == 1
 
-    def test_LSTが全て欠測の群では平均がNoneになる(self, roi_geometry: Polygon) -> None:
+    def test_lst_mean_is_none_when_all_missing(self, roi_geometry: Polygon) -> None:
         """LST平均が NaN のまま渡ると、サマリの保存が例外で失敗する。"""
         cells = _build_cells(
             [
@@ -476,13 +476,11 @@ class TestSummarizeDropout:
         assert summary["groups"]["worldpop_only"]["lst_mean_c"] is None
         assert summary["groups"]["worldpop_only"]["lst_valid_count"] == 0
 
-    def test_LandScan2020と2023の欠測一致が記録される(
-        self, classified_cells: gpd.GeoDataFrame
-    ) -> None:
+    def test_records_landscan_year_agreement(self, classified_cells: gpd.GeoDataFrame) -> None:
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["landscan_2020_2023_missing_agreement"] is True
 
-    def test_水域区分の内訳が記録される(self, classified_cells: gpd.GeoDataFrame) -> None:
+    def test_records_water_class_breakdown(self, classified_cells: gpd.GeoDataFrame) -> None:
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["groups"]["worldpop_only"]["water_class_counts"] == {"water_dominant": 1}
         assert summary["groups"]["landscan_only"]["water_class_counts"] == {"water_absent": 1}
@@ -491,7 +489,7 @@ class TestSummarizeDropout:
 class TestDescribeRaster:
     """入力ラスタの要約。"""
 
-    def test_無効値と画素サイズと有効画素率が取得できる(self, tmp_path: Path) -> None:
+    def test_extracts_nodata_pixel_size_and_valid_ratio(self, tmp_path: Path) -> None:
         """粗い画素のラスタで、メートル換算が画素サイズの桁として妥当かを確かめる。"""
         raster_path = tmp_path / "coarse.tif"
         pixel_size_deg = 0.008333333333

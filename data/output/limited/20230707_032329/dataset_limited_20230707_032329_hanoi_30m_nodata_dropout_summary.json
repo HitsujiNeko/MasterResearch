@@ -1,0 +1,273 @@
+{
+  "generated_at": "2026-08-30T00:34:55.467781+00:00",
+  "dataset": "data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg",
+  "layer": null,
+  "roi": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "metric_crs": "EPSG:32648",
+  "rasters": {
+    "worldpop2020": {
+      "path": "data/gis/population/worldpop/worldpop_hanoi_2020.tif",
+      "crs": "EPSG:4326",
+      "width": 879,
+      "height": 986,
+      "nodata": -9999.0,
+      "pixel_size_deg": [
+        0.0008333333299579025,
+        0.0008333333300179816
+      ],
+      "pixel_size_m": [
+        86.6,
+        92.1
+      ],
+      "valid_pixel_ratio": 0.4711,
+      "bounds": [
+        105.28791626027125,
+        20.563750119588953,
+        106.02041625730425,
+        21.38541678298668
+      ]
+    },
+    "landscan2020": {
+      "path": "data/gis/population/landscan/landscan_hanoi_2020.tif",
+      "crs": "EPSG:4326",
+      "width": 89,
+      "height": 100,
+      "nodata": -9999.0,
+      "pixel_size_deg": [
+        0.0083333333333333,
+        0.0083333333333333
+      ],
+      "pixel_size_m": [
+        866.2,
+        921.2
+      ],
+      "valid_pixel_ratio": 0.4717,
+      "bounds": [
+        105.28333333333222,
+        20.558333333332897,
+        106.02499999999888,
+        21.391666666666225
+      ]
+    },
+    "landscan2023": {
+      "path": "data/gis/population/landscan/landscan_hanoi_2023.tif",
+      "crs": "EPSG:4326",
+      "width": 89,
+      "height": 100,
+      "nodata": -9999.0,
+      "pixel_size_deg": [
+        0.008333333333,
+        0.008333333333
+      ],
+      "pixel_size_m": [
+        866.2,
+        921.2
+      ],
+      "valid_pixel_ratio": 0.4717,
+      "bounds": [
+        105.28333332192199,
+        20.558333336110014,
+        106.02499998855899,
+        21.391666669410014
+      ]
+    },
+    "viirs_dnb": {
+      "path": "data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif",
+      "crs": "EPSG:4326",
+      "width": 177,
+      "height": 198,
+      "nodata": -9999.0,
+      "pixel_size_deg": [
+        0.0041666667,
+        0.0041666667
+      ],
+      "pixel_size_m": [
+        433.1,
+        460.6
+      ],
+      "valid_pixel_ratio": 0.4793,
+      "bounds": [
+        105.28541894895002,
+        20.56041623115,
+        106.02291895485003,
+        21.38541623775
+      ]
+    }
+  },
+  "base_cell_count": 3736107,
+  "dropout_cell_count": 142953,
+  "dropout_ratio": 0.03826,
+  "dropout_lst_valid_count": 66551,
+  "landscan_2020_2023_missing_agreement": true,
+  "water_dominant_threshold": 0.9,
+  "groups": {
+    "all_sources": {
+      "cell_count": 3111,
+      "dropout_ratio": 0.00083,
+      "outside_roi_count": 801,
+      "roi_edge_distance": {
+        "p10_m": -8.1,
+        "median_m": 18.5,
+        "p90_m": 98.4,
+        "max_m": 239.7,
+        "within_worldpop2020_pixel_ratio": 0.8811,
+        "within_landscan2020_pixel_ratio": 1.0,
+        "within_landscan2023_pixel_ratio": 1.0,
+        "within_viirs_dnb_pixel_ratio": 1.0
+      },
+      "water_class_counts": {
+        "water_dominant": 1877,
+        "water_absent": 981,
+        "water_partial": 164,
+        "water_unknown": 89
+      },
+      "water_coverage_mean": 0.643,
+      "lst_valid_count": 1783,
+      "lst_mean_c": 32.072
+    },
+    "landscan_nightlight": {
+      "cell_count": 8061,
+      "dropout_ratio": 0.00216,
+      "outside_roi_count": 696,
+      "roi_edge_distance": {
+        "p10_m": 1.7,
+        "median_m": 49.4,
+        "p90_m": 136.1,
+        "max_m": 279.9,
+        "within_worldpop2020_pixel_ratio": 0.7549,
+        "within_landscan2020_pixel_ratio": 1.0,
+        "within_landscan2023_pixel_ratio": 1.0,
+        "within_viirs_dnb_pixel_ratio": 1.0
+      },
+      "water_class_counts": {
+        "water_absent": 7072,
+        "water_dominant": 508,
+        "water_partial": 413,
+        "water_unknown": 68
+      },
+      "water_coverage_mean": 0.0825,
+      "lst_valid_count": 4919,
+      "lst_mean_c": 34.4
+    },
+    "landscan_only": {
+      "cell_count": 32240,
+      "dropout_ratio": 0.00863,
+      "outside_roi_count": 857,
+      "roi_edge_distance": {
+        "p10_m": 25.1,
+        "median_m": 145.4,
+        "p90_m": 315.6,
+        "max_m": 596.9,
+        "within_worldpop2020_pixel_ratio": 0.3228,
+        "within_landscan2020_pixel_ratio": 1.0,
+        "within_landscan2023_pixel_ratio": 1.0,
+        "within_viirs_dnb_pixel_ratio": 0.9911
+      },
+      "water_class_counts": {
+        "water_absent": 28714,
+        "water_dominant": 1835,
+        "water_partial": 1616,
+        "water_unknown": 75
+      },
+      "water_coverage_mean": 0.076,
+      "lst_valid_count": 19239,
+      "lst_mean_c": 34.44
+    },
+    "nightlight_only": {
+      "cell_count": 11905,
+      "dropout_ratio": 0.00319,
+      "outside_roi_count": 830,
+      "roi_edge_distance": {
+        "p10_m": 4.8,
+        "median_m": 60.0,
+        "p90_m": 153.0,
+        "max_m": 288.2,
+        "within_worldpop2020_pixel_ratio": 0.6823,
+        "within_landscan2020_pixel_ratio": 1.0,
+        "within_landscan2023_pixel_ratio": 1.0,
+        "within_viirs_dnb_pixel_ratio": 1.0
+      },
+      "water_class_counts": {
+        "water_absent": 10626,
+        "water_partial": 638,
+        "water_dominant": 568,
+        "water_unknown": 73
+      },
+      "water_coverage_mean": 0.0695,
+      "lst_valid_count": 6783,
+      "lst_mean_c": 34.858
+    },
+    "worldpop_landscan": {
+      "cell_count": 7865,
+      "dropout_ratio": 0.00211,
+      "outside_roi_count": 829,
+      "roi_edge_distance": {
+        "p10_m": -0.8,
+        "median_m": 88.2,
+        "p90_m": 232.5,
+        "max_m": 438.9,
+        "within_worldpop2020_pixel_ratio": 0.5161,
+        "within_landscan2020_pixel_ratio": 1.0,
+        "within_landscan2023_pixel_ratio": 1.0,
+        "within_viirs_dnb_pixel_ratio": 1.0
+      },
+      "water_class_counts": {
+        "water_dominant": 4856,
+        "water_absent": 2257,
+        "water_partial": 688,
+        "water_unknown": 64
+      },
+      "water_coverage_mean": 0.6588,
+      "lst_valid_count": 4045,
+      "lst_mean_c": 31.559
+    },
+    "worldpop_nightlight": {
+      "cell_count": 3186,
+      "dropout_ratio": 0.00085,
+      "outside_roi_count": 841,
+      "roi_edge_distance": {
+        "p10_m": -8.1,
+        "median_m": 19.5,
+        "p90_m": 119.0,
+        "max_m": 240.0,
+        "within_worldpop2020_pixel_ratio": 0.8308,
+        "within_landscan2020_pixel_ratio": 1.0,
+        "within_landscan2023_pixel_ratio": 1.0,
+        "within_viirs_dnb_pixel_ratio": 1.0
+      },
+      "water_class_counts": {
+        "water_dominant": 1638,
+        "water_absent": 1262,
+        "water_partial": 191,
+        "water_unknown": 95
+      },
+      "water_coverage_mean": 0.5553,
+      "lst_valid_count": 1725,
+      "lst_mean_c": 32.449
+    },
+    "worldpop_only": {
+      "cell_count": 76585,
+      "dropout_ratio": 0.0205,
+      "outside_roi_count": 731,
+      "roi_edge_distance": {
+        "p10_m": 194.4,
+        "median_m": 3107.3,
+        "p90_m": 12077.2,
+        "max_m": 18857.5,
+        "within_worldpop2020_pixel_ratio": 0.0492,
+        "within_landscan2020_pixel_ratio": 0.2809,
+        "within_landscan2023_pixel_ratio": 0.2809,
+        "within_viirs_dnb_pixel_ratio": 0.186
+      },
+      "water_class_counts": {
+        "water_dominant": 51992,
+        "water_absent": 14606,
+        "water_partial": 9933,
+        "water_unknown": 54
+      },
+      "water_coverage_mean": 0.7347,
+      "lst_valid_count": 28057,
+      "lst_mean_c": 32.896
+    }
+  }
+}

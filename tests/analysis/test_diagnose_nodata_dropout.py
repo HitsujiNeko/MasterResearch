@@ -262,6 +262,30 @@ class TestAddDropoutClassification:
             add_dropout_classification(cells)
         assert caplog.text == ""
 
+    def test_classifies_landscan_2023_only_missing_as_landscan_dropout(self) -> None:
+        """LandScan 2020は非NULLで2023だけがNULLのセルも、landscan要因として分類する。
+
+        「landscan」の欠測判定を2020単独にすると、このセルは
+        classify_dropout_group(False, False, False) を呼ぶことになり、
+        「脱落セルではない」という誤ったValueErrorで診断全体が止まる
+        （build_dropout_where_clause は2023単独欠測も脱落セルとして抽出しているため）。
+        """
+        cells = _build_cells(
+            [
+                {
+                    "lon": ROI_MIN_LON + 0.05,
+                    "lat": ROI_MIN_LAT + 0.05,
+                    WORLDPOP_COLUMN: 5.0,
+                    LANDSCAN_2020_COLUMN: 10.0,
+                    LANDSCAN_2023_COLUMN: np.nan,
+                    NIGHTLIGHT_COLUMN: 2.0,
+                    WATER_COVERAGE_COLUMN: 0.0,
+                }
+            ]
+        )
+        classified = add_dropout_classification(cells)
+        assert list(classified["dropout_group"]) == ["landscan_only"]
+
     def test_入力のGeoDataFrameを変更しない(self) -> None:
         """呼び出し元が保持する元データを壊さないことを確かめる。"""
         cells = _build_cells(
@@ -336,11 +360,17 @@ class TestSummarizeGroupDistances:
         assert summary["within_fine_pixel_ratio"] == 0.25
         assert summary["max_m"] == 1_000.0
 
-    def test_ROI外の負の距離も画素サイズ以内として数える(self) -> None:
-        """ROI外へはみ出したセルは境界帯の一部であり、境界由来の脱落として数える。"""
-        distances = pd.Series([-50.0, -10.0, 5_000.0])
+    def test_judges_by_absolute_distance_regardless_of_sign(self) -> None:
+        """ROI外へわずかにはみ出したセルは境界帯の一部として画素サイズ以内に数える一方、
+        ROIから大きく離れた負の距離は符号を無視せず画素サイズ「外」として扱う。
+
+        距離が符号付きのまま `<= size` で判定すると、大きな負の距離（ROIから遠く
+        離れた外側）まで無条件に「以内」と誤判定してしまう回帰を防ぐ。
+        """
+        distances = pd.Series([-50.0, -10.0, -5_000.0, 5_000.0])
         summary = summarize_group_distances(distances, {"coarse": 920.0})
-        assert summary["within_coarse_pixel_ratio"] == pytest.approx(2 / 3, abs=1e-4)
+        # -50, -10 は画素サイズ以内（境界のすぐ外側）、-5,000・5,000 は範囲外。
+        assert summary["within_coarse_pixel_ratio"] == pytest.approx(2 / 4, abs=1e-4)
 
 
 class TestSummarizeDropout:

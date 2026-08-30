@@ -1,8 +1,10 @@
 """人口・夜間光の欠測による分析セルの脱落を、原因別に切り分けて診断する。
 
-`analysis_rq3_limited.py` は人口密度・夜間光の列に非NULLを要求するため、これらが欠測の
-セルは分析母集団から外れる。その脱落が**どの原因によるものか**を、セル単位で切り分けて
-記録するのが本スクリプトの責務である。
+`analysis_rq3_limited.py` は人口密度・夜間光の有効域を品質列（`VALID_POP_<ソース>_MASK` /
+`VALID_NTL_MASK`）で判定するため、これらの列が0のセルは分析母集団から外れる
+（品質列自体は列が非NULLかどうかから導出するため、根本の欠測はここで診断する内容と
+変わらない）。その脱落が**どの原因によるものか**を、セル単位で切り分けて記録するのが
+本スクリプトの責務である。
 
 ## 切り分けの設計
 
@@ -269,17 +271,27 @@ def add_dropout_classification(cells: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         `dropout_group` / `water_class` を追加したGeoDataFrame（入力は変更しない）。
     """
     classified = cells.copy()
-    mismatched = int(
-        (classified[LANDSCAN_2020_COLUMN].isna() != classified[LANDSCAN_2023_COLUMN].isna()).sum()
-    )
+    landscan_2020_missing = classified[LANDSCAN_2020_COLUMN].isna()
+    landscan_2023_missing = classified[LANDSCAN_2023_COLUMN].isna()
+    mismatched = int((landscan_2020_missing != landscan_2023_missing).sum())
     if mismatched:
         logger.warning(
             "LandScan 2020 と 2023 で欠測パターンが %d セル食い違っています。"
-            "要因グループは 2020 を代表として分類するため、2023 のみ欠測のセルは "
-            "LandScan 要因として数えられません。分類結果の解釈に注意してください。",
+            "要因グループの判定は両年のOR（どちらかが欠測なら欠測）で行うため、"
+            "この食い違い自体で分類が漏れることはないが、どちらの年に起因する欠測かは"
+            "本サマリからは区別できない。",
             mismatched,
         )
-    missing = {name: classified[column].isna() for name, column in FACTOR_COLUMNS.items()}
+    # "landscan" は2020単独ではなく2020・2023のORで判定する。2020のみで判定すると、
+    # 2023だけが欠測のセルが classify_dropout_group(False, False, False) になり、
+    # 「脱落セルではない」という誤ったValueErrorを送出する
+    # （build_dropout_where_clause は2023単独欠測も脱落セルとして抽出しているため）。
+    missing = {
+        name: classified[column].isna()
+        for name, column in FACTOR_COLUMNS.items()
+        if name != "landscan"
+    }
+    missing["landscan"] = landscan_2020_missing | landscan_2023_missing
     classified["dropout_group"] = [
         classify_dropout_group(bool(worldpop), bool(landscan), bool(nightlight))
         for worldpop, landscan, nightlight in zip(
@@ -393,8 +405,12 @@ def summarize_group_distances(
     Returns:
         分位点・最大値と、ラスタ画素サイズ以内に収まる割合。
     """
+    # 距離の絶対値で判定する。距離はROI外で負になるため（Args参照）、符号を無視しないと
+    # ROIから大きく離れた外側のセルまで「画素サイズ以内」に含めてしまう
+    # （例: 距離-5000mの画素サイズ920m以内判定は、絶対値なら False になるべきだが
+    # 符号付きのままでは -5000 <= 920 が True になり誤って含まれる）。
     within_pixel = {
-        f"within_{name}_pixel_ratio": round(float((distances <= size).mean()), 4)
+        f"within_{name}_pixel_ratio": round(float((distances.abs() <= size).mean()), 4)
         for name, size in pixel_sizes_m.items()
     }
     return {
@@ -413,7 +429,10 @@ def summarize_dropout(
 
     Args:
         cells: `add_dropout_classification` と `add_roi_edge_distance` を適用したセル。
-        base_cell_count: 母数（LSTが有効なセル数）。
+        base_cell_count: 母数（`count_base_cells` の戻り値。ROI内の全セル数
+            （`IN_ANALYSIS_AREA == 1`）であり、LSTの有効・無効は問わない。
+            観測フットプリントに依存しない構造的な脱落規模を得るための定義
+            （モジュールdocstring「母集団」節参照）。
         pixel_sizes_m: ラスタ名と画素サイズ（m）の対応。
 
     Returns:

@@ -47,7 +47,9 @@ from src.analysis.urban_params.config import (
     CITY_CONFIG,
     DATASETS_OUTPUT_PARTS,
     LST_TABLE_PREFIX,
+    NIGHTLIGHT_COLUMNS,
     PARAM_SETS,
+    POPULATION_BASE_COLUMNS,
     PROJECT_ROOT,
     SATELLITE_ONLY_SCENARIO,
     SATELLITE_TABLE_PREFIX,
@@ -95,6 +97,43 @@ GIS_INDICATOR_MODULES = frozenset({"buildings", "roads"})
 VALID_GIS_MASK_COLUMN = "VALID_GIS_MASK"
 MISSING_REASON_COLUMN = "MISSING_REASON"
 VALID_SATELLITE_MASK_COLUMN = "VALID_SATELLITE_MASK"
+
+# 人口・夜間光の有効域を示す品質列の判定材料とするモジュール名（``PARAM_SETS`` の
+# ``module_name``）。この2つは ``GIS_INDICATOR_MODULES`` に含めず
+# ``VALID_GIS_MASK`` の判定材料からも外しているが（理由は本ファイル冒頭のコメント）、
+# 「値が揃っているか」自体は別の品質列として明示する。ROIクリップと粗い画素
+# （LandScan約920m・VIIRS約460m）に起因する境界帯状の欠測が、非NULL要求という
+# 暗黙の副作用ではなく、名前を持つ有効域として扱えるようにするためである。
+POPULATION_MODULE_NAME = "population"
+NIGHTLIGHT_MODULE_NAME = "nightlight"
+
+# 夜間光の有効域品質列。``NTL_MEAN``（判定材料。``NIGHTLIGHT_COLUMNS`` の1列目）が
+# 非NULLかどうかを表す。同じ列名を共有する差し替え関係（VIIRS/Black Marble）の
+# ため、人口のようなソース別の接尾辞は付けない。
+VALID_NTL_MASK_COLUMN = "VALID_NTL_MASK"
+# 人口密度の列名の接頭辞（データソース接尾辞を付ける前の基底名 + アンダースコア）。
+# ``POPULATION_BASE_COLUMNS`` の1列目（密度）を判定材料とし、2列目（有効画素率）は
+# 対象にしない。
+_POPULATION_DENSITY_PREFIX = f"{POPULATION_BASE_COLUMNS[0]}_"
+
+
+def valid_population_mask_column(column_suffix: str) -> str:
+    """人口ソースの接尾辞から、対応する有効域品質列名を組み立てる。
+
+    人口は3版（WorldPop・LandScan2020・LandScan2023）を同一データセットへ同時に
+    結合するため（``PARAM_SETS`` の ``population_param_set`` 参照）、品質列も
+    ソースごとに分ける。1本にまとめると、分析側が選んだソースと無関係な別ソースの
+    欠測に有効域が引きずられるためである
+    （``src.analysis.analysis_rq3_limited.resolve_filter_columns`` 参照）。
+
+    Args:
+        column_suffix: 列名へ付けるデータソース識別子（``ParamSet.column_suffix``。
+            例: ``"WORLDPOP2020"``）。
+    Returns:
+        対応する有効域品質列名（例: ``"VALID_POP_WORLDPOP2020_MASK"``）。
+    """
+    return f"VALID_POP_{column_suffix}_MASK"
+
 
 # ``MISSING_REASON`` が取る値。
 #
@@ -533,6 +572,67 @@ def add_quality_columns(
     return result
 
 
+def add_auxiliary_quality_columns(dataset: pd.DataFrame, table_names: list[str]) -> pd.DataFrame:
+    """人口・夜間光それぞれの有効域を示す品質列を付与する。
+
+    ROIクリップと粗い画素（LandScan約920m・VIIRS約460m）に起因する境界帯状の
+    欠測を、``feature_columns`` の非NULL要求という暗黙の副作用ではなく、名前を
+    持つ有効域として明示するための列である
+    （``src.analysis.analysis_rq3_limited.resolve_filter_columns`` が参照する）。
+
+    判定基準は「値が非NULLか」のみで、``add_quality_columns`` の
+    ``VALID_GIS_MASK``（0より大きいセルを有効とみなす）とは異なる。人口密度・
+    夜間光は連続量であり、0は「データが無い」ではなく実測値（無人・光が無い）を
+    意味するため、この基準は適用できない（本ファイル冒頭の
+    ``GIS_INDICATOR_MODULES`` のコメント参照）。
+
+    人口は3版（WorldPop・LandScan2020・LandScan2023）が同一データセットへ同時に
+    結合されるため、ソースごとに別の列（``valid_population_mask_column`` が
+    列名を組み立てる）を付与する。夜間光は差し替え関係（VIIRS/Black Marble）で
+    同時に結合されないため、列は1本（``VALID_NTL_MASK_COLUMN``）にまとめる。
+
+    判定材料の列名は、テーブルの実データを読まず ``PARAM_SETS`` の宣言
+    （``ParamSet.columns`` / ``column_suffix``）だけから求める。算出モジュールが
+    宣言どおりの列名を返すことは算出フェーズ（``run.py``）側で検証済みのため、
+    ここで実データを読み直す必要はない（``classify_value_columns`` が実データの
+    列を読むのは、動的に名前が決まる衛星指標テーブルを扱うためであり、
+    ``PARAM_SETS`` に列挙された人口・夜間光には当てはまらない）。
+
+    **水域優位セルの人口0補完（別途実装）はこの関数より前に適用する想定である。**
+    補完後の値は非NULLになるため、この関数はそのまま「補完済みの実測0」を有効と
+    判定する。
+
+    Args:
+        dataset: 結合済みのデータフレーム（``join_tables`` の戻り値、または
+            人口の0補完を適用した後のデータフレーム）。
+        table_names: 結合したテーブル名の一覧。
+
+    Returns:
+        品質列を付与したデータフレーム。人口・夜間光のテーブルが1つも
+        結合されていない場合は変更せずそのまま返す。
+    """
+    result = dataset.copy()
+
+    for table_name in table_names:
+        param_set = PARAM_SETS.get(table_name)
+        if param_set is None:
+            continue
+
+        if param_set.module_name == NIGHTLIGHT_MODULE_NAME:
+            density_column = NIGHTLIGHT_COLUMNS[0]
+            result[VALID_NTL_MASK_COLUMN] = result[density_column].notna().astype(np.int8)
+        elif param_set.module_name == POPULATION_MODULE_NAME:
+            density_column = next(
+                column
+                for column in param_set.columns
+                if column.startswith(_POPULATION_DENSITY_PREFIX)
+            )
+            mask_column = valid_population_mask_column(param_set.column_suffix)
+            result[mask_column] = result[density_column].notna().astype(np.int8)
+
+    return result
+
+
 def build_dataset(
     table_names: list[str],
     city: str,
@@ -550,8 +650,10 @@ def build_dataset(
         params_dir: パラメータテーブルの格納ルート。
 
     Returns:
-        ``cell_id`` / ``lon`` / ``lat`` に各テーブルの列と品質管理列を加えた
-        データフレーム。
+        ``cell_id`` / ``lon`` / ``lat`` に各テーブルの列と品質管理列
+        （``VALID_GIS_MASK`` / ``VALID_SATELLITE_MASK`` / 人口・夜間光の
+        有効域品質列。後者は結合したテーブルに応じて
+        ``add_auxiliary_quality_columns`` が付与する）を加えたデータフレーム。
 
     Raises:
         ValueError: 結合するテーブルが1つも無い場合、または観測日時の異なる観測
@@ -576,7 +678,8 @@ def build_dataset(
 
     dataset = join_tables(base, tables)
     gis_columns, satellite_columns = classify_value_columns(table_names, tables)
-    return add_quality_columns(dataset, gis_columns, satellite_columns)
+    dataset = add_quality_columns(dataset, gis_columns, satellite_columns)
+    return add_auxiliary_quality_columns(dataset, table_names)
 
 
 def summarize_dataset(dataset: pd.DataFrame) -> None:

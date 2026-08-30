@@ -51,9 +51,11 @@ from src.analysis.analysis_rq3_limited import (
     LULC_REFERENCE_COLUMN,
     NIGHTLIGHT_FEATURE_COLUMNS,
     OTHER_BASE_FEATURE_COLUMNS,
+    POPULATION_SOURCE_MASK_COLUMNS,
     POPULATION_SOURCE_NONE,
     SPECTRAL_FEATURE_COLUMNS,
     VALID_GIS_MASK_COLUMN,
+    VALID_NTL_MASK_COLUMN,
     VEGETATION_COVERAGE_COLUMNS,
     add_building_height_pc1,
     build_candidate_correlation_frame,
@@ -62,6 +64,7 @@ from src.analysis.analysis_rq3_limited import (
     fill_missing_building_heights,
     main,
     parse_arguments,
+    resolve_auxiliary_mask_columns,
     resolve_building_height_columns,
     resolve_feature_columns,
     resolve_filter_columns,
@@ -76,7 +79,7 @@ from src.common.regression_models import fit_linear_regression
 # 非NULLを要求するフィルタ列。build_filtered_sample はモジュール定数ではなく引数で
 # 列を受け取るため、テスト側で1度だけ解決して使い回す。
 DEFAULT_FEATURE_COLUMNS = resolve_feature_columns(DEFAULT_VARIABLE_SET, DEFAULT_POPULATION_SOURCES)
-DEFAULT_FILTER_COLUMNS = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+DEFAULT_FILTER_COLUMNS = resolve_filter_columns()
 
 
 class TestParseArguments:
@@ -413,6 +416,10 @@ def _quality_dataframe(n: int = 10) -> pd.DataFrame:
             "POP_DEN_WORLDPOP2020": _values(100.0, 10.0),
             "POP_DEN_LANDSCAN2020": _values(120.0, 10.0),
             "POP_DEN_LANDSCAN2023": _values(130.0, 10.0),
+            VALID_NTL_MASK_COLUMN: [1] * n,
+            POPULATION_SOURCE_MASK_COLUMNS["worldpop2020"]: [1] * n,
+            POPULATION_SOURCE_MASK_COLUMNS["landscan2020"]: [1] * n,
+            POPULATION_SOURCE_MASK_COLUMNS["landscan2023"]: [1] * n,
             "LST": _values(35.0, 1.0),
             LST_VALID_RATIO_COLUMN: [0.9] * n,
         }
@@ -1042,25 +1049,38 @@ class TestResolveFilterColumns:
     影響と混ざる。ここではその分離を固定する。
     """
 
-    def test_is_constant_across_variable_sets(self) -> None:
-        """フィルタ列は変数セット・建物高さ構成の指定を受け取らない（構成に依らず一定）。
+    def test_excludes_population_and_nightlight(self) -> None:
+        """人口・夜間光の列を含まない。
 
-        `resolve_filter_columns` は建物高さ構成を引数に取らず、内部で `both` を
-        固定して渡す。既定値（`DEFAULT_BUILDING_HEIGHT_MODE`）を読まないため、
-        既定が変わってもフィルタ列は動かない。動くと構成間・ラン間で母数が変わる。
+        両者は非NULL要求ではなく有効域品質列（`resolve_auxiliary_mask_columns`）で
+        判定する方針にしたため（`resolve_filter_columns` のdocstring参照）、
+        引数も取らず、どの人口ソースの列もフィルタ列に現れない。
         """
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        filter_columns = set(resolve_filter_columns())
 
-        assert filter_columns == resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")
+        population_density_columns = {
+            "POP_DEN_WORLDPOP2020",
+            "POP_DEN_LANDSCAN2020",
+            "POP_DEN_LANDSCAN2023",
+        }
 
-    def test_is_a_superset_of_every_variable_set(self) -> None:
-        """フィルタ列はどの変数セットの投入列も包含する。"""
-        filter_columns = set(resolve_filter_columns(DEFAULT_POPULATION_SOURCES))
+        assert not filter_columns & set(POPULATION_SOURCE_MASK_COLUMNS.values())
+        assert not filter_columns & population_density_columns
+        assert not filter_columns & set(NIGHTLIGHT_FEATURE_COLUMNS)
+
+    def test_is_a_superset_of_every_variable_set_excluding_auxiliary_columns(self) -> None:
+        """フィルタ列は、人口・夜間光を除く各変数セットの投入列を包含する。
+
+        人口・夜間光自体は `resolve_auxiliary_mask_columns` の対象であり、
+        `resolve_feature_columns` の戻り値には含まれるがフィルタ列には現れない
+        （`test_excludes_population_and_nightlight` 参照）ため、比較から除く。
+        """
+        filter_columns = set(resolve_filter_columns())
+        auxiliary_columns = {"POP_DEN_WORLDPOP2020", *NIGHTLIGHT_FEATURE_COLUMNS}
 
         for variable_set in ("spectral", "coverage", "both"):
-            assert set(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES)).issubset(
-                filter_columns
-            )
+            feature_columns = set(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES))
+            assert (feature_columns - auxiliary_columns).issubset(filter_columns)
 
     def test_always_requires_spectral_columns(self) -> None:
         """分光指数は coverage 構成でも非NULLを要求する。
@@ -1070,17 +1090,9 @@ class TestResolveFilterColumns:
         coverage のときだけこの前提が崩れ、分光指数がすべてNULLのセル（雲マスク
         由来の欠測）が母集団へ混入する。
         """
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        filter_columns = resolve_filter_columns()
 
         assert set(SPECTRAL_FEATURE_COLUMNS).issubset(set(filter_columns))
-
-    def test_requires_only_the_selected_population_versions(self) -> None:
-        """人口は選択した版のみ要求する（投入しない版の欠測で母数を減らさない）。"""
-        filter_columns = resolve_filter_columns(["worldpop2020"])
-
-        assert "POP_DEN_WORLDPOP2020" in filter_columns
-        assert "POP_DEN_LANDSCAN2020" not in filter_columns
-        assert "POP_DEN_LANDSCAN2023" not in filter_columns
 
     def test_always_requires_both_building_height_columns(self) -> None:
         """投入する高さ列が1本でも、非NULL要求は2列とも課す。
@@ -1088,18 +1100,18 @@ class TestResolveFilterColumns:
         片方だけを要求すると、もう片方だけが欠測のセルが構成によって出入りし、
         建物高さ3構成の比較が母数差の影響と混ざる。
         """
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        filter_columns = resolve_filter_columns()
 
         assert set(BUILDING_HEIGHT_COLUMNS).issubset(set(filter_columns))
 
-    def test_is_a_superset_of_every_building_height_mode(self) -> None:
-        """フィルタ列はどの建物高さ構成の投入列も包含する（合成列を除く）。"""
-        filter_columns = set(resolve_filter_columns(DEFAULT_POPULATION_SOURCES))
+    def test_is_a_superset_of_every_building_height_mode_excluding_auxiliary_columns(self) -> None:
+        """フィルタ列は、人口・夜間光を除くどの建物高さ構成の投入列も包含する（合成列を除く）。"""
+        filter_columns = set(resolve_filter_columns())
+        auxiliary_columns = {"POP_DEN_WORLDPOP2020", *NIGHTLIGHT_FEATURE_COLUMNS}
 
         for mode in ("both", "mean", "max"):
-            assert set(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, mode)).issubset(
-                filter_columns
-            )
+            feature_columns = set(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, mode))
+            assert (feature_columns - auxiliary_columns).issubset(filter_columns)
 
     def test_never_requires_the_synthesized_pc1_column(self) -> None:
         """合成列 BUILD_H_PC1 は入力データセットに無いため、フィルタ列に含めない。
@@ -1107,9 +1119,45 @@ class TestResolveFilterColumns:
         含めると main() の「フィルタに必要な列がデータセットに存在しません」検証に
         必ず引っかかり、pc1 構成が実行不能になる。
         """
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        filter_columns = resolve_filter_columns()
 
         assert BUILDING_HEIGHT_PC1_COLUMN not in filter_columns
+
+
+class TestResolveAuxiliaryMaskColumns:
+    """resolve_auxiliary_mask_columns のテスト。"""
+
+    def test_requires_only_the_selected_population_versions(self) -> None:
+        """人口は選択した版のみ要求する（投入しない版の欠測で母数を減らさない）。"""
+        mask_columns = resolve_auxiliary_mask_columns(["worldpop2020"])
+
+        assert POPULATION_SOURCE_MASK_COLUMNS["worldpop2020"] in mask_columns
+        assert POPULATION_SOURCE_MASK_COLUMNS["landscan2020"] not in mask_columns
+        assert POPULATION_SOURCE_MASK_COLUMNS["landscan2023"] not in mask_columns
+
+    def test_always_requires_the_nightlight_mask(self) -> None:
+        """夜間光の有効域品質列は人口ソースの選択に関わらず常に要求する。"""
+        assert VALID_NTL_MASK_COLUMN in resolve_auxiliary_mask_columns(["worldpop2020"])
+        assert VALID_NTL_MASK_COLUMN in resolve_auxiliary_mask_columns([POPULATION_SOURCE_NONE])
+
+    def test_population_source_none_omits_every_population_mask(self) -> None:
+        """--population-source noneのとき、人口の有効域品質列は1つも含めない。"""
+        mask_columns = resolve_auxiliary_mask_columns([POPULATION_SOURCE_NONE])
+
+        assert mask_columns == [VALID_NTL_MASK_COLUMN]
+
+    def test_requires_multiple_selected_population_versions(self) -> None:
+        """複数ソースを選択した場合、選んだ版すべての品質列を要求する。"""
+        mask_columns = resolve_auxiliary_mask_columns(["worldpop2020", "landscan2020"])
+
+        assert POPULATION_SOURCE_MASK_COLUMNS["worldpop2020"] in mask_columns
+        assert POPULATION_SOURCE_MASK_COLUMNS["landscan2020"] in mask_columns
+        assert POPULATION_SOURCE_MASK_COLUMNS["landscan2023"] not in mask_columns
+
+    def test_rejects_unknown_population_source(self) -> None:
+        """未知のデータソース識別子は resolve_population_columns と同じ例外になる。"""
+        with pytest.raises(ValueError, match="未知の人口密度データソース"):
+            resolve_auxiliary_mask_columns(["mystery"])
 
 
 class TestResolveFilterDropoutColumnGroups:
@@ -1120,19 +1168,26 @@ class TestResolveFilterDropoutColumnGroups:
     必要がある（`test_every_filter_column_is_classified_exactly_once` で固定する）。
     """
 
-    def test_classifies_building_height_population_and_nighttime_light(self) -> None:
-        """建物高さ・人口・夜間光の列を、対応する要因グループへ分類する。"""
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+    def test_classifies_building_height_and_leaves_population_and_nighttime_light_empty(
+        self,
+    ) -> None:
+        """建物高さの列は対応する要因グループへ分類し、人口・夜間光は常に空になる。
+
+        人口・夜間光は `resolve_filter_columns` に含まれなくなった
+        （有効域品質列で判定する方針への変更）ため、この2グループへ分類される列は
+        存在しない（`resolve_filter_columns` のdocstring参照）。
+        """
+        filter_columns = resolve_filter_columns()
 
         groups = resolve_filter_dropout_column_groups(filter_columns)
 
         assert groups["building_height"] == list(BUILDING_HEIGHT_COLUMNS)
-        assert groups["population"] == ["POP_DEN_WORLDPOP2020"]
-        assert groups["nighttime_light"] == list(NIGHTLIGHT_FEATURE_COLUMNS)
+        assert groups["population"] == []
+        assert groups["nighttime_light"] == []
 
     def test_other_group_contains_remaining_columns(self) -> None:
-        """建物高さ・人口・夜間光のいずれにも属さない列は"other"にまとまる。"""
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        """建物高さのいずれにも属さない列は"other"にまとまる。"""
+        filter_columns = resolve_filter_columns()
 
         groups = resolve_filter_dropout_column_groups(filter_columns)
 
@@ -1140,34 +1195,19 @@ class TestResolveFilterDropoutColumnGroups:
         assert "ELEV_MEAN" in groups["other"]
         assert "LULC_BUILT_COV" in groups["other"]
         assert "BUILD_H_MEAN" not in groups["other"]
-        assert "POP_DEN_WORLDPOP2020" not in groups["other"]
-        assert "NTL_MEAN" not in groups["other"]
 
     def test_every_filter_column_is_classified_exactly_once(self) -> None:
         """全フィルタ列がいずれか1つのグループにのみ分類される
         （重複所属・分類漏れが無いこと。summarize_filter_dropoutのcolumn_groups
         検証を満たすための前提を固定する）。
         """
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        filter_columns = resolve_filter_columns()
 
         groups = resolve_filter_dropout_column_groups(filter_columns)
 
         classified = [column for columns in groups.values() for column in columns]
         assert sorted(classified) == sorted(filter_columns)
         assert len(classified) == len(set(classified))
-
-    def test_population_group_is_empty_when_population_source_is_none(self) -> None:
-        """--population-source noneのとき、populationグループは空になる
-        （summarize_filter_dropoutは空グループも許容する）。
-        """
-        filter_columns = resolve_filter_columns([POPULATION_SOURCE_NONE])
-
-        groups = resolve_filter_dropout_column_groups(filter_columns)
-
-        assert groups["population"] == []
-        assert "POP_DEN_WORLDPOP2020" not in [
-            column for columns in groups.values() for column in columns
-        ]
 
 
 class TestPopulationIsEqualAcrossVariableSets:
@@ -1180,7 +1220,7 @@ class TestPopulationIsEqualAcrossVariableSets:
         for column in SPECTRAL_FEATURE_COLUMNS:
             dataframe.loc[0, column] = np.nan
 
-        filter_columns = resolve_filter_columns(DEFAULT_POPULATION_SOURCES)
+        filter_columns = resolve_filter_columns()
         row_counts = set()
         for variable_set in ("spectral", "coverage", "both"):
             result = build_filtered_sample(
@@ -1208,7 +1248,7 @@ class TestPopulationIsEqualAcrossVariableSets:
 
         with_fix = build_filtered_sample(
             dataframe,
-            filter_columns=resolve_filter_columns(DEFAULT_POPULATION_SOURCES),
+            filter_columns=resolve_filter_columns(),
             lst_valid_ratio_threshold=0.5,
             sample_size=0,
             random_state=42,

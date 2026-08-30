@@ -13,7 +13,9 @@ import pytest
 from src.analysis.build_dataset import (
     MISSING_REASON_COLUMN,
     VALID_GIS_MASK_COLUMN,
+    VALID_NTL_MASK_COLUMN,
     VALID_SATELLITE_MASK_COLUMN,
+    add_auxiliary_quality_columns,
     add_quality_columns,
     classify_value_columns,
     join_tables,
@@ -25,6 +27,7 @@ from src.analysis.build_dataset import (
     resolve_dataset_name,
     resolve_dataset_path,
     resolve_table_names,
+    valid_population_mask_column,
     validate_observation_consistency,
 )
 from src.analysis.urban_params.config import SCENARIO_TABLES
@@ -695,6 +698,79 @@ def test_add_quality_columns_does_not_mutate_input() -> None:
 
 
 # ---------------------------------------------------------------------------
+# add_auxiliary_quality_columns（人口・夜間光の有効域品質列）
+# ---------------------------------------------------------------------------
+
+
+def test_add_auxiliary_quality_columns_marks_nightlight_presence() -> None:
+    """NTL_MEANが非NULLなセルのみ VALID_NTL_MASK=1 になる。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2, 3], dtype=np.int64),
+            "NTL_MEAN": np.array([0.0, np.nan, 5.0], dtype=np.float32),
+            "NTL_VALID_RATIO": np.array([1.0, 1.0, 1.0], dtype=np.float32),
+        }
+    )
+
+    result = add_auxiliary_quality_columns(dataset, ["ntl_viirs2023"])
+
+    np.testing.assert_array_equal(
+        result[VALID_NTL_MASK_COLUMN].to_numpy(), np.array([1, 0, 1], dtype=np.int8)
+    )
+
+
+def test_add_auxiliary_quality_columns_marks_population_presence_per_source() -> None:
+    """人口ソースごとに独立した有効域品質列を付与する（他ソースの欠測に引きずられない）。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2], dtype=np.int64),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan, 3.0], dtype=np.float32),
+            "POP_DEN_LANDSCAN2020": np.array([1.0, np.nan], dtype=np.float32),
+        }
+    )
+
+    result = add_auxiliary_quality_columns(dataset, ["pop_worldpop2020", "pop_landscan2020"])
+
+    np.testing.assert_array_equal(
+        result[valid_population_mask_column("WORLDPOP2020")].to_numpy(),
+        np.array([0, 1], dtype=np.int8),
+    )
+    np.testing.assert_array_equal(
+        result[valid_population_mask_column("LANDSCAN2020")].to_numpy(),
+        np.array([1, 0], dtype=np.int8),
+    )
+
+
+def test_add_auxiliary_quality_columns_ignores_unrelated_tables() -> None:
+    """人口・夜間光以外のテーブルからは品質列を導出しない。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            "BUILD_COV": np.array([0.5], dtype=np.float32),
+        }
+    )
+
+    result = add_auxiliary_quality_columns(dataset, ["build_gba"])
+
+    assert VALID_NTL_MASK_COLUMN not in result.columns
+    assert valid_population_mask_column("WORLDPOP2020") not in result.columns
+
+
+def test_add_auxiliary_quality_columns_does_not_mutate_input() -> None:
+    """入力のデータフレームを破壊的に変更しない。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            "NTL_MEAN": np.array([1.0], dtype=np.float32),
+        }
+    )
+
+    add_auxiliary_quality_columns(dataset, ["ntl_viirs2023"])
+
+    assert VALID_NTL_MASK_COLUMN not in dataset.columns
+
+
+# ---------------------------------------------------------------------------
 # 合成グリッドでの compute -> tables -> build_dataset のE2E検証
 # ---------------------------------------------------------------------------
 
@@ -893,6 +969,11 @@ def test_end_to_end_scenario_expands_to_tables(city_environment: dict[str, Any])
     assert "ntl_bm2023" not in SCENARIO_TABLES["limited"]
     # 標高・土地被覆は VALID_GIS_MASK の判定材料に含めないため、建物・道路が無いセルは0のまま。
     assert (dataset[VALID_GIS_MASK_COLUMN] == 0).any()
+    # 人口3版・夜間光それぞれの有効域品質列が導出される（合成データはROI全域を
+    # 覆うため、全セルで1になる）。
+    assert VALID_NTL_MASK_COLUMN in dataset.columns
+    for suffix in ("WORLDPOP2020", "LANDSCAN2020", "LANDSCAN2023"):
+        assert valid_population_mask_column(suffix) in dataset.columns
 
 
 def test_end_to_end_missing_table_stops_before_writing(

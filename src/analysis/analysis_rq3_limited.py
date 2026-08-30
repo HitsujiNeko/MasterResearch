@@ -143,6 +143,21 @@ POPULATION_SOURCE_COLUMNS = {
 POPULATION_SOURCE_NONE = "none"
 DEFAULT_POPULATION_SOURCES = ["worldpop2020"]
 
+# 人口ソース識別子から、対応する有効域品質列名（`build_dataset.py` の
+# `add_auxiliary_quality_columns` が付与する列）への対応。列名は
+# `build_dataset.valid_population_mask_column` が組み立てるものと一致させる
+# （2つのスクリプトの結合を避けるため文字列として重複定義しており、対応が
+# 崩れていないことは `test_end_to_end_scenario_expands_to_tables`
+# （`build_dataset.py`側）と本ファイルのテストの双方で個別に固定している）。
+POPULATION_SOURCE_MASK_COLUMNS = {
+    "worldpop2020": "VALID_POP_WORLDPOP2020_MASK",
+    "landscan2020": "VALID_POP_LANDSCAN2020_MASK",
+    "landscan2023": "VALID_POP_LANDSCAN2023_MASK",
+}
+# 夜間光の有効域品質列。`NIGHTLIGHT_FEATURE_COLUMNS` はどの変数セットでも常に
+# 投入するため、人口ソースの選択に関わらず常に要求する。
+VALID_NTL_MASK_COLUMN = "VALID_NTL_MASK"
+
 # 変数セットの選択肢。spectral / coverage は分光指数と被覆率型のどちらが LST を
 # よりよく説明するかを対比するための構成であり、both は両方を投入した構成。
 VARIABLE_SET_SPECTRAL = "spectral"
@@ -349,6 +364,36 @@ def resolve_population_columns(population_sources: Sequence[str]) -> list[str]:
     return [POPULATION_SOURCE_COLUMNS[source] for source in population_sources]
 
 
+def resolve_auxiliary_mask_columns(population_sources: Sequence[str]) -> list[str]:
+    """人口・夜間光の有効域品質列を、選択した人口ソースに応じて組み立てる。
+
+    人口・夜間光は非NULL要求（`feature_columns`）ではなくこの品質列でフィルタする
+    （理由は `resolve_filter_columns` のdocstring参照）。夜間光
+    （`NIGHTLIGHT_FEATURE_COLUMNS`）は `--population-source` の値に関わらず
+    常に投入するため、`VALID_NTL_MASK_COLUMN` は無条件で含める。
+
+    Args:
+        population_sources: `--population-source` の値。
+    Returns:
+        `filter_valid_rows` の `required_mask_columns` へ追加する品質列名の
+        リスト（選択した人口ソースごとの品質列 + `VALID_NTL_MASK_COLUMN`）。
+        `POPULATION_SOURCE_NONE` を指定した場合は `VALID_NTL_MASK_COLUMN` のみ。
+    Raises:
+        ValueError: 未知のデータソース識別子が含まれる場合、または
+            `POPULATION_SOURCE_NONE` が他の値と併用されている場合
+            （`resolve_population_columns` の検証を再利用する）。
+    """
+    # 列名自体は使わないが、`resolve_population_columns` の検証（未知のデータ
+    # ソース・NONEの併用）を再利用し、同じ検証ロジックを二重に持たない。
+    resolve_population_columns(population_sources)
+    if list(population_sources) == [POPULATION_SOURCE_NONE]:
+        return [VALID_NTL_MASK_COLUMN]
+    return [
+        *(POPULATION_SOURCE_MASK_COLUMNS[source] for source in population_sources),
+        VALID_NTL_MASK_COLUMN,
+    ]
+
+
 def resolve_building_height_columns(building_height_mode: str) -> list[str]:
     """建物高さ構成の指定から、モデルへ投入する建物高さ列の列名を求める。
 
@@ -425,7 +470,7 @@ def resolve_feature_columns(
     return feature_columns
 
 
-def resolve_filter_columns(population_sources: Sequence[str]) -> list[str]:
+def resolve_filter_columns() -> list[str]:
     """非NULLを要求してフィルタに使う列名を、変数セットに依らず一定に組み立てる。
 
     **モデルへ投入する列（`resolve_feature_columns`）とは別物である。** フィルタ列を
@@ -446,13 +491,33 @@ def resolve_filter_columns(population_sources: Sequence[str]) -> list[str]:
     3構成の比較が母数差と混ざる。主成分構成で投入する `BUILD_H_PC1` は入力データ
     セットに存在しない合成列であり、そもそもフィルタ列には使えない。
 
-    Args:
-        population_sources: `--population-source` の値。人口だけは選択した版のみを
-            要求する（3版すべてを要求すると、投入しない版の欠測で母数が減るため）。
+    **人口・夜間光はここに含めない。** 両者はROIクリップと粗い画素（LandScan約
+    920m・VIIRS約460m）に起因する境界帯状の欠測を持ち、この欠測を「非NULL要求の
+    副作用」ではなく明示的な有効域として扱う方針にしたため、`build_dataset.py` が
+    付与する品質列（`VALID_POP_<ソース>_MASK` / `VALID_NTL_MASK`）で判定する
+    （`resolve_auxiliary_mask_columns` 参照。呼び出し側が `required_mask_columns`
+    へ追加する）。人口だけ選択した版のみを要求する（3版すべてを要求すると、
+    投入しない版の欠測で母数が減る）という既存の考え方は、判定材料を品質列へ
+    移してもそのまま引き継ぐ。
+
+    **ここに残す（`feature_columns` で非NULLを要求し続ける）理由**: 品質列へ
+    移すと `filter_valid_rows` の判定順序が変わり（`required_mask_columns` は
+    `target_available` より前の段階で課される）、`summarize_filter_dropout` の
+    列別・要因グループ別の内訳集計（`target_available` を基準とする）から見えなく
+    なる。建物・道路・標高・分光指数・土地被覆はラン単位の欠測要因として内訳を
+    追う価値があるため、影響範囲をここに限定する。人口・夜間光のROI全域での
+    要因別内訳は `diagnose_nodata_dropout.py` が別途担う。
+
     Returns:
         非NULLを要求する列名リスト。
     """
-    return resolve_feature_columns(VARIABLE_SET_BOTH, population_sources, BUILDING_HEIGHT_MODE_BOTH)
+    return [
+        *BUILDING_FOOTPRINT_FEATURE_COLUMNS,
+        *BUILDING_HEIGHT_COLUMNS,
+        *OTHER_BASE_FEATURE_COLUMNS,
+        *SPECTRAL_FEATURE_COLUMNS,
+        *LULC_FEATURE_COLUMNS,
+    ]
 
 
 def resolve_filter_dropout_column_groups(filter_columns: Sequence[str]) -> dict[str, list[str]]:
@@ -466,10 +531,15 @@ def resolve_filter_dropout_column_groups(filter_columns: Sequence[str]) -> dict[
 
     `BUILD_H_MEAN`・`BUILD_H_MAX` は同一の建物ポリゴンから集計した高さで、
     同時にNULL/非NULLになる想定のため1グループにまとめる
-    （`fill_missing_building_heights` のdocstring参照）。`--population-source`
-    に `none` を指定した場合、`filter_columns` に人口密度列が含まれないため
-    `"population"` は空リストになりうる（`summarize_filter_dropout` は空の
-    グループも許容する）。
+    （`fill_missing_building_heights` のdocstring参照）。
+
+    **`"population"`・`"nighttime_light"` は常に空リストになる。** 人口・夜間光は
+    有効域品質列（`resolve_auxiliary_mask_columns`）で判定するようになり
+    `filter_columns`（`resolve_filter_columns` の戻り値）に含まれなくなったため
+    （`resolve_filter_columns` のdocstring参照）。`summarize_filter_dropout` は
+    空グループを許容するため、キー自体は出力スキーマの安定のため残す。ROI全域での
+    人口・夜間光の要因別内訳（境界帯型／WorldPopマスク型の区別を含む）は
+    `diagnose_nodata_dropout.py` が別途担う。
 
     Args:
         filter_columns: `resolve_filter_columns` の戻り値。
@@ -1039,7 +1109,7 @@ def main() -> None:
     )
     # フィルタ列は変数セット・建物高さ構成に依らず一定にして、構成間の母数を揃える
     # （`resolve_filter_columns` の docstring に理由を記す）。
-    filter_columns = resolve_filter_columns(args.population_source)
+    filter_columns = resolve_filter_columns()
     output_stem = resolve_output_stem(
         args.dataset_path,
         args.variable_set,
@@ -1049,9 +1119,22 @@ def main() -> None:
     )
     observation_label = build_observation_label(output_stem)
 
-    required_mask_columns = DEFAULT_REQUIRED_MASK_COLUMNS
+    # 人口・夜間光は非NULL要求ではなく有効域品質列で判定する
+    # （`resolve_filter_columns` / `resolve_auxiliary_mask_columns` のdocstring参照）。
+    auxiliary_mask_columns = resolve_auxiliary_mask_columns(args.population_source)
+    required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, *auxiliary_mask_columns)
     if args.require_valid_gis_mask:
-        required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, VALID_GIS_MASK_COLUMN)
+        required_mask_columns = (*required_mask_columns, VALID_GIS_MASK_COLUMN)
+
+    # 人口・夜間光の実測値列。品質列（auxiliary_mask_columns）が「揃っているか」を
+    # 判定するのに対し、モデルへの投入に使うのはこちらの実測値列である。
+    # `filter_columns` から人口・夜間光を除いた分、以下の欠損列チェックだけでは
+    # 実測値列自体の欠落を検出できなくなるため、個別に持つ
+    # （`resolve_filter_columns` のdocstring参照）。
+    auxiliary_value_columns = [
+        *resolve_population_columns(args.population_source),
+        *NIGHTLIGHT_FEATURE_COLUMNS,
+    ]
 
     # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
     # 相関行列は全候補列を対象とするため、モデルへ投入しない候補列も読み込む
@@ -1065,10 +1148,16 @@ def main() -> None:
         IN_ANALYSIS_AREA_COLUMN,
         LST_VALID_RATIO_COLUMN,
         VALID_GIS_MASK_COLUMN,
+        *auxiliary_mask_columns,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    # フィルタ列は投入列の上位集合であり、変数セットに依らず全て必要になる。
-    missing_columns = [column for column in filter_columns if column not in dataframe.columns]
+    # フィルタ列・有効域品質列・人口/夜間光の実測値列はいずれも投入列の上位集合で
+    # あり、変数セットに依らず全て必要になる。
+    missing_columns = [
+        column
+        for column in (*filter_columns, *auxiliary_mask_columns, *auxiliary_value_columns)
+        if column not in dataframe.columns
+    ]
     if missing_columns:
         raise ValueError(
             f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"

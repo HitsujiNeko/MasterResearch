@@ -13,18 +13,26 @@ import pytest
 from src.analysis.build_dataset import (
     MISSING_REASON_COLUMN,
     VALID_GIS_MASK_COLUMN,
+    VALID_NTL_MASK_COLUMN,
     VALID_SATELLITE_MASK_COLUMN,
+    WATER_COVERAGE_COLUMN,
+    WATER_DOMINANT_THRESHOLD,
+    add_auxiliary_quality_columns,
     add_quality_columns,
     classify_value_columns,
+    fill_missing_population_for_water_dominant_cells,
     join_tables,
     load_param_table,
     main,
     observation_key,
     parse_arguments,
+    population_filled_flag_column,
     report_match_counts,
+    report_population_fill,
     resolve_dataset_name,
     resolve_dataset_path,
     resolve_table_names,
+    valid_population_mask_column,
     validate_observation_consistency,
 )
 from src.analysis.urban_params.config import SCENARIO_TABLES
@@ -167,6 +175,31 @@ def test_parse_arguments_removes_duplicate_tables() -> None:
     )
 
     assert args.tables == ["build_gba", "road_osm"]
+
+
+def test_parse_arguments_water_dominant_threshold_defaults_to_the_primary_value() -> None:
+    """--water-dominant-threshold の既定値は主結果の基準（WATER_DOMINANT_THRESHOLD）。"""
+    args = parse_arguments(["--scale", "30", "--scenario", "limited"])
+
+    assert args.water_dominant_threshold == pytest.approx(WATER_DOMINANT_THRESHOLD)
+
+
+def test_parse_arguments_accepts_custom_water_dominant_threshold() -> None:
+    """--water-dominant-threshold は感度分析用に既定値以外を指定できる。"""
+    args = parse_arguments(
+        ["--scale", "30", "--scenario", "limited", "--water-dominant-threshold", "0.8"]
+    )
+
+    assert args.water_dominant_threshold == pytest.approx(0.8)
+
+
+@pytest.mark.parametrize("threshold", ["-0.1", "1.1"])
+def test_parse_arguments_rejects_water_dominant_threshold_out_of_range(threshold: str) -> None:
+    """--water-dominant-threshold が0.0〜1.0の範囲外なら弾く（被覆率のため）。"""
+    with pytest.raises(SystemExit):
+        parse_arguments(
+            ["--scale", "30", "--scenario", "limited", "--water-dominant-threshold", threshold]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -695,6 +728,254 @@ def test_add_quality_columns_does_not_mutate_input() -> None:
 
 
 # ---------------------------------------------------------------------------
+# add_auxiliary_quality_columns（人口・夜間光の有効域品質列）
+# ---------------------------------------------------------------------------
+
+
+def test_add_auxiliary_quality_columns_marks_nightlight_presence() -> None:
+    """NTL_MEANが非NULLなセルのみ VALID_NTL_MASK=1 になる。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2, 3], dtype=np.int64),
+            "NTL_MEAN": np.array([0.0, np.nan, 5.0], dtype=np.float32),
+            "NTL_VALID_RATIO": np.array([1.0, 1.0, 1.0], dtype=np.float32),
+        }
+    )
+
+    result = add_auxiliary_quality_columns(dataset, ["ntl_viirs2023"])
+
+    np.testing.assert_array_equal(
+        result[VALID_NTL_MASK_COLUMN].to_numpy(), np.array([1, 0, 1], dtype=np.int8)
+    )
+
+
+def test_add_auxiliary_quality_columns_marks_population_presence_per_source() -> None:
+    """人口ソースごとに独立した有効域品質列を付与する（他ソースの欠測に引きずられない）。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2], dtype=np.int64),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan, 3.0], dtype=np.float32),
+            "POP_DEN_LANDSCAN2020": np.array([1.0, np.nan], dtype=np.float32),
+        }
+    )
+
+    result = add_auxiliary_quality_columns(dataset, ["pop_worldpop2020", "pop_landscan2020"])
+
+    np.testing.assert_array_equal(
+        result[valid_population_mask_column("WORLDPOP2020")].to_numpy(),
+        np.array([0, 1], dtype=np.int8),
+    )
+    np.testing.assert_array_equal(
+        result[valid_population_mask_column("LANDSCAN2020")].to_numpy(),
+        np.array([1, 0], dtype=np.int8),
+    )
+
+
+def test_add_auxiliary_quality_columns_ignores_unrelated_tables() -> None:
+    """人口・夜間光以外のテーブルからは品質列を導出しない。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            "BUILD_COV": np.array([0.5], dtype=np.float32),
+        }
+    )
+
+    result = add_auxiliary_quality_columns(dataset, ["build_gba"])
+
+    assert VALID_NTL_MASK_COLUMN not in result.columns
+    assert valid_population_mask_column("WORLDPOP2020") not in result.columns
+
+
+def test_add_auxiliary_quality_columns_does_not_mutate_input() -> None:
+    """入力のデータフレームを破壊的に変更しない。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            "NTL_MEAN": np.array([1.0], dtype=np.float32),
+        }
+    )
+
+    add_auxiliary_quality_columns(dataset, ["ntl_viirs2023"])
+
+    assert VALID_NTL_MASK_COLUMN not in dataset.columns
+
+
+# ---------------------------------------------------------------------------
+# fill_missing_population_for_water_dominant_cells（水域優位セルの人口0補完）
+# ---------------------------------------------------------------------------
+
+
+def test_fill_missing_population_fills_only_water_dominant_null_cells() -> None:
+    """水域優位（既定0.9以上）かつNULLのセルのみ0で補完する。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2, 3, 4], dtype=np.int64),
+            WATER_COVERAGE_COLUMN: np.array([0.95, 0.5, 0.95, 0.0], dtype=np.float32),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan, np.nan, 5.0, np.nan], dtype=np.float32),
+        }
+    )
+
+    result, filled_counts = fill_missing_population_for_water_dominant_cells(
+        dataset, ["pop_worldpop2020"]
+    )
+
+    np.testing.assert_array_equal(
+        result["POP_DEN_WORLDPOP2020"].to_numpy(), np.array([0.0, np.nan, 5.0, np.nan])
+    )
+    np.testing.assert_array_equal(
+        result[population_filled_flag_column("WORLDPOP2020")].to_numpy(),
+        np.array([1, 0, 0, 0], dtype=np.int8),
+    )
+    assert filled_counts == {"POP_DEN_WORLDPOP2020": 1}
+
+
+def test_fill_missing_population_respects_custom_threshold() -> None:
+    """water_dominant_threshold を変えると、補完対象の境界が追従する。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2], dtype=np.int64),
+            WATER_COVERAGE_COLUMN: np.array([0.85, 0.75], dtype=np.float32),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan, np.nan], dtype=np.float32),
+        }
+    )
+
+    result, filled_counts = fill_missing_population_for_water_dominant_cells(
+        dataset, ["pop_worldpop2020"], water_dominant_threshold=0.8
+    )
+
+    np.testing.assert_array_equal(
+        result["POP_DEN_WORLDPOP2020"].to_numpy(), np.array([0.0, np.nan])
+    )
+    assert filled_counts == {"POP_DEN_WORLDPOP2020": 1}
+
+
+def test_fill_missing_population_ignores_non_population_tables() -> None:
+    """人口以外のテーブルは補完対象にしない（列自体を追加しない）。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            WATER_COVERAGE_COLUMN: np.array([1.0], dtype=np.float32),
+            "BUILD_COV": np.array([0.5], dtype=np.float32),
+        }
+    )
+
+    result, filled_counts = fill_missing_population_for_water_dominant_cells(dataset, ["build_gba"])
+
+    assert filled_counts == {}
+    assert population_filled_flag_column("WORLDPOP2020") not in result.columns
+
+
+def test_fill_missing_population_skips_when_water_coverage_column_absent() -> None:
+    """LULC_WATER_COV が結合されていない場合、水域優位を判定できないため補完しない。
+
+    フラグ列も付与しない（`add_quality_columns` が判定材料の列が無い場合に
+    品質管理列自体を付与しない方針と同じ理由）。
+    """
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan], dtype=np.float32),
+        }
+    )
+
+    result, filled_counts = fill_missing_population_for_water_dominant_cells(
+        dataset, ["pop_worldpop2020"]
+    )
+
+    assert filled_counts == {}
+    assert population_filled_flag_column("WORLDPOP2020") not in result.columns
+    assert pd.isna(result.loc[0, "POP_DEN_WORLDPOP2020"])
+
+
+def test_fill_missing_population_records_zero_when_nothing_qualifies() -> None:
+    """補完対象が0件でも、テーブルが結合されていればフラグ列・件数0を記録する。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2], dtype=np.int64),
+            WATER_COVERAGE_COLUMN: np.array([0.95, 0.1], dtype=np.float32),
+            "POP_DEN_WORLDPOP2020": np.array([5.0, 3.0], dtype=np.float32),
+        }
+    )
+
+    result, filled_counts = fill_missing_population_for_water_dominant_cells(
+        dataset, ["pop_worldpop2020"]
+    )
+
+    assert filled_counts == {"POP_DEN_WORLDPOP2020": 0}
+    np.testing.assert_array_equal(
+        result[population_filled_flag_column("WORLDPOP2020")].to_numpy(),
+        np.array([0, 0], dtype=np.int8),
+    )
+
+
+def test_fill_missing_population_handles_multiple_sources_independently() -> None:
+    """複数の人口ソースが同時に結合されていても、それぞれ独立に補完・集計する。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1, 2], dtype=np.int64),
+            WATER_COVERAGE_COLUMN: np.array([0.95, 0.95], dtype=np.float32),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan, np.nan], dtype=np.float32),
+            "POP_DEN_LANDSCAN2020": np.array([np.nan, 1.0], dtype=np.float32),
+        }
+    )
+
+    result, filled_counts = fill_missing_population_for_water_dominant_cells(
+        dataset, ["pop_worldpop2020", "pop_landscan2020"]
+    )
+
+    assert filled_counts == {"POP_DEN_WORLDPOP2020": 2, "POP_DEN_LANDSCAN2020": 1}
+    np.testing.assert_array_equal(result["POP_DEN_WORLDPOP2020"].to_numpy(), np.array([0.0, 0.0]))
+    np.testing.assert_array_equal(result["POP_DEN_LANDSCAN2020"].to_numpy(), np.array([0.0, 1.0]))
+
+
+def test_fill_missing_population_does_not_mutate_input() -> None:
+    """入力のデータフレームを破壊的に変更しない。"""
+    dataset = pd.DataFrame(
+        {
+            "cell_id": np.array([1], dtype=np.int64),
+            WATER_COVERAGE_COLUMN: np.array([0.95], dtype=np.float32),
+            "POP_DEN_WORLDPOP2020": np.array([np.nan], dtype=np.float32),
+        }
+    )
+
+    fill_missing_population_for_water_dominant_cells(dataset, ["pop_worldpop2020"])
+
+    assert pd.isna(dataset.loc[0, "POP_DEN_WORLDPOP2020"])
+    assert population_filled_flag_column("WORLDPOP2020") not in dataset.columns
+
+
+def test_population_filled_flag_column_builds_the_expected_name() -> None:
+    """フラグ列名は POP_FILLED_<接尾辞> の形式になる。"""
+    assert population_filled_flag_column("WORLDPOP2020") == "POP_FILLED_WORLDPOP2020"
+
+
+# ---------------------------------------------------------------------------
+# report_population_fill
+# ---------------------------------------------------------------------------
+
+
+def test_report_population_fill_prints_threshold_and_counts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """閾値とソースごとの補完セル数を出力する。"""
+    report_population_fill({"POP_DEN_WORLDPOP2020": 51_992, "POP_DEN_LANDSCAN2020": 0}, 0.9)
+
+    output = capsys.readouterr().out
+    assert "0.9" in output
+    assert "POP_DEN_WORLDPOP2020: 51,992" in output
+    assert "POP_DEN_LANDSCAN2020: 0" in output
+
+
+def test_report_population_fill_prints_nothing_when_no_population_tables(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """人口テーブルが1つも結合されていない場合（辞書が空）、何も出力しない。"""
+    report_population_fill({}, 0.9)
+
+    assert capsys.readouterr().out == ""
+
+
+# ---------------------------------------------------------------------------
 # 合成グリッドでの compute -> tables -> build_dataset のE2E検証
 # ---------------------------------------------------------------------------
 
@@ -893,6 +1174,115 @@ def test_end_to_end_scenario_expands_to_tables(city_environment: dict[str, Any])
     assert "ntl_bm2023" not in SCENARIO_TABLES["limited"]
     # 標高・土地被覆は VALID_GIS_MASK の判定材料に含めないため、建物・道路が無いセルは0のまま。
     assert (dataset[VALID_GIS_MASK_COLUMN] == 0).any()
+    # 人口3版・夜間光それぞれの有効域品質列が導出される（合成データはROI全域を
+    # 覆うため、全セルで1になる）。
+    assert VALID_NTL_MASK_COLUMN in dataset.columns
+    for suffix in ("WORLDPOP2020", "LANDSCAN2020", "LANDSCAN2023"):
+        assert valid_population_mask_column(suffix) in dataset.columns
+        # 合成データは水域被覆・人口とも欠測を作り込んでいないため、水域優位0補完の
+        # フラグ列は存在するが全セル0になる（列自体が結線されていることの確認）。
+        assert (dataset[population_filled_flag_column(suffix)] == 0).all()
+
+
+def test_end_to_end_custom_water_dominant_threshold_flows_through_to_the_report(
+    city_environment: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--water-dominant-threshold の指定値が補完処理・報告まで届く。
+
+    CLI引数 → main() → build_dataset() →
+    fill_missing_population_for_water_dominant_cells() → report_population_fill()
+    の結線を、コンソール出力に指定した閾値が現れることで確認する
+    （合成データは水域優位×NULLの重なりを作り込んでいないため、補完件数自体は
+    既定・カスタムのいずれでも0件になる。閾値の受け渡しの確認に限定する）。
+    """
+    _run_param_calculation(city_environment, ["--params", "pop_worldpop2020", "lulc_glc2022"])
+
+    _run_build_dataset(
+        city_environment,
+        ["--tables", "pop_worldpop2020", "lulc_glc2022", "--name", "custom_threshold"],
+    )
+    default_output = capsys.readouterr().out
+    assert f"LULC_WATER_COV >= {WATER_DOMINANT_THRESHOLD}" in default_output
+
+    _run_build_dataset(
+        city_environment,
+        [
+            "--tables",
+            "pop_worldpop2020",
+            "lulc_glc2022",
+            "--name",
+            "custom_threshold_08",
+            "--water-dominant-threshold",
+            "0.8",
+        ],
+    )
+    custom_output = capsys.readouterr().out
+    assert "LULC_WATER_COV >= 0.8" in custom_output
+
+
+def test_end_to_end_water_dominant_null_cell_becomes_valid_after_fill(
+    city_environment: dict[str, Any],
+) -> None:
+    """水域優位×人口NULLのセルが、build_dataset() 経由で実際に補完・有効判定される。
+
+    単体テスト（`test_fill_missing_population_*` / `test_add_auxiliary_quality_columns_*`）は
+    2つの関数をそれぞれ正しい順序で個別に呼んだ場合のみを検証しており、
+    `build_dataset()` 内でこの2関数の呼び出し順が入れ替わる回帰は検知できない
+    （`fill_missing_population_for_water_dominant_cells` を後にすると、品質列が
+    「NULLのまま」の状態で有効域を判定してしまい `VALID_POP_WORLDPOP2020_MASK` が
+    誤って0になる）。合成のパラメータテーブルを直接書き出し、`build_dataset()` を
+    実際に通した結果で確認する。
+    """
+    cell_ids = city_environment["cell_ids_by_scale"][TARGET_SCALE]
+    water_dominant_null_cell = int(cell_ids[0])
+    ordinary_cell = int(cell_ids[1])
+
+    params_root = city_environment["root"] / "params" / CITY / f"{TARGET_SCALE}m"
+    _write_table(
+        params_root / "pop_worldpop2020.gpkg",
+        "pop_worldpop2020",
+        pd.DataFrame(
+            {
+                "cell_id": np.array([water_dominant_null_cell, ordinary_cell], dtype=np.int64),
+                "POP_DEN_WORLDPOP2020": np.array([np.nan, 3.0], dtype=np.float32),
+                "POP_VALID_RATIO_WORLDPOP2020": np.array([0.0, 1.0], dtype=np.float32),
+            }
+        ),
+    )
+    _write_table(
+        params_root / "lulc_glc2022.gpkg",
+        "lulc_glc2022",
+        pd.DataFrame(
+            {
+                "cell_id": np.array([water_dominant_null_cell, ordinary_cell], dtype=np.int64),
+                "LULC_WATER_COV": np.array([0.95, 0.1], dtype=np.float32),
+                "LULC_TREE_COV": np.array([0.0, 0.4], dtype=np.float32),
+                "LULC_CROP_COV": np.array([0.0, 0.3], dtype=np.float32),
+                "LULC_BUILT_COV": np.array([0.05, 0.2], dtype=np.float32),
+                "LULC_RANGE_COV": np.array([0.0, 0.0], dtype=np.float32),
+                "LULC_WETLAND_COV": np.array([0.0, 0.0], dtype=np.float32),
+                "LULC_BARE_COV": np.array([0.0, 0.0], dtype=np.float32),
+                "LULC_VALID_RATIO": np.array([1.0, 1.0], dtype=np.float32),
+            }
+        ),
+    )
+
+    _run_build_dataset(
+        city_environment,
+        ["--tables", "pop_worldpop2020", "lulc_glc2022", "--name", "water_fill_e2e"],
+    )
+
+    dataset = _read_dataset(city_environment, "water_fill_e2e").set_index("cell_id")
+    filled_column = population_filled_flag_column("WORLDPOP2020")
+    mask_column = valid_population_mask_column("WORLDPOP2020")
+
+    assert dataset.loc[water_dominant_null_cell, "POP_DEN_WORLDPOP2020"] == pytest.approx(0.0)
+    assert dataset.loc[water_dominant_null_cell, filled_column] == 1
+    # 呼び出し順を守っていれば、補完済みの実測0を有効域品質列が正しく拾う。
+    assert dataset.loc[water_dominant_null_cell, mask_column] == 1
+    # 対照セル（水域優位でなく、元から値がある）は補完・フラグの対象にならない。
+    assert dataset.loc[ordinary_cell, filled_column] == 0
+    assert dataset.loc[ordinary_cell, mask_column] == 1
 
 
 def test_end_to_end_missing_table_stops_before_writing(

@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-08-28  
+**最終更新**: 2026-08-31  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -229,7 +229,7 @@ MasterResearch/
 ├── tests/          # pytestテスト
 ├── data/           # 研究データ（衛星・GIS・入出力。Git管理外を含む）
 ├── qgis/           # QGISワークスペース（プロジェクト・スタイル・テンプレート）
-├── images/         # 視覚的記録（GIS図。`gis_data/` は取得データ、`urban_params/` は算出パラメータ。Git追跡）
+├── images/         # 視覚的記録（GIS図。`gis_data/` は取得データ、`urban_params/` は算出パラメータ、`limited/` は分析シナリオの検証図。Git追跡）
 └── 整備データ/     # ベトナム測量データ（統合GeoPackage）
 ```
 

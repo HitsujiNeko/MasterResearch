@@ -416,7 +416,7 @@ WHERE d.IN_ANALYSIS_AREA = 1 AND d.LST IS NOT NULL AND d.LST_VALID_RATIO >= 0.5
 
 [^oldtable]: 旧方式のパラメータテーブルは本節の再算出で上書きされているため再測定できず、53,784 がどの版で測られたかは特定できない。53,717 との差（67セル）はテーブルの版の違いによる想定内の差として扱う。
 
-6 と 21 の差は方式の残存差ではなく**観測シーンの有効域の広さの違い**（LST有効セルが1.71倍）による。各数値の分析側からの読み方は [limited_analysis_results.md](../../03_results/limited_analysis_results.md) 1.3節・3.8節・3.9節を参照する。
+6 と 21 の差は方式の残存差ではなく**観測シーンの有効域の広さの違い**（LST有効セルが1.71倍）による。各数値の分析側からの読み方は、観測 20230707_032305（21セル）が [limited_analysis_results.md](../../03_results/limited_analysis_results.md) 1.2節・3.8節、観測 20230707_032329（53,717セル）が [limited_analysis_results_20230707_032329.md](../../04_archive/limited_analysis_results_20230707_032329.md) 3.8節にある。
 
 ### 3.8 主題図（可視化、30m/300m）
 

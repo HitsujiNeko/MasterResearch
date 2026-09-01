@@ -93,11 +93,11 @@ docs/
 | [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（新経路・cell_id結合） | 1観測日（30m）のベースライン、物理的に等間隔なブロックによるSpatial CV、SHAP、境界セル影響の概算 | `src/analysis/analysis_rq3_satellite_only.py` |
 | [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合・観測20230707_032305） | 単一観測11ランの台帳（1ラン=1行）と標本統制の可否、ラン間で共通の処理条件（フィルタ脱落と欠損値処理の診断・水域被覆の偏り・分析実行前のモデル前提の精査）、モデル性能・変数重要度・多重共線性をランを横断して整理。変数セット軸（spectral/coverage/both）・建物高さ構成軸（both/mean/max/pc1）・人口ソース軸・土地被覆ソース軸の比較と採用構成の根拠を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
 
-### 📦 04_archive - アーカイブ・先行研究
+### 📦 04_archive - アーカイブ（旧結果・先行研究・文献管理）
 
 | ファイル名 | 概要 | 主要な内容 | 活用場面 |
 |-----------|------|-----------|---------|
-| [README.md](04_archive/README.md) | 04_archiveフォルダ案内 | フォルダ構成・ファイル一覧（詳細は literature_management_guide.md が正本） | フォルダ構成の確認時 |
+| [README.md](04_archive/README.md) | 04_archiveフォルダ案内 | フォルダ構成・ファイル一覧・旧結果アーカイブ規定（文献管理の詳細は literature_management_guide.md が正本） | フォルダ構成・旧結果の確認時 |
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理・活用ガイド | 3層構造の思想、Claude Code中心の文献調査フロー | 文献調査・論文追加時 |
 | [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S10の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [limited_analysis_results_20230707_032329.md](04_archive/limited_analysis_results_20230707_032329.md) | Limited シナリオ分析結果（観測20230707_032329・アーカイブ） | 旧ラン1〜13の記録。アーカイブへ移した理由（カバレッジ・建物高さの帰属方式・nodata方針の食い違い）、旧ラン番号と現行ラン番号の対応表、旧観測での台帳・モデル性能・変数重要度・多重共線性 | 旧結果の参照時（現行結果は `03_results/limited_analysis_results.md`） |

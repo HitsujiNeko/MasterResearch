@@ -77,12 +77,12 @@ from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
 from src.common.summary import save_summary  # noqa: E402
 
-# 分析対象は着手時点で30m・単一観測日（2023-07-07 03:23:29Z）に限定する
+# 分析対象は30m・単一観測日（2023-07-07 03:23:05Z）に限定する
 # （Satellite Onlyと同じ制約。他日時・他スケールの拡張は別途行う）。
 DEFAULT_DATASET_PATH = (
-    PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20230707_032329_hanoi_30m.gpkg"
+    PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20230707_032305_hanoi_30m.gpkg"
 )
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / "20230707_032329"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / "20230707_032305"
 # 説明変数はブロック単位で持ち、`resolve_feature_columns()` が変数セット・建物高さ
 # 構成の指定に応じて組み立てる。比較軸を「分光指数 vs 被覆率型」に絞るため、変数
 # セットで差し替えるのは SPECTRAL と LULC の2ブロックだけで、それ以外は全構成に

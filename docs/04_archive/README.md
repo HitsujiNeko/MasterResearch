@@ -1,9 +1,11 @@
 # 04_archive - アーカイブ
 
-**最終更新**: 2026-08-13  
+**最終更新**: 2026-09-01  
 **関連ドキュメント**: [literature_management_guide.md](literature_management_guide.md)
 
 このフォルダには、参考資料や完了済みのドキュメント、先行研究の整理などを格納します。文献管理の思想・運用フローの詳細は上記を正本とし、本 README はフォルダ構成の案内に徹する。
+
+**分析結果のアーカイブも本フォルダへ置く。** 定義が変わって現行の結果と直接比較できなくなった結果ドキュメントは、`git mv` で履歴を保持したまま移し、冒頭に「アーカイブへ移した理由」と現行ドキュメントへの対応表を付ける。
 
 ## 📁 フォルダ構成
 
@@ -14,6 +16,7 @@
 ├── previous_studies_report.md          # 先行研究の事実整理（S1〜S10、マスター）
 ├── claude_project_instructions.md      # Claude Projects プロジェクト指示（コピペ用）
 ├── claude_project_knowledge.md         # Claude Projects ナレッジ（アップロード用）
+├── limited_analysis_results_20230707_032329.md  # Limited 旧結果（観測032329・旧ラン1〜13）
 │
 ├── 01_metadata/
 │   └── papers_database.csv             # 全論文の基本情報（CSV）
@@ -44,6 +47,7 @@
 | ファイル | 役割 |
 |----------|------|
 | [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S10）。概要把握・一覧のマスター |
+| [limited_analysis_results_20230707_032329.md](limited_analysis_results_20230707_032329.md) | Limited シナリオの旧結果（観測 20230707_032329・旧ラン1〜13）。現行結果は [../03_results/limited_analysis_results.md](../03_results/limited_analysis_results.md) |
 | [literature_management_guide.md](literature_management_guide.md) | 3層構造の思想と Claude Code 中心の文献調査フロー |
 | [claude_project_instructions.md](claude_project_instructions.md) | claude.ai 文献調査用プロジェクトの「プロジェクト指示」欄にコピペする指示文（正本） |
 | [claude_project_knowledge.md](claude_project_knowledge.md) | claude.ai プロジェクトナレッジにアップロードする凝縮版（研究概要・RQ・先行研究サマリー） |
@@ -54,8 +58,9 @@
 
 ## 🎯 このフォルダの目的
 
-研究の背景資料・先行研究を、AI が横断検索・比較・引用しやすい形で整理する。
+研究の背景資料・先行研究を、AI が横断検索・比較・引用しやすい形で整理する。あわせて、現行の定義では再現できない旧結果を、誤用を防ぐ注記つきで保存する。
 
+- 旧結果の保存（`limited_analysis_results_20230707_032329.md`）
 - 先行研究の事実整理（`previous_studies_report.md`）
 - 論文メタデータのデータベース化（`01_metadata/`）
 - 個別論文の構造化要約（`02_structured_summaries/`）と PDF 原典（`04_pdfs/`）

@@ -102,7 +102,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario satellit
   - 非空ブロック数: 509（脱落集計の基準段階ベース）、508（フィルタ後全数ベース）、504（10万件サンプル後ベース）
 - SHAP: 評価サンプル `2,000` / background `500`
 
-**`--random-state`（42）と `--rf-trees`（300）は `results.json` に記録されない。** いずれも既定値のまま実行しており、再現には引数を省略した実行を用いる。
+**`--random-state`（42）と `--rf-trees`（300）は `results.json` に記録されない。** いずれも既定値のまま実行したが、**既定値が変われば引数を省略した再実行では同じ条件を再現できず、旧ランとの条件一致も結果ファイルからは監査できない**。再現時は `--random-state 42 --rf-trees 300` を明示する。実行条件そのものを `results.json` へ記録する改善は、Limited と共通の出力仕様の変更となるため別途扱う。
 
 ### 3.5 出力ファイル
 

@@ -1,6 +1,6 @@
 # 04_archive - アーカイブ
 
-**最終更新**: 2026-09-01  
+**最終更新**: 2026-09-02  
 **関連ドキュメント**: [literature_management_guide.md](literature_management_guide.md)
 
 このフォルダには、参考資料や完了済みのドキュメント、先行研究の整理などを格納します。文献管理の思想・運用フローの詳細は上記を正本とし、本 README はフォルダ構成の案内に徹する。
@@ -17,6 +17,7 @@
 ├── claude_project_instructions.md      # Claude Projects プロジェクト指示（コピペ用）
 ├── claude_project_knowledge.md         # Claude Projects ナレッジ（アップロード用）
 ├── limited_analysis_results_20230707_032329.md  # Limited 旧結果（観測032329・旧ラン1〜13）
+├── satellite_only_analysis_results_cellbased_20230707_032329.md  # Satellite Only 旧結果（観測032329）
 │
 ├── 01_metadata/
 │   └── papers_database.csv             # 全論文の基本情報（CSV）
@@ -48,6 +49,7 @@
 |----------|------|
 | [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S10）。概要把握・一覧のマスター |
 | [limited_analysis_results_20230707_032329.md](limited_analysis_results_20230707_032329.md) | Limited シナリオの旧結果（観測 20230707_032329・旧ラン1〜13）。現行結果は [../03_results/limited_analysis_results.md](../03_results/limited_analysis_results.md) |
+| [satellite_only_analysis_results_cellbased_20230707_032329.md](satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only シナリオ（cell_id結合経路）の旧結果（観測 20230707_032329）。旧ピクセル経路からの移植の等価性確認はここにのみ残る。現行結果は [../03_results/satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) |
 | [literature_management_guide.md](literature_management_guide.md) | 3層構造の思想と Claude Code 中心の文献調査フロー |
 | [claude_project_instructions.md](claude_project_instructions.md) | claude.ai 文献調査用プロジェクトの「プロジェクト指示」欄にコピペする指示文（正本） |
 | [claude_project_knowledge.md](claude_project_knowledge.md) | claude.ai プロジェクトナレッジにアップロードする凝縮版（研究概要・RQ・先行研究サマリー） |
@@ -60,7 +62,7 @@
 
 研究の背景資料・先行研究を、AI が横断検索・比較・引用しやすい形で整理する。あわせて、現行の定義では再現できない旧結果を、誤用を防ぐ注記つきで保存する。
 
-- 旧結果の保存（`limited_analysis_results_20230707_032329.md`）
+- 旧結果の保存（`limited_analysis_results_20230707_032329.md`・`satellite_only_analysis_results_cellbased_20230707_032329.md`）
 - 先行研究の事実整理（`previous_studies_report.md`）
 - 論文メタデータのデータベース化（`01_metadata/`）
 - 個別論文の構造化要約（`02_structured_summaries/`）と PDF 原典（`04_pdfs/`）

@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-08-31  
+**最終更新**: 2026-09-02  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -90,7 +90,7 @@ docs/
 | [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認、Full シナリオ接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | Satellite Only 分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果（旧経路・ピクセル単位） | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | （2026-04-21時点のスクリプトによる記録。`analysis_rq3_satellite_only.py` はcell_id結合経路へ書き換え済みのため再現不可） |
-| [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（新経路・cell_id結合） | 1観測日（30m）のベースライン、物理的に等間隔なブロックによるSpatial CV、SHAP、境界セル影響の概算 | `src/analysis/analysis_rq3_satellite_only.py` |
+| [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（cell_id結合・観測20230707_032305） | 分光指数3変数のベースライン、フィルタ脱落の診断（母数のファネル・脱落の空間的な集中）、物理的に等間隔なブロックによるSpatial CV、SHAP、ブロック境界の残差リークの実測。Limited と同一観測・同一格子であり、シナリオ間比較は `limited_analysis_results.md` 6.7節が正本 | `src/analysis/analysis_rq3_satellite_only.py` |
 | [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合・観測20230707_032305） | 単一観測11ランの台帳（1ラン=1行）と標本統制の可否、ラン間で共通の処理条件（フィルタ脱落と欠損値処理の診断・水域被覆の偏り・分析実行前のモデル前提の精査）、モデル性能・変数重要度・多重共線性をランを横断して整理。変数セット軸（spectral/coverage/both）・建物高さ構成軸（both/mean/max/pc1）・人口ソース軸・土地被覆ソース軸の比較と採用構成の根拠を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
 
 ### 📦 04_archive - アーカイブ（旧結果・先行研究・文献管理）
@@ -101,6 +101,7 @@ docs/
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理・活用ガイド | 3層構造の思想、Claude Code中心の文献調査フロー | 文献調査・論文追加時 |
 | [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S10の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [limited_analysis_results_20230707_032329.md](04_archive/limited_analysis_results_20230707_032329.md) | Limited シナリオ分析結果（観測20230707_032329・アーカイブ） | 旧ラン1〜13の記録。アーカイブへ移した理由（カバレッジ・建物高さの帰属方式・nodata方針の食い違い）、旧ラン番号と現行ラン番号の対応表、旧観測での台帳・モデル性能・変数重要度・多重共線性 | 旧結果の参照時（現行結果は `03_results/limited_analysis_results.md`） |
+| [satellite_only_analysis_results_cellbased_20230707_032329.md](04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only 分析結果（観測20230707_032329・アーカイブ） | 旧観測での記録。アーカイブへ移した理由（観測・母数の食い違い）、現行ドキュメントとの対応表、旧ピクセル経路からの移植の等価性確認（ゴールデン比較・本ドキュメントにのみ残る） | 旧結果の参照時（現行結果は `03_results/satellite_only_analysis_results_cellbased.md`） |
 | [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 10論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
 | [claude_project_instructions.md](04_archive/claude_project_instructions.md) | Claude Projects プロジェクト指示 | claude.ai の文献調査用プロジェクトにコピペする指示文（正本） | Claude Projects セットアップ・指示変更時 |
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |

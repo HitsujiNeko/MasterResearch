@@ -54,14 +54,14 @@
 
 ## 1. 位置づけ
 
-RQ3 では Full / Limited / Satellite Only の3シナリオを比較する。Satellite Only は cell_id結合の新経路で既に成立済み（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)）であり、本ドキュメントは公開GISと衛星指標を組み合わせた **Limited** シナリオの評価結果を記録する。Full シナリオ（測量GISの追加）は本ドキュメントの対象外（未着手）。
+RQ3 では Full / Limited / Satellite Only の3シナリオを比較する。Satellite Only は cell_id結合の新経路で既に成立済み（当時の結果は [satellite_only_analysis_results_cellbased_20230707_032329.md](satellite_only_analysis_results_cellbased_20230707_032329.md)）であり、本ドキュメントは公開GISと衛星指標を組み合わせた **Limited** シナリオの評価結果を記録する。Full シナリオ（測量GISの追加）は本ドキュメントの対象外（未着手）。
 
 ### 1.1 数値を比較してよい範囲
 
 本ドキュメントは**複数のランを台帳（2節）に並べて記録する**。ランの追加にあたって、数値を直接比較してよいかどうかは次の基準で判断する。
 
 - **比較してよい**: パイプライン（`build_dataset` → `analysis_rq3_limited`）と正準グリッドが同一で、観測日・スケールが揃っているラン。台帳の同一グループ内がこれにあたる
-- **比較してはならない**: 格子やパイプラインが異なるもの。[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) との比較は特徴量集合が異なるため参考にとどめる（6.7節）
+- **比較してはならない**: 格子やパイプラインが異なるもの。同観測の Satellite Only（[satellite_only_analysis_results_cellbased_20230707_032329.md](satellite_only_analysis_results_cellbased_20230707_032329.md)）との比較も特徴量集合が異なるため参考にとどめる（6.7節）。**現行の Satellite Only の結果（[../03_results/satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)）は観測032305 に基づくため、本ドキュメントの数値とは比較できない**
 - **標本まで揃っているか**を併せて確認する。母数が揃っていても抽出された10万件が同一とは限らず、母数が数十セル違うだけで標本はほぼ別物になる（2.1節）
 
 ### 1.2 数値の正本

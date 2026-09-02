@@ -224,7 +224,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 
 ```powershell
 python -m src.analysis.analysis_rq3_satellite_only `
-  --dataset-path data/output/datasets/dataset_satellite_only_20230707_032329_hanoi_30m.gpkg `
+  --dataset-path data/output/datasets/dataset_satellite_only_20230707_032305_hanoi_30m.gpkg `
   --lst-valid-ratio-threshold 0.5 `
   --sample-size 100000 `
   --cv-splits 5 `
@@ -232,7 +232,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
   --rf-trees 300
 ```
 
-引数を省略すると、既定値（30m・`20230707_032329`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章参照）。
+引数を省略すると、既定値（30m・`20230707_032305`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章参照）。
 
 ---
 

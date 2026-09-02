@@ -1,0 +1,209 @@
+{
+  "scenario": "Satellite Only",
+  "dataset_path": "data/output/datasets/dataset_satellite_only_20230707_032305_hanoi_30m.gpkg",
+  "sample_path": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_sample_100000.csv",
+  "sample_size": 100000,
+  "train_size": 80000,
+  "test_size": 20000,
+  "features": [
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "lst_valid_ratio_threshold": 0.5,
+  "filter_dropout": {
+    "stages": {
+      "dataset_row_count": 3739454,
+      "mask_passed": 3736107,
+      "target_available": 3337319,
+      "feature_complete": 3317272,
+      "sampled": 100000
+    },
+    "base_stage": "target_available",
+    "dropped_count": 20047,
+    "dropped_ratio": 0.00600691752871092,
+    "columns": {
+      "NDVI": {
+        "null_count": 20047,
+        "exclusive_null_count": 0,
+        "target_mean": 31.08835792541504
+      },
+      "NDBI": {
+        "null_count": 20047,
+        "exclusive_null_count": 0,
+        "target_mean": 31.08835792541504
+      },
+      "NDWI": {
+        "null_count": 20047,
+        "exclusive_null_count": 0,
+        "target_mean": 31.08835792541504
+      }
+    },
+    "column_groups": {
+      "spectral_indices": {
+        "null_count": 20047,
+        "exclusive_null_count": 20047,
+        "target_mean": 31.08835792541504
+      }
+    },
+    "dropped_summary": {
+      "NDVI": {
+        "dropped": {
+          "mean": null,
+          "non_null_count": 0
+        },
+        "final": {
+          "mean": 0.5114462375640869,
+          "non_null_count": 3317272
+        }
+      },
+      "NDBI": {
+        "dropped": {
+          "mean": null,
+          "non_null_count": 0
+        },
+        "final": {
+          "mean": -0.23742179572582245,
+          "non_null_count": 3317272
+        }
+      },
+      "NDWI": {
+        "dropped": {
+          "mean": null,
+          "non_null_count": 0
+        },
+        "final": {
+          "mean": -0.48157790303230286,
+          "non_null_count": 3317272
+        }
+      }
+    },
+    "missing_summary_columns": [],
+    "target_distribution": {
+      "before": {
+        "count": 3337319,
+        "mean": 35.466678619384766,
+        "std": 2.5368294715881348,
+        "min": 23.850906372070312,
+        "p1": 29.275712928771974,
+        "p25": 34.045114517211914,
+        "p50": 35.18649673461914,
+        "p75": 36.70134353637695,
+        "p99": 42.079248962402346,
+        "max": 51.56639099121094
+      },
+      "after": {
+        "count": 3317272,
+        "mean": 35.493133544921875,
+        "std": 2.5180726051330566,
+        "min": 24.10317039489746,
+        "p1": 29.34852569580078,
+        "p25": 34.06842803955078,
+        "p50": 35.1993293762207,
+        "p75": 36.71674346923828,
+        "p99": 42.085261535644534,
+        "max": 51.56639099121094
+      }
+    },
+    "spatial_blocks": {
+      "n_blocks": 509,
+      "block_size_m": 2700,
+      "dropped_ratio": {
+        "median": 0.0,
+        "p90": 0.035870571025951904,
+        "p99": 0.3295561697731344,
+        "max": 1.0
+      },
+      "blocks_over_50pct": 3
+    },
+    "note": "target_available（基準段階）はmask_passedを通過し、かつLSTが非NULL、かつLST_VALID_RATIO>=0.5の行。mask_passedはrequired_mask_columns（['IN_ANALYSIS_AREA']）依存であり、Limited/Fullシナリオでは--require-valid-gis-maskの有無で中身が変わる。target_distributionの「前」はtarget_available、「後」はfeature_complete（sampledではない）の分布。columns.null_countは重複計上であり、列ごとの和はdropped_countを上回りうる。spatial_blocks.n_blocksは基準段階の母集団に対する非空ブロック数であり、spatial_cv.block_definition.n_blocks（分析サンプルに対する値）とは一致しない。columns.exclusive_null_countは、同時にNULL/非NULLになる列の対では両方とも0になる（要因としての大きさはcolumn_groups側で読むこと）。"
+  },
+  "random_split": {
+    "linear_regression": {
+      "metrics": {
+        "r2": 0.4827613830566406,
+        "rmse": 1.8233398672866676,
+        "mae": 1.3506883382797241
+      },
+      "standardized_coefficients": {
+        "NDVI": -1.0826210975646973,
+        "NDBI": 0.5280056595802307,
+        "NDWI": -1.207927942276001
+      }
+    },
+    "random_forest": {
+      "metrics": {
+        "r2": 0.6376393367033705,
+        "rmse": 1.5261340183884846,
+        "mae": 1.1079546892477612
+      },
+      "feature_importance": {
+        "NDVI": 0.14698229948051986,
+        "NDBI": 0.6619467954734395,
+        "NDWI": 0.19107090504604074
+      },
+      "permutation_importance": {
+        "NDVI": 0.16307436466752898,
+        "NDBI": 0.6652533203690603,
+        "NDWI": 0.250959196373119
+      }
+    }
+  },
+  "spatial_cv": {
+    "cv_splits": 5,
+    "linear_regression": {
+      "r2_mean": 0.47672300338745116,
+      "r2_std": 0.037342587453906305,
+      "rmse_mean": 1.8129232304667902,
+      "rmse_std": 0.08717851668421832,
+      "mae_mean": 1.3444610357284545,
+      "mae_std": 0.0450438131503513
+    },
+    "random_forest": {
+      "r2_mean": 0.6296907824978193,
+      "r2_std": 0.0404273439836057,
+      "rmse_mean": 1.5239792704153934,
+      "rmse_std": 0.09988811783371516,
+      "mae_mean": 1.1084132644285265,
+      "mae_std": 0.051496621524824225
+    },
+    "block_definition": {
+      "block_size_m": 2700,
+      "n_blocks": 504
+    },
+    "outputs": {
+      "fold_metrics_csv": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_spatial_cv_folds.csv",
+      "spatial_cv_png": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_spatial_cv.png"
+    }
+  },
+  "vif": {
+    "NDVI": 26.827148846624944,
+    "NDBI": 1.5101136346554962,
+    "NDWI": 25.1451421206058
+  },
+  "vif_non_finite_features": [],
+  "shap": {
+    "sample_size": 2000,
+    "background_size": 500,
+    "mean_abs_shap": {
+      "NDBI": 1.148093467398765,
+      "NDVI": 0.45542513775940474,
+      "NDWI": 0.4282878636423412
+    },
+    "outputs": {
+      "shap_importance_csv": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_shap_importance.csv",
+      "shap_summary_png": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_shap_summary.png",
+      "shap_bar_png": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_shap_bar.png",
+      "shap_dependence_png": {
+        "NDVI": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_shap_dependence_NDVI.png",
+        "NDBI": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_shap_dependence_NDBI.png",
+        "NDWI": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_shap_dependence_NDWI.png"
+      }
+    }
+  },
+  "outputs": {
+    "feature_importance_csv": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_feature_importance.csv",
+    "model_comparison_png": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_model_comparison.png",
+    "feature_importance_png": "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_feature_importance.png"
+  }
+}

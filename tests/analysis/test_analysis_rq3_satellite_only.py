@@ -77,9 +77,9 @@ class TestResolveOutputStem:
 
     def test_uses_dataset_filename_stem(self) -> None:
         """データセットファイル名（拡張子を除く）を出力接頭辞として使う。"""
-        path = Path("data/output/datasets/dataset_satellite_only_20230707_032329_hanoi_30m.gpkg")
+        path = Path("data/output/datasets/dataset_satellite_only_20230707_032305_hanoi_30m.gpkg")
 
-        assert resolve_output_stem(path) == "dataset_satellite_only_20230707_032329_hanoi_30m"
+        assert resolve_output_stem(path) == "dataset_satellite_only_20230707_032305_hanoi_30m"
 
 
 def _quality_dataframe(n: int = 10) -> pd.DataFrame:

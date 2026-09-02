@@ -182,7 +182,7 @@ BUILDING_HEIGHT_MODES = (
     BUILDING_HEIGHT_MODE_PC1,
 )
 # 既定は mean。3構成を同一セル上で比較した結果、VIFはいずれも危険水準を大きく下回り
-# （2.46〜2.89）、説明力・重要度・SHAPに区別できる差が無かったため、
+# （1.72〜1.83）、説明力・重要度・SHAPに区別できる差が無かったため、
 # 「セル内の平均建物高さ」として物理的な意味が直接読める生の観測列を採った
 # （比較の実測値と判断は `docs/03_results/limited_analysis_results.md` を正本とする）。
 # **出力名の省略基準は既定ではなく both という値であり**（`resolve_output_stem` 参照）、

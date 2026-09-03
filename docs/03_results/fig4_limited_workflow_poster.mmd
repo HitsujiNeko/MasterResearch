@@ -1,0 +1,20 @@
+---
+config:
+  layout: fixed
+---
+flowchart LR
+    I["Satellite and open GIS<br>Landsat 8, buildings, roads,<br>land cover, population,<br>night lights, elevation"] --> P["Urban parameters<br>zonal statistics onto the<br>30 m canonical grid,<br>one row per cell_id"]
+    P --> Q["Quality control<br>valid area, non-null,<br>LST valid ratio at least 0.5<br>3,274,665 cells"]
+    Q --> S["Sampling<br>100,000 cells<br>random seed 42"]
+    S --> M["Models<br>MLR and random forest<br>15 predictors"]
+    M --> E["Evaluation<br>5-fold spatial CV<br>on 2,700 m blocks<br>SHAP"]
+
+     I:::input
+     P:::process
+     Q:::process
+     S:::process
+     M:::result
+     E:::result
+    classDef input fill:#f3ecc9,stroke:#4b5563,stroke-width:1.6px,color:#111827
+    classDef process fill:#d9eadf,stroke:#4b5563,stroke-width:1.6px,color:#111827
+    classDef result fill:#f2ddcf,stroke:#4b5563,stroke-width:1.6px,color:#111827

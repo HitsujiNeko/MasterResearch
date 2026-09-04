@@ -34,14 +34,18 @@
 
 | 位置 | # | パネル | 幅 | 高さ | 主な内容 |
 |---|---|---|---|---|---|
-| 全幅 | 1 | Background | 553.7 mm | 56 mm | 散文 |
-| 全幅 | 2 | Study area and datasets | 553.7 mm | 142 mm | ROI 位置図（120 × 97 mm）・LST 図（67 × 97 mm）・データセット一覧表（341 mm 幅） |
-| 全幅 | 3 | From datasets to urban parameters | 553.7 mm | 148 mm | ワークフロー図（542 × 48 mm）・定義・算出済みラスタ 6 点（各 41 mm 幅） |
-| 左列 | 4 | Results | 270.9 mm | 152 mm | 表 2 点と読み方 |
-| 左列 | 6 | Conclusions and limitations | 270.9 mm | 86.5 mm | 箇条書き |
-| 右列 | 5 | Variable importance | 270.9 mm | 250.5 mm | SHAP 図（204 × 144 mm）・順位表 |
+| 全幅 | 1 | Background | 553.7 mm | 65 mm | 散文＋研究設問の枠 |
+| 全幅 | 2 | Study area and datasets | 553.7 mm | 134 mm | ROI 位置図（101 × 89 mm）・LST 図（61 × 89 mm）・データセット一覧表（362 mm 幅） |
+| 全幅 | 3 | From datasets to urban parameters | 553.7 mm | 134 mm | ワークフロー図（542 × 48 mm）・定義・算出済みラスタ 6 点（各 31 mm 幅） |
+| 左列 | 4 | Results | 270.9 mm | 222 mm | モデル性能表・読み方・SHAP 依存プロット（243 × 106 mm） |
+| 右列 | 5 | Variable importance | 270.9 mm | 222 mm | SHAP 棒グラフ（192 × 104 mm）・順位表 |
+| 全幅 | 6 | Conclusions and limitations | 553.7 mm | 40 mm | 2 列の箇条書き |
+
+**読み順は「全幅 → 2 列 → 全幅」にそろえる。** パネル 1〜3 を全幅で上から読み、パネル 4（左）・5（右）へ分かれ、パネル 6 で再び全幅へ戻る。左右を往復せずに読み切れる並びであり、結論が最下段の全幅に来ることで存在感も出る。
 
 **体裁は内容に合わせて使い分ける。** 背景は文脈をつなぐ必要があるため散文、データと結果は表、限界は箇条書き、手法は図で示す。パネルの大きさも内容に応じて変える。
+
+**紙面は満杯である。** 上記の配置で各パネルの下端に残る余白は 2〜12mm しかない。図表を 1 点足すには、同じ高さの何かを落とす必要がある（実際、SHAP 依存プロットを入れるために変数セット比較表を落とした。6 章 Q6 を参照）。
 
 ---
 
@@ -69,6 +73,8 @@ English: Understanding urban heat islands and designing mitigation measures requ
 
 日本語: **本研究は、衛星データと公開 GIS の組み合わせによって都市空間密度をどこまで定量化でき、ハノイの 30m スケールの LST 分布をどこまで説明できるかを問う。**  
 English: **This study asks how far satellite data combined with open GIS can quantify urban spatial density and explain the LST distribution of Hanoi at 30 m.**
+
+**この一文はパネル地色より濃い枠（`#E4E8F2`）で囲み、22pt で置く。** 散文の末尾に同じ体裁で並べると読み飛ばされるためである。
 
 > **出所**: [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md) 5 章（Introduction）を土台に、Limited シナリオ向けへ書き換えた。引用文献は [previous_studies_report.md](../04_archive/previous_studies_report.md) を参照する。  
 > **注意**: 先行研究の精度指標を本研究と横並びに比較しない。両論文とも本文と表に数値の不整合があり、**数値を引用する場合は原典の表を優先する**（同 S9.7 節・S10.8 節）。
@@ -104,8 +110,10 @@ English: Hanoi ROI on a 30 m canonical grid of 3,739,454 cells; all layers join 
 
 ### パネル 3: From datasets to urban parameters
 
-日本語: **都市構造パラメータとは、地表面エネルギー収支を左右する要素——土地被覆・人工構造物・人口集積・地形——の空間配置と密度を、共通グリッド上の空間統計量として定量化したものである。**  
-English: **Urban structure parameters quantify, as spatial statistics on a common grid, the arrangement and density of the elements that govern the surface energy balance: land cover, artificial structures, population concentration and terrain.**
+日本語: **本研究は都市空間密度を、都市構造パラメータの集合——地表面エネルギー収支を左右する要素（土地被覆・人工構造物・人口集積・地形）の空間配置と密度を共通グリッド上の空間統計量として表したもの——として定量化する。**  
+English: **We quantify urban spatial density as a set of urban structure parameters: spatial statistics on a common grid describing the arrangement and density of the elements that govern the surface energy balance – land cover, artificial structures, population concentration and terrain.**
+
+> **用語の橋渡し**: タイトルの "urban spatial density" と本文の "urban structure parameters" は、**概念とその操作的定義**の関係にある。読み手が両者を結びつけられるよう、この定義の一文で明示的につなぐ。**片方の語へ統一はしない。** 投入する 15 パラメータには平均標高（地形）と分光指数が含まれ、これらは「密度」に収まらないためである（[research_guide.md](../01_planning/research_guide.md) §5.3 の定義も「空間配置**と**密度」としている）。
 
 日本語: すべてのレイヤーを同一の 30m 正準グリッドへ集計し、`cell_id` ごとに 1 行のデータにする。モデルへ投入する 15 のパラメータは、分光指数 3（NDVI・NDBI・NDWI）、建物被覆率・棟数密度・平均高さ、道路密度、土地被覆クラス別面積率 5、人口密度、夜間光、平均標高である。ベクタのレイヤーは連続的な密度へ変換されるため、右の地図は生の入力データではなく算出後のパラメータである。  
 English: Every layer is aggregated onto the same 30 m canonical grid by zonal statistics, giving one row per cell_id. Fifteen parameters enter the models: three spectral indices (NDVI, NDBI, NDWI); building coverage, density and mean height; road density; five land-cover class fractions; population density; night-time light; and mean elevation. Vector layers become continuous densities, so the maps on the right are derived parameters, not raw source data.
@@ -139,21 +147,19 @@ English: Every layer is aggregated onto the same 30 m canonical grid by zonal st
 日本語: Spatial CV で下がるのは RF だけである。2,700m のブロックは空間自己相関を断ち切れていない（セミバリオグラムの sill は 15〜30km）ため、この R² は同一 ROI 内への内挿性能として読む。汎化性能ではない。  
 English: Only the RF drops under spatial CV. Blocks of 2,700 m do not break the spatial autocorrelation (semivariogram sill 15–30 km), so read these R² as interpolation within the same ROI, not generalisation.
 
-**変数セットの比較**
+**NDBI の寄与の形（SHAP 依存プロット）**
 
-| Variable set | RF (spatial CV) | Linear (spatial CV) |
-|---|---|---|
-| Spectral only | 0.747 | 0.594 |
-| Coverage only | 0.674 | 0.611 |
-| Both | 0.760 | 0.645 |
+日本語: **建築指数の効きは低い側で頭打ちになる。**  
+English: **The built-up signal saturates at the low end.**
 
-日本語: **分光指数が上回る。ただしランダムフォレストに限る。**  
-English: **Spectral indices win – for the random forest only.**
+日本語: NDBI の寄与は中央値で −0.77〜+2.51°C の幅を持ち、NDBI −0.4 を下回ると下げ止まる。そこから先は、建築被覆がさらに少なくなってもセルは冷えない。  
+English: Median contribution of NDBI runs from −0.77 to +2.51 °C and stops falling below NDBI −0.4: past that point, less built-up surface no longer buys a cooler cell.
 
-日本語: Spectral は NDVI・NDBI・NDWI、Coverage は土地被覆クラス別面積率を指し、どちらも共通ベースを含む。線形モデルでは向きが逆転するため、モデルを指定せずに主張できない。3 ランは同一のセル・標本・ブロックである。  
-English: Spectral = NDVI, NDBI, NDWI; coverage = land-cover class fractions; both also carry the common base. The ordering reverses for the linear model, so the model must be named. Identical cells and blocks across the runs.
+**この図はポスターで唯一、「どの変数が効くか」ではなく「どう効くか」を示す。** パネル 5 の棒グラフが寄与の大きさを順位づけるのに対し、こちらは寄与の形と摂氏での大きさを示す。
 
-> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 4.1 節・4.2 節・4.3 節・3.9 節、2 章の台帳（ラン1・3・4）。RMSE は摂氏で読む。  
+> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 4.1 節・4.2 節・3.9 節、2 章の台帳（ラン1）。RMSE は摂氏で読む。  
+> **依存プロットの数値の出所**: `presentations/poster_assets/shap_values_run1.csv`（Git 管理外）。分析本体は SHAP 値そのものを保存しないため、同一条件で再算出した（7 章）。24 区間の等頻度ビンごとの中央値をとり、その最小 −0.770°C・最大 +2.514°C（振れ幅 3.284°C）を上記に採った。中央値が 0 を横切るのは NDBI −0.226〜−0.205 の区間である。  
+> **注意**: SHAP 値は**予測 LST への寄与**であり、観測 LST の変化量ではない。また、この非線形性をもって「RF が線形モデルを上回る理由」と読ませない（6 章 Q3 のとおり、RF の優位の相当部分は空間自己相関の利用と考えられる）。  
 > **補足**: ブロックを広げると RF の R² は単調に低下する（ランダム分割 0.7954 → 2,700m 0.7596 → 21,600m 0.5461。診断設定・RF 100 本）。線形モデルはほぼ動かず、RF が線形を上回る幅は +0.115 から +0.023 へ縮む。**RF の優位の相当部分は、非線形性の捕捉ではなく空間自己相関の利用である可能性が高い**（同 3.9 節。詳細は 6 章の想定問答 Q3）。
 
 ### パネル 5: Variable importance
@@ -172,6 +178,8 @@ English: **NDBI dominates – but the leader depends on the measure.**
 日本語: 単一の指標で首位を断定せず、SHAP と Permutation 重要度を主たる根拠とする。RF の不純度ベース重要度だけが建築被覆率を首位に置く。  
 English: We rely on SHAP and permutation importance, not on any single measure: the RF impurity importance alone puts built-up cover first.
 
+**棒グラフは上位 10 変数のみを描く。** 15 個すべてを並べると A1 の紙面で 1 本あたりの高さが足りない。落とす 5 本は樹木被覆率 0.011・湿地被覆率 0.009・建物被覆率 0.007・建物棟数密度 0.005・草地被覆率 0.003 であり、いずれも首位（`NDBI` 0.702）の 2% 未満で本文でも論じない。落としても「少数の変数が大半を占める」という形は残る（最下位に残る道路密度は 0.026）。
+
 > **出所**: [limited_analysis_results.md](limited_analysis_results.md) 5.1 節、`..._feature_importance.csv` / `..._shap_importance.csv`。  
 > **補足**: 不純度ベース重要度は取りうる値が少ない変数で挙動が変わりうる。上位 4 変数の順位は標本を変えても安定するが、第 5・6 位（`NDVI` と `NDWI`）は入れ替わるため、5 位以下の順位差は論じない（同 2.1 節）。
 
@@ -179,6 +187,8 @@ English: We rely on SHAP and permutation importance, not on any single measure: 
 
 日本語: **公開データだけで LST 分布の大半を説明できる。**  
 English: **Open data alone explains most of the LST pattern.**
+
+**このパネルは最下段の全幅に置き、箇条書きを 2 列に分ける。** 全幅で 1 列にすると 1 行が 550mm を超え、行末から次の行頭まで目線が飛びすぎるためである。キーメッセージは見出しの右へ並べる。
 
 1. 日本語: ランダムフォレストは公開データのみで Spatial CV の R² 0.760 に到達する。  
    English: Random forest reaches R² 0.760 under spatial CV from open data alone.
@@ -250,14 +260,17 @@ English: **Open data alone explains most of the LST pattern.**
 
 | 図表 | 配置 | ファイル・出所 |
 |---|---|---|
-| ROI 位置図 | パネル 2 | `presentations/ROI.png`（Git 管理外）。`src/visualization/roi_location_map.py` で生成（7 章） |
+| ROI 位置図 | パネル 2 | `presentations/poster_assets/map_roi_location.png`（Git 管理外）。`src/visualization/roi_location_map.py` で生成（7 章） |
 | LST 図 | パネル 2 | データセットから描画（7 章） |
 | データセット一覧表 | パネル 2 | 本原稿 2 章 |
 | ワークフロー図 | パネル 3 | [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd) |
 | 建物被覆率・平均建物高さ・道路密度・NDBI・人口密度・夜間光の図 | パネル 3 | データセットから描画（7 章） |
-| モデル性能表・変数セット比較表 | パネル 4 | 本原稿 2 章 |
-| SHAP 棒グラフ | パネル 5 | `..._shap_importance.csv` から描画（7 章） |
+| モデル性能表 | パネル 4 | 本原稿 2 章 |
+| SHAP 依存プロット（NDBI） | パネル 4 | 再算出した SHAP 値から描画（7 章） |
+| SHAP 棒グラフ（上位 10 変数） | パネル 5 | `..._shap_importance.csv` から描画（7 章） |
 | 指標別の上位 3 変数の表 | パネル 5 | 本原稿 2 章 |
+
+**変数セット比較表（spectral / coverage / both）はポスターに載せない。** SHAP 依存プロットと同じ高さを要し、A1 の紙面で両立しないためである。内容は 6 章 Q6 が引き受ける。
 
 **ワークフロー図は 2 種類ある。** [fig3_limited_workflow.mmd](fig3_limited_workflow.mmd) は処理条件を追えるドキュメント用の詳細版（20 ノード・縦フロー）であり、**ポスターに載せると図中の文字が読めない**。ポスターには横流し 6 ステップの [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd) を使う。
 
@@ -265,7 +278,7 @@ English: **Open data alone explains most of the LST pattern.**
 
 ## 6. 想定問答（日英）
 
-**パネルに載せなかった限定の詳細は Q3 が引き受ける。** ブロックサイズと空間自己相関の論証は短時間で追える種類ではないため独立パネルを置かず、こちらから先に提示する論点として扱う。
+**パネルに載せなかった限定の詳細は Q3 が引き受ける。** ブロックサイズと空間自己相関の論証は短時間で追える種類ではないため独立パネルを置かず、こちらから先に提示する論点として扱う。**変数セットの比較は Q6 が引き受ける**（紙面の都合でパネルから外した。5 章を参照）。
 
 ### Q1. なぜ観測 1 日だけなのか
 
@@ -292,6 +305,19 @@ English: Cells without buildings are imputed with 0 m, and such cells make up 72
 日本語: 両者はどちらも近赤外に支配され符号が逆であるため、Pearson −0.972 という構造的な相関を持つ。RF は共線性の影響を受けにくく、SHAP による寄与の解釈を優先した。ただし**線形モデルの係数は共線性の影響下にある**。共線性の解消（1 本に絞る・主成分化する）は未実施の課題として明示している。  
 English: Both are dominated by the near-infrared band with opposite signs, giving a structural correlation of Pearson −0.972. The RF is relatively robust to collinearity, and we prioritised interpreting contributions through SHAP. **The linear coefficients, however, are affected by collinearity.** Resolving it, by keeping a single index or combining the two into a principal component, is stated as unfinished work.
 
+### Q6. 分光指数と被覆率型変数では、どちらが効くのか
+
+| Variable set | RF (spatial CV) | Linear (spatial CV) |
+|---|---|---|
+| Spectral only | 0.747 | 0.594 |
+| Coverage only | 0.674 | 0.611 |
+| Both | 0.760 | 0.645 |
+
+日本語: **ランダムフォレストに限れば分光指数が上回るが、線形モデルでは向きが逆転する。** Spectral は NDVI・NDBI・NDWI、Coverage は土地被覆クラス別面積率を指し、どちらも共通ベース（建物・道路・人口・夜間光・標高）を含む。RF では spectral 0.747 > coverage 0.674、線形では coverage 0.611 > spectral 0.594 であり、**モデルを指定せずに「どちらが効く」とは言えない**。両方を入れた both が RF・線形とも最良である。3 ランは同一のセル・標本・ブロックを用いている。  
+English: **For the random forest the spectral indices win, but the ordering reverses for the linear model.** Spectral = NDVI, NDBI, NDWI; coverage = land-cover class fractions; both variants also carry the common base of building, road, population, night-light and elevation variables. The RF gives spectral 0.747 > coverage 0.674, while the linear model gives coverage 0.611 > spectral 0.594, so **the claim cannot be made without naming the model**. Using both is best under either model. The three runs share identical cells, samples and blocks.
+
+> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 4.3 節・5.3 節・5.4 節、2 章の台帳（ラン1・3・4）。
+
 ---
 
 ## 7. ポスターの図の作り方
@@ -304,20 +330,26 @@ English: Both are dominated by the near-infrared band with opposite signs, givin
 
 そこで次の手順でポスター用に描き直す。
 
-1. **地図**: `data/output/datasets/dataset_limited_20230707_032305_hanoi_30m.gpkg` から必要な列を読み、`cell_id = row × 1,000,000 + col` を行・列へ復号して 2 次元配列へ戻し、`matplotlib` で描画する。英語のカラーバーを付け、値域は 1〜99 パーセンタイルで切る
-2. **SHAP 図**: `..._shap_importance.csv` の値をそのまま読み（再計算しない）、3 章の表示名で横棒グラフを描く。由来グループごとに色を分け、凡例を付ける
-3. **ワークフロー図**: [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd) を `mermaid-cli` で PNG へ書き出す
-4. **ROI 位置図**: `python -m src.visualization.roi_location_map --output presentations/ROI.png` を実行する。ROI（`data/gis/boundaries/hanoi/`）とベトナム国境（`data/gis/boundaries/vietnam/`・geoBoundaries ADM0）を OpenStreetMap の XYZ タイル上に重ね、方位記号・スケールバー・経緯度目盛・インセット・出典表記を付けて出力する。既定は幅 120mm・400dpi（1889 × 1574 px）
+1. **地図**: `data/output/datasets/dataset_limited_20230707_032305_hanoi_30m.gpkg` から必要な列を読み、`cell_id = row × 1,000,000 + col` を行・列へ復号して 2 次元配列へ戻し、`matplotlib` で描画する。英語のカラーバーを付け、値域はパーセンタイルで切る（分光指数は 2〜98、その他は 0〜99）
+2. **SHAP 棒グラフ**: `..._shap_importance.csv` の値をそのまま読み（再計算しない）、3 章の表示名で横棒グラフを描く。由来グループごとに色を分け、凡例を付ける。**上位 10 変数のみを描く**（理由は 2 章パネル 5）
+3. **SHAP 依存プロット**: 分析本体は SHAP 値そのものを保存せず図と平均 |SHAP| だけを出力するため、**同一条件で再算出する**。`..._sample_100000.csv` を読み、列順を `..._feature_importance.csv` から取り、`test_size=0.2` / `random_state=42` で分割、RF は 300 本・`min_samples_leaf=5`、SHAP は評価 2,000 点・背景 500 点（いずれも CLI 既定値）。得た平均 |SHAP| が `..._shap_importance.csv` と一致することを照合してから作図する
+4. **ワークフロー図**: [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd) を `mermaid-cli` で PNG へ書き出す
+5. **ROI 位置図**: `python -m src.visualization.roi_location_map --output presentations/poster_assets/map_roi_location.png` を実行する。ROI（`data/gis/boundaries/hanoi/`）とベトナム国境（`data/gis/boundaries/vietnam/`・geoBoundaries ADM0）を OpenStreetMap の XYZ タイル上に重ね、方位記号・スケールバー・経緯度目盛・インセット・出典表記を付けて出力する。既定は幅 120mm・400dpi（1889 × 1667 px）
 
 **描画時の注意（実際に踏んだ不具合）**
 
 - **`imshow` の `origin` を明示する。** `row` は緯度と正の相関を持つ（`row` が大きいほど北）ため、既定の `origin="upper"` では**南北が反転する**。`origin="lower"` を指定する
-- **小さく並べる図は凡例の文字を大きめに描く。** 48mm 幅で表示する図の凡例を既定サイズで描くと、印刷時に判読できない
+- **小さく並べる図は凡例の文字を大きめに描く。** 31mm 幅で表示する図の凡例を既定サイズで描くと、印刷時に判読できない
+- **カラーバーのラベルは図ごとに文字列長をそろえる。** ラベルが figure 幅に収まるまで自動縮小する実装にしていると、**ラベルが長い図ほど小さく描かれ、並べたときに文字サイズが不揃いになる**。小さく並べる 6 枚は変数名をポスター側のキャプションへ預け、カラーバーのラベルは単位だけ（`0–1`・`m`・`m / ha`・`persons / ha`・`nW cm⁻² sr⁻¹`）にして長さをそろえた
+- **裾の重い分布は平方根スケールで描く。** 建物被覆率・棟数密度・平均建物高さ・道路密度はセルの 7 割以上がゼロ、人口密度と夜間光はごく一部に大きな値が集中する（`..._sample_100000.csv` で実測）。線形スケールでは大半のセルがカラーマップの最も淡い側へ潰れ、縮小すると**ほぼ白紙に見える**。`PowerNorm(gamma=0.5)` で低〜中間の値を広げる。正負に広がる分光指数は潰れないので線形のままとする
 - **単位を確認してから凡例に書く。** 道路密度は m/ha、建物棟数密度は 棟/ha、人口密度は 人/ha である（セル当たりではない）
-- **カラーバーのラベルが figure に収まるか確かめる。** カラーバーのラベルは軸ラベルであり、figure より横に長いと `bbox_inches="tight"` を指定しても両端が切れる（matplotlib は外接矩形の計算で軸ラベルの幅を潰して扱うため）。収まるまで文字サイズを段階的に下げ、**保存後に画像の左右端へインクが残っていないかを機械的に確認する**
+- **軸ラベルが figure に収まるか確かめる。** 軸ラベルは `bbox_inches="tight"` を指定しても、軸より長いと切れる（matplotlib は外接矩形の計算で軸ラベルを潰して扱うため）。カラーバーのラベルは**横**に、回転した y 軸ラベルは**縦**にはみ出す。依存プロットのように横長の図では軸の高さが低く、`Contribution to predicted LST (°C)` が 1 行では入らないため 2 行へ折り返した。判定は figure ではなく**軸**の寸法と比べる（figure と比べると x 軸ラベルのぶんを見落とす）
+- **画像を枠へ収めるときは縦横比を保つ。** 高さで合わせてから幅を `min()` で切り詰めると、画像が横方向へ潰れる。両辺の比を比べて小さいほうの倍率を使う
 - **ベースマップに CARTO のタイルを使わない。** `basemaps.cartocdn.com` は API キー無しの取得でタイル面に 「API KEY REQUIRED」の透かしが焼き込まれる。淡色のベースマップは OSM 標準タイルを減彩して得る
 - **Web メルカトルのスケールバーは緯度補正する。** 座標上の長さは緯度 φ で `1/cos(φ)` 倍に伸びているため、そのまま地表距離として扱うとハノイ（北緯 21 度）で約 7% 過大になる
 
 **pptx の組版**は `presentations/GIS-IDEAS-2026_poster_template.pptx` を土台に、装飾バンド・ロゴ・フッタを保持したまま図形を追記して行う。テンプレートは png の既定拡張子を宣言していないため、png を追加する場合は `[Content_Types].xml` へ `<Default Extension="png" ContentType="image/png"/>` を加える必要がある（宣言しないと PowerPoint がパッケージごと拒否する）。
+
+**出典表記は行を分けて文字を確保する。** ROI 位置図の出典表記は、1 行に詰めると表記帯の幅を使い切り（実測 100.6%・わずかにはみ出していた）、貼付幅 120mm では 5.17pt にしかならなかった。1 行 1 項目（タイル配信元 / geoBoundaries / 投影法）の 3 行に分けて行長を抑え、そのぶん文字を大きくしている（基準サイズに対する比を 0.58 → 0.90、貼付幅で 8.02pt）。表示義務のある表記を先に置き、義務の無い投影法の注記を最後に回す。行長は同梱プロバイダの最長（Esri の 57 字）でも帯幅の 76.8% に収まる。
 
 **再現スクリプトは ROI 位置図のみリポジトリに入れている**（`src/visualization/roi_location_map.py` と タイル取得の `src/visualization/xyz_tiles.py`）。ROI 位置図は貼付幅・配色・出典表記を作り直すたびにそろえ直す必要があり、手作業では再現できないためである。地図・SHAP 図・ワークフロー図の生成は本 Issue 限りの作業として扱い、`presentations/` が Git 管理外で PR に乗らないためスクリプトを入れていない。継続的に作り直す必要が生じた場合は同様に `src/` への配置を検討する。

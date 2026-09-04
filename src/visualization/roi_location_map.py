@@ -54,6 +54,9 @@ DEFAULT_VIETNAM_BOUNDARY_PATH = (
 # 境界データの出典表記。geoBoundaries は CC BY 4.0 のため表示義務がある。
 BOUNDARY_ATTRIBUTION = "Boundaries: geoBoundaries (CC BY 4.0)"
 
+# 投影法の注記。表示義務は無いが、図の読み方として残す。
+PROJECTION_NOTE = "Projection: Web Mercator (EPSG:3857)"
+
 # 本図の ROI 周囲に確保する余白（ROI の幅・高さに対する割合）。
 MAP_MARGIN_RATIO = 0.06
 
@@ -67,7 +70,7 @@ _COLUMN_GAP_MM = 4.0  # 本図と右カラムの間隔
 _RIGHT_COLUMN_MIN_MM = 28.0  # 右カラムの最小幅（凡例の文字が収まる幅）
 _INSET_GAP_MM = 3.0  # インセットと凡例の間隔
 _LEGEND_HEIGHT_MM = 12.0  # 凡例パネルの高さ
-_CREDIT_STRIP_MM = 5.0  # 図下端の出典表記帯の高さ
+_CREDIT_STRIP_MM = 11.0  # 図下端の出典表記帯の高さ（3 行分）
 
 # スケールバーに採る「切りのよい」長さ（km）。
 _SCALEBAR_NICE_KM = (1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
@@ -86,6 +89,17 @@ CREDIT_TEXT_COLOR = "#555555"
 
 # 図面文字の基準サイズ（pt）。ポスターに原寸で貼る前提で決める。
 BASE_FONT_PT = 9.0
+
+# 出典表記の文字サイズ（基準サイズに対する比）。細字の注記ではあるが、A1 ポスター
+# へ縮小して貼ったときに手元で読める大きさが要る。1 行だった頃の 0.58 では、貼付幅
+# で 5pt 台にしかならなかった。3 行へ分けて行長を 1/3 にしたぶん引き上げている。
+# 凡例（0.85）と同程度に留め、注記が本文より目立つことは避ける。
+_CREDIT_FONT_RATIO = 0.90
+
+# 出典表記 1 行あたりの文字数の上限。上記の文字サイズで実測したところ、57 字の行が
+# 表記帯の幅の 76.8% を占めた（1 字あたり約 1.35%）。帯の幅の 95% を上限とみなすと
+# 70 字となる。これを超える出典表記のプロバイダを追加すると、行が帯からはみ出す。
+CREDIT_MAX_LINE_CHARS = 70
 
 
 def nice_scalebar_length_km(map_width_km: float) -> int:
@@ -474,6 +488,28 @@ def _draw_legend_panel(axes: plt.Axes, font_pt: float, roi_area_km2: float | Non
         )
 
 
+def credit_lines(attribution: str) -> list[str]:
+    """出典表記帯に描く行を組み立てる。
+
+    1 行に詰めると図幅をほぼ使い切ってしまい、文字を大きくできない。1 行 1 項目に
+    分けて行長を抑え、そのぶん文字サイズを確保する。表示義務のある表記（タイル
+    配信元・geoBoundaries）を先に置き、義務の無い投影法の注記を最後に回す。
+
+    Args:
+        attribution: タイル配信元の表記。
+
+    Returns:
+        上から順に並べる行のリスト。
+
+    Raises:
+        ValueError: `attribution` が空のとき。出典表記は利用条件であり、
+            空のまま図を出力してはならない。
+    """
+    if not attribution.strip():
+        raise ValueError("タイル配信元の出典表記が空です。")
+    return [attribution, BOUNDARY_ATTRIBUTION, PROJECTION_NOTE]
+
+
 def _draw_credit_strip(axes: plt.Axes, attribution: str, font_pt: float) -> None:
     """図の下端にベースマップ・境界データの出典表記を描く。
 
@@ -485,16 +521,19 @@ def _draw_credit_strip(axes: plt.Axes, attribution: str, font_pt: float) -> None
         font_pt: 文字サイズ（pt）。
     """
     axes.set_axis_off()
-    axes.text(
-        0.0,
-        0.5,
-        f"{attribution}  |  {BOUNDARY_ATTRIBUTION}  |  Projection: Web Mercator (EPSG:3857)",
-        transform=axes.transAxes,
-        fontsize=font_pt * 0.58,
-        color=CREDIT_TEXT_COLOR,
-        ha="left",
-        va="center",
-    )
+    lines = credit_lines(attribution)
+    # 上の行から順に、帯の高さを行数で等分した位置へ置く。
+    for index, line in enumerate(lines):
+        axes.text(
+            0.0,
+            1.0 - (index + 0.5) / len(lines),
+            line,
+            transform=axes.transAxes,
+            fontsize=font_pt * _CREDIT_FONT_RATIO,
+            color=CREDIT_TEXT_COLOR,
+            ha="left",
+            va="center",
+        )
 
 
 def build_roi_location_map(

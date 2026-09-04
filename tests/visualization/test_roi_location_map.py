@@ -9,6 +9,10 @@ from __future__ import annotations
 import pytest
 
 from src.visualization.roi_location_map import (
+    BOUNDARY_ATTRIBUTION,
+    CREDIT_MAX_LINE_CHARS,
+    PROJECTION_NOTE,
+    credit_lines,
     expand_extent,
     format_latitude,
     format_longitude,
@@ -16,6 +20,7 @@ from src.visualization.roi_location_map import (
     layout_rects,
     nice_scalebar_length_km,
 )
+from src.visualization.xyz_tiles import PROVIDERS
 
 # ハノイ ROI 相当の縦横比（高さ/幅）とベトナム全図の縦横比。
 HANOI_MAP_ASPECT = 1.2
@@ -171,3 +176,49 @@ def test_layout_rects_rejects_non_positive_aspect(map_aspect: float, inset_aspec
     """縦横比が正でなければエラーになる。"""
     with pytest.raises(ValueError):
         layout_rects(map_aspect, inset_aspect)
+
+
+# ベースマップ配信元の出典表記の一例（OpenStreetMap タイル）。
+BASEMAP_ATTRIBUTION = "Basemap: © OpenStreetMap contributors"
+
+
+def test_credit_lines_keeps_required_attributions() -> None:
+    """表示義務のある2つの出典表記がいずれも含まれる。"""
+    joined = "\n".join(credit_lines(BASEMAP_ATTRIBUTION))
+    assert BASEMAP_ATTRIBUTION in joined
+    assert BOUNDARY_ATTRIBUTION in joined
+
+
+def test_credit_lines_puts_licence_text_before_projection_note() -> None:
+    """表示義務のある表記を先に、義務の無い投影法の注記を後に置く。"""
+    lines = credit_lines(BASEMAP_ATTRIBUTION)
+    assert lines == [BASEMAP_ATTRIBUTION, BOUNDARY_ATTRIBUTION, PROJECTION_NOTE]
+
+
+def test_credit_lines_are_much_shorter_than_single_line_form() -> None:
+    """最長の行が、1行にまとめた場合の半分より短い。
+
+    行長が縮むぶんだけ文字を大きくできる、というのが複数行に分ける理由である。
+    ここが満たせなくなるほど行が伸びたら、文字サイズの前提も見直す必要がある。
+    """
+    lines = credit_lines(BASEMAP_ATTRIBUTION)
+    single_line_length = sum(len(line) for line in lines)
+    assert max(len(line) for line in lines) < single_line_length / 2
+
+
+@pytest.mark.parametrize("attribution", ["", "   "])
+def test_credit_lines_rejects_empty_attribution(attribution: str) -> None:
+    """出典表記が空ならエラーになる（利用条件を満たせないため）。"""
+    with pytest.raises(ValueError):
+        credit_lines(attribution)
+
+
+@pytest.mark.parametrize("provider_name", sorted(PROVIDERS))
+def test_credit_lines_fit_within_strip_for_every_provider(provider_name: str) -> None:
+    """どのタイル配信元でも、出典表記の各行が表記帯の幅に収まる。
+
+    出典表記の文字列はプロバイダごとに長さが違う。長いものを追加したときに
+    帯からはみ出すのを、文字数の上限で検出する。
+    """
+    lines = credit_lines(PROVIDERS[provider_name].attribution)
+    assert max(len(line) for line in lines) <= CREDIT_MAX_LINE_CHARS

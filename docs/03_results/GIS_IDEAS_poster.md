@@ -86,10 +86,20 @@ English: **This study asks how far satellite data combined with open GIS can qua
 
 ### パネル 2: Study area and datasets
 
-日本語: ハノイ ROI の 30m 正準グリッドは 3,739,454 セルからなり、全レイヤーを `cell_id` で結合する。観測は候補 132 件を実効 ROI カバー率で再ランキングして選び、88.7%（3 位）である。30m グリッド上で実測した LST 有効被覆率の平均は 89.26%。  
-English: Hanoi ROI on a 30 m canonical grid of 3,739,454 cells; all layers join by cell_id. The scene was chosen by re-ranking 132 candidates on effective ROI coverage – 88.7% (rank 3); mean LST valid ratio on the grid is 89.26%.
+日本語: 単一の Landsat 8 シーン、2023 年 7 月 7 日・現地時刻 10:23（03:23 UTC）、候補 132 件から選定した。シーンの順位付けには実効 ROI カバー率（シーン被覆率 × 有効画素率）を用いる。有効画素率が高いだけでは、対象域の半分しか覆えていないことがありうる。  
+English: A single Landsat 8 scene: 7 July 2023, 10:23 local time (03:23 UTC), selected from 132 candidates. We rank scenes by effective ROI coverage (footprint × valid pixels): a high valid-pixel rate alone can still leave half the study area uncovered.
 
-本文はこの見出し脇の一文のみで、あとは図（ROI 位置図・LST 図）と表で構成する。
+本文はこの見出し脇の一文と、表の下の注記のみで、あとは図（ROI 位置図・LST 図）と表で構成する。
+
+**セル数・実効 ROI カバー率・LST 有効被覆率は載せない。**
+
+- **3,739,454 セル**は分析上の内訳にすぎず、母数はパネル 3 のワークフロー図が品質フィルタ後の 3,274,665 セルとして持っている
+- **LST 有効被覆率 89.26%** は、LST 図の北東部に雲による白い抜けとして見える。ポスター表示サイズでも斑に見えるため、数字で言い直す必要がない
+- **実効 ROI カバー率 88.7%（3 位）**は、順位に触れると「なぜ 1 位を使わないのか」を招く。1 位（`2024-11-30T03:23:36`・93.9%・雲量 0.02%）を見送った理由は「11 月＝乾季であり、7 月＝雨季を前提とした他の分析と季節軸が合わない」だが、**これは読み手が検証できない内部事情**であり、かつ測れる指標すべてで勝るシーンを見送ったことを自ら告知することになる。順位ではなく**選定基準そのもの**を述べる（[observation_selection.md](../02_methods/observation_selection.md) 4.2 節）
+
+**選定基準を主張として書く。** 実効 ROI カバー率への見直しは、有効画素率だけで選ぶと ROI の半分しか覆わないシーン（従来観測 `032329`・52.3%）が選ばれうる、という知見に基づく。データ制約下で衛星画像を選ぶ読み手に直接効くため、パネルの記述はここに寄せる。
+
+**観測時刻を明記する。** 午前と午後では LST の意味が変わるため、日付だけでは足りない。
 
 **データセット一覧表**
 
@@ -102,6 +112,17 @@ English: Hanoi ROI on a 30 m canonical grid of 3,739,454 cells; all layers join 
 | WorldPop | 2020 | Raster ~92 m | Population density |
 | VIIRS DNB | 2023 | Raster ~460 m | Night-time light |
 | FABDEM v1.2 | Copernicus-derived | Raster 30 m | Mean elevation |
+
+**表の下の注記**
+
+日本語: 建物高さ・人口・土地被覆は推計されたプロダクトであり、現地の実測値ではない。本研究はそれらの当地での精度を検証していない。  
+English: Building heights, population and land cover are modelled products, not field measurements; their local accuracy is not assessed in this study.
+
+**「公開データだけで説明できる」が本研究の主張である以上、その公開データが実測ではなく推計であることは主張の一部である。** 根拠は次のとおり。
+
+- **人口**: [gis_data_population.md](../01_planning/gis_data/gis_data_population.md) 「国勢調査（行政区画単位の集計値）を何らかの補助データで空間的に按分した推計値であり、実測データではない」。WorldPop は 2019 年ベトナム国勢調査を Random Forest で再配分している
+- **建物高さ**: [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) 「衛星画像から機械学習で推定した値であり、現地測量値ではない」「ハノイ ROI での高さ推定精度（RMSE 等）は本研究では未検証」
+- **土地被覆**: GLC_FCS30D は分類結果であり、同じく推計である
 
 **図のキャプション**
 

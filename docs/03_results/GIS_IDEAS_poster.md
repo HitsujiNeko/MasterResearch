@@ -34,11 +34,11 @@
 
 | 位置 | # | パネル | 幅 | 高さ | 主な内容 |
 |---|---|---|---|---|---|
-| 全幅 | 1 | Background | 553.7 mm | 65 mm | 散文＋研究設問の枠 |
+| 全幅 | 1 | Background | 553.7 mm | 74 mm | 散文（4 行）＋研究設問の枠（22pt・2 行） |
 | 全幅 | 2 | Study area and datasets | 553.7 mm | 134 mm | ROI 位置図（101 × 89 mm）・LST 図（61 × 89 mm）・データセット一覧表（362 mm 幅） |
 | 全幅 | 3 | From datasets to urban parameters | 553.7 mm | 134 mm | ワークフロー図（542 × 48 mm）・定義・算出済みラスタ 6 点（各 31 mm 幅） |
-| 左列 | 4 | Results | 270.9 mm | 222 mm | モデル性能表・読み方・SHAP 依存プロット（243 × 106 mm） |
-| 右列 | 5 | Variable importance | 270.9 mm | 222 mm | SHAP 棒グラフ（192 × 104 mm）・順位表 |
+| 左列 | 4 | Results | 270.9 mm | 212 mm | モデル性能表・読み方・SHAP 依存プロット（223 × 98 mm） |
+| 右列 | 5 | Variable importance | 270.9 mm | 212 mm | SHAP 棒グラフ（175 × 96 mm）・順位表 |
 | 全幅 | 6 | Conclusions and limitations | 553.7 mm | 40 mm | 2 列の箇条書き |
 
 **読み順は「全幅 → 2 列 → 全幅」にそろえる。** パネル 1〜3 を全幅で上から読み、パネル 4（左）・5（右）へ分かれ、パネル 6 で再び全幅へ戻る。左右を往復せずに読み切れる並びであり、結論が最下段の全幅に来ることで存在感も出る。
@@ -68,15 +68,20 @@ E-mail: <sr25491d@omu.ac.jp>
 
 ### パネル 1: Background
 
-日本語: 都市のヒートアイランド現象を理解し緩和策を設計するには、地表面温度（LST）と都市構造の関係を空間的に評価する必要がある。ランダムフォレストによる都市形態変数の重要度評価（Sun et al., 2019）や、熱帯都市における回帰分析と機械学習の併用（Garzón et al., 2021）が報告されている。一方でベトナムを含む多くの途上国都市では、建物形状や道路ネットワークを網羅的に記述した高品質な GIS データの入手が難しく、NDVI と NDBI だけでは建物高さや人口密度を表現できないことも指摘されている（Le Ngoc Hanh & Tran Thi An, 2025）。  
-English: Understanding urban heat islands and designing mitigation measures requires a spatial evaluation of how land surface temperature (LST) relates to urban structure. Random forests have been used to rank urban-form variables (Sun et al., 2019), and regression has been combined with machine learning in tropical cities (Garzón et al., 2021). In many developing cities, including those in Vietnam, it remains difficult to obtain high-quality GIS that comprehensively describes building geometry and road networks, and NDVI and NDBI alone cannot represent building height or population density (Le Ngoc Hanh & Tran Thi An, 2025).
+日本語: 都市のヒートアイランド現象を理解し緩和策を設計するには、地表面温度（LST）と都市構造の関係を空間的に評価する必要がある。ランダムフォレストによる都市形態変数の重要度評価（Sun et al., 2019）や、熱帯都市における回帰分析と機械学習の併用（Garzón et al., 2021）が報告されている。一方でベトナムを含む多くの途上国都市では、建物形状や道路ネットワークを網羅的に記述した高品質な GIS データの入手が難しい。また、NDVI と NDBI だけでは建物高さや人口密度を表現できないことが指摘されている（Le Ngoc Hanh & Tran Thi An, 2025）。  
+English: Understanding urban heat islands and designing mitigation measures requires a spatial evaluation of how land surface temperature (LST) relates to urban structure. Random forests have been used to rank urban-form variables (Sun et al., 2019), and regression has been combined with machine learning in tropical cities (Garzón et al., 2021). In many developing cities, including those in Vietnam, it remains difficult to obtain high-quality GIS that comprehensively describes building geometry and road networks. NDVI and NDBI alone cannot represent building height or population density (Le Ngoc Hanh & Tran Thi An, 2025).
 
-日本語: **本研究は、衛星データと公開 GIS の組み合わせによって都市空間密度をどこまで定量化でき、ハノイの 30m スケールの LST 分布をどこまで説明できるかを問う。**  
-English: **This study asks how far satellite data combined with open GIS can quantify urban spatial density and explain the LST distribution of Hanoi at 30 m.**
+**GIS データの入手難と NDVI/NDBI の限界は、文を分けて書く。** 1 文にまとめて末尾へ引用を置くと、引用が前半にも掛かって読める。**Le Ngoc Hanh & Tran Thi An (2025) は GIS データの入手難については何も述べていない**（原典に GIS data・availability・road network・building geometry・data scarcity のいずれの言及も無い）。前半は本研究の前提であり、出典を伴わない。
 
-**この一文はパネル地色より濃い枠（`#E4E8F2`）で囲み、22pt で置く。** 散文の末尾に同じ体裁で並べると読み飛ばされるためである。
+日本語: **本研究は、衛星データと公開 GIS の組み合わせによって都市空間密度——建物・道路・土地被覆・人口が 30m セルごとにどう混在し、どれだけ詰まっているか——をどこまで定量化でき、ハノイの LST 分布をどこまで説明できるかを問う。**  
+English: **This study asks how far satellite data combined with open GIS can quantify urban spatial density – the mix and packing of buildings, roads, land cover and people in each 30 m cell – and explain the LST distribution of Hanoi.**
+
+**この一文はパネル地色より濃い枠（`#E4E8F2`）で囲み、22pt・2 行で置く。** 散文の末尾に同じ体裁で並べると読み飛ばされるためである。
+
+**枠の中に用語の注釈を挟む。** "urban spatial density" は**この分野の標準語ではない**（引用 3 本の原典での出現回数は 0 回。使われるのは urban form＝S4 で 83 回、urban density＝S6 で 3 回、urban structure＝S2 で 1 回）。定義はパネル 3 に置いているが、読み手はタイトルとこの枠という**最も目立つ 2 箇所で、定義のないままこの語に 2 回出会う**ことになる。注釈はパネル 3 の定義の短縮版であり、地形を落として 4 要素に絞っている（枠を 2 行に収めるため）。
 
 > **出所**: [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md) 5 章（Introduction）を土台に、Limited シナリオ向けへ書き換えた。引用文献は [previous_studies_report.md](../04_archive/previous_studies_report.md) を参照する。  
+> **原典照合（2026-09-04 実施）**: 3 件とも `docs/04_archive/04_pdfs/` の PDF 本文で確認した。<br>・**Sun et al., 2019**（Yanwei Sun, Chao Gao, Jialin Li, Run Wang, Jian Liu / Remote Sensing 11(8):959）: OLS と RF を構築し、Figure 10 で %IncMSE と IncNodePurity による**変数重要度のランキング**を提示。NDVI と建物密度が最重要。<br>・**Garzón et al., 2021**（Julián Garzón, Iñigo Molina, Jesús Velasco, Andrés Calabia / Remote Sens. 13:4256）: 熱帯コロンビア都市で PCA・MLR に SVM と Naïve Bayes を組み合わせている。<br>・**Le Ngoc Hanh & Tran Thi An, 2025**: 3.4 節 Limitations に "the exclusive use of NDVI and NDBI ... they do not capture other critical dimensions of urban dynamics, such as population density, building height, land use diversity, or socio-economic variables" とある。**著者自身の研究の限界**として書かれている点に注意する（質疑では出所をそう答える）。ポスターの記述は原典より狭い（原典は land use diversity と socio-economic variables も挙げている）。  
 > **注意**: 先行研究の精度指標を本研究と横並びに比較しない。両論文とも本文と表に数値の不整合があり、**数値を引用する場合は原典の表を優先する**（同 S9.7 節・S10.8 節）。
 
 ### パネル 2: Study area and datasets

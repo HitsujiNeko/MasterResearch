@@ -86,8 +86,8 @@ English: **This study asks how far satellite data combined with open GIS can qua
 
 ### パネル 2: Study area and datasets
 
-日本語: 単一の Landsat 8 シーン、2023 年 7 月 7 日・現地時刻 10:23（03:23 UTC）、候補 132 件から選定した。シーンの順位付けには実効 ROI カバー率（シーン被覆率 × 有効画素率）を用いる。有効画素率が高いだけでは、対象域の半分しか覆えていないことがありうる。  
-English: A single Landsat 8 scene: 7 July 2023, 10:23 local time (03:23 UTC), selected from 132 candidates. We rank scenes by effective ROI coverage (footprint × valid pixels): a high valid-pixel rate alone can still leave half the study area uncovered.
+日本語: 単一の Landsat 8 シーン、2023 年 7 月 7 日・現地時刻 10:23（03:23 UTC）。実効 ROI カバー率（シーン被覆率 × 有効画素率）により、候補 132 件から選定した。  
+English: A single Landsat 8 scene: 7 July 2023, 10:23 local time (03:23 UTC), selected from 132 candidates by effective ROI coverage (footprint × valid pixels).
 
 本文はこの見出し脇の一文と、表の下の注記のみで、あとは図（ROI 位置図・LST 図）と表で構成する。
 
@@ -97,21 +97,29 @@ English: A single Landsat 8 scene: 7 July 2023, 10:23 local time (03:23 UTC), se
 - **LST 有効被覆率 89.26%** は、LST 図の北東部に雲による白い抜けとして見える。ポスター表示サイズでも斑に見えるため、数字で言い直す必要がない
 - **実効 ROI カバー率 88.7%（3 位）**は、順位に触れると「なぜ 1 位を使わないのか」を招く。1 位（`2024-11-30T03:23:36`・93.9%・雲量 0.02%）を見送った理由は「11 月＝乾季であり、7 月＝雨季を前提とした他の分析と季節軸が合わない」だが、**これは読み手が検証できない内部事情**であり、かつ測れる指標すべてで勝るシーンを見送ったことを自ら告知することになる。順位ではなく**選定基準そのもの**を述べる（[observation_selection.md](../02_methods/observation_selection.md) 4.2 節）
 
-**選定基準を主張として書く。** 実効 ROI カバー率への見直しは、有効画素率だけで選ぶと ROI の半分しか覆わないシーン（従来観測 `032329`・52.3%）が選ばれうる、という知見に基づく。データ制約下で衛星画像を選ぶ読み手に直接効くため、パネルの記述はここに寄せる。
+**選定基準の名前だけを書き、その含意は書かない。** 実効 ROI カバー率への見直しは、有効画素率だけで選ぶと ROI の半分しか覆わないシーン（従来観測 `032329`・52.3%）が選ばれうる、という知見に基づく（[PR #274](https://github.com/HitsujiNeko/MasterResearch/pull/274)）。ただしこの含意をポスター面に書くと説明が一段増えるため、面には基準名のみを置き、経緯は本原稿に残す。
 
 **観測時刻を明記する。** 午前と午後では LST の意味が変わるため、日付だけでは足りない。
 
 **データセット一覧表**
 
-| Dataset | Epoch | Type | Parameters derived |
-|---|---|---|---|
-| Landsat 8 C2 L2 | 2023-07-07 | Raster 30 m | LST, NDVI, NDBI, NDWI |
-| GlobalBuildingAtlas v1.0.0 | imagery 2021–2023 | Vector | Coverage, density, height |
-| OpenStreetMap (Geofabrik) | 2026-04 | Vector | Road density |
-| GLC_FCS30D | 2022 | Raster 30 m | Land-cover class fractions |
-| WorldPop | 2020 | Raster ~92 m | Population density |
-| VIIRS DNB | 2023 | Raster ~460 m | Night-time light |
-| FABDEM v1.2 | Copernicus-derived | Raster 30 m | Mean elevation |
+| Data | Source | Year / date | Type | Parameters derived |
+|---|---|---|---|---|
+| Thermal + optical | Landsat 8 C2 L2 | 2023-07-07 | Raster 30 m | LST, NDVI, NDBI, NDWI |
+| Buildings | GlobalBuildingAtlas v1.0.0 | imagery 2021–2023 | Vector | Coverage, density, height |
+| Roads | OpenStreetMap (Geofabrik) | 2026-04 | Vector | Road density |
+| Land cover | GLC_FCS30D | 2022 | Raster 30 m | Land-cover class fractions |
+| Population | WorldPop | 2020 | Raster ~92 m | Population density |
+| Night lights | VIIRS DNB | 2023 | Raster ~460 m | Night-time light |
+| Terrain | FABDEM v1.2 | imagery 2010–2015 | Raster 30 m | Elevation |
+
+**先頭に `Data` 列を置く。** `GlobalBuildingAtlas` / `GLC_FCS30D` / `FABDEM` / `VIIRS DNB` は製品名だけでは何のデータか判断できず、`Parameters derived` から逆算させるのは読み手の負担になる。製品名は `Source` 列へ移す。左 2 列は左寄せにする（語長がまちまちな列を中央寄せにすると行ごとに開始位置がずれる）。
+
+**列見出しは `Year / date` とする。** シーン日付・撮像期間・製品年が混在する表に `Epoch` は硬い。
+
+**FABDEM の年代は原データにさかのぼって書く。** FABDEM v1.2 は Copernicus WorldDEM-30 由来であり、その原観測は TanDEM-X の 2010 年 12 月〜2015 年 1 月である（[gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)、GEE カタログ記載）。「Copernicus-derived」では読み手に年代が伝わらないため、他行と同じ形式にそろえる。
+
+**`Elevation` は「Mean」を付けない。** 全パラメータがセル単位の空間統計量であり、標高に平均以外の選択肢を採る予定もないためである。**`Mean building height` は「Mean」を残す**（`BUILD_H_MAX` を用いる分析バリアントが実在し、本結果は `bh_mean` を採用しているため）。
 
 **表の下の注記**
 
@@ -132,7 +140,7 @@ English: Building heights, population and land cover are modelled products, not 
 | 中 | LST (target variable) | 地表面温度（目的変数） |
 
 > **出所**: 年代・種別は各 gis_data ドキュメント（[gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) 3 章、[gis_data_lulc.md](../01_planning/gis_data/gis_data_lulc.md)、[gis_data_population.md](../01_planning/gis_data/gis_data_population.md)、[gis_data_nighttime_lights.md](../01_planning/gis_data/gis_data_nighttime_lights.md)、[gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)、[gis_data_roads.md](../01_planning/gis_data/gis_data_roads.md)）。観測選定は [observation_selection.md](../02_methods/observation_selection.md) 3 章・5 章。  
-> **補足**: FABDEM の年代は「Copernicus WorldDEM-30 由来」までしか裏を取れていないため、年を書かない。従来用いていた同日 03:23:29 の観測は実効 ROI カバー率 52.3%（12 位）にとどまり、これが観測を差し替えた直接の動機である。
+> **補足**: 従来用いていた同日 03:23:29 の観測は実効 ROI カバー率 52.3%（12 位）にとどまり、これが観測を差し替えた直接の動機である。
 
 ### パネル 3: From datasets to urban parameters
 

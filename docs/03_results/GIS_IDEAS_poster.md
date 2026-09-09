@@ -38,7 +38,7 @@
 | 全幅 | 2 | Study area and datasets | 553.7 mm | 134 mm | ROI 位置図（101 × 89 mm）・LST 図（61 × 89 mm）・データセット一覧表（362 mm 幅） |
 | 全幅 | 3 | Method | 553.7 mm | 134 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 31 mm 幅） |
 | 左列 | 4 | Model performance | 270.9 mm | 212 mm | キーメッセージ・モデル性能表・読み方・SHAP 依存プロット（214 × 94 mm） |
-| 右列 | 5 | Variable importance | 270.9 mm | 212 mm | SHAP 棒グラフ（175 × 96 mm）・順位表 |
+| 右列 | 5 | Variable importance | 270.9 mm | 212 mm | キーメッセージ・所見・SHAP 棒グラフ（195 × 86 mm）・順位表 |
 | 全幅 | 6 | Conclusions and limitations | 553.7 mm | 40 mm | 2 列の箇条書き |
 
 **読み順は「全幅 → 2 列 → 全幅」にそろえる。** パネル 1〜3 を全幅で上から読み、パネル 4（左）・5（右）へ分かれ、パネル 6 で再び全幅へ戻る。左右を往復せずに読み切れる並びであり、結論が最下段の全幅に来ることで存在感も出る。
@@ -247,16 +247,29 @@ English: The built-up signal saturates at the low end: the median contribution o
 日本語: **`NDBI` が支配的である。ただし首位は指標によって入れ替わる。**  
 English: **NDBI dominates – but the leader depends on the measure.**
 
+日本語: 分光指数と土地被覆分類が信号を担っており、建物・道路のベクタデータの寄与は最も小さい。  
+English: The spectral and land-cover proxies carry the signal; the building and road vectors contribute least.
+
+**この所見は図に写っているが、言葉にしないと読み手が自分で読み取るしかない。** `NDBI` 0.702 に対し、建物・道路の実データは平均建物高さ 0.046・道路密度 0.026・建物被覆率 0.007 であり、**15〜100 倍の開きがある**。「公開 GIS をどこまで足せるか」を問う本研究にとって中心的な所見であるため、図任せにせず本文へ置く。
+
+**キーメッセージの直下に置き、図より先に読ませる。** 当初は図の下へ置いたが、棒グラフの高さが 96mm から 82mm へ落ちたため移した。主張を先に述べ、図がそれを裏づける順序になる。
+
+**原因は断定しない。** 建物高さはセルの 72.66% がゼロ補完で「有無」と「高さ」を分離できておらず（パネル 6 の限界）、寄与の小ささをデータの質だけに帰することはできない。本文は**観察事実の記述にとどめる**。
+
 **指標別の上位 3 変数**
 
 | Rank | SHAP | Permutation | RF impurity |
 |---|---|---|---|
-| 1 | NDBI 0.702 | NDBI 0.313 | Built-up cover 0.474 |
-| 2 | Built-up cover 0.432 | Elevation 0.144 | NDBI 0.141 |
-| 3 | Population 0.377 | Population 0.142 | Elevation 0.082 |
+| 1 | NDBI 0.702 | NDBI 0.313 | Built-up cover fraction 0.474 |
+| 2 | Built-up cover fraction 0.432 | Elevation 0.144 | NDBI 0.141 |
+| 3 | Population density 0.377 | Population density 0.142 | Elevation 0.082 |
 
-日本語: 単一の指標で首位を断定せず、SHAP と Permutation 重要度を主たる根拠とする。RF の不純度ベース重要度だけが建築被覆率を首位に置く。  
-English: Ranking uses SHAP and permutation importance together, not any single measure: the RF impurity importance alone puts built-up cover first.
+**変数名は棒グラフの表示名にそろえる。** 従来は棒グラフが `Built-up cover fraction` / `Population density`、順位表が `Built-up cover` / `Population` と、同じ変数を別名で書いていた。
+
+日本語: 同じ問いに対する 3 とおりの尋ね方である。順位づけは SHAP と Permutation 重要度を併せて用いる。RF の不純度ベース指標だけが建築被覆率を首位に置く。  
+English: Three ways of asking the same question. Ranking uses SHAP and permutation importance together: the RF impurity measure alone puts built-up cover first.
+
+**注記の冒頭で「3 つは別の手法である」ことを述べる。** これを知らない読み手には順位の食い違いがノイズに見え、「単一指標で語らない」という表の主張が伝わらない。**なぜ不純度ベースを主にしないのか**（連続変数・取りうる値の多い変数へ偏る）は 1 行増えるため紙面には載せず、質疑で答える。
 
 **棒グラフは上位 10 変数のみを描く。** 15 個すべてを並べると A1 の紙面で 1 本あたりの高さが足りない。落とす 5 本は樹木被覆率 0.011・湿地被覆率 0.009・建物被覆率 0.007・建物棟数密度 0.005・草地被覆率 0.003 であり、いずれも首位（`NDBI` 0.702）の 2% 未満で本文でも論じない。落としても「少数の変数が大半を占める」という形は残る（最下位に残る道路密度は 0.026）。
 
@@ -411,7 +424,7 @@ English: **For the random forest the spectral indices win, but the ordering reve
 そこで次の手順でポスター用に描き直す。
 
 1. **地図**: `data/output/datasets/dataset_limited_20230707_032305_hanoi_30m.gpkg` から必要な列を読み、`cell_id = row × 1,000,000 + col` を行・列へ復号して 2 次元配列へ戻し、`matplotlib` で描画する。英語のカラーバーを付け、値域はパーセンタイルで切る（分光指数は 2〜98、その他は 0〜99）
-2. **SHAP 棒グラフ**: `..._shap_importance.csv` の値をそのまま読み（再計算しない）、3 章の表示名で横棒グラフを描く。由来グループごとに色を分け、凡例を付ける。**上位 10 変数のみを描く**（理由は 2 章パネル 5）
+2. **SHAP 棒グラフ**: `..._shap_importance.csv` の値をそのまま読み（再計算しない）、3 章の表示名で横棒グラフを描く。由来グループごとに色を分け、凡例を付ける。**上位 10 変数のみを描く**（理由は 2 章パネル 5）。**縦横比は貼付枠に寄せる**（`figsize=(11.0, 5.0)`）。9.0 × 5.0 では高さで頭打ちになり、列の左右に 80mm 以上の余白が残っていた
 3. **SHAP 依存プロット**: 分析本体は SHAP 値そのものを保存せず図と平均 |SHAP| だけを出力するため、**同一条件で再算出する**。`..._sample_100000.csv` を読み、列順を `..._feature_importance.csv` から取り、`test_size=0.2` / `random_state=42` で分割、RF は 300 本・`min_samples_leaf=5`、SHAP は評価 2,000 点・背景 500 点（いずれも CLI 既定値）。得た平均 |SHAP| が `..._shap_importance.csv` と一致することを照合してから作図する
 4. **ワークフロー図**: [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd) を `mermaid-cli` で PNG へ書き出す
 5. **ROI 位置図**: `python -m src.visualization.roi_location_map --output presentations/poster_assets/map_roi_location.png` を実行する。ROI（`data/gis/boundaries/hanoi/`）とベトナム国境（`data/gis/boundaries/vietnam/`・geoBoundaries ADM0）を OpenStreetMap の XYZ タイル上に重ね、方位記号・スケールバー・経緯度目盛・インセット・出典表記を付けて出力する。既定は幅 120mm・400dpi（1889 × 1667 px）

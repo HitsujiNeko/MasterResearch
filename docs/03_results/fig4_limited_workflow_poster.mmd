@@ -6,7 +6,7 @@ flowchart LR
     I["Satellite and open GIS data"] --> P["Urban parameters<br>zonal statistics onto the<br>30 m canonical grid,<br>one row per cell"]
     P --> Q["Quality control<br>valid area, non-null,<br>LST valid ratio at least 0.5<br>3,274,665 cells"]
     Q --> S["Sampling<br>100,000 cells"]
-    S --> M["Models<br>MLR and random forest"]
+    S --> M["Models<br>multiple linear regression (MLR)<br>and random forest"]
     M --> E["Evaluation<br>5-fold spatial CV<br>on 2,700 m blocks<br>SHAP"]
 
      I:::input

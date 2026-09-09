@@ -37,7 +37,7 @@
 | 全幅 | 1 | Background | 553.7 mm | 74 mm | 散文（4 行）＋研究設問の枠（22pt・2 行） |
 | 全幅 | 2 | Study area and datasets | 553.7 mm | 134 mm | ROI 位置図（101 × 89 mm）・LST 図（61 × 89 mm）・データセット一覧表（362 mm 幅） |
 | 全幅 | 3 | Method | 553.7 mm | 134 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 31 mm 幅） |
-| 左列 | 4 | Results | 270.9 mm | 212 mm | モデル性能表・読み方・SHAP 依存プロット（223 × 98 mm） |
+| 左列 | 4 | Model performance | 270.9 mm | 212 mm | キーメッセージ・モデル性能表・読み方・SHAP 依存プロット（214 × 94 mm） |
 | 右列 | 5 | Variable importance | 270.9 mm | 212 mm | SHAP 棒グラフ（175 × 96 mm）・順位表 |
 | 全幅 | 6 | Conclusions and limitations | 553.7 mm | 40 mm | 2 列の箇条書き |
 
@@ -182,7 +182,7 @@ English: Vector data give three kinds of statistic: coverage (share of cell area
 | Satellite and open GIS data | 7 項目の列挙を削除。`open GIS` → `open GIS data` | 列挙はパネル 2 の表が出典・年代つきで示しており完全に重複する。`Satellite and open GIS` は `and` の前後が揃わない省略形であり、`data` を補って並びを直す。**`open` は落とさない**——本研究の主張（公開データだけでどこまで説明できるか）を担う語であり、落とすと Full シナリオでも通る記述になる。あわせて OGC の旧名称 `OpenGIS` との紛らわしさも減る |
 | Urban parameters | `one row per cell_id` → `one row per cell` | `cell_id` は内部の列名 |
 | Sampling | `random seed 42` を削除 | 再現性の主張としても、箱の 1 行を使う価値は無い |
-| Models | `15 predictors` を削除 | 上の内訳表が持つ |
+| Models | `15 predictors` を削除。`MLR` → `multiple linear regression (MLR)` | 内訳表が変数の数を持つ。`MLR` はポスター全体でここでしか展開されない |
 
 **図のキャプション**
 
@@ -201,7 +201,14 @@ English: Vector data give three kinds of statistic: coverage (share of cell area
 > **出所**: 定義は [research_guide.md](../01_planning/research_guide.md) §5.3 と [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) 2 章・3 章（P1〜P18）。処理条件は [limited_analysis_results.md](limited_analysis_results.md) 3.2〜3.6 節。  
 > **補足**: 土地被覆の面積率は全行で合計 1.0 になるため参照クラス（農地）を除外し、裸地は定数列として除外される。結果として実効的な説明変数は 15 個になる（同 3.6 節）。
 
-### パネル 4: Results
+### パネル 4: Model performance
+
+日本語: **公開データだけで、空間交差検証の R² 0.760 に到達する。**  
+English: **Open data alone reaches R² 0.760 under spatial cross-validation.**
+
+**キーメッセージを冒頭に置く。** 本研究の中心的な答えは、従来このパネルでは**表のセルの中にしか存在せず**、文として述べられるのはパネル 6 の結論まで待つ形だった。紙面で最も重要な数字が最も弱い形に置かれていたことになる。
+
+**順序を「キーメッセージ → 表 → 但し書き」にする。** 従来は表の直後に 3 行の但し書きが来ており、読み手が成果を知る前に限界を読む順序になっていた。
 
 **モデル性能**
 
@@ -210,18 +217,25 @@ English: Vector data give three kinds of statistic: coverage (share of cell area
 | MLR | 0.646 | 0.645 | 1.47 |
 | Random forest | 0.796 | 0.760 | 1.11 |
 
-日本語: Spatial CV で下がるのは RF だけである。2,700m のブロックは空間自己相関を断ち切れていない（セミバリオグラムの sill は 15〜30km）ため、この R² は同一 ROI 内への内挿性能として読む。汎化性能ではない。  
-English: Only the RF drops under spatial CV. Blocks of 2,700 m do not break the spatial autocorrelation (semivariogram sill 15–30 km), so read these R² as interpolation within the same ROI, not generalisation.
+日本語: RMSE 1.11°C に対し、LST の標準偏差は 2.49°C である。この R² は同一 ROI 内への内挿性能として読む。汎化性能ではない。2,700m のブロックは空間自己相関を断ち切れていない（セミバリオグラムの sill は 15〜30km）。  
+English: RMSE 1.11 °C against an LST standard deviation of 2.49 °C. Read these R² as interpolation within the same ROI, not generalisation: 2,700 m blocks do not break the spatial autocorrelation (semivariogram sill 15–30 km).
+
+**RMSE に対比の相手を与える。** 1.47 / 1.11°C という数字だけでは良し悪しの手がかりが無い。標本 10 万件の LST 標準偏差 2.49°C（`..._sample_100000.csv` で実測）と並べると意味が出る。`1 − (1.11 / 2.49)² = 0.80` であり、ランダム分割の R² 0.796 とも整合する。
+
+**但し書きの書き出しを変える。** 従来の `Only the RF drops under spatial CV.` は議論の途中から始まっており、読み手はまだ空間交差検証が何のためにあるかを知らない。加えてこの一文の含意（線形モデルが下がらないのは安心材料ではない）を理解するには前提が要る。結論（内挿として読む）を先に置く。
+
+**`MLR` はパネル 3 のワークフロー図で一度だけ展開する**（`multiple linear regression (MLR) and random forest`）。この表とワークフロー図で計 2 回出るが、従来はどこでも展開されていなかった。
 
 **NDBI の寄与の形（SHAP 依存プロット）**
 
-日本語: **建築指数の効きは低い側で頭打ちになる。**  
-English: **The built-up signal saturates at the low end.**
+日本語: 建築指数の効きは低い側で頭打ちになる。NDBI の寄与は中央値で −0.77〜+2.51°C の幅を持ち、NDBI −0.4 を下回ると下げ止まる。  
+English: The built-up signal saturates at the low end: the median contribution of NDBI runs from −0.77 to +2.51 °C and stops falling below NDBI −0.4.
 
-日本語: NDBI の寄与は中央値で −0.77〜+2.51°C の幅を持ち、NDBI −0.4 を下回ると下げ止まる。そこから先は、建築被覆がさらに少なくなってもセルは冷えない。  
-English: Median contribution of NDBI runs from −0.77 to +2.51 °C and stops falling below NDBI −0.4: past that point, less built-up surface no longer buys a cooler cell.
+**この見出しはキーメッセージにしない。** 1 つのパネルに太字の主張が 2 つあると両方が弱まるため、太字はパネル冒頭の 1 つに統一し、こちらは通常の本文として置く。
 
 **この図はポスターで唯一、「どの変数が効くか」ではなく「どう効くか」を示す。** パネル 5 の棒グラフが寄与の大きさを順位づけるのに対し、こちらは寄与の形と摂氏での大きさを示す。
+
+**依存プロットの縦軸は外れ値（+5.5 付近の 1 点）に引き伸ばされているが、切らない。** 実質的な構造は −1〜+3 にあり図の上 3 割強が空くが、範囲を切ると「都合の悪い点を隠した」と見えるリスクのほうが大きい。
 
 > **出所**: [limited_analysis_results.md](limited_analysis_results.md) 4.1 節・4.2 節・3.9 節、2 章の台帳（ラン1）。RMSE は摂氏で読む。  
 > **依存プロットの数値の出所**: `presentations/poster_assets/shap_values_run1.csv`（Git 管理外）。分析本体は SHAP 値そのものを保存しないため、同一条件で再算出した（7 章）。24 区間の等頻度ビンごとの中央値をとり、その最小 −0.770°C・最大 +2.514°C（振れ幅 3.284°C）を上記に採った。中央値が 0 を横切るのは NDBI −0.226〜−0.205 の区間である。  

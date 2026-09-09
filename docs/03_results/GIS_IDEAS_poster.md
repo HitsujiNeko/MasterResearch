@@ -36,7 +36,7 @@
 |---|---|---|---|---|---|
 | 全幅 | 1 | Background | 553.7 mm | 74 mm | 散文（4 行）＋研究設問の枠（22pt・2 行） |
 | 全幅 | 2 | Study area and datasets | 553.7 mm | 134 mm | ROI 位置図（101 × 89 mm）・LST 図（61 × 89 mm）・データセット一覧表（362 mm 幅） |
-| 全幅 | 3 | From datasets to urban parameters | 553.7 mm | 134 mm | ワークフロー図（542 × 48 mm）・定義・算出済みラスタ 6 点（各 31 mm 幅） |
+| 全幅 | 3 | Method | 553.7 mm | 134 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 31 mm 幅） |
 | 左列 | 4 | Results | 270.9 mm | 212 mm | モデル性能表・読み方・SHAP 依存プロット（223 × 98 mm） |
 | 右列 | 5 | Variable importance | 270.9 mm | 212 mm | SHAP 棒グラフ（175 × 96 mm）・順位表 |
 | 全幅 | 6 | Conclusions and limitations | 553.7 mm | 40 mm | 2 列の箇条書き |
@@ -78,7 +78,7 @@ English: **This study asks how far satellite data combined with open GIS can qua
 
 **この一文はパネル地色より濃い枠（`#E4E8F2`）で囲み、22pt・2 行で置く。** 散文の末尾に同じ体裁で並べると読み飛ばされるためである。
 
-**枠の中に用語の注釈を挟む。** "urban spatial density" は**この分野の標準語ではない**（引用 3 本の原典での出現回数は 0 回。使われるのは urban form＝S4 で 83 回、urban density＝S6 で 3 回、urban structure＝S2 で 1 回）。定義はパネル 3 に置いているが、読み手はタイトルとこの枠という**最も目立つ 2 箇所で、定義のないままこの語に 2 回出会う**ことになる。注釈はパネル 3 の定義の短縮版であり、地形を落として 4 要素に絞っている（枠を 2 行に収めるため）。
+**枠の中に用語の注釈を挟む。** "urban spatial density" は**この分野の標準語ではない**（引用 3 本の原典での出現回数は 0 回。使われるのは urban form＝S4 で 83 回、urban density＝S6 で 3 回、urban structure＝S2 で 1 回）。定義はパネル 3 に置いているが、読み手はタイトルとこの枠という**最も目立つ 2 箇所で、定義のないままこの語に 2 回出会う**ことになる。注釈は概念の平易な言い換えであり、枠を 2 行に収めるため 4 要素へ絞っている（標高は落とした）。**この注釈がポスター上での唯一の説明**であり、パネル 3 では定義を繰り返さない。
 
 > **出所**: [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md) 5 章（Introduction）を土台に、Limited シナリオ向けへ書き換えた。引用文献は [previous_studies_report.md](../04_archive/previous_studies_report.md) を参照する。  
 > **原典照合（2026-09-04 実施）**: 3 件とも `docs/04_archive/04_pdfs/` の PDF 本文で確認した。<br>・**Sun et al., 2019**（Yanwei Sun, Chao Gao, Jialin Li, Run Wang, Jian Liu / Remote Sensing 11(8):959）: OLS と RF を構築し、Figure 10 で %IncMSE と IncNodePurity による**変数重要度のランキング**を提示。NDVI と建物密度が最重要。<br>・**Garzón et al., 2021**（Julián Garzón, Iñigo Molina, Jesús Velasco, Andrés Calabia / Remote Sens. 13:4256）: 熱帯コロンビア都市で PCA・MLR に SVM と Naïve Bayes を組み合わせている。<br>・**Le Ngoc Hanh & Tran Thi An, 2025**: 3.4 節 Limitations に "the exclusive use of NDVI and NDBI ... they do not capture other critical dimensions of urban dynamics, such as population density, building height, land use diversity, or socio-economic variables" とある。**著者自身の研究の限界**として書かれている点に注意する（質疑では出所をそう答える）。ポスターの記述は原典より狭い（原典は land use diversity と socio-economic variables も挙げている）。  
@@ -111,7 +111,7 @@ English: A single Landsat 8 scene: 7 July 2023, 10:23 local time (03:23 UTC), se
 | Land cover | GLC_FCS30D | 2022 | Raster 30 m | Land-cover class fractions |
 | Population | WorldPop | 2020 | Raster ~92 m | Population density |
 | Night lights | VIIRS DNB | 2023 | Raster ~460 m | Night-time light |
-| Terrain | FABDEM v1.2 | imagery 2010–2015 | Raster 30 m | Elevation |
+| Elevation | FABDEM v1.2 | imagery 2010–2015 | Raster 30 m | Elevation |
 
 **先頭に `Data` 列を置く。** `GlobalBuildingAtlas` / `GLC_FCS30D` / `FABDEM` / `VIIRS DNB` は製品名だけでは何のデータか判断できず、`Parameters derived` から逆算させるのは読み手の負担になる。製品名は `Source` 列へ移す。左 2 列は左寄せにする（語長がまちまちな列を中央寄せにすると行ごとに開始位置がずれる）。
 
@@ -142,15 +142,47 @@ English: Building heights, population and land cover are modelled products, not 
 > **出所**: 年代・種別は各 gis_data ドキュメント（[gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) 3 章、[gis_data_lulc.md](../01_planning/gis_data/gis_data_lulc.md)、[gis_data_population.md](../01_planning/gis_data/gis_data_population.md)、[gis_data_nighttime_lights.md](../01_planning/gis_data/gis_data_nighttime_lights.md)、[gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)、[gis_data_roads.md](../01_planning/gis_data/gis_data_roads.md)）。観測選定は [observation_selection.md](../02_methods/observation_selection.md) 3 章・5 章。  
 > **補足**: 従来用いていた同日 03:23:29 の観測は実効 ROI カバー率 52.3%（12 位）にとどまり、これが観測を差し替えた直接の動機である。
 
-### パネル 3: From datasets to urban parameters
+### パネル 3: Method
 
-日本語: **本研究は都市空間密度を、都市構造パラメータの集合——地表面エネルギー収支を左右する要素（土地被覆・人工構造物・人口集積・地形）の空間配置と密度を共通グリッド上の空間統計量として表したもの——として定量化する。**  
-English: **We quantify urban spatial density as a set of urban structure parameters: spatial statistics on a common grid describing the arrangement and density of the elements that govern the surface energy balance – land cover, artificial structures, population concentration and terrain.**
+日本語: **すべてのレイヤーが、ひとつの 30m グリッド上のセル単位の統計量になる。**  
+English: **Every layer becomes a per-cell statistic on one 30 m grid.**
 
-> **用語の橋渡し**: タイトルの "urban spatial density" と本文の "urban structure parameters" は、**概念とその操作的定義**の関係にある。読み手が両者を結びつけられるよう、この定義の一文で明示的につなぐ。**片方の語へ統一はしない。** 投入する 15 パラメータには平均標高（地形）と分光指数が含まれ、これらは「密度」に収まらないためである（[research_guide.md](../01_planning/research_guide.md) §5.3 の定義も「空間配置**と**密度」としている）。
+日本語: ベクタデータからは 3 種類の統計量が得られる。被覆率（ラスタ化したフットプリントから求めた、セル面積に占める割合）、密度（ha 当たりの地物数または延長）、平均建物高さである。  
+English: Vector data give three kinds of statistic: coverage (share of cell area, from rasterised footprints), density (features or metres per hectare) and mean building height.
 
-日本語: すべてのレイヤーを同一の 30m 正準グリッドへ集計し、`cell_id` ごとに 1 行のデータにする。モデルへ投入する 15 のパラメータは、分光指数 3（NDVI・NDBI・NDWI）、建物被覆率・棟数密度・平均高さ、道路密度、土地被覆クラス別面積率 5、人口密度、夜間光、平均標高である。ベクタのレイヤーは連続的な密度へ変換されるため、右の地図は生の入力データではなく算出後のパラメータである。  
-English: Every layer is aggregated onto the same 30 m canonical grid by zonal statistics, giving one row per cell_id. Fifteen parameters enter the models: three spectral indices (NDVI, NDBI, NDWI); building coverage, density and mean height; road density; five land-cover class fractions; population density; night-time light; and mean elevation. Vector layers become continuous densities, so the maps on the right are derived parameters, not raw source data.
+**見出しを `Method` にする。** 従来の `From datasets to urban parameters` はパラメータ算出までを指すが、ワークフロー図は Sampling・Models・Evaluation まで進んでおり、実質は手法全体である。見出しのほうを内容へ合わせる。
+
+**概念の定義を繰り返さない。** 平易な説明はパネル 1 の研究設問の枠（`the mix and packing of buildings, roads, land cover and people in each 30 m cell`）が済ませている。本パネルの役割は「どう算出したか」であり、従来ここに置いていた 3 行の定義文は落とす。
+
+**算出方法を明示する。** 従来は `zonal statistics` と `Vector layers become continuous densities` の 2 語しかなく、道路密度や建物系パラメータをどう作ったかが読み取れなかった。算出の型は 3 種類あるため、それを示す（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6 章）。
+
+- **被覆率**（`BUILD_COV`, 0–1）: fine グリッドへラスタ化し coarse セルへ平均集約
+- **密度**（`BUILD_DEN` 棟/ha, `ROAD_DEN` m/ha）: 重心が属するセルごとの棟数、またはセル内ライン総延長を、セル面積で正規化
+- **平均建物高さ**（`BUILD_H_MEAN`, m）: 有効高さを fine グリッドへラスタ化し平均集約（被覆が無いセルのみ重心方式で補完）
+
+**道路のホワイトリスト条件は紙面に載せない**（motorway〜living_street ＋ service を採用し、歩道・階段・小径・トラック・トンネルを除外）。質疑で問われた場合に答える。
+
+**主語 `We` を使わない。** 共著論文で `we` を用いること自体は標準だが、ポスターは字数が惜しく、主語を落とせばそのぶん短くなる。パネル 5 の `We rely on ...` も `Ranking uses ...` へ改めた。
+
+**15 変数の内訳表（パネル 5 の SHAP 図と同じ 4 群・同じ色）**
+
+| 群 | 色 | 内訳 |
+|---|---|---|
+| Satellite indices (3) | `#D85A30` | NDVI, NDBI, NDWI |
+| Land cover (5) | `#1D9E75` | built-up, tree, water, rangeland, wetland fractions |
+| Building / road (4) | `#378ADD` | coverage, density, mean height, road density |
+| Population / light / elevation (3) | `#7F77DD` | population density, night-time light, elevation |
+
+**散文の列挙をやめ、群ごとの表にする。** 従来は 15 変数を 1 文で並べており、読み手が目で数えないと構成が掴めなかった。**この 4 群はパネル 5 の SHAP 棒グラフの凡例に既に存在する。** 同じ名前・同じ色で示すことで、読み手はパネル 3 で分類を覚え、パネル 5 の棒グラフの色でそれを再認できる。
+
+**ワークフロー図から重複と細部を削る。**
+
+| 箱 | 変更 | 理由 |
+|---|---|---|
+| Satellite and open GIS data | 7 項目の列挙を削除。`open GIS` → `open GIS data` | 列挙はパネル 2 の表が出典・年代つきで示しており完全に重複する。`Satellite and open GIS` は `and` の前後が揃わない省略形であり、`data` を補って並びを直す。**`open` は落とさない**——本研究の主張（公開データだけでどこまで説明できるか）を担う語であり、落とすと Full シナリオでも通る記述になる。あわせて OGC の旧名称 `OpenGIS` との紛らわしさも減る |
+| Urban parameters | `one row per cell_id` → `one row per cell` | `cell_id` は内部の列名 |
+| Sampling | `random seed 42` を削除 | 再現性の主張としても、箱の 1 行を使う価値は無い |
+| Models | `15 predictors` を削除 | 上の内訳表が持つ |
 
 **図のキャプション**
 
@@ -206,11 +238,11 @@ English: **NDBI dominates – but the leader depends on the measure.**
 | Rank | SHAP | Permutation | RF impurity |
 |---|---|---|---|
 | 1 | NDBI 0.702 | NDBI 0.313 | Built-up cover 0.474 |
-| 2 | Built-up cover 0.432 | Mean elevation 0.144 | NDBI 0.141 |
-| 3 | Population 0.377 | Population 0.142 | Mean elevation 0.082 |
+| 2 | Built-up cover 0.432 | Elevation 0.144 | NDBI 0.141 |
+| 3 | Population 0.377 | Population 0.142 | Elevation 0.082 |
 
 日本語: 単一の指標で首位を断定せず、SHAP と Permutation 重要度を主たる根拠とする。RF の不純度ベース重要度だけが建築被覆率を首位に置く。  
-English: We rely on SHAP and permutation importance, not on any single measure: the RF impurity importance alone puts built-up cover first.
+English: Ranking uses SHAP and permutation importance together, not any single measure: the RF impurity importance alone puts built-up cover first.
 
 **棒グラフは上位 10 変数のみを描く。** 15 個すべてを並べると A1 の紙面で 1 本あたりの高さが足りない。落とす 5 本は樹木被覆率 0.011・湿地被覆率 0.009・建物被覆率 0.007・建物棟数密度 0.005・草地被覆率 0.003 であり、いずれも首位（`NDBI` 0.702）の 2% 未満で本文でも論じない。落としても「少数の変数が大半を占める」という形は残る（最下位に残る道路密度は 0.026）。
 

@@ -36,7 +36,7 @@
 |---|---|---|---|---|---|
 | 全幅 | 1 | Background | 553.7 mm | 74 mm | 散文（4 行）＋研究設問の枠（22pt・2 行） |
 | 全幅 | 2 | Study area and datasets | 553.7 mm | 128 mm | ROI 位置図（95 × 83 mm）・LST 図（57 × 83 mm）・データセット一覧表 |
-| 全幅 | 3 | Method | 553.7 mm | 131 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 29 mm 幅） |
+| 全幅 | 3 | Method | 553.7 mm | 131 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 27 mm 幅） |
 | 左列 | 4 | Model performance | 270.9 mm | 202 mm | キーメッセージ・モデル性能表・読み方・SHAP 依存プロット（191 × 84 mm） |
 | 右列 | 5 | Variable importance | 270.9 mm | 202 mm | キーメッセージ・所見・SHAP 棒グラフ（172 × 76 mm）・順位表 |
 | 全幅 | 6 | Conclusions and limitations | 553.7 mm | 59 mm | 結論 2 項目・限界 3 項目の 2 列＋次の一手 |
@@ -182,6 +182,7 @@ English: Vector data give three kinds of statistic: coverage (share of cell area
 |---|---|---|
 | Satellite and open GIS data | 7 項目の列挙を削除。`open GIS` → `open GIS data` | 列挙はパネル 2 の表が出典・年代つきで示しており完全に重複する。`Satellite and open GIS` は `and` の前後が揃わない省略形であり、`data` を補って並びを直す。**`open` は落とさない**——本研究の主張（公開データだけでどこまで説明できるか）を担う語であり、落とすと Full シナリオでも通る記述になる。あわせて OGC の旧名称 `OpenGIS` との紛らわしさも減る |
 | Urban parameters | `one row per cell_id` → `one row per cell` | `cell_id` は内部の列名 |
+| Urban parameters | 建物高さ 0m 補完の行を追加 | 補完は品質フィルタの**前**に適用され、**どのセルが母集団に残るかを変える**（建物高さが NULL のままなら非 NULL 要求で落ちる）。パネル 6 が限界として 72.66% を述べているのに、それがどの段階の処理かを図が示していなかった。箱は増やさず 1 行だけ足した。箱を増やすと図が横へ伸びて図中の文字が小さくなるため、高さで払うほうを選んだ。図は 3.5 mm 高くなり、右に並ぶ算出済みラスタ 6 点が 29 → 27 mm へ縮んだ |
 | Sampling | `random seed 42` を削除 | 再現性の主張としても、箱の 1 行を使う価値は無い |
 | Models | `15 predictors` を削除。`MLR` → `multiple linear regression (MLR)` | 内訳表が変数の数を持つ。`MLR` はポスター全体でここでしか展開されない |
 
@@ -296,8 +297,8 @@ English: **Cities without survey GIS can still map their heat pattern.**
 
 1. 日本語: ランダムフォレストは Spatial CV の R² 0.760 に到達し、線形モデルを 0.116 上回る。  
    English: Random forest reaches R² 0.760 under spatial CV, 0.116 above the linear model
-2. 日本語: 信号の大半を担うのは分光指数であり、建物・道路のベクタの寄与は最も小さい。  
-   English: Satellite indices carry most of the signal; the building and road vectors contribute least
+2. 日本語: 寄与が最も大きい群は分光指数で総和の 43% を占め、建物・道路のベクタは最も小さく 3% である。  
+   English: Satellite indices are the largest group at 43% of total mean |SHAP|; building and road vectors the smallest at 3%
 
 **Limitations（右列）**
 
@@ -307,6 +308,8 @@ English: **Cities without survey GIS can still map their heat pattern.**
    English: 72.66% of cells are imputed as 0 m height; NDVI and NDWI VIFs stay at 32.24 and 34.56
 3. 日本語: 説明変数のレイヤーは観測と同時期ではない。人口は 2020 年、道路は 2026 年、シーンは 2023 年である。  
    English: Predictor layers are not contemporaneous: population 2020, roads 2026, scene 2023
+
+**結論 2 は群の順位ではなく、寄与の割合で述べる。** 従来の `carry most of the signal` は「大半」を意味するが、分光指数 3 変数の mean |SHAP| の合計は 15 変数の総和 2.573 のうち 1.105 であり、**42.9%**（最大の群ではあるが過半ではない）にとどまる。数値と一致する表現へ改める。4 群の内訳は分光指数 42.9%・人口/夜間光/標高 34.0%・土地被覆 19.8%・建物/道路 3.2%（`dataset_limited_20230707_032305_hanoi_30m_both_bh_mean_shap_importance.csv` の集計）である。
 
 **年代のばらつきを限界として引き受ける。** パネル 2 の表は各データの年代を正直に並べているが、**それが限界であることをどこにも書いていなかった**。表を見れば誰でも気づく点であり、先に自ら述べるほうが強い。建物高さと VIF は 1 項目へ統合して場所を作った。
 
@@ -482,6 +485,7 @@ English: **For the random forest the spectral indices win, but the ordering reve
 - **裾の重い分布は平方根スケールで描く。** 建物被覆率・棟数密度・平均建物高さ・道路密度はセルの 7 割以上がゼロ、人口密度と夜間光はごく一部に大きな値が集中する（`..._sample_100000.csv` で実測）。線形スケールでは大半のセルがカラーマップの最も淡い側へ潰れ、縮小すると**ほぼ白紙に見える**。`PowerNorm(gamma=0.5)` で低〜中間の値を広げる。正負に広がる分光指数は潰れないので線形のままとする
 - **単位を確認してから凡例に書く。** 道路密度は m/ha、建物棟数密度は 棟/ha、人口密度は 人/ha である（セル当たりではない）
 - **軸ラベルが figure に収まるか確かめる。** 軸ラベルは `bbox_inches="tight"` を指定しても、軸より長いと切れる（matplotlib は外接矩形の計算で軸ラベルを潰して扱うため）。カラーバーのラベルは**横**に、回転した y 軸ラベルは**縦**にはみ出す。依存プロットのように横長の図では軸の高さが低く、`Contribution to predicted LST (°C)` が 1 行では入らないため 2 行へ折り返した。判定は figure ではなく**軸**の寸法と比べる（figure と比べると x 軸ラベルのぶんを見落とす）
+- **図の枠とキャプションの枠は分ける。** 小さく並べる図のキャプションを図と同じ幅で置くと、枠が 29 → 25 mm へ縮んだだけで `Mean building height` が 3 行になり、パネルの下へはみ出す。図は縦横比 0.648 で枠の中に収まる（左右に余白が残る）ため、キャプションは隣の図までの間隔ぶん広く取れる
 - **画像を枠へ収めるときは縦横比を保つ。** 高さで合わせてから幅を `min()` で切り詰めると、画像が横方向へ潰れる。両辺の比を比べて小さいほうの倍率を使う
 - **ベースマップに CARTO のタイルを使わない。** `basemaps.cartocdn.com` は API キー無しの取得でタイル面に 「API KEY REQUIRED」の透かしが焼き込まれる。淡色のベースマップは OSM 標準タイルを減彩して得る
 - **Web メルカトルのスケールバーは緯度補正する。** 座標上の長さは緯度 φ で `1/cos(φ)` 倍に伸びているため、そのまま地表距離として扱うとハノイ（北緯 21 度）で約 7% 過大になる

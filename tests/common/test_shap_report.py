@@ -12,7 +12,12 @@ import pandas as pd
 import pytest
 from sklearn.ensemble import RandomForestRegressor
 
-from src.common.shap_report import _widen_figure_until_xlabel_fits, compute_shap_outputs
+from src.common import shap_report
+from src.common.shap_report import (
+    _measure_xlabel_overflow_inches,
+    _widen_figure_until_xlabel_fits,
+    compute_shap_outputs,
+)
 
 # matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
 
@@ -255,25 +260,36 @@ class TestBarPlotXLabelFits:
         assert figure.get_size_inches()[0] == pytest.approx(8.0)
         plt.close(figure)
 
-    def test_widens_figure_when_xlabel_overflows(self) -> None:
-        """軸より横に長いラベルを与えるとfigureの幅を広げる。"""
+    def test_xlabel_fits_after_widening(self) -> None:
+        """軸より横に長いラベルを与えても、処理後はラベルが保存領域に収まる。
+
+        「幅が広がったか」ではなく「収まっているか」で確認する。matplotlib 3.11 で
+        `Figure.get_tightbbox()` が軸ラベルを含めるようになり、そのバージョンでは
+        見切れ自体が起きないため拡張は何もしない。どちらの挙動でも成り立つ契約は
+        「処理後は収まっている」ことのほうである。
+        """
         figure = plt.figure(figsize=(4.0, 3.0))
         figure.gca().set_xlabel("very long axis label " * 6)
         figure.tight_layout()
 
         _widen_figure_until_xlabel_fits(figure)
 
-        assert figure.get_size_inches()[0] > 4.0
+        overflow_inches = _measure_xlabel_overflow_inches(figure)
+        assert overflow_inches is not None
+        assert overflow_inches <= 0
         plt.close(figure)
 
     def test_warns_when_xlabel_does_not_fit_within_iteration_limit(
-        self, caplog: pytest.LogCaptureFixture
+        self, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """拡張の上限に達しても収まらない場合は警告を記録する。
 
         収まらないまま保存すると軸ラベルが切れた画像になるため、無言で見逃さない
-        ことを確認する。上限回数を0にして、収まらない状態を意図的に作る。
+        ことを確認する。はみ出し量の測定結果は matplotlib のバージョンで変わる
+        （3.11 以降は常に収まっていると返る）ため、測定を差し替えて失敗経路を
+        確実に作る。上限回数は0にする。
         """
+        monkeypatch.setattr(shap_report, "_measure_xlabel_overflow_inches", lambda figure: 1.0)
         figure = plt.figure(figsize=(4.0, 3.0))
         figure.gca().set_xlabel("very long axis label " * 6)
         figure.tight_layout()

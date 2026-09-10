@@ -35,11 +35,12 @@
 | 位置 | # | パネル | 幅 | 高さ | 主な内容 |
 |---|---|---|---|---|---|
 | 全幅 | 1 | Background | 553.7 mm | 74 mm | 散文（4 行）＋研究設問の枠（22pt・2 行） |
-| 全幅 | 2 | Study area and datasets | 553.7 mm | 134 mm | ROI 位置図（101 × 89 mm）・LST 図（61 × 89 mm）・データセット一覧表（362 mm 幅） |
-| 全幅 | 3 | Method | 553.7 mm | 134 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 31 mm 幅） |
-| 左列 | 4 | Model performance | 270.9 mm | 212 mm | キーメッセージ・モデル性能表・読み方・SHAP 依存プロット（214 × 94 mm） |
-| 右列 | 5 | Variable importance | 270.9 mm | 212 mm | キーメッセージ・所見・SHAP 棒グラフ（195 × 86 mm）・順位表 |
-| 全幅 | 6 | Conclusions and limitations | 553.7 mm | 40 mm | 2 列の箇条書き |
+| 全幅 | 2 | Study area and datasets | 553.7 mm | 128 mm | ROI 位置図（95 × 83 mm）・LST 図（57 × 83 mm）・データセット一覧表 |
+| 全幅 | 3 | Method | 553.7 mm | 131 mm | ワークフロー図・算出方法・15 変数の内訳表（4 群）・算出済みラスタ 6 点（各 29 mm 幅） |
+| 左列 | 4 | Model performance | 270.9 mm | 202 mm | キーメッセージ・モデル性能表・読み方・SHAP 依存プロット（191 × 84 mm） |
+| 右列 | 5 | Variable importance | 270.9 mm | 202 mm | キーメッセージ・所見・SHAP 棒グラフ（172 × 76 mm）・順位表 |
+| 全幅 | 6 | Conclusions and limitations | 553.7 mm | 59 mm | 結論 2 項目・限界 3 項目の 2 列＋次の一手 |
+| 全幅 | — | 参考文献 | 496 mm | 25 mm | パネル 6 の下・テンプレートの白帯（y 781〜806 mm） |
 
 **読み順は「全幅 → 2 列 → 全幅」にそろえる。** パネル 1〜3 を全幅で上から読み、パネル 4（左）・5（右）へ分かれ、パネル 6 で再び全幅へ戻る。左右を往復せずに読み切れる並びであり、結論が最下段の全幅に来ることで存在感も出る。
 
@@ -278,22 +279,58 @@ English: Three ways of asking the same question. Ranking uses SHAP and permutati
 
 ### パネル 6: Conclusions and limitations
 
-日本語: **公開データだけで LST 分布の大半を説明できる。**  
-English: **Open data alone explains most of the LST pattern.**
+日本語: **測量 GIS を持たない都市でも、熱の分布を捉えることはできる。**  
+English: **Cities without survey GIS can still map their heat pattern.**
 
-**このパネルは最下段の全幅に置き、箇条書きを 2 列に分ける。** 全幅で 1 列にすると 1 行が 550mm を超え、行末から次の行頭まで目線が飛びすぎるためである。キーメッセージは見出しの右へ並べる。
+**キーメッセージは含意に寄せる。** 従来の「公開データだけで LST 分布の大半を説明できる」はパネル 4 のキーメッセージ（`Open data alone reaches R² 0.760 under spatial cross-validation.`）と同じことを述べており、**同じ事実が紙面に 3 回**（パネル 4 のキー・パネル 6 のキー・パネル 6 の箇条書き 1）出ていた。含意へ寄せることで重複が 2 回になり、結論パネルでの再掲という通常の範囲に収まる。
+
+**列に見出しを付けて、結論と限界を分ける。** 従来は 2 列の分割が意味ではなく場所の都合であり、左列に結論と限界が混在していた。
+
+**Conclusions（左列）**
 
 1. 日本語: ランダムフォレストは公開データのみで Spatial CV の R² 0.760 に到達する。  
-   English: Random forest reaches R² 0.760 under spatial CV from open data alone.
-2. 日本語: セルの 72.66% が建物高さ 0m の補完であり、「建物の有無」と「高さ」を分離できていない。  
-   English: 72.66% of cells are imputed as 0 m height: presence and height are not separable.
-3. 日本語: `NDVI` と `NDWI` の VIF は 32.24・34.56 と危険水準に残る。  
-   English: NDVI and NDWI VIFs remain hazardous at 32.24 and 34.56.
-4. 日本語: Spatial CV の R² は内挿性能である。単一観測・ハノイ単独・30m のみの結果である。  
-   English: Spatial CV R² is interpolation; single scene, Hanoi only, 30 m.
+   English: Random forest reaches R² 0.760 under spatial CV from open data alone
+2. 日本語: 信号を担うのは分光指数と土地被覆分類であり、建物・道路のベクタではない。  
+   English: Spectral indices and land cover carry the signal, not the building and road vectors
 
-> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 5.1 節・3.9 節・6.5 節・1.3 節。  
+**Limitations（右列）**
+
+1. 日本語: Spatial CV の R² は内挿性能である。単一観測・ハノイ単独・30m のみの結果である。  
+   English: Spatial CV R² is interpolation; single scene, Hanoi only, 30 m
+2. 日本語: セルの 72.66% が建物高さ 0m の補完である。`NDVI` と `NDWI` の VIF は 32.24・34.56 に残る。  
+   English: 72.66% of cells are imputed as 0 m height; NDVI and NDWI VIFs stay at 32.24 and 34.56
+3. 日本語: 説明変数のレイヤーは観測と同時期ではない。人口は 2020 年、道路は 2026 年、シーンは 2023 年である。  
+   English: Predictor layers are not contemporaneous: population 2020, roads 2026, scene 2023
+
+**年代のばらつきを限界として引き受ける。** パネル 2 の表は各データの年代を正直に並べているが、**それが限界であることをどこにも書いていなかった**。表を見れば誰でも気づく点であり、先に自ら述べるほうが強い。建物高さと VIF は 1 項目へ統合して場所を作った。
+
+**次の一手（全幅・パネル最下行）**
+
+日本語: **次の一手: `NDWI` を SWIR 由来の MNDWI へ差し替えて `NDVI`–`NDWI` の共線性を断ち、そのうえで測量 GIS を加えた Full シナリオと比較する。**  
+English: **Next: swap NDWI for the SWIR-based MNDWI to break the NDVI–NDWI collinearity, then add survey GIS (Full scenario).**
+
+**最終行は来場者が話しかける入口になる。** 右列の限界「`NDVI` と `NDWI` の VIF」に対する直接の答えになっており、抽象的な「今後の課題」ではない。`NDVI` と `NDWI` はどちらも NIR に支配され符号が逆であるため Pearson −0.966 の**構造的**な相関を持ち、両方を投入する限り VIF は 14.96 を下回れない。MNDWI は SWIR1 を使うためこの構造を断てる（[#268](https://github.com/HitsujiNeko/MasterResearch/issues/268)）。
+
+**枠の外へ出さない。** 当初はパネルの下の白帯へ置いたが、枠外に出ると本文の一部に見えない。パネルを 50mm から 59mm へ広げ、その 9mm はパネル 2（134→128mm）とパネル 3（134→131mm）の余白から回した。**パネル 4・5 の図の大きさは変えていない。**
+
+> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 5.1 節・3.9 節・6.5 節・1.3 節。年代は本原稿 2 章の使用データ一覧表。次の一手は [#268](https://github.com/HitsujiNeko/MasterResearch/issues/268)。  
 > **補足**: 0m 補完セルと「被覆率・棟数密度がともに 0 のセル」の一致率は **100.000000%** である。この従属は VIF では検出できない（`BUILD_H_MEAN` の VIF は 1.72）。線形従属ではなく「ゼロか否か」の水準で生じているためである（同 3.9 節）。
+
+---
+
+### 参考文献（パネル 6 の下・全幅）
+
+**著者・年形式で引用している以上、出典を辿れるようリストが要る。** `(Sun et al., 2019)` と書けば読み手は出典を探せる前提で読み、リストが無ければ辿れない。本ポスターは先行研究に対する位置づけで主張を立てているため、出典を欠くと土台が検証不能になる。3 件しかなく、省いて浮く場所もわずかである。
+
+- Garzón, J. et al. (2021) A remote sensing approach for surface urban heat island modeling in a tropical Colombian city using regression analysis and machine learning algorithms. Remote Sensing 13, 4256.
+- Le Ngoc Hanh & Tran Thi An (2025) Assessment of temperature change in Da Nang City, Vietnam using remote sensing and cloud-computing approach. The GIS-IDEAS Journal.
+- Sun, Y. et al. (2019) Quantifying the effects of urban form on land surface temperature in subtropical high-density urban areas using machine learning. Remote Sensing 11, 959.
+
+**置き場所はテンプレートの白帯である。** パネル 6 の下端（y 780.5mm）とフッタ紺帯の上端（y 809.8mm）のあいだに 29.3mm の白帯があり、左端は ID 円（右端 x 68.9mm）が占める。その右（x 78mm 以降）へ 11pt で置くと**パネルの高さを一切削らずに済む**。実測でフッタ帯まで 8.6mm の余裕がある。
+
+**テンプレートに指示文は無い**（含まれる文字列は大学名・会期・`ID` の 3 つのみ）。学会側の要項に参考文献の規定があるかは**未確認**である。白帯を空けておくよう想定されている可能性は否定できないため、ID 円から 9mm 以上離している。
+
+**著者名は et al. で詰める。** 3 件とも 1 行に収めるためであり、書誌情報は `papers_database.csv`（S6・S2・S4）と各 PDF の原本で確認済みである。
 
 ---
 
@@ -362,6 +399,8 @@ English: **Open data alone explains most of the LST pattern.**
 | SHAP 依存プロット（NDBI） | パネル 4 | 再算出した SHAP 値から描画（7 章） |
 | SHAP 棒グラフ（上位 10 変数） | パネル 5 | `..._shap_importance.csv` から描画（7 章） |
 | 指標別の上位 3 変数の表 | パネル 5 | 本原稿 2 章 |
+
+| 参考文献 3 件 | パネル 6 の下（白帯） | 本原稿 2 章末 |
 
 **変数セット比較表（spectral / coverage / both）はポスターに載せない。** SHAP 依存プロットと同じ高さを要し、A1 の紙面で両立しないためである。内容は 6 章 Q6 が引き受ける。
 

@@ -15,6 +15,7 @@ HTTP 取得（副作用あり）を分離してあり、前者は QGIS・ネッ�
 from __future__ import annotations
 
 import io
+import logging
 import math
 import time
 from dataclasses import dataclass
@@ -24,6 +25,8 @@ import requests
 from PIL import Image, ImageOps
 
 from src.common.config import PROJECT_ROOT
+
+logger = logging.getLogger(__name__)
 
 # Web メルカトルの世界範囲の半分（m）。原点からの距離であり、
 # x, y ともに [-ORIGIN_SHIFT, +ORIGIN_SHIFT] に収まる。
@@ -230,6 +233,37 @@ def _cache_path(cache_dir: Path, provider: TileProvider, zoom: int, x: int, y: i
     return cache_dir / provider.name / str(zoom) / str(x) / f"{y}.png"
 
 
+def _decode_tile(content: bytes, provider: TileProvider) -> Image.Image:
+    """応答本文（またはキャッシュの中身）をタイル画像として読み、妥当性を確かめる。
+
+    HTTP のステータスが 200 でも、配信元がエラーページや利用制限の HTML を返す
+    ことがある。**キャッシュへ書く前に必ずここを通す。** 画像でないものを書くと、
+    次回以降は再試行ループの外側（`_load_tile` 冒頭のキャッシュ読み込み）へ入る
+    ため、キャッシュを手で消すまで復旧しない。
+
+    Args:
+        content: 応答本文、またはキャッシュファイルの中身。
+        provider: タイル配信元。``tile_size`` を期待する画素数として使う。
+
+    Returns:
+        RGB 変換済みのタイル画像。
+
+    Raises:
+        OSError: 画像として読めないとき（``PIL`` が送出する）。
+        ValueError: 画素数が配信元の定義と一致しないとき。
+    """
+    with Image.open(io.BytesIO(content)) as image:
+        # ``Image.open`` は遅延読み込みのため、ここで ``load()`` して途中で切れた
+        # 画素データを検出する。開けただけでは壊れているかどうか分からない。
+        image.load()
+        expected = (provider.tile_size, provider.tile_size)
+        if image.size != expected:
+            raise ValueError(
+                f"タイルの画素数が配信元の定義と一致しません: {image.size} != {expected}"
+            )
+        return image.convert("RGB")
+
+
 def _load_tile(
     session: requests.Session,
     provider: TileProvider,
@@ -256,8 +290,14 @@ def _load_tile(
     """
     path = _cache_path(cache_dir, provider, zoom, x, y)
     if path.exists():
-        with Image.open(path) as image:
-            return image.convert("RGB")
+        try:
+            return _decode_tile(path.read_bytes(), provider)
+        except Exception as error:  # noqa: BLE001 - 壊れ方を問わず取得し直す
+            # 壊れたキャッシュが残っていても、取得し直して上書きすれば復旧できる。
+            # ここで失敗させると、キャッシュを手で消すまで図を描けなくなる。
+            logger.warning(
+                "キャッシュのタイルを読めなかったため取得し直します: %s (%s)", path, error
+            )
 
     url = provider.url_template.format(z=zoom, x=x, y=y)
     last_error: Exception | None = None
@@ -265,14 +305,16 @@ def _load_tile(
         try:
             response = session.get(url, timeout=_REQUEST_TIMEOUT_SEC)
             response.raise_for_status()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(response.content)
-            with Image.open(io.BytesIO(response.content)) as image:
-                return image.convert("RGB")
+            tile = _decode_tile(response.content, provider)
         except Exception as error:  # noqa: BLE001 - 再試行のため種類を問わず捕捉する
             last_error = error
             if attempt < _MAX_RETRY - 1:
                 time.sleep(_RETRY_WAIT_SEC * (attempt + 1))
+            continue
+        # タイル画像として読めたものだけをキャッシュへ書く（`_decode_tile` 参照）。
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(response.content)
+        return tile
     raise RuntimeError(f"タイルを取得できませんでした: {url}") from last_error
 
 

@@ -1,0 +1,51 @@
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    I1["Landsat 8 imagery<br>2023-07-07T03:23:05Z"] --> S1["LST and spectral index calculation<br>cloud mask + ROI clip"]
+    I2["ROI boundary: Hanoi"] --> S1
+    I2 --> S2["Aggregation to the 30 m canonical grid<br>zonal statistics + cell_id assignment"]
+    I3["GlobalBuildingAtlas<br>building footprints and heights"] --> S2
+    I4["OpenStreetMap roads<br>Geofabrik Vietnam extract"] --> S2
+    I5["FABDEM v1.2<br>elevation"] --> S2
+    I6["GLC_FCS30D<br>land cover"] --> S2
+    I7["WorldPop 2020<br>population density"] --> S2
+    I8["VIIRS DNB<br>nighttime lights"] --> S2
+    S1 --> S2
+    S2 --> D1["Parameter tables keyed by cell_id<br>LST, NDVI, NDBI, NDWI, buildings, roads,<br>elevation, land cover, population, night lights"]
+    D1 --> S3["build_dataset<br>join by cell_id + quality columns"]
+    S3 --> D2["Limited dataset<br>30 m canonical grid, 3,739,454 cells"]
+    D2 --> S4["Building height imputation<br>fill 0 m where building coverage and density are both 0"]
+    S4 --> S5["Quality control<br>analysis area + population and night-light valid masks<br>non-null features + LST valid ratio at least 0.5"]
+    S5 --> S6["Sampling<br>100,000 cells, random seed 42"]
+    S6 --> S7["Model training<br>MLR on standardized variables + Random Forest, 300 trees"]
+    S7 --> S8["Spatial CV<br>5-fold group K-Fold, 2,700 m blocks from grid row and col"]
+    S7 --> S9["SHAP<br>2,000 evaluation samples, 500 background samples"]
+    S8 --> R1["Model performance and variable importance<br>R2, standardized coefficients,<br>RF and permutation importance, SHAP values"]
+    S9 --> R1
+
+     I1:::input
+     I2:::input
+     I3:::input
+     I4:::input
+     I5:::input
+     I6:::input
+     I7:::input
+     I8:::input
+     S1:::process
+     S2:::process
+     S3:::process
+     S4:::process
+     S5:::process
+     S6:::process
+     S7:::process
+     S8:::process
+     S9:::process
+     D1:::data
+     D2:::data
+     R1:::result
+    classDef input fill:#f3ecc9,stroke:#4b5563,stroke-width:1.2px,color:#111827
+    classDef process fill:#d9eadf,stroke:#4b5563,stroke-width:1.2px,color:#111827
+    classDef data fill:#d8e6f2,stroke:#4b5563,stroke-width:1.2px,color:#111827
+    classDef result fill:#f2ddcf,stroke:#4b5563,stroke-width:1.2px,color:#111827

@@ -7,18 +7,102 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap
+from matplotlib.figure import Figure
 from sklearn.ensemble import RandomForestRegressor
 
 from src.common.paths import to_project_relative_string
 
+logger = logging.getLogger(__name__)
 
-def _finalize_current_figure(output_path: Path, title: str) -> None:
+
+def _measure_xlabel_overflow_inches(figure: Figure) -> float | None:
+    """x軸ラベルが保存領域からはみ出す量を測る。
+
+    Args:
+        figure: 対象のfigure。
+
+    Returns:
+        はみ出し量（インチ）。収まっている場合は0以下の値になる。軸が無い場合、
+        またはx軸ラベルが空の場合は None。
+    """
+    if not figure.axes:
+        return None
+
+    # 軸ラベルの位置は描画時に確定するため、測る前に一度描画する。
+    figure.canvas.draw()
+    label = figure.gca().xaxis.label
+    if not label.get_text():
+        return None
+
+    # rendererを省略すると、matplotlibがfigureから適切なものを取得する（特定の
+    # バックエンドに依存しないよう、こちらでrendererを取り出さない）。
+    # get_window_extent()はピクセル単位、get_tightbbox()はインチ単位で返る。
+    label_bbox = label.get_window_extent()
+    saved_bbox = figure.get_tightbbox()
+    return max(
+        saved_bbox.x0 - label_bbox.x0 / figure.dpi,
+        label_bbox.x1 / figure.dpi - saved_bbox.x1,
+    )
+
+
+def _widen_figure_until_xlabel_fits(
+    figure: Figure,
+    max_iterations: int = 5,
+    margin_inches: float = 0.05,
+) -> None:
+    """x軸ラベル全体が保存領域に収まるまで、figureの幅を広げる。
+
+    `savefig(bbox_inches="tight")` は保存領域を描画物の外接矩形から決めるが、
+    matplotlibは `Axes.get_tightbbox()` の内部で軸ラベルの幅を1ピクセルへ潰して
+    扱う（レイアウト調整では改善できない量とみなすため）。このためx軸ラベルが
+    軸より横に長い場合、`bbox_inches="tight"` を指定しても保存領域は横へ広がらず、
+    ラベルの端が切れたまま保存される。figure自体を広げれば軸も広がり、ラベルが
+    保存領域に収まる。
+
+    figureを広げると軸の中心も動いてラベルの位置が変わるため、収まるまで反復する。
+
+    **この潰す挙動は matplotlib 3.11 で変わった。** 3.11 以降は
+    `Figure.get_tightbbox()` が軸ラベル全体を含めるため、`bbox_inches="tight"`
+    だけで保存領域が横へ広がり、見切れ自体が起きない。その場合この関数は何も
+    しない（はみ出し量が0以下と測れるため即座に戻る）。3.10 以前でも動くよう
+    残してあり、両方のバージョンで「保存後にラベルが収まっている」ことは変わらない。
+
+    Args:
+        figure: 対象のfigure。呼び出し前にレイアウトを確定させておく。
+        max_iterations: 幅を広げる試行の上限回数。収束しない場合の無限ループを防ぐ。
+            上限に達しても収まらない場合は警告を記録し、そのまま処理を終える。
+        margin_inches: 1回の拡張で超過分に上乗せする余白（インチ）。
+    """
+    for _ in range(max_iterations):
+        overflow_inches = _measure_xlabel_overflow_inches(figure)
+        if overflow_inches is None or overflow_inches <= 0:
+            return
+
+        # figureを広げると軸の右端は同じ量だけ動く一方、ラベルの中心（＝軸の中心）は
+        # その半分しか動かないため、超過分を解消するには2倍を広げる必要がある。
+        width, height = figure.get_size_inches()
+        figure.set_size_inches(width + overflow_inches * 2 + margin_inches, height)
+        figure.tight_layout()
+
+    remaining_overflow_inches = _measure_xlabel_overflow_inches(figure)
+    if remaining_overflow_inches is not None and remaining_overflow_inches > 0:
+        # 収まらないまま保存すると軸ラベルが切れるため、無言で見逃さないよう記録する。
+        logger.warning(
+            "x軸ラベルが%d回の拡張でも保存領域に収まりませんでした（超過幅: %.3fインチ）。"
+            "ラベルの端が切れた画像が保存されます。",
+            max_iterations,
+            remaining_overflow_inches,
+        )
+
+
+def _finalize_current_figure(output_path: Path, title: str, fit_xlabel: bool = False) -> None:
     """現在のmatplotlib figureにタイトルを付けて保存し、閉じる。
 
     `compute_shap_outputs` 内の3箇所（summary/bar/dependence）で同じ
@@ -27,9 +111,14 @@ def _finalize_current_figure(output_path: Path, title: str) -> None:
     Args:
         output_path: 保存先の画像パス。
         title: 図に付けるタイトル。
+        fit_xlabel: Trueの場合、保存前にx軸ラベル全体が収まるようfigureを広げる。
+            軸より横に長いラベルを持つ図にのみ指定する（本モジュールでは棒グラフ。
+            summary図・dependence図のラベルは短く、見切れが起きないため広げない）。
     """
     plt.title(title)
     plt.tight_layout()
+    if fit_xlabel:
+        _widen_figure_until_xlabel_fits(plt.gcf())
     plt.savefig(output_path, dpi=180, bbox_inches="tight")
     plt.close()
 
@@ -123,7 +212,9 @@ def compute_shap_outputs(
     bar_path = output_dir / f"{output_stem}_shap_bar.png"
     plt.figure(figsize=(8, 5))
     shap.summary_plot(shap_values.values, shap_features, plot_type="bar", show=False)
-    _finalize_current_figure(bar_path, f"SHAP value distribution {observation_label}")
+    _finalize_current_figure(
+        bar_path, f"SHAP value distribution {observation_label}", fit_xlabel=True
+    )
 
     dependence_paths: dict[str, str] = {}
     for feature in feature_names:

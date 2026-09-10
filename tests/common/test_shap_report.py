@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import RandomForestRegressor
 
-from src.common.shap_report import compute_shap_outputs
+from src.common import shap_report
+from src.common.shap_report import (
+    _measure_xlabel_overflow_inches,
+    _widen_figure_until_xlabel_fits,
+    compute_shap_outputs,
+)
 
 # matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
 
@@ -38,6 +46,44 @@ def _fit_small_forest(n: int = 60, seed: int = 0) -> tuple[RandomForestRegressor
     model = RandomForestRegressor(n_estimators=10, random_state=seed, n_jobs=1)
     model.fit(x, y)
     return model, x
+
+
+def _fit_forest_with_long_feature_names(
+    n: int = 120, seed: int = 0
+) -> tuple[RandomForestRegressor, pd.DataFrame]:
+    """x軸ラベルの見切れが起きる条件を再現するモデルとデータを作る。
+
+    棒グラフのx軸ラベル（shapが置く定型文）は固定長なので、見切れるかどうかは
+    軸の幅で決まる。軸の幅はy軸目盛ラベル（＝特徴量名）の長さに押されて狭くなる
+    ため、実データと同程度に長い特徴量名を使って再現条件を作る。
+    """
+    feature_names = [
+        "ndvi_mean",
+        "ndbi_mean",
+        "ndwi_mean",
+        "building_height_mean",
+        "road_density",
+    ]
+    rng = np.random.default_rng(seed)
+    x = pd.DataFrame({name: rng.normal(size=n) for name in feature_names})
+    y = 2.0 * x["ndvi_mean"] + 0.5 * x["ndbi_mean"] + rng.normal(scale=0.1, size=n)
+    model = RandomForestRegressor(n_estimators=10, random_state=seed, n_jobs=1)
+    model.fit(x, y)
+    return model, x
+
+
+def _count_ink_pixels_on_side_edges(image_path: Path) -> int:
+    """画像の左端・右端の列にある「背景でない画素」の数を数える。
+
+    `bbox_inches="tight"` は描画物の外側に余白（既定0.1インチ）を付けて保存する
+    ため、すべての描画物が収まっていれば左右の端の列は背景色だけになる。逆に
+    軸ラベルが画像の縁で切れている場合は、端の列に文字の画素が現れる。
+    """
+    image = mpimg.imread(image_path)
+    rgb_channels = image[:, :, :3]
+    # 完全な白のみを背景とみなすと、アンチエイリアスの薄い画素を拾ってしまう。
+    is_ink = (rgb_channels < 0.98).any(axis=2)
+    return int(is_ink[:, 0].sum() + is_ink[:, -1].sum())
 
 
 class TestComputeShapOutputs:
@@ -172,3 +218,98 @@ class TestComputeShapOutputs:
                 output_stem="test",
                 observation_label="2023-07-07",
             )
+
+
+class TestBarPlotXLabelFits:
+    """棒グラフのx軸ラベルが保存画像に収まることのテスト。"""
+
+    def test_bar_plot_xlabel_is_not_cut_off_at_image_edge(self, project_root: Path) -> None:
+        """特徴量名が長く軸が狭い場合でも、棒グラフの軸ラベルが画像の縁で切れない。
+
+        shapが棒グラフに置くx軸ラベルは長く、`bbox_inches="tight"` を指定しても
+        matplotlib側の仕様で保存領域が横へ広がらないため、描画側でfigureを広げて
+        いる。その効果を、保存画像の左右端に文字の画素が無いことで確認する。
+        """
+        model, x = _fit_forest_with_long_feature_names()
+        output_dir = project_root / "out"
+        output_dir.mkdir()
+
+        compute_shap_outputs(
+            model=model,
+            shap_features=x.iloc[:40],
+            background_features=x.iloc[40:60],
+            output_dir=output_dir,
+            output_stem="test",
+            observation_label="2023-07-07",
+        )
+
+        assert _count_ink_pixels_on_side_edges(output_dir / "test_shap_bar.png") == 0
+
+    def test_leaves_figure_width_unchanged_when_xlabel_already_fits(self) -> None:
+        """ラベルが既に収まっているfigureの幅は変更しない。
+
+        軸ラベルが短いsummary図・dependence図の見た目を、この処理が変えないこと
+        を保証する。
+        """
+        figure = plt.figure(figsize=(8.0, 5.0))
+        figure.gca().set_xlabel("short")
+        figure.tight_layout()
+
+        _widen_figure_until_xlabel_fits(figure)
+
+        assert figure.get_size_inches()[0] == pytest.approx(8.0)
+        plt.close(figure)
+
+    def test_xlabel_fits_after_widening(self) -> None:
+        """軸より横に長いラベルを与えても、処理後はラベルが保存領域に収まる。
+
+        「幅が広がったか」ではなく「収まっているか」で確認する。matplotlib 3.11 で
+        `Figure.get_tightbbox()` が軸ラベルを含めるようになり、そのバージョンでは
+        見切れ自体が起きないため拡張は何もしない。どちらの挙動でも成り立つ契約は
+        「処理後は収まっている」ことのほうである。
+        """
+        figure = plt.figure(figsize=(4.0, 3.0))
+        figure.gca().set_xlabel("very long axis label " * 6)
+        figure.tight_layout()
+
+        _widen_figure_until_xlabel_fits(figure)
+
+        overflow_inches = _measure_xlabel_overflow_inches(figure)
+        assert overflow_inches is not None
+        assert overflow_inches <= 0
+        plt.close(figure)
+
+    def test_warns_when_xlabel_does_not_fit_within_iteration_limit(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """拡張の上限に達しても収まらない場合は警告を記録する。
+
+        収まらないまま保存すると軸ラベルが切れた画像になるため、無言で見逃さない
+        ことを確認する。はみ出し量の測定結果は matplotlib のバージョンで変わる
+        （3.11 以降は常に収まっていると返る）ため、測定を差し替えて失敗経路を
+        確実に作る。上限回数は0にする。
+        """
+        monkeypatch.setattr(shap_report, "_measure_xlabel_overflow_inches", lambda figure: 1.0)
+        figure = plt.figure(figsize=(4.0, 3.0))
+        figure.gca().set_xlabel("very long axis label " * 6)
+        figure.tight_layout()
+
+        with caplog.at_level(logging.WARNING, logger="src.common.shap_report"):
+            _widen_figure_until_xlabel_fits(figure, max_iterations=0)
+
+        assert "保存領域に収まりませんでした" in caplog.text
+        plt.close(figure)
+
+    def test_does_not_warn_when_xlabel_already_fits(self, caplog: pytest.LogCaptureFixture) -> None:
+        """ラベルが収まっている場合は警告を出さない。"""
+        figure = plt.figure(figsize=(8.0, 5.0))
+        figure.gca().set_xlabel("short")
+        figure.tight_layout()
+
+        with caplog.at_level(logging.WARNING, logger="src.common.shap_report"):
+            _widen_figure_until_xlabel_fits(figure)
+
+        # 他モジュールのログを拾って偽陽性にならないよう、対象ロガーだけを見る。
+        warned = [r for r in caplog.records if r.name == "src.common.shap_report"]
+        assert warned == []
+        plt.close(figure)

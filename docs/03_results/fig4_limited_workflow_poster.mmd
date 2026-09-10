@@ -1,0 +1,20 @@
+---
+config:
+  layout: fixed
+---
+flowchart LR
+    I["Satellite and open GIS data"] --> P["Urban parameters<br>zonal statistics onto the<br>30 m canonical grid,<br>one row per cell<br>height 0 m if no building"]
+    P --> Q["Quality control<br>valid area, non-null,<br>LST valid ratio at least 0.5<br>3,274,665 cells"]
+    Q --> S["Sampling<br>100,000 cells"]
+    S --> M["Models<br>multiple linear regression (MLR)<br>and random forest"]
+    M --> E["Evaluation<br>5-fold spatial cross-validation (CV)<br>on 2,700 m blocks<br>SHAP"]
+
+     I:::input
+     P:::process
+     Q:::process
+     S:::process
+     M:::result
+     E:::result
+    classDef input fill:#f3ecc9,stroke:#4b5563,stroke-width:1.6px,color:#111827
+    classDef process fill:#d9eadf,stroke:#4b5563,stroke-width:1.6px,color:#111827
+    classDef result fill:#f2ddcf,stroke:#4b5563,stroke-width:1.6px,color:#111827

@@ -172,7 +172,7 @@ English: Vector data give three kinds of statistic: coverage (share of cell area
 | Satellite indices (3) | `#D85A30` | NDVI, NDBI, NDWI |
 | Land cover (5) | `#1D9E75` | built-up, tree, water, rangeland, wetland fractions |
 | Building / road (4) | `#378ADD` | coverage, density, mean height, road density |
-| Population / light / elevation (3) | `#7F77DD` | population density, night-time light, elevation |
+| Population / light / elevation (3) | `#7F77DD` | population, night-time light, elevation |
 
 **散文の列挙をやめ、群ごとの表にする。** 従来は 15 変数を 1 文で並べており、読み手が目で数えないと構成が掴めなかった。**この 4 群はパネル 5 の SHAP 棒グラフの凡例に既に存在する。** 同じ名前・同じ色で示すことで、読み手はパネル 3 で分類を覚え、パネル 5 の棒グラフの色でそれを再認できる。
 

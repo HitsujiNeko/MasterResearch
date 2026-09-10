@@ -137,7 +137,7 @@ English: Building heights, population and land cover are modelled products, not 
 
 | 図 | English | 日本語 |
 |---|---|---|
-| 左 | Hanoi ROI, Vietnam | ハノイ ROI（ベトナム） |
+| 左 | Hanoi region of interest (ROI) | ハノイの対象域（ROI） |
 | 中 | LST (target variable) | 地表面温度（目的変数） |
 
 > **出所**: 年代・種別は各 gis_data ドキュメント（[gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) 3 章、[gis_data_lulc.md](../01_planning/gis_data/gis_data_lulc.md)、[gis_data_population.md](../01_planning/gis_data/gis_data_population.md)、[gis_data_nighttime_lights.md](../01_planning/gis_data/gis_data_nighttime_lights.md)、[gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md)、[gis_data_roads.md](../01_planning/gis_data/gis_data_roads.md)）。観測選定は [observation_selection.md](../02_methods/observation_selection.md) 3 章・5 章。  
@@ -145,8 +145,8 @@ English: Building heights, population and land cover are modelled products, not 
 
 ### パネル 3: Method
 
-日本語: **すべてのレイヤーが、ひとつの 30m グリッド上のセル単位の統計量になる。**  
-English: **Every layer becomes a per-cell statistic on one 30 m grid.**
+日本語: **15 のパラメータは、いずれもひとつの 30m グリッド上のセル単位の統計量である。**  
+English: **Fifteen parameters, each a per-cell statistic on one 30 m grid.**
 
 日本語: ベクタデータからは 3 種類の統計量が得られる。被覆率（ラスタ化したフットプリントから求めた、セル面積に占める割合）、密度（ha 当たりの地物数または延長）、平均建物高さである。  
 English: Vector data give three kinds of statistic: coverage (share of cell area, from rasterised footprints), density (features or metres per hectare) and mean building height.
@@ -213,13 +213,15 @@ English: **Open data alone reaches R² 0.760 under spatial cross-validation.**
 
 **モデル性能**
 
-| Model | Random split R² | Spatial CV R² | RMSE (°C) |
+| Model | Random split R² | Spatial CV R² | Spatial CV RMSE (°C) |
 |---|---|---|---|
-| MLR | 0.646 | 0.645 | 1.47 |
-| Random forest | 0.796 | 0.760 | 1.11 |
+| MLR | 0.646 | 0.645 | 1.48 |
+| Random forest | 0.796 | 0.760 | 1.21 |
 
-日本語: RMSE 1.11°C に対し、LST の標準偏差は 2.49°C である。この R² は同一 ROI 内への内挿性能として読む。汎化性能ではない。2,700m のブロックは空間自己相関を断ち切れていない（セミバリオグラムの sill は 15〜30km）。  
-English: RMSE 1.11 °C against an LST standard deviation of 2.49 °C. Read these R² as interpolation within the same ROI, not generalisation: 2,700 m blocks do not break the spatial autocorrelation (semivariogram sill 15–30 km).
+**RMSE は空間 CV の値を使う。** 従来は無印の `RMSE (°C)` にランダム分割の値（1.47 / 1.11）を入れていた。列見出しが無印で左の 2 列が `Random split R²` / `Spatial CV R²` であるため**どちらの分割の値か読み取れず**、かつキーメッセージが空間 CV を強調しているのに別の分割の値を並べていた。空間 CV へ統一すると算術も整合する（`1 − (1.21/2.49)² = 0.764` で表の 0.760 とほぼ一致。ランダム分割の 1.11 では 0.80 になり合わない）。
+
+日本語: RMSE 1.21°C に対し、LST の標準偏差は 2.49°C である。この R² は同一 ROI 内への内挿性能として読む。汎化性能ではない。2,700m のブロックは空間自己相関を断ち切れていない（セミバリオグラムの sill は 15〜30km）。  
+English: RMSE 1.21 °C against an LST standard deviation of 2.49 °C. Read these R² as interpolation within the same ROI, not generalisation: 2,700 m blocks do not break the spatial autocorrelation (semivariogram sill 15–30 km).
 
 **RMSE に対比の相手を与える。** 1.47 / 1.11°C という数字だけでは良し悪しの手がかりが無い。標本 10 万件の LST 標準偏差 2.49°C（`..._sample_100000.csv` で実測）と並べると意味が出る。`1 − (1.11 / 2.49)² = 0.80` であり、ランダム分割の R² 0.796 とも整合する。
 
@@ -229,8 +231,10 @@ English: RMSE 1.11 °C against an LST standard deviation of 2.49 °C. Read these
 
 **NDBI の寄与の形（SHAP 依存プロット）**
 
-日本語: 建築指数の効きは低い側で頭打ちになる。NDBI の寄与は中央値で −0.77〜+2.51°C の幅を持ち、NDBI −0.4 を下回ると下げ止まる。  
-English: The built-up signal saturates at the low end: the median contribution of NDBI runs from −0.77 to +2.51 °C and stops falling below NDBI −0.4.
+日本語: 建築指数の効きは低い側で底を打つ。NDBI の寄与は中央値で −0.77〜+2.51°C の幅を持ち、NDBI −0.4 付近で下限に達する。  
+English: The built-up signal bottoms out at the low end: the median contribution of NDBI runs from −0.77 to +2.51 °C and reaches its floor near NDBI −0.4.
+
+**「頭打ち（saturates / stops falling）」から「底を打つ（bottoms out / reaches its floor）」へ改めた。** 実データでは平坦になるのではなく**反転して上昇する**。区間中央値は NDBI −0.389 で最小 −0.770 を取り、そこより低い側では −0.75（−0.41）→ −0.66（−0.43）→ −0.54（−0.51）と **0.23°C 上がる**。
 
 **この見出しはキーメッセージにしない。** 1 つのパネルに太字の主張が 2 つあると両方が弱まるため、太字はパネル冒頭の 1 つに統一し、こちらは通常の本文として置く。
 
@@ -248,8 +252,10 @@ English: The built-up signal saturates at the low end: the median contribution o
 日本語: **`NDBI` が支配的である。ただし首位は指標によって入れ替わる。**  
 English: **NDBI dominates – but the leader depends on the measure.**
 
-日本語: 分光指数と土地被覆分類が信号を担っており、建物・道路のベクタデータの寄与は最も小さい。  
-English: The spectral and land-cover proxies carry the signal; the building and road vectors contribute least.
+日本語: 建物・道路のベクタデータの寄与が最も小さい。平均 |SHAP| は 0.046 と 0.026 であり、`NDBI` の 0.702 とは桁が違う。  
+English: Building and road vectors contribute least: mean |SHAP| 0.046 and 0.026, against 0.702 for NDBI.
+
+**当初の「分光指数と土地被覆が信号を担う」は誤りだった。** 平均 |SHAP| を群ごとに集計すると、分光指数 1.105（42.9%）＞ **人口・光・標高 0.874（34.0%）** ＞ 土地被覆 0.511（19.8%）＞ 建物・道路 0.084（3.2%）であり、**土地被覆より人口・光・標高のほうが上**である。個別に見ても人口密度 0.377（3 位）と標高 0.341（4 位）が `NDVI` 0.212・`NDWI` 0.191 より上に来る。堅いのは「建物・道路が最小」の部分だけであるため、そこに絞り、**図から直接読める値**（0.046・0.026・0.702）で示す。
 
 **この所見は図に写っているが、言葉にしないと読み手が自分で読み取るしかない。** `NDBI` 0.702 に対し、建物・道路の実データは平均建物高さ 0.046・道路密度 0.026・建物被覆率 0.007 であり、**15〜100 倍の開きがある**。「公開 GIS をどこまで足せるか」を問う本研究にとって中心的な所見であるため、図任せにせず本文へ置く。
 
@@ -288,10 +294,10 @@ English: **Cities without survey GIS can still map their heat pattern.**
 
 **Conclusions（左列）**
 
-1. 日本語: ランダムフォレストは公開データのみで Spatial CV の R² 0.760 に到達する。  
-   English: Random forest reaches R² 0.760 under spatial CV from open data alone
-2. 日本語: 信号を担うのは分光指数と土地被覆分類であり、建物・道路のベクタではない。  
-   English: Spectral indices and land cover carry the signal, not the building and road vectors
+1. 日本語: ランダムフォレストは Spatial CV の R² 0.760 に到達し、線形モデルを 0.116 上回る。  
+   English: Random forest reaches R² 0.760 under spatial CV, 0.116 above the linear model
+2. 日本語: 信号の大半を担うのは分光指数であり、建物・道路のベクタの寄与は最も小さい。  
+   English: Satellite indices carry most of the signal; the building and road vectors contribute least
 
 **Limitations（右列）**
 

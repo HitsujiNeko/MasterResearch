@@ -239,7 +239,7 @@ GLC を土地被覆ソースとするラン（1・2・4〜9）では `LULC_BARE_
 - `*_spatial_cv_folds.csv`: fold別評価値
 - `*_model_comparison.png`, `*_feature_importance.png`, `*_spatial_cv.png`: 可視化
 - `*_shap_importance.csv`, `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_{変数名}.png`: SHAP関連
-- `*_results.json`: 全結果の要約
+- `*_results.json`: 全結果の要約。実行パラメータは `run_parameters` キーに記録される（3.5節参照。記録の導入前に実行した既存ランは持たない）
 
 ### 3.8 フィルタ脱落と欠損値処理の診断
 

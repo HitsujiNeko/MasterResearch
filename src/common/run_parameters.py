@@ -21,6 +21,9 @@ RQ3のシナリオ別エントリ（Satellite Only / Limited）は、`main()` �
   乱数シード固定の下では並列数を変えても結果は変わらないため。
 - 記録しない（範囲外）: 入出力パス（既存の `dataset_path` 等に記録済み）、
   gitコミット・ライブラリ版・入力ハッシュ等の来歴情報（別の仕組みで扱う）。
+- 適用範囲: モデル学習まで行うフル実行の `results.json` のみ。Limitedの
+  `--diagnose-only` が出力する診断JSONには付与しない（RFを学習しないため
+  `rf_trees` 等が意味を持たない）。
 
 `requested_*` は指定値であり、実際に使われた件数（`sample_size`・
 `shap.sample_size`・`shap.background_size`）はデータ件数で頭打ちになるため

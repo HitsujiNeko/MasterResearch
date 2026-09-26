@@ -102,7 +102,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario satellit
   - 非空ブロック数: 509（脱落集計の基準段階ベース）、508（フィルタ後全数ベース）、504（10万件サンプル後ベース）
 - SHAP: 評価サンプル `2,000` / background `500`
 
-**本ドキュメントのラン（032305）の `results.json` には `--random-state`（42）と `--rf-trees`（300）が記録されていない。** いずれも既定値のまま実行したが、当該ランは実行パラメータ記録の導入前に実行したためである。**既定値が変われば引数を省略した再実行では同じ条件を再現できないため、再現時は `--random-state 42 --rf-trees 300` を明示する。** 導入後のランでは、これらを含む実行パラメータが `results.json` の `run_parameters` に記録される（乱数シード・RF決定木本数・要求サンプル数・解像度・SHAP要求件数と、CLIで変更できない固定値のランダム分割の評価割合（`test_size=0.2`）・`min_samples_leaf`・Permutation重要度の反復回数。記録範囲の判断は `src/common/run_parameters.py` のmodule docstringを正本とする）。既存ランは再実行・`results.json` の追記修正を行わない（記録値を後から書き足すと、実行時に実際に使われた値であることを結果ファイル自身が保証できなくなるため。上記の値は本節の記述を正とする）。
+**本ドキュメントのラン（032305）の `results.json` には `--random-state`（42）と `--rf-trees`（300）が記録されていない。** いずれも既定値のまま実行したが、当該ランは実行パラメータ記録の導入前に実行したためである。**既定値が変われば引数を省略した再実行では同じ条件を再現できないため、再現時は `--random-state 42 --rf-trees 300` を明示する。** 導入後のランでは、これらを含む実行パラメータが `results.json` の `run_parameters` に記録される（キー構成は Limited と共通。記録範囲の判断は `src/common/run_parameters.py` のmodule docstringを正本とする）。既存ランは再実行・`results.json` の追記修正を行わない（記録値を後から書き足すと、実行時に実際に使われた値であることを結果ファイル自身が保証できなくなるため。上記の値は本節の記述を正とする）。
 
 ### 3.5 出力ファイル
 

@@ -13,10 +13,16 @@ compute_block_cells）の正しさは tests/analysis/urban_params/test_canonical
 観測ラベル生成・スケール検証・ランダム分割/Spatial CV学習パイプラインは
 `src.common.analysis_runs` へ集約済みのため、tests/common/test_analysis_runs.py
 で検証する（Rule of Two: Limitedシナリオと重複した実装をそちらへ抽出済み）。
+例外として、results.json への実行パラメータ（run_parameters）の記録は、
+合成データ・小規模設定（決定木5本等）で main() を通して検証する。
 """
 
 from __future__ import annotations
 
+import importlib
+import inspect
+import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -30,9 +36,12 @@ from src.analysis.analysis_rq3_satellite_only import (
     DEFAULT_SCALE_M,
     FEATURE_COLUMNS,
     build_filtered_sample,
+    main,
     parse_arguments,
     resolve_output_stem,
 )
+from src.analysis.urban_params.canonical_grid import make_cell_id
+from src.common.run_parameters import build_run_parameters_from_args
 
 
 class TestParseArguments:
@@ -201,3 +210,149 @@ class TestBuildFilteredSample:
                 random_state=42,
                 block_size_m=100,  # 既定scale（30）の倍数ではない
             )
+
+
+def _spread_dataframe(n: int = 200) -> pd.DataFrame:
+    """Spatial CVのfoldを組めるよう、複数ブロックへ散らばる合成データセット。
+
+    `cell_id` を30セル（900m）間隔の列に置き、既定のブロックサイズ（2700m＝90セル）
+    で約 n/3 個のブロックへ分かれるようにする。値は固定シードの乱数で列ごとに
+    独立な変動を与える（全行同値だとRF・VIF・SHAPが意味のある値を返さないため）。
+    """
+    rng = np.random.default_rng(seed=20230707)
+    ndvi = 0.4 + rng.normal(scale=0.05, size=n)
+    ndbi = -0.1 + rng.normal(scale=0.05, size=n)
+    ndwi = 0.2 + rng.normal(scale=0.05, size=n)
+    return pd.DataFrame(
+        {
+            "cell_id": make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30),
+            "IN_ANALYSIS_AREA": [1] * n,
+            "NDVI": ndvi,
+            "NDBI": ndbi,
+            "NDWI": ndwi,
+            "LST": 35.0 - 5.0 * ndvi + 3.0 * ndbi + rng.normal(scale=0.2, size=n),
+            "LST_VALID_RATIO": [0.9] * n,
+        }
+    )
+
+
+def _capture_model_run_arguments(
+    monkeypatch: pytest.MonkeyPatch, module_name: str
+) -> dict[str, dict[str, object]]:
+    """モデル実行関数を元の処理を呼ぶラッパーへ差し替え、実際に渡された引数を控える。
+
+    記録値（run_parameters）と、学習に実際に使われた値との一致を検証するために使う。
+
+    Args:
+        monkeypatch: pytest の monkeypatch。
+        module_name: 差し替え対象の関数を import している分析スクリプトのモジュール名。
+
+    Returns:
+        関数名をキー、束縛済みの引数辞書を値とする辞書（main() 実行後に埋まる）。
+    """
+    module = importlib.import_module(module_name)
+    captured: dict[str, dict[str, object]] = {}
+
+    for function_name in ("run_random_split_models", "run_spatial_cv_models"):
+        original = getattr(module, function_name)
+        signature = inspect.signature(original)
+
+        def wrapper(*args, _original=original, _signature=signature, _name=function_name, **kwargs):
+            captured[_name] = dict(_signature.bind(*args, **kwargs).arguments)
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(module, function_name, wrapper)
+    return captured
+
+
+class TestMainRunParameters:
+    """main() が results.json へ実行パラメータ（run_parameters）を記録することの検証。
+
+    データ読込（load_analysis_dataset）だけを合成データへ差し替え、決定木本数・
+    SHAP件数を小さくしてフルパイプラインを実行する（実データは使わない）。
+    """
+
+    def _run_main(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str
+    ) -> dict[str, object]:
+        """合成データで main() を実行し、保存された results.json を読み込んで返す。"""
+        dataframe = _spread_dataframe()
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+        dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_satellite_only.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(output_dir),
+                "--sample-size",
+                "0",
+                "--rf-trees",
+                "5",
+                "--shap-sample-size",
+                "10",
+                "--shap-background-size",
+                "10",
+                *extra_args,
+            ],
+        )
+
+        main()
+
+        result_files = list(output_dir.glob("*_results.json"))
+        assert len(result_files) == 1
+        return json.loads(result_files[0].read_text(encoding="utf-8"))
+
+    def test_records_run_parameters_from_cli(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """--random-state・--rf-trees 等の指定値が run_parameters にそのまま記録される。"""
+        captured = _capture_model_run_arguments(
+            monkeypatch, "src.analysis.analysis_rq3_satellite_only"
+        )
+        result = self._run_main(monkeypatch, tmp_path, "--random-state", "7")
+
+        run_parameters = result["run_parameters"]
+        assert run_parameters["random_state"] == 7
+        assert run_parameters["rf_trees"] == 5
+        assert run_parameters["requested_sample_size"] == 0
+        assert run_parameters["scale_m"] == DEFAULT_SCALE_M
+        assert run_parameters["requested_shap_sample_size"] == 10
+        assert run_parameters["requested_shap_background_size"] == 10
+
+        # 記録値が、学習に実際に渡された値と一致する（記録側と使用側の乖離を検出する）
+        for function_name in ("run_random_split_models", "run_spatial_cv_models"):
+            used = captured[function_name]
+            assert used["random_state"] == run_parameters["random_state"]
+            assert used["rf_trees"] == run_parameters["rf_trees"]
+
+    def test_keeps_existing_top_level_keys(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """既存のトップレベルキーは移動・改名せずに残す（既存の参照を壊さない）。"""
+        result = self._run_main(monkeypatch, tmp_path)
+
+        assert result["sample_size"] == len(_spread_dataframe())
+        assert result["lst_valid_ratio_threshold"] == pytest.approx(0.5)
+        assert result["spatial_cv"]["cv_splits"] == 5
+        assert result["spatial_cv"]["block_definition"]["block_size_m"] == DEFAULT_BLOCK_SIZE_M
+
+
+class TestRunParametersFromDefaults:
+    """既定のCLI引数から作る run_parameters の検証（main() を実行しない軽量版）。"""
+
+    def test_default_seed_and_trees_are_recorded(self) -> None:
+        """既定値（シード42・決定木300本）が記録値に反映される。"""
+        run_parameters = build_run_parameters_from_args(parse_arguments([]))
+
+        assert run_parameters["random_state"] == 42
+        assert run_parameters["rf_trees"] == 300
+        assert run_parameters["requested_sample_size"] == 100_000
+        assert run_parameters["scale_m"] == DEFAULT_SCALE_M

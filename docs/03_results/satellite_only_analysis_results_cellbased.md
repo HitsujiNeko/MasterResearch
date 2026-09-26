@@ -1,6 +1,6 @@
 # Satellite Only 分析結果（cell_id結合経路）
 
-**最終更新**: 2026-09-02  
+**最終更新**: 2026-09-26  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -102,7 +102,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario satellit
   - 非空ブロック数: 509（脱落集計の基準段階ベース）、508（フィルタ後全数ベース）、504（10万件サンプル後ベース）
 - SHAP: 評価サンプル `2,000` / background `500`
 
-**`--random-state`（42）と `--rf-trees`（300）は `results.json` に記録されない。** いずれも既定値のまま実行したが、**既定値が変われば引数を省略した再実行では同じ条件を再現できず、旧ランとの条件一致も結果ファイルからは監査できない**。再現時は `--random-state 42 --rf-trees 300` を明示する。実行条件そのものを `results.json` へ記録する改善は、Limited と共通の出力仕様の変更となるため別途扱う。
+**本ドキュメントのラン（032305）の `results.json` には `--random-state`（42）と `--rf-trees`（300）が記録されていない。** いずれも既定値のまま実行したが、当該ランは実行パラメータ記録の導入前に実行したためである。**既定値が変われば引数を省略した再実行では同じ条件を再現できないため、再現時は `--random-state 42 --rf-trees 300` を明示する。** 導入後のランでは、これらを含む実行パラメータが `results.json` の `run_parameters` に記録される（キー構成は Limited と共通。記録範囲の判断は `src/common/run_parameters.py` のmodule docstringを正本とする）。既存ランは再実行・`results.json` の追記修正を行わない（記録値を後から書き足すと、実行時に実際に使われた値であることを結果ファイル自身が保証できなくなるため。上記の値は本節の記述を正とする）。
 
 ### 3.5 出力ファイル
 

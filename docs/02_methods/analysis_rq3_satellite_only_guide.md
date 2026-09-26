@@ -1,6 +1,6 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-09-01  
+**最終更新**: 2026-09-26  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
@@ -214,7 +214,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 - `*_spatial_cv.png`: Spatial CV図
 - `*_shap_importance.csv`: SHAP重要度
 - `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_*.png`: SHAP可視化
-- `*_results.json`: 全結果の要約
+- `*_results.json`: 全結果の要約。乱数シード・RF決定木本数などの実行パラメータは `run_parameters` キーに記録される（記録範囲は `src/common/run_parameters.py` のmodule docstringを参照。記録の導入前に実行した既存ランは持たない）
 
 旧経路の出力先（`data/output/satellite_only/`）とは分離しています。集計単位・格子が異なる別物であるためです（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節）。
 

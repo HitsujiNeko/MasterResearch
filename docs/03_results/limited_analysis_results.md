@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-09-02  
+**最終更新**: 2026-09-26  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -216,6 +216,8 @@ python -m src.analysis.analysis_rq3_limited --random-state 43 --output-dir <一�
   - 非空ブロック数: 台帳の「ブロック」列（10万件サンプル後ベース）
 - SHAP: 評価サンプル `2,000`、background `500`
 
+**本ドキュメントの既存ランの `*_results.json` には、乱数シード（3.4節）・RF決定木本数等の実行パラメータが記録されていない**（実行パラメータ記録の導入前に実行したため。値は本節・3.4節の記述を正とする）。既定値が変われば引数を省略した再実行では同じ条件を再現できないため、再現時は `--random-state 42 --rf-trees 300` を明示する。導入後のランでは `*_results.json` の `run_parameters` に記録される（キー構成は Satellite Only と共通。記録範囲の判断は `src/common/run_parameters.py` のmodule docstringを正本とする）。既存ランは再実行・追記修正を行わない（記録値を後から書き足すと、実行時に実際に使われた値であることを結果ファイル自身が保証できなくなるため）。
+
 **Spatial CV の R² の読み方（重要）**: ブロックサイズ 2,700m では LST の空間自己相関を断ち切れていない。本ドキュメントが報告する Spatial CV の R² を**「未知の場所への汎化性能」として読んではならない**（同一ROI内・空間的に近い場所への内挿性能として読む）。実測の根拠は3.9節を参照する。
 
 ### 3.6 分散0の特徴量列の除外
@@ -237,7 +239,7 @@ GLC を土地被覆ソースとするラン（1・2・4〜9）では `LULC_BARE_
 - `*_spatial_cv_folds.csv`: fold別評価値
 - `*_model_comparison.png`, `*_feature_importance.png`, `*_spatial_cv.png`: 可視化
 - `*_shap_importance.csv`, `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_{変数名}.png`: SHAP関連
-- `*_results.json`: 全結果の要約
+- `*_results.json`: 全結果の要約。実行パラメータは `run_parameters` キーに記録される（3.5節参照。記録の導入前に実行した既存ランは持たない）
 
 ### 3.8 フィルタ脱落と欠損値処理の診断
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
@@ -131,15 +132,29 @@ def test_get_git_state_ignores_changes_outside_src(tmp_path: Path) -> None:
     if shutil.which("git") is None:
         pytest.skip("git が利用できない環境")
 
+    # 実行者のグローバル設定（コミット署名など）の影響を受けないよう切り離す
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
     def git(*args: str) -> None:
-        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True, env=env)
 
     git("init", "-q")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "code.py").write_text("x = 1\n", encoding="utf-8")
     (tmp_path / "result.json").write_text("{}\n", encoding="utf-8")
     git("add", ".")
-    git("-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "init")
+    git(
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-q",
+        "-m",
+        "init",
+    )
 
     # 結果ファイルの更新と src 外の未追跡ファイルでは dirty にならない
     (tmp_path / "result.json").write_text('{"a": 1}\n', encoding="utf-8")
@@ -147,6 +162,12 @@ def test_get_git_state_ignores_changes_outside_src(tmp_path: Path) -> None:
     state = get_git_state(tmp_path)
     assert len(state["commit"]) == 40
     assert state["dirty"] is False
+
+    # src 配下の未追跡ファイルでは dirty になる
+    new_code = tmp_path / "src" / "new.py"
+    new_code.write_text("y = 1\n", encoding="utf-8")
+    assert get_git_state(tmp_path)["dirty"] is True
+    new_code.unlink()
 
     # コードの変更では dirty になる
     (tmp_path / "src" / "code.py").write_text("x = 2\n", encoding="utf-8")

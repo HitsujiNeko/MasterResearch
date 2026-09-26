@@ -14,6 +14,8 @@ compute_block_cells）の正しさは tests/analysis/urban_params/test_canonical
 観測ラベル生成・スケール検証・ランダム分割/Spatial CV学習パイプラインは
 `src.common.analysis_runs` へ集約済みのため、tests/common/test_analysis_runs.py
 で検証する（Rule of Two: Satellite Onlyと重複した実装をそちらへ抽出済み）。
+例外として、results.json への実行パラメータ（run_parameters）の記録は、
+合成データ・小規模設定（決定木5本等）で main() を通して検証する。
 """
 
 from __future__ import annotations
@@ -72,8 +74,13 @@ from src.analysis.analysis_rq3_limited import (
     resolve_output_stem,
     summarize_vegetation_shap,
 )
+from src.analysis.analysis_rq3_satellite_only import (
+    parse_arguments as parse_satellite_only_arguments,
+)
+from src.analysis.urban_params.canonical_grid import make_cell_id
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN, LST_VALID_RATIO_COLUMN
 from src.common.regression_models import fit_linear_regression
+from src.common.run_parameters import build_run_parameters_from_args
 
 # 既定条件（--variable-set both / --population-source worldpop2020）の説明変数と、
 # 非NULLを要求するフィルタ列。build_filtered_sample はモジュール定数ではなく引数で
@@ -1767,3 +1774,92 @@ class TestMainDiagnoseOnly:
         assert len([c for c in diagnostics["features"] if c in BUILDING_HEIGHT_COLUMNS]) == 1
         assert set(BUILDING_HEIGHT_COLUMNS).issubset(set(diagnostics["filter_columns"]))
         assert diagnostics["population_size"] == len(dataframe)
+
+
+class TestMainRunParameters:
+    """main()（フル実行）が results.json へ実行パラメータ（run_parameters）を記録することの検証。
+
+    データ読込（load_analysis_dataset）だけを合成データへ差し替え、決定木本数・
+    SHAP件数を小さくしてフルパイプラインを実行する（実データは使わない）。
+    `_quality_dataframe` の `cell_id` は連番（全行が同一ブロック）のため、Spatial CV
+    のfoldを組めるよう30セル（900m）間隔の列へ置き直す。
+    """
+
+    def _run_main(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str
+    ) -> dict[str, object]:
+        """合成データで main() を実行し、保存された results.json を読み込んで返す。"""
+        n = 200
+        dataframe = _quality_dataframe(n=n)
+        dataframe["cell_id"] = make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30)
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_limited.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(output_dir),
+                "--sample-size",
+                "0",
+                "--rf-trees",
+                "5",
+                "--shap-sample-size",
+                "10",
+                "--shap-background-size",
+                "10",
+                *extra_args,
+            ],
+        )
+
+        main()
+
+        result_files = list(output_dir.glob("*_results.json"))
+        assert len(result_files) == 1
+        return json.loads(result_files[0].read_text(encoding="utf-8"))
+
+    def test_records_run_parameters_from_cli(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """--random-state・--rf-trees 等の指定値が run_parameters にそのまま記録され、
+        既存のトップレベルキー（sample_size・lst_valid_ratio_threshold 等）も残る。
+        """
+        result = self._run_main(monkeypatch, tmp_path, "--random-state", "7")
+
+        run_parameters = result["run_parameters"]
+        assert run_parameters["random_state"] == 7
+        assert run_parameters["rf_trees"] == 5
+        assert run_parameters["requested_sample_size"] == 0
+        assert run_parameters["scale_m"] == DEFAULT_SCALE_M
+        assert run_parameters["requested_shap_sample_size"] == 10
+        assert run_parameters["requested_shap_background_size"] == 10
+        assert result["sample_size"] == 200
+        assert result["lst_valid_ratio_threshold"] == pytest.approx(0.5)
+        assert result["spatial_cv"]["cv_splits"] == 5
+        assert result["spatial_cv"]["block_definition"]["block_size_m"] == DEFAULT_BLOCK_SIZE_M
+
+
+class TestRunParametersConsistencyAcrossScenarios:
+    """Satellite Only と Limited で run_parameters のキー・階層・既定値が一致することの検証。"""
+
+    def test_same_keys_and_defaults_as_satellite_only(self) -> None:
+        """既定のCLI引数から作った run_parameters が両シナリオで完全に一致する。
+
+        値の型も含めて比較し、階層（フラットな辞書）とキー名の一致を保証する。
+        """
+        limited = build_run_parameters_from_args(parse_arguments([]))
+        satellite_only = build_run_parameters_from_args(parse_satellite_only_arguments([]))
+
+        assert limited == satellite_only
+        assert {key: type(value) for key, value in limited.items()} == {
+            key: type(value) for key, value in satellite_only.items()
+        }
+        assert limited["random_state"] == 42
+        assert limited["rf_trees"] == 300

@@ -57,6 +57,7 @@ from src.common.model_metrics import (  # noqa: E402
     sanitize_vif_for_json,
 )
 from src.common.paths import to_project_relative_string  # noqa: E402
+from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
 from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
 from src.common.summary import save_summary  # noqa: E402
@@ -368,6 +369,9 @@ def main() -> None:
         "test_size": int(len(random_split.x_test)),
         "features": FEATURE_COLUMNS,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
+        # 結果ファイルの他のキーから読めない実行条件（乱数シード・RF本数・固定値等）。
+        # 記録範囲の判断は `src.common.run_parameters` のmodule docstringを参照する。
+        "run_parameters": build_run_parameters_from_args(args),
         "filter_dropout": filtered_sample_result.filter_dropout,
         "random_split": {
             "linear_regression": random_split.linear_result,

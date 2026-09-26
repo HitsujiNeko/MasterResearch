@@ -20,6 +20,8 @@ compute_block_cells）の正しさは tests/analysis/urban_params/test_canonical
 
 from __future__ import annotations
 
+import importlib
+import inspect
 import json
 import sys
 import warnings
@@ -1776,6 +1778,35 @@ class TestMainDiagnoseOnly:
         assert diagnostics["population_size"] == len(dataframe)
 
 
+def _capture_model_run_arguments(
+    monkeypatch: pytest.MonkeyPatch, module_name: str
+) -> dict[str, dict[str, object]]:
+    """モデル実行関数を元の処理を呼ぶラッパーへ差し替え、実際に渡された引数を控える。
+
+    記録値（run_parameters）と、学習に実際に使われた値との一致を検証するために使う。
+
+    Args:
+        monkeypatch: pytest の monkeypatch。
+        module_name: 差し替え対象の関数を import している分析スクリプトのモジュール名。
+
+    Returns:
+        関数名をキー、束縛済みの引数辞書を値とする辞書（main() 実行後に埋まる）。
+    """
+    module = importlib.import_module(module_name)
+    captured: dict[str, dict[str, object]] = {}
+
+    for function_name in ("run_random_split_models", "run_spatial_cv_models"):
+        original = getattr(module, function_name)
+        signature = inspect.signature(original)
+
+        def wrapper(*args, _original=original, _signature=signature, _name=function_name, **kwargs):
+            captured[_name] = dict(_signature.bind(*args, **kwargs).arguments)
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(module, function_name, wrapper)
+    return captured
+
+
 class TestMainRunParameters:
     """main()（フル実行）が results.json へ実行パラメータ（run_parameters）を記録することの検証。
 
@@ -1815,6 +1846,9 @@ class TestMainRunParameters:
                 "10",
                 "--shap-background-size",
                 "10",
+                # 記録の検証が目的のため、特徴量の少ない構成でSHAP図の生成時間を抑える
+                "--variable-set",
+                "spectral",
                 *extra_args,
             ],
         )
@@ -1831,6 +1865,7 @@ class TestMainRunParameters:
         """--random-state・--rf-trees 等の指定値が run_parameters にそのまま記録され、
         既存のトップレベルキー（sample_size・lst_valid_ratio_threshold 等）も残る。
         """
+        captured = _capture_model_run_arguments(monkeypatch, "src.analysis.analysis_rq3_limited")
         result = self._run_main(monkeypatch, tmp_path, "--random-state", "7")
 
         run_parameters = result["run_parameters"]
@@ -1840,6 +1875,12 @@ class TestMainRunParameters:
         assert run_parameters["scale_m"] == DEFAULT_SCALE_M
         assert run_parameters["requested_shap_sample_size"] == 10
         assert run_parameters["requested_shap_background_size"] == 10
+
+        # 記録値が、学習に実際に渡された値と一致する（記録側と使用側の乖離を検出する）
+        for function_name in ("run_random_split_models", "run_spatial_cv_models"):
+            used = captured[function_name]
+            assert used["random_state"] == run_parameters["random_state"]
+            assert used["rf_trees"] == run_parameters["rf_trees"]
         assert result["sample_size"] == 200
         assert result["lst_valid_ratio_threshold"] == pytest.approx(0.5)
         assert result["spatial_cv"]["cv_splits"] == 5

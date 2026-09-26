@@ -23,7 +23,9 @@ RQ3のシナリオ別エントリ（Satellite Only / Limited）は、`main()` �
   gitコミット・ライブラリ版・入力ハッシュ等の来歴情報（別の仕組みで扱う）。
 - 適用範囲: モデル学習まで行うフル実行の `results.json` のみ。Limitedの
   `--diagnose-only` が出力する診断JSONには付与しない（RFを学習しないため
-  `rf_trees` 等が意味を持たない）。
+  `rf_trees` 等が意味を持たない）。ただし乱数シード・サンプル数・解像度は
+  サンプリングを通じて診断出力（相関・VIF等）にも影響するため、診断JSONからは
+  これらを再現・監査できない点に注意する。
 
 `requested_*` は指定値であり、実際に使われた件数（`sample_size`・
 `shap.sample_size`・`shap.background_size`）はデータ件数で頭打ちになるため

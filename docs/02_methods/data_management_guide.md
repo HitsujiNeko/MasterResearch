@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-08-02  
+**最終更新**: 2026-09-26  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -198,6 +198,36 @@ JSON として再生成できるインベントリスクリプトを用意して
 
 新しいデータを配置・更新したら再実行して `data_inventory.json` を更新する。
 存在の突合は check-drive-sync、内容面の把握は本スクリプトが担う。
+
+### 7.5 結果JSONの来歴メタデータ（provenance）
+
+結果JSONの数値が「どのコード・どの環境・どの入力から生成されたか」を遡れるよう、
+結果JSONに来歴を `provenance` キーとして付与する。生成は
+`src.common.summary.build_provenance` が担い、各スクリプトは保存直前のサマリー辞書へ
+`summary["provenance"] = build_provenance(...)` として追加する。
+
+- **既存スキーマとの関係**: `provenance` キーの追加のみとし、既存キーの移動・改名は行わない
+- **記録内容**:
+
+| キー | 内容 |
+|---|---|
+| `script` | 実行スクリプトの識別名（例: `src.analysis.diagnose_nodata_dropout`） |
+| `executed_at` | 来歴を生成した時刻（UTC・ISO 8601）。呼び出し側が指定しない場合は保存直前の時刻となり、実行開始時刻ではない |
+| `python_version` / `platform` | Python のバージョンと OS |
+| `git.commit` / `git.dirty` | コミットハッシュと、コード（`src/` 配下。未追跡ファイルを含む）の未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。結果ファイル等のコード以外の変更は判定に含めない。git を利用できない環境では両方 `null` |
+| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。未インストールは `null` |
+| `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト。プロジェクトルート外のパスは絶対パスのまま記録されるため、入力はプロジェクト内（`data/` 配下）に配置して実行する |
+
+- **記録しないもの**: 乱数シード・モデルのハイパーパラメータ等の**実行パラメータ**は来歴に含めず、
+  各スクリプトのサマリー側で記録する（来歴はコード・環境・入力の追跡に責務を限定する）
+- **適用範囲**: 現時点では `src.analysis.diagnose_nodata_dropout` の
+  `*_nodata_dropout_summary.json` に付与している。他の結果出力には、各スクリプトを次に
+  改修する機会に順次適用する。付与前に生成した既存の結果JSONには `provenance` が無い
+- **記録する入力の範囲**: どのファイルを渡すかは各スクリプトが決める（`build_provenance` は渡されたパスをそのままハッシュする）。
+  欠測脱落診断では、データセット・ROI・参照ラスタを渡し、ROI の Shapefile は主ファイル（`.shp`）に加えて
+  実在する付随ファイル（`.shx`・`.dbf`・`.prj`・`.cpg`）も渡す（座標系の再定義では `.prj` だけが変わるため）
+- **注意**: 入力ハッシュは全バイトを読んで計算するため、大容量の GeoPackage・GeoTIFF では
+  実行時間が延びる
 
 ---
 

@@ -66,7 +66,7 @@ from src.analysis.analysis_rq3_limited import (
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.paths import prepare_output_path, resolve_existing_path, to_project_relative_string
 from src.common.roi import load_roi_geometry
-from src.common.summary import save_summary
+from src.common.summary import build_provenance, save_summary
 
 logger = logging.getLogger(__name__)
 
@@ -479,6 +479,50 @@ def summarize_dropout(
     }
 
 
+# Shapefile の付随ファイルのうち、読み込み結果（形状・属性・座標系・文字コード）を左右するもの
+SHAPEFILE_SIDECAR_SUFFIXES = (".shx", ".dbf", ".prj", ".cpg")
+
+
+def expand_shapefile_components(path: Path) -> list[Path]:
+    """Shapefile の主ファイルに、実在する付随ファイルを加えた一覧を返す。
+
+    座標系の再定義などでは `.prj` だけが書き換わるため、主ファイルのみの
+    ハッシュでは入力の変化を検出できない。Shapefile 以外はそのまま返す。
+
+    Args:
+        path: 入力ファイルのパス。
+
+    Returns:
+        主ファイルと、実在する付随ファイル（`SHAPEFILE_SIDECAR_SUFFIXES` の順）のリスト。
+    """
+    if path.suffix.lower() != ".shp":
+        return [path]
+    sidecars = [path.with_suffix(suffix) for suffix in SHAPEFILE_SIDECAR_SUFFIXES]
+    return [path, *(sidecar for sidecar in sidecars if sidecar.is_file())]
+
+
+def list_input_paths(
+    dataset_path: Path, roi_path: Path, raster_paths: dict[str, Path]
+) -> list[Path]:
+    """来歴メタデータへハッシュを記録する入力ファイルの一覧を作る。
+
+    ROI の Shapefile は、主ファイルに加えて実在する付随ファイルも対象とする。
+
+    Args:
+        dataset_path: データセットGeoPackageのパス。
+        roi_path: ROIのShapefileパス。
+        raster_paths: ラスタ名をキー、解決済みパスを値とする辞書。
+
+    Returns:
+        データセット・ROI（付随ファイルを含む）・ラスタ（ラスタ名の昇順）の順に並べたパスのリスト。
+    """
+    return [
+        dataset_path,
+        *expand_shapefile_components(roi_path),
+        *(raster_paths[name] for name in sorted(raster_paths)),
+    ]
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """コマンドライン引数を解釈する。
 
@@ -533,10 +577,10 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("距離計算に用いる投影座標系: %s", metric_crs)
     cells = add_roi_edge_distance(cells, roi_geometry, metric_crs)
 
-    rasters = {
-        name: describe_raster(resolve_existing_path(path))
-        for name, path in DEFAULT_RASTER_PATHS.items()
+    raster_paths = {
+        name: resolve_existing_path(path) for name, path in DEFAULT_RASTER_PATHS.items()
     }
+    rasters = {name: describe_raster(path) for name, path in raster_paths.items()}
     pixel_sizes_m = {name: max(info["pixel_size_m"]) for name, info in rasters.items()}
 
     summary = {
@@ -548,6 +592,13 @@ def main(argv: list[str] | None = None) -> None:
         "rasters": rasters,
         **summarize_dropout(cells, base_cell_count, pixel_sizes_m),
     }
+    # どのコード・環境・入力から生成したかを追跡できるよう、来歴を付与する。
+    # 入力のハッシュ計算は大容量ファイルで時間がかかるため進捗をログに残す。
+    logger.info("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
+    summary["provenance"] = build_provenance(
+        "src.analysis.diagnose_nodata_dropout",
+        input_paths=list_input_paths(dataset_path, roi_path, raster_paths),
+    )
 
     stem = dataset_path.stem
     summary_path = prepare_output_path(args.output_dir / f"{stem}_nodata_dropout_summary.json")

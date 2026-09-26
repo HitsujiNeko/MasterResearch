@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 
@@ -21,6 +22,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import Polygon
 
+from src.analysis import diagnose_nodata_dropout
 from src.analysis.diagnose_nodata_dropout import (
     ANALYSIS_AREA_COLUMN,
     LANDSCAN_2020_COLUMN,
@@ -36,11 +38,15 @@ from src.analysis.diagnose_nodata_dropout import (
     classify_water_class,
     count_base_cells,
     describe_raster,
+    expand_shapefile_components,
+    list_input_paths,
     load_dropout_cells,
     resolve_metric_crs,
     summarize_dropout,
     summarize_group_distances,
 )
+from src.common import summary as summary_module
+from src.common.summary import compute_file_sha256
 
 # ハノイROIと同じ緯度帯（北緯約21度）に置いた正方形をテスト用ROIとする。
 # 投影後の距離がメートルとして解釈できることを確かめるため、実データと同じ緯度帯を使う。
@@ -516,3 +522,128 @@ class TestDescribeRaster:
         # 緯度21度で0.008333度は約860-930m。LandScanの画素サイズの桁と一致する。
         assert 800 < max(info["pixel_size_m"]) < 1_000
         assert math.isclose(info["pixel_size_deg"][0], pixel_size_deg, rel_tol=1e-9)
+
+
+def test_expand_shapefile_components_adds_existing_sidecars(tmp_path: Path) -> None:
+    """Shapefile は実在する付随ファイルのみを所定の順で加え、それ以外はそのまま返す。"""
+    shp_path = tmp_path / "roi.shp"
+    for suffix in (".shp", ".dbf", ".prj"):
+        shp_path.with_suffix(suffix).write_bytes(b"x")
+
+    assert expand_shapefile_components(shp_path) == [
+        shp_path,
+        shp_path.with_suffix(".dbf"),
+        shp_path.with_suffix(".prj"),
+    ]
+    assert expand_shapefile_components(tmp_path / "dataset.gpkg") == [tmp_path / "dataset.gpkg"]
+
+
+def test_list_input_paths_orders_dataset_roi_then_sorted_rasters() -> None:
+    """来歴の入力一覧はデータセット・ROI・ラスタ名昇順の順に並ぶ。"""
+    dataset_path = Path("data/dataset.gpkg")
+    roi_path = Path("data/roi.shp")
+    raster_paths = {"worldpop": Path("data/wp.tif"), "landscan": Path("data/ls.tif")}
+
+    assert list_input_paths(dataset_path, roi_path, raster_paths) == [
+        dataset_path,
+        roi_path,
+        Path("data/ls.tif"),
+        Path("data/wp.tif"),
+    ]
+
+
+class TestMainProvenance:
+    """main() の出力サマリーへの来歴付与（合成データによるスモークテスト）。"""
+
+    @staticmethod
+    def _write_raster(path: Path) -> None:
+        """ROI を覆う 2x2 画素の小さなラスタを書き出す。"""
+        pixel_size_deg = ROI_SIZE_DEG / 2
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            height=2,
+            width=2,
+            count=1,
+            dtype="float32",
+            crs="EPSG:4326",
+            transform=from_origin(
+                ROI_MIN_LON, ROI_MIN_LAT + ROI_SIZE_DEG, pixel_size_deg, pixel_size_deg
+            ),
+            nodata=-9999.0,
+        ) as dst:
+            dst.write(np.array([[1.0, 2.0], [3.0, -9999.0]], dtype="float32"), 1)
+
+    def test_summary_contains_provenance_with_input_hashes(
+        self,
+        tmp_path: Path,
+        roi_geometry: Polygon,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """サマリーJSONに provenance が付き、全入力ファイルのハッシュが記録される。"""
+        table = pd.DataFrame(
+            {
+                "cell_id": [1, 2, 3],
+                "lon": [ROI_MIN_LON + 0.01 * i for i in range(1, 4)],
+                "lat": [ROI_MIN_LAT + 0.01 * i for i in range(1, 4)],
+                WORLDPOP_COLUMN: [np.nan, 5.0, np.nan],
+                LANDSCAN_2020_COLUMN: [10.0, 10.0, 10.0],
+                LANDSCAN_2023_COLUMN: [11.0, 11.0, 11.0],
+                NIGHTLIGHT_COLUMN: [2.0, 2.0, np.nan],
+                TARGET_COLUMN: [32.0, 34.0, 35.0],
+                WATER_COVERAGE_COLUMN: [0.95, 0.0, 0.0],
+                "NDWI": [0.1, -0.5, -0.5],
+                ANALYSIS_AREA_COLUMN: [1, 1, 1],
+            }
+        )
+        dataset_path = tmp_path / "dataset.gpkg"
+        pyogrio.write_dataframe(table, dataset_path, layer="cells", driver="GPKG")
+
+        roi_path = tmp_path / "roi.shp"
+        gpd.GeoDataFrame(geometry=[roi_geometry], crs="EPSG:4326").to_file(roi_path)
+
+        raster_paths = {}
+        # 実データと同じラスタ名で、辞書順と挿入順が異なる並びにする
+        for name in ("worldpop2020", "landscan2020", "landscan2023", "viirs_dnb"):
+            raster_path = tmp_path / f"{name}.tif"
+            self._write_raster(raster_path)
+            raster_paths[name] = raster_path
+        monkeypatch.setattr(diagnose_nodata_dropout, "DEFAULT_RASTER_PATHS", raster_paths)
+
+        # 来歴の git 情報は実リポジトリに依存させない
+        monkeypatch.setattr(summary_module, "_run_git", lambda args, repo_root: None)
+
+        output_dir = tmp_path / "output"
+        diagnose_nodata_dropout.main(
+            [
+                "--dataset",
+                str(dataset_path),
+                "--roi",
+                str(roi_path),
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+
+        summary = json.loads(
+            (output_dir / "dataset_nodata_dropout_summary.json").read_text(encoding="utf-8")
+        )
+        provenance = summary["provenance"]
+        assert provenance["script"] == "src.analysis.diagnose_nodata_dropout"
+        # 既存キーはそのまま残り、provenance は追加のみである
+        assert "dataset" in summary and "rasters" in summary
+        # ROI は付随ファイル（.prj 等）も含めて記録される
+        expected_paths = [
+            dataset_path,
+            roi_path,
+            *(roi_path.with_suffix(suffix) for suffix in (".shx", ".dbf", ".prj", ".cpg")),
+            *(raster_paths[name] for name in sorted(raster_paths)),
+        ]
+        expected_paths = [path for path in expected_paths if path.is_file()]
+        assert roi_path.with_suffix(".prj") in expected_paths
+        # パスとハッシュが同じ順序で正しく対応している
+        assert provenance["inputs"] == [
+            {"path": path.resolve().as_posix(), "sha256": compute_file_sha256(path)}
+            for path in expected_paths
+        ]

@@ -37,6 +37,7 @@ DEFAULT_PROVENANCE_PACKAGES: tuple[str, ...] = (
     "rasterio",
     "shapely",
     "pyproj",
+    "pyogrio",
 )
 
 # ハッシュ計算時の読み込み単位（大容量のGeoPackage・GeoTIFFでもメモリを圧迫しないため）
@@ -44,6 +45,10 @@ _HASH_CHUNK_SIZE = 1024 * 1024
 
 # git コマンドの待ち時間の上限（秒）
 _GIT_TIMEOUT_SEC = 10
+
+# 未コミット変更の判定対象（コードのみ）。追跡中の結果JSONの更新や作業用の
+# 未追跡ディレクトリでは dirty にしないため、ソースコードのディレクトリに限定する
+_GIT_DIRTY_PATHSPEC = "src"
 
 
 def save_summary(summary: dict[str, Any], summary_path: Path) -> None:
@@ -121,9 +126,11 @@ def _run_git(args: list[str], repo_root: Path) -> str | None:
 
 
 def get_git_state(repo_root: Path = PROJECT_ROOT) -> dict[str, Any]:
-    """現在のgitコミットハッシュと作業ツリーの未コミット変更の有無を取得する。
+    """現在のgitコミットハッシュとコードの未コミット変更の有無を取得する。
 
     `dirty` が真の場合、記録したコミットだけでは生成時のコードを復元できない。
+    判定対象は `src/` 配下（未追跡ファイルを含む）に限り、結果ファイル等の
+    コード以外の変更では真にしない。
     git を利用できない環境では例外にせず、値を `None` として記録する
     （来歴の取得失敗で分析結果の保存が止まるのを避けるため）。
 
@@ -134,7 +141,7 @@ def get_git_state(repo_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         `commit`（コミットハッシュ）と `dirty`（未コミット変更の有無）を持つ辞書。
     """
     commit = _run_git(["rev-parse", "HEAD"], repo_root)
-    status = _run_git(["status", "--porcelain"], repo_root)
+    status = _run_git(["status", "--porcelain", "--", _GIT_DIRTY_PATHSPEC], repo_root)
     if commit is None or status is None:
         logger.warning("git の状態を取得できなかったため、来歴のコミット情報を空にします。")
         return {"commit": None, "dirty": None}
@@ -203,13 +210,22 @@ def build_provenance(
         input_paths: ハッシュを記録する入力ファイルのパス。
         packages: バージョンを記録するライブラリの配布パッケージ名。
         repo_root: gitリポジトリのルート（入力パスの相対化の基準も兼ねる）。
-        executed_at: 実行日時。`None` の場合は現在時刻（UTC）を使う。
+        executed_at: 実行日時（タイムゾーン付き）。`None` の場合は現在時刻（UTC）を使う。
 
     Returns:
         `script`・`executed_at`・`python_version`・`platform`・`git`・`packages`・`inputs`
         を持つ辞書。
+
+    Raises:
+        ValueError: `executed_at` がタイムゾーンを持たない場合。
     """
-    timestamp = executed_at if executed_at is not None else datetime.now(timezone.utc)
+    if executed_at is None:
+        timestamp = datetime.now(timezone.utc)
+    elif executed_at.tzinfo is None:
+        # タイムゾーン無しの日時はUTCか現地時刻か判別できないため受け付けない
+        raise ValueError("executed_at にはタイムゾーン付きの日時を指定してください。")
+    else:
+        timestamp = executed_at.astimezone(timezone.utc)
     return {
         "script": script,
         "executed_at": timestamp.isoformat(),

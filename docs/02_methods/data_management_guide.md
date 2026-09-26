@@ -214,9 +214,9 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `script` | 実行スクリプトの識別名（例: `src.analysis.diagnose_nodata_dropout`） |
 | `executed_at` | 実行日時（UTC・ISO 8601） |
 | `python_version` / `platform` | Python のバージョンと OS |
-| `git.commit` / `git.dirty` | コミットハッシュと未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。git を利用できない環境では両方 `null` |
-| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj）のバージョン。未インストールは `null` |
-| `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト |
+| `git.commit` / `git.dirty` | コミットハッシュと、コード（`src/` 配下。未追跡ファイルを含む）の未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。結果ファイル等のコード以外の変更は判定に含めない。git を利用できない環境では両方 `null` |
+| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。未インストールは `null` |
+| `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト。プロジェクトルート外のパスは絶対パスのまま記録されるため、入力はプロジェクト内（`data/` 配下）に配置して実行する |
 
 - **記録しないもの**: 乱数シード・モデルのハイパーパラメータ等の**実行パラメータ**は来歴に含めず、
   各スクリプトのサマリー側で記録する（来歴はコード・環境・入力の追跡に責務を限定する）

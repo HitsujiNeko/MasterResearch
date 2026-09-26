@@ -16,6 +16,12 @@ from sklearn.preprocessing import StandardScaler
 
 from src.common.model_metrics import compute_metrics
 
+# ランダムフォレストの葉ノード当たり最小サンプル数（CLIでは変更できない固定値）。
+# 実行条件として結果ファイルへ記録するため、`src.common.run_parameters` からも参照する。
+RF_MIN_SAMPLES_LEAF = 5
+# Permutation重要度の反復回数（CLIでは変更できない固定値。記録の扱いは上と同じ）。
+PERMUTATION_N_REPEATS = 10
+
 
 def _validate_matching_columns(x_train: pd.DataFrame, x_test: pd.DataFrame) -> None:
     """学習用・評価用の説明変数の列（特徴量名・順序）が一致することを確認する。
@@ -121,7 +127,7 @@ def fit_random_forest(
 
     model = RandomForestRegressor(
         n_estimators=n_estimators,
-        min_samples_leaf=5,
+        min_samples_leaf=RF_MIN_SAMPLES_LEAF,
         random_state=random_state,
         n_jobs=1,
     )
@@ -139,7 +145,7 @@ def fit_random_forest(
             model,
             x_test,
             y_test,
-            n_repeats=10,
+            n_repeats=PERMUTATION_N_REPEATS,
             random_state=random_state,
             n_jobs=1,
         )

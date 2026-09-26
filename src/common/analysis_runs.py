@@ -22,6 +22,10 @@ from src.common.model_metrics import summarize_metric_dicts
 from src.common.regression_models import fit_linear_regression, fit_random_forest
 from src.common.spatial_cv import split_by_spatial_blocks
 
+# ランダム分割における評価データの割合（CLIでは変更できない固定値）。
+# 実行条件として結果ファイルへ記録するため、`src.common.run_parameters` からも参照する。
+RANDOM_SPLIT_TEST_FRACTION = 0.2
+
 
 def build_observation_label(output_stem: str) -> str:
     """出力接頭辞から観測日時ラベルを生成する。
@@ -120,7 +124,7 @@ def run_random_split_models(
         学習データ・評価結果・学習済みRFモデルを含む構造体。
     Raises:
         ValueError: `sampled` が2行未満の場合。`train_test_split` は
-            `test_size=0.2` 固定のため、1行以下では有効な学習/評価分割を
+            `test_size=RANDOM_SPLIT_TEST_FRACTION`（0.2）固定のため、1行以下では有効な学習/評価分割を
             作れず、sklearn内部の分かりにくい例外になる。ここで早期に
             日本語のエラーメッセージへ変換する。
     """
@@ -131,7 +135,7 @@ def run_random_split_models(
     x = sampled[feature_columns]
     y = sampled[target_column]
     x_train, x_test, y_train, y_test = train_test_split(
-        x, y, test_size=0.2, random_state=random_state
+        x, y, test_size=RANDOM_SPLIT_TEST_FRACTION, random_state=random_state
     )
 
     linear_result, _, _ = fit_linear_regression(x_train, x_test, y_train, y_test)

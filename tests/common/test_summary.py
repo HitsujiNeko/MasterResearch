@@ -117,7 +117,7 @@ def test_get_git_state_judges_dirty_from_status(
 
     assert get_git_state() == {"commit": "a" * 40, "dirty": expected_dirty}
     # 判定対象はコード（src 配下）に限定されている
-    assert calls[1] == ["status", "--porcelain", "--", "src"]
+    assert calls[1] == ["status", "--porcelain", "--untracked-files=normal", "--", "src"]
 
 
 def test_get_git_state_returns_none_when_git_fails(monkeypatch: pytest.MonkeyPatch) -> None:

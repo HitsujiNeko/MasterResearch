@@ -130,7 +130,8 @@ def get_git_state(repo_root: Path = PROJECT_ROOT) -> dict[str, Any]:
 
     `dirty` が真の場合、記録したコミットだけでは生成時のコードを復元できない。
     判定対象は `src/` 配下（未追跡ファイルを含む）に限り、結果ファイル等の
-    コード以外の変更では真にしない。
+    コード以外の変更では真にしない。未追跡ファイルの表示は実行者の git 設定
+    （`status.showUntrackedFiles`）に左右されないよう明示的に指定する。
     git を利用できない環境では例外にせず、値を `None` として記録する
     （来歴の取得失敗で分析結果の保存が止まるのを避けるため）。
 
@@ -141,7 +142,10 @@ def get_git_state(repo_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         `commit`（コミットハッシュ）と `dirty`（未コミット変更の有無）を持つ辞書。
     """
     commit = _run_git(["rev-parse", "HEAD"], repo_root)
-    status = _run_git(["status", "--porcelain", "--", _GIT_DIRTY_PATHSPEC], repo_root)
+    status = _run_git(
+        ["status", "--porcelain", "--untracked-files=normal", "--", _GIT_DIRTY_PATHSPEC],
+        repo_root,
+    )
     if commit is None or status is None:
         logger.warning("git の状態を取得できなかったため、来歴のコミット情報を空にします。")
         return {"commit": None, "dirty": None}
@@ -210,7 +214,8 @@ def build_provenance(
         input_paths: ハッシュを記録する入力ファイルのパス。
         packages: バージョンを記録するライブラリの配布パッケージ名。
         repo_root: gitリポジトリのルート（入力パスの相対化の基準も兼ねる）。
-        executed_at: 実行日時（タイムゾーン付き）。`None` の場合は現在時刻（UTC）を使う。
+        executed_at: 実行日時（タイムゾーン付き）。`None` の場合は来歴を生成した
+            現在時刻（UTC）を使う。
 
     Returns:
         `script`・`executed_at`・`python_version`・`platform`・`git`・`packages`・`inputs`

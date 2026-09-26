@@ -479,13 +479,34 @@ def summarize_dropout(
     }
 
 
+# Shapefile の付随ファイルのうち、読み込み結果（形状・属性・座標系・文字コード）を左右するもの
+SHAPEFILE_SIDECAR_SUFFIXES = (".shx", ".dbf", ".prj", ".cpg")
+
+
+def expand_shapefile_components(path: Path) -> list[Path]:
+    """Shapefile の主ファイルに、実在する付随ファイルを加えた一覧を返す。
+
+    座標系の再定義などでは `.prj` だけが書き換わるため、主ファイルのみの
+    ハッシュでは入力の変化を検出できない。Shapefile 以外はそのまま返す。
+
+    Args:
+        path: 入力ファイルのパス。
+
+    Returns:
+        主ファイルと、実在する付随ファイル（`SHAPEFILE_SIDECAR_SUFFIXES` の順）のリスト。
+    """
+    if path.suffix.lower() != ".shp":
+        return [path]
+    sidecars = [path.with_suffix(suffix) for suffix in SHAPEFILE_SIDECAR_SUFFIXES]
+    return [path, *(sidecar for sidecar in sidecars if sidecar.is_file())]
+
+
 def list_input_paths(
     dataset_path: Path, roi_path: Path, raster_paths: dict[str, Path]
 ) -> list[Path]:
     """来歴メタデータへハッシュを記録する入力ファイルの一覧を作る。
 
-    ROI の Shapefile は主ファイル（`.shp`）のみを対象とする。属性・投影の
-    付随ファイルは主ファイルと一体で更新される前提で、個別には記録しない。
+    ROI の Shapefile は、主ファイルに加えて実在する付随ファイルも対象とする。
 
     Args:
         dataset_path: データセットGeoPackageのパス。
@@ -493,9 +514,13 @@ def list_input_paths(
         raster_paths: ラスタ名をキー、解決済みパスを値とする辞書。
 
     Returns:
-        データセット・ROI・ラスタ（ラスタ名の昇順）の順に並べたパスのリスト。
+        データセット・ROI（付随ファイルを含む）・ラスタ（ラスタ名の昇順）の順に並べたパスのリスト。
     """
-    return [dataset_path, roi_path, *(raster_paths[name] for name in sorted(raster_paths))]
+    return [
+        dataset_path,
+        *expand_shapefile_components(roi_path),
+        *(raster_paths[name] for name in sorted(raster_paths)),
+    ]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

@@ -38,12 +38,15 @@ from src.analysis.diagnose_nodata_dropout import (
     classify_water_class,
     count_base_cells,
     describe_raster,
+    expand_shapefile_components,
     list_input_paths,
     load_dropout_cells,
     resolve_metric_crs,
     summarize_dropout,
     summarize_group_distances,
 )
+from src.common import summary as summary_module
+from src.common.summary import compute_file_sha256
 
 # ハノイROIと同じ緯度帯（北緯約21度）に置いた正方形をテスト用ROIとする。
 # 投影後の距離がメートルとして解釈できることを確かめるため、実データと同じ緯度帯を使う。
@@ -521,6 +524,20 @@ class TestDescribeRaster:
         assert math.isclose(info["pixel_size_deg"][0], pixel_size_deg, rel_tol=1e-9)
 
 
+def test_expand_shapefile_components_adds_existing_sidecars(tmp_path: Path) -> None:
+    """Shapefile は実在する付随ファイルのみを所定の順で加え、それ以外はそのまま返す。"""
+    shp_path = tmp_path / "roi.shp"
+    for suffix in (".shp", ".dbf", ".prj"):
+        shp_path.with_suffix(suffix).write_bytes(b"x")
+
+    assert expand_shapefile_components(shp_path) == [
+        shp_path,
+        shp_path.with_suffix(".dbf"),
+        shp_path.with_suffix(".prj"),
+    ]
+    assert expand_shapefile_components(tmp_path / "dataset.gpkg") == [tmp_path / "dataset.gpkg"]
+
+
 def test_list_input_paths_orders_dataset_roi_then_sorted_rasters() -> None:
     """来歴の入力一覧はデータセット・ROI・ラスタ名昇順の順に並ぶ。"""
     dataset_path = Path("data/dataset.gpkg")
@@ -594,6 +611,9 @@ class TestMainProvenance:
             raster_paths[name] = raster_path
         monkeypatch.setattr(diagnose_nodata_dropout, "DEFAULT_RASTER_PATHS", raster_paths)
 
+        # 来歴の git 情報は実リポジトリに依存させない
+        monkeypatch.setattr(summary_module, "_run_git", lambda args, repo_root: None)
+
         output_dir = tmp_path / "output"
         diagnose_nodata_dropout.main(
             [
@@ -613,10 +633,17 @@ class TestMainProvenance:
         assert provenance["script"] == "src.analysis.diagnose_nodata_dropout"
         # 既存キーはそのまま残り、provenance は追加のみである
         assert "dataset" in summary and "rasters" in summary
-        recorded = [entry["path"] for entry in provenance["inputs"]]
-        assert recorded == [
-            dataset_path.resolve().as_posix(),
-            roi_path.resolve().as_posix(),
-            *(raster_paths[name].resolve().as_posix() for name in sorted(raster_paths)),
+        # ROI は付随ファイル（.prj 等）も含めて記録される
+        expected_paths = [
+            dataset_path,
+            roi_path,
+            *(roi_path.with_suffix(suffix) for suffix in (".shx", ".dbf", ".prj", ".cpg")),
+            *(raster_paths[name] for name in sorted(raster_paths)),
         ]
-        assert all(len(entry["sha256"]) == 64 for entry in provenance["inputs"])
+        expected_paths = [path for path in expected_paths if path.is_file()]
+        assert roi_path.with_suffix(".prj") in expected_paths
+        # パスとハッシュが同じ順序で正しく対応している
+        assert provenance["inputs"] == [
+            {"path": path.resolve().as_posix(), "sha256": compute_file_sha256(path)}
+            for path in expected_paths
+        ]

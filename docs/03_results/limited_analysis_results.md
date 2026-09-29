@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-09-26  
+**最終更新**: 2026-09-29  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -239,7 +239,7 @@ GLC を土地被覆ソースとするラン（1・2・4〜9）では `LULC_BARE_
 - `*_spatial_cv_folds.csv`: fold別評価値
 - `*_model_comparison.png`, `*_feature_importance.png`, `*_spatial_cv.png`: 可視化
 - `*_shap_importance.csv`, `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_{変数名}.png`: SHAP関連
-- `*_results.json`: 全結果の要約。実行パラメータは `run_parameters` キーに記録される（3.5節参照。記録の導入前に実行した既存ランは持たない）
+- `*_results.json`: 全結果の要約。実行パラメータは `run_parameters` キーに記録される（3.5節参照。記録の導入前に実行した既存ランは持たない）。どのコード・環境・入力から生成したかを示す来歴メタデータは `provenance` キーに記録される（`--diagnose-only` の `*_diagnostics.json` にも付与。内容は [data_management_guide.md](../02_methods/data_management_guide.md) 7.5節を参照。導入前の既存ランは持たない）
 
 ### 3.8 フィルタ脱落と欠損値処理の診断
 

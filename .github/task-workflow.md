@@ -44,7 +44,7 @@ GitHub Issues をタスク管理の正本とし、タスクの実行ライフサ
 | 区分 | 対象 |
 |---|---|
 | **R: 結果影響** | `src/analysis`・`src/common`・`src/preprocessing`・`src/gee`・`src/module`・`src/visualization`・`src/js`・`src/fortran`／git 管理下の `data/input`・`data/output`／`images/`・`qgis/styles`／依存定義（`environment.yml`・`requirements.txt`・`pyproject.toml`）／`docs/01_planning` 全体／`docs/02_methods` の手法文書（`analysis_workflow.md`・`calc_urban_params*`・`gee_calc_*`・`calc_LST_report.md`・`observation_selection.md`・`analysis_rq3_*`・`data_management_guide.md`）／`docs/03_results` |
-| **S: 支援・運用** | `.claude/`・`.github/`・`CLAUDE.md`・`AGENTS.md`／`docs/02_methods` の運用文書（`CodingRule.md`・`skill_operation_rules.md`・`claude_workflow_regression_tests.md`・`qgis_*`）／`docs/README.md`・`docs/setup*`・`docs/04_archive`・ルート `README.md`／`src/doc_checks`・`src/literature`・`scripts/`／lint・CI 等のツール設定（`.pre-commit-config.yaml`・`.markdownlint*`・`.coderabbit.yaml`・`.mcp.json`・`.vscode/`・`.gitignore`・`.gitattributes`・`.env.example`）／テストのみの変更 |
+| **S: 支援・運用** | `.claude/`・`.github/`・`CLAUDE.md`・`AGENTS.md`／`docs/02_methods` の運用文書（`CodingRule.md`・`skill_operation_rules.md`・`claude_workflow_regression_tests.md`・`qgis_*`）／`docs/README.md`・`docs/setup*`・`docs/04_archive`・ルート `README.md`／`src/doc_checks`・`src/literature`・`scripts/`・`tests/`／lint・CI 等のツール設定（`.pre-commit-config.yaml`・`.markdownlint*`・`.coderabbit.yaml`・`.mcp.json`・`.vscode/`・`.gitignore`・`.gitattributes`・`.env.example`）。`tests/` はテストのみの変更を指し、R のコードと同時に変更した場合は重い方（R）となる |
 | **D: 非実質** | 挙動・出力を変えないもの（コメント・文書の typo、リンク修正、自動整形）。**R パスの識別子・文字列リテラル・ファイル名のリネームは D にしない** |
 
 **判定ルール**:
@@ -52,7 +52,8 @@ GitHub Issues をタスク管理の正本とし、タスクの実行ライフサ
 - **上記に列挙のないパスは R として扱う**（安全側の既定値）
 - 区分は**タスク（PR）単位**で決める。複数の区分に該当する場合は重い方（R > S > D）とする
 - 区分はゲート①で Claude が提示し、**ユーザーが確定する**。計画書がある場合は「決定事項」に記録する。Tier 1 並列タスクの区分は [parallel-workflow.md](./parallel-workflow.md) の Tier 判定の承認時に確定する
-- 確定した区分は、ゲート③で承認する **PR 本文の「変更区分」欄**に記入する。`/create-pr` はこの欄を確定済みの区分として読み取り、ブランチの差分パスと照合する。**確定済みの区分より重いパスが含まれていれば停止し、ユーザーに区分の確定をやり直してもらう**（実装中に重い区分のパスを変更する必要が生じた場合も、その時点で再確定を求める）
+- 確定した区分は、ゲート③で承認する **PR 本文の「変更区分」欄**に記入する。`/create-pr` はこの欄を確定済みの区分として読み取り、ブランチの差分パスと照合する。**確定済みの区分より重いパスが含まれていれば停止し、ユーザーに区分の確定をやり直してもらう**（実装中に重い区分のパスを変更する必要が生じた場合も、その時点で再確定を求める）。Tier 1 並列タスクには事前に承認された PR 本文がないため、Tier 承認時に確定した区分をエージェントへの指示に含め、エージェントが PR 本文の「変更区分」欄に記入する
+- **区分を重い方へ確定し直した場合**は、それまでのコミットが新しい区分のレビューを経ていないため、新しい区分の手順をまとめて適用する（区分 S・D から R へ変わった場合は、既存コミットにまとめて `/self-review` を実行し、所見つきで提示してゲート②の承認を得る）。ゲート③の承認後に PR 本文の「変更区分」欄を変えた場合は、承認内容の変更にあたるためゲート③を取り直す。Tier 1 並列タスクで区分検証が停止した場合は PR を作成せずにメインセッションへ結果を返し、区分 R と再確定されたときは Tier 2 として扱う
 - **`.claude/skills/` の変更は区分にかかわらず [skill_operation_rules.md](../docs/02_methods/skill_operation_rules.md) の「変更内容の提示 → 承認 → 実施」に従う**（同ルールが優先し、Tier 1 の対象外とする）
 - 既存の「**軽微なタスク**」（計画書を作るかどうかの基準）・「**軽微なコミット**」（セルフレビューを省略し提示をまとめてよいかの基準）とは**別の軸**である。区分 R のタスク内の軽微なコミットは、従来どおりセルフレビューを省略してよい
 
@@ -61,11 +62,12 @@ GitHub Issues をタスク管理の正本とし、タスクの実行ライフサ
 | 区分 | `/self-review` | ゲート② | `/create-pr` のローカルレビュー | ゲート③ | CodeRabbit |
 |---|---|---|---|---|---|
 | R | コミット単位 | コミット単位 | **必須** | ○ | ○ |
-| S | 省略（ローカルレビューの観点に固有規約を含める） | なし（ゲート③で一括確認） | **必須**（1 回） | ○ | ○ |
+| S | 省略（ローカルレビューの観点に固有規約等を含める） | なし（ゲート③で一括確認） | **必須** | ○ | ○ |
 | D | 省略 | なし | 省略 | ○ | ○ |
 
 - ゲート①（計画承認）は全区分で適用する（Tier 1 並列タスクの免除は下記「承認ゲート」のとおり）
-- 区分 S のローカルレビューには、[CodingRule.md](../docs/02_methods/CodingRule.md) の「セルフレビューで確認する項目（自動検出不可）」を観点として含める（`/self-review` の省略による固有規約点検の欠落を防ぐため）
+- 区分 S のローカルレビューには、[CodingRule.md](../docs/02_methods/CodingRule.md) の「セルフレビューで確認する項目（自動検出不可）」・「15. 実装前後チェックリスト」と、テストが保証していない範囲（未検証の入力・境界値・異常系・副作用）を観点として含める（`/self-review` の省略による点検の欠落を防ぐため）
+- 表の `/self-review` の「省略」は既定の扱いであり、ユーザーが明示的に依頼した場合は区分 S・D でも実行してよい
 - **Tier 1 並列タスクは区分 S・D に限る**（区分 R の並列タスクは Tier 2）。Tier 1 のローカルレビューは区分 D であっても省略しない
 
 **レビュー実施記録**:
@@ -190,7 +192,7 @@ git branch -D {Issue番号}/{タスク要約英文}
 
 **③ ローカル自動レビュー ＋ push・PR作成**（Claude）
 
-承認後に `/create-pr` を実行する。**push・PR作成に先立って**レビュー用サブエージェントを起動し、**現在のブランチ全体をローカルでレビュー**して結果を**深刻度順の箇条書き要約**でメイン会話に取り込む。指摘対応を終えてから `git push` ＋ `gh pr create` を行う。
+承認後に `/create-pr` を実行する。**push・PR作成に先立って**、変更区分で必要とされる場合はレビュー用サブエージェントを起動し、**現在のブランチ全体をローカルでレビュー**して結果を**深刻度順の箇条書き要約**でメイン会話に取り込む。指摘対応を終えてから `git push` ＋ `gh pr create` を行う。
 
 - レビュー結果は**メイン会話に返すのみで、PR には投稿しない**（`/coderabbit`（後述④・外部レビュー）との二重投稿を避ける。両者は観点が異なり相補的）。push前に指摘対応を終えることで、CodeRabbit は常にローカルレビュー済みの最終コードのみをレビューする
 - 適用範囲: **[変更区分](#変更区分唯一の定義)で自動的に決まり、ユーザーに実行の要否を尋ねない**。区分 R・S は必須、区分 D は省略する。**Tier 1 並列タスクは区分によらず必須**とする。レビューを実行する前に、ブランチの差分パスが確定済みの区分を超えていないかを検証する

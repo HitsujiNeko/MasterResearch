@@ -1941,7 +1941,8 @@ class TestMainRunParameters:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """results.json に来歴（provenance）が付与され、入力はデータセット1件でハッシュが
-        実体と一致する（キー構成は Satellite Only と同じ PROVENANCE_KEYS）。
+        実体と一致する（Satellite Only のテストも同じキー集合を確認し、シナリオ間の
+        一致を担保する）。
         """
         result = self._run_main(monkeypatch, tmp_path)
 

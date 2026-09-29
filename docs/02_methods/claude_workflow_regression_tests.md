@@ -100,8 +100,8 @@
 | check-docs-consistency 報告 Issue の特定 | タイトル接頭辞「docs: ドキュメント整合性チェック報告」・`docs` ラベル・Issue 用フッタ文言の 3 条件で特定する。SKILL.md に特定の Issue 番号が書かれていない |
 | check-docs-consistency 複数 OPEN 時の扱い | `createdAt` が最新の報告 Issue を採用し、他の番号は報告の中で列挙する。自動では close しない |
 | check-docs-consistency 「前回の指摘一覧」 | 最新の差分コメント（コメント用フッタで識別）の「新規」＋「継続」、差分コメントが無ければ Issue 本文の指摘を前回とする |
-| check-docs-consistency 状況別の分岐 | OPEN なし＋問題なし→書き込みなし／OPEN なし＋問題あり→新規起票／OPEN あり＋差分あり→差分コメント追記／OPEN あり＋差分なし→自動実行は書き込みなし・対話実行は報告のみ／OPEN あり＋全件解消→解消を追記して close（`--reason completed`） |
-| check-docs-consistency 実行モードの判定 | 呼び出し元のプロンプトに「自動実行」の明記があれば自動実行、それ以外は対話実行。週次スケジュールタスクのプロンプトに「自動実行」が明記され、起票を前提とする指示が無い |
+| check-docs-consistency 状況別の分岐 | OPEN なし＋問題なし→書き込みなし／OPEN なし＋問題あり→新規起票／OPEN あり＋差分あり→差分コメント追記／OPEN あり＋差分なし→自動実行は書き込みなし・対話実行は報告のみ／OPEN あり＋全件解消→解消を追記して close（`--reason completed`）。鮮度チェックの WARN も指摘に含め、今回 0 件なら全件解消を優先する。前回の指摘は記載箇所を個別に確認し直してから「解消」とする |
+| check-docs-consistency 実行モードの判定 | 呼び出し元のプロンプトに「自動実行」の明記があれば自動実行、それ以外は対話実行。週次スケジュールタスクのプロンプト（リポジトリ外の `~/.claude/scheduled-tasks/weekly-docs-consistency-check/SKILL.md`）に「自動実行」が明記され、起票を前提とする指示が無い |
 | check-docs-consistency 差分コメントの様式・タイトル日付 | 差分コメントが「新規」「解消」「継続（全件）」「推奨アクション（新規分）」とコメント用フッタで構成される。報告 Issue のタイトル日付は初回起票日のまま変更しない |
 
 ---

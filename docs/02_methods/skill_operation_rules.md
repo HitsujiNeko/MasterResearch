@@ -1,6 +1,6 @@
 # スキル運用ルール
 
-**最終更新**: 2026-07-08
+**最終更新**: 2026-09-29
 **関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [CodingRule.md](CodingRule.md), [shared/github-project-api.md](../../.claude/skills/shared/github-project-api.md), [shared/finalize-steps.md](../../.claude/skills/shared/finalize-steps.md)
 
 ---
@@ -20,6 +20,7 @@ Claude Code のカスタムスキル（`.claude/skills/` 配下）の作成・�
 - スキルの新規作成・変更は、**環境を問わずユーザーの明示承認を得てから**行う（変更内容の提示 → 承認 → 実施）
 - Skill Creator スキルが利用できる環境では、作成・変更に Skill Creator を使用することを推奨する
 - 承認なしのスキル変更は、軽微な修正（typo 等）であっても行わない
+- 本ルールは[変更区分](../../.github/task-workflow.md#変更区分唯一の定義)にかかわらず優先する。スキルの変更は区分 S・D であっても「変更内容の提示 → 承認 → 実施」を省略せず、中間承認を免除する Tier 1 並列タスクの対象外とする
 
 ---
 

@@ -12,13 +12,14 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "change_category.py"
 
 
-def _load_target():
+def _load_target() -> ModuleType:
     """対象スクリプトをモジュールとして読み込む。"""
     spec = importlib.util.spec_from_file_location("change_category", SCRIPT_PATH)
     module = importlib.util.module_from_spec(spec)
@@ -151,12 +152,11 @@ class TestNormalizePath:
             (".claude\\commands\\create-pr.md", ".claude/commands/create-pr.md"),
             ("./src/analysis/x.py", "src/analysis/x.py"),
             ("././tests/a.py", "tests/a.py"),
-            ("  tests/a.py  ", "tests/a.py"),
             ("src/analysis/", "src/analysis/"),
         ],
     )
     def test_normalizes_separator_and_prefix(self, path: str, expected: str) -> None:
-        """``\\`` を ``/`` にし、先頭の ``./`` と前後の空白を除く。末尾の ``/`` は残す。"""
+        """``\\`` を ``/`` にし、先頭の ``./`` を除く。末尾の ``/`` は残す。"""
         assert target.normalize_path(path) == expected
 
     @pytest.mark.parametrize(
@@ -228,13 +228,13 @@ class TestClassifyPaths:
 class TestCheckExpected:
     """check_expected のテスト。"""
 
-    def test_expect_s_with_r_path_returns_1(self) -> None:
-        """確定済み S に R のパスがあれば 1 を返し、該当パスを示す。"""
+    def test_expect_s_with_r_path_returns_3(self) -> None:
+        """確定済み S に R のパスがあれば 3 を返し、該当パスを示す。"""
         results = target.classify_paths(["src/analysis/x.py", "tests/a.py"])
 
         exit_code, messages = target.check_expected(results, "S")
 
-        assert exit_code == 1
+        assert exit_code == target.EXIT_HEAVIER == 3
         assert "  src/analysis/x.py" in messages
         assert "  tests/a.py" not in messages
 
@@ -278,9 +278,16 @@ class TestMainWithPaths:
         assert exit_code == 0
         assert out.splitlines()[-1] == "全体: R（R 1 件 / S 1 件）"
 
-    def test_expect_s_with_r_path_returns_1(self, capsys: pytest.CaptureFixture[str]) -> None:
-        """--expect S で R のパスがあれば 1 を返す。"""
-        assert target.main(["--expect", "S", "src/analysis/x.py"]) == 1
+    def test_expect_s_with_r_path_returns_3(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """--expect S で R のパスがあれば 3 を返す（Python の起動失敗等の 1 と区別する）。"""
+        assert target.main(["--expect", "S", "src/analysis/x.py"]) == 3
+
+    def test_positional_path_whitespace_is_stripped(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """コマンドライン引数の前後の空白は除いて判定する。"""
+        assert target.main(["--expect", "S", "  tests/a.py  "]) == 0
+        assert "S  tests/a.py  [tests/*: テストのみの変更]" in capsys.readouterr().out
 
     def test_paths_with_base_is_error(self, capsys: pytest.CaptureFixture[str]) -> None:
         """パス指定と --base の併用は 2 を返し、標準エラーに理由を出す。"""
@@ -369,6 +376,12 @@ class TestGitMode:
         (git_repo / "src" / "analysis" / "old.py").write_text("x = 2\n", encoding="utf-8")
 
         assert target.get_diff_paths("main", cwd=str(git_repo)) == ["tests/a.py"]
+
+    def test_git_path_whitespace_is_kept(self) -> None:
+        """git が返すパスの空白は除かない（実在パスを軽い区分の規則に一致させない）。"""
+        result = target.classify_paths([" scripts/x.py"])[0]
+
+        assert (result.category, result.path) == ("R", " scripts/x.py")
 
     def test_missing_base_raises(self, git_repo: Path) -> None:
         """存在しない比較基準は実行エラーにする。"""

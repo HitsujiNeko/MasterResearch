@@ -12,9 +12,10 @@ D（非実質）は変更内容で決まるため判定しない。出力する�
 
 終了コード:
     0: 成功（``--expect`` 指定時は期待した区分以内）
-    1: ``--expect`` より重い区分のパスがある
     2: 実行エラー（git の失敗・比較基準なし・差分 0 件・引数不正・絶対パス・``..`` を含むパス・
        想定外の例外）
+    3: ``--expect`` より重い区分のパスがある
+    （1 は使わない。Python 自体の起動失敗・構文エラーも 1 で終わるため、区分違反と区別できない）
 
 conda 環境の外（``python`` / ``python3``）でも動くよう、標準ライブラリのみを使い、
 ``src`` パッケージを import しない。git の fetch は行わない（読み取り専用）。
@@ -27,7 +28,13 @@ import fnmatch
 import re
 import subprocess
 import sys
-from typing import NamedTuple, Sequence
+from collections.abc import Sequence
+from typing import NamedTuple
+
+# 終了コード（1 は Python の起動失敗等と重なるため使わない）
+EXIT_OK = 0
+EXIT_ERROR = 2
+EXIT_HEAVIER = 3
 
 # 区分の重さ（大きいほど重い）
 CATEGORY_WEIGHT = {"S": 1, "R": 2}
@@ -115,6 +122,8 @@ def normalize_path(path: str) -> str:
     """リポジトリ相対パスを照合用の形（区切り ``/``・先頭 ``./`` なし）に正規化する。
 
     末尾の ``/``（ディレクトリ指定）は残す。``src/analysis/`` は ``src/analysis/*`` に一致する。
+    前後の空白は除かない（git が返す実在のパスを書き換えて軽い区分の規則に一致させないため）。
+    コマンドライン引数の空白除去は呼び出し側で行う。
 
     Args:
         path: 入力パス（``\\`` 区切りでもよい）。
@@ -125,7 +134,7 @@ def normalize_path(path: str) -> str:
     Raises:
         ChangeCategoryError: 空のパス、絶対パス、または ``..`` を含むパスの場合。
     """
-    normalized = path.strip().replace("\\", "/")
+    normalized = path.replace("\\", "/")
     while normalized.startswith("./"):
         normalized = normalized[2:]
     if not normalized:
@@ -165,8 +174,8 @@ def classify_path(path: str) -> PathResult:
 def get_diff_paths(base: str, cwd: str | None = None) -> list[str]:
     """``{base}...HEAD`` の変更パスを git から取得する。
 
-    リネーム元を見落とさないよう ``--no-renames`` を付け、日本語パスが 8 進エスケープ
-    されないよう ``core.quotepath=false`` と ``-z`` を使う。
+    リネーム元を見落とさないよう ``--no-renames`` を付ける。``-z`` はパスを加工せずに出力する
+    ため、日本語パスも 8 進エスケープされない（``core.quotepath`` の指定は不要）。
 
     Args:
         base: 比較基準（例: ``origin/main``）。
@@ -178,16 +187,7 @@ def get_diff_paths(base: str, cwd: str | None = None) -> list[str]:
     Raises:
         ChangeCategoryError: git が見つからない、または git diff が失敗した場合。
     """
-    command = [
-        "git",
-        "-c",
-        "core.quotepath=false",
-        "diff",
-        "--name-only",
-        "--no-renames",
-        "-z",
-        f"{base}...HEAD",
-    ]
+    command = ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...HEAD"]
     try:
         completed = subprocess.run(command, cwd=cwd, capture_output=True, check=False)
     except FileNotFoundError as error:
@@ -251,7 +251,7 @@ def check_expected(results: Sequence[PathResult], expected: str) -> tuple[int, l
     """確定済みの区分と判定結果を照合し、終了コードと表示メッセージを返す。
 
     - R: 常に 0
-    - S: R のパスがあれば 1
+    - S: R のパスがあれば 3（``EXIT_HEAVIER``）
     - D: 0。D は内容で決まるため、R のパスを「内容確認が必要」として列挙する
 
     Args:
@@ -264,7 +264,7 @@ def check_expected(results: Sequence[PathResult], expected: str) -> tuple[int, l
     r_paths = [result.path for result in results if result.category == "R"]
     if expected == "S" and r_paths:
         messages = ["確定済みの区分 S より重い R のパスがあります。区分の確定をやり直してください:"]
-        return 1, messages + [f"  {path}" for path in r_paths]
+        return EXIT_HEAVIER, messages + [f"  {path}" for path in r_paths]
     if expected == "D":
         messages = ["区分 D はパスではなく変更内容で決まるため、パスからは判定しません。"]
         if r_paths:
@@ -276,8 +276,8 @@ def check_expected(results: Sequence[PathResult], expected: str) -> tuple[int, l
         else:
             messages.append("R のパスはありません。")
         messages.append("S のパスも、変更が D の定義に収まるか内容を確認してください。")
-        return 0, messages
-    return 0, [f"確定済みの区分 {expected} と矛盾するパスはありません。"]
+        return EXIT_OK, messages
+    return EXIT_OK, [f"確定済みの区分 {expected} と矛盾するパスはありません。"]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -302,7 +302,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--expect",
         choices=("R", "S", "D"),
         default=None,
-        help="確定済みの区分。これより重いパスがあれば終了コード 1",
+        help="確定済みの区分。これより重いパスがあれば終了コード 3",
     )
     return parser
 
@@ -314,7 +314,7 @@ def run(argv: Sequence[str] | None = None) -> int:
         argv: コマンドライン引数（省略時は ``sys.argv[1:]``）。
 
     Returns:
-        終了コード（0 / 1 / 2）。
+        終了コード（0 / 3。実行エラーは例外で呼び出し側に伝える）。
 
     Raises:
         ChangeCategoryError: 判定を続行できない場合。
@@ -323,7 +323,8 @@ def run(argv: Sequence[str] | None = None) -> int:
     if args.paths and args.base is not None:
         raise ChangeCategoryError("パス指定と --base は併用できません")
     if args.paths:
-        paths = list(args.paths)
+        # コマンドライン引数の前後の空白は入力の揺れとして除く（git のパスは加工しない）
+        paths = [path.strip() for path in args.paths]
     else:
         base = args.base if args.base is not None else DEFAULT_BASE
         paths = get_diff_paths(base)
@@ -334,7 +335,7 @@ def run(argv: Sequence[str] | None = None) -> int:
     for line in format_report(results):
         print(line)
     if args.expect is None:
-        return 0
+        return EXIT_OK
     exit_code, messages = check_expected(results, args.expect)
     print()
     for message in messages:
@@ -345,22 +346,25 @@ def run(argv: Sequence[str] | None = None) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     """エントリーポイント。実行エラーは標準エラーに出して終了コード 2 を返す。
 
-    想定外の例外も 2 とする。Python は捕捉されない例外で終了コード 1 を返すため、
-    放置すると「確定済みの区分より重いパスがある」（1）と区別できなくなる。
+    想定外の例外も 2 とし、実行エラーの終了コードを 1 つにまとめる。
     """
     try:
         return run(argv)
     except ChangeCategoryError as error:
         print(f"エラー: {error}", file=sys.stderr)
-        return 2
+        return EXIT_ERROR
     except Exception as error:
-        # 終了コード 1 との混同を防ぐため、想定外の例外も広く捕捉する
+        # 実行エラーを 2 にまとめるため、想定外の例外も広く捕捉する
         print(f"エラー: 想定外のエラーで判定できませんでした: {error!r}", file=sys.stderr)
-        return 2
+        return EXIT_ERROR
 
 
 def _configure_utf8_output() -> None:
-    """標準出力・標準エラーを UTF-8 にする（Windows で cp932 になり文字化けするのを防ぐ）。"""
+    """標準出力・標準エラーを UTF-8 にする（Windows で cp932 になり文字化けするのを防ぐ）。
+
+    PowerShell 5.1 の既定（cp932）で受け取ると表示は文字化けするが、判定結果は終了コードで
+    返すため、呼び出し側は出力の文字列に依存しない。
+    """
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")

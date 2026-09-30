@@ -1,6 +1,6 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-08-31
+**最終更新**: 2026-09-30
 **関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
@@ -23,7 +23,7 @@ Claude Code経由でQGISを操作する際に守るべきルールを定義す�
 | `render_map` | 可視性の変更が出力画像に反映されないことがあった（キャッシュされた合成結果を返している可能性を推定していた） | **不要（解消済み）**。可視性を切り替えた直後の`render_map`をそのまま使ってよい | 可視レイヤを`set_layer_visibility(visible=false)`にして`render_map`し、そのレイヤが消えているかを見る | v0.9.3（解消を実測） |
 | `execute_processing` | `OUTPUT` / `OUTPUT_TABLE`に`memory:`を指定すると、処理は成功するが出力レイヤが`get_layers`に現れない | 出力先に実ファイル（`.gpkg`等）を指定する。詳細は[execute_processing の出力先は実ファイルにする](#execute_processing-の出力先は実ファイルにする) | `OUTPUT`に`memory:tmp`を指定してバッファを実行し、`get_layers`に現れるかを見る | v0.9.3（未解消を実測） |
 | `execute_code` | 変数へ代入した値は返却されず、戻り値は`executed` / `stdout` / `stderr`のみ | `print(json.dumps(..., ensure_ascii=False))`で標準出力へ書き出す。詳細は[execute_code の戻り値は stdout のみ](#execute_code-の戻り値は-stdout-のみ) | `result = 1`だけのコードを実行し、`stdout`が空で返ることを見る | v0.9.3 |
-| 破壊的ツール（`remove_layer` / `delete_features` / `execute_code` / `set_setting` / `delete_field` / `remove_layout` / `rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`） | 上流は実行前の確認要求（elicitation）を実装しているが、**本環境では確認なしで即時実行される場合がある**（原因は上流側に特定できていない。[運用注意](#運用注意)を参照） | 確認が入る前提で運用しない。取り消せない即時実行として扱い、対象レイヤIDを実行前に確認する | **前提**: 検証対象ツールが`.claude/settings.local.json`の`permissions.allow`に登録されていないことを確認する（登録済みだとClaude Code側で自動承認され、上流の挙動を判定できない）。そのうえで一時レイヤに対し`remove_layer`を実行し、プロンプトの有無を見る | v0.9.3（`remove_layer`で非出現を実測） |
+| 破壊的ツール（`remove_layer` / `delete_features` / `execute_code` / `set_setting` / `delete_field` / `remove_layout` / `rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`） | 上流は実行前の確認要求（elicitation）を実装しているが、本環境ではElicitationフックが一律にacceptを返すため**上流の確認は機能しない**。確認はClaude Codeの許可プロンプトだけで担保する（[運用注意](#運用注意)を参照） | `.claude/settings.local.json`の`permissions.allow`に左記ツールを登録せず、`autoMode.soft_deny`に毎回の確認を求めるルールを置く。許可プロンプトが出ても、対象レイヤIDや副作用は実行前に自分で確認する | **前提**: 検証対象ツールが`permissions.allow`に未登録で、`autoMode.soft_deny`にルールがあることを確認する。そのうえで`execute_code`（`print("t2")`）と一時レイヤへの`remove_layer`を実行し、許可プロンプトが出ること・拒否すると実行されないこと・許可すると`Cancelled by user`にならず実行されることを見る | v0.9.3（Claude Desktop の Code タブで、`execute_code`・`remove_layer`とも許可プロンプトの出現を実測。2026-09-30） |
 
 「確認バージョン」は**その行の内容を最後に実機確認した版数**であり、台帳全体の「全行を最後に再検証した版数」とは一致しないことがある。差が開いている行ほど再検証の優先度が高い。
 
@@ -37,7 +37,11 @@ MCPのバージョンと無関係な制約は台帳に載せず、現行の記�
 
 ### 運用注意
 
-- **破壊的ツールの確認プロンプトを当てにしない**: 上流は v0.8.1 で確認要求を実際に機能させ、v0.9.0 で対象に`rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`（上書き時）を加えた。ただし本環境（Claude Code + v0.9.3）では`remove_layer`・`execute_code`のいずれも確認なしで実行された。ここで言う「確認」には**上流の確認要求（elicitation）**と**Claude Code の許可プロンプト**の2系統があり、両者は独立している。`execute_code`は`.claude/settings.local.json`の`permissions.allow`に登録済みであり、非出現は後者だけで説明がつくため上流の挙動の根拠にならない。`remove_layer`は未登録のまま非出現だったが、上流の確認要求が本環境に届いていないのか許可モード側の要因かは**未確認**である。いずれにせよ確認は最後の砦にならないため、`remove_layer`の対象IDや`execute_code`の副作用は呼び出す前に自分で確認する
+- **破壊的ツールの確認は Claude Code の許可プロンプトで担保する**: ここで言う「確認」には**上流の確認要求（elicitation）**と**Claude Code の許可プロンプト**の2系統があり、両者は独立している。
+  - 上流は v0.8.1 で確認要求を実際に機能させ、v0.9.0 で対象に`rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`（上書き時）を加えた。ただし Claude Desktop は elicitation に UI を出さず cancel を返すため、そのままでは上記ツールが常に`Cancelled by user`で失敗する。本環境ではこれを避けるため、`.claude/settings.local.json`に登録した Elicitation フック（`.claude/hooks/auto_accept_qgis_elicitation.sh`）が一律に accept を返しており、**上流の確認は無効化されている**（登録先がローカル設定のため CLI でも同様）
+  - そこで確認は Claude Code 側で求める。`permissions.allow`に`execute_code`と破壊的ツールを登録せず、`defaultMode: auto`のもとで allow 外のツールを判定する分類器に対し、`autoMode.soft_deny`の自然文ルールで毎回の確認を求める。2026-09-30 に Claude Desktop の Code タブ（v0.9.3）で、`execute_code`・`remove_layer`とも許可プロンプトが出ること、拒否すると実行されないこと、許可すると正常に実行されることを確認した。以前`remove_layer`が未登録のまま確認なしで実行されたのは、分類器による自動承認が原因だったと推定される
+  - soft_deny は分類器の判定であり機械的な保証ではない。確認が出なくなった場合は`permissions.ask`への登録に切り替える。CLI での挙動、およびフック（`.gitignore`対象）が存在しない worktree のセッションでの挙動は**未確認**である
+  - 許可プロンプトが出ても、`remove_layer`の対象IDや`execute_code`の副作用は呼び出す前に自分で確認する
 - **Windowsで別ウィンドウがポートを保持している場合、サーバー起動が拒否される**: v0.9.0 以降、既に他のQGISウィンドウが 9876 を掴んでいると、後から起動したウィンドウでのサーバー起動は失敗する（従来は2窓とも同じポートを掴み、一方が無言で全接続を受けていた）。接続先が不定にならなくなる代わりに起動失敗が明示されるため、**QGISを複数開いている場合は接続したいウィンドウ以外のサーバーを停止する**。本プロジェクトはWindows環境のため該当する
 
 ### 新規機能の採否記録

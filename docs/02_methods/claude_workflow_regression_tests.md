@@ -1,6 +1,6 @@
 # Claude Code運用ルール 回帰テスト項目書
 
-**最終更新**: 2026-09-29
+**最終更新**: 2026-09-30
 **関連ドキュメント**: [CLAUDE.md](../../CLAUDE.md), [task-workflow.md](../../.github/task-workflow.md), [parallel-workflow.md](../../.github/parallel-workflow.md), [skill_operation_rules.md](skill_operation_rules.md)
 **前提知識**: Claude Code運用ルールの再設計（denyガードレール・カスタムコマンド化・sharedスキル共通化）
 
@@ -61,7 +61,7 @@
 | `/coderabbit` | 返信方式 | 対応した指摘＝個別返信、見送った指摘＝一括コメント |
 | `/create-pr` | PR 非投稿の原則 | ローカル自動レビューの結果はメイン会話に返るのみで、GitHub PR にレビュー・コメントが投稿されない |
 | `/create-pr` | 適用範囲の分岐 | ローカルレビューの実行が変更区分と Tier で自動的に決まり、ユーザーに実行の可否を尋ねない（Tier 1 並列は区分によらず必須、単一タスク／Tier 2 は区分 R・S で必須・区分 D で省略） |
-| `/create-pr` | 差分パスによる区分検証 | `git diff --name-only origin/main...HEAD` が PR 本文の確定済みの区分より重いパスを含む場合、レビュー・push の前に停止し、区分の再確定を求める。区分 D の場合は変更内容も確認する。`git fetch` 失敗時も停止する |
+| `/create-pr` | 差分パスによる区分検証 | `python scripts/change_category.py --expect {確定済みの区分}` が終了コード 1（PR 本文の確定済みの区分より重いパスを含む）を返した場合、レビュー・push の前に停止し、区分の再確定を求める。区分 D の場合は変更内容も確認する。`git fetch` 失敗時・スクリプトの実行エラー（終了コード 2）時も停止する |
 | `/create-pr` | 区分 S のレビュー観点 | 区分 S のローカルレビューに CodingRule.md の「セルフレビューで確認する項目（自動検出不可）」・「15. 実装前後チェックリスト」とテストが保証していない範囲が観点として含まれる |
 | `/create-pr` | 既存 PR 再利用時の本文更新 | 同一 head の既存 PR を再利用する場合、push の前に実施記録を含む本文との差分が提示され、ユーザーの承認後に `gh pr edit --body-file` で更新される（承認なしに更新しない。push は承認の有無によらず行う） |
 | `/create-pr` | 必須レビューの失敗時 | 起動失敗・タイムアウト・空の報告をレビュー成功とみなさず、Tier・区分によらず push・PR作成に進まずに停止する |

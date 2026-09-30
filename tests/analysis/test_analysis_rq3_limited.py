@@ -46,6 +46,7 @@ from src.analysis.analysis_rq3_limited import (
     BUILDING_HEIGHT_MEAN_COLUMN,
     BUILDING_HEIGHT_MODES,
     BUILDING_HEIGHT_PC1_COLUMN,
+    BUILT_UP_INDEX_COLUMN,
     DEFAULT_BLOCK_SIZE_M,
     DEFAULT_BUILDING_HEIGHT_MODE,
     DEFAULT_DATASET_PATH,
@@ -53,17 +54,26 @@ from src.analysis.analysis_rq3_limited import (
     DEFAULT_POPULATION_SOURCES,
     DEFAULT_SCALE_M,
     DEFAULT_VARIABLE_SET,
+    DEFAULT_WATER_INDEX_MODE,
     LULC_FEATURE_COLUMNS,
     LULC_REFERENCE_COLUMN,
+    MNDWI_COLUMN,
+    NDWI_COLUMN,
     NIGHTLIGHT_FEATURE_COLUMNS,
     OTHER_BASE_FEATURE_COLUMNS,
     POPULATION_SOURCE_MASK_COLUMNS,
     POPULATION_SOURCE_NONE,
     SPECTRAL_FEATURE_COLUMNS,
+    SPECTRAL_FILTER_COLUMNS,
     VALID_GIS_MASK_COLUMN,
     VALID_NTL_MASK_COLUMN,
     VEGETATION_COVERAGE_COLUMNS,
+    VEGETATION_INDEX_COLUMN,
+    VEGETATION_WATER_PC1_COLUMN,
+    WATER_INDEX_MODES,
     add_building_height_pc1,
+    add_standardized_pc1,
+    add_vegetation_water_pc1,
     build_candidate_correlation_frame,
     build_filtered_sample,
     drop_constant_features,
@@ -76,6 +86,7 @@ from src.analysis.analysis_rq3_limited import (
     resolve_filter_columns,
     resolve_filter_dropout_column_groups,
     resolve_output_stem,
+    resolve_spectral_columns,
     summarize_vegetation_shap,
 )
 from src.analysis.analysis_rq3_satellite_only import (
@@ -433,6 +444,8 @@ def _quality_dataframe(n: int = 10) -> pd.DataFrame:
             POPULATION_SOURCE_MASK_COLUMNS["landscan2023"]: [1] * n,
             "LST": _values(35.0, 1.0),
             LST_VALID_RATIO_COLUMN: [0.9] * n,
+            # 後から追加した列は末尾で乱数を引き、既存列の値を変えない。
+            "MNDWI": _values(-0.3, 0.05),
         }
     )
 
@@ -1966,3 +1979,560 @@ class TestRunParametersConsistencyAcrossScenarios:
         }
         assert limited["random_state"] == 42
         assert limited["rf_trees"] == 300
+
+
+class TestResolveSpectralColumns:
+    """resolve_spectral_columns（水指数ブロックの構成）のテスト。"""
+
+    def test_ndwi_reproduces_the_existing_spectral_block(self) -> None:
+        """ndwi は従来の分光指数ブロック（NDVI・NDBI・NDWI）をそのまま返す。"""
+        assert resolve_spectral_columns("ndwi") == list(SPECTRAL_FEATURE_COLUMNS)
+        assert SPECTRAL_FEATURE_COLUMNS == ["NDVI", "NDBI", "NDWI"]
+
+    @pytest.mark.parametrize(
+        ("water_index_mode", "expected"),
+        [
+            ("ndwi", ["NDVI", "NDBI", "NDWI"]),
+            ("none", ["NDVI", "NDBI"]),
+            ("pc1", ["NDBI", VEGETATION_WATER_PC1_COLUMN]),
+            ("mndwi", ["NDVI", "NDBI", "MNDWI"]),
+        ],
+    )
+    def test_each_mode_returns_its_columns(
+        self, water_index_mode: str, expected: list[str]
+    ) -> None:
+        """4構成それぞれの投入列（計画した対応表どおり）。"""
+        assert resolve_spectral_columns(water_index_mode) == expected
+
+    def test_ndbi_is_kept_in_every_mode(self) -> None:
+        """NDBI はどの構成でも投入する（水指数ブロックの差し替えは NDBI に及ばない）。"""
+        for water_index_mode in WATER_INDEX_MODES:
+            assert BUILT_UP_INDEX_COLUMN in resolve_spectral_columns(water_index_mode)
+
+    def test_never_combines_ndvi_and_ndwi_except_the_baseline(self) -> None:
+        """NDVI と NDWI を同時に投入するのはベースライン（ndwi）だけである。"""
+        for water_index_mode in WATER_INDEX_MODES:
+            columns = set(resolve_spectral_columns(water_index_mode))
+            both_present = {VEGETATION_INDEX_COLUMN, NDWI_COLUMN} <= columns
+            assert both_present == (water_index_mode == "ndwi")
+
+    def test_raises_for_unsupported_mode(self) -> None:
+        """対応外の構成は原因の分かる例外にする。"""
+        with pytest.raises(ValueError, match="対応していない水指数の構成"):
+            resolve_spectral_columns("awei")
+
+    def test_raises_for_none(self) -> None:
+        """分光指数ブロックを組み立てる場面で None（構成なし）は受け付けない。"""
+        with pytest.raises(ValueError, match="対応していない水指数の構成"):
+            resolve_spectral_columns(None)  # type: ignore[arg-type]
+
+
+class TestResolveFeatureColumnsWaterIndex:
+    """resolve_feature_columns の水指数ブロックの差し替えのテスト。"""
+
+    def test_omitting_the_water_index_mode_uses_the_default(self) -> None:
+        """水指数を省略した呼び出しは既定（ndwi）と同じ列を返す。"""
+        assert DEFAULT_WATER_INDEX_MODE == "ndwi"
+        assert resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES) == (
+            resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, water_index_mode="ndwi")
+        )
+
+    @pytest.mark.parametrize("water_index_mode", ["none", "pc1", "mndwi"])
+    def test_swaps_only_the_spectral_block(self, water_index_mode: str) -> None:
+        """水指数の構成を変えても、分光指数ブロック以外の列と並びは動かない。"""
+        baseline = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+        swapped = resolve_feature_columns(
+            "both", DEFAULT_POPULATION_SOURCES, water_index_mode=water_index_mode
+        )
+        spectral_candidates = {*SPECTRAL_FILTER_COLUMNS, VEGETATION_WATER_PC1_COLUMN}
+
+        assert [c for c in baseline if c not in spectral_candidates] == [
+            c for c in swapped if c not in spectral_candidates
+        ]
+        assert [c for c in swapped if c in spectral_candidates] == resolve_spectral_columns(
+            water_index_mode
+        )
+
+    def test_coverage_ignores_the_water_index(self) -> None:
+        """coverage は分光指数を投入しないため、水指数の構成（None を含む）を参照しない。"""
+        expected = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES)
+
+        for water_index_mode in (None, *WATER_INDEX_MODES):
+            assert (
+                resolve_feature_columns(
+                    "coverage", DEFAULT_POPULATION_SOURCES, water_index_mode=water_index_mode
+                )
+                == expected
+            )
+
+    def test_raises_for_unsupported_water_index_mode(self) -> None:
+        """分光指数を投入する変数セットでは、対応外の構成を例外にする。"""
+        with pytest.raises(ValueError, match="対応していない水指数の構成"):
+            resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES, water_index_mode="x")
+
+
+class TestResolveFilterColumnsWaterIndex:
+    """水指数の構成に対するフィルタ列の不変性のテスト。"""
+
+    def test_always_requires_all_four_spectral_columns(self) -> None:
+        """NDVI・NDBI・NDWI・MNDWI の4列すべてに非NULLを要求する。"""
+        filter_columns = resolve_filter_columns()
+
+        assert set(SPECTRAL_FILTER_COLUMNS).issubset(set(filter_columns))
+        assert MNDWI_COLUMN in filter_columns
+
+    def test_is_a_superset_of_every_water_index_mode_excluding_synthesized_columns(self) -> None:
+        """フィルタ列は、どの水指数構成の投入列も包含する（人口・夜間光・合成列を除く）。"""
+        filter_columns = set(resolve_filter_columns())
+        excluded = {"POP_DEN_WORLDPOP2020", *NIGHTLIGHT_FEATURE_COLUMNS}
+        excluded.add(VEGETATION_WATER_PC1_COLUMN)
+
+        for water_index_mode in WATER_INDEX_MODES:
+            feature_columns = set(
+                resolve_feature_columns(
+                    "both", DEFAULT_POPULATION_SOURCES, water_index_mode=water_index_mode
+                )
+            )
+            assert (feature_columns - excluded).issubset(filter_columns)
+
+    def test_never_requires_the_synthesized_vegetation_water_pc1_column(self) -> None:
+        """合成列 VEG_WATER_PC1 は入力データセットに無いため、フィルタ列に含めない。"""
+        assert VEGETATION_WATER_PC1_COLUMN not in resolve_filter_columns()
+
+    def test_mndwi_is_a_correlation_candidate(self) -> None:
+        """相関行列の候補列に MNDWI を含め、NDVI × MNDWI を全ランで実測できるようにする。"""
+        assert MNDWI_COLUMN in ALL_CANDIDATE_FEATURE_COLUMNS
+        assert VEGETATION_WATER_PC1_COLUMN not in ALL_CANDIDATE_FEATURE_COLUMNS
+
+    def test_mndwi_is_classified_into_the_other_dropout_group(self) -> None:
+        """MNDWI は脱落診断の "other" グループに入る（分類漏れが無い）。"""
+        groups = resolve_filter_dropout_column_groups(resolve_filter_columns())
+
+        assert MNDWI_COLUMN in groups["other"]
+
+
+class TestResolveOutputStemWaterIndex:
+    """resolve_output_stem の水指数の付与規則のテスト。"""
+
+    _DATASET_PATH = Path("data/output/datasets/dataset_limited_20230707_032305_hanoi_30m.gpkg")
+    _STEM = "dataset_limited_20230707_032305_hanoi_30m"
+
+    def _stem(
+        self,
+        variable_set: str,
+        water_index_mode: str | None,
+        population_sources: list[str] | None = None,
+        require_valid_gis_mask: bool = False,
+    ) -> str:
+        """建物高さ mean（既定の人口ソース）で接頭辞を求める。"""
+        return resolve_output_stem(
+            self._DATASET_PATH,
+            variable_set,
+            population_sources or DEFAULT_POPULATION_SOURCES,
+            require_valid_gis_mask=require_valid_gis_mask,
+            building_height_mode="mean",
+            water_index_mode=water_index_mode,
+        )
+
+    def test_omits_the_part_for_ndwi(self) -> None:
+        """ndwi（従来の構成）では付けない（ラン1の出力名と一致する）。"""
+        assert self._stem("both", "ndwi") == f"{self._STEM}_both_bh_mean"
+
+    def test_omits_the_part_for_coverage_without_water_index(self) -> None:
+        """水指数を持たない coverage（None）には付けない。"""
+        assert self._stem("coverage", None) == f"{self._STEM}_coverage_bh_mean"
+
+    @pytest.mark.parametrize("water_index_mode", ["none", "pc1", "mndwi"])
+    def test_appends_the_part_for_other_modes(self, water_index_mode: str) -> None:
+        """ndwi 以外は `_wi_{構成}` を建物高さの後に付ける。"""
+        assert (
+            self._stem("both", water_index_mode)
+            == f"{self._STEM}_both_bh_mean_wi_{water_index_mode}"
+        )
+
+    def test_order_is_building_height_water_index_population_gismask(self) -> None:
+        """付与順は `_bh_*` → `_wi_*` → `_pop_*` → `_gismask`。"""
+        stem = self._stem(
+            "both",
+            "mndwi",
+            population_sources=["landscan2020"],
+            require_valid_gis_mask=True,
+        )
+
+        assert stem == f"{self._STEM}_both_bh_mean_wi_mndwi_pop_landscan2020_gismask"
+
+    def test_water_index_part_is_decided_by_value_not_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """既定を変えても ndwi の出力名は動かない（省略基準は既定ではなく値）。"""
+        monkeypatch.setattr("src.analysis.analysis_rq3_limited.DEFAULT_WATER_INDEX_MODE", "mndwi")
+
+        assert self._stem("both", "ndwi") == f"{self._STEM}_both_bh_mean"
+        assert self._stem("both", "mndwi") == f"{self._STEM}_both_bh_mean_wi_mndwi"
+
+
+class TestWaterIndexArguments:
+    """--water-index のCLI検証。"""
+
+    @pytest.mark.parametrize("variable_set", ["both", "spectral"])
+    def test_defaults_to_ndwi_when_spectral_block_is_used(self, variable_set: str) -> None:
+        """分光指数を投入する変数セットで省略した場合は既定（ndwi）になる。"""
+        args = parse_arguments(["--variable-set", variable_set])
+
+        assert args.water_index == DEFAULT_WATER_INDEX_MODE
+
+    def test_coverage_has_no_water_index(self) -> None:
+        """coverage で省略した場合は None（水指数の構成を持たない）。"""
+        args = parse_arguments(["--variable-set", "coverage"])
+
+        assert args.water_index is None
+
+    @pytest.mark.parametrize("water_index_mode", ["ndwi", "none", "pc1", "mndwi"])
+    def test_rejects_explicit_water_index_with_coverage(self, water_index_mode: str) -> None:
+        """coverage と --water-index の明示的な併用は拒否する（誤った構成の実行を防ぐ）。
+
+        ndwi を明示した場合も拒否する。値ではなく指定の有無で判定するため、既定を
+        変えても coverage の既存コマンド（--water-index 無し）は通り続ける。
+        """
+        with pytest.raises(SystemExit):
+            parse_arguments(["--variable-set", "coverage", "--water-index", water_index_mode])
+
+    @pytest.mark.parametrize("water_index_mode", ["ndwi", "none", "pc1", "mndwi"])
+    def test_accepts_every_water_index_mode(self, water_index_mode: str) -> None:
+        """4構成すべてをCLIから指定できる。"""
+        args = parse_arguments(["--water-index", water_index_mode])
+
+        assert args.water_index == water_index_mode
+
+    def test_rejects_unknown_water_index_mode(self) -> None:
+        """対応外の構成はargparseの段階で拒否する。"""
+        with pytest.raises(SystemExit):
+            parse_arguments(["--water-index", "awei"])
+
+
+def _vegetation_water_frame(n: int = 5_000, seed: int = 20230707) -> pd.DataFrame:
+    """NDVI と NDWI が強く負相関する合成サンプル（植生・水指数の主成分化のテスト用）。
+
+    実データ（032305）の r = −0.972 に寄せ、NDWI を NDVI の負の一次式にノイズを
+    足して作る。
+
+    Args:
+        n: 生成する行数。
+        seed: 乱数シード。
+    Returns:
+        NDVI / NDWI を持つデータフレーム。
+    """
+    rng = np.random.default_rng(seed)
+    ndvi = rng.uniform(-0.2, 0.9, size=n)
+    ndwi = -0.9 * ndvi + 0.05 + rng.normal(0.0, 0.06, size=n)
+    return pd.DataFrame({VEGETATION_INDEX_COLUMN: ndvi, NDWI_COLUMN: ndwi})
+
+
+class TestAddVegetationWaterPc1:
+    """add_vegetation_water_pc1 のテスト（許容誤差つき。理由は TestAddBuildingHeightPc1 参照）。"""
+
+    def test_loadings_point_to_opposite_signs_for_negatively_correlated_columns(self) -> None:
+        """負相関の NDVI・NDWI では loadings が (1/√2, -1/√2) になる。"""
+        _, diagnostics = add_vegetation_water_pc1(_vegetation_water_frame())
+
+        expected = 1.0 / np.sqrt(2.0)
+        assert diagnostics["source_correlation_pearson"] < -0.9
+        assert diagnostics["loadings"][VEGETATION_INDEX_COLUMN] == pytest.approx(expected)
+        assert diagnostics["loadings"][NDWI_COLUMN] == pytest.approx(-expected)
+
+    def test_explained_variance_ratio_matches_the_algebraic_value(self) -> None:
+        """寄与率は (1 + |r|) / 2 になる。"""
+        _, diagnostics = add_vegetation_water_pc1(_vegetation_water_frame())
+
+        correlation = diagnostics["source_correlation_pearson"]
+        assert diagnostics["explained_variance_ratio"] == pytest.approx(
+            (1.0 + abs(correlation)) / 2.0
+        )
+
+    def test_sign_is_normalized_towards_ndvi(self) -> None:
+        """PC1 が大きいほど植生が多い向き（NDVI と正、NDWI と負の相関）に揃える。"""
+        with_pc1, diagnostics = add_vegetation_water_pc1(_vegetation_water_frame())
+
+        pc1 = with_pc1[VEGETATION_WATER_PC1_COLUMN]
+        assert diagnostics["loadings"][VEGETATION_INDEX_COLUMN] > 0
+        assert pc1.corr(with_pc1[VEGETATION_INDEX_COLUMN]) > 0
+        assert pc1.corr(with_pc1[NDWI_COLUMN]) < 0
+        assert f"符号は{VEGETATION_INDEX_COLUMN}への寄与が正になる向き" in diagnostics["note"]
+
+    def test_sign_does_not_depend_on_the_input_orientation(self) -> None:
+        """NDVI の符号を反転した入力でも、合成列は NDVI と正に相関する向きへ揃う。"""
+        frame = _vegetation_water_frame()
+        frame[VEGETATION_INDEX_COLUMN] = -frame[VEGETATION_INDEX_COLUMN]
+
+        with_pc1, diagnostics = add_vegetation_water_pc1(frame)
+
+        assert diagnostics["loadings"][VEGETATION_INDEX_COLUMN] > 0
+        assert with_pc1[VEGETATION_WATER_PC1_COLUMN].corr(with_pc1[VEGETATION_INDEX_COLUMN]) > 0
+
+    def test_records_the_source_columns_and_does_not_modify_the_input(self) -> None:
+        """合成対象の列・合成列名を記録し、入力は変更しない。"""
+        frame = _vegetation_water_frame(n=100)
+        original_columns = list(frame.columns)
+
+        with_pc1, diagnostics = add_vegetation_water_pc1(frame)
+
+        assert diagnostics["column"] == VEGETATION_WATER_PC1_COLUMN
+        assert diagnostics["source_columns"] == [VEGETATION_INDEX_COLUMN, NDWI_COLUMN]
+        assert list(frame.columns) == original_columns
+        assert list(with_pc1.columns) == [*original_columns, VEGETATION_WATER_PC1_COLUMN]
+
+    def test_raises_when_nulls_remain(self) -> None:
+        """欠測が残った状態で呼ばれた場合は原因の分かる例外にする。"""
+        frame = _vegetation_water_frame(n=10)
+        frame.loc[0, NDWI_COLUMN] = np.nan
+
+        with pytest.raises(ValueError, match="NDVI・NDWI列に欠測が残っている"):
+            add_vegetation_water_pc1(frame)
+
+    def test_whole_sample_fit_agrees_with_fold_internal_fit(self) -> None:
+        """全体fitのPC1は、fold内fitのPC1と実質同じ結果を与える。
+
+        建物高さでの判断（fold内fitを実装しない）を植生・水指数にも踏襲する根拠を、
+        同じ許容誤差で固定する（`TestAddBuildingHeightPc1` の同名テスト参照）。
+        全体fitが持ち込むfold依存は「2列の標準偏差の比」だけであるため、植生の多い
+        セルを学習側へ強く寄せて fold と全体で分布をずらし、その比が変わる状況で比べる
+        （この設定で比は全体 1.092・学習側 1.085 になる）。
+        LST は NDVI・NDWI の双方に依存させ、合成列の差が決定係数に現れうる設定にする。
+        """
+        rng = np.random.default_rng(seed=20230707)
+        frame = _vegetation_water_frame()
+        frame["OTHER_A"] = rng.normal(0.0, 1.0, size=len(frame))
+        frame["LST"] = (
+            35.0
+            - 4.0 * frame[VEGETATION_INDEX_COLUMN]
+            + 1.0 * frame[NDWI_COLUMN]
+            + 0.8 * frame["OTHER_A"]
+            + rng.normal(0.0, 1.0, size=len(frame))
+        )
+        vegetated = frame[VEGETATION_INDEX_COLUMN].to_numpy() > 0.4
+        in_train = np.where(vegetated, rng.random(len(frame)) < 0.95, rng.random(len(frame)) < 0.2)
+        source_columns = [VEGETATION_INDEX_COLUMN, NDWI_COLUMN]
+
+        whole_fit, _ = add_vegetation_water_pc1(frame)
+        scaler = StandardScaler().fit(frame.loc[in_train, source_columns])
+        pca = PCA(n_components=1).fit(scaler.transform(frame.loc[in_train, source_columns]))
+        fold_scores = pca.transform(scaler.transform(frame[source_columns]))[:, 0]
+        if pca.components_[0][0] < 0:
+            fold_scores = -fold_scores
+
+        correlation = float(
+            np.corrcoef(whole_fit[VEGETATION_WATER_PC1_COLUMN].to_numpy(), fold_scores)[0, 1]
+        )
+        assert correlation > 1.0 - 1e-6
+
+        features = [VEGETATION_WATER_PC1_COLUMN, "OTHER_A"]
+
+        def _r2(pc1_scores: np.ndarray) -> float:
+            """指定したPC1列で線形回帰を学習し、テスト側の決定係数を返す。"""
+            data = frame.copy()
+            data[VEGETATION_WATER_PC1_COLUMN] = pc1_scores
+            result, _, _ = fit_linear_regression(
+                data.loc[in_train, features],
+                data.loc[~in_train, features],
+                data.loc[in_train, "LST"],
+                data.loc[~in_train, "LST"],
+            )
+            return float(result["metrics"]["r2"])
+
+        r2_difference = abs(
+            _r2(whole_fit[VEGETATION_WATER_PC1_COLUMN].to_numpy()) - _r2(fold_scores)
+        )
+
+        assert r2_difference < 1e-4
+
+
+class TestAddStandardizedPc1:
+    """add_standardized_pc1（汎用化した主成分化）の引数検証と、建物高さ側の非回帰のテスト。"""
+
+    def test_building_height_diagnostics_keep_the_existing_contents(self) -> None:
+        """汎用化の前後で、建物高さの診断情報のキー・note が変わらない（results.json の互換）。"""
+        _, diagnostics = add_building_height_pc1(_building_height_frame(n=500))
+
+        assert list(diagnostics) == [
+            "column",
+            "source_columns",
+            "fit_row_count",
+            "loadings",
+            "explained_variance_ratio",
+            "source_correlation_pearson",
+            "standardization",
+            "sign_flipped",
+            "non_finite_items",
+            "note",
+        ]
+        assert diagnostics["note"] == (
+            "主成分は分析サンプル全体で1回fitしており、Spatial CVのfold内では"
+            "fitし直していない。標準化はfitと同じサンプル上の平均・標準偏差による。"
+            "符号はBUILD_H_MEANへの寄与が正になる向きへ揃えてある。"
+            "non_finite_items が空でない場合、高さ2列が定数に近く主成分が縮退している"
+            "（該当項目の値は null に置き換えてある）。"
+        )
+
+    def test_building_height_missing_column_message_is_unchanged(self) -> None:
+        """建物高さの列欠落時の例外メッセージは従来と同じ文言で始まる。"""
+        frame = _building_height_frame(n=10).drop(columns=[BUILDING_HEIGHT_MAX_COLUMN])
+
+        with pytest.raises(ValueError, match="^建物高さの主成分化に必要な列がありません"):
+            add_building_height_pc1(frame)
+
+    def test_rejects_other_than_two_columns(self) -> None:
+        """合成対象は2列に限る（元2列の相関を診断情報に残す設計のため）。"""
+        frame = _vegetation_water_frame(n=10).assign(EXTRA=1.0)
+
+        with pytest.raises(ValueError, match="2列を対象"):
+            add_standardized_pc1(
+                frame,
+                source_columns=[VEGETATION_INDEX_COLUMN, NDWI_COLUMN, "EXTRA"],
+                output_column="PC1",
+                sign_reference_column=VEGETATION_INDEX_COLUMN,
+                label="テスト",
+                note_subject="テスト列",
+            )
+
+    def test_rejects_a_sign_reference_outside_the_sources(self) -> None:
+        """符号の基準列が合成対象に無い場合は例外にする（向きが決まらないため）。"""
+        with pytest.raises(ValueError, match="符号の基準列"):
+            add_standardized_pc1(
+                _vegetation_water_frame(n=10),
+                source_columns=[VEGETATION_INDEX_COLUMN, NDWI_COLUMN],
+                output_column="PC1",
+                sign_reference_column=MNDWI_COLUMN,
+                label="テスト",
+                note_subject="テスト列",
+            )
+
+
+class TestMainWaterIndex:
+    """main() の --water-index の結線（診断のみの実行で検証する）。"""
+
+    def _run(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        dataframe: pd.DataFrame,
+        *extra_args: str,
+    ) -> tuple[dict[str, object], str]:
+        """合成データで --diagnose-only を実行し、診断JSONとそのファイル名を返す。"""
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_limited.load_analysis_dataset",
+            lambda *args, **kwargs: dataframe,
+        )
+        dataset_path = _write_dummy_dataset(tmp_path)
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_limited.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(output_dir),
+                "--diagnose-only",
+                *extra_args,
+            ],
+        )
+
+        main()
+
+        diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
+        assert len(diagnostics_files) == 1
+        diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
+        return diagnostics, diagnostics_files[0].name
+
+    def test_default_run_records_ndwi_and_keeps_the_existing_output_name(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """既定のランは ndwi を記録し、出力名に `_wi_` を付けない。"""
+        diagnostics, file_name = self._run(monkeypatch, tmp_path, _quality_dataframe(n=20))
+
+        assert diagnostics["water_index_mode"] == "ndwi"
+        assert "_wi_" not in file_name
+        assert "vegetation_water_pc1" not in diagnostics
+        assert set(SPECTRAL_FEATURE_COLUMNS).issubset(set(diagnostics["features"]))
+        assert MNDWI_COLUMN not in diagnostics["features"]
+
+    def test_mndwi_mode_swaps_ndwi_for_mndwi(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """mndwi では NDWI を投入せず MNDWI を投入する。フィルタ列は4列のまま。"""
+        diagnostics, file_name = self._run(
+            monkeypatch, tmp_path, _quality_dataframe(n=20), "--water-index", "mndwi"
+        )
+
+        assert diagnostics["water_index_mode"] == "mndwi"
+        assert "_wi_mndwi_" in file_name
+        assert MNDWI_COLUMN in diagnostics["features"]
+        assert NDWI_COLUMN not in diagnostics["features"]
+        assert MNDWI_COLUMN in diagnostics["vif"]
+        assert set(SPECTRAL_FILTER_COLUMNS).issubset(set(diagnostics["filter_columns"]))
+
+    def test_pc1_mode_swaps_the_model_columns_but_not_the_sample(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """pc1 では合成列を投入しつつ、フィルタ列・相関行列の対象は据え置く。"""
+        dataframe = _quality_dataframe(n=20)
+        diagnostics, file_name = self._run(monkeypatch, tmp_path, dataframe, "--water-index", "pc1")
+
+        assert diagnostics["water_index_mode"] == "pc1"
+        assert "_wi_pc1_" in file_name
+        assert VEGETATION_WATER_PC1_COLUMN in diagnostics["features"]
+        assert not {VEGETATION_INDEX_COLUMN, NDWI_COLUMN} & set(diagnostics["features"])
+        assert BUILT_UP_INDEX_COLUMN in diagnostics["features"]
+        assert VEGETATION_WATER_PC1_COLUMN not in diagnostics["filter_columns"]
+        correlation_columns = diagnostics["diagnostics_scope"]["correlation_columns"]
+        assert VEGETATION_WATER_PC1_COLUMN not in correlation_columns
+        assert MNDWI_COLUMN in correlation_columns
+        component = diagnostics["vegetation_water_pc1"]
+        assert component["fit_row_count"] == len(dataframe)
+        assert component["loadings"][VEGETATION_INDEX_COLUMN] > 0
+
+    def test_population_is_equal_across_water_index_modes(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """水指数の構成を変えても母数とフィルタ列は変わらない（標本統制）。
+
+        MNDWI だけが欠測の行を混ぜ、その行が全構成で等しく除外されることも確かめる。
+        投入列でフィルタしていれば、ndwi・none・pc1 ではこの行が母集団に残る。
+        """
+        dataframe = _quality_dataframe(n=20)
+        dataframe.loc[0, MNDWI_COLUMN] = np.nan
+        populations = set()
+        filter_columns = set()
+
+        for index, water_index_mode in enumerate(WATER_INDEX_MODES):
+            run_dir = tmp_path / str(index)
+            run_dir.mkdir()
+            diagnostics, _ = self._run(
+                monkeypatch, run_dir, dataframe, "--water-index", water_index_mode
+            )
+            populations.add(diagnostics["population_size"])
+            filter_columns.add(tuple(diagnostics["filter_columns"]))
+
+        assert populations == {len(dataframe) - 1}
+        assert len(filter_columns) == 1
+
+    def test_coverage_records_no_water_index(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """coverage では水指数の構成を None として記録し、出力名にも付けない。"""
+        diagnostics, file_name = self._run(
+            monkeypatch, tmp_path, _quality_dataframe(n=20), "--variable-set", "coverage"
+        )
+
+        assert diagnostics["water_index_mode"] is None
+        assert "_wi_" not in file_name
+
+    def test_dataset_without_mndwi_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """MNDWI 列の無い旧データセットは、どの構成でも原因の分かる例外にする。"""
+        dataframe = _quality_dataframe(n=20).drop(columns=[MNDWI_COLUMN])
+
+        with pytest.raises(ValueError, match="MNDWI"):
+            self._run(monkeypatch, tmp_path, dataframe)

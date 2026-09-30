@@ -134,7 +134,7 @@ Issue の起票は `/issue-create` スキルを使用する。優先度は Claud
 ```
 
 1. **実装**: 1 つのコミット単位の変更を実装する
-2. **lint チェック**: Python は `ruff check`・`ruff format`、`.md` は `npx markdownlint-cli2` を実行し、エラーを修正する
+2. **lint チェック**: Python は `ruff check`・`ruff format`、`.md` は `npx --yes markdownlint-cli2@0.23.2`（CI・pre-commit と同じ版）を実行し、エラーを修正する
 3. **セルフレビュー**（区分 R のみ）: `/self-review` をコミット単位で実行し、所見（指摘＋分類）を得る。ここでは修正を実施せず、洗い出しのみ行う
    - 点検範囲は「自動検出不可のプロジェクト固有規約」と「テストが保証していない範囲」。汎用的なバグ・簡潔化・効率は `/code-review`、外部レビュー対応は `/coderabbit` に委譲する
    - **軽微なコミット**（typo 修正・lint 対応・単純なリネーム等）はスキップしてよい

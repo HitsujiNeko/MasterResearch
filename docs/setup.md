@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-07-12  
+**最終更新**: 2026-09-30  
 **関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
@@ -314,10 +314,10 @@ QGIS プラグインのインストールや接続設定の詳細は [setup/qgis
 
 - `ruff check .` / `ruff format --check .`
 - `pytest tests/`
-- `npx --yes markdownlint-cli2@0.22.1 "**/*.md"`
+- `npx --yes markdownlint-cli2@0.23.2 "**/*.md"`
 
 Python系CI依存の導入はpipベース（`requirements.txt` + `pytest`/`ruff`）で、Markdown lintは
-`npx --yes markdownlint-cli2@0.22.1` で実行する。本セットアップ（1章）の
+`npx --yes markdownlint-cli2@0.23.2` で実行する。本セットアップ（1章）の
 **ローカル開発ではConda環境を唯一の実行環境とする方針は変更しない**。CIは大容量の研究データを必要としない
 `tests/` 配下のユニットテストのみを対象とする軽量な検査であり、ローカル開発環境の構築手段は
 引き続き `environment.yml` を正本とする。

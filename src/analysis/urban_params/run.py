@@ -55,6 +55,7 @@ from .config import (
     LST_TABLE_PREFIX,
     PARAM_SETS,
     PROJECT_ROOT,
+    RASTER_KEYS,
     SATELLITE_TABLE_PREFIX,
     ParamSet,
     grid_layer_name,
@@ -425,7 +426,8 @@ def build_satellite_task(satellite_path: Path) -> ParamTask:
     if not raster_resources:
         raise ValueError(
             f"衛星指標を検出できませんでした: {satellite_path}。"
-            " バンド説明またはファイル名に NDVI / NDBI / NDWI が含まれる必要があります。"
+            f" バンド説明またはファイル名に {' / '.join(RASTER_KEYS)} のいずれかが"
+            " 含まれる必要があります。"
         )
 
     def compute(

@@ -1,4 +1,4 @@
-"""ラスタをグリッドへ集約するモジュール（衛星指標 NDVI/NDBI/NDWI と共通の集約基盤）。
+"""ラスタをグリッドへ集約するモジュール（衛星指標 NDVI/NDBI/NDWI/MNDWI と共通の集約基盤）。
 
 セル平均と有効画素率の2列を対で出すパラメータ（標高・LST・人口密度・夜間光）は
 ``aggregate_mean_and_valid_ratio()`` を共通の入口として使う。
@@ -637,7 +637,7 @@ def compute(
 
     Args:
         raster_resources: ``io.find_satellite_rasters`` で検出した
-            指標名（NDVI/NDBI/NDWI）からラスタパスとバンド番号への辞書。
+            指標名（NDVI/NDBI/NDWI/MNDWI）からラスタパスとバンド番号への辞書。
         grid_spec: 集約先のグリッド仕様。
 
     Returns:

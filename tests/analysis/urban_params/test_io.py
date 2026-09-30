@@ -22,6 +22,7 @@ from src.analysis.urban_params.io import (
     iter_feature_records,
     layer_cache,
     list_layer_fields,
+    match_raster_keys_in_filename,
     read_layer_dataframe,
     resolve_layer_name,
 )
@@ -350,6 +351,61 @@ def test_find_satellite_rasters_by_filename(tmp_path: Path) -> None:
 
     assert "NDBI" in result
     assert result["NDBI"] == (tif, 1)
+
+
+def test_find_satellite_rasters_detects_mndwi_by_band_description(tmp_path: Path) -> None:
+    """4バンド（NDVI/NDBI/NDWI/MNDWI）の指標ファイルから、MNDWI を含む全指標を検出する。"""
+    tif = tmp_path / "INDICES_Landsat8_20230707_032305Z.tif"
+    _write_multiband_tif(tif, ("NDVI", "NDBI", "NDWI", "MNDWI"))
+
+    result = find_satellite_rasters(tif)
+
+    assert result == {
+        "NDVI": (tif, 1),
+        "NDBI": (tif, 2),
+        "NDWI": (tif, 3),
+        "MNDWI": (tif, 4),
+    }
+
+
+def test_find_satellite_rasters_mndwi_filename_is_not_detected_as_ndwi(tmp_path: Path) -> None:
+    """ファイル名が MNDWI のみを含む場合、NDWI として誤検出しない。"""
+    tif = tmp_path / "hanoi_MNDWI.tif"
+    _write_multiband_tif(tif, (None,))
+
+    result = find_satellite_rasters(tif)
+
+    assert result == {"MNDWI": (tif, 1)}
+
+
+def test_find_satellite_rasters_ndwi_and_mndwi_files_do_not_conflict(tmp_path: Path) -> None:
+    """NDWI と MNDWI の単バンドファイルが同じディレクトリにあっても、それぞれに対応づく。"""
+    ndwi_tif = tmp_path / "hanoi_NDWI.tif"
+    mndwi_tif = tmp_path / "hanoi_MNDWI.tif"
+    _write_multiband_tif(ndwi_tif, (None,))
+    _write_multiband_tif(mndwi_tif, (None,))
+
+    result = find_satellite_rasters(tmp_path)
+
+    assert result == {"NDWI": (ndwi_tif, 1), "MNDWI": (mndwi_tif, 1)}
+
+
+@pytest.mark.parametrize(
+    ("upper_name", "expected"),
+    [
+        ("HANOI_NDWI.TIF", {"NDWI"}),
+        ("HANOI_MNDWI.TIF", {"MNDWI"}),
+        ("NDWI_MNDWI.TIF", {"NDWI", "MNDWI"}),
+        ("MNDWI_NDWI.TIF", {"NDWI", "MNDWI"}),
+        ("HANOI_NDVI2023.TIF", {"NDVI"}),
+        ("INDICES.TIF", set()),
+    ],
+)
+def test_match_raster_keys_in_filename(upper_name: str, expected: set[str]) -> None:
+    """長いキーを先に照合し、部分一致による誤判定を防ぐ（従来の部分一致の挙動は保つ）。"""
+    keys = ("NDVI", "NDBI", "NDWI", "MNDWI")
+
+    assert match_raster_keys_in_filename(upper_name, keys) == expected
 
 
 def test_find_satellite_rasters_nonexistent_path(tmp_path: Path) -> None:

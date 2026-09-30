@@ -9,7 +9,9 @@ from typing import Any, Literal
 from src.common.config import PROJECT_ROOT  # noqa: F401  # io.py/run.py へ再エクスポート
 
 # 衛星指標ラスタのバンド説明として検出対象とするキー一覧。
-RASTER_KEYS = ("NDVI", "NDBI", "NDWI")
+# MNDWI は NDWI を部分文字列として含むため、ファイル名による判定では
+# io.match_raster_keys_in_filename() が長いキーから先に照合する。
+RASTER_KEYS = ("NDVI", "NDBI", "NDWI", "MNDWI")
 
 # 解析範囲の基準レイヤ。正準グリッド（canonical_grid.py の --mask-layer-key 既定値）と
 # 同じレイヤを使う必要がある。食い違うと出力対象のセル集合が対応しなくなる。

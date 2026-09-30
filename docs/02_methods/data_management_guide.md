@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-09-26  
+**最終更新**: 2026-09-29  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -220,12 +220,22 @@ JSON として再生成できるインベントリスクリプトを用意して
 
 - **記録しないもの**: 乱数シード・モデルのハイパーパラメータ等の**実行パラメータ**は来歴に含めず、
   各スクリプトのサマリー側で記録する（来歴はコード・環境・入力の追跡に責務を限定する）
-- **適用範囲**: 現時点では `src.analysis.diagnose_nodata_dropout` の
-  `*_nodata_dropout_summary.json` に付与している。他の結果出力には、各スクリプトを次に
-  改修する機会に順次適用する。付与前に生成した既存の結果JSONには `provenance` が無い
+- **適用範囲**: 現時点では次の結果JSONに付与している。他の結果出力には、各スクリプトを次に
+  改修する機会に順次適用する。付与前に生成した既存の結果JSONには `provenance` が無い（再実行・追記修正はしない）
+
+| スクリプト | 付与する結果JSON |
+|---|---|
+| `src.analysis.diagnose_nodata_dropout` | `*_nodata_dropout_summary.json` |
+| `src.analysis.analysis_rq3_satellite_only` | `*_results.json` |
+| `src.analysis.analysis_rq3_limited` | `*_results.json`、`--diagnose-only` の `*_diagnostics.json` |
+
 - **記録する入力の範囲**: どのファイルを渡すかは各スクリプトが決める（`build_provenance` は渡されたパスをそのままハッシュする）。
   欠測脱落診断では、データセット・ROI・参照ラスタを渡し、ROI の Shapefile は主ファイル（`.shp`）に加えて
-  実在する付随ファイル（`.shx`・`.dbf`・`.prj`・`.cpg`）も渡す（座標系の再定義では `.prj` だけが変わるため）
+  実在する付随ファイル（`.shx`・`.dbf`・`.prj`・`.cpg`）も渡す（座標系の再定義では `.prj` だけが変わるため）。
+  RQ3 の分析スクリプト（Satellite Only・Limited）では、分析用データセット GeoPackage の1件のみを渡す
+  （両スクリプトが読むファイルはこれだけであるため。サンプル CSV 等は出力であり入力に含めない）。
+  Limited の診断JSONにも付与するのは、相関行列・VIF・フィルタ脱落の数値の出典になるためである
+  （実行パラメータの `run_parameters` はモデル学習の条件のため、診断JSONには付与しない）
 - **注意**: 入力ハッシュは全バイトを読んで計算するため、大容量の GeoPackage・GeoTIFF では
   実行時間が延びる
 

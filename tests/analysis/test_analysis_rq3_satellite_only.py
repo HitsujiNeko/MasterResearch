@@ -13,12 +13,14 @@ compute_block_cells）の正しさは tests/analysis/urban_params/test_canonical
 観測ラベル生成・スケール検証・ランダム分割/Spatial CV学習パイプラインは
 `src.common.analysis_runs` へ集約済みのため、tests/common/test_analysis_runs.py
 で検証する（Rule of Two: Limitedシナリオと重複した実装をそちらへ抽出済み）。
-例外として、results.json への実行パラメータ（run_parameters）の記録は、
-合成データ・小規模設定（決定木5本等）で main() を通して検証する。
+例外として、results.json への実行パラメータ（run_parameters）と来歴メタデータ
+（provenance）の記録は、合成データ・小規模設定（決定木5本等）で main() を通して
+検証する。
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import inspect
 import json
@@ -212,6 +214,21 @@ class TestBuildFilteredSample:
             )
 
 
+# 来歴を検証するためのダミーの入力ファイルの中身（ハッシュの期待値を計算できるよう固定する）
+DUMMY_DATASET_BYTES = b"dummy geopackage for provenance test"
+
+# build_provenance が返す来歴のトップレベルキー
+PROVENANCE_KEYS = {
+    "script",
+    "executed_at",
+    "python_version",
+    "platform",
+    "git",
+    "packages",
+    "inputs",
+}
+
+
 def _spread_dataframe(n: int = 200) -> pd.DataFrame:
     """Spatial CVのfoldを組めるよう、複数ブロックへ散らばる合成データセット。
 
@@ -281,7 +298,10 @@ class TestMainRunParameters:
             "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
+        # データ読込は差し替えるが、来歴（provenance）は入力ファイルの実体をハッシュ
+        # するため、中身を固定したダミーファイルを置く。
         dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        dataset_path.write_bytes(DUMMY_DATASET_BYTES)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys,
@@ -343,6 +363,21 @@ class TestMainRunParameters:
         assert result["lst_valid_ratio_threshold"] == pytest.approx(0.5)
         assert result["spatial_cv"]["cv_splits"] == 5
         assert result["spatial_cv"]["block_definition"]["block_size_m"] == DEFAULT_BLOCK_SIZE_M
+
+    def test_records_provenance_with_dataset_hash(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """来歴（provenance）が付与され、入力はデータセット1件でハッシュが実体と一致する。"""
+        result = self._run_main(monkeypatch, tmp_path)
+
+        provenance = result["provenance"]
+        assert set(provenance) == PROVENANCE_KEYS
+        assert provenance["script"] == "src.analysis.analysis_rq3_satellite_only"
+        assert len(provenance["inputs"]) == 1
+        assert provenance["inputs"][0]["path"].endswith(
+            "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        )
+        assert provenance["inputs"][0]["sha256"] == hashlib.sha256(DUMMY_DATASET_BYTES).hexdigest()
 
 
 class TestRunParametersFromDefaults:

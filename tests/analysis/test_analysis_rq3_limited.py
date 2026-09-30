@@ -14,12 +14,14 @@ compute_block_cells）の正しさは tests/analysis/urban_params/test_canonical
 観測ラベル生成・スケール検証・ランダム分割/Spatial CV学習パイプラインは
 `src.common.analysis_runs` へ集約済みのため、tests/common/test_analysis_runs.py
 で検証する（Rule of Two: Satellite Onlyと重複した実装をそちらへ抽出済み）。
-例外として、results.json への実行パラメータ（run_parameters）の記録は、
-合成データ・小規模設定（決定木5本等）で main() を通して検証する。
+例外として、results.json への実行パラメータ（run_parameters）と、results.json・
+診断JSONへの来歴メタデータ（provenance）の記録は、合成データ・小規模設定
+（決定木5本等）で main() を通して検証する。
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import inspect
 import json
@@ -1519,6 +1521,52 @@ class TestAddBuildingHeightPc1:
         assert r2_difference < 1e-4
 
 
+# 来歴を検証するためのダミーの入力ファイルの中身（ハッシュの期待値を計算できるよう固定する）
+DUMMY_DATASET_BYTES = b"dummy geopackage for provenance test"
+
+# build_provenance が返す来歴のトップレベルキー
+PROVENANCE_KEYS = {
+    "script",
+    "executed_at",
+    "python_version",
+    "platform",
+    "git",
+    "packages",
+    "inputs",
+}
+
+
+def _write_dummy_dataset(tmp_path: Path) -> Path:
+    """main() に渡すダミーのデータセットファイルを書き出してパスを返す。
+
+    データ読込（load_analysis_dataset）は合成データへ差し替えるが、来歴
+    （provenance）は入力ファイルの実体をハッシュするため、中身を固定した
+    ファイルを置く。
+
+    Args:
+        tmp_path: pytest の一時ディレクトリ。
+    Returns:
+        ダミーのデータセットGeoPackageのパス（ファイル名は30mの命名規則に従う）。
+    """
+    dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+    dataset_path.write_bytes(DUMMY_DATASET_BYTES)
+    return dataset_path
+
+
+def _assert_dataset_provenance(provenance: dict[str, object]) -> None:
+    """来歴のキー構成・script名・入力（データセット1件とそのハッシュ）を検証する。
+
+    Args:
+        provenance: 結果JSONから読み込んだ `provenance` の値。
+    """
+    assert set(provenance) == PROVENANCE_KEYS
+    assert provenance["script"] == "src.analysis.analysis_rq3_limited"
+    inputs = provenance["inputs"]
+    assert len(inputs) == 1
+    assert inputs[0]["path"].endswith("dataset_limited_dummy_hanoi_30m.gpkg")
+    assert inputs[0]["sha256"] == hashlib.sha256(DUMMY_DATASET_BYTES).hexdigest()
+
+
 class TestMainDiagnoseOnly:
     """main() に新規追加した2つのロジックを検証する
     （フィルタ列欠損時のValueError送出、--diagnose-only指定時のモデル学習・SHAP省略）。
@@ -1554,7 +1602,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(sys, "argv", self._run_argv(dataset_path, output_dir))
 
@@ -1589,7 +1637,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.compute_shap_outputs", _fail_if_called
         )
 
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys,
@@ -1609,6 +1657,9 @@ class TestMainDiagnoseOnly:
         assert diagnostics["population_size"] == len(dataframe)
         assert "vif" in diagnostics
         assert "correlation_pearson_csv" in diagnostics["outputs"]
+        # 診断JSONも数値の出典になるため来歴を持つ。実行パラメータは持たない。
+        _assert_dataset_provenance(diagnostics["provenance"])
+        assert "run_parameters" not in diagnostics
         # モデル学習・SHAP由来の結果ファイルは存在しない（診断のみで終了した証跡）。
         assert not list(output_dir.glob("*_results.json"))
 
@@ -1625,7 +1676,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(sys, "argv", self._run_argv(dataset_path, output_dir))
 
@@ -1654,7 +1705,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys, "argv", self._run_argv(dataset_path, output_dir, "--building-height", "both")
@@ -1679,7 +1730,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(sys, "argv", self._run_argv(dataset_path, output_dir))
 
@@ -1708,7 +1759,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys,
@@ -1758,7 +1809,7 @@ class TestMainDiagnoseOnly:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys,
@@ -1827,7 +1878,7 @@ class TestMainRunParameters:
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
         )
-        dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+        dataset_path = _write_dummy_dataset(tmp_path)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys,
@@ -1885,6 +1936,17 @@ class TestMainRunParameters:
         assert result["lst_valid_ratio_threshold"] == pytest.approx(0.5)
         assert result["spatial_cv"]["cv_splits"] == 5
         assert result["spatial_cv"]["block_definition"]["block_size_m"] == DEFAULT_BLOCK_SIZE_M
+
+    def test_records_provenance_with_dataset_hash(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """results.json に来歴（provenance）が付与され、入力はデータセット1件でハッシュが
+        実体と一致する（Satellite Only のテストも同じキー集合を確認し、シナリオ間の
+        一致を担保する）。
+        """
+        result = self._run_main(monkeypatch, tmp_path)
+
+        _assert_dataset_provenance(result["provenance"])
 
 
 class TestRunParametersConsistencyAcrossScenarios:

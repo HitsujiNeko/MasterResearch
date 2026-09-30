@@ -76,7 +76,7 @@ from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
 from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
-from src.common.summary import save_summary  # noqa: E402
+from src.common.summary import build_provenance, save_summary  # noqa: E402
 
 # 分析対象は30m・単一観測日（2023-07-07 03:23:05Z）に限定する
 # （Satellite Onlyと同じ制約。他日時・他スケールの拡張は別途行う）。
@@ -1092,6 +1092,25 @@ def save_correlation_outputs(
     return outputs
 
 
+def build_dataset_provenance(dataset_path: Path) -> dict[str, object]:
+    """データセットGeoPackageを入力とする来歴メタデータを組み立てる。
+
+    results.json と `--diagnose-only` の診断JSONの両方へ、同じ内容の来歴を付与する
+    ために使う。入力はデータセットGeoPackageのみとする（本スクリプトが読むファイルは
+    これだけである）。大容量のGeoPackageではハッシュ計算に数秒かかるため、進捗を
+    ログに残す。
+
+    Args:
+        dataset_path: 分析用データセットGeoPackageのパス。
+    Returns:
+        `src.common.summary.build_provenance` が返す来歴の辞書。
+    Raises:
+        FileNotFoundError: データセットが存在しない場合。
+    """
+    print("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
+    return build_provenance("src.analysis.analysis_rq3_limited", input_paths=[dataset_path])
+
+
 def main() -> None:
     """Limitedシナリオの分析（cell_id結合の新経路）を実行して結果を保存する。
 
@@ -1258,6 +1277,9 @@ def main() -> None:
             **sanitize_vif_for_json(vif),
             "outputs": correlation_outputs,
         }
+        # 診断JSONも相関行列・VIF・フィルタ脱落の数値の出典になるため、来歴を付与する
+        # （実行パラメータの run_parameters はモデル学習の条件のため付与しない）。
+        diagnostics["provenance"] = build_dataset_provenance(args.dataset_path)
         diagnostics_path = args.output_dir / f"{output_stem}_diagnostics.json"
         save_summary(diagnostics, diagnostics_path)
         print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
@@ -1423,6 +1445,9 @@ def main() -> None:
             **correlation_outputs,
         },
     }
+
+    # どのコード・環境・入力から生成したかを追跡できるよう、保存直前に来歴を付与する。
+    result["provenance"] = build_dataset_provenance(args.dataset_path)
 
     result_path = args.output_dir / f"{output_stem}_results.json"
     save_summary(result, result_path)

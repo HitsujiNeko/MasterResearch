@@ -60,7 +60,7 @@ from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
 from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
-from src.common.summary import save_summary  # noqa: E402
+from src.common.summary import build_provenance, save_summary  # noqa: E402
 
 # 分析対象は30m・単一観測日（2023-07-07 03:23:05Z）に限定する
 # （Limitedと同じ制約。他日時・他スケールの拡張は別途行う）。
@@ -392,6 +392,14 @@ def main() -> None:
             "feature_importance_png": to_project_relative_string(importance_plot_path),
         },
     }
+
+    # どのコード・環境・入力から生成したかを追跡できるよう、保存直前に来歴を付与する。
+    # 入力はデータセットGeoPackageのみ（本スクリプトが読むファイルはこれだけである）。
+    # 大容量のGeoPackageではハッシュ計算に数秒かかるため、進捗をログに残す。
+    print("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
+    result["provenance"] = build_provenance(
+        "src.analysis.analysis_rq3_satellite_only", input_paths=[args.dataset_path]
+    )
 
     result_path = args.output_dir / f"{output_stem}_results.json"
     save_summary(result, result_path)

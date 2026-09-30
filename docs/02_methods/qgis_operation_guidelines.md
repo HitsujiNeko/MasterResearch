@@ -23,7 +23,7 @@ Claude Code経由でQGISを操作する際に守るべきルールを定義す�
 | `render_map` | 可視性の変更が出力画像に反映されないことがあった（キャッシュされた合成結果を返している可能性を推定していた） | **不要（解消済み）**。可視性を切り替えた直後の`render_map`をそのまま使ってよい | 可視レイヤを`set_layer_visibility(visible=false)`にして`render_map`し、そのレイヤが消えているかを見る | v0.9.3（解消を実測） |
 | `execute_processing` | `OUTPUT` / `OUTPUT_TABLE`に`memory:`を指定すると、処理は成功するが出力レイヤが`get_layers`に現れない | 出力先に実ファイル（`.gpkg`等）を指定する。詳細は[execute_processing の出力先は実ファイルにする](#execute_processing-の出力先は実ファイルにする) | `OUTPUT`に`memory:tmp`を指定してバッファを実行し、`get_layers`に現れるかを見る | v0.9.3（未解消を実測） |
 | `execute_code` | 変数へ代入した値は返却されず、戻り値は`executed` / `stdout` / `stderr`のみ | `print(json.dumps(..., ensure_ascii=False))`で標準出力へ書き出す。詳細は[execute_code の戻り値は stdout のみ](#execute_code-の戻り値は-stdout-のみ) | `result = 1`だけのコードを実行し、`stdout`が空で返ることを見る | v0.9.3 |
-| 破壊的ツール（`remove_layer` / `delete_features` / `execute_code` / `set_setting` / `delete_field` / `remove_layout` / `rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`） | 上流は実行前に確認要求（elicitation）を出す（v0.8.1 で機能し、v0.9.0 で`rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`（上書き時）を対象に追加）。本環境では Elicitation フックが一律に accept を返すため、**上流の確認は機能しない前提で運用する** | 確認は Claude Code の許可プロンプトで求める。設定方法と実測結果は[運用注意](#運用注意)を参照 | フックを有効にした状態で一時レイヤに`remove_layer`を実行・許可し、`Cancelled by user`にならず実行されることを見る（フックが上流の確認要求に応答していることの確認） | v0.9.3 |
+| 破壊的ツール（`remove_layer` / `delete_features` / `execute_code` / `set_setting` / `delete_field` / `remove_layout` / `rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`） | 上流は実行前に確認要求（elicitation）を出す（v0.8.1 で機能し、v0.9.0 で`rollback_edits` / `execute_connection_sql` / `import_layer_to_connection`（上書き時）を対象に追加）。本環境では Elicitation フックが一律に accept を返すため、**上流の確認は機能しない前提で運用する** | 確認は Claude Code の許可プロンプトで求める。設定方法と実測結果は[運用注意](#運用注意)を参照 | フックを有効にした状態で一時レイヤに`remove_layer`を実行・許可し、`Cancelled by user`にならず実行されることを見る。この結果は「上流の確認要求にフックが応答している」場合と「上流が確認要求を出さなくなった」場合のどちらでも同じになるため、区別するにはフックを一時的に外し、`Cancelled by user`で失敗するかを見る | v0.9.3 |
 
 「確認バージョン」は**その行の内容を最後に実機確認した版数**であり、台帳全体の「全行を最後に再検証した版数」とは一致しないことがある。差が開いている行ほど再検証の優先度が高い。
 
@@ -38,10 +38,10 @@ MCPのバージョンと無関係な制約は台帳に載せず、現行の記�
 ### 運用注意
 
 - **破壊的ツールの確認は Claude Code の許可プロンプトで担保する**: ここで言う「確認」には**上流の確認要求（elicitation）**と**Claude Code の許可プロンプト**の2系統があり、両者は独立している。
-  - 上流の確認要求の対象と経緯は[台帳](#台帳上流由来の制約)を参照。Claude Desktop は elicitation に UI を出さず cancel を返すため、そのままでは対象ツールが常に`Cancelled by user`で失敗するとされる（フック導入時の観察に基づく推定で、実測日とクライアントの版は記録がない）。本環境ではこれを避けるため、`.claude/settings.local.json`に登録した Elicitation フック（`.claude/hooks/auto_accept_qgis_elicitation.sh`）が一律に accept を返しており、**上流の確認は無効化されている**。登録先がローカル設定のため CLI でも同様に無効になると考えられるが、**未確認**である
+  - 上流の確認要求の対象と経緯は[台帳](#台帳上流由来の制約)を参照。Claude Desktop は elicitation に UI を出さず cancel を返すため、そのままでは対象ツールが常に`Cancelled by user`で失敗する（フック導入時に観察された挙動だが、実測日とクライアントの版の記録はない）。本環境ではこれを避けるため、`.claude/settings.local.json`に登録した Elicitation フック（`.claude/hooks/auto_accept_qgis_elicitation.sh`）が一律に accept を返しており、**上流の確認は無効化されている**。登録先がローカル設定のため CLI でも同様に無効になると考えられるが、**未確認**である
   - そこで確認は Claude Code 側で求める。`permissions.allow`に`execute_code`と破壊的ツールを登録せず、`defaultMode: auto`（`.claude/settings.local.json`で設定。共有の`.claude/settings.json`には無い）のもとで allow 外のツールを判定する分類器に対し、`autoMode.soft_deny`の自然文ルールで毎回の確認を求める。2026-09-30 に Claude Desktop の Code タブ（v0.9.3）で、`execute_code`と一時レイヤへの`remove_layer`のいずれも許可プロンプトが出ること、拒否すると実行されないこと、許可すると`Cancelled by user`にならず実行されることを確認した。以前`remove_layer`が未登録のまま確認なしで実行されたのは、分類器による自動承認が原因だったと推定される
   - soft_deny は分類器の判定であり機械的な保証ではない。確認が出なくなった場合は`permissions.ask`への登録に切り替える。CLI での許可プロンプトの挙動は**未確認**である
-  - worktree で開いたセッションには`.claude/settings.local.json`もフックも存在しない（いずれも`.gitignore`対象）。そのため allow・soft_deny・`defaultMode`・フックの登録を含む確認の仕組み全体が効くかは**未確認**である
+  - 本プロジェクトの worktree（`.claude/worktrees/`配下）で開いたセッションには`.claude/settings.local.json`もフックも存在しない（いずれも`.gitignore`対象）。そのため allow・soft_deny・`defaultMode`・フックの登録を含む確認の仕組み全体が効くかは**未確認**である
   - 許可プロンプトが出ても、`remove_layer`の対象IDや`execute_code`の副作用は呼び出す前に自分で確認する
 - **Windowsで別ウィンドウがポートを保持している場合、サーバー起動が拒否される**: v0.9.0 以降、既に他のQGISウィンドウが 9876 を掴んでいると、後から起動したウィンドウでのサーバー起動は失敗する（従来は2窓とも同じポートを掴み、一方が無言で全接続を受けていた）。接続先が不定にならなくなる代わりに起動失敗が明示されるため、**QGISを複数開いている場合は接続したいウィンドウ以外のサーバーを停止する**。本プロジェクトはWindows環境のため該当する
 

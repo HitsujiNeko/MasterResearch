@@ -145,7 +145,11 @@ class TestParseArguments:
 
 
 class TestResolveOutputStem:
-    """resolve_output_stem のテスト。"""
+    """resolve_output_stem のテスト。
+
+    水指数の付与規則は `TestResolveOutputStemWaterIndex` で検証する。ここでは他の軸の
+    規則を見るため、水指数は付与されない値（ndwi）に固定する。
+    """
 
     _DATASET_PATH = Path("data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg")
 
@@ -158,6 +162,7 @@ class TestResolveOutputStem:
                 DEFAULT_POPULATION_SOURCES,
                 require_valid_gis_mask=False,
                 building_height_mode="both",
+                water_index_mode="ndwi",
             )
             == "dataset_limited_20230707_032329_hanoi_30m_both"
         )
@@ -168,6 +173,7 @@ class TestResolveOutputStem:
                 DEFAULT_POPULATION_SOURCES,
                 require_valid_gis_mask=False,
                 building_height_mode="both",
+                water_index_mode="ndwi",
             )
             == "dataset_limited_20230707_032329_hanoi_30m_coverage"
         )
@@ -194,6 +200,7 @@ class TestResolveOutputStem:
                 ["landscan2020", "landscan2023"],
                 require_valid_gis_mask=False,
                 building_height_mode="both",
+                water_index_mode="ndwi",
             )
             == "dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2020_pop_landscan2023"
         )
@@ -208,6 +215,7 @@ class TestResolveOutputStem:
             ["none"],
             require_valid_gis_mask=True,
             building_height_mode="both",
+            water_index_mode="ndwi",
         )
 
         assert stem == "dataset_limited_20230707_032329_hanoi_30m_coverage_pop_none_gismask"
@@ -221,6 +229,7 @@ class TestResolveOutputStem:
             DEFAULT_POPULATION_SOURCES,
             require_valid_gis_mask=False,
             building_height_mode="both",
+            water_index_mode="ndwi",
         )
 
         assert stem == "dataset_limited_20230707_032329_hanoi_30m_both"
@@ -234,6 +243,7 @@ class TestResolveOutputStem:
             ["landscan2020"],
             require_valid_gis_mask=True,
             building_height_mode="pc1",
+            water_index_mode="ndwi",
         )
 
         assert stem == (
@@ -253,6 +263,7 @@ class TestResolveOutputStem:
             DEFAULT_POPULATION_SOURCES,
             require_valid_gis_mask=False,
             building_height_mode=building_height_mode,
+            water_index_mode="ndwi",
         )
 
         assert stem == (f"dataset_limited_20230707_032329_hanoi_30m_both_bh_{building_height_mode}")
@@ -273,6 +284,7 @@ class TestResolveOutputStem:
             DEFAULT_POPULATION_SOURCES,
             require_valid_gis_mask=False,
             building_height_mode="both",
+            water_index_mode="ndwi",
         )
         mean_stem = resolve_output_stem(
             self._DATASET_PATH,
@@ -280,6 +292,7 @@ class TestResolveOutputStem:
             DEFAULT_POPULATION_SOURCES,
             require_valid_gis_mask=False,
             building_height_mode="mean",
+            water_index_mode="ndwi",
         )
 
         assert both_stem == "dataset_limited_20230707_032329_hanoi_30m_both"
@@ -744,11 +757,12 @@ class TestResolveFeatureColumns:
         """
         common = {*BASE_FEATURE_COLUMNS, *NIGHTLIGHT_FEATURE_COLUMNS, "POP_DEN_WORLDPOP2020"}
 
-        # 建物高さ構成は変数セット軸と独立の軸であるため、ここでは both に固定して
-        # 「変数セットで差し替わるのは分光・被覆率の2ブロックだけ」を検証する。
-        spectral = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES, "both")
-        coverage = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES, "both")
-        both = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")
+        # 建物高さ構成・水指数構成は変数セット軸と独立の軸であるため、ここでは
+        # both・ndwi に固定して「変数セットで差し替わるのは分光・被覆率の2ブロック
+        # だけ」を検証する。
+        spectral = resolve_feature_columns("spectral", DEFAULT_POPULATION_SOURCES, "both", "ndwi")
+        coverage = resolve_feature_columns("coverage", DEFAULT_POPULATION_SOURCES, "both", "ndwi")
+        both = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both", "ndwi")
 
         assert common.issubset(set(spectral))
         assert common.issubset(set(coverage))
@@ -760,16 +774,25 @@ class TestResolveFeatureColumns:
     def test_variable_set_counts(self) -> None:
         """3構成の名目変数数を固定する。
 
-        建物高さ2列を投入する `both` 構成で 11 / 14 / 17、既定（高さ1列）で
-        10 / 13 / 16 になる。
+        水指数 ndwi（分光指数3列）のもとで、建物高さ2列を投入する `both` 構成で
+        11 / 14 / 17、既定（高さ1列）で 10 / 13 / 16 になる。水指数の構成による
+        列数の違いは `TestResolveSpectralColumns` で検証する。
         """
         for variable_set, both_count in (("spectral", 11), ("coverage", 14), ("both", 17)):
             assert (
-                len(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES, "both"))
+                len(
+                    resolve_feature_columns(
+                        variable_set, DEFAULT_POPULATION_SOURCES, "both", "ndwi"
+                    )
+                )
                 == both_count
             )
             assert (
-                len(resolve_feature_columns(variable_set, DEFAULT_POPULATION_SOURCES))
+                len(
+                    resolve_feature_columns(
+                        variable_set, DEFAULT_POPULATION_SOURCES, water_index_mode="ndwi"
+                    )
+                )
                 == both_count - 1
             )
 
@@ -881,10 +904,14 @@ class TestResolveFeatureColumns:
         )
 
     def test_single_height_column_modes_reduce_the_variable_count_by_one(self) -> None:
-        """mean / max / pc1 は both より1変数少なくなる（17 → 16）。"""
-        assert len(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both")) == 17
+        """mean / max / pc1 は both より1変数少なくなる（水指数 ndwi で 17 → 16）。"""
+        assert (
+            len(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, "both", "ndwi")) == 17
+        )
         for mode in ("mean", "max", "pc1"):
-            assert len(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, mode)) == 16
+            assert (
+                len(resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, mode, "ndwi")) == 16
+            )
 
     def test_raises_for_unsupported_building_height_mode(self) -> None:
         """対応外の建物高さ構成は原因の分かる例外にする。"""
@@ -2031,11 +2058,19 @@ class TestResolveFeatureColumnsWaterIndex:
     """resolve_feature_columns の水指数ブロックの差し替えのテスト。"""
 
     def test_omitting_the_water_index_mode_uses_the_default(self) -> None:
-        """水指数を省略した呼び出しは既定（ndwi）と同じ列を返す。"""
-        assert DEFAULT_WATER_INDEX_MODE == "ndwi"
-        assert resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES) == (
-            resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES, water_index_mode="ndwi")
+        """水指数を省略した呼び出しは既定（採用構成 none）と同じ列を返す。
+
+        4構成の比較の結果、NDWI を除外する構成を採用した。既定を固定しておくことで、
+        以後のランが既定のまま NDVI・NDWI の共線性を持ち込まないようにする。
+        """
+        assert DEFAULT_WATER_INDEX_MODE == "none"
+        columns = resolve_feature_columns("both", DEFAULT_POPULATION_SOURCES)
+
+        assert columns == resolve_feature_columns(
+            "both", DEFAULT_POPULATION_SOURCES, water_index_mode="none"
         )
+        assert NDWI_COLUMN not in columns
+        assert VEGETATION_INDEX_COLUMN in columns
 
     @pytest.mark.parametrize("water_index_mode", ["none", "pc1", "mndwi"])
     def test_swaps_only_the_spectral_block(self, water_index_mode: str) -> None:
@@ -2445,11 +2480,30 @@ class TestMainWaterIndex:
         diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
         return diagnostics, diagnostics_files[0].name
 
-    def test_default_run_records_ndwi_and_keeps_the_existing_output_name(
+    def test_default_run_uses_the_adopted_mode_and_names_the_output(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        """既定のランは ndwi を記録し、出力名に `_wi_` を付けない。"""
+        """引数を指定しないランは採用構成（none）で走り、出力名に `_wi_none` が付く。"""
         diagnostics, file_name = self._run(monkeypatch, tmp_path, _quality_dataframe(n=20))
+
+        assert diagnostics["water_index_mode"] == "none"
+        assert "_wi_none_" in file_name
+        assert NDWI_COLUMN not in diagnostics["features"]
+        assert MNDWI_COLUMN not in diagnostics["features"]
+        # 既定を変えてもフィルタ列は4列のままで、母数は変わらない。
+        assert set(SPECTRAL_FILTER_COLUMNS).issubset(set(diagnostics["filter_columns"]))
+
+    def test_explicit_ndwi_run_keeps_the_existing_output_name(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """ndwi を明示したランは従来の列を投入し、出力名に `_wi_` を付けない。
+
+        省略基準が既定ではなく値であるため、既定を none へ変えた後も ndwi のランの
+        出力名はラン1〜11・構成 A の出力と同じ形のまま動かない。
+        """
+        diagnostics, file_name = self._run(
+            monkeypatch, tmp_path, _quality_dataframe(n=20), "--water-index", "ndwi"
+        )
 
         assert diagnostics["water_index_mode"] == "ndwi"
         assert "_wi_" not in file_name

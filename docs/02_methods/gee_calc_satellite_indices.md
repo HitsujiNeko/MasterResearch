@@ -1,6 +1,6 @@
 # gee_calc_satellite_indices.py 仕様（Landsat 8 衛星指標）
 
-**最終更新**: 2026-04-09  
+**最終更新**: 2026-09-30  
 **関連ドキュメント**:  
 
 - [analysis_workflow.md](analysis_workflow.md)  
@@ -15,7 +15,7 @@
 
 ## 1. 目的
 
-本ドキュメントは、`src/gee/gee_calc_satellite_indices.py` が算出する衛星指標（NDVI/NDBI/NDWI）の処理仕様を定義する。
+本ドキュメントは、`src/gee/gee_calc_satellite_indices.py` が算出する衛星指標（NDVI/NDBI/NDWI/MNDWI）の処理仕様を定義する。
 
 特に、都市構造パラメータ算出で利用する説明変数の品質を確保するため、以下を明示する。
 
@@ -47,8 +47,8 @@
 ### 2.2 出力
 
 - 統計CSV: `data/output/gee_calc_indices_results.csv`
-- GeoTIFF（Google Drive）: `INDICES_Landsat8_YYYYMMDD.tif`
-  - バンド: NDVI, NDBI, NDWI
+- GeoTIFF（Google Drive）: `INDICES_Landsat8_YYYYMMDD_HHMMSSZ.tif`（観測日時 UTC）
+  - バンド: NDVI, NDBI, NDWI, MNDWI（この順）
   - 解像度: 30m
   - CRS: `output_epsg`（通常はEPSG:4326）
 
@@ -56,11 +56,14 @@
 
 ## 3. 指標定義
 
-対象指標は以下の3つに固定する。
+対象指標は以下の4つに固定する。いずれも正規化差分 $(A - B) / (A + B)$ であり、実装ではバンドの組 $(A, B)$ を定義表 `NORMALIZED_DIFFERENCE_DEFINITIONS` に持つ。定義表の順序が出力バンドの順序になる。
 
 - NDVI: $(NIR - RED) / (NIR + RED)$
 - NDBI: $(SWIR1 - NIR) / (SWIR1 + NIR)$
 - NDWI: $(GREEN - NIR) / (GREEN + NIR)$
+- MNDWI: $(GREEN - SWIR1) / (GREEN + SWIR1)$
+
+MNDWI は NDWI の NIR を SWIR1 に置き換えた水指数である（Xu, H. 2006, *International Journal of Remote Sensing*, 27(14), 3025–3033。文献DB未登録・原本未確認）。NDVI と NDWI はどちらも NIR を含み符号が逆であるため構造的に強い負の相関を持つ。MNDWI は NIR を含まないため、この構造を持たない。解析での扱いは [limited_analysis_results.md](../03_results/limited_analysis_results.md) を参照する。
 
 Landsat 8 C2 L2 の対応バンド:
 
@@ -113,7 +116,7 @@ Landsat Collection 2 Level-2 Surface Reflectance は、整数DNを以下で物�
 4. `LANDSAT/LC08/C02/T1_L2` を期間・範囲で抽出
 5. QAマスク適用（`QA_PIXEL`, `QA_RADSAT`）
 6. SRスケーリングと有効DN範囲マスク
-7. NDVI/NDBI/NDWI算出
+7. NDVI/NDBI/NDWI/MNDWI算出
 8. ROI統計（mean/min/max/std）算出
 9. 有効ピクセル比が閾値以上のシーンのみ、ROIでクリップしたGeoTIFFをDriveへ出力
 10. 全シーン結果をCSV出力

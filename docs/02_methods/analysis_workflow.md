@@ -275,7 +275,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 
 | スクリプト | 処理内容 | 入力 | 出力 |
 |----------|---------|------|------|
-| `src/gee/gee_calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
+| `src/gee/gee_calc_satellite_indices.py` | 衛星由来指標（NDVI/NDBI/NDWI/MNDWI）の算出 | Landsat 8バンド（GEE） | `data/satellite/indices/*.tif` |
 | `src/analysis/urban_params/canonical_grid.py` | 全シナリオ共通の正準グリッド生成（`cell_id` 採番） | 解析範囲レイヤ（ROI） | `data/output/grid/grid_<city_id>.gpkg`（`grid_30m` / `grid_90m` / `grid_300m`） |
 | `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来・LST由来パラメータのグリッド集計。**パラメータセット単位**に出力する | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ + LSTラスタ + 正準グリッド | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（`cell_id` キーの属性テーブル） |
 | `src/analysis/build_dataset.py` | 指定テーブル群（LST の `lst_*` を含む）の `cell_id` 結合と品質管理列の導出 | パラメータテーブル + 正準グリッド | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg` |

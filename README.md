@@ -54,7 +54,7 @@ flowchart LR
 | `src/` | データ取得・前処理・分析の Python / GEE（Google Earth Engine：Google の衛星データ解析基盤）実装コード |
 | `data/` | GIS（地理情報システム）・衛星データ（**Git 管理外**。下の「補足 > 研究データの扱い」を参照） |
 | `QGIS/` | QGIS プロジェクト・可視化まわりのファイル |
-| `tests/` | `src/` に対する pytest テストコード |
+| `tests/` | `src/`・`scripts/` に対する pytest テストコード |
 
 より詳しい研究の背景・目的・手法は [research_guide.md](docs/01_planning/research_guide.md) を参照してください。
 

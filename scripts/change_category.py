@@ -134,7 +134,7 @@ def normalize_path(path: str) -> str:
         raise ChangeCategoryError(f"リポジトリ相対パスを指定してください（絶対パス）: {path}")
     # scripts/../src/x.py のようなパスが軽い区分の規則に一致するのを防ぐ
     if ".." in normalized.split("/"):
-        raise ChangeCategoryError(f"``..`` を含むパスは判定できません: {path}")
+        raise ChangeCategoryError(f"「..」を含むパスは判定できません: {path}")
     return normalized
 
 

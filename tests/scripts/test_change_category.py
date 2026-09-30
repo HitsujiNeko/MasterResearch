@@ -43,8 +43,11 @@ def _git(repo: Path, *args: str) -> None:
 
 
 @pytest.fixture
-def git_repo(tmp_path: Path) -> Path:
+def git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """main に 1 コミットあり、作業ブランチ feature を切った一時リポジトリ。"""
+    # 実行者のグローバル設定（コミット署名・フック等）の影響を受けないよう切り離す
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q")
@@ -157,10 +160,20 @@ class TestNormalizePath:
         assert target.normalize_path(path) == expected
 
     @pytest.mark.parametrize(
-        "path", ["/etc/passwd", "C:\\MasterResearch\\a.py", "c:/x.py", "", "./"]
+        "path",
+        [
+            "/etc/passwd",
+            "C:\\MasterResearch\\a.py",
+            "c:/x.py",
+            "",
+            "./",
+            "scripts/../src/analysis/x.py",
+            "..\\outside.py",
+            "tests/..",
+        ],
     )
-    def test_rejects_absolute_or_empty_path(self, path: str) -> None:
-        """絶対パス・空のパスは実行エラーにする。"""
+    def test_rejects_invalid_path(self, path: str) -> None:
+        """絶対パス・空のパス・``..`` を含むパス（軽い区分に一致しうる）は実行エラーにする。"""
         with pytest.raises(target.ChangeCategoryError):
             target.normalize_path(path)
 
@@ -250,7 +263,8 @@ class TestCheckExpected:
         exit_code, messages = target.check_expected(target.classify_paths(["tests/a.py"]), "D")
 
         assert exit_code == 0
-        assert messages[-1] == "R のパスはありません。"
+        assert "R のパスはありません。" in messages
+        assert "S のパスも" in messages[-1]
 
 
 class TestMainWithPaths:
@@ -279,6 +293,36 @@ class TestMainWithPaths:
         """絶対パスは 2 を返す。"""
         assert target.main(["C:\\MasterResearch\\a.py"]) == 2
 
+    def test_expect_r_returns_0(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """--expect R は R のパスがあっても 0 を返す。"""
+        assert target.main(["--expect", "R", "src/analysis/x.py", "tests/a.py"]) == 0
+
+    def test_unexpected_exception_returns_2(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """想定外の例外は 2 を返す（区分違反の 1 と取り違えないため）。"""
+
+        def raise_permission_error(*args: object, **kwargs: object) -> None:
+            raise PermissionError("拒否")
+
+        monkeypatch.setattr(target.subprocess, "run", raise_permission_error)
+
+        assert target.main(["--expect", "S"]) == 2
+        assert "想定外のエラー" in capsys.readouterr().err
+
+    def test_git_not_found_returns_2(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """git コマンドが見つからない場合は 2 を返す。"""
+
+        def raise_file_not_found(*args: object, **kwargs: object) -> None:
+            raise FileNotFoundError("git")
+
+        monkeypatch.setattr(target.subprocess, "run", raise_file_not_found)
+
+        assert target.main([]) == 2
+        assert "git コマンドが見つかりません" in capsys.readouterr().err
+
     def test_invalid_expect_exits_2(self) -> None:
         """--expect に R/S/D 以外を渡すと argparse が終了コード 2 で止める。"""
         with pytest.raises(SystemExit) as excinfo:
@@ -300,6 +344,13 @@ class TestGitMode:
         paths = target.get_diff_paths("main", cwd=str(git_repo))
 
         assert sorted(paths) == ["src/analysis/old.py", "tests/new.py"]
+
+    def test_deleted_file_is_reported(self, git_repo: Path) -> None:
+        """削除したファイルのパスも差分に含まれる（削除元の区分を見落とさない）。"""
+        _git(git_repo, "rm", "-q", "src/analysis/old.py")
+        _git(git_repo, "commit", "-q", "-m", "delete")
+
+        assert target.get_diff_paths("main", cwd=str(git_repo)) == ["src/analysis/old.py"]
 
     def test_japanese_path_is_not_escaped(self, git_repo: Path) -> None:
         """日本語パスが 8 進エスケープされずにそのまま返る。"""

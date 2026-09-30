@@ -13,7 +13,8 @@ D（非実質）は変更内容で決まるため判定しない。出力する�
 終了コード:
     0: 成功（``--expect`` 指定時は期待した区分以内）
     1: ``--expect`` より重い区分のパスがある
-    2: 実行エラー（git の失敗・比較基準なし・差分 0 件・引数不正・絶対パス）
+    2: 実行エラー（git の失敗・比較基準なし・差分 0 件・引数不正・絶対パス・``..`` を含むパス・
+       想定外の例外）
 
 conda 環境の外（``python`` / ``python3``）でも動くよう、標準ライブラリのみを使い、
 ``src`` パッケージを import しない。git の fetch は行わない（読み取り専用）。
@@ -122,7 +123,7 @@ def normalize_path(path: str) -> str:
         正規化したパス。
 
     Raises:
-        ChangeCategoryError: 空のパス、または絶対パスの場合。
+        ChangeCategoryError: 空のパス、絶対パス、または ``..`` を含むパスの場合。
     """
     normalized = path.strip().replace("\\", "/")
     while normalized.startswith("./"):
@@ -131,6 +132,9 @@ def normalize_path(path: str) -> str:
         raise ChangeCategoryError(f"空のパスは判定できません: {path!r}")
     if _ABSOLUTE_PATH_PATTERN.match(normalized):
         raise ChangeCategoryError(f"リポジトリ相対パスを指定してください（絶対パス）: {path}")
+    # scripts/../src/x.py のようなパスが軽い区分の規則に一致するのを防ぐ
+    if ".." in normalized.split("/"):
+        raise ChangeCategoryError(f"``..`` を含むパスは判定できません: {path}")
     return normalized
 
 
@@ -271,6 +275,7 @@ def check_expected(results: Sequence[PathResult], expected: str) -> tuple[int, l
             messages.extend(f"  {path}" for path in r_paths)
         else:
             messages.append("R のパスはありません。")
+        messages.append("S のパスも、変更が D の定義に収まるか内容を確認してください。")
         return 0, messages
     return 0, [f"確定済みの区分 {expected} と矛盾するパスはありません。"]
 
@@ -283,7 +288,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "paths",
         nargs="*",
-        help="判定するパス（予定の変更ファイル）。省略時は git の差分を判定する",
+        help=(
+            "判定するパス（予定の変更ファイル）。ディレクトリは末尾に / を付ける"
+            "（付けないと未列挙として既定 R になる）。省略時は git の差分を判定する"
+        ),
     )
     parser.add_argument(
         "--base",
@@ -335,11 +343,19 @@ def run(argv: Sequence[str] | None = None) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """エントリーポイント。実行エラーは標準エラーに出して終了コード 2 を返す。"""
+    """エントリーポイント。実行エラーは標準エラーに出して終了コード 2 を返す。
+
+    想定外の例外も 2 とする。Python は捕捉されない例外で終了コード 1 を返すため、
+    放置すると「確定済みの区分より重いパスがある」（1）と区別できなくなる。
+    """
     try:
         return run(argv)
     except ChangeCategoryError as error:
         print(f"エラー: {error}", file=sys.stderr)
+        return 2
+    except Exception as error:
+        # 終了コード 1 との混同を防ぐため、想定外の例外も広く捕捉する
+        print(f"エラー: 想定外のエラーで判定できませんでした: {error!r}", file=sys.stderr)
         return 2
 
 

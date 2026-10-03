@@ -1,6 +1,6 @@
 # Satellite Only 分析結果（cell_id結合経路）
 
-**最終更新**: 2026-09-26  
+**最終更新**: 2026-09-30  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -248,7 +248,9 @@ NDBI が RF Importance・Permutation Importance・SHAP のいずれでも最大�
 
 NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）を大きく超えている。VIF の計算自体は標準的な定義に従っており実装上の誤りではないが、この状態で標準化偏回帰係数を「支配的な変数」の根拠とすることには解釈上の疑義がある。
 
-**線形回帰の標準化係数の絶対値順位は補助的な情報として扱い、変数重要度の主たる解釈は Random Forest の重要度と SHAP に基づく。** 変数選択（NDVI または NDWI の除外等）による多重共線性の解消は本ドキュメントでは行わない。Limited でも分光指数間の共線性は危険水準に残っており（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、対処はシナリオ横断の課題である。
+**線形回帰の標準化係数の絶対値順位は補助的な情報として扱い、変数重要度の主たる解釈は Random Forest の重要度と SHAP に基づく。** 変数選択（NDVI または NDWI の除外等）による多重共線性の解消は本ドキュメントでは行わない。
+
+**Limited とは分光指数の変数定義が揃っていない。** Limited では水指数の扱いを同一セル上で比較し、NDWI を除外する構成を採用した（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）。同節の比較では、ラン1の NDVI・NDWI の標準化係数（第1・2位）が共線性のアーティファクトであり、共線性を解消すると NDVI の係数がほぼ0になることも示された。本ドキュメントの3変数構成でも同じ構造の共線性があるため、**NDVI・NDWI の標準化係数を個別の寄与として読んではならない**。**この変数定義の不整合は残っており、解消は後続の課題として別途扱う**（Satellite Only 側でも同じ構成比較を行うか、変数の定義をシナリオ間で揃えるかを判断する・6章）。
 
 ### 5.4 Spatial CVの限界
 
@@ -265,6 +267,6 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 
 - **Limited / Full との改善幅の評価**: 観測・格子・ブロック定義が揃ったことで、参考比較を同一観測どうしで行えるようになった（[limited_analysis_results.md](limited_analysis_results.md) 6.7節）。ただし説明変数の集合が異なり母数も揃っていないため、**Satellite Only をベースラインとした正式な改善幅の評価は別途扱う**。共通するセルに限定した評価の設計が要る
 - **Spatial CV の設計見直し**: 5.4節の2つの限界のうち、ブロックサイズの見直しの優先度が高い。シナリオ横断の方法論として扱う
-- **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。どちらか1本に絞る・主成分化するといった構成比較は未実施であり、Limited と共通の課題である
+- **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。Limited では水指数の構成を同一セル上で比較し NDWI を除外する構成を採用したが（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、本シナリオでは構成比較は未実施である。本シナリオは説明変数が分光指数のみであり、NDWI を除外すると説明変数が2つになるため、Limited の結論をそのまま適用してよいかを含めて判断する
 - **LSTプロダクトの算出仕様の確認**: Level-2 地表面温度プロダクトの放射率推定が同一シーンの植生指数を用いる場合、`NDVI` と `LST` の間に間接的な代数的依存が生じうる（[limited_analysis_results.md](limited_analysis_results.md) 3.9節）。**本シナリオは説明変数が分光指数のみであるため、この依存の影響を最も強く受ける。** 確認を要する
 - **30mでの観測日拡張**: `20230723_032309` / `20241130_032336` の `idx_*` / `lst_*` テーブル算出は別途扱う。複数観測日が揃った時点で、同一経路での複数日比較を実施する

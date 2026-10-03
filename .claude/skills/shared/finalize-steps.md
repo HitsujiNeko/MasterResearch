@@ -13,7 +13,7 @@
 
 ## Step B: lint
 
-変更した `.md` ファイルに対して `npx markdownlint-cli2` を実行し、エラーを修正する。
+変更した `.md` ファイルに対して `npx --yes markdownlint-cli2@0.23.2`（CI・pre-commit と同じ版）を実行し、エラーを修正する。
 
 ## Step C: 承認・コミット
 

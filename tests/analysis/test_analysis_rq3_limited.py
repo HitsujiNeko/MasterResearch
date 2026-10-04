@@ -2210,8 +2210,10 @@ class TestWaterIndexArguments:
     """--water-index のCLI検証。"""
 
     @pytest.mark.parametrize("variable_set", ["both", "spectral"])
-    def test_defaults_to_ndwi_when_spectral_block_is_used(self, variable_set: str) -> None:
-        """分光指数を投入する変数セットで省略した場合は既定（ndwi）になる。"""
+    def test_defaults_to_the_adopted_mode_when_spectral_block_is_used(
+        self, variable_set: str
+    ) -> None:
+        """分光指数を投入する変数セットで省略した場合は既定（採用構成 none）になる。"""
         args = parse_arguments(["--variable-set", variable_set])
 
         assert args.water_index == DEFAULT_WATER_INDEX_MODE

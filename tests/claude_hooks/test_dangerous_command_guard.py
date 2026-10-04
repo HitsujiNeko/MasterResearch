@@ -143,6 +143,8 @@ def test_blocks_dangerous_gh(command: str) -> None:
         'eval "git push origin main $FLAG --force"',
         "echo 'git push --force' > x.sh && bash x.sh",
         "echo 'git push --force' | bash",
+        "cat <<'EOF' | bash\ngit push --force\nEOF",
+        "python - <<'EOF'\nimport os\nos.system('git push --force')\nEOF",
         "F=force; git push origin main --$F",
     ],
 )
@@ -254,6 +256,7 @@ def test_blocks_unparsable_command_with_danger_words() -> None:
         "cat <<'EOF' > notes.md\ngit reset --hard は使わない\nEOF",
         "python scripts/change_category.py --expect S",
         "for f in *.py; do ruff check $f; done",
+        "cat > doc.md <<'EOF'\ngit push --force は拒否される\nEOF\npython - <<'EOF'\nprint(1)\nEOF",
     ],
 )
 def test_allows_safe_bash_commands(command: str) -> None:

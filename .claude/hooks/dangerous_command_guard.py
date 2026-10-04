@@ -112,6 +112,8 @@ class ScanState:
     dynamic_head: bool = False
     # 安全側の判定で危険語を探す対象に加える文字列（復号した -EncodedCommand 等）
     extra_texts: list[str] = field(default_factory=list)
+    # 安全側の判定から除く文字列（実行されない入力に渡したヒアドキュメントの本文）
+    inert_texts: list[str] = field(default_factory=list)
 
 
 # --- 字句解析 ---------------------------------------------------------------
@@ -892,6 +894,18 @@ def _check_start_process(args: list[Word], state: ScanState, depth: int) -> str 
 # --- 単純コマンドの検査 ------------------------------------------------------
 
 
+def _may_execute_stdin(name: str, head_text: str) -> bool:
+    """標準入力（ヒアドキュメント）をコードとして実行しうるコマンドか。"""
+    return (
+        name in _SHELLS
+        or name in _POWERSHELLS
+        or name in _WRAPPERS
+        or name in ("cmd", "source", ".", "eval")
+        or bool(_INTERPRETERS.match(name))
+        or head_text.lower().endswith(_SCRIPT_SUFFIXES)
+    )
+
+
 def _check_simple(words: list[Word], dialect: Dialect, state: ScanState, depth: int) -> str | None:
     """1 つの単純コマンドを検査し、拒否理由（なければ None）を返す。"""
     heredocs = [w for w in words if w.heredoc]
@@ -926,6 +940,9 @@ def _check_simple(words: list[Word], dialect: Dialect, state: ScanState, depth: 
         state.dynamic_head = True
         return None
     name = normalize_name(head.text)
+    if heredocs and not _may_execute_stdin(name, head.text):
+        # cat <<EOF > file 等の本文はコマンドとして実行されないため、危険語の探索対象から除く
+        state.inert_texts.extend(stdin)
 
     if name == "git":
         return _check_git(args, state)
@@ -1045,7 +1062,10 @@ def inspect_command(command: str, tool_name: str = "Bash") -> str | None:
     if reason:
         return reason
     if state.dynamic:
-        text = "\n".join([command, *state.extra_texts])
+        text = command.replace("\r\n", "\n")
+        for inert in state.inert_texts:
+            text = text.replace(inert, " ")
+        text = "\n".join([text, *state.extra_texts])
         # コマンド名自体が変数のときは git/gh の語が現れなくても危険語で判定する
         label = coarse_danger(text, require_tool=not state.dynamic_head)
         if label:

@@ -71,6 +71,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario satellit
 
 - 全セル数: 3,739,454行・10列（30m正準グリッドの全域と一致）
 - `idx_*` と `lst_*` が同一観測であることは、結合前に `validate_observation_consistency()` が検証する
+- **上記コマンドで再生成しても、本ドキュメントの数値は再現できない。** 30m の `idx_20230707_032305` は、Limited の水指数の構成比較のために作り直した新世代（ROI でクリップ済み・MNDWI 列あり）へ置き換わっている。本ドキュメントのデータセットはその前の旧世代の指標から作ったものであり、ROI 境界のセルで値と母数が変わる（世代の違いと差の実測は [limited_analysis_results.md](limited_analysis_results.md) 1.4節・3.10節）
 
 ### 3.2 品質管理（フィルタ条件）
 

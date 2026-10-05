@@ -7,7 +7,7 @@
 本プログラムは、Landsat 8 Collection 2 Level-2（SR）を用いて
 以下の衛星指標を算出する。
 
-- 算出指標: NDVI, NDBI, NDWI
+- 算出指標: NDVI, NDBI, NDWI, MNDWI
 
 主な出力:
 1. 画像ごとの統計量CSV
@@ -45,7 +45,18 @@ from src.gee.gee_calc_LST import (
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "output" / "gee_calc_indices_results.csv"
 
-BASE_INDEX_BANDS = ["NDVI", "NDBI", "NDWI"]
+# 正規化差分指標の定義表: 指標名 -> (バンドA, バンドB)。指標 = (A - B) / (A + B)
+# SR_B3=GREEN, SR_B4=RED, SR_B5=NIR, SR_B6=SWIR1（Landsat 8 OLI）
+# MNDWIはXu (2006) の定義（GREENとSWIR1）。定義の順序が出力バンドの順序になる。
+NORMALIZED_DIFFERENCE_DEFINITIONS: dict[str, tuple[str, str]] = {
+    "NDVI": ("SR_B5", "SR_B4"),
+    "NDBI": ("SR_B6", "SR_B5"),
+    "NDWI": ("SR_B3", "SR_B5"),
+    "MNDWI": ("SR_B3", "SR_B6"),
+}
+BASE_INDEX_BANDS = list(NORMALIZED_DIFFERENCE_DEFINITIONS)
+# 分母のゼロ近傍を未定義として除外する閾値
+DENOMINATOR_EPS = 1e-6
 SR_SCALE_FACTOR = 0.0000275
 SR_ADD_OFFSET = -0.2
 # USGS FAQのCollection 2 Level-2 SR有効DN範囲（scale適用前）
@@ -79,7 +90,7 @@ def get_target_band_names() -> list[str]:
     """算出対象バンド名の一覧を返す。
 
     Returns:
-        list[str]: 算出対象の指標バンド名一覧（NDVI, NDBI, NDWI）。
+        list[str]: 算出対象の指標バンド名一覧（NDVI, NDBI, NDWI, MNDWI）。
     """
     return list(BASE_INDEX_BANDS)
 
@@ -136,43 +147,39 @@ def get_scaled_optical_bands(image: ee.Image) -> ee.Image:
 
 
 def add_indices(image: ee.Image) -> ee.Image:
-    """NDVI/NDBI/NDWIを追加する。
+    """NDVI/NDBI/NDWI/MNDWIを追加する。
 
     都市構造パラメータ（衛星由来）の定義式:
         NDVI = (NIR - RED) / (NIR + RED)
         NDBI = (SWIR1 - NIR) / (SWIR1 + NIR)
         NDWI = (GREEN - NIR) / (GREEN + NIR)
+        MNDWI = (GREEN - SWIR1) / (GREEN + SWIR1)
+
+    各指標のバンドの組は NORMALIZED_DIFFERENCE_DEFINITIONS を正とする。
 
     Args:
         image (ee.Image): Landsat 8 Collection 2 Level-2画像。
 
     Returns:
-        ee.Image: NDVI/NDBI/NDWIバンドを追加した画像。
+        ee.Image: 定義表の順にNDVI/NDBI/NDWI/MNDWIバンドを追加した画像。
     """
     optical = get_scaled_optical_bands(image)
-    nir = optical.select("SR_B5")
-    red = optical.select("SR_B4")
-    green = optical.select("SR_B3")
-    swir1 = optical.select("SR_B6")
 
     # 数学的に分母0は未定義のため、ゼロ近傍を明示的に除外する。
-    eps = ee.Number(1e-6)
-    ndvi_denom = nir.add(red)
-    ndbi_denom = swir1.add(nir)
-    ndwi_denom = green.add(nir)
+    eps = ee.Number(DENOMINATOR_EPS)
+    index_bands = []
+    for index_name, (band_a, band_b) in NORMALIZED_DIFFERENCE_DEFINITIONS.items():
+        value_a = optical.select(band_a)
+        value_b = optical.select(band_b)
+        denominator = value_a.add(value_b)
+        index_bands.append(
+            value_a.subtract(value_b)
+            .divide(denominator)
+            .updateMask(denominator.abs().gt(eps))
+            .rename(index_name)
+        )
 
-    # NDVI = (NIR - RED) / (NIR + RED)
-    ndvi = nir.subtract(red).divide(ndvi_denom).updateMask(ndvi_denom.abs().gt(eps)).rename("NDVI")
-    # NDBI = (SWIR1 - NIR) / (SWIR1 + NIR)
-    ndbi = (
-        swir1.subtract(nir).divide(ndbi_denom).updateMask(ndbi_denom.abs().gt(eps)).rename("NDBI")
-    )
-    # NDWI = (GREEN - NIR) / (GREEN + NIR)
-    ndwi = (
-        green.subtract(nir).divide(ndwi_denom).updateMask(ndwi_denom.abs().gt(eps)).rename("NDWI")
-    )
-
-    return image.addBands([ndvi, ndbi, ndwi])
+    return image.addBands(index_bands)
 
 
 def get_landsat_sr_collection(

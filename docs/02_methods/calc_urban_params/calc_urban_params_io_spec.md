@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-08-23
+**最終更新**: 2026-09-30
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -103,8 +103,11 @@
 - NDVI
 - NDBI
 - NDWI
+- MNDWI
 
-入力が存在する指標のみ列を出力し、存在しない指標は処理を継続する。
+入力が存在する指標のみ列を出力し、存在しない指標は処理を継続する（MNDWI を持たない3バンドの旧ファイルでは、`idx_*` に MNDWI 列が出力されない）。
+
+指標はバンド説明との完全一致で検出し、バンド説明が無い場合に限りファイル名から判定する（バンド1を採用）。ファイル名の判定では、`MNDWI` が `NDWI` を部分文字列として含むため、長い指標名から先に照合し、一致した部分を除いてから短い指標名を照合する（`io.match_raster_keys_in_filename()`）。
 
 **LST**（`--lst-file`）
 
@@ -159,7 +162,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 
 ### 6.2 条件付きテーブル（衛星由来・LST由来、設計確定済み）
 
-- `idx_{YYYYMMDD}_{HHMMSS}.gpkg`: `NDVI` / `NDBI` / `NDWI`（`--satellite-file` で入力がある指標のみ）
+- `idx_{YYYYMMDD}_{HHMMSS}.gpkg`: `NDVI` / `NDBI` / `NDWI` / `MNDWI`（`--satellite-file` で入力がある指標のみ）
 - `lst_{YYYYMMDD}_{HHMMSS}.gpkg`: `LST`（セル平均・°C）/ `LST_VALID_RATIO`（セル内有効画素率、0-1）（`--lst-file` 指定時のみ）
 
 観測日別にテーブルを分けるため、複数観測を同型で並置できる。LSTは目的変数であり、6.3節の品質管理列の判定材料には含めない。
@@ -350,7 +353,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 |---|---|---|---|
 | `cell_id` | 全テーブル | `canonical_grid.make_cell_id()`（`tables.build_param_table()` が付与） | 確定・実装済 |
 | `lon`, `lat` | 正準グリッド／データセット | `canonical_grid._build_cell_frame()`（結合時に `build_dataset.py` が引き継ぐ） | 確定・実装済 |
-| `NDVI`, `NDBI`, `NDWI` | `idx_*` テーブル | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-file` 指定時のみ） |
+| `NDVI`, `NDBI`, `NDWI`, `MNDWI` | `idx_*` テーブル | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-file` 指定時のみ） |
 | `LST`, `LST_VALID_RATIO` | `lst_*` テーブル | `params/lst.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` / `aggregate_valid_ratio_to_grid()` | 確定・実装済（`--lst-file` 指定時のみ） |
 | `IN_ANALYSIS_AREA` | `mask_roi` テーブル | `params/mask.py: compute()` → `geometry.compute_polygon_coverage()` | 確定・実装済 |
 | `VALID_GIS_MASK`, `MISSING_REASON` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（判定材料の列がある場合のみ付与。6.3節） |

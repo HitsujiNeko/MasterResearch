@@ -551,12 +551,36 @@ def read_layer_dataframe(
     return gdf
 
 
+def match_raster_keys_in_filename(upper_name: str, keys: tuple[str, ...]) -> set[str]:
+    """ファイル名（大文字化済み）に含まれる指標キーを判定する。
+
+    単純な部分一致では ``"NDWI" in "..._MNDWI.TIF"`` が真となり、MNDWI の
+    ファイルを NDWI と誤判定する。これを防ぐため、長いキーから順に照合し、
+    一致した部分を区切り文字に置き換えてから短いキーを照合する。
+
+    Args:
+        upper_name: 大文字化したファイル名。
+        keys: 照合する指標キーの一覧（大文字）。
+
+    Returns:
+        ファイル名に含まれると判定した指標キーの集合。
+    """
+    remaining = upper_name
+    matched: set[str] = set()
+    for key in sorted(keys, key=len, reverse=True):
+        if key in remaining:
+            matched.add(key)
+            # 置換後の前後の文字が連結して別のキーを作らないよう、区切り文字で置き換える。
+            remaining = remaining.replace(key, "/")
+    return matched
+
+
 def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:
     """衛星指標ラスタとバンド番号を自動検出する。
 
-    バンドの説明（description）に ``NDVI``/``NDBI``/``NDWI`` のいずれかが
-    含まれていればそのバンドを採用する。説明から特定できない指標は、
-    ファイル名に指標名が含まれていればバンド1を採用する。
+    バンドの説明（description）が ``RASTER_KEYS`` のいずれかと一致すれば
+    そのバンドを採用する。説明から特定できない指標は、ファイル名に指標名が
+    含まれていればバンド1を採用する（判定は ``match_raster_keys_in_filename``）。
 
     Args:
         satellite_path: 衛星指標ラスタの単一ファイル、またはラスタを
@@ -600,10 +624,11 @@ def find_satellite_rasters(satellite_path: Path) -> dict[str, tuple[Path, int]]:
                 if key in RASTER_KEYS and key not in detected:
                     detected[key] = (tif_path, band_index)
 
+        filename_keys = match_raster_keys_in_filename(upper_name, RASTER_KEYS)
         for key in RASTER_KEYS:
             if key in detected:
                 continue
-            if key in upper_name:
+            if key in filename_keys:
                 detected[key] = (tif_path, 1)
 
     return detected

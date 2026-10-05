@@ -1,6 +1,6 @@
 # calc_urban_params 処理設計
 
-**最終更新**: 2026-08-23
+**最終更新**: 2026-09-30
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章、[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章（入出力仕様）
 
@@ -40,7 +40,7 @@ src/analysis/
     geometry.py       # ジオメトリ投影・ラスタ化・被覆率/密度算出の共通処理
     io.py             # LayerResource / RasterResource, レイヤ・ラスタの解決と読み込み・キャッシュ（7.7節）
     params/
-      raster.py       # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI・有効画素率）
+      raster.py       # ラスタのグリッド集約（衛星指標 NDVI/NDBI/NDWI/MNDWI・有効画素率）
       lst.py          # LSTパラメータ（LST/LST_VALID_RATIO）
       buildings.py    # 建物パラメータ（BUILD_COV/BUILD_DEN/BUILD_H_MEAN/BUILD_H_MAX）
       roads.py        # 道路パラメータ（ROAD_DEN）

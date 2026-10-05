@@ -9,9 +9,10 @@
 土地被覆クラス別面積率のどちらを投入するかを切り替える。建物高さブロック
 （`BUILD_H_MEAN`/`BUILD_H_MAX`）は強い相関を持つため、既定では平均高さの1列のみを
 投入し、`--building-height` で2列とも投入する構成・最大高さのみの構成・主成分へ
-合成する構成へ切り替えられる。多重共線性の診断のみを行いたい場合は
-`--diagnose-only` を指定すると、モデル学習・SHAPを実行せずに相関行列・VIF・
-フィルタ後母数だけを出力して終了する。
+合成する構成へ切り替えられる。分光指数の水指数ブロック（NDVI と強く負相関する
+`NDWI`）も同様に、`--water-index` で除外・主成分化・MNDWI への差し替えを選べる。
+多重共線性の診断のみを行いたい場合は `--diagnose-only` を指定すると、モデル学習・
+SHAPを実行せずに相関行列・VIF・フィルタ後母数だけを出力して終了する。
 """
 
 from __future__ import annotations
@@ -104,7 +105,16 @@ BASE_FEATURE_COLUMNS = [
     *BUILDING_HEIGHT_COLUMNS,
     *OTHER_BASE_FEATURE_COLUMNS,
 ]
-SPECTRAL_FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
+VEGETATION_INDEX_COLUMN = "NDVI"
+BUILT_UP_INDEX_COLUMN = "NDBI"
+NDWI_COLUMN = "NDWI"
+MNDWI_COLUMN = "MNDWI"
+# 分光指数ブロックの既定（水指数 ndwi 構成）の並び。水指数の構成（`--water-index`）に
+# 応じた投入列は `resolve_spectral_columns` が組み立てる。
+SPECTRAL_FEATURE_COLUMNS = [VEGETATION_INDEX_COLUMN, BUILT_UP_INDEX_COLUMN, NDWI_COLUMN]
+# 非NULLを要求する分光指数列。水指数の構成に依らず4列すべてを要求し、構成間で
+# 母数・標本を揃える（`resolve_filter_columns` 参照）。
+SPECTRAL_FILTER_COLUMNS = [*SPECTRAL_FEATURE_COLUMNS, MNDWI_COLUMN]
 NIGHTLIGHT_FEATURE_COLUMNS = ["NTL_MEAN"]
 
 # 土地被覆は雪氷を除く7クラスすべてがテーブルに出力される。7クラスの面積率の和は
@@ -193,13 +203,42 @@ DEFAULT_BUILDING_HEIGHT_MODE = BUILDING_HEIGHT_MODE_MEAN
 # （`add_building_height_pc1` が分析サンプル上で追加する）。
 BUILDING_HEIGHT_PC1_COLUMN = "BUILD_H_PC1"
 
+# 水指数ブロックの構成の選択肢。NDVI と NDWI はどちらも NIR を含み符号が逆であるため
+# 構造的に強い負の相関を持ち、両方を投入すると VIF が危険水準（>10）に達する。
+# ndwi は従来どおり NDVI・NDBI・NDWI を投入する構成、none は NDWI を除外する構成、
+# pc1 は NDVI と NDWI を標準化して第1主成分へ合成した1列で2列を置き換える構成、
+# mndwi は NDWI を NIR を含まない MNDWI（GREEN と SWIR1）へ差し替える構成
+# （`resolve_spectral_columns` / `add_vegetation_water_pc1` 参照）。
+WATER_INDEX_MODE_NDWI = "ndwi"
+WATER_INDEX_MODE_NONE = "none"
+WATER_INDEX_MODE_PC1 = "pc1"
+WATER_INDEX_MODE_MNDWI = "mndwi"
+WATER_INDEX_MODES = (
+    WATER_INDEX_MODE_NDWI,
+    WATER_INDEX_MODE_NONE,
+    WATER_INDEX_MODE_PC1,
+    WATER_INDEX_MODE_MNDWI,
+)
+# 既定は none（NDWI を除外）。4構成を同一セル上で比較した結果、none・pc1 は共線性を
+# 解消する（VIF 最大 3.24）一方、mndwi は NDVI・NDBI との共線性が残った（MNDWI は
+# 定義上 NDWI と NDBI からほぼ決まる）。none は pc1 と説明力が同程度で、物理的な意味を
+# 直接読める列だけで構成できるため採った。事前に決めた採用手順（ndwi 維持）から外れた
+# 経緯・根拠と比較の実測値は `docs/03_results/limited_analysis_results.md` を正本とする。
+# **出力名の省略基準は既定ではなく ndwi という値であり**（`resolve_output_stem` 参照）、
+# この既定変更で既存ランの出力ファイル名は動かない（既定のランには `_wi_none` が付く）。
+DEFAULT_WATER_INDEX_MODE = WATER_INDEX_MODE_NONE
+# 水指数の主成分構成でのみ作る合成列。入力データセットには存在しない
+# （`add_vegetation_water_pc1` が分析サンプル上で追加する）。
+VEGETATION_WATER_PC1_COLUMN = "VEG_WATER_PC1"
+
 # 相関行列の対象となる「拡張後の全候補列」。VIF が実際に投入した特徴量列を対象と
 # するのに対し、相関行列は変数セットの選択によらず同じ範囲で算出する。人口3版
 # どうし・参照クラスを含む土地被覆7クラス全部のように、特定の変数セットには同時に
 # 入らない組み合わせも診断対象に含めるためである。
+# MNDWI も水指数の構成に依らず対象に含め、`NDVI × MNDWI` を全ランで実測できるようにする。
 ALL_CANDIDATE_FEATURE_COLUMNS = [
     *BASE_FEATURE_COLUMNS,
-    *SPECTRAL_FEATURE_COLUMNS,
+    *SPECTRAL_FILTER_COLUMNS,
     *LULC_ALL_COVERAGE_COLUMNS,
     *NIGHTLIGHT_FEATURE_COLUMNS,
     *POPULATION_SOURCE_COLUMNS.values(),
@@ -302,6 +341,20 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--water-index",
+        choices=WATER_INDEX_MODES,
+        default=None,
+        help=(
+            "分光指数ブロックの水指数の構成。ndwi は NDVI・NDBI・NDWI を投入する、"
+            "none は NDWI を除外する、pc1 は NDVI と NDWI を標準化して第1主成分へ"
+            "合成した1列で置き換える、mndwi は NDWI を MNDWI へ差し替える。"
+            f"省略時は {DEFAULT_WATER_INDEX_MODE}。分光指数を投入しない"
+            " --variable-set coverage とは併用できない。いずれの構成でも非NULLを要求する"
+            "フィルタ列は NDVI・NDBI・NDWI・MNDWI の4列のまま変えないため、"
+            "構成間で分析サンプルは同一になる。"
+        ),
+    )
+    parser.add_argument(
         "--population-source",
         nargs="+",
         choices=[*POPULATION_SOURCE_COLUMNS, POPULATION_SOURCE_NONE],
@@ -330,6 +383,18 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             f"--population-source の {POPULATION_SOURCE_NONE} は他の値と併用できません: "
             f"{args.population_source}"
         )
+
+    # 水指数の構成は分光指数ブロックを投入する変数セットでのみ意味を持つ。
+    # 既定値を None にして「明示指定の有無」で判定するのは、既定値そのものを
+    # 比較すると、既定を変えた瞬間に coverage の既存コマンドが通らなくなるため。
+    if args.variable_set == VARIABLE_SET_COVERAGE:
+        if args.water_index is not None:
+            parser.error(
+                "--water-index は分光指数を投入しない --variable-set coverage とは"
+                f"併用できません: {args.water_index}"
+            )
+    elif args.water_index is None:
+        args.water_index = DEFAULT_WATER_INDEX_MODE
     return args
 
 
@@ -428,29 +493,70 @@ def resolve_building_height_columns(building_height_mode: str) -> list[str]:
     return [BUILDING_HEIGHT_PC1_COLUMN]
 
 
+def resolve_spectral_columns(water_index_mode: str) -> list[str]:
+    """水指数の構成の指定から、モデルへ投入する分光指数ブロックの列名を求める。
+
+    NDVI と NDWI はどちらも NIR を含み符号が逆であるため、構造的に強い負の相関を
+    持つ（両方を投入すると VIF が危険水準に達する）。この共線性への対処を構成として
+    切り替えられるようにする。NDBI はどの構成にも入る。
+
+    **`WATER_INDEX_MODE_PC1` が返す `VEGETATION_WATER_PC1_COLUMN` は入力データ
+    セットには存在しない合成列である**（`add_vegetation_water_pc1` が分析サンプル上で
+    作る）。そのため非NULL要求のフィルタ列には使えず、`resolve_filter_columns` は
+    構成に依らず元の4列（`SPECTRAL_FILTER_COLUMNS`）を要求する。
+
+    Args:
+        water_index_mode: `WATER_INDEX_MODES` のいずれか。
+    Returns:
+        投入する分光指数の列名リスト。
+    Raises:
+        ValueError: `water_index_mode` が対応外の場合。
+    """
+    if water_index_mode not in WATER_INDEX_MODES:
+        raise ValueError(
+            f"対応していない水指数の構成です: {water_index_mode}"
+            f"（対応: {', '.join(WATER_INDEX_MODES)}）。"
+        )
+    if water_index_mode == WATER_INDEX_MODE_NDWI:
+        return list(SPECTRAL_FEATURE_COLUMNS)
+    if water_index_mode == WATER_INDEX_MODE_NONE:
+        return [VEGETATION_INDEX_COLUMN, BUILT_UP_INDEX_COLUMN]
+    if water_index_mode == WATER_INDEX_MODE_PC1:
+        return [BUILT_UP_INDEX_COLUMN, VEGETATION_WATER_PC1_COLUMN]
+    return [VEGETATION_INDEX_COLUMN, BUILT_UP_INDEX_COLUMN, MNDWI_COLUMN]
+
+
 def resolve_feature_columns(
     variable_set: str,
     population_sources: Sequence[str],
     building_height_mode: str = DEFAULT_BUILDING_HEIGHT_MODE,
+    water_index_mode: str | None = DEFAULT_WATER_INDEX_MODE,
 ) -> list[str]:
-    """変数セット・建物高さ構成・人口ソースの指定から、モデルへ投入する説明変数の列名を組み立てる。
+    """変数セット・建物高さ構成・水指数構成・人口ソースの指定から、モデルへ投入する説明変数の列名を組み立てる。
 
     共通ベース（建物・道路・標高・人口・夜間光）を先に並べ、差し替え対象の
     ブロック（分光指数・土地被覆クラス別面積率）を後ろに置く。列順は
     重要度CSV・VIF・SHAPの並び順にそのまま現れるため、構成間で共通部分の
     並びが揃うようにしている。建物高さブロックも共通ベースの位置のまま
     差し替えるため、`building_height_mode` を変えても他の列の並びは動かない。
+    分光指数ブロックの中身は `water_index_mode` で差し替える
+    （`resolve_spectral_columns` 参照）。
 
     Args:
         variable_set: `VARIABLE_SETS` のいずれか。
         population_sources: `--population-source` の値。
         building_height_mode: `BUILDING_HEIGHT_MODES` のいずれか。既定は
             `DEFAULT_BUILDING_HEIGHT_MODE`。
+        water_index_mode: `WATER_INDEX_MODES` のいずれか。既定は
+            `DEFAULT_WATER_INDEX_MODE`。分光指数ブロックを投入しない `coverage` では
+            参照しない（CLIでは `coverage` との明示的な併用を `parse_arguments` が拒否し、
+            `None` を渡す）。
     Returns:
         説明変数の列名リスト。
     Raises:
-        ValueError: `variable_set` または `building_height_mode` が対応外の場合、
-            または `population_sources` に未知のデータソース識別子が含まれる場合。
+        ValueError: `variable_set`・`building_height_mode`・`water_index_mode`
+            （分光指数ブロックを投入する場合）が対応外の場合、または
+            `population_sources` に未知のデータソース識別子が含まれる場合。
     """
     if variable_set not in VARIABLE_SETS:
         raise ValueError(
@@ -465,7 +571,7 @@ def resolve_feature_columns(
         *NIGHTLIGHT_FEATURE_COLUMNS,
     ]
     if variable_set in (VARIABLE_SET_SPECTRAL, VARIABLE_SET_BOTH):
-        feature_columns.extend(SPECTRAL_FEATURE_COLUMNS)
+        feature_columns.extend(resolve_spectral_columns(water_index_mode))
     if variable_set in (VARIABLE_SET_COVERAGE, VARIABLE_SET_BOTH):
         feature_columns.extend(LULC_FEATURE_COLUMNS)
     return feature_columns
@@ -492,6 +598,12 @@ def resolve_filter_columns() -> list[str]:
     3構成の比較が母数差と混ざる。主成分構成で投入する `BUILD_H_PC1` は入力データ
     セットに存在しない合成列であり、そもそもフィルタ列には使えない。
 
+    水指数の構成（`--water-index`）についても同じ理由で、**投入する水指数に依らず
+    NDVI・NDBI・NDWI・MNDWI の4列すべてに非NULLを要求する**
+    （`SPECTRAL_FILTER_COLUMNS`）。このため MNDWI 列を持たないデータセット
+    （MNDWI 追加前の衛星指標から作ったもの）は、どの構成でも実行できない。
+    主成分構成の `VEG_WATER_PC1` も合成列であり、フィルタ列には使えない。
+
     **人口・夜間光はここに含めない。** 両者はROIクリップと粗い画素（LandScan約
     920m・VIIRS約460m）に起因する境界帯状の欠測を持ち、この欠測を「非NULL要求の
     副作用」ではなく明示的な有効域として扱う方針にしたため、`build_dataset.py` が
@@ -516,7 +628,7 @@ def resolve_filter_columns() -> list[str]:
         *BUILDING_FOOTPRINT_FEATURE_COLUMNS,
         *BUILDING_HEIGHT_COLUMNS,
         *OTHER_BASE_FEATURE_COLUMNS,
-        *SPECTRAL_FEATURE_COLUMNS,
+        *SPECTRAL_FILTER_COLUMNS,
         *LULC_FEATURE_COLUMNS,
     ]
 
@@ -643,14 +755,15 @@ def resolve_output_stem(
     population_sources: Sequence[str],
     require_valid_gis_mask: bool,
     building_height_mode: str = DEFAULT_BUILDING_HEIGHT_MODE,
+    water_index_mode: str | None = DEFAULT_WATER_INDEX_MODE,
 ) -> str:
     """データセットパスと実行条件から出力ファイル名の接頭辞を求める。
 
     構成の異なるランを同一ディレクトリへ出力しても上書きしないよう、
-    `{データセットstem}_{変数セット}[_bh_{建物高さ}][_pop_{ソース}...][_gismask]`
+    `{データセットstem}_{変数セット}[_bh_{建物高さ}][_wi_{水指数}][_pop_{ソース}...][_gismask]`
     の順で組み立てる。これにより出力ファイル名自体が実行条件を示す。
 
-    **省略の基準が人口ソースと建物高さで異なる。**
+    **省略の基準が人口ソースと建物高さ・水指数で異なる。**
 
     - **人口ソースは既定（`DEFAULT_POPULATION_SOURCES`）の場合は付けない。**
       既定から変えたランだけが名前に現れるようにして、既存の出力名との差分を
@@ -661,6 +774,9 @@ def resolve_output_stem(
       （例: `mean`）の出力名が `_bh_mean` 無しの形へ移り、**`both` で実行済みの
       既存ランの出力ファイルと衝突して上書きする**。値を基準にすれば既定を
       変えても既存の出力名は動かない。
+    - **水指数も同じ理由で、既定ではなく `WATER_INDEX_MODE_NDWI` という値の場合に
+      付けない。** 水指数を持たない `coverage`（`water_index_mode` が `None`）にも
+      付けない。
     - **`_gismask` は末尾に置く。** 感度分析の印を末尾に付ける既存の規約を保つ。
 
     Args:
@@ -670,12 +786,16 @@ def resolve_output_stem(
         require_valid_gis_mask: `VALID_GIS_MASK == 1` を課す感度分析かどうか。
         building_height_mode: `BUILDING_HEIGHT_MODES` のいずれか。既定は
             `DEFAULT_BUILDING_HEIGHT_MODE`。
+        water_index_mode: `WATER_INDEX_MODES` のいずれか、または水指数を持たない
+            構成での `None`。既定は `DEFAULT_WATER_INDEX_MODE`。
     Returns:
         出力ファイル名の接頭辞。
     """
     parts = [dataset_path.stem, variable_set]
     if building_height_mode != BUILDING_HEIGHT_MODE_BOTH:
         parts.append(f"bh_{building_height_mode}")
+    if water_index_mode is not None and water_index_mode != WATER_INDEX_MODE_NDWI:
+        parts.append(f"wi_{water_index_mode}")
     if list(population_sources) != list(DEFAULT_POPULATION_SOURCES):
         parts.extend(f"pop_{source}" for source in population_sources)
     if require_valid_gis_mask:
@@ -916,94 +1036,114 @@ def _sanitize_finite_value(value: float, non_finite_keys: list[str], key: str) -
     return None
 
 
-def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
-    """建物高さ2列を標準化し、第1主成分に合成した列を追加する。
+def add_standardized_pc1(
+    dataframe: pd.DataFrame,
+    source_columns: Sequence[str],
+    output_column: str,
+    sign_reference_column: str,
+    label: str,
+    note_subject: str,
+) -> tuple[pd.DataFrame, dict[str, object]]:
+    """強く相関する2列を標準化し、第1主成分に合成した列を追加する。
 
-    `BUILD_H_MEAN` と `BUILD_H_MAX` を標準化した2変数の相関行列は `[[1, r], [r, 1]]`
-    であり、`r > 0` のとき第1主成分の固有ベクトルは `(1/√2, 1/√2)`・寄与率は
-    `(1 + r) / 2` になる。つまり主成分化は「2列の平均的な高さ水準」を1本に束ねる
-    操作であり、高さブロックの共線性を残さずに情報を保持する構成になる。
-    **`r < 0` では第1主成分が `(1/√2, -1/√2)` へ入れ替わるため、この形は無条件の
-    恒等式ではない。**
+    標準化した2変数の相関行列は `[[1, r], [r, 1]]` であり、第1主成分の固有ベクトルは
+    `r > 0` のとき `(1/√2, 1/√2)`、`r < 0` のとき `(1/√2, -1/√2)`、寄与率は
+    `(1 + |r|) / 2` になる。つまり主成分化は、2列が共有する変動を1本に束ねる操作で
+    あり、2列の共線性を残さずに情報を保持する構成になる。
 
     **fitは分析サンプル全体で1回だけ行い、Spatial CVのfold内では行わない。**
     平均・尺度に由来するリークは既存パイプラインが既に除いており
     （`src.common.regression_models.fit_linear_regression` は学習側だけで
-    `StandardScaler` をfitする）、全体fitのPC1が持ち込むfold依存は「高さ2列の
+    `StandardScaler` をfitする）、全体fitのPC1が持ち込むfold依存は「2列の
     標準偏差の比」だけに限られる。この差による決定係数の変化は実測でモデル自身の
     数値的なばらつきより小さく、共通モジュールへfold内変換の仕組みを持ち込む
     コストに見合わないと判断した（判断の根拠は
     `docs/03_results/limited_analysis_results.md` を正本とする）。
 
-    **主成分の符号は実装依存で不定なため、`BUILD_H_MEAN` に対する寄与が正になる
-    向きへ揃える。** 揃えないと「PC1が大きいほど建物が低い」という向きが偶発的に
-    生じ、標準化係数・SHAP値の符号解釈が反転する。単一主成分では
-    `cov(PC1, z_j) = λ * loadings[j]`（`λ > 0`）であり、相関の符号と loadings の
-    符号は一致するため、loadings の符号で判定する。
+    **主成分の符号は実装依存で不定なため、`sign_reference_column` に対する寄与が
+    正になる向きへ揃える。** 揃えないと合成列の向きが偶発的に反転し、標準化係数・
+    SHAP値の符号解釈が反転する。単一主成分では `cov(PC1, z_j) = λ * loadings[j]`
+    （`λ > 0`）であり、相関の符号と loadings の符号は一致するため、loadings の
+    符号で判定する。
 
     Args:
-        dataframe: 建物高さ2列を非NULLで含むデータフレーム
+        dataframe: `source_columns` を非NULLで含むデータフレーム
             （`build_filtered_sample` の戻り値 `sampled` を想定）。
+        source_columns: 合成する2列の列名。
+        output_column: 追加する合成列の列名。
+        sign_reference_column: 符号の基準列（`source_columns` のいずれか）。
+        label: 例外メッセージに使う、2列を指す名称（例: 「建物高さ」）。
+        note_subject: 診断情報の note で縮退を説明する際の主語
+            （例: 「高さ2列」）。
     Returns:
-        `BUILDING_HEIGHT_PC1_COLUMN` を追加したデータフレーム（入力は変更しない）と、
+        `output_column` を追加したデータフレーム（入力は変更しない）と、
         主成分の診断情報（loadings・寄与率・標準化統計・元2列の相関・符号反転の
-        有無）の辞書のタプル。**診断情報の数値が非有限（高さ2列が定数に近く主成分が
+        有無）の辞書のタプル。**診断情報の数値が非有限（2列が定数に近く主成分が
         縮退した場合）なら `None` へ置き換え、該当項目名を `non_finite_items` に
         残す**（`_sanitize_finite_value` 参照）。
     Raises:
-        ValueError: 建物高さ列が存在しない場合、または欠測が残っている場合。
+        ValueError: `source_columns` が2列でない場合、`sign_reference_column` が
+            `source_columns` に含まれない場合、列が存在しない場合、または
+            欠測が残っている場合。
     """
-    missing_columns = [
-        column for column in BUILDING_HEIGHT_COLUMNS if column not in dataframe.columns
-    ]
-    if missing_columns:
+    source_columns = list(source_columns)
+    if len(source_columns) != 2:
+        raise ValueError(f"{label}の主成分化は2列を対象とします: {source_columns}")
+    if sign_reference_column not in source_columns:
         raise ValueError(
-            f"建物高さの主成分化に必要な列がありません: {missing_columns}"
-            f"（必要: {BUILDING_HEIGHT_COLUMNS}）。"
+            f"符号の基準列 {sign_reference_column} が合成対象の列に含まれていません: "
+            f"{source_columns}"
         )
 
-    heights = dataframe[BUILDING_HEIGHT_COLUMNS]
-    if bool(heights.isna().to_numpy().any()):
+    missing_columns = [column for column in source_columns if column not in dataframe.columns]
+    if missing_columns:
         raise ValueError(
-            "建物高さ列に欠測が残っているため主成分化できません。"
-            "fill_missing_building_heights と filter_valid_rows を通した後の"
-            "データフレームを渡してください。"
+            f"{label}の主成分化に必要な列がありません: {missing_columns}"
+            f"（必要: {source_columns}）。"
+        )
+
+    values = dataframe[source_columns]
+    if bool(values.isna().to_numpy().any()):
+        raise ValueError(
+            f"{label}列に欠測が残っているため主成分化できません。"
+            "補完（建物高さは fill_missing_building_heights）とフィルタ（filter_valid_rows）を"
+            "通した後のデータフレームを渡してください。"
         )
 
     scaler = StandardScaler()
-    standardized = scaler.fit_transform(heights.to_numpy(dtype=float))
+    standardized = scaler.fit_transform(values.to_numpy(dtype=float))
     pca = PCA(n_components=1)
     scores = pca.fit_transform(standardized)[:, 0]
     loadings = pca.components_[0]
 
-    mean_index = BUILDING_HEIGHT_COLUMNS.index(BUILDING_HEIGHT_MEAN_COLUMN)
-    sign_flipped = bool(loadings[mean_index] < 0)
+    reference_index = source_columns.index(sign_reference_column)
+    sign_flipped = bool(loadings[reference_index] < 0)
     if sign_flipped:
         loadings = -loadings
         scores = -scores
 
     with_pc1 = dataframe.copy()
-    with_pc1[BUILDING_HEIGHT_PC1_COLUMN] = scores
+    with_pc1[output_column] = scores
 
-    # 高さ2列がともに定数の場合、標準化後が全て0になりPCAの寄与率・元2列の相関が
+    # 2列がともに定数の場合、標準化後が全て0になりPCAの寄与率・元2列の相関が
     # NaNになる。そのまま残すと save_summary（allow_nan=False）がフル実行の最終保存
     # 時に落ちるため、VIFと同じ方針で None へ落として項目名を別に残す。
     non_finite_keys: list[str] = []
     diagnostics: dict[str, object] = {
-        "column": BUILDING_HEIGHT_PC1_COLUMN,
-        "source_columns": list(BUILDING_HEIGHT_COLUMNS),
+        "column": output_column,
+        "source_columns": source_columns,
         # fit対象は分析サンプル（既定10万件）であり、フィルタ前の母集団ではない。
         # 記録する寄与率・loadingsもこのサンプル上の値である。
         "fit_row_count": int(len(dataframe)),
         "loadings": {
             column: _sanitize_finite_value(value, non_finite_keys, f"loadings.{column}")
-            for column, value in zip(BUILDING_HEIGHT_COLUMNS, loadings, strict=True)
+            for column, value in zip(source_columns, loadings, strict=True)
         },
         "explained_variance_ratio": _sanitize_finite_value(
             pca.explained_variance_ratio_[0], non_finite_keys, "explained_variance_ratio"
         ),
         "source_correlation_pearson": _sanitize_finite_value(
-            heights[BUILDING_HEIGHT_MEAN_COLUMN].corr(heights[BUILDING_HEIGHT_MAX_COLUMN]),
+            values[source_columns[0]].corr(values[source_columns[1]]),
             non_finite_keys,
             "source_correlation_pearson",
         ),
@@ -1012,13 +1152,13 @@ def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict
                 column: _sanitize_finite_value(
                     value, non_finite_keys, f"standardization.means.{column}"
                 )
-                for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.mean_, strict=True)
+                for column, value in zip(source_columns, scaler.mean_, strict=True)
             },
             "scales": {
                 column: _sanitize_finite_value(
                     value, non_finite_keys, f"standardization.scales.{column}"
                 )
-                for column, value in zip(BUILDING_HEIGHT_COLUMNS, scaler.scale_, strict=True)
+                for column, value in zip(source_columns, scaler.scale_, strict=True)
             },
         },
         "sign_flipped": sign_flipped,
@@ -1026,12 +1166,70 @@ def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict
         "note": (
             "主成分は分析サンプル全体で1回fitしており、Spatial CVのfold内では"
             "fitし直していない。標準化はfitと同じサンプル上の平均・標準偏差による。"
-            "符号はBUILD_H_MEANへの寄与が正になる向きへ揃えてある。"
-            "non_finite_items が空でない場合、高さ2列が定数に近く主成分が縮退している"
+            f"符号は{sign_reference_column}への寄与が正になる向きへ揃えてある。"
+            f"non_finite_items が空でない場合、{note_subject}が定数に近く主成分が縮退している"
             "（該当項目の値は null に置き換えてある）。"
         ),
     }
     return with_pc1, diagnostics
+
+
+def add_building_height_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
+    """建物高さ2列を標準化し、第1主成分に合成した列を追加する。
+
+    `BUILD_H_MEAN` と `BUILD_H_MAX` は正に相関する（r > 0）ため、第1主成分の
+    固有ベクトルは `(1/√2, 1/√2)`・寄与率は `(1 + r) / 2` になり、「2列の平均的な
+    高さ水準」を1本に束ねる操作になる。**`r < 0` では第1主成分が
+    `(1/√2, -1/√2)` へ入れ替わるため、この形は無条件の恒等式ではない。**
+    符号は `BUILD_H_MEAN` への寄与が正になる向きへ揃える（「PC1が大きいほど建物が
+    高い」）。計算・fitの方針・診断情報の内容は `add_standardized_pc1` を参照する。
+
+    Args:
+        dataframe: 建物高さ2列を非NULLで含むデータフレーム
+            （`build_filtered_sample` の戻り値 `sampled` を想定）。
+    Returns:
+        `BUILDING_HEIGHT_PC1_COLUMN` を追加したデータフレームと、主成分の診断情報の
+        辞書のタプル（`add_standardized_pc1` の戻り値）。
+    Raises:
+        ValueError: 建物高さ列が存在しない場合、または欠測が残っている場合。
+    """
+    return add_standardized_pc1(
+        dataframe,
+        source_columns=BUILDING_HEIGHT_COLUMNS,
+        output_column=BUILDING_HEIGHT_PC1_COLUMN,
+        sign_reference_column=BUILDING_HEIGHT_MEAN_COLUMN,
+        label="建物高さ",
+        note_subject="高さ2列",
+    )
+
+
+def add_vegetation_water_pc1(dataframe: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
+    """NDVI と NDWI を標準化し、第1主成分に合成した列を追加する。
+
+    NDVI と NDWI はどちらも NIR を含み符号が逆であるため、**負に相関する**
+    （r < 0）。このため第1主成分の固有ベクトルは `(1/√2, -1/√2)` 側になり、
+    合成列は「植生が多く、水・湿潤の信号が弱い」向きの1軸になる。符号は NDVI への
+    寄与が正になる向きへ揃える（「PC1が大きいほど植生が多い」）。計算・fitの方針
+    （fold内でfitし直さない判断を含む）・診断情報の内容は `add_standardized_pc1` を
+    参照する。
+
+    Args:
+        dataframe: NDVI・NDWI を非NULLで含むデータフレーム
+            （`build_filtered_sample` の戻り値 `sampled` を想定）。
+    Returns:
+        `VEGETATION_WATER_PC1_COLUMN` を追加したデータフレームと、主成分の診断情報の
+        辞書のタプル（`add_standardized_pc1` の戻り値）。
+    Raises:
+        ValueError: NDVI・NDWI 列が存在しない場合、または欠測が残っている場合。
+    """
+    return add_standardized_pc1(
+        dataframe,
+        source_columns=[VEGETATION_INDEX_COLUMN, NDWI_COLUMN],
+        output_column=VEGETATION_WATER_PC1_COLUMN,
+        sign_reference_column=VEGETATION_INDEX_COLUMN,
+        label="NDVI・NDWI",
+        note_subject="NDVI・NDWI の2列",
+    )
 
 
 def build_candidate_correlation_frame(
@@ -1125,10 +1323,10 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     validate_scale_matches_dataset(args.dataset_path, args.scale)
     feature_columns = resolve_feature_columns(
-        args.variable_set, args.population_source, args.building_height
+        args.variable_set, args.population_source, args.building_height, args.water_index
     )
-    # フィルタ列は変数セット・建物高さ構成に依らず一定にして、構成間の母数を揃える
-    # （`resolve_filter_columns` の docstring に理由を記す）。
+    # フィルタ列は変数セット・建物高さ構成・水指数構成に依らず一定にして、構成間の
+    # 母数を揃える（`resolve_filter_columns` の docstring に理由を記す）。
     filter_columns = resolve_filter_columns()
     output_stem = resolve_output_stem(
         args.dataset_path,
@@ -1136,6 +1334,7 @@ def main() -> None:
         args.population_source,
         args.require_valid_gis_mask,
         args.building_height,
+        args.water_index,
     )
     observation_label = build_observation_label(output_stem)
 
@@ -1181,9 +1380,11 @@ def main() -> None:
     if missing_columns:
         raise ValueError(
             f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"
-            f"（{args.dataset_path}）。--variable-set の選択に関わらず、構成間で母数を"
-            "揃えるため分光指数・土地被覆の両方を要求します。--population-source の"
-            "指定と、データセットの生成時に結合したテーブルを確認してください。"
+            f"（{args.dataset_path}）。--variable-set・--water-index の選択に関わらず、"
+            "構成間で母数を揃えるため分光指数（MNDWI を含む4列）・土地被覆の両方を"
+            "要求します。--population-source の指定と、データセットの生成時に結合した"
+            "テーブルを確認してください（MNDWI が無い場合は、MNDWI を含む衛星指標から"
+            "idx テーブルとデータセットを再生成する必要があります）。"
         )
 
     filtered_sample_result = build_filtered_sample(
@@ -1209,6 +1410,9 @@ def main() -> None:
     building_height_pc1 = None
     if args.building_height == BUILDING_HEIGHT_MODE_PC1:
         sampled, building_height_pc1 = add_building_height_pc1(sampled)
+    vegetation_water_pc1 = None
+    if args.water_index == WATER_INDEX_MODE_PC1:
+        sampled, vegetation_water_pc1 = add_vegetation_water_pc1(sampled)
 
     # 分散0の列を残すと compute_vif が inf を返し、実体のある共線性と区別できなく
     # なるため、VIF算出・モデル学習の前に外す（drop_constant_features 参照）。
@@ -1243,6 +1447,8 @@ def main() -> None:
     run_conditions: dict[str, object] = {
         "variable_set": args.variable_set,
         "building_height_mode": args.building_height,
+        # 分光指数を投入しない coverage では None（水指数の構成を持たない）。
+        "water_index_mode": args.water_index,
         "population_sources": list(args.population_source),
         "features": model_feature_columns,
         "requested_features": feature_columns,
@@ -1263,6 +1469,9 @@ def main() -> None:
         # 主成分の向き・寄与率は結果の解釈に直結するため、診断のみの実行でも
         # フル実行でも同じ内容を残す。
         run_conditions["building_height_pc1"] = building_height_pc1
+    if vegetation_water_pc1 is not None:
+        # 建物高さの主成分と同じ理由で、診断のみの実行でもフル実行でも残す。
+        run_conditions["vegetation_water_pc1"] = vegetation_water_pc1
 
     if args.diagnose_only:
         diagnostics = {

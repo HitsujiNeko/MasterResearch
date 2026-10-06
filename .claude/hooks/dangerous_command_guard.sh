@@ -32,8 +32,7 @@ try_python() {
   # Python 自身の起動エラー（スクリプトを開けない等）も終了コード 2 になるため、
   # 判定スクリプトの拒否文面であることも確かめる
   if [ "$status" -eq 2 ] && [[ $message == 危険操作ガード:* ]]; then
-    printf '%s
-' "$message" >&2
+    printf '%s\n' "$message" >&2
     exit 2
   fi
   return 1

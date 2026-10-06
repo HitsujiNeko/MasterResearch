@@ -22,7 +22,7 @@
 危険操作は次の2層で防ぐ。
 
 - **第1層**: `.claude/settings.json` の `permissions.deny`（コマンド文字列の前方一致）
-- **第2層**: Bash・PowerShell ツールの PreToolUse hook（`.claude/hooks/dangerous_command_guard.sh` が `dangerous_command_guard.py` を呼ぶ）。コマンドを字句解析し、サブシェル・`git -C` 等のグローバルオプション・`bash -c`／`eval`／`Invoke-Expression`／`powershell -Command`／`cmd /c` の入れ子・短縮オプションの結合・リダイレクト・ヒアドキュメントを展開して判定する。変数展開・インタプリタのコードなど静的に判定できない形は、判定できなかった単純コマンド自身と、同じコマンド内の代入（`FLAG=--force` 等）・パイプの接続元に危険語の組を含む場合に拒否する
+- **第2層**: Bash・PowerShell ツールの PreToolUse hook（`.claude/hooks/dangerous_command_guard.sh` が `dangerous_command_guard.py` を呼ぶ）。コマンドを字句解析し、サブシェル・`git -C` 等のグローバルオプション・`bash -c`／`eval`／`Invoke-Expression`／`powershell -Command`／`cmd /c` の入れ子・短縮オプションの結合・リダイレクト・ヒアドキュメントを展開して判定する。変数展開・インタプリタのコードなど静的に判定できない形は、判定できなかった単純コマンド自身と、同じコマンド内の代入（`FLAG=--force`・`for`・`read`・`printf -v` 等）・パイプの接続元に危険語の組を含む場合に拒否する。位置パラメータ（`$1`・`$@`・`$args` 等）・パイプラインの値（`$_`）を使う場合と、git・gh・シェル等を実体とするエイリアスを定義する場合は、コマンド全体を対象にする
 
 各ルールグループについて、「直接形」「引数順変化形」「すり抜け形」の3形式で期待挙動を定義する。A〜F は第2層の判定ロジックを **CI の pytest で自動検証**する（[`tests/claude_hooks/test_dangerous_command_guard.py`](../../tests/claude_hooks/test_dangerous_command_guard.py)。PR 作成時・`main` への push 時に実行される）。G は Read ツールの deny のため手動で確認する。
 
@@ -54,7 +54,7 @@
 **hook の前提と既知の限界**:
 
 - Python の探索順は、環境変数 `CLAUDE_GUARD_PYTHON` → PATH 上の `python3`・`python`（Microsoft Store の仮エイリアス `WindowsApps` を除く）である。ローカル Windows では Bash ツールの PATH に Python が無いため、`.claude/settings.local.json` の `env` に `CLAUDE_GUARD_PYTHON`（conda 環境の `python.exe`）を設定する。Python を実行できない場合は危険語の有無による粗い判定で拒否側に倒すため、`echo "git push --force"` のような無害なコマンドも拒否しうる
-- 静的に判定できない単純コマンド（変数展開を含む git push・インタプリタのコード等）は、そのコマンド自身・同じコマンド内の代入・パイプの接続元に危険語の組があれば拒否する。Python のコード本文に危険語を書くだけでも拒否されるため、その場合はファイルに書き出してから実行する
+- 静的に判定できない単純コマンド（変数展開を含む git push・インタプリタのコード等）は、そのコマンド自身・同じコマンド内の代入・パイプの接続元（改行・グループをまたぐ場合を含む）に危険語の組があれば拒否する。Python のコード本文に危険語を書くだけでも拒否されるため、その場合はファイルに書き出してから実行する
 - `bash` 自体を起動できない場合や hook のタイムアウト（10 秒）では、Claude Code の仕様上ツールの実行は止まらない
 - 次の迂回は静的判定の範囲外であり、ブロックされない: `gh api` による操作（`gh api -X PUT repos/<owner>/<repo>/pulls/<N>/merge`、`gh api -X DELETE repos/<owner>/<repo>`）、git エイリアス（`git config alias.<名前>` で登録した別名）経由の実行。ファイルに書き出したスクリプトを後から別のコマンドで実行する形（`echo '…' > x.sh && bash x.sh` 等）と、変数の値をコマンドの出力・ファイルなど同じコマンド内の代入・パイプ以外から得る形も検出できない
 

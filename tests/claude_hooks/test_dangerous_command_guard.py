@@ -280,11 +280,58 @@ def test_blocks_review_regressions_in_powershell(command: str) -> None:
     assert _blocked(command, "PowerShell")
 
 
+@pytest.mark.parametrize(
+    ("command", "tool"),
+    [
+        # パイプの接続元を、改行・グループをまたいで追跡する
+        ("echo --force |\nxargs git push origin main", "Bash"),
+        ("(echo --force) | xargs git push origin main", "Bash"),
+        ("{ echo --force; } | xargs git push origin main", "Bash"),
+        ("echo --force | (xargs git push origin main)", "Bash"),
+        # 代入を行うコマンド・ラッパーの後ろの代入
+        ("printf -v F -- --force; git push origin main $F", "Bash"),
+        ("select F in --force; do git push origin main $F; break; done", "Bash"),
+        ("getopts f F --force; git push origin main $F", "Bash"),
+        ("env F=--force bash -c 'git push origin main $F'", "Bash"),
+        ("sudo F=--force sh -c 'git push origin main $F'", "Bash"),
+        # 位置パラメータで値を渡す形
+        ('f() { git push origin main "$1"; }; f --force', "Bash"),
+        ('f() { git "$@"; }; f push --force', "Bash"),
+        ("bash -c 'git push origin main \"$1\"' _ --force", "Bash"),
+        ("sh -c 'git reset \"$0\" HEAD' --hard", "Bash"),
+        ("function gp { git @args }; gp push --force", "PowerShell"),
+        ("& { param($f) git push origin main $f } --force", "PowerShell"),
+        # シェルのエイリアス経由
+        ("Set-Alias g git; g push --force", "PowerShell"),
+        ("Set-Alias -Name g -Value git; g push --force", "PowerShell"),
+        ("alias g=git; g push --force", "Bash"),
+    ],
+)
+def test_blocks_values_passed_indirectly(command: str, tool: str) -> None:
+    """パイプ・代入・位置パラメータ・エイリアスを経由して危険な値を渡す形を拒否する。"""
+    assert _blocked(command, tool)
+
+
+@pytest.mark.parametrize(
+    ("command", "tool"),
+    [
+        ("alias ll='ls -l'; ll", "Bash"),
+        ("Set-Alias ll Get-ChildItem; ll", "PowerShell"),
+        ("printf -v NOW '%s' today; git push origin $NOW", "Bash"),
+        ("(git status) | head -1; git push origin main", "Bash"),
+    ],
+)
+def test_allows_safe_indirect_forms(command: str, tool: str) -> None:
+    """無関係なエイリアス・代入・グループは誤検知しない。"""
+    assert not _blocked(command, tool)
+
+
 def test_wrapper_chain_is_linear() -> None:
     """ラッパーを多数重ねても、判定時間が hook のタイムアウトに近づかない。"""
     start = time.perf_counter()
     assert _blocked("time " * 200 + "git push -f", "Bash")
     assert not _blocked("time " * 200 + "git status", "Bash")
+    assert _blocked("echo --force | " + "xargs " * 500 + "git push origin main", "Bash")
     assert time.perf_counter() - start < 2.0
 
 

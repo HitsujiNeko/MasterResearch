@@ -50,9 +50,33 @@ class Dialect:
     comments: bool
 
 
-BASH = Dialect("bash", "\\", True, True, True, False, True)
-POWERSHELL = Dialect("powershell", "`", True, False, True, False, True)
-CMD = Dialect("cmd", "^", False, False, False, True, False)
+BASH = Dialect(
+    name="bash",
+    escape="\\",
+    single_quote=True,
+    backtick_subst=True,
+    dollar=True,
+    percent_vars=False,
+    comments=True,
+)
+POWERSHELL = Dialect(
+    name="powershell",
+    escape="`",
+    single_quote=True,
+    backtick_subst=False,
+    dollar=True,
+    percent_vars=False,
+    comments=True,
+)
+CMD = Dialect(
+    name="cmd",
+    escape="^",
+    single_quote=False,
+    backtick_subst=False,
+    dollar=False,
+    percent_vars=True,
+    comments=False,
+)
 
 # ツール名 → 字句規則
 TOOL_DIALECTS = {"Bash": BASH, "PowerShell": POWERSHELL}
@@ -96,6 +120,8 @@ class ScanState:
     dynamic_head: bool = False
     # 安全側の判定で危険語を探す文字列（判定できなかったコマンド・代入・復号した文字列等）
     coarse_texts: list[str] = field(default_factory=list)
+    # 記録済みの (単純コマンドの id, 標準入力も対象にしたか)
+    marked: set[tuple[int, bool]] = field(default_factory=set)
 
 
 # --- 字句解析 ---------------------------------------------------------------
@@ -339,6 +365,10 @@ class _Tokenizer:
         self._pending_heredocs: list[tuple[str, bool, bool, SimpleCommand]] = []
         # PowerShell の呼び出し演算子（&）の直後か
         self._after_call_operator = False
+        # 開いているグループ（( … ) / { … }）の先頭のコマンド位置
+        self._group_starts: list[int] = []
+        # 直前に閉じたグループ全体（グループをパイプの接続元にするため）
+        self._closed_group: SimpleCommand | None = None
 
     # --- 語・コマンドの組み立て ---
     def _add(self, text: str, quoted: bool = False) -> None:
@@ -388,14 +418,57 @@ class _Tokenizer:
         cur = self._cur
         # 2 文字の区切り（&& || |&）の 2 文字目が先頭に残るため除く
         cur.raw = self.s[self._cur_start : end].strip().lstrip("&|").strip()
-        if cur.words or cur.stdin_texts:
+        appended = bool(cur.words or cur.stdin_texts)
+        if appended:
             self.commands.append(cur)
-        self._cur = SimpleCommand(piped_from=cur if piped else None)
+        if piped:
+            # 直前が空（グループの閉じ括弧の直後等）なら、
+            # 閉じたグループか直前のコマンドを接続元にする
+            source = (
+                cur
+                if appended
+                else (self._closed_group or (self.commands[-1] if self.commands else None))
+            )
+        else:
+            # 空のコマンド（| の直後の改行・グループの開き括弧等）はパイプの接続を引き継ぐ
+            source = None if appended else cur.piped_from
+        self._closed_group = None
+        self._cur = SimpleCommand(piped_from=source)
         self._after_call_operator = False
         self._cur_start = end + 1
 
+    def _open_group(self, i: int) -> None:
+        """グループ（``(`` / ``{``）を開く。
+
+        Args:
+            i: 開き括弧の位置。
+        """
+        self._end_command(i)
+        self._group_starts.append(len(self.commands))
+
+    def _close_group(self, i: int) -> None:
+        """グループ（``)`` / ``}``）を閉じ、中のコマンド全体を 1 つの接続元としてまとめる。
+
+        Args:
+            i: 閉じ括弧の位置。
+        """
+        self._end_command(i)
+        if not self._group_starts:
+            return
+        members = self.commands[self._group_starts.pop() :]
+        if members:
+            self._closed_group = SimpleCommand(
+                raw="\n".join(c.raw for c in members),
+                stdin_texts=[t for c in members for t in c.stdin_texts],
+                piped_from=members[0].piped_from,
+            )
+
     def _at_command_start(self) -> bool:
-        """まだ語が 1 つもない（コマンドの先頭にいる）か。"""
+        """まだ語が 1 つもない（コマンドの先頭にいる）かを返す。
+
+        Returns:
+            コマンドの先頭にいれば True。
+        """
         return not self._cur.words and not self._in_word
 
     # --- 展開 ---
@@ -721,7 +794,7 @@ class _Tokenizer:
         if self.d is POWERSHELL and (self._after_call_operator or not self._at_command_start()):
             # & (Get-Command git) … の ( ) は実行するコマンドを決める式
             return self._paren_expansion(i, i)
-        self._end_command(i)
+        self._open_group(i)
         return i + 1
 
     def _brace(self, i: int) -> int:
@@ -738,7 +811,10 @@ class _Tokenizer:
         c = self.s[i]
         boundary = i + 1 >= len(self.s) or self.s[i + 1] in _WHITESPACE + "\n;&|()"
         if self.d is POWERSHELL or (self.d is BASH and not self._in_word and boundary):
-            self._end_command(i)
+            if c == "{":
+                self._open_group(i)
+            else:
+                self._close_group(i)
         else:
             # 語中の { はブレース展開になりうる
             self._add(c)
@@ -798,7 +874,7 @@ class _Tokenizer:
         if c == "(":
             return self._open_paren(i)
         if c == ")":
-            self._end_command(i)
+            self._close_group(i)
             return i + 1
         if c in "{}" and d is not CMD:
             return self._brace(i)
@@ -926,6 +1002,9 @@ _ASSIGNING_COMMANDS = {
     "set",
     "for",
     "foreach",
+    "select",
+    "getopts",
+    "let",
     "read",
     "mapfile",
     "readarray",
@@ -938,6 +1017,10 @@ _ASSIGNING_COMMANDS = {
 _STDIN_ASSIGNING_COMMANDS = {"read", "mapfile", "readarray"}
 # PowerShell でパイプラインの値を受け取る自動変数
 _PS_PIPELINE_VARS = re.compile(r"\$(?:_|PSItem|input)\b", re.IGNORECASE)
+# 関数・スクリプトブロック・bash -c の引数として値を受け取る位置パラメータ
+_POSITIONAL_PARAMS = re.compile(
+    r"\$(?:[0-9@*]|\{[0-9@*]+\})|[$@]args\b|\bparam\s*\(", re.IGNORECASE
+)
 
 
 def normalize_name(text: str) -> str:
@@ -1053,10 +1136,16 @@ def _mark_dynamic(
     """
     state.dynamic = True
     state.dynamic_head = state.dynamic_head or head
+    key = (id(command), stdin)
+    if key in state.marked:
+        return
+    state.marked.add(key)
     state.coarse_texts.append(command.raw)
     state.coarse_texts.extend(command.stdin_texts)
-    if dialect is POWERSHELL and _PS_PIPELINE_VARS.search(command.raw):
-        # パイプラインの値（$_ 等）はどこから来るか追えないため全体を対象にする
+    pipeline_value = dialect is POWERSHELL and _PS_PIPELINE_VARS.search(command.raw)
+    if pipeline_value or _POSITIONAL_PARAMS.search(command.raw):
+        # パイプラインの値（$_ 等）・位置パラメータ（$1・$args 等）は、
+        # 呼び出し側のどこから来るか追えないため全体を対象にする
         state.coarse_texts.append(state.top_text)
     source = command.piped_from if stdin else None
     while source is not None:
@@ -1082,6 +1171,13 @@ def _record_assignment(command: SimpleCommand, dialect: Dialect, state: ScanStat
         _ASSIGNMENT.match(w.text) or _PS_ASSIGNMENT_OPERATOR.match(w.text) for w in words[:start]
     )
     if dialect is POWERSHELL and words and re.match(r"^\$[\w:]+\s*[-+*/]?=", command.raw):
+        has_assignment = True
+    rest = words[start + 1 :]
+    if name == "printf" and any(w.text.startswith("-v") for w in rest):
+        # printf -v 変数名 … は変数に値を設定する
+        has_assignment = True
+    if name in _WRAPPERS and any(_ASSIGNMENT.match(w.text) for w in rest):
+        # env F=--force bash -c '…$F' のように、ラッパーの後ろでも代入できる
         has_assignment = True
     if has_assignment or name in _ASSIGNING_COMMANDS:
         state.coarse_texts.append(command.raw)
@@ -1548,6 +1644,57 @@ def _check_start_process(
 # --- 単純コマンドの検査 ------------------------------------------------------
 
 
+def _is_sensitive_name(text: str) -> bool:
+    """git・gh や、コマンド文字列を実行できるシェル・インタプリタの名前か。
+
+    Args:
+        text: コマンド名の語。
+
+    Returns:
+        該当すれば True。
+    """
+    name = normalize_name(text)
+    return name in _SENSITIVE_NAMES or bool(_INTERPRETERS.match(name))
+
+
+def _check_alias(
+    command: SimpleCommand, args: list[Word], dialect: Dialect, state: ScanState, depth: int
+) -> str | None:
+    """シェルのエイリアス定義を検査する。
+
+    エイリアスの実体が git・gh・シェル等の場合、後ろで別名として呼ばれた操作は静的に
+    判定できないため、コマンド全体を安全側の判定対象にする。
+
+    Args:
+        command: 単純コマンド。
+        args: ``alias`` / ``Set-Alias`` 等より後ろの語。
+        dialect: 字句規則。
+        state: 検査全体の状態。
+        depth: 入れ子の深さ。
+
+    Returns:
+        拒否理由。該当しなければ None。
+    """
+    targets: list[str] = []
+    for w in args:
+        if dialect is BASH and "=" in w.text:
+            value = w.text.split("=", 1)[1]
+            reason = _scan(value, BASH, state, depth + 1)
+            if reason:
+                return reason
+            targets.append(value.split(" ", 1)[0])
+        elif w.text.startswith("-") and dialect is POWERSHELL:
+            _name, inline = _ps_param(w.text)
+            if inline:
+                targets.append(inline)
+        else:
+            targets.append(w.text)
+    if any(_is_sensitive_name(t) for t in targets if t):
+        _mark_dynamic(state, command, dialect)
+        state.coarse_texts.append(state.top_text)
+    return None
+
+
 def _reads_code_from_stdin(args: list[Word]) -> bool:
     """インタプリタがコードを標準入力から読む呼び出しか（引数なし、または ``-``）。
 
@@ -1559,6 +1706,22 @@ def _reads_code_from_stdin(args: list[Word]) -> bool:
     """
     positional = [a.text for a in args if a.text == "-" or not a.text.startswith("-")]
     return not positional or positional[0] == "-"
+
+
+# コマンド文字列を引数に取り、入れ子として検査するコマンド
+_NESTED_CHECKS = {
+    **dict.fromkeys(_SHELLS, _check_shell),
+    **dict.fromkeys(_POWERSHELLS, _check_powershell),
+    "cmd": _check_cmd,
+    "invoke-expression": _check_invoke_expression,
+    "iex": _check_invoke_expression,
+    "start-process": _check_start_process,
+    "saps": _check_start_process,
+}
+# PowerShell のエイリアス定義
+_PS_ALIAS_COMMANDS = {"set-alias", "new-alias", "sal", "nal"}
+# エイリアスの実体として注意が必要なコマンド名
+_SENSITIVE_NAMES = {"git", "gh", "cmd", "eval", *_SHELLS, *_POWERSHELLS, *_NESTED_CHECKS}
 
 
 def _check_words(
@@ -1591,30 +1754,18 @@ def _check_words(
         return _check_git(command, args, dialect, state)
     if name == "gh":
         return _check_gh(command, args, dialect, state)
-    nested_checks = {
-        **dict.fromkeys(_SHELLS, _check_shell),
-        **dict.fromkeys(_POWERSHELLS, _check_powershell),
-        "cmd": _check_cmd,
-        "invoke-expression": _check_invoke_expression,
-        "iex": _check_invoke_expression,
-        "start-process": _check_start_process,
-        "saps": _check_start_process,
-    }
     if name == "start" and dialect is POWERSHELL:
         name = "start-process"
-    if name in nested_checks:
-        return nested_checks[name](command, args, dialect, state, depth)
+    if name in _NESTED_CHECKS:
+        return _NESTED_CHECKS[name](command, args, dialect, state, depth)
+    if (name == "alias" and dialect is BASH) or (
+        name in _PS_ALIAS_COMMANDS and dialect is POWERSHELL
+    ):
+        return _check_alias(command, args, dialect, state, depth)
     if name == "eval":
         if any(w.has_expansion for w in args):
             _mark_dynamic(state, command, dialect)
         return _scan(_join(args), dialect, state, depth + 1)
-    if name == "alias" and dialect is BASH:
-        for w in args:
-            if "=" in w.text:
-                reason = _scan(w.text.split("=", 1)[1], BASH, state, depth + 1)
-                if reason:
-                    return reason
-        return None
     if name == "trap" and dialect is BASH and args:
         return _scan(args[0].text, BASH, state, depth + 1)
     if _INTERPRETERS.match(name):

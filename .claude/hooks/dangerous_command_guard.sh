@@ -20,23 +20,11 @@ guard_py="$guard_dir/dangerous_command_guard.py"
 
 IFS= read -r -d '' input
 
-# Python の候補を集める
-candidates=()
-if [ -n "${CLAUDE_GUARD_PYTHON:-}" ]; then
-  candidates+=("$CLAUDE_GUARD_PYTHON")
-fi
-for name in python3 python; do
-  while IFS= read -r path; do
-    case "$path" in
-      *WindowsApps*) continue ;;
-    esac
-    candidates+=("$path")
-  done < <(type -aP "$name")
-done
-
-for python in "${candidates[@]}"; do
-  [ -f "$guard_py" ] || break
-  message="$(printf '%s' "$input" | "$python" "$guard_py" 2>&1)"
+# 指定の Python で判定する。判定できた（0 か 2 を返した）場合はその結果で終了する
+try_python() {
+  local message status
+  [ -f "$guard_py" ] || return 1
+  message="$(printf '%s' "$input" | "$1" "$guard_py" 2>&1)"
   status=$?
   if [ "$status" -eq 0 ]; then
     exit 0
@@ -44,9 +32,24 @@ for python in "${candidates[@]}"; do
   # Python 自身の起動エラー（スクリプトを開けない等）も終了コード 2 になるため、
   # 判定スクリプトの拒否文面であることも確かめる
   if [ "$status" -eq 2 ] && [[ $message == 危険操作ガード:* ]]; then
-    printf '%s\n' "$message" >&2
+    printf '%s
+' "$message" >&2
     exit 2
   fi
+  return 1
+}
+
+if [ -n "${CLAUDE_GUARD_PYTHON:-}" ]; then
+  try_python "$CLAUDE_GUARD_PYTHON"
+fi
+# CLAUDE_GUARD_PYTHON で判定できなかった場合だけ PATH を探す（Windows ではプロセス生成が重いため）
+for name in python3 python; do
+  while IFS= read -r path; do
+    case "$path" in
+      *WindowsApps*) continue ;;
+    esac
+    try_python "$path"
+  done < <(type -aP "$name")
 done
 
 # --- Python で判定できなかった場合の粗い判定 ---

@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -94,6 +95,14 @@ POWERSHELL_EVASIONS = [
 
 
 def _git_cases(evasions: list[str]) -> list[str]:
+    """git の危険操作を、すり抜け形の各書式に当てはめたコマンドの一覧を作る。
+
+    Args:
+        evasions: ``{op}`` を危険操作に置き換える書式の一覧。
+
+    Returns:
+        コマンドの一覧。
+    """
     return [form.format(op=op) for ops in GIT_DANGEROUS.values() for op in ops for form in evasions]
 
 
@@ -141,7 +150,6 @@ def test_blocks_dangerous_gh(command: str) -> None:
         "git push origin main $(echo --force)",
         "python -c \"import os; os.system('git push --force')\"",
         'eval "git push origin main $FLAG --force"',
-        "echo 'git push --force' > x.sh && bash x.sh",
         "echo 'git push --force' | bash",
         "cat <<'EOF' | bash\ngit push --force\nEOF",
         "python - <<'EOF'\nimport os\nos.system('git push --force')\nEOF",
@@ -205,6 +213,87 @@ def test_blocks_option_variants(command: str) -> None:
     assert _blocked(command, "Bash")
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        # ヒアドキュメント・ヒア文字列を、同じ行の後続（リダイレクト・パイプ・&&）と併用する形
+        "bash <<'EOF' > out.log 2>&1\ngit push --force\nEOF",
+        "bash <<'EOF' | tee log\ngit push --force\nEOF",
+        "bash <<'EOF' && echo ok\ngit push --force\nEOF",
+        "python - <<'EOF' 2>&1\nimport os\nos.system('git push --force')\nEOF",
+        "bash <<< 'git push --force'",
+        # 空白を挟まないリダイレクト
+        "git push origin main --force>/dev/null",
+        "git reset --hard>/dev/null",
+        "git push origin main &>/dev/null --force",
+        "git push origin main 2>&1 --force",
+        # 空のヒアドキュメントと組み合わせた変数展開
+        "cat > a.txt <<'EOF'\n\nEOF\nF=--force; git push origin main $F",
+        # 標準入力・ループ変数から値を受け取る形
+        "printf '%s\\n' --force | xargs git push origin main",
+        "for F in --force; do git push origin main $F; done",
+        "echo --force | while read F; do git push origin main $F; done",
+        "F=f; git push -$F origin main",
+        # パッケージ管理ツール等のラッパー
+        "conda run -n masterresearch git push --force",
+        "uv run git push --force",
+        "npx git push --force",
+        "coproc git push -f",
+        # 値を取るオプションの値を、別のオプションと取り違えない
+        "git clean -e -n -fdx",
+        "git clean --exclude -n -fdx",
+        "git clean -fe -n",
+        "git push -o ci.skip --force",
+    ],
+)
+def test_blocks_review_regressions_in_bash(command: str) -> None:
+    """ローカルレビューで見つかったすり抜け形を拒否する（Bash）。"""
+    assert _blocked(command, "Bash")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # 値を取るパラメータの省略形
+        'powershell -exec bypass -c "git push --force"',
+        'powershell -ExecutionP Bypass -Command "git reset --hard"',
+        'powershell -win hidden -c "git reset --hard"',
+        # 引数中の部分式・配列
+        "git push origin (git branch --show-current) --force",
+        "git reset (git rev-parse HEAD) --hard",
+        "git push origin main ('--force')",
+        "& (Get-Command git) push --force",
+        "git @('push','--force')",
+        "Start-Process git -ArgumentList @('push','--force')",
+        # 空白を挟んだカンマ区切りの配列
+        "Start-Process git -ArgumentList 'push', '--force'",
+        "Start-Process git -ArgumentList push, --force",
+        # -Name:value 形式・パイプラインの値・cmd の call・リダイレクト
+        "Invoke-Expression -Command:'git push -f'",
+        "'--force' | ForEach-Object { git push origin main $_ }",
+        'cmd /c "call git push -f"',
+        "git reset --hard > $null",
+    ],
+)
+def test_blocks_review_regressions_in_powershell(command: str) -> None:
+    """ローカルレビューで見つかったすり抜け形を拒否する（PowerShell）。"""
+    assert _blocked(command, "PowerShell")
+
+
+def test_wrapper_chain_is_linear() -> None:
+    """ラッパーを多数重ねても、判定時間が hook のタイムアウトに近づかない。"""
+    start = time.perf_counter()
+    assert _blocked("time " * 200 + "git push -f", "Bash")
+    assert not _blocked("time " * 200 + "git status", "Bash")
+    assert time.perf_counter() - start < 2.0
+
+
+def test_invalid_encoded_command_is_handled() -> None:
+    """-EncodedCommand が不正な base64 でも例外にせず、静的に判定できない形として扱う。"""
+    assert target.inspect_command("powershell -EncodedCommand @@@", "PowerShell") is None
+    assert _blocked("$c = 'git push --force'; powershell -EncodedCommand $c", "PowerShell")
+
+
 def test_blocks_backtick_escape_in_powershell() -> None:
     """PowerShell のバッククォートでエスケープしたオプションも拒否する。"""
     assert _blocked("git push origin main `-`-force", "PowerShell")
@@ -256,6 +345,18 @@ def test_blocks_unparsable_command_with_danger_words() -> None:
         "cat <<'EOF' > notes.md\ngit reset --hard は使わない\nEOF",
         "python scripts/change_category.py --expect S",
         "for f in *.py; do ruff check $f; done",
+        # 静的に判定できない部分があっても、危険語が別のコマンドにあるだけなら許可する
+        "cat <<'EOF' | python tool.py\ngit push --force\nEOF",
+        'rm -f tmp.txt && git push -u origin "$(git branch --show-current)"',
+        'git fetch --prune && git push -u origin "$BR"',
+        "git branch -d old && git push origin $B",
+        "git push --force-if-includes origin $B",
+        'python -m pytest && git commit -m "remove --force flag" && git push',
+        # コメント・リダイレクト
+        '# it\'s fine\ngit commit -m "note about reset --hard"',
+        "git push origin main # --force",
+        "git log --oneline 2>&1 | head -5",
+        "git status >/dev/null 2>&1 && git push origin main",
         "cat > doc.md <<'EOF'\ngit push --force は拒否される\nEOF\npython - <<'EOF'\nprint(1)\nEOF",
     ],
 )
@@ -274,6 +375,9 @@ def test_allows_safe_bash_commands(command: str) -> None:
         "Get-Content x.txt | Select-String 'reset --hard'",
         "Remove-Item -Recurse -Force build",
         "gh pr view 5",
+        "git status # ; git push -f",
+        "git status 2>&1 | Out-Null; git push origin main",
+        "Get-ChildItem | ForEach-Object { git -C $_.FullName log -1 }",
     ],
 )
 def test_allows_safe_powershell_commands(command: str) -> None:
@@ -364,7 +468,9 @@ def _write_fake_python(directory: Path, exit_code: int) -> None:
         fake.chmod(0o755)
 
 
-def _run_wrapper(stdin: str, path_dirs: list[Path], guard_python: str | None):
+def _run_wrapper(
+    stdin: str, path_dirs: list[Path], guard_python: str | None
+) -> subprocess.CompletedProcess[bytes]:
     """ラッパーを、PATH と CLAUDE_GUARD_PYTHON を差し替えて実行する。"""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_GUARD_PYTHON"}
     env["PATH"] = os.pathsep.join(str(d) for d in path_dirs)

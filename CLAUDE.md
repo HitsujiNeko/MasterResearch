@@ -84,7 +84,7 @@
 
 ### 機械的ガードレール
 
-強制push・`git reset --hard`・`gh pr merge`（squash mergeはユーザーの専権）等の危険操作は `.claude/settings.json` の `deny` で禁止している。**deny が正**であり、ドキュメント中の記述はその補足である。
+強制push・`git reset --hard`・`gh pr merge`（squash mergeはユーザーの専権）等の危険操作は `.claude/settings.json` の `deny` で禁止し、サブシェル・`git -C`・変数展開などの迂回形は PreToolUse hook（`.claude/hooks/dangerous_command_guard.*`）で二重に検査している。**設定（deny・hook）が正**であり、ドキュメント中の記述はその補足である。
 
 ---
 
@@ -109,4 +109,4 @@
 - 研究の進行に応じて随時更新し、変更時は日付を記録する
 - 詳細手順はここに書かず、参照先（task-workflow.md・CodingRule.md・コマンド・スキル）に置く
 
-**最終更新**: 2026-09-29
+**最終更新**: 2026-10-03

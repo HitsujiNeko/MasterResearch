@@ -319,6 +319,17 @@ def test_blocks_review_regressions_in_powershell(command: str) -> None:
         # Alias: ドライブ経由のエイリアス定義
         ("Set-Item alias:g git; g push --force", "PowerShell"),
         ("New-Item -Path Alias:g -Value git; g push --force", "PowerShell"),
+        # 同じ文字列のコマンドでも、接続元が違えばそれぞれ判定する
+        ("echo ok | bash; echo 'git push --force' | bash", "Bash"),
+        ("echo main | xargs git push origin; echo --force | xargs git push origin", "Bash"),
+        (
+            "printf main | python -; "
+            "printf 'import os; os.system(\"git push --force\")' | python -",
+            "Bash",
+        ),
+        # 型・波括弧つきの PowerShell の代入
+        ("[string]$F='--force'; git push origin main $F", "PowerShell"),
+        ("${F}='--force'; git push origin main $F", "PowerShell"),
     ],
 )
 def test_blocks_values_passed_indirectly(command: str, tool: str) -> None:

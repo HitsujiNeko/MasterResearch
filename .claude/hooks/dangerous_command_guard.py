@@ -127,9 +127,9 @@ class ScanState:
     units: list[CoarseUnit] = field(default_factory=list)
     # 代入（値の出どころ）の文字列。すべての判定単位に加える
     assign_texts: list[str] = field(default_factory=list)
-    # 記録済みの (元の文字列, 標準入力の本文, 標準入力も対象にしたか)。
+    # 記録済みの (判定対象の文字列の列, コマンド名が変数か)。
     # オブジェクトの id は解放後に再利用されうるため、値で判定する
-    marked: set[tuple[str, tuple[str, ...], bool]] = field(default_factory=set)
+    marked: set[tuple[tuple[str, ...], bool]] = field(default_factory=set)
 
 
 # --- 字句解析 ---------------------------------------------------------------
@@ -957,6 +957,10 @@ _EXECUTABLE_SUFFIXES = (".exe", ".cmd", ".bat", ".com")
 _SCRIPT_SUFFIXES = (".sh", ".bash", ".ps1", ".py", ".bat", ".cmd")
 _ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
 _PS_ASSIGNMENT_OPERATOR = re.compile(r"^(?:[-+*/%]|\?\?)?=$")
+# PowerShell の代入文（[string]$F='…'・${F}='…' のような型・波括弧つきの形を含む）
+_PS_ASSIGNMENT_STATEMENT = re.compile(
+    r"^(?:\[[^\]]+\]\s*)*\$(?:\{[^}]+\}|[\w:]+)\s*(?:[-+*/%]|\?\?)?="
+)
 
 # 先頭にあっても実行対象を変えない語（シェルの予約語）
 _BASH_KEYWORDS = {"if", "then", "else", "elif", "do", "while", "until", "!", "{", "}"}
@@ -1164,10 +1168,6 @@ def _mark_dynamic(
         head: 実行するコマンド名そのものが変数で決まる場合は True。
         stdin: 標準入力の内容がコマンドの動作を決める場合は True（パイプの接続元も対象にする）。
     """
-    key = (command.raw, tuple(command.stdin_texts), stdin)
-    if key in state.marked and not head:
-        return
-    state.marked.add(key)
     texts = [command.raw, *command.stdin_texts]
     pipeline_value = dialect is POWERSHELL and _PS_PIPELINE_VARS.search(command.raw)
     if pipeline_value or _uses_positional_params(command.raw):
@@ -1179,6 +1179,11 @@ def _mark_dynamic(
         texts.append(source.raw)
         texts.extend(source.stdin_texts)
         source = source.piped_from
+    # 同じ文字列のコマンドでも接続元が違えば別の単位になるよう、判定対象の文字列全体で比べる
+    key = (tuple(texts), head)
+    if key in state.marked:
+        return
+    state.marked.add(key)
     state.units.append(CoarseUnit(texts, require_tool=not head))
 
 
@@ -1208,7 +1213,7 @@ def _record_assignment(command: SimpleCommand, dialect: Dialect, state: ScanStat
     has_assignment = start > 0 and any(
         _ASSIGNMENT.match(w.text) or _PS_ASSIGNMENT_OPERATOR.match(w.text) for w in words[:start]
     )
-    if dialect is POWERSHELL and words and re.match(r"^\$[\w:]+\s*[-+*/]?=", command.raw):
+    if dialect is POWERSHELL and words and _PS_ASSIGNMENT_STATEMENT.match(command.raw):
         has_assignment = True
     rest = words[start + 1 :]
     if name == "printf" and any(w.text.startswith("-v") for w in rest):

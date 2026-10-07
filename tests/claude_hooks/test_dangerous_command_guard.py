@@ -305,6 +305,20 @@ def test_blocks_review_regressions_in_powershell(command: str) -> None:
         ("Set-Alias g git; g push --force", "PowerShell"),
         ("Set-Alias -Name g -Value git; g push --force", "PowerShell"),
         ("alias g=git; g push --force", "Bash"),
+        # 位置パラメータを一度変数に受ける形・展開の修飾つきの形・PowerShell の関数引数
+        ('f() { local o=$1; git push origin main "$o"; }; f --force', "Bash"),
+        ("f() { o=$1; git push origin main $o; }; f --force", "Bash"),
+        ('f() { git push origin main "${1:-}"; }; f --force', "Bash"),
+        ('f() { git "${@:1}"; }; f push --force', "Bash"),
+        ("function gp($o) { git push origin main $o }; gp --force", "PowerShell"),
+        ("function gp([string]$o) { git push origin main $o }; gp --force", "PowerShell"),
+        # パイプを受けたグループ内の 2 つ目以降のコマンド
+        ("echo --force | (cd /tmp/repo && xargs git push origin main)", "Bash"),
+        ("echo --force | { cd /tmp/repo; xargs git push origin main; }", "Bash"),
+        ("echo --force | (cd x; while read F; do git push origin main $F; done)", "Bash"),
+        # Alias: ドライブ経由のエイリアス定義
+        ("Set-Item alias:g git; g push --force", "PowerShell"),
+        ("New-Item -Path Alias:g -Value git; g push --force", "PowerShell"),
     ],
 )
 def test_blocks_values_passed_indirectly(command: str, tool: str) -> None:
@@ -319,11 +333,33 @@ def test_blocks_values_passed_indirectly(command: str, tool: str) -> None:
         ("Set-Alias ll Get-ChildItem; ll", "PowerShell"),
         ("printf -v NOW '%s' today; git push origin $NOW", "Bash"),
         ("(git status) | head -1; git push origin main", "Bash"),
+        # 単一引用符内の $1 は位置パラメータではない
+        (
+            "rm -f a.txt && git push origin \"$(git branch --show-current | awk '{print $1}')\"",
+            "Bash",
+        ),
+        ("git push origin main 2>&1 | perl -ne 'print $1 if /(forced update)/'", "Bash"),
+        # 判定できないコマンドが複数あっても、別のコマンドの危険語では拒否しない
+        ('python x.py --delete-temp && git push origin "$BR"', "Bash"),
+        ('python x.py -d data && git push -u origin "$(git branch --show-current)"', "Bash"),
     ],
 )
 def test_allows_safe_indirect_forms(command: str, tool: str) -> None:
     """無関係なエイリアス・代入・グループは誤検知しない。"""
     assert not _blocked(command, tool)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "eval 'python x.py'; eval 'git push origin main --force$B'",
+        "eval 'git push $A'; eval 'git reset --hard$B'",
+        "eval 'git push $A'; eval 'git push origin main --force$B'",
+    ],
+)
+def test_dynamic_records_are_not_lost_between_nested_commands(command: str) -> None:
+    """入れ子の検査が続いても、判定できないコマンドの記録が漏れない（毎回同じ結果になる）。"""
+    assert all(_blocked(command, "Bash") for _ in range(50))
 
 
 def test_wrapper_chain_is_linear() -> None:

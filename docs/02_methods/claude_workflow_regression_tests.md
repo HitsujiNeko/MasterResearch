@@ -22,7 +22,7 @@
 危険操作は次の2層で防ぐ。
 
 - **第1層**: `.claude/settings.json` の `permissions.deny`（コマンド文字列の前方一致）
-- **第2層**: Bash・PowerShell ツールの PreToolUse hook（`.claude/hooks/dangerous_command_guard.sh` が `dangerous_command_guard.py` を呼ぶ）。コマンドを字句解析し、サブシェル・`git -C` 等のグローバルオプション・`bash -c`／`eval`／`Invoke-Expression`／`powershell -Command`／`cmd /c` の入れ子・短縮オプションの結合・リダイレクト・ヒアドキュメントを展開して判定する。変数展開・インタプリタのコードなど静的に判定できない形は、判定できなかった単純コマンド自身と、同じコマンド内の代入（`FLAG=--force`・`for`・`read`・`printf -v` 等）・パイプの接続元に危険語の組を含む場合に拒否する。位置パラメータ（`$1`・`$@`・`$args` 等）・パイプラインの値（`$_`）を使う場合と、git・gh・シェル等を実体とするエイリアスを定義する場合は、コマンド全体を対象にする
+- **第2層**: Bash・PowerShell ツールの PreToolUse hook（`.claude/hooks/dangerous_command_guard.sh` が `dangerous_command_guard.py` を呼ぶ）。コマンドを字句解析し、サブシェル・`git -C` 等のグローバルオプション・`bash -c`／`eval`／`Invoke-Expression`／`powershell -Command`／`cmd /c` の入れ子・短縮オプションの結合・リダイレクト・ヒアドキュメントを展開して判定する。変数展開・インタプリタのコードなど静的に判定できない形は、判定できなかった単純コマンド自身と、同じコマンド内の代入（`FLAG=--force`・`for`・`read`・`printf -v` 等）・パイプの接続元に危険語の組を含む場合に拒否する（判定できなかったコマンドごとに判定し、別のコマンドの危険語では拒否しない）。位置パラメータ（`$1`・`${1:-}`・`$@`・`$args` 等。一度変数に受けた場合を含む）・関数やスクリプトブロックの引数宣言・パイプラインの値（`$_`）を使う場合と、git・gh・シェル等を実体とするエイリアス（`alias`・`Set-Alias`・`Alias:` ドライブ）を定義する場合は、コマンド全体を対象にする
 
 各ルールグループについて、「直接形」「引数順変化形」「すり抜け形」の3形式で期待挙動を定義する。A〜F は第2層の判定ロジックを **CI の pytest で自動検証**する（[`tests/claude_hooks/test_dangerous_command_guard.py`](../../tests/claude_hooks/test_dangerous_command_guard.py)。PR 作成時・`main` への push 時に実行される）。G は Read ツールの deny のため手動で確認する。
 

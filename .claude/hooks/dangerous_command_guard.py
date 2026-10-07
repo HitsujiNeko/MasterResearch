@@ -109,19 +109,27 @@ class SimpleCommand:
 
 
 @dataclass
+class CoarseUnit:
+    """安全側の判定を 1 回かける単位（判定できなかった 1 つのコマンドとその値の出どころ）。"""
+
+    texts: list[str]
+    # True のとき git / gh の語を含む場合に限り判定する（コマンド名が変数なら False）
+    require_tool: bool = True
+
+
+@dataclass
 class ScanState:
     """1 回の検査全体で共有する状態。"""
 
     # 検査対象のコマンド文字列全体
     top_text: str = ""
-    # 変数展開・eval 等により静的に判定できない箇所があったか
-    dynamic: bool = False
-    # 実行するコマンド名そのものが変数で決まる箇所があったか
-    dynamic_head: bool = False
-    # 安全側の判定で危険語を探す文字列（判定できなかったコマンド・代入・復号した文字列等）
-    coarse_texts: list[str] = field(default_factory=list)
-    # 記録済みの (単純コマンドの id, 標準入力も対象にしたか)
-    marked: set[tuple[int, bool]] = field(default_factory=set)
+    # 判定できなかったコマンドごとの判定単位
+    units: list[CoarseUnit] = field(default_factory=list)
+    # 代入（値の出どころ）の文字列。すべての判定単位に加える
+    assign_texts: list[str] = field(default_factory=list)
+    # 記録済みの (元の文字列, 標準入力の本文, 標準入力も対象にしたか)。
+    # オブジェクトの id は解放後に再利用されうるため、値で判定する
+    marked: set[tuple[str, tuple[str, ...], bool]] = field(default_factory=set)
 
 
 # --- 字句解析 ---------------------------------------------------------------
@@ -366,7 +374,8 @@ class _Tokenizer:
         # PowerShell の呼び出し演算子（&）の直後か
         self._after_call_operator = False
         # 開いているグループ（( … ) / { … }）の先頭のコマンド位置
-        self._group_starts: list[int] = []
+        # (グループ内の先頭のコマンド位置, グループが受け取ったパイプの接続元)
+        self._group_starts: list[tuple[int, SimpleCommand | None]] = []
         # 直前に閉じたグループ全体（グループをパイプの接続元にするため）
         self._closed_group: SimpleCommand | None = None
 
@@ -432,6 +441,9 @@ class _Tokenizer:
         else:
             # 空のコマンド（| の直後の改行・グループの開き括弧等）はパイプの接続を引き継ぐ
             source = None if appended else cur.piped_from
+            if source is None and self._group_starts:
+                # パイプを受けたグループの中では、どのコマンドも標準入力を読める
+                source = self._group_starts[-1][1]
         self._closed_group = None
         self._cur = SimpleCommand(piped_from=source)
         self._after_call_operator = False
@@ -444,7 +456,7 @@ class _Tokenizer:
             i: 開き括弧の位置。
         """
         self._end_command(i)
-        self._group_starts.append(len(self.commands))
+        self._group_starts.append((len(self.commands), self._cur.piped_from))
 
     def _close_group(self, i: int) -> None:
         """グループ（``)`` / ``}``）を閉じ、中のコマンド全体を 1 つの接続元としてまとめる。
@@ -455,7 +467,7 @@ class _Tokenizer:
         self._end_command(i)
         if not self._group_starts:
             return
-        members = self.commands[self._group_starts.pop() :]
+        members = self.commands[self._group_starts.pop()[0] :]
         if members:
             self._closed_group = SimpleCommand(
                 raw="\n".join(c.raw for c in members),
@@ -1019,8 +1031,26 @@ _STDIN_ASSIGNING_COMMANDS = {"read", "mapfile", "readarray"}
 _PS_PIPELINE_VARS = re.compile(r"\$(?:_|PSItem|input)\b", re.IGNORECASE)
 # 関数・スクリプトブロック・bash -c の引数として値を受け取る位置パラメータ
 _POSITIONAL_PARAMS = re.compile(
-    r"\$(?:[0-9@*]|\{[0-9@*]+\})|[$@]args\b|\bparam\s*\(", re.IGNORECASE
+    r"\$(?:[0-9@*]|\{[#!]?[0-9@*])"
+    r"|[$@]args\b|\bparam\s*\(|\b(?:function|filter)\s+[\w-]+\s*\(",
+    re.IGNORECASE,
 )
+# PowerShell の関数・スクリプトブロックの引数宣言（本体の変数が呼び出し側の値で決まる）
+_PARAM_DECLARATION = re.compile(r"\b(?:function|filter)\s+[\w-]+\s*\(|\bparam\s*\(", re.IGNORECASE)
+# 単一引用符の文字列（展開されないため位置パラメータの判定から除く）
+_SINGLE_QUOTED = re.compile(r"'[^']*'")
+
+
+def _uses_positional_params(raw: str) -> bool:
+    """位置パラメータ（関数・スクリプトブロック・bash -c の引数）を使っているか。
+
+    Args:
+        raw: 単純コマンドの元の文字列。
+
+    Returns:
+        単一引用符の外で位置パラメータを使っていれば True。
+    """
+    return bool(_POSITIONAL_PARAMS.search(_SINGLE_QUOTED.sub("", raw)))
 
 
 def normalize_name(text: str) -> str:
@@ -1134,24 +1164,32 @@ def _mark_dynamic(
         head: 実行するコマンド名そのものが変数で決まる場合は True。
         stdin: 標準入力の内容がコマンドの動作を決める場合は True（パイプの接続元も対象にする）。
     """
-    state.dynamic = True
-    state.dynamic_head = state.dynamic_head or head
-    key = (id(command), stdin)
-    if key in state.marked:
+    key = (command.raw, tuple(command.stdin_texts), stdin)
+    if key in state.marked and not head:
         return
     state.marked.add(key)
-    state.coarse_texts.append(command.raw)
-    state.coarse_texts.extend(command.stdin_texts)
+    texts = [command.raw, *command.stdin_texts]
     pipeline_value = dialect is POWERSHELL and _PS_PIPELINE_VARS.search(command.raw)
-    if pipeline_value or _POSITIONAL_PARAMS.search(command.raw):
+    if pipeline_value or _uses_positional_params(command.raw):
         # パイプラインの値（$_ 等）・位置パラメータ（$1・$args 等）は、
         # 呼び出し側のどこから来るか追えないため全体を対象にする
-        state.coarse_texts.append(state.top_text)
+        texts.append(state.top_text)
     source = command.piped_from if stdin else None
     while source is not None:
-        state.coarse_texts.append(source.raw)
-        state.coarse_texts.extend(source.stdin_texts)
+        texts.append(source.raw)
+        texts.extend(source.stdin_texts)
         source = source.piped_from
+    state.units.append(CoarseUnit(texts, require_tool=not head))
+
+
+def _mark_whole(state: ScanState, texts: list[str]) -> None:
+    """指定の文字列を、独立した安全側の判定単位として記録する。
+
+    Args:
+        state: 検査全体の状態。
+        texts: 判定する文字列（コマンド全体・復号した文字列等）。
+    """
+    state.units.append(CoarseUnit(list(texts)))
 
 
 def _record_assignment(command: SimpleCommand, dialect: Dialect, state: ScanState) -> None:
@@ -1179,11 +1217,22 @@ def _record_assignment(command: SimpleCommand, dialect: Dialect, state: ScanStat
     if name in _WRAPPERS and any(_ASSIGNMENT.match(w.text) for w in rest):
         # env F=--force bash -c '…$F' のように、ラッパーの後ろでも代入できる
         has_assignment = True
+    if _PARAM_DECLARATION.search(command.raw):
+        # function gp($o) { … } の本体は呼び出し側の引数で決まるため、全体を値の出どころとする
+        state.assign_texts.append(state.top_text)
     if has_assignment or name in _ASSIGNING_COMMANDS:
-        state.coarse_texts.append(command.raw)
-        state.coarse_texts.extend(command.stdin_texts)
+        state.assign_texts.append(command.raw)
+        state.assign_texts.extend(command.stdin_texts)
+        if _uses_positional_params(command.raw):
+            # local o=$1 のように位置パラメータを受けた変数は、呼び出し側の値で決まる
+            state.assign_texts.append(state.top_text)
     if name in _STDIN_ASSIGNING_COMMANDS:
-        _mark_dynamic(state, command, dialect, stdin=True)
+        # read 等が標準入力から受け取る値の出どころ（パイプの接続元）も代入として扱う
+        source = command.piped_from
+        while source is not None:
+            state.assign_texts.append(source.raw)
+            state.assign_texts.extend(source.stdin_texts)
+            source = source.piped_from
 
 
 # --- git / gh の判定 ---------------------------------------------------------
@@ -1485,7 +1534,7 @@ def _check_powershell(
             except (binascii.Error, UnicodeDecodeError, ValueError):
                 _mark_dynamic(state, command, dialect)
                 return None
-            state.coarse_texts.append(decoded)
+            _mark_whole(state, [decoded])
             return _scan(decoded, POWERSHELL, state, depth + 1)
         if "command".startswith(name):
             rest = ([inline] if inline is not None else []) + [a.text for a in args[k + 1 :]]
@@ -1690,8 +1739,7 @@ def _check_alias(
         else:
             targets.append(w.text)
     if any(_is_sensitive_name(t) for t in targets if t):
-        _mark_dynamic(state, command, dialect)
-        state.coarse_texts.append(state.top_text)
+        _mark_whole(state, [state.top_text])
     return None
 
 
@@ -1720,6 +1768,8 @@ _NESTED_CHECKS = {
 }
 # PowerShell のエイリアス定義
 _PS_ALIAS_COMMANDS = {"set-alias", "new-alias", "sal", "nal"}
+# Alias: ドライブに項目を作るコマンド（Set-Item alias:g git 等）
+_PS_ITEM_COMMANDS = {"set-item", "new-item", "si", "ni"}
 # エイリアスの実体として注意が必要なコマンド名
 _SENSITIVE_NAMES = {"git", "gh", "cmd", "eval", *_SHELLS, *_POWERSHELLS, *_NESTED_CHECKS}
 
@@ -1758,8 +1808,9 @@ def _check_words(
         name = "start-process"
     if name in _NESTED_CHECKS:
         return _NESTED_CHECKS[name](command, args, dialect, state, depth)
+    alias_drive = name in _PS_ITEM_COMMANDS and any("alias:" in a.text.lower() for a in args)
     if (name == "alias" and dialect is BASH) or (
-        name in _PS_ALIAS_COMMANDS and dialect is POWERSHELL
+        dialect is POWERSHELL and (name in _PS_ALIAS_COMMANDS or alias_drive)
     ):
         return _check_alias(command, args, dialect, state, depth)
     if name == "eval":
@@ -1805,8 +1856,7 @@ def _scan(command: str, dialect: Dialect, state: ScanState, depth: int) -> str |
         拒否理由。該当しなければ None。
     """
     if depth > MAX_DEPTH:
-        state.dynamic = True
-        state.coarse_texts.append(command)
+        _mark_whole(state, [command])
         return None
     commands, nested = tokenize(command, dialect)
     for inner, inner_dialect in nested:
@@ -1894,9 +1944,9 @@ def inspect_command(command: str, tool_name: str = "Bash") -> str | None:
         return f"{label}（構文を解析できないため安全側で判定）" if label else None
     if reason:
         return reason
-    if state.dynamic:
-        # コマンド名自体が変数のときは git/gh の語が現れなくても危険語で判定する
-        label = coarse_danger("\n".join(state.coarse_texts), require_tool=not state.dynamic_head)
+    # 判定できなかったコマンドごとに、そのコマンドと値の出どころ（代入）だけで判定する
+    for unit in state.units:
+        label = coarse_danger("\n".join(unit.texts + state.assign_texts), unit.require_tool)
         if label:
             return f"{label}（変数展開・eval 等で静的に判定できないため安全側で判定）"
     return None

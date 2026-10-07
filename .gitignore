@@ -85,8 +85,11 @@ presentations/
 # =========================
 .claude/settings.local.json
 # settings.local.json から呼ぶフック。クライアント側の不具合の回避など
-# 環境依存の内容になるため、共有しない
-.claude/hooks/
+# 環境依存の内容になるため、共有しない。ただし settings.json から呼ぶ
+# 危険操作ガードは全環境で使うため例外として追跡する
+.claude/hooks/*
+!.claude/hooks/dangerous_command_guard.py
+!.claude/hooks/dangerous_command_guard.sh
 
 # =========================
 # 探索・単発スクリプト（テスト不要領域。再利用時は src/ へ昇格）

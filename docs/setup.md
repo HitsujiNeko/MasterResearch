@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-09-30  
+**最終更新**: 2026-10-08  
 **関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
@@ -321,6 +321,8 @@ Python系CI依存の導入はpipベース（`requirements.txt` + `pytest`/`ruff`
 **ローカル開発ではConda環境を唯一の実行環境とする方針は変更しない**。CIは大容量の研究データを必要としない
 `tests/` 配下のユニットテストのみを対象とする軽量な検査であり、ローカル開発環境の構築手段は
 引き続き `environment.yml` を正本とする。
+
+markdownlint-cli2 の版は `.github/workflows/ci.yml` を正本とする。版を上げる際は `.pre-commit-config.yaml` の `rev` も合わせ、`git grep "markdownlint-cli2@"` で検出される手順書・スキル・設定の記載を同時に更新する。
 
 ---
 

@@ -1,6 +1,6 @@
 # 都市構造パラメータの採否
 
-**最終更新**: 2026-09-30  
+**最終更新**: 2026-10-08  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [available_gis_data.md](available_gis_data.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md)  
 **前提知識**: RQ1-RQ3、3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）、都市構造パラメータの定義（[research_guide.md](research_guide.md) §5.3）
 
@@ -199,7 +199,7 @@ P7 のクラス列 `LULC_WATER_COV`・`LULC_BUILT_COV` は、P11 水域被覆率
 | P17 | 正規化建築物指数（NDBI） | 短波赤外と近赤外の反射率の正規化差分。人工被覆の量を表す | 無次元（-1〜1） | S6（寄与 21.38%） | RQ1・RQ2・RQ3 | **採用** |
 | P18 | 正規化水指数（NDWI） | 緑と近赤外の反射率の正規化差分。水域・湿潤域を表す | 無次元（-1〜1） | S6（熱帯都市で寄与 51.46%・最大） | RQ1・RQ2・RQ3 | **採用** |
 | P19 | 植生被覆割合（FVC） | NDVI から導かれる植生被覆の割合。**分光指数の変換値**であり、土地被覆分類に由来する P8 とは別概念 | 0-1 | S6（放射率推定での有効性） | — | **不採用** |
-| P20 | 修正正規化水指数（MNDWI） | 緑と短波赤外の反射率の正規化差分。近赤外を含まない水指数（Xu 2006） | 無次元（-1〜1） | Xu 2006（文献DB未登録・原本未確認）、Zhu et al. 2023（文献DB未登録） | RQ1・RQ2・RQ3 | **採用**（§3.2） |
+| P20 | 修正正規化水指数（MNDWI） | 緑と短波赤外の反射率の正規化差分。近赤外を含まない水指数（Xu 2006） | 無次元（-1〜1） | Xu 2006（文献DB未登録・原本未確認）、Zhu et al. 2023（S11） | RQ1・RQ2・RQ3 | **採用**（§3.2） |
 
 衛星由来指標は3シナリオすべてで算出されるため、`Satellite Only` における唯一の説明変数群となる。RQ3 における性能比較の基準線を与える。
 

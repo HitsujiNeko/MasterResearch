@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-09-30  
+**最終更新**: 2026-10-08  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -989,7 +989,7 @@ RF の不純度ベース重要度（括弧内は順位。首位はいずれの�
 | S6 Garzón et al. 2021（Remote Sens. 13:4256） | `NDBI`・`NDVI`・`NDWI` を VIF > 10（`NDWI` 45.75）のまま保持。重要な変数であることと先例を理由とする | 本文確認 |
 | Bečić & Gašparović 2026（Atmosphere 17:466） | `NDVI` と `NDBI`（r = −0.991）を同時に投入せず、別モデルに分けた。基準は \|r\| > 0.85 または VIF > 10 | 本文確認 |
 | Shahfahad et al. 2026（Comput. Urban Sci.） | RF・XGBoost 等＋SHAP の前に、相関（\|ρ\| > 0.8）と VIF（≤ 8）の2段階で変数を除外 | 本文確認 |
-| Zhu et al. 2023（Ecol. Indic. 150:110221） | `NDVI`・`NDBI`・`MNDWI` を RF で使用。VIF の診断は示していない | 本文確認（PDF は保存済み・文献DB未登録） |
+| Zhu et al. 2023（Ecol. Indic. 150:110221） | `NDVI`・`NDBI`・`MNDWI` を RF で使用。VIF の診断は示していない | 本文確認（S11・PDF 原本と突合済み） |
 | Dormann et al. 2013（Ecography 36:27–46） | \|r\| > 0.7・VIF > 10 を一般的な基準として整理。**木ベースのモデルが回帰より共線性に寛容というわけではない**と結論 | 本文確認 |
 | O'Brien 2007（Qual. Quant. 41:673–690） | VIF 10 などの経験則を批判し、VIF だけでは変数の除外・合成を正当化しないと指摘 | 要旨のみ |
 | Strobl et al. 2008、Toloşi & Lengauer 2011 | RF の重要度は相関した変数に偏る、または相関したグループの中で薄まる | 要旨のみ |

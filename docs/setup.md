@@ -322,7 +322,7 @@ Python系CI依存の導入はpipベース（`requirements.txt` + `pytest`/`ruff`
 `tests/` 配下のユニットテストのみを対象とする軽量な検査であり、ローカル開発環境の構築手段は
 引き続き `environment.yml` を正本とする。
 
-markdownlint-cli2 の版は `.github/workflows/ci.yml` を正本とする。版を上げる際は `.pre-commit-config.yaml` の `rev` も合わせ、`git grep "markdownlint-cli2@"` で検出される手順書・スキル・設定の記載を同時に更新する。
+markdownlint-cli2 の版は `.github/workflows/ci.yml` を正本とする。版を上げる際は `.pre-commit-config.yaml` の `rev` も合わせ、`git grep "markdownlint-cli2@"` で検出される手順書・スキルの記載を同時に更新する。
 
 ---
 

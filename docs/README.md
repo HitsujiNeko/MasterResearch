@@ -102,7 +102,7 @@ docs/
 |-----------|------|-----------|---------|
 | [README.md](04_archive/README.md) | 04_archiveフォルダ案内 | フォルダ構成・ファイル一覧・旧結果アーカイブ規定（文献管理の詳細は literature_management_guide.md が正本） | フォルダ構成・旧結果の確認時 |
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理・活用ガイド | 3層構造の思想、Claude Code中心の文献調査フロー | 文献調査・論文追加時 |
-| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S16の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
+| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S17の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [limited_analysis_results_20230707_032329.md](04_archive/limited_analysis_results_20230707_032329.md) | Limited シナリオ分析結果（観測20230707_032329・アーカイブ） | 旧ラン1〜13の記録。アーカイブへ移した理由（カバレッジ・建物高さの帰属方式・nodata方針の食い違い）、旧ラン番号と現行ラン番号の対応表、旧観測での台帳・モデル性能・変数重要度・多重共線性 | 旧結果の参照時（現行結果は `03_results/limited_analysis_results.md`） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only 分析結果（観測20230707_032329・アーカイブ） | 旧観測での記録。アーカイブへ移した理由（観測・母数の食い違い）、現行ドキュメントとの対応表、旧ピクセル経路からの移植の等価性確認（ゴールデン比較・本ドキュメントにのみ残る） | 旧結果の参照時（現行結果は `03_results/satellite_only_analysis_results_cellbased.md`） |
 | [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 11論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
@@ -110,7 +110,7 @@ docs/
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
-**先行研究一覧（S1-S16）**:
+**先行研究一覧（S1-S17）**:
 
 - **S1**: Ermida et al. (2020) - SMW法 [本研究採用手法]
 - **S2**: Le Ngoc Hanh (2025) - ベトナム・ダナン [地域参考]
@@ -128,6 +128,7 @@ docs/
 - **S14**: Bečić & Gašparović (2026) - ザグレブのLSTと気温の空間的乖離と土地被覆 [NDVI×NDBI共線性（r=−0.991）を別モデルで回避]
 - **S15**: Shahfahad et al. (2026) - ムンバイ都市圏のSUHI強度の要因をML＋SHAP・空間XAIで評価 [相関→VIFの2段階変数選択・空間CV]
 - **S16**: Toloşi & Lengauer (2011) - 相関した特徴量のグループで重要度が薄まるcorrelation bias [方法論・RFも対象・特徴量クラスタリングで補正]
+- **S17**: Strobl et al. (2008) - RFの条件付きPermutation重要度 [方法論・通常の重要度は相関した変数を過大評価]
 
 **構造化要約（現存ファイル）**:
 
@@ -147,6 +148,7 @@ docs/
 - [S14_Becic_2026.md](04_archive/02_structured_summaries/S14_Becic_2026.md)
 - [S15_Shahfahad_2026.md](04_archive/02_structured_summaries/S15_Shahfahad_2026.md)
 - [S16_Tolosi_2011.md](04_archive/02_structured_summaries/S16_Tolosi_2011.md)
+- [S17_Strobl_2008.md](04_archive/02_structured_summaries/S17_Strobl_2008.md)
 
 ---
 

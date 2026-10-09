@@ -13,7 +13,7 @@
 04_archive/
 ├── README.md                           # このファイル
 ├── literature_management_guide.md      # 文献管理・活用ガイド（思想・フローの正本）
-├── previous_studies_report.md          # 先行研究の事実整理（S1〜S16、マスター）
+├── previous_studies_report.md          # 先行研究の事実整理（S1〜S17、マスター）
 ├── claude_project_instructions.md      # Claude Projects プロジェクト指示（コピペ用）
 ├── claude_project_knowledge.md         # Claude Projects ナレッジ（アップロード用）
 ├── limited_analysis_results_20230707_032329.md  # Limited 旧結果（観測032329・旧ラン1〜13）
@@ -22,7 +22,7 @@
 ├── 01_metadata/
 │   └── papers_database.csv             # 全論文の基本情報（CSV）
 │
-├── 02_structured_summaries/            # 構造化要約（S1〜S16）
+├── 02_structured_summaries/            # 構造化要約（S1〜S17）
 │   ├── S1_Ermida_2020.md
 │   ├── S2_LeNgocHanh_2025.md
 │   ├── S3_Onacillova_2022.md
@@ -38,9 +38,10 @@
 │   ├── S13_Zuur_2010.md
 │   ├── S14_Becic_2026.md
 │   ├── S15_Shahfahad_2026.md
-│   └── S16_Tolosi_2011.md
+│   ├── S16_Tolosi_2011.md
+│   └── S17_Strobl_2008.md
 │
-├── 04_pdfs/                            # PDF原本（S1〜S16）
+├── 04_pdfs/                            # PDF原本（S1〜S17）
 │   └── S{番号}_{著者}_{年}.pdf
 │
 └── templates/
@@ -53,15 +54,15 @@
 
 | ファイル | 役割 |
 |----------|------|
-| [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S16）。概要把握・一覧のマスター |
+| [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S17）。概要把握・一覧のマスター |
 | [limited_analysis_results_20230707_032329.md](limited_analysis_results_20230707_032329.md) | Limited シナリオの旧結果（観測 20230707_032329・旧ラン1〜13）。現行結果は [../03_results/limited_analysis_results.md](../03_results/limited_analysis_results.md) |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only シナリオ（cell_id結合経路）の旧結果（観測 20230707_032329）。旧ピクセル経路からの移植の等価性確認はここにのみ残る。現行結果は [../03_results/satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) |
 | [literature_management_guide.md](literature_management_guide.md) | 3層構造の思想と Claude Code 中心の文献調査フロー |
 | [claude_project_instructions.md](claude_project_instructions.md) | claude.ai 文献調査用プロジェクトの「プロジェクト指示」欄にコピペする指示文（正本） |
 | [claude_project_knowledge.md](claude_project_knowledge.md) | claude.ai プロジェクトナレッジにアップロードする凝縮版（研究概要・RQ・先行研究サマリー） |
 | [01_metadata/papers_database.csv](01_metadata/papers_database.csv) | 全論文の基本情報（検索・集計用） |
-| [02_structured_summaries/](02_structured_summaries/) | 個別論文の構造化要約（S1〜S16）。詳細比較・引用候補抽出に使用 |
-| `04_pdfs/` | 論文 PDF 原本（S1〜S16、Git管理外）。Claude Code が `Read` で直接精読 |
+| [02_structured_summaries/](02_structured_summaries/) | 個別論文の構造化要約（S1〜S17）。詳細比較・引用候補抽出に使用 |
+| `04_pdfs/` | 論文 PDF 原本（S1〜S17、Git管理外）。Claude Code が `Read` で直接精読 |
 | [templates/structured_summary_template.md](templates/structured_summary_template.md) | 構造化要約の標準フォーマット（正本） |
 
 ## 🎯 このフォルダの目的

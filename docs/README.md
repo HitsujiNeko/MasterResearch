@@ -102,7 +102,7 @@ docs/
 |-----------|------|-----------|---------|
 | [README.md](04_archive/README.md) | 04_archiveフォルダ案内 | フォルダ構成・ファイル一覧・旧結果アーカイブ規定（文献管理の詳細は literature_management_guide.md が正本） | フォルダ構成・旧結果の確認時 |
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理・活用ガイド | 3層構造の思想、Claude Code中心の文献調査フロー | 文献調査・論文追加時 |
-| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S13の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
+| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S14の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [limited_analysis_results_20230707_032329.md](04_archive/limited_analysis_results_20230707_032329.md) | Limited シナリオ分析結果（観測20230707_032329・アーカイブ） | 旧ラン1〜13の記録。アーカイブへ移した理由（カバレッジ・建物高さの帰属方式・nodata方針の食い違い）、旧ラン番号と現行ラン番号の対応表、旧観測での台帳・モデル性能・変数重要度・多重共線性 | 旧結果の参照時（現行結果は `03_results/limited_analysis_results.md`） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only 分析結果（観測20230707_032329・アーカイブ） | 旧観測での記録。アーカイブへ移した理由（観測・母数の食い違い）、現行ドキュメントとの対応表、旧ピクセル経路からの移植の等価性確認（ゴールデン比較・本ドキュメントにのみ残る） | 旧結果の参照時（現行結果は `03_results/satellite_only_analysis_results_cellbased.md`） |
 | [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 11論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
@@ -110,7 +110,7 @@ docs/
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
-**先行研究一覧（S1-S13）**:
+**先行研究一覧（S1-S14）**:
 
 - **S1**: Ermida et al. (2020) - SMW法 [本研究採用手法]
 - **S2**: Le Ngoc Hanh (2025) - ベトナム・ダナン [地域参考]
@@ -125,6 +125,7 @@ docs/
 - **S11**: Zhu et al. (2023) - 厦門島の街区スケール2D/3D都市形態と季節別LST [島嶼都市・街区単位・SVF/BF]
 - **S12**: Dormann et al. (2013) - 共線性への対処法のレビューとシミュレーション比較 [方法論・VIF/|r|閾値の整理・木モデルも共線性に寛容でない]
 - **S13**: Zuur et al. (2010) - 統計解析前のデータ探索の手順 [方法論・VIFの逐次除外と閾値3/10]
+- **S14**: Bečić & Gašparović (2026) - ザグレブのLSTと気温の空間的乖離と土地被覆 [NDVI×NDBI共線性（r=−0.991）を別モデルで回避]
 
 **構造化要約（現存ファイル）**:
 
@@ -141,6 +142,7 @@ docs/
 - [S11_Zhu_2023.md](04_archive/02_structured_summaries/S11_Zhu_2023.md)
 - [S12_Dormann_2013.md](04_archive/02_structured_summaries/S12_Dormann_2013.md)
 - [S13_Zuur_2010.md](04_archive/02_structured_summaries/S13_Zuur_2010.md)
+- [S14_Becic_2026.md](04_archive/02_structured_summaries/S14_Becic_2026.md)
 
 ---
 

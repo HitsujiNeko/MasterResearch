@@ -105,7 +105,7 @@ docs/
 | [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S18の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [limited_analysis_results_20230707_032329.md](04_archive/limited_analysis_results_20230707_032329.md) | Limited シナリオ分析結果（観測20230707_032329・アーカイブ） | 旧ラン1〜13の記録。アーカイブへ移した理由（カバレッジ・建物高さの帰属方式・nodata方針の食い違い）、旧ラン番号と現行ラン番号の対応表、旧観測での台帳・モデル性能・変数重要度・多重共線性 | 旧結果の参照時（現行結果は `03_results/limited_analysis_results.md`） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only 分析結果（観測20230707_032329・アーカイブ） | 旧観測での記録。アーカイブへ移した理由（観測・母数の食い違い）、現行ドキュメントとの対応表、旧ピクセル経路からの移植の等価性確認（ゴールデン比較・本ドキュメントにのみ残る） | 旧結果の参照時（現行結果は `03_results/satellite_only_analysis_results_cellbased.md`） |
-| [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 11論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
+| [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 18論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
 | [claude_project_instructions.md](04_archive/claude_project_instructions.md) | Claude Projects プロジェクト指示 | claude.ai の文献調査用プロジェクトにコピペする指示文（正本） | Claude Projects セットアップ・指示変更時 |
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |

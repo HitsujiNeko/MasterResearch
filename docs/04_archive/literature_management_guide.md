@@ -1,6 +1,6 @@
 # 先行研究管理・活用ガイド
 
-**最終更新**: 2026-10-07  
+**最終更新**: 2026-10-09  
 **関連ドキュメント**: [structured_summary_template.md](templates/structured_summary_template.md), [previous_studies_report.md](previous_studies_report.md), [claude_project_instructions.md](claude_project_instructions.md)
 
 > **このファイルの役割**  
@@ -10,10 +10,10 @@
 
 ### 文献データベースの資産
 
-- `docs/04_archive/previous_studies_report.md`: 事実整理のマスター（S1〜S11）
+- `docs/04_archive/previous_studies_report.md`: 事実整理のマスター（S1〜S18）
 - `docs/04_archive/01_metadata/papers_database.csv`: 全論文の基本情報（検索・フィルタリング用）
-- `docs/04_archive/02_structured_summaries/`: 個別論文の構造化要約（S1〜S11）
-- `docs/04_archive/04_pdfs/`: 元の PDF ファイル（S1〜S11、`S{番号}_{著者}_{年}.pdf`）
+- `docs/04_archive/02_structured_summaries/`: 個別論文の構造化要約（S1〜S18）
+- `docs/04_archive/04_pdfs/`: 元の PDF ファイル（S1〜S18、`S{番号}_{著者}_{年}.pdf`）
 
 ### 前提
 

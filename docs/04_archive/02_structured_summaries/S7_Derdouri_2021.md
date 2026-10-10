@@ -1,6 +1,7 @@
 # S7: Derdouri et al. (2021)
 
-**最終更新**: 2026-10-08
+**最終更新**: 2026-10-10  
+**関連ドキュメント**: [previous_studies_report.md](../previous_studies_report.md), [research_guide.md](../../01_planning/research_guide.md), [literature_management_guide.md](../literature_management_guide.md)
 
 ## 📌 基本情報
 
@@ -669,6 +670,6 @@ SUHI×LULC研究の「基盤レビュー論文」。
 ---
 
 **作成日**: 2026-05-20  
-**最終更新**: 2026-10-08  
+**最終更新**: 2026-10-10  
 **作成者**: ChatGPT  
 **修正**: 2026-10-08 Claude Code（PDF 原本と突合し、使用指数の出典が付録 Table A2 であることと、本文 4.2節の値との食い違いを注記）

@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-10-09  
+**最終更新**: 2026-10-11  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -988,7 +988,7 @@ RF の不純度ベース重要度（括弧内は順位。首位はいずれの�
 |---|---|---|
 | S6 Garzón et al. 2021（Remote Sens. 13:4256） | `NDBI`（45.03）・`NDWI`（45.75）を VIF > 10 のまま保持（`NDVI` は 9.12）。重要な変数であることと先例を理由とする | 本文確認 |
 | S14 Bečić & Gašparović 2026（Atmosphere 17:466） | `NDVI` と `NDBI`（r = −0.991）を同時に投入せず、別モデルに分けた。判定基準は \|r\| > 0.85 で、VIF が 10 を超えることをその理由として挙げる | 本文確認 |
-| S15 Shahfahad et al. 2026（Comput. Urban Sci. 6:56） | RF・XGBoost 等＋SHAP の前に、相関（\|ρ\| > 0.8）と VIF（≤ 8）の2段階で変数を選択。実際に除かれたのは NDMI（NDBI と ρ = −1.00）だけで、`NDVI`・`NDWI` は両方保持した（NDWI の算出式は記載なし） | 本文確認 |
+| S15 Shahfahad et al. 2026（Comput. Urban Sci. 6:56） | RF・XGBoost 等＋SHAP の前に、相関（\|ρ\| > 0.8）と VIF（≤ 8）の2段階で変数を選択。本文（3.3節）は NDMI（NDBI と ρ = −1.00）のみ除外と記すが、SHAP の要約図（図13）には NDMI が含まれ、記載が食い違う。`NDVI`・`NDWI` はどちらの記載でも両方保持されている（NDWI の算出式は記載なし） | 本文確認（図13 と照合） |
 | S11 Zhu et al. 2023（Ecol. Indic. 150:110221） | `NDVI`・`NDBI`・`MNDWI` を RF で使用。VIF の診断は示していない | 本文確認 |
 | S12 Dormann et al. 2013（Ecography 36:27–46） | \|r\| > 0.7・VIF > 10 を一般的な基準として整理（既存文献の整理）。シミュレーションでは \|r\| > 0.7 が妥当な目安。**木ベースのモデルが回帰より共線性に寛容というわけではない**と結論 | 本文確認 |
 | S13 Zuur et al. 2010（Methods Ecol. Evol. 1:3–14） | VIF が最大の変数を逐次除外する手順を示す。閾値は 10（Montgomery & Peck 1992 の引用）か、より厳しい 3。外す変数は VIF より知識で選ぶほうがよいとする | 本文確認 |

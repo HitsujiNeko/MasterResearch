@@ -1,5 +1,5 @@
 r"""
-Google Earth Engineを使用したLandsat 8地表面温度（LST）計算プログラム
+Google Earth Engineを使用したLandsat 8 / Landsat 9地表面温度（LST）計算プログラム
 
 本プログラムは以下の論文の手法に基づく：
 Ermida, S.L., Soares, P., Mantas, V., Göttsche, F.-M., Trigo, I.F., 2020.
@@ -12,8 +12,11 @@ config_path = r"data\input\gee_calc_LST_info.csv"
 で指定されたパスにあるCSVファイルを使用。
 
 CSVファイルの例は以下の通り：
-roi_shapefile_path,start_date,end_date,cloud_threshold,valid_pixel_threshold,output_epsg,lst_method,gee_project_id,city_name,drive_root_folder,drive_export_folder
-data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_GCP_PROJECT_ID,hanoi,MasterResearch_Data,
+roi_shapefile_path,start_date,end_date,cloud_threshold,valid_pixel_threshold,output_epsg,lst_method,gee_project_id,city_name,drive_root_folder,drive_export_folder,sensors
+data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp,2023-07-01,2023-08-31,30,50,4326,smw,YOUR_GCP_PROJECT_ID,hanoi,MasterResearch_Data,,L8;L9
+
+`sensors` 列は処理するセンサを `;` 区切りで指定する（L8 / L9）。列がない・空欄の場合は
+L8 のみを処理する。センサごとにコレクションを取得し、SMW 係数もセンサ別に切り替える。
 
 """
 
@@ -35,6 +38,13 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
+from src.module.landsat_sensor import (
+    DEFAULT_SENSOR,
+    get_collection_id,
+    get_sensor_label,
+    parse_sensors,
+)
 
 # SMW手法モジュールをインポート
 from src.module.lst_smw import calculate_lst_smw
@@ -201,7 +211,7 @@ def cloud_mask(image: ee.Image) -> ee.Image:
     """雲と影をマスクする
 
     Args:
-        image: Landsat 8 Collection 2 Level-2画像
+        image: Landsat 8 / Landsat 9 Collection 2 Level-2画像（QA_PIXELのビット定義は共通）
 
     Returns:
         マスク適用済み画像
@@ -215,34 +225,40 @@ def cloud_mask(image: ee.Image) -> ee.Image:
     return image.updateMask(cloud.And(shadow))
 
 
-def get_landsat8_collection(start_date: str, end_date: str, roi: ee.Geometry) -> tuple:
-    """Landsat 8データセットを取得（TOAとSRの両方）
+def get_landsat_collection(
+    start_date: str, end_date: str, roi: ee.Geometry, sensor: str = DEFAULT_SENSOR
+) -> tuple:
+    """指定センサのLandsatデータセットを取得（TOAとSRの両方）
 
     Args:
         start_date: 開始日（YYYY-MM-DD形式）
         end_date: 終了日（YYYY-MM-DD形式）
         roi: 対象地域
+        sensor: センサ名（"L8" / "L9"）
 
     Returns:
         (TOAコレクション, SRコレクション)のタプル
+
+    Raises:
+        ValueError: 未定義のセンサ名の場合
     """
     # TOAコレクション（熱赤外バンドB10用）
     collection_toa = (
-        ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA")
+        ee.ImageCollection(get_collection_id(sensor, "toa"))
         .filterDate(start_date, end_date)
         .filterBounds(roi)
     )
 
     # SRコレクション（可視光・近赤外バンド用）
     collection_sr = (
-        ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+        ee.ImageCollection(get_collection_id(sensor, "sr"))
         .filterDate(start_date, end_date)
         .filterBounds(roi)
         .map(cloud_mask)
     )
 
     count = collection_sr.size().getInfo()
-    logger.info(f"指定期間内に {count} 個のLandsat 8画像が見つかりました")
+    logger.info(f"指定期間内に {count} 個の{get_sensor_label(sensor)}画像が見つかりました")
 
     return collection_toa, collection_sr
 
@@ -373,6 +389,29 @@ def should_export(valid_pixel_ratio: float, threshold: float) -> bool:
     return valid_pixel_ratio >= threshold
 
 
+def build_export_description(
+    prefix: str, observation_datetime_utc: str, sensor: str = DEFAULT_SENSOR
+) -> str:
+    """エクスポートのタスク名・ファイル接頭辞を観測日時とセンサから作る
+
+    既存の運用と互換な `{prefix}_{センサラベル}_{YYYYMMDD_HHMMSS}Z` 形式とする
+    （例: `LST_Landsat8_20230707_032329Z`）。
+
+    Args:
+        prefix: 種別の接頭辞（`LST` または `INDICES`）
+        observation_datetime_utc: 観測日時（UTC、`YYYY-MM-DDTHH:MM:SS` 形式）
+        sensor: センサ名（"L8" / "L9"）
+
+    Returns:
+        タスク名・ファイル接頭辞
+
+    Raises:
+        ValueError: 未定義のセンサ名の場合
+    """
+    date_time_token = observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
+    return f"{prefix}_{get_sensor_label(sensor)}_{date_time_token}Z"
+
+
 def save_results_to_csv(results: List[Dict], output_path: str) -> None:
     """結果をCSVファイルに保存
 
@@ -482,15 +521,20 @@ def export_to_drive(
 
 
 def process_image(
-    image_sr: ee.Image, image_toa: ee.Image, config: Dict, roi: ee.Geometry
+    image_sr: ee.Image,
+    image_toa: ee.Image,
+    config: Dict,
+    roi: ee.Geometry,
+    sensor: str = DEFAULT_SENSOR,
 ) -> Tuple[ee.Image, Dict]:
     """画像処理（手法に応じて分岐）
 
     Args:
-        image_sr: Landsat 8 Surface Reflectance画像
-        image_toa: Landsat 8 TOA画像（B10バンド用）
+        image_sr: Landsat 8 / Landsat 9 Surface Reflectance画像
+        image_toa: Landsat 8 / Landsat 9 TOA画像（B10バンド用）
         config: 設定情報
         roi: 対象地域
+        sensor: 画像の取得元センサ名（"L8" / "L9"）。SMW係数と出力名の選択に用いる
 
     Returns:
         処理済み画像と統計情報のタプル
@@ -501,7 +545,7 @@ def process_image(
     if lst_method == "simple":
         image = calculate_lst_simple(image_sr)
     elif lst_method == "smw":
-        image = calculate_lst_smw(image_sr, image_toa, roi)
+        image = calculate_lst_smw(image_sr, image_toa, roi, sensor=sensor)
     else:
         raise ValueError(f"Unknown LST method: {lst_method}")
 
@@ -525,7 +569,7 @@ def process_image(
     result = {
         "date": date,
         "observation_datetime_utc": observation_datetime_utc,
-        "satellite": "Landsat8",
+        "satellite": get_sensor_label(sensor),
         "mean_temp_c": temp_stats["mean"],
         "min_temp_c": temp_stats["min"],
         "max_temp_c": temp_stats["max"],
@@ -542,16 +586,69 @@ def process_image(
     if should_export(valid_pixel_ratio, config["valid_pixel_threshold"]):
         result["exported"] = True
         # エクスポート
-        date_time_token = (
-            observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
-        )
-        description = f"LST_Landsat8_{date_time_token}Z"
+        description = build_export_description("LST", observation_datetime_utc, sensor)
         crs = f"EPSG:{int(config['output_epsg'])}"
         drive_folder = build_drive_export_folder(config, date)
         result["drive_folder"] = drive_folder
         export_to_drive(image, description, drive_folder, roi, 30, crs, observation_datetime_utc)
 
     return image, result
+
+
+def process_sensor(sensor: str, config: Dict, roi: ee.Geometry) -> Tuple[List[Dict], int]:
+    """1センサ分のコレクションを取得し、各画像のLSTを算出する
+
+    Args:
+        sensor: センサ名（"L8" / "L9"）
+        config: 設定情報
+        roi: 対象地域
+
+    Returns:
+        (結果のリスト, コレクションの画像数) のタプル。処理に失敗した画像は
+        結果に含めずログに記録するため、結果の件数は画像数以下になる
+    """
+    sensor_label = get_sensor_label(sensor)
+    collection_toa, collection_sr = get_landsat_collection(
+        config["start_date"], config["end_date"], roi, sensor=sensor
+    )
+
+    # 画像リストを取得
+    image_list_sr = collection_sr.toList(collection_sr.size())
+    count = collection_sr.size().getInfo()
+
+    if count == 0:
+        logger.warning(f"ROI内に利用可能な{sensor_label}画像がありません。")
+        return [], 0
+
+    # 各画像を処理
+    results = []
+    logger.info(f"{sensor_label}: {count} 個の画像を {config['lst_method']} 手法で処理します...")
+
+    with warnings.catch_warnings():
+        # NCEP_RE/surface_wv に由来する既知の deprecation 警告を
+        # 画像処理中のみ抑制し、他のRuntimeWarning等は維持する。
+        warnings.simplefilter("ignore", DeprecationWarning)
+        for i in tqdm(range(count), desc=f"{sensor_label}の画像を処理中"):
+            try:
+                image_sr = ee.Image(image_list_sr.get(i))
+                image_toa = get_matching_toa_image(image_sr, collection_toa)
+                _, result = process_image(image_sr, image_toa, config, roi, sensor=sensor)
+                results.append(result)
+
+                # 統計値がNoneの場合の処理
+                mean_str = (
+                    f"{result['mean_temp_c']:.2f}°C" if result["mean_temp_c"] is not None else "N/A"
+                )
+                logger.info(
+                    f"{sensor_label} {result['date']} を処理しました: "
+                    f"平均={mean_str}, "
+                    f"有効ピクセル={result['valid_pixel_ratio']:.1f}%"
+                )
+            except Exception as e:
+                logger.error(f"{sensor_label} 画像 {i} の処理中にエラーが発生しました: {e}")
+                continue
+
+    return results, count
 
 
 def main():
@@ -577,48 +674,23 @@ def main():
             raise ValueError("設定CSVに roi_shapefile_path がありません。")
         roi = load_roi_from_shapefile(roi_path_text)
 
-        # Landsat 8データセット取得（TOAとSR）
-        collection_toa, collection_sr = get_landsat8_collection(
-            config["start_date"], config["end_date"], roi
-        )
+        # センサごとにデータセット（TOAとSR）を取得して処理する
+        sensors = parse_sensors(config.get("sensors"))
+        logger.info(f"処理対象のセンサ: {', '.join(sensors)}")
 
-        # 画像リストを取得
-        image_list_sr = collection_sr.toList(collection_sr.size())
-        count = collection_sr.size().getInfo()
+        results = []
+        total_count = 0
+        for sensor in sensors:
+            sensor_results, sensor_count = process_sensor(sensor, config, roi)
+            results.extend(sensor_results)
+            total_count += sensor_count
 
-        if count == 0:
-            logger.warning("ROI内に利用可能なLandsat 8画像がありません。終了します。")
+        if total_count == 0:
+            logger.warning("ROI内に利用可能なLandsat画像がありません。終了します。")
             return
 
-        # 各画像を処理
-        results = []
-        logger.info(f"{count} 個の画像を {config['lst_method']} 手法で処理します...")
-
-        with warnings.catch_warnings():
-            # NCEP_RE/surface_wv に由来する既知の deprecation 警告を
-            # 画像処理中のみ抑制し、他のRuntimeWarning等は維持する。
-            warnings.simplefilter("ignore", DeprecationWarning)
-            for i in tqdm(range(count), desc="画像を処理中"):
-                try:
-                    image_sr = ee.Image(image_list_sr.get(i))
-                    image_toa = get_matching_toa_image(image_sr, collection_toa)
-                    _, result = process_image(image_sr, image_toa, config, roi)
-                    results.append(result)
-
-                    # 統計値がNoneの場合の処理
-                    mean_str = (
-                        f"{result['mean_temp_c']:.2f}°C"
-                        if result["mean_temp_c"] is not None
-                        else "N/A"
-                    )
-                    logger.info(
-                        f"{result['date']} を処理しました: "
-                        f"平均={mean_str}, "
-                        f"有効ピクセル={result['valid_pixel_ratio']:.1f}%"
-                    )
-                except Exception as e:
-                    logger.error(f"画像 {i} の処理中にエラーが発生しました: {e}")
-                    continue
+        # 複数センサの結果を観測日時順に並べる
+        results.sort(key=lambda result: result["observation_datetime_utc"])
 
         # 結果をCSVに保存
         output_path = r"data\output\gee_calc_LST_results.csv"

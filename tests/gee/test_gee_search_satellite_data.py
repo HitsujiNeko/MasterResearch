@@ -264,3 +264,45 @@ def test_main_dispatches_to_run_when_rerank_only_not_specified(
 
     assert "run" in calls
     assert "rerank_only" not in calls
+
+
+def test_count_scenes_by_path_row_groups_and_sorts() -> None:
+    """path/row は3桁ゼロ埋めの `PPP/RRR` で数え、キーの昇順に並べる。"""
+    counts = search.count_scenes_by_path_row([127, 126, 127, 126.0], [45, 46, 45, 46])
+
+    assert counts == {"126/046": 2, "127/045": 2}
+    assert list(counts) == ["126/046", "127/045"]
+
+
+def test_count_scenes_by_path_row_handles_empty() -> None:
+    """シーンが0件なら空の辞書を返す。"""
+    assert search.count_scenes_by_path_row([], []) == {}
+
+
+def test_count_scenes_by_path_row_raises_on_length_mismatch() -> None:
+    """path と row の件数が食い違う場合は黙って切り詰めず例外とする。"""
+    with pytest.raises(ValueError, match="件数が一致しません"):
+        search.count_scenes_by_path_row([127, 126], [45])
+
+
+def test_build_failure_summary_lines_reports_counts_per_sensor() -> None:
+    """センサごとに対象・成功・失敗の件数を出し、失敗シーンを1件ずつ列挙する。"""
+    failures = [
+        {"sensor": "L9", "index": 3, "scene_index": "LC09_127045_20230101", "error": "boom"},
+    ]
+
+    lines = search.build_failure_summary_lines({"L8": 10, "L9": 5}, failures)
+
+    assert lines == [
+        "Landsat8: 対象 10 件 / 成功 10 件 / 失敗 0 件",
+        "Landsat9: 対象 5 件 / 成功 4 件 / 失敗 1 件",
+        "  失敗: index=3, scene_index=LC09_127045_20230101, error=boom",
+    ]
+
+
+def test_build_failure_summary_lines_raises_on_unlisted_sensor() -> None:
+    """件数の辞書にないセンサの失敗記録は、誤った件数を出さずに例外とする。"""
+    failures = [{"sensor": "L9", "index": 0, "scene_index": "不明", "error": "x"}]
+
+    with pytest.raises(ValueError, match="シーン数が不明なセンサ"):
+        search.build_failure_summary_lines({"L8": 3}, failures)

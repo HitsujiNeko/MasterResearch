@@ -1,4 +1,4 @@
-"""Google Earth Engine を用いた Landsat 8 シーン探索・同時出力プログラム。
+"""Google Earth Engine を用いた Landsat 8 / Landsat 9 シーン探索・同時出力プログラム。
 
 本スクリプトは、既存の `gee_calc_LST.py` と
 `gee_calc_satellite_indices.py` の算出ロジックを維持したまま、
@@ -11,6 +11,11 @@
    探索結果のうち、ROI 完全包含かつ品質条件を満たすシーンだけを
    Google Drive へ出力する。
 
+対象センサは設定 CSV の `sensors` 列（`;` 区切り、例: `L8;L9`）で指定し、
+列がない・空欄の場合は L8 のみとする。センサごとにコレクションを取得して
+処理し、結果 CSV の `sensor` 列で区別する。処理に失敗したシーンは
+センサ別の件数と一覧を最後にログへ要約する。
+
 出力される GeoTIFF は、LST と INDICES を別ファイルで保持する。
 これは既存分析フローとの互換性を維持するためである。
 """
@@ -22,6 +27,7 @@ import datetime as dt
 import logging
 import math
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +44,7 @@ from src.common.config import PROJECT_ROOT
 from src.gee.gee_calc_LST import (
     authenticate_gee,
     build_drive_export_folder,
+    build_export_description,
     calculate_pixel_stats,
     cloud_mask,
     extract_statistics,
@@ -53,6 +60,12 @@ from src.gee.gee_calc_satellite_indices import (
     cloud_mask_sr,
     get_target_band_names,
     to_float_or_nan,
+)
+from src.module.landsat_sensor import (
+    DEFAULT_SENSOR,
+    get_collection_id,
+    get_sensor_label,
+    parse_sensors,
 )
 from src.module.lst_smw import calculate_lst_smw
 
@@ -73,7 +86,9 @@ def parse_arguments() -> argparse.Namespace:
         argparse.Namespace: 解析済み引数。
     """
     parser = argparse.ArgumentParser(
-        description="Landsat 8 シーンの探索を行い、必要時に LST と衛星指標を同時出力する。"
+        description=(
+            "Landsat 8 / Landsat 9 シーンの探索を行い、必要時に LST と衛星指標を同時出力する。"
+        )
     )
     parser.add_argument(
         "--config-path",
@@ -122,25 +137,30 @@ def get_raw_landsat_collections(
     start_date: str,
     end_date: str,
     roi: ee.Geometry,
+    sensor: str = DEFAULT_SENSOR,
 ) -> tuple[ee.ImageCollection, ee.ImageCollection]:
-    """未マスクの Landsat 8 TOA/SR コレクションを取得する。
+    """未マスクの Landsat TOA/SR コレクションを指定センサについて取得する。
 
     Args:
         start_date (str): 開始日。
         end_date (str): 終了日。
         roi (ee.Geometry): 対象 ROI。
+        sensor (str): センサ名（"L8" / "L9"）。
 
     Returns:
         tuple[ee.ImageCollection, ee.ImageCollection]:
             TOA コレクションと未マスク SR コレクション。
+
+    Raises:
+        ValueError: 未定義のセンサ名の場合。
     """
     collection_toa = (
-        ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA")
+        ee.ImageCollection(get_collection_id(sensor, "toa"))
         .filterDate(start_date, end_date)
         .filterBounds(roi)
     )
     collection_sr_raw = (
-        ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+        ee.ImageCollection(get_collection_id(sensor, "sr"))
         .filterDate(start_date, end_date)
         .filterBounds(roi)
     )
@@ -216,21 +236,25 @@ def scene_covers_roi(image: ee.Image, roi: ee.Geometry) -> tuple[bool, float]:
 
 
 def build_lst_image(
-    raw_sr_image: ee.Image, collection_toa: ee.ImageCollection, roi: ee.Geometry
+    raw_sr_image: ee.Image,
+    collection_toa: ee.ImageCollection,
+    roi: ee.Geometry,
+    sensor: str = DEFAULT_SENSOR,
 ) -> ee.Image:
     """既存 LST ロジックと同一条件で LST 画像を作成する。
 
     Args:
         raw_sr_image (ee.Image): 未マスクの SR 画像。
-        collection_toa (ee.ImageCollection): TOA コレクション。
+        collection_toa (ee.ImageCollection): TOA コレクション（SR と同じセンサ）。
         roi (ee.Geometry): ROI。
+        sensor (str): 画像の取得元センサ名（"L8" / "L9"）。SMW 係数の選択に用いる。
 
     Returns:
         ee.Image: LST バンド付き画像。
     """
     lst_sr_image = cloud_mask(raw_sr_image)
     toa_image = get_matching_toa_image(lst_sr_image, collection_toa)
-    return calculate_lst_smw(lst_sr_image, toa_image, roi)
+    return calculate_lst_smw(lst_sr_image, toa_image, roi, sensor=sensor)
 
 
 def build_indices_image(raw_sr_image: ee.Image) -> ee.Image:
@@ -463,18 +487,64 @@ def export_indices_to_drive(
     task.start()
 
 
-def build_export_prefix(observation_datetime_utc: str, prefix: str) -> str:
-    """観測日時から既存運用と互換なファイル接頭辞を作る。
+def count_scenes_by_path_row(wrs_paths: list[Any], wrs_rows: list[Any]) -> dict[str, int]:
+    """WRS-2 の path/row ごとのシーン件数を数える。
 
     Args:
-        observation_datetime_utc (str): 観測日時。
-        prefix (str): `LST` または `INDICES`。
+        wrs_paths (list[Any]): 各シーンの `WRS_PATH`（GEE から取得した数値）。
+        wrs_rows (list[Any]): 各シーンの `WRS_ROW`（`wrs_paths` と同じ順序・件数）。
 
     Returns:
-        str: ファイル接頭辞。
+        dict[str, int]: `"PPP/RRR"`（3桁ゼロ埋め）をキー、件数を値とする辞書（キーの昇順）。
+
+    Raises:
+        ValueError: `wrs_paths` と `wrs_rows` の件数が異なる場合。
     """
-    date_time_token = observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
-    return f"{prefix}_Landsat8_{date_time_token}Z"
+    if len(wrs_paths) != len(wrs_rows):
+        raise ValueError(
+            f"WRS_PATH と WRS_ROW の件数が一致しません: {len(wrs_paths)} != {len(wrs_rows)}"
+        )
+    counts = Counter(
+        f"{int(path):03d}/{int(row):03d}" for path, row in zip(wrs_paths, wrs_rows, strict=True)
+    )
+    return dict(sorted(counts.items()))
+
+
+def build_failure_summary_lines(
+    image_counts: dict[str, int], failures: list[dict[str, Any]]
+) -> list[str]:
+    """処理に失敗したシーンのセンサ別要約をログ出力用の行として組み立てる。
+
+    Args:
+        image_counts (dict[str, int]): センサ名 -> 処理対象のシーン数。
+        failures (list[dict[str, Any]]): 失敗シーンの記録。各要素は
+            `sensor`・`index`・`scene_index`・`error` を持つ。
+
+    Returns:
+        list[str]: センサごとの「対象・成功・失敗」件数の行と、失敗シーン1件ごとの行。
+
+    Raises:
+        ValueError: `image_counts` にないセンサの失敗記録を含む場合（件数を算出できないため）。
+    """
+    failures_by_sensor: dict[str, list[dict[str, Any]]] = {sensor: [] for sensor in image_counts}
+    for failure in failures:
+        if failure["sensor"] not in failures_by_sensor:
+            raise ValueError(f"処理対象のシーン数が不明なセンサの失敗記録です: {failure['sensor']}")
+        failures_by_sensor[failure["sensor"]].append(failure)
+
+    lines: list[str] = []
+    for sensor, sensor_failures in failures_by_sensor.items():
+        image_count = image_counts.get(sensor, 0)
+        lines.append(
+            f"{get_sensor_label(sensor)}: 対象 {image_count} 件 / "
+            f"成功 {image_count - len(sensor_failures)} 件 / 失敗 {len(sensor_failures)} 件"
+        )
+        for failure in sensor_failures:
+            lines.append(
+                f"  失敗: index={failure['index']}, scene_index={failure['scene_index']}, "
+                f"error={failure['error']}"
+            )
+    return lines
 
 
 def process_scene(
@@ -485,18 +555,21 @@ def process_scene(
     band_names: list[str],
     export_enabled: bool,
     target_observation_datetimes: set[str] | None = None,
+    sensor: str = DEFAULT_SENSOR,
 ) -> dict[str, Any]:
     """1シーン分の探索結果を作成し、必要時は同時エクスポートする。
 
     Args:
         raw_sr_image (ee.Image): 未マスク SR 画像。
-        collection_toa (ee.ImageCollection): TOA コレクション。
+        collection_toa (ee.ImageCollection): TOA コレクション（SR と同じセンサ）。
         roi (ee.Geometry): ROI。
         config (dict[str, Any]): 設定辞書。
         band_names (list[str]): 指標バンド名一覧。
         export_enabled (bool): エクスポート実行フラグ。
         target_observation_datetimes (set[str] | None):
             強制エクスポート対象の観測日時集合。
+        sensor (str): 画像の取得元センサ名（"L8" / "L9"）。SMW 係数・出力名・
+            結果の `sensor` 列に用いる。
 
     Returns:
         dict[str, Any]: 探索結果。
@@ -510,7 +583,7 @@ def process_scene(
     cloud_cover = to_float_or_nan(cloud_cover_info)
 
     scene_covers_roi_flag, scene_coverage_ratio = scene_covers_roi(raw_sr_image, roi)
-    lst_image = build_lst_image(raw_sr_image, collection_toa, roi)
+    lst_image = build_lst_image(raw_sr_image, collection_toa, roi, sensor=sensor)
     indices_image = build_indices_image(raw_sr_image)
 
     lst_result = build_lst_result(lst_image, roi)
@@ -536,8 +609,10 @@ def process_scene(
     indices_export_description = ""
     exported = False
     if export_enabled and (export_eligible or forced_export):
-        lst_export_description = build_export_prefix(observation_datetime_utc, "LST")
-        indices_export_description = build_export_prefix(observation_datetime_utc, "INDICES")
+        lst_export_description = build_export_description("LST", observation_datetime_utc, sensor)
+        indices_export_description = build_export_description(
+            "INDICES", observation_datetime_utc, sensor
+        )
         export_lst_to_drive(
             image=lst_image,
             roi=roi,
@@ -561,6 +636,7 @@ def process_scene(
         "date": date_text,
         "observation_datetime_utc": observation_datetime_utc,
         "scene_index": scene_index,
+        "sensor": sensor,
         "cloud_cover": cloud_cover,
         "scene_covers_roi": scene_covers_roi_flag,
         "scene_coverage_ratio": scene_coverage_ratio,
@@ -584,6 +660,98 @@ def process_scene(
         )
     )
     return result
+
+
+def process_sensor_scenes(
+    sensor: str,
+    roi: ee.Geometry,
+    config: dict[str, Any],
+    band_names: list[str],
+    export_enabled: bool,
+    target_observation_datetimes: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+    """1センサ分のコレクションを取得し、各シーンを探索する。
+
+    Args:
+        sensor (str): センサ名（"L8" / "L9"）。
+        roi (ee.Geometry): ROI。
+        config (dict[str, Any]): 設定辞書（start_date / end_date を含む）。
+        band_names (list[str]): 指標バンド名一覧。
+        export_enabled (bool): エクスポート実行フラグ。
+        target_observation_datetimes (set[str] | None):
+            強制エクスポート対象の観測日時集合（指定時は対象日付のシーンに絞り込む）。
+
+    Returns:
+        tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+            (探索結果のリスト, 失敗シーンの記録のリスト, 処理対象のシーン数)。
+    """
+    sensor_label = get_sensor_label(sensor)
+    collection_toa, collection_sr_raw = get_raw_landsat_collections(
+        config["start_date"], config["end_date"], roi, sensor=sensor
+    )
+    collection_toa = filter_collection_by_target_dates(collection_toa, target_observation_datetimes)
+    collection_sr_raw = filter_collection_by_target_dates(
+        collection_sr_raw, target_observation_datetimes
+    )
+    image_count = int(collection_sr_raw.size().getInfo())
+    if image_count == 0:
+        logger.warning("対象画像が0件です（%s）。", sensor_label)
+        return [], [], 0
+
+    # 生コレクションの path/row 別件数を記録し、CSV 件数との差（失敗件数）を追えるようにする
+    path_row_counts = count_scenes_by_path_row(
+        collection_sr_raw.aggregate_array("WRS_PATH").getInfo(),
+        collection_sr_raw.aggregate_array("WRS_ROW").getInfo(),
+    )
+    logger.info("%s の探索対象シーン数: %s", sensor_label, image_count)
+    for path_row, count in path_row_counts.items():
+        logger.info("  %s path/row=%s: %s 件", sensor_label, path_row, count)
+
+    # 失敗時にもシーンを特定できるよう、system:index を toList と同じ順序で先に取得する
+    scene_indices = collection_sr_raw.aggregate_array("system:index").getInfo()
+    image_list = collection_sr_raw.toList(image_count)
+    results: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+
+    for index in tqdm(range(image_count), desc=f"シーン探索中（{sensor_label}）"):
+        raw_sr_image = ee.Image(image_list.get(index))
+        try:
+            result = process_scene(
+                raw_sr_image=raw_sr_image,
+                collection_toa=collection_toa,
+                roi=roi,
+                config=config,
+                band_names=band_names,
+                export_enabled=export_enabled,
+                target_observation_datetimes=target_observation_datetimes,
+                sensor=sensor,
+            )
+            results.append(result)
+            logger.info(
+                "%s %s processed: coverage=%.6f, lst_valid=%.2f, indices_valid=%.2f, "
+                "eligible=%s, forced=%s",
+                sensor_label,
+                result["observation_datetime_utc"],
+                result["scene_coverage_ratio"],
+                result["lst_valid_pixel_ratio"],
+                result["indices_valid_pixel_ratio"],
+                result["export_eligible"],
+                result["forced_export"],
+            )
+        except Exception as error:
+            scene_index = scene_indices[index] if index < len(scene_indices) else "不明"
+            logger.error(
+                "画像処理中にエラーが発生しました（%s, index=%s, scene_index=%s）: %s",
+                sensor_label,
+                index,
+                scene_index,
+                error,
+            )
+            failures.append(
+                {"sensor": sensor, "index": index, "scene_index": scene_index, "error": str(error)}
+            )
+
+    return results, failures, image_count
 
 
 def run(
@@ -615,23 +783,13 @@ def run(
     if not start_date or not end_date:
         raise ValueError("設定CSVに start_date / end_date が必要です。")
 
+    sensors = parse_sensors(config.get("sensors"))
+
     authenticate_gee(project_id=gee_project_id)
     roi = load_roi_from_shapefile(roi_path_text)
-    collection_toa, collection_sr_raw = get_raw_landsat_collections(start_date, end_date, roi)
-    collection_toa = filter_collection_by_target_dates(collection_toa, target_observation_datetimes)
-    collection_sr_raw = filter_collection_by_target_dates(
-        collection_sr_raw, target_observation_datetimes
-    )
-    image_count = int(collection_sr_raw.size().getInfo())
-    if image_count == 0:
-        logger.warning("対象画像が0件のため処理を終了します。")
-        return
-
     band_names = get_target_band_names()
-    image_list = collection_sr_raw.toList(image_count)
-    results: list[dict[str, Any]] = []
 
-    logger.info("探索対象シーン数: %s", image_count)
+    logger.info("処理対象のセンサ: %s", ", ".join(sensors))
     logger.info("エクスポートモード: %s", "有効" if export_enabled else "無効")
     if target_observation_datetimes:
         logger.info(
@@ -639,31 +797,30 @@ def run(
             ", ".join(sorted(target_observation_datetimes)),
         )
 
-    for index in tqdm(range(image_count), desc="シーン探索中"):
-        raw_sr_image = ee.Image(image_list.get(index))
-        try:
-            result = process_scene(
-                raw_sr_image=raw_sr_image,
-                collection_toa=collection_toa,
-                roi=roi,
-                config=config,
-                band_names=band_names,
-                export_enabled=export_enabled,
-                target_observation_datetimes=target_observation_datetimes,
-            )
-            results.append(result)
-            logger.info(
-                "%s processed: coverage=%.6f, lst_valid=%.2f, indices_valid=%.2f, "
-                "eligible=%s, forced=%s",
-                result["observation_datetime_utc"],
-                result["scene_coverage_ratio"],
-                result["lst_valid_pixel_ratio"],
-                result["indices_valid_pixel_ratio"],
-                result["export_eligible"],
-                result["forced_export"],
-            )
-        except Exception as error:
-            logger.error("画像処理中にエラーが発生しました（index=%s）: %s", index, error)
+    results: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    image_counts: dict[str, int] = {}
+    for sensor in sensors:
+        sensor_results, sensor_failures, sensor_image_count = process_sensor_scenes(
+            sensor=sensor,
+            roi=roi,
+            config=config,
+            band_names=band_names,
+            export_enabled=export_enabled,
+            target_observation_datetimes=target_observation_datetimes,
+        )
+        results.extend(sensor_results)
+        failures.extend(sensor_failures)
+        image_counts[sensor] = sensor_image_count
+
+    if sum(image_counts.values()) == 0:
+        logger.warning("対象画像が0件のため処理を終了します。")
+        return
+
+    # 失敗シーンを黙って欠落させないよう、センサ別の件数と一覧を要約する
+    logger.info("センサ別の処理結果:")
+    for line in build_failure_summary_lines(image_counts, failures):
+        logger.info(line)
 
     if not results:
         logger.warning("有効な探索結果が無いためCSV出力をスキップします。")

@@ -13,6 +13,55 @@ import warnings
 
 import ee
 
+from src.module.landsat_sensor import DEFAULT_SENSOR, validate_sensor
+
+# SMW係数テーブル（論文のSMW_coefficients.jsより。原本は src/js/modules/SMW_coefficients.js）
+# 各行は (TPWpos, A, B, C)。TPWposはTPWを6 mm刻みで区分した0〜9の位置インデックス
+SMW_COEFFICIENTS: dict[str, list[tuple[int, float, float, float]]] = {
+    "L8": [
+        (0, 0.9751, -205.8929, 212.7173),
+        (1, 1.0090, -232.2750, 230.5698),
+        (2, 1.0541, -253.1943, 238.9548),
+        (3, 1.1282, -279.4212, 244.0772),
+        (4, 1.1987, -307.4497, 251.8341),
+        (5, 1.3205, -348.0228, 257.2740),
+        (6, 1.4540, -393.1718, 263.5599),
+        (7, 1.6350, -451.0790, 268.9405),
+        (8, 1.5468, -429.5095, 275.0895),
+        (9, 1.9403, -547.2681, 277.9953),
+    ],
+    "L9": [
+        (0, 0.9751, -206.2187, 213.0526),
+        (1, 1.0093, -232.7408, 230.9401),
+        (2, 1.0539, -253.4430, 239.2572),
+        (3, 1.1267, -279.1685, 244.2379),
+        (4, 1.1961, -306.7961, 251.8873),
+        (5, 1.3155, -346.5312, 257.2174),
+        (6, 1.4463, -390.7794, 263.3479),
+        (7, 1.6229, -447.2745, 268.5970),
+        (8, 1.5396, -427.0904, 274.6380),
+        (9, 1.9223, -541.7084, 277.4964),
+    ],
+}
+
+
+def get_smw_coefficients(sensor: str = DEFAULT_SENSOR) -> list[tuple[int, float, float, float]]:
+    """センサに対応するSMW係数テーブルを返す
+
+    Args:
+        sensor: センサ名（"L8" / "L9"）
+
+    Returns:
+        (TPWpos, A, B, C) のリスト（TPWposの昇順・10行）
+
+    Raises:
+        ValueError: 未定義のセンサ名、またはSMW係数が未登録のセンサの場合
+    """
+    validate_sensor(sensor)
+    if sensor not in SMW_COEFFICIENTS:
+        raise ValueError(f"SMW係数が未登録のセンサです: {sensor!r}")
+    return SMW_COEFFICIENTS[sensor]
+
 
 def compute_ndvi(image: ee.Image) -> ee.Image:
     """NDVI = (NIR - Red) / (NIR + Red)
@@ -57,8 +106,12 @@ def get_aster_emissivity(image: ee.Image, roi: ee.Geometry) -> ee.Image:
     1. ASTER NDVIからFVCを計算
     2. 裸地放射率 = (ε_ASTER - 0.99×FVC) / (1-FVC) で植生影響を除去
     3. Landsat 8用の係数で補間: ε = c13×ε13 + c14×ε14 + c
+
+    Landsat 9 も同じ係数を用いる。参照実装の compute_emissivity.js は L4/L5/L7 以外を
+    L8 の係数で処理し、Landsat_LST.js は L9 もこの経路で処理するため。
+
     Args:
-        image: Landsat 8画像
+        image: Landsat 8 / Landsat 9画像
         roi: 対象地域
 
     Returns:
@@ -223,7 +276,7 @@ def get_atmospheric_water_vapor(image: ee.Image, roi: ee.Geometry) -> ee.Image:
     return image.addBands(tpw.rename("TPW")).addBands(tpw_pos.rename("TPWpos"))
 
 
-def apply_smw_algorithm(image: ee.Image) -> ee.Image:
+def apply_smw_algorithm(image: ee.Image, sensor: str = DEFAULT_SENSOR) -> ee.Image:
     """SMWアルゴリズムでLSTを計算（完全実装）
 
     論文の実装方法に基づく（SMWalgorithm.js）：
@@ -232,9 +285,13 @@ def apply_smw_algorithm(image: ee.Image) -> ee.Image:
 
     Args:
         image: B10（TOA輝度温度）、EM（放射率）、TPWposを含む画像
+        sensor: 係数テーブルを選ぶセンサ名（"L8" / "L9"）
 
     Returns:
         LSTバンドを追加した画像
+
+    Raises:
+        ValueError: 未定義のセンサ名の場合
     """
     # バンドを選択
     bt = image.select("B10")  # TOA輝度温度（K）
@@ -242,19 +299,11 @@ def apply_smw_algorithm(image: ee.Image) -> ee.Image:
     tpw = image.select("TPW")
     tpw_pos = image.select("TPWpos")
 
-    # Landsat 8用SMW係数テーブル（論文のSMW_coefficients.jsより）
-    coeff_SMW_L8 = ee.FeatureCollection(
+    # センサ別のSMW係数テーブル（論文のSMW_coefficients.jsより）
+    coeff_smw = ee.FeatureCollection(
         [
-            ee.Feature(None, {"TPWpos": 0, "A": 0.9751, "B": -205.8929, "C": 212.7173}),
-            ee.Feature(None, {"TPWpos": 1, "A": 1.0090, "B": -232.2750, "C": 230.5698}),
-            ee.Feature(None, {"TPWpos": 2, "A": 1.0541, "B": -253.1943, "C": 238.9548}),
-            ee.Feature(None, {"TPWpos": 3, "A": 1.1282, "B": -279.4212, "C": 244.0772}),
-            ee.Feature(None, {"TPWpos": 4, "A": 1.1987, "B": -307.4497, "C": 251.8341}),
-            ee.Feature(None, {"TPWpos": 5, "A": 1.3205, "B": -348.0228, "C": 257.2740}),
-            ee.Feature(None, {"TPWpos": 6, "A": 1.4540, "B": -393.1718, "C": 263.5599}),
-            ee.Feature(None, {"TPWpos": 7, "A": 1.6350, "B": -451.0790, "C": 268.9405}),
-            ee.Feature(None, {"TPWpos": 8, "A": 1.5468, "B": -429.5095, "C": 275.0895}),
-            ee.Feature(None, {"TPWpos": 9, "A": 1.9403, "B": -547.2681, "C": 277.9953}),
+            ee.Feature(None, {"TPWpos": tpw_pos_value, "A": a, "B": b, "C": c})
+            for tpw_pos_value, a, b, c in get_smw_coefficients(sensor)
         ]
     )
 
@@ -265,9 +314,9 @@ def apply_smw_algorithm(image: ee.Image) -> ee.Image:
         lookup = fc.reduceColumns(reducer, [prop_1, prop_2])
         return ee.List(lookup.get("list"))
 
-    A_lookup = get_lookup_table(coeff_SMW_L8, "TPWpos", "A")
-    B_lookup = get_lookup_table(coeff_SMW_L8, "TPWpos", "B")
-    C_lookup = get_lookup_table(coeff_SMW_L8, "TPWpos", "C")
+    A_lookup = get_lookup_table(coeff_smw, "TPWpos", "A")
+    B_lookup = get_lookup_table(coeff_smw, "TPWpos", "B")
+    C_lookup = get_lookup_table(coeff_smw, "TPWpos", "C")
 
     # remap()を使ってTPWposに対応する係数を各ピクセルに適用
     A_img = tpw_pos.remap(A_lookup.get(0), A_lookup.get(1), 0.0).resample("bilinear")
@@ -290,17 +339,26 @@ def apply_smw_algorithm(image: ee.Image) -> ee.Image:
 
 
 def calculate_lst_smw(
-    image_sr: ee.Image, image_toa: ee.Image, roi: ee.Geometry, use_ndvi: bool = True
+    image_sr: ee.Image,
+    image_toa: ee.Image,
+    roi: ee.Geometry,
+    use_ndvi: bool = True,
+    sensor: str = DEFAULT_SENSOR,
 ) -> ee.Image:
     """SMW手法でLST計算（全ステップ統合）
 
     Args:
-        image_sr: Landsat 8 Surface Reflectance画像
-        image_toa: Landsat 8 TOA画像（B10バンド用）
+        image_sr: Landsat 8 / Landsat 9 Surface Reflectance画像
+        image_toa: Landsat 8 / Landsat 9 TOA画像（B10バンド用）
         roi: 対象地域
+        use_ndvi: NDVIによる動的放射率を用いるか（Falseの場合はASTER放射率EM0を用いる）
+        sensor: SMW係数を選ぶセンサ名（"L8" / "L9"）。画像の取得元センサと一致させる
 
     Returns:
         LSTバンドを追加した画像
+
+    Raises:
+        ValueError: 未定義のセンサ名の場合
     """
     # ステップ1-5: SRコレクションで処理
     image = compute_ndvi(image_sr)
@@ -313,6 +371,6 @@ def calculate_lst_smw(
     image = image.addBands(image_toa.select("B10"))
 
     # ステップ6: SMWアルゴリズム適用
-    image = apply_smw_algorithm(image)
+    image = apply_smw_algorithm(image, sensor=sensor)
 
     return image

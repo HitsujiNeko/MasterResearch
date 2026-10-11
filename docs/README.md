@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-10-07  
+**最終更新**: 2026-10-09  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -102,15 +102,15 @@ docs/
 |-----------|------|-----------|---------|
 | [README.md](04_archive/README.md) | 04_archiveフォルダ案内 | フォルダ構成・ファイル一覧・旧結果アーカイブ規定（文献管理の詳細は literature_management_guide.md が正本） | フォルダ構成・旧結果の確認時 |
 | [literature_management_guide.md](04_archive/literature_management_guide.md) | 文献管理・活用ガイド | 3層構造の思想、Claude Code中心の文献調査フロー | 文献調査・論文追加時 |
-| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S11の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
+| [previous_studies_report.md](04_archive/previous_studies_report.md) | 先行研究整理 | S1-S18の事実整理、手法・データ・結論 | 論文執筆、手法比較 |
 | [limited_analysis_results_20230707_032329.md](04_archive/limited_analysis_results_20230707_032329.md) | Limited シナリオ分析結果（観測20230707_032329・アーカイブ） | 旧ラン1〜13の記録。アーカイブへ移した理由（カバレッジ・建物高さの帰属方式・nodata方針の食い違い）、旧ラン番号と現行ラン番号の対応表、旧観測での台帳・モデル性能・変数重要度・多重共線性 | 旧結果の参照時（現行結果は `03_results/limited_analysis_results.md`） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only 分析結果（観測20230707_032329・アーカイブ） | 旧観測での記録。アーカイブへ移した理由（観測・母数の食い違い）、現行ドキュメントとの対応表、旧ピクセル経路からの移植の等価性確認（ゴールデン比較・本ドキュメントにのみ残る） | 旧結果の参照時（現行結果は `03_results/satellite_only_analysis_results_cellbased.md`） |
-| [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 11論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
+| [01_metadata/papers_database.csv](04_archive/01_metadata/papers_database.csv) | 論文メタデータ | 18論文のCSVデータベース（著者、年、RQ関連度） | AI検索、フィルタリング |
 | [claude_project_instructions.md](04_archive/claude_project_instructions.md) | Claude Projects プロジェクト指示 | claude.ai の文献調査用プロジェクトにコピペする指示文（正本） | Claude Projects セットアップ・指示変更時 |
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
 
-**先行研究一覧（S1-S11）**:
+**先行研究一覧（S1-S18）**:
 
 - **S1**: Ermida et al. (2020) - SMW法 [本研究採用手法]
 - **S2**: Le Ngoc Hanh (2025) - ベトナム・ダナン [地域参考]
@@ -123,6 +123,13 @@ docs/
 - **S9**: Nguyen Thanh Hoan et al. (2018) - ハノイの土地利用構成とSUHI [ハノイ一次文献・RQ2スケール◎]
 - **S10**: Hoang et al. (2025) - ダナンのLightGBM+SHAPによるLSTモデリング [ダナン・GBDT+SHAPの一次文献・RQ1◎]
 - **S11**: Zhu et al. (2023) - 厦門島の街区スケール2D/3D都市形態と季節別LST [島嶼都市・街区単位・SVF/BF]
+- **S12**: Dormann et al. (2013) - 共線性への対処法のレビューとシミュレーション比較 [方法論・VIF/|r|閾値の整理・木モデルも共線性に寛容でない]
+- **S13**: Zuur et al. (2010) - 統計解析前のデータ探索の手順 [方法論・VIFの逐次除外と閾値3/10]
+- **S14**: Bečić & Gašparović (2026) - ザグレブのLSTと気温の空間的乖離と土地被覆 [NDVI×NDBI共線性（r=−0.991）を別モデルで回避]
+- **S15**: Shahfahad et al. (2026) - ムンバイ都市圏のSUHI強度の要因をML＋SHAP・空間XAIで評価 [相関→VIFの2段階変数選択・空間CV]
+- **S16**: Toloşi & Lengauer (2011) - 相関した特徴量のグループで重要度が薄まるcorrelation bias [方法論・RFも対象・特徴量クラスタリングで補正]
+- **S17**: Strobl et al. (2008) - RFの条件付きPermutation重要度 [方法論・通常の重要度は相関した変数を過大評価]
+- **S18**: Szabó et al. (2016) - NDVI・NDWI・MNDWIの土地被覆クラス別の特徴と相関 [NDWIはNIR・SWIRの式（本研究と別）・MNDWIが水域強調に最良]
 
 **構造化要約（現存ファイル）**:
 
@@ -137,6 +144,13 @@ docs/
 - [S9_Nguyen_2018.md](04_archive/02_structured_summaries/S9_Nguyen_2018.md)
 - [S10_Hoang_2025.md](04_archive/02_structured_summaries/S10_Hoang_2025.md)
 - [S11_Zhu_2023.md](04_archive/02_structured_summaries/S11_Zhu_2023.md)
+- [S12_Dormann_2013.md](04_archive/02_structured_summaries/S12_Dormann_2013.md)
+- [S13_Zuur_2010.md](04_archive/02_structured_summaries/S13_Zuur_2010.md)
+- [S14_Becic_2026.md](04_archive/02_structured_summaries/S14_Becic_2026.md)
+- [S15_Shahfahad_2026.md](04_archive/02_structured_summaries/S15_Shahfahad_2026.md)
+- [S16_Tolosi_2011.md](04_archive/02_structured_summaries/S16_Tolosi_2011.md)
+- [S17_Strobl_2008.md](04_archive/02_structured_summaries/S17_Strobl_2008.md)
+- [S18_Szabo_2016.md](04_archive/02_structured_summaries/S18_Szabo_2016.md)
 
 ---
 

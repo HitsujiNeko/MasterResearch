@@ -1,6 +1,6 @@
 # 研究計画書
 
-**最終更新**: 2026-10-08  
+**最終更新**: 2026-10-09  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [urban_structure_parameters.md](urban_structure_parameters.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
 **前提知識**: LST・ROI・3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 
@@ -399,9 +399,9 @@ How does 2D and 3D of urban morphology affect the seasonal land surface temperat
 
 **文献レビュー**：
 
-* [previous_studies_report.md](../04_archive/previous_studies_report.md) - 先行研究の整理・要約（S1-S11の詳細分析）
+* [previous_studies_report.md](../04_archive/previous_studies_report.md) - 先行研究の整理・要約（S1-S18。詳細分析は S1-S11）
 * [papers_database.csv](../04_archive/01_metadata/papers_database.csv) - 文献メタデータ管理（RQ関連度評価含む）
-* [02_structured_summaries/](../04_archive/02_structured_summaries/) - PDF精読済み文献の構造化要約（S1-S11）
+* [02_structured_summaries/](../04_archive/02_structured_summaries/) - PDF精読済み文献の構造化要約（S1-S18）
 * [claude_project_instructions.md](../04_archive/claude_project_instructions.md) - claude.ai（Claude Projects）に論文分析を依頼する際のプロジェクト指示
 
 ---

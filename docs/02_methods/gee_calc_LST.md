@@ -1,6 +1,6 @@
-# gee_calc_LST.py 仕様（Landsat 8 LST）
+# gee_calc_LST.py 仕様（Landsat 8 / 9 LST）
 
-**最終更新**: 2026-03-24  
+**最終更新**: 2026-10-12  
 **関連ドキュメント**:  
 
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
@@ -11,13 +11,13 @@
 - セットアップ → [setup.md](../setup.md)  
 - ドキュメント全体 → [docs/README.md](../README.md)
 
-**前提知識**: GEE Python API、Landsat 8データ構造
+**前提知識**: GEE Python API、Landsat 8 / 9データ構造
 
 ---
 
 ## 1. 概要
 
-Google Earth Engine（GEE）Python APIを用いて、Landsat 8のLSTを算出する。  
+Google Earth Engine（GEE）Python APIを用いて、Landsat 8 / Landsat 9のLSTを算出する。  
 `lst_method` により **Simple法** または **SMW法** を選択できるが、  
 本研究では **SMW法** を使用する。
 
@@ -58,6 +58,7 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 | `city_name` | 都市名（Driveフォルダ命名に使用） | `hanoi` |
 | `drive_root_folder` | Driveルート名（未指定時はMasterResearch_Data） | `MasterResearch_Data` |
 | `drive_export_folder` | エクスポート先フォルダ名の明示指定（任意） | `MasterResearch_Data_LST_hanoi_2023` |
+| `sensors` | 処理するセンサ（`;` 区切りで `L8` / `L9`）。列がない・空欄の場合は `L8` のみ | `L8;L9` |
 
 ### 2.2 ROI Shapefile
 
@@ -72,6 +73,8 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 
 - **Landsat 8 C02 T1_L2（SR）**: `LANDSAT/LC08/C02/T1_L2`
 - **Landsat 8 C02 T1_TOA（B10）**: `LANDSAT/LC08/C02/T1_TOA`
+- **Landsat 9 C02 T1_L2（SR）**: `LANDSAT/LC09/C02/T1_L2`
+- **Landsat 9 C02 T1_TOA（B10）**: `LANDSAT/LC09/C02/T1_TOA`
 - **ASTER GED v3**: `NASA/ASTER_GED/AG100_003`
 - **NCEP/NCAR Reanalysis**: `NCEP_RE/surface_wv`
 
@@ -86,7 +89,7 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 1. GEE認証
 2. CSV読込
 3. ROI読込（Shapefile → ee.Geometry）
-4. Landsat 8 SR/TOAコレクション取得
+4. 設定の `sensors` に従い、センサごとに SR/TOA コレクションを取得（以降の手順をセンサごとに行い、結果は観測日時の順に並べて保存する）
 5. SR と TOA を同一シーンの `system:index` で対応付け
 6. 雲・影マスク（QA_PIXEL）
 7. LST計算（`simple` または `smw`）
@@ -157,6 +160,7 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 
 主要列:
 
+- `satellite`（`Landsat8` / `Landsat9`）
 - `mean_temp_c`, `min_temp_c`, `max_temp_c`, `std_temp_c`（摂氏）
 - `valid_pixel_ratio`（%）
 - `cloud_cover`（Landsatメタデータ）
@@ -164,7 +168,7 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 
 ### 7.2 GeoTIFF
 
-**ファイル名**: `LST_Landsat8_YYYYMMDD.tif`  
+**ファイル名**: `LST_{センサ}_YYYYMMDD_HHMMSSZ.tif`（センサは `Landsat8` / `Landsat9`、観測日時 UTC）  
 **内容**: LST（摂氏）1バンド  
 **CRS**: CSVの `output_epsg` を使用
 
@@ -179,7 +183,7 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 
 ## 8. 実装上の注意
 
-- 現行実装は **Landsat 8専用**。
+- 対応センサは **Landsat 8 と Landsat 9**。センサは設定の `sensors` 列で選び、SMW 係数はセンサ別に切り替える（8.2 参照）。
 - LSTは **摂氏（°C）出力**。
 - `cloud_threshold` は現行コードで未使用。
 - `use_ndvi` を変更したい場合は `calculate_lst_smw()` 呼び出しに引数を追加する。
@@ -190,7 +194,8 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 
 ### 8.2 原典実装に合わせて維持している点
 
-- SMW の係数テーブル（A, B, C）は Landsat 8 用の原典値をそのまま用いる。
+- SMW の係数テーブル（A, B, C）は原典（`SMW_coefficients.js`）のセンサ別の値（`coeff_SMW_L8` / `coeff_SMW_L9`）をそのまま用い、`lst_smw.SMW_COEFFICIENTS` でセンサごとに切り替える。
+- ASTER 放射率の補間係数（c13, c14, c）は Landsat 8 の値を Landsat 9 にも用いる。原典の `compute_emissivity.js` は L4/L5/L7 以外を Landsat 8 の係数で処理し、`Landsat_LST.js` は Landsat 9 もこの経路で処理するため。
 - `TPW` は **当日 UTC の NCEP データ**のみを対象にし、最も近い2時刻で線形補間する。
 - SR と TOA の対応付けは、**同一シーンの `system:index`** を基準に行う。
 - 雲マスクは、SR に対して **QA_PIXEL の bit 3（影）と bit 4（雲）** を用いる。

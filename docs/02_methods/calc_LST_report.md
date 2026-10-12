@@ -1,6 +1,6 @@
 # Landsat 8 LST算出レポート（GEE + Python）
 
-**最終更新**: 2026-02-26  
+**最終更新**: 2026-10-12  
 **関連ドキュメント**:  
 
 - 研究計画 → [research_guide.md](../01_planning/research_guide.md)  
@@ -199,6 +199,6 @@ $$
 
 ## 7. 留意点
 
-- 現行実装は **Landsat 8専用**。
+- 本レポートの算出時点の実装は **Landsat 8専用**。Landsat 9 対応後の仕様は[gee_calc_LST.md](gee_calc_LST.md) を参照する。
 - LSTは **摂氏（°C）出力**。
 - `use_ndvi` は既定で `True`。ASTER EM0を使う場合は `False` を指定する。

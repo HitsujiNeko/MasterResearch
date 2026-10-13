@@ -178,13 +178,13 @@ def test_describe_input_files_uses_project_relative_path(tmp_path: Path) -> None
     """入力パスは基準ディレクトリからの相対パス（/ 区切り）で記録される。"""
     target = tmp_path / "data" / "input.csv"
     target.parent.mkdir()
-    target.write_text("a,b\n1,2\n", encoding="utf-8")
+    # write_text は Windows で改行を CRLF に変換し期待ハッシュとずれるため、バイト列で書く
+    content = b"a,b\n1,2\n"
+    target.write_bytes(content)
 
     described = describe_input_files([target], project_root=tmp_path)
 
-    assert described == [
-        {"path": "data/input.csv", "sha256": hashlib.sha256(b"a,b\n1,2\n").hexdigest()}
-    ]
+    assert described == [{"path": "data/input.csv", "sha256": hashlib.sha256(content).hexdigest()}]
 
 
 def test_build_provenance_schema_and_json_serializable(tmp_path: Path) -> None:

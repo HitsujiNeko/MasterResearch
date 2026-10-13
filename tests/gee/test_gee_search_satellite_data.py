@@ -267,8 +267,15 @@ def test_main_dispatches_to_run_when_rerank_only_not_specified(
 
 
 def test_count_scenes_by_path_row_groups_and_sorts() -> None:
-    """path/row は3桁ゼロ埋めの `PPP/RRR` で数え、キーの昇順に並べる。"""
-    counts = search.count_scenes_by_path_row([127, 126, 127, 126.0], [45, 46, 45, 46])
+    """path/row は3桁ゼロ埋めの `PPP/RRR` で数え、キーの昇順に並べる（3要素目以降は無視）。"""
+    scene_rows = [
+        [127, 45, "LC08_127045_20230101"],
+        [126, 46, "LC08_126046_20230102"],
+        [127, 45, "LC08_127045_20230117"],
+        [126.0, 46, "LC08_126046_20230118"],
+    ]
+
+    counts = search.count_scenes_by_path_row(scene_rows)
 
     assert counts == {"126/046": 2, "127/045": 2}
     assert list(counts) == ["126/046", "127/045"]
@@ -276,13 +283,7 @@ def test_count_scenes_by_path_row_groups_and_sorts() -> None:
 
 def test_count_scenes_by_path_row_handles_empty() -> None:
     """シーンが0件なら空の辞書を返す。"""
-    assert search.count_scenes_by_path_row([], []) == {}
-
-
-def test_count_scenes_by_path_row_raises_on_length_mismatch() -> None:
-    """path と row の件数が食い違う場合は黙って切り詰めず例外とする。"""
-    with pytest.raises(ValueError, match="件数が一致しません"):
-        search.count_scenes_by_path_row([127, 126], [45])
+    assert search.count_scenes_by_path_row([]) == {}
 
 
 def test_build_failure_summary_lines_reports_counts_per_sensor() -> None:

@@ -13,7 +13,7 @@
 
 対象センサは設定 CSV の `sensors` 列（`;` 区切り、例: `L8;L9`）で指定し、
 列がない・空欄の場合は L8 のみとする。センサごとにコレクションを取得して
-処理し、結果 CSV の `sensor` 列で区別する。処理に失敗したシーンは
+処理し、結果 CSV の `satellite` 列（`Landsat8` / `Landsat9`）で区別する。処理に失敗したシーンは
 センサ別の件数と一覧を最後にログへ要約する。
 
 出力される GeoTIFF は、LST と INDICES を別ファイルで保持する。
@@ -487,26 +487,17 @@ def export_indices_to_drive(
     task.start()
 
 
-def count_scenes_by_path_row(wrs_paths: list[Any], wrs_rows: list[Any]) -> dict[str, int]:
+def count_scenes_by_path_row(scene_rows: list[list[Any]]) -> dict[str, int]:
     """WRS-2 の path/row ごとのシーン件数を数える。
 
     Args:
-        wrs_paths (list[Any]): 各シーンの `WRS_PATH`（GEE から取得した数値）。
-        wrs_rows (list[Any]): 各シーンの `WRS_ROW`（`wrs_paths` と同じ順序・件数）。
+        scene_rows (list[list[Any]]): 各シーンの `[WRS_PATH, WRS_ROW, ...]`
+            （GEE から取得した値。先頭2要素のみを用いる）。
 
     Returns:
         dict[str, int]: `"PPP/RRR"`（3桁ゼロ埋め）をキー、件数を値とする辞書（キーの昇順）。
-
-    Raises:
-        ValueError: `wrs_paths` と `wrs_rows` の件数が異なる場合。
     """
-    if len(wrs_paths) != len(wrs_rows):
-        raise ValueError(
-            f"WRS_PATH と WRS_ROW の件数が一致しません: {len(wrs_paths)} != {len(wrs_rows)}"
-        )
-    counts = Counter(
-        f"{int(path):03d}/{int(row):03d}" for path, row in zip(wrs_paths, wrs_rows, strict=True)
-    )
+    counts = Counter(f"{int(row[0]):03d}/{int(row[1]):03d}" for row in scene_rows)
     return dict(sorted(counts.items()))
 
 
@@ -534,7 +525,7 @@ def build_failure_summary_lines(
 
     lines: list[str] = []
     for sensor, sensor_failures in failures_by_sensor.items():
-        image_count = image_counts.get(sensor, 0)
+        image_count = image_counts[sensor]
         lines.append(
             f"{get_sensor_label(sensor)}: 対象 {image_count} 件 / "
             f"成功 {image_count - len(sensor_failures)} 件 / 失敗 {len(sensor_failures)} 件"
@@ -569,7 +560,7 @@ def process_scene(
         target_observation_datetimes (set[str] | None):
             強制エクスポート対象の観測日時集合。
         sensor (str): 画像の取得元センサ名（"L8" / "L9"）。SMW 係数・出力名・
-            結果の `sensor` 列に用いる。
+            結果の `satellite` 列に用いる。
 
     Returns:
         dict[str, Any]: 探索結果。
@@ -636,7 +627,7 @@ def process_scene(
         "date": date_text,
         "observation_datetime_utc": observation_datetime_utc,
         "scene_index": scene_index,
-        "sensor": sensor,
+        "satellite": get_sensor_label(sensor),
         "cloud_cover": cloud_cover,
         "scene_covers_roi": scene_covers_roi_flag,
         "scene_coverage_ratio": scene_coverage_ratio,
@@ -698,17 +689,18 @@ def process_sensor_scenes(
         logger.warning("対象画像が0件です（%s）。", sensor_label)
         return [], [], 0
 
-    # 生コレクションの path/row 別件数を記録し、CSV 件数との差（失敗件数）を追えるようにする
-    path_row_counts = count_scenes_by_path_row(
-        collection_sr_raw.aggregate_array("WRS_PATH").getInfo(),
-        collection_sr_raw.aggregate_array("WRS_ROW").getInfo(),
-    )
+    # path/row と system:index を toList と同じ順序で1回の往復でまとめて取得する。
+    # path/row 別件数は CSV 件数との差（失敗件数）の追跡に、system:index は失敗シーンの特定に用いる
+    scene_rows = ee.List(
+        collection_sr_raw.reduceColumns(
+            ee.Reducer.toList(3), ["WRS_PATH", "WRS_ROW", "system:index"]
+        ).get("list")
+    ).getInfo()
     logger.info("%s の探索対象シーン数: %s", sensor_label, image_count)
-    for path_row, count in path_row_counts.items():
+    for path_row, count in count_scenes_by_path_row(scene_rows).items():
         logger.info("  %s path/row=%s: %s 件", sensor_label, path_row, count)
 
-    # 失敗時にもシーンを特定できるよう、system:index を toList と同じ順序で先に取得する
-    scene_indices = collection_sr_raw.aggregate_array("system:index").getInfo()
+    scene_indices = [row[2] for row in scene_rows]
     image_list = collection_sr_raw.toList(image_count)
     results: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []

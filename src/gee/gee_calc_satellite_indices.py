@@ -224,8 +224,7 @@ def get_landsat_sr_collection(
         .map(add_indices_map)
     )
 
-    count = collection.size().getInfo()
-    logger.info("対象期間内の画像数（%s）: %s", get_sensor_label(sensor), count)
+    # 件数の取得（getInfo）は呼び出し側で1回だけ行う
     return collection
 
 
@@ -464,6 +463,7 @@ def process_sensor(
         sensor=sensor,
     )
     image_count = int(collection.size().getInfo())
+    logger.info("対象期間内の画像数（%s）: %s", get_sensor_label(sensor), image_count)
     if image_count == 0:
         logger.warning("対象画像が0件です（%s）。", get_sensor_label(sensor))
         return [], 0

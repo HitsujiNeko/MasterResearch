@@ -257,9 +257,7 @@ def get_landsat_collection(
         .map(cloud_mask)
     )
 
-    count = collection_sr.size().getInfo()
-    logger.info(f"指定期間内に {count} 個の{get_sensor_label(sensor)}画像が見つかりました")
-
+    # 件数の取得（getInfo）は呼び出し側で1回だけ行う
     return collection_toa, collection_sr
 
 

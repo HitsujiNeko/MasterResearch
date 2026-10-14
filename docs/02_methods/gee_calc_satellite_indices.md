@@ -1,6 +1,6 @@
-# gee_calc_satellite_indices.py 仕様（Landsat 8 衛星指標）
+# gee_calc_satellite_indices.py 仕様（Landsat 8 / 9 衛星指標）
 
-**最終更新**: 2026-09-30  
+**最終更新**: 2026-10-12  
 **関連ドキュメント**:  
 
 - [analysis_workflow.md](analysis_workflow.md)  
@@ -42,12 +42,13 @@
   - `city_name`
   - `drive_root_folder`
   - `drive_export_folder`（任意）
-- 画像コレクション: `LANDSAT/LC08/C02/T1_L2`
+  - `sensors`（任意。`;` 区切りで `L8` / `L9` を指定。列がない・空欄の場合は `L8` のみ）
+- 画像コレクション: `LANDSAT/LC08/C02/T1_L2`（L8）、`LANDSAT/LC09/C02/T1_L2`（L9）。センサごとに取得して処理する
 
 ### 2.2 出力
 
-- 統計CSV: `data/output/gee_calc_indices_results.csv`
-- GeoTIFF（Google Drive）: `INDICES_Landsat8_YYYYMMDD_HHMMSSZ.tif`（観測日時 UTC）
+- 統計CSV: `data/output/gee_calc_indices_results.csv`（`satellite` 列に `Landsat8` / `Landsat9` を記録し、観測日時の順に並べる）
+- GeoTIFF（Google Drive）: `INDICES_{センサ}_YYYYMMDD_HHMMSSZ.tif`（センサは `Landsat8` / `Landsat9`、観測日時 UTC）
   - バンド: NDVI, NDBI, NDWI, MNDWI（この順）
   - 解像度: 30m
   - CRS: `output_epsg`（通常はEPSG:4326）
@@ -65,7 +66,7 @@
 
 MNDWI は NDWI の NIR を SWIR1 に置き換えた水指数である（Xu, H. 2006, *International Journal of Remote Sensing*, 27(14), 3025–3033。文献DB未登録・原本未確認）。NDVI と NDWI はどちらも NIR を含み符号が逆であるため構造的に強い負の相関を持つ。MNDWI は NIR を含まないため、この構造を持たない。解析での扱いは [limited_analysis_results.md](../03_results/limited_analysis_results.md) を参照する。
 
-Landsat 8 C2 L2 の対応バンド:
+Landsat 8 / 9 C2 L2 の対応バンド（OLI と OLI-2 で共通）:
 
 - GREEN: `SR_B3`
 - RED: `SR_B4`
@@ -113,7 +114,7 @@ Landsat Collection 2 Level-2 Surface Reflectance は、整数DNを以下で物�
 1. 設定CSV読込
 2. GEE認証
 3. ROI読込（Shapefile）
-4. `LANDSAT/LC08/C02/T1_L2` を期間・範囲で抽出
+4. 設定の `sensors` に従い、センサごとに `LANDSAT/LC08/C02/T1_L2` / `LANDSAT/LC09/C02/T1_L2` を期間・範囲で抽出（以降の手順をセンサごとに行う）
 5. QAマスク適用（`QA_PIXEL`, `QA_RADSAT`）
 6. SRスケーリングと有効DN範囲マスク
 7. NDVI/NDBI/NDWI/MNDWI算出
@@ -146,7 +147,7 @@ python src/gee/gee_calc_satellite_indices.py
 
 ## 8. 既知の制約
 
-- Landsat 8 (`LC08`) 固定実装であり、Landsat 9 (`LC09`) は未対応。
+- 対応センサは Landsat 8（`LC08`）と Landsat 9（`LC09`）。Landsat 9 も SR のバンド構成・スケール係数・QA ビット定義が Landsat 8 と同一であるため、指標の定義と前処理はセンサによらず共通とする。
 - 画像出力はGEEの非同期タスクであり、完了確認はGEE TasksまたはDrive側で行う必要がある。
 - 期間・雲条件によっては有効画素不足で出力件数が減少する。
 
@@ -156,9 +157,11 @@ python src/gee/gee_calc_satellite_indices.py
 
 1. GEE Data Catalog: Landsat 8 C2 L2  
    <https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2>
-2. USGS FAQ: Landsat Level-2 scale factor/offset  
+2. GEE Data Catalog: Landsat 9 C2 L2  
+   <https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC09_C02_T1_L2>
+3. USGS FAQ: Landsat Level-2 scale factor/offset  
    <https://www.usgs.gov/faqs/how-do-i-use-a-scale-factor-landsat-level-2-science-products>
-3. USGS: Landsat Collection 2 QA bands  
+4. USGS: Landsat Collection 2 QA bands  
    <https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands>
-4. USGS: Landsat 8-9 Collection 2 Level-2 Science Product Guide  
+5. USGS: Landsat 8-9 Collection 2 Level-2 Science Product Guide  
    <https://www.usgs.gov/media/files/landsat-8-9-collection-2-level-2-science-product-guide>

@@ -1,13 +1,16 @@
 # 作成者: GitHub Copilot
 # 作成日: 2026-04-02
-# 概要: Landsat 8 SRから衛星指標を算出し、統計CSVとGeoTIFFを出力する。
+# 概要: Landsat 8 / Landsat 9 SRから衛星指標を算出し、統計CSVとGeoTIFFを出力する。
 
-"""Google Earth Engineを使用したLandsat 8衛星指標算出プログラム。
+"""Google Earth Engineを使用したLandsat 8 / Landsat 9衛星指標算出プログラム。
 
-本プログラムは、Landsat 8 Collection 2 Level-2（SR）を用いて
+本プログラムは、Landsat 8 / Landsat 9 Collection 2 Level-2（SR）を用いて
 以下の衛星指標を算出する。
 
 - 算出指標: NDVI, NDBI, NDWI, MNDWI
+- 対象センサ: 設定CSVの `sensors` 列（`;` 区切り、例: `L8;L9`）。列がない・空欄の
+  場合は L8 のみ。Landsat 9（OLI-2）の SR バンド構成は Landsat 8 と同一のため、
+  指標の定義・スケーリングはセンサによらず共通とする
 
 主な出力:
 1. 画像ごとの統計量CSV
@@ -38,15 +41,22 @@ from src.common.config import PROJECT_ROOT
 from src.gee.gee_calc_LST import (
     authenticate_gee,
     build_drive_export_folder,
+    build_export_description,
     load_config,
     load_roi_from_shapefile,
+)
+from src.module.landsat_sensor import (
+    DEFAULT_SENSOR,
+    get_collection_id,
+    get_sensor_label,
+    parse_sensors,
 )
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "output" / "gee_calc_indices_results.csv"
 
 # 正規化差分指標の定義表: 指標名 -> (バンドA, バンドB)。指標 = (A - B) / (A + B)
-# SR_B3=GREEN, SR_B4=RED, SR_B5=NIR, SR_B6=SWIR1（Landsat 8 OLI）
+# SR_B3=GREEN, SR_B4=RED, SR_B5=NIR, SR_B6=SWIR1（Landsat 8 OLI / Landsat 9 OLI-2 で共通）
 # MNDWIはXu (2006) の定義（GREENとSWIR1）。定義の順序が出力バンドの順序になる。
 NORMALIZED_DIFFERENCE_DEFINITIONS: dict[str, tuple[str, str]] = {
     "NDVI": ("SR_B5", "SR_B4"),
@@ -100,10 +110,10 @@ def cloud_mask_sr(image: ee.Image) -> ee.Image:
 
     参照:
     - USGS Landsat Collection 2 QA_PIXEL / QA_RADSAT
-    - GEEデータカタログ LANDSAT/LC08/C02/T1_L2
+    - GEEデータカタログ LANDSAT/LC08/C02/T1_L2, LANDSAT/LC09/C02/T1_L2
 
     Args:
-        image (ee.Image): Landsat 8 Collection 2 Level-2画像。
+        image (ee.Image): Landsat 8 / Landsat 9 Collection 2 Level-2画像。
 
     Returns:
         ee.Image: Fill/雲/雲影/雪/飽和を除去した画像。
@@ -134,7 +144,7 @@ def get_scaled_optical_bands(image: ee.Image) -> ee.Image:
     物理的に不適切な反射率（スケーリング後で概ね0-1外）を除外する。
 
     Args:
-        image (ee.Image): Landsat 8 Collection 2 Level-2画像。
+        image (ee.Image): Landsat 8 / Landsat 9 Collection 2 Level-2画像。
 
     Returns:
         ee.Image: SR_B3, SR_B4, SR_B5, SR_B6のスケーリング済み画像。
@@ -158,7 +168,7 @@ def add_indices(image: ee.Image) -> ee.Image:
     各指標のバンドの組は NORMALIZED_DIFFERENCE_DEFINITIONS を正とする。
 
     Args:
-        image (ee.Image): Landsat 8 Collection 2 Level-2画像。
+        image (ee.Image): Landsat 8 / Landsat 9 Collection 2 Level-2画像。
 
     Returns:
         ee.Image: 定義表の順にNDVI/NDBI/NDWI/MNDWIバンドを追加した画像。
@@ -186,31 +196,35 @@ def get_landsat_sr_collection(
     start_date: str,
     end_date: str,
     roi: ee.Geometry,
+    sensor: str = DEFAULT_SENSOR,
 ) -> ee.ImageCollection:
-    """期間とROIでLandsat 8 SRコレクションを取得する。
+    """期間とROIで指定センサのLandsat SRコレクションを取得する。
 
     Args:
         start_date (str): 取得開始日（YYYY-MM-DD）。
         end_date (str): 取得終了日（YYYY-MM-DD）。
         roi (ee.Geometry): 解析対象の領域。
+        sensor (str): センサ名（"L8" / "L9"）。
 
     Returns:
         ee.ImageCollection: 雲マスクと指標バンド付与を行った画像コレクション。
+
+    Raises:
+        ValueError: 未定義のセンサ名の場合。
     """
 
     def add_indices_map(image: ee.Image) -> ee.Image:
         return add_indices(image)
 
     collection = (
-        ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+        ee.ImageCollection(get_collection_id(sensor, "sr"))
         .filterDate(start_date, end_date)
         .filterBounds(roi)
         .map(cloud_mask_sr)
         .map(add_indices_map)
     )
 
-    count = collection.size().getInfo()
-    logger.info("対象期間内の画像数: %s", count)
+    # 件数の取得（getInfo）は呼び出し側で1回だけ行う
     return collection
 
 
@@ -366,6 +380,7 @@ def process_image(
     roi: ee.Geometry,
     config: dict[str, Any],
     band_names: list[str],
+    sensor: str = DEFAULT_SENSOR,
 ) -> dict[str, Any]:
     """1画像分の統計計算とエクスポート判定を行う。
 
@@ -374,9 +389,10 @@ def process_image(
         roi (ee.Geometry): 集計・出力対象の領域。
         config (dict[str, Any]): 設定CSVから読み込んだ設定辞書。
         band_names (list[str]): 指標算出と出力に使用するバンド一覧。
+        sensor (str): 画像の取得元センサ名（"L8" / "L9"）。出力名と結果の列に用いる。
 
     Returns:
-        dict[str, Any]: 日付、雲量、有効率、統計量、エクスポート可否を含む結果辞書。
+        dict[str, Any]: 日付、センサ、雲量、有効率、統計量、エクスポート可否を含む結果辞書。
     """
     observation_datetime_utc = (
         ee.Date(image.get("system:time_start")).format("YYYY-MM-dd'T'HH:mm:ss").getInfo()
@@ -396,10 +412,7 @@ def process_image(
 
     exported = False
     if valid_ratio >= valid_threshold:
-        date_time_token = (
-            observation_datetime_utc.replace("-", "").replace(":", "").replace("T", "_")
-        )
-        description = f"INDICES_Landsat8_{date_time_token}Z"
+        description = build_export_description("INDICES", observation_datetime_utc, sensor)
         export_indices_to_drive(
             image=image,
             roi=roi,
@@ -415,6 +428,7 @@ def process_image(
     result = {
         "date": date_text,
         "observation_datetime_utc": observation_datetime_utc,
+        "satellite": get_sensor_label(sensor),
         "cloud_cover": cloud_cover_value,
         "valid_pixel_ratio": valid_ratio,
         "exported": exported,
@@ -422,6 +436,54 @@ def process_image(
     }
     result.update(stats)
     return result
+
+
+def process_sensor(
+    sensor: str,
+    roi: ee.Geometry,
+    config: dict[str, Any],
+    band_names: list[str],
+) -> tuple[list[dict[str, Any]], int]:
+    """1センサ分のSRコレクションを取得し、各画像の指標統計を算出する。
+
+    Args:
+        sensor (str): センサ名（"L8" / "L9"）。
+        roi (ee.Geometry): 集計・出力対象の領域。
+        config (dict[str, Any]): 設定CSVから読み込んだ設定辞書（start_date / end_date を含む）。
+        band_names (list[str]): 指標算出と出力に使用するバンド一覧。
+
+    Returns:
+        tuple[list[dict[str, Any]], int]: (結果辞書のリスト, コレクションの画像数)。
+            処理に失敗した画像は結果に含めずログに記録する。
+    """
+    collection = get_landsat_sr_collection(
+        start_date=config["start_date"],
+        end_date=config["end_date"],
+        roi=roi,
+        sensor=sensor,
+    )
+    image_count = int(collection.size().getInfo())
+    logger.info("対象期間内の画像数（%s）: %s", get_sensor_label(sensor), image_count)
+    if image_count == 0:
+        logger.warning("対象画像が0件です（%s）。", get_sensor_label(sensor))
+        return [], 0
+
+    image_list = collection.toList(image_count)
+    results: list[dict[str, Any]] = []
+
+    for index in tqdm(range(image_count), desc=f"衛星指標を処理中（{get_sensor_label(sensor)}）"):
+        image = ee.Image(image_list.get(index))
+        try:
+            results.append(process_image(image, roi, config, band_names=band_names, sensor=sensor))
+        except Exception as error:
+            logger.error(
+                "画像処理中にエラーが発生しました（%s, index=%s）: %s",
+                get_sensor_label(sensor),
+                index,
+                error,
+            )
+
+    return results, image_count
 
 
 def run(
@@ -458,25 +520,19 @@ def run(
     if not start_date or not end_date:
         raise ValueError("設定CSVに start_date / end_date が必要です。")
 
-    collection = get_landsat_sr_collection(
-        start_date=start_date,
-        end_date=end_date,
-        roi=roi,
-    )
-    image_count = int(collection.size().getInfo())
-    if image_count == 0:
+    sensors = parse_sensors(config.get("sensors"))
+    logger.info("処理対象のセンサ: %s", ", ".join(sensors))
+
+    results: list[dict[str, Any]] = []
+    total_image_count = 0
+    for sensor in sensors:
+        sensor_results, sensor_image_count = process_sensor(sensor, roi, config, band_names)
+        results.extend(sensor_results)
+        total_image_count += sensor_image_count
+
+    if total_image_count == 0:
         logger.warning("対象画像が0件のため処理を終了します。")
         return
-
-    image_list = collection.toList(image_count)
-    results: list[dict[str, Any]] = []
-
-    for index in tqdm(range(image_count), desc="衛星指標を処理中"):
-        image = ee.Image(image_list.get(index))
-        try:
-            results.append(process_image(image, roi, config, band_names=band_names))
-        except Exception as error:
-            logger.error("画像処理中にエラーが発生しました（index=%s）: %s", index, error)
 
     if not results:
         logger.warning("有効な処理結果が無いためCSV出力をスキップします。")
@@ -484,7 +540,10 @@ def run(
 
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
     result_df = pd.DataFrame(results)
-    result_df = result_df.sort_values("date").reset_index(drop=True)
+    # 複数センサの結果を観測日時順に並べる（同日内の順序も一意に定める）
+    result_df = result_df.sort_values("observation_datetime_utc", kind="stable").reset_index(
+        drop=True
+    )
     result_df.to_csv(output_csv_path, index=False, encoding="utf-8")
 
     exported_count = int(result_df["exported"].sum())

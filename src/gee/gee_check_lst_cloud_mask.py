@@ -5,7 +5,7 @@
 マスク条件を変えた場合の影響を比較するために、次の2つの CSV を出力する。
 
 1. 異常画素の QA ビット集計（`lst_cloud_mask_anomaly_qa_bits.csv`）:
-   現行マスク（bit 3: Cloud, bit 4: Cloud Shadow）を通った画素のうち、
+   変更前のマスク（bit 3: Cloud, bit 4: Cloud Shadow）を通った画素のうち、
    LST が閾値を下回る画素について、QA_PIXEL のフラグ（bit 0〜7）・
    信頼度フィールド（bit 8〜15、2 ビットずつ）・QA_RADSAT の該当画素数を数える。
 2. マスク候補ごとの影響比較（`lst_cloud_mask_variant_comparison.csv`）:
@@ -109,7 +109,8 @@ class MaskVariant:
     require_radsat_zero: bool = False
 
 
-# 比較するマスク候補。先頭の current が現行（原典 cloudmask.js の sr と同じ条件）。
+# 比較するマスク候補。先頭の current は変更前の条件（原典 cloudmask.js の sr と同じ）で、
+# 検証時点の本番マスクを指す。検証の結果、本番の `cloud_mask` には plus_cirrus_snow を採用した。
 # plus_snow・plus_cirrus_snow は、異常画素に Snow（bit 5）が立っていたことを受けて、
 # Snow だけで足りるか・Cirrus も要るかを切り分けるために加える。
 # indices_equivalent は衛星指標側の `cloud_mask_sr` と同じ条件。
@@ -495,7 +496,7 @@ def compute_scene_summary(
         maxPixels=REDUCE_MAX_PIXELS,
     )
 
-    # 現行マスクを通った画素のうち LST が閾値未満の画素（異常画素）の QA ビット
+    # 変更前のマスクを通った画素のうち LST が閾値未満の画素（異常画素）の QA ビット
     current = next(v for v in MASK_VARIANTS if v.name == CURRENT_VARIANT_NAME)
     anomaly_mask = lst.lt(threshold_c).And(build_variant_mask(raw_sr_image, current))
     qa = raw_sr_image.select("QA_PIXEL")

@@ -83,16 +83,19 @@ class _FakeImage:
         ((1 << 3) | (1 << 4), False),
         (1 << 0, True),  # Fill は除外しない
         (1 << 1, True),  # Dilated Cloud は除外しない
-        (1 << 2, True),  # Cirrus は除外しない
-        (1 << 5, True),  # Snow は除外しない
+        (1 << 2, False),  # Cirrus
+        (1 << 5, False),  # Snow
+        (1 << 7, True),  # Water は除外しない
+        ((1 << 5) | (1 << 6), False),  # Clear が立っていても Snow があれば除外する
         # bit 6（Clear）＋各信頼度フィールド（bit 8〜15）がすべて 01（低）
         (21824, True),
         # bit 3（Cloud）＋雲の信頼度（bit 8・9）が 11（高）＋他の信頼度が 01（低）
         (22280, False),
     ],
 )
-def test_cloud_mask_excludes_only_cloud_or_shadow(qa_value: int, kept: bool) -> None:
-    """QA_PIXEL の bit 3（Cloud）か bit 4（Cloud Shadow）が立つ画素だけを除外する。"""
+def test_cloud_mask_excludes_cirrus_cloud_shadow_snow(qa_value: int, kept: bool) -> None:
+    """QA_PIXEL の bit 2（Cirrus）・3（Cloud）・4（Cloud Shadow）・5（Snow）のいずれかが
+    立つ画素だけを除外する。"""
     image = _FakeImage(qa_value)
 
     result = calc_lst.cloud_mask(image)

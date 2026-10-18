@@ -1,6 +1,6 @@
 # gee_calc_LST.py 仕様（Landsat 8 / 9 LST）
 
-**最終更新**: 2026-10-16  
+**最終更新**: 2026-10-18  
 **関連ドキュメント**:  
 
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
@@ -146,12 +146,13 @@ Ermida et al. (2020) に準拠。
 ## 6. 雲マスク（SRのみ）
 
 `QA_PIXEL` を使用し、  
-bit 3（Cloud）と bit 4（Cloud Shadow）がどちらも 0 の画素を残す。
+bit 2（Cirrus）・bit 3（Cloud）・bit 4（Cloud Shadow）・bit 5（Snow）がすべて 0 の画素を残す。
 
 ビット定義は USGS の [Landsat Collection 2 Quality Assessment Bands](https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands)（Landsat 8-9 QA_PIXEL Bit Index）による。
-Dilated Cloud（bit 1）・Cirrus（bit 2）は除外しない。
+Dilated Cloud（bit 1）・Fill（bit 0）と `QA_RADSAT` は用いない（衛星指標側の `cloud_mask_sr` はこれらも除外する）。
 
-この設定は、原典 JavaScript 実装の SR マスク方針に合わせている。
+原典 JavaScript 実装の SR マスク（`cloudmask.js` の `sr`）は bit 3・bit 4 のみを用いる。
+bit 2・bit 5 を加えるのは原典からの意図的な差分であり、根拠は 8.1 に記す。
 
 ---
 
@@ -194,6 +195,12 @@ Dilated Cloud（bit 1）・Cirrus（bit 2）は除外しない。
 ### 8.1 原典実装からの意図的な差分
 
 - 原典 JavaScript 実装の `LST` バンドはケルビンだが、本研究では **摂氏（°C）へ変換して出力**する。
+- 雲マスクに **bit 2（Cirrus）と bit 5（Snow）を加える**（原典は bit 3・bit 4 のみ）。原典の条件では、
+  低温の雲が Snow・Cirrus と判定されて Cloud フラグが立たずに残り、LST 最小値が -102.2°C となる観測があった。
+  異常画素（LST < -20°C）の多い観測では、異常画素の 50〜100% に Snow、50〜99% に Cirrus が立っていた。
+  対象地域（ハノイ）で雪は考えにくい。検証の結果と候補ごとの比較は
+  [observation_selection.md](observation_selection.md) 7.5 に記す。
+  Dilated Cloud（bit 1）は、追加しても異常値の解消にほとんど寄与しなかったため加えない。
 
 ### 8.2 原典実装に合わせて維持している点
 
@@ -201,4 +208,3 @@ Dilated Cloud（bit 1）・Cirrus（bit 2）は除外しない。
 - ASTER 放射率の補間係数（c13, c14, c）は Landsat 8 の値を Landsat 9 にも用いる。原典の `compute_emissivity.js` は L4/L5/L7 以外を Landsat 8 の係数で処理し、`Landsat_LST.js` は Landsat 9 もこの経路で処理するため。
 - `TPW` は **当日 UTC の NCEP データ**のみを対象にし、最も近い2時刻で線形補間する。
 - SR と TOA の対応付けは、**同一シーンの `system:index`** を基準に行う。
-- 雲マスクは、SR に対して **QA_PIXEL の bit 3（Cloud）と bit 4（Cloud Shadow）** を用いる。

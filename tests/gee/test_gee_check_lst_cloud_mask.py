@@ -2,7 +2,8 @@
 
 GEE への接続を伴わない範囲のみを対象とする。マスク候補の判定は、1 画素の
 QA_PIXEL / QA_RADSAT 値を持つ偽の `ee.Image` に適用して確認し、本番の
-`cloud_mask` / `cloud_mask_sr` と同じ画素を残すことを確かめる。
+`cloud_mask`（採用した `plus_cirrus_snow`）/ `cloud_mask_sr`（`indices_equivalent`）と
+同じ画素を残すことを確かめる。
 """
 
 from __future__ import annotations
@@ -105,7 +106,7 @@ def test_qa_pixel_bit_definitions_follow_usgs() -> None:
 
 
 def test_mask_variants_are_as_planned() -> None:
-    """比較する候補は 7 つで、先頭が現行マスク（bit 3・4）である。"""
+    """比較する候補は 7 つで、先頭が変更前のマスク（bit 3・4）である。"""
     assert [(v.name, v.bits, v.require_radsat_zero) for v in check.MASK_VARIANTS] == [
         ("current", (3, 4), False),
         ("plus_dilated", (1, 3, 4), False),
@@ -118,12 +119,13 @@ def test_mask_variants_are_as_planned() -> None:
     assert check.MASK_VARIANTS[0].name == check.CURRENT_VARIANT_NAME
 
 
-def test_current_variant_matches_production_cloud_mask_for_all_qa_values() -> None:
-    """`current` は全 QA_PIXEL 値（0〜65535）で本番の `cloud_mask` と同じ画素を残す。"""
+def test_adopted_variant_matches_production_cloud_mask_for_all_qa_values() -> None:
+    """採用した `plus_cirrus_snow` は全 QA_PIXEL 値（0〜65535）で本番の `cloud_mask` と
+    同じ画素を残す。"""
     mismatches = [
         qa
         for qa in range(1 << 16)
-        if _kept_by_variant("current", qa) != cloud_mask(_FakeImage(qa)).kept
+        if _kept_by_variant("plus_cirrus_snow", qa) != cloud_mask(_FakeImage(qa)).kept
     ]
 
     assert mismatches == []

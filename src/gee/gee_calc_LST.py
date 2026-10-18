@@ -208,7 +208,10 @@ def load_roi_from_shapefile_jp(shapefile_path: str) -> ee.Geometry:
 
 
 def cloud_mask(image: ee.Image) -> ee.Image:
-    """雲と影をマスクする
+    """雲と雲の影をマスクする
+
+    QA_PIXEL の bit 3（Cloud）と bit 4（Cloud Shadow）がどちらも 0 の画素を残す。
+    ビット定義は USGS「Landsat Collection 2 Quality Assessment Bands」による。
 
     Args:
         image: Landsat 8 / Landsat 9 Collection 2 Level-2画像（QA_PIXELのビット定義は共通）
@@ -217,10 +220,10 @@ def cloud_mask(image: ee.Image) -> ee.Image:
         マスク適用済み画像
     """
     qa = image.select("QA_PIXEL")
-    # ビット3: 雲の影 (0=影なし)
-    shadow = qa.bitwiseAnd(1 << 3).eq(0)
-    # ビット4: 雲 (0=雲なし)
-    cloud = qa.bitwiseAnd(1 << 4).eq(0)
+    # ビット3: 雲 (Cloud, 0=雲なし)
+    cloud = qa.bitwiseAnd(1 << 3).eq(0)
+    # ビット4: 雲の影 (Cloud Shadow, 0=影なし)
+    shadow = qa.bitwiseAnd(1 << 4).eq(0)
 
     return image.updateMask(cloud.And(shadow))
 

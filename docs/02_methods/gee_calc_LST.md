@@ -1,6 +1,6 @@
 # gee_calc_LST.py 仕様（Landsat 8 / 9 LST）
 
-**最終更新**: 2026-10-12  
+**最終更新**: 2026-10-16  
 **関連ドキュメント**:  
 
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
@@ -146,7 +146,10 @@ Ermida et al. (2020) に準拠。
 ## 6. 雲マスク（SRのみ）
 
 `QA_PIXEL` を使用し、  
-bit 3（影）と bit 4（雲）が0の画素を残す。
+bit 3（Cloud）と bit 4（Cloud Shadow）がどちらも 0 の画素を残す。
+
+ビット定義は USGS の [Landsat Collection 2 Quality Assessment Bands](https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands)（Landsat 8-9 QA_PIXEL Bit Index）による。
+Dilated Cloud（bit 1）・Cirrus（bit 2）は除外しない。
 
 この設定は、原典 JavaScript 実装の SR マスク方針に合わせている。
 
@@ -198,4 +201,4 @@ bit 3（影）と bit 4（雲）が0の画素を残す。
 - ASTER 放射率の補間係数（c13, c14, c）は Landsat 8 の値を Landsat 9 にも用いる。原典の `compute_emissivity.js` は L4/L5/L7 以外を Landsat 8 の係数で処理し、`Landsat_LST.js` は Landsat 9 もこの経路で処理するため。
 - `TPW` は **当日 UTC の NCEP データ**のみを対象にし、最も近い2時刻で線形補間する。
 - SR と TOA の対応付けは、**同一シーンの `system:index`** を基準に行う。
-- 雲マスクは、SR に対して **QA_PIXEL の bit 3（影）と bit 4（雲）** を用いる。
+- 雲マスクは、SR に対して **QA_PIXEL の bit 3（Cloud）と bit 4（Cloud Shadow）** を用いる。

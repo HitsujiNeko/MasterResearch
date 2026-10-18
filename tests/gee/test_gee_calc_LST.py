@@ -1,7 +1,7 @@
-"""gee_calc_LST.py（エクスポート名のセンサ別生成）のテスト。
+"""gee_calc_LST.py（エクスポート名のセンサ別生成・雲マスクの QA ビット）のテスト。
 
-GEE への接続を伴わない純粋関数のみを対象とし、`ee` の画像演算は
-テスト対象外とする。
+GEE への接続を伴わない範囲のみを対象とする。`cloud_mask` は、1 画素の QA_PIXEL 値を
+持つ偽の `ee.Image` に適用し、残すか除外するかの判定を確認する。
 """
 
 from __future__ import annotations
@@ -39,3 +39,64 @@ def test_build_export_description_unknown_sensor_raises() -> None:
     """未定義のセンサ名は例外とし、誤ったラベルで出力しない。"""
     with pytest.raises(ValueError, match="未対応のセンサ"):
         calc_lst.build_export_description("LST", "2023-07-07T03:23:29", "L7")
+
+
+class _FakePixel:
+    """`ee.Image` の 1 画素を模し、整数値に対するビット演算・比較・論理積を再現する。"""
+
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def bitwiseAnd(self, other: int) -> "_FakePixel":
+        return _FakePixel(self.value & other)
+
+    def eq(self, other: int) -> "_FakePixel":
+        return _FakePixel(int(self.value == other))
+
+    def And(self, other: "_FakePixel") -> "_FakePixel":
+        return _FakePixel(int(bool(self.value) and bool(other.value)))
+
+
+class _FakeImage:
+    """QA_PIXEL のみを持つ 1 画素の `ee.Image` を模し、適用したマスクを記録する。"""
+
+    def __init__(self, qa_value: int) -> None:
+        self.qa_value = qa_value
+        self.selected: list = []
+        self.applied_mask = None
+
+    def select(self, name: str) -> _FakePixel:
+        self.selected.append(name)
+        return _FakePixel(self.qa_value)
+
+    def updateMask(self, mask: _FakePixel) -> "_FakeImage":
+        self.applied_mask = mask
+        return self
+
+
+@pytest.mark.parametrize(
+    ("qa_value", "kept"),
+    [
+        (0, True),
+        (1 << 3, False),  # Cloud
+        (1 << 4, False),  # Cloud Shadow
+        ((1 << 3) | (1 << 4), False),
+        (1 << 0, True),  # Fill は除外しない
+        (1 << 1, True),  # Dilated Cloud は除外しない
+        (1 << 2, True),  # Cirrus は除外しない
+        (1 << 5, True),  # Snow は除外しない
+        # bit 6（Clear）＋各信頼度フィールド（bit 8〜15）がすべて 01（低）
+        (21824, True),
+        # bit 3（Cloud）＋雲の信頼度（bit 8・9）が 11（高）＋他の信頼度が 01（低）
+        (22280, False),
+    ],
+)
+def test_cloud_mask_excludes_only_cloud_or_shadow(qa_value: int, kept: bool) -> None:
+    """QA_PIXEL の bit 3（Cloud）か bit 4（Cloud Shadow）が立つ画素だけを除外する。"""
+    image = _FakeImage(qa_value)
+
+    result = calc_lst.cloud_mask(image)
+
+    assert result is image
+    assert image.selected == ["QA_PIXEL"]
+    assert bool(image.applied_mask.value) is kept

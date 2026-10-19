@@ -104,6 +104,7 @@ def test_column_suffix_is_declared_consistently_within_each_module() -> None:
       参照する列名を変えずに別版を足せるようにするためである（解析対象域フラグの
       ``mask_roi`` に対する ``mask_survey`` がこれに当たる）
     - 接尾辞を宣言しないモジュール（差し替え関係）は、接尾辞なしのセットが複数あってよい
+    - 同じモジュール内で接尾辞は重複しない（重複すると接尾辞を付けた後の列名も衝突する）
     - いずれのモジュールでも、接尾辞を外せば同一の基底名になる。崩れると ``run.py`` の
       ``apply_column_suffix()`` が組み立てる列名と宣言列が食い違う
 
@@ -123,6 +124,11 @@ def test_column_suffix_is_declared_consistently_within_each_module() -> None:
                 f"{module_name} は接尾辞を使うのに、接尾辞なしのセットが複数あります"
                 f"（{sorted(unsuffixed)}）。同時に結合すると列名が衝突します"
             )
+        # 接尾辞が重複すると、接尾辞を付けた後の列名も衝突する。
+        suffixes = [param_set.column_suffix for _, param_set in entries if param_set.column_suffix]
+        assert len(suffixes) == len(set(suffixes)), (
+            f"{module_name} で接尾辞が重複しています: {sorted(suffixes)}"
+        )
 
         base_columns: set[tuple[str, ...]] = set()
         for name, param_set in entries:

@@ -314,7 +314,8 @@ def summarize(extent_gdf: gpd.GeoDataFrame) -> list[str]:
     extent = extent_gdf.geometry.iloc[0]
     return [
         f"図葉数: {int(extent_gdf['sheet_count'].iloc[0])}",
-        f"面積: {extent_gdf['area_km2'].iloc[0]:.3f} km²",
+        # 「²」は cp932 で表せず、標準出力をリダイレクトすると書き出し後に落ちるため km2 と書く。
+        f"面積: {extent_gdf['area_km2'].iloc[0]:.3f} km2",
         f"部分数: 1 / 穴: {len(extent.interiors)}",
         f"CRS: {extent_gdf.crs.to_string()}",
     ]

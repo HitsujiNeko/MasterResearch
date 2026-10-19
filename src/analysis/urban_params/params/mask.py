@@ -29,12 +29,9 @@ from __future__ import annotations
 import numpy as np
 import pyogrio
 
-from ..geometry import compute_polygon_coverage
+from ..geometry import POLYGON_GEOM_TYPES, compute_polygon_coverage
 from ..grid import BBox, GridSpec
 from ..io import LayerResource
-
-# 範囲レイヤとして受け付けるジオメトリ型。
-POLYGON_GEOMETRY_TYPES = frozenset({"Polygon", "MultiPolygon"})
 
 # レイヤ定義のジオメトリ型がこれらの場合は、型の混在がありうるため地物を読んで確かめる。
 MIXED_GEOMETRY_TYPES = frozenset({"Unknown", "GeometryCollection"})
@@ -65,7 +62,7 @@ def validate_resource(resource: LayerResource) -> None:
 
     # 「Polygon Z」のような次元の付記を除いた型名で判定する。
     declared_type = str(info["geometry_type"]).split(" ")[0]
-    if declared_type in POLYGON_GEOMETRY_TYPES:
+    if declared_type in POLYGON_GEOM_TYPES:
         return
     if declared_type not in MIXED_GEOMETRY_TYPES:
         _raise_non_polygon(location, f"ジオメトリ型 {info['geometry_type']}")
@@ -75,7 +72,7 @@ def validate_resource(resource: LayerResource) -> None:
     geom_types = gdf.geom_type.dropna()
     if geom_types.empty:
         raise ValueError(f"範囲レイヤに面ジオメトリがありません: {location}")
-    invalid_counts = geom_types[~geom_types.isin(POLYGON_GEOMETRY_TYPES)].value_counts()
+    invalid_counts = geom_types[~geom_types.isin(POLYGON_GEOM_TYPES)].value_counts()
     if not invalid_counts.empty:
         detail = ", ".join(f"{name} {count}件" for name, count in invalid_counts.items())
         _raise_non_polygon(location, detail)

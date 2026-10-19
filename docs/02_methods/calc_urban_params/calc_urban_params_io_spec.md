@@ -394,7 +394,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` / `lulc_glc2022` / `ntl_viirs2023` / `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` | 可 |
 | `full` | `mask_roi` / `mask_survey` / `build_dc` / `road_gt` | 可 |
 
-**`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で Satellite Only / Limited を比較する用途に使える。
+**`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。ただし `= 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味し、**境界にかかる部分被覆セルを含む**（面積換算の超過は 30m で約0.4%・300m で約8%。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。部分被覆セルでは有効域外の部分が 0 として集約されるため、測量GIS由来の値（`build_dc` / `road_gt`）が過小になりうる。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で Satellite Only / Limited を比較する用途に使える。
 
 **`limited` が土地被覆・夜間光の主ソースのみを列挙する理由**: `lulc_glc2022` と `lulc_esri2022`、`ntl_viirs2023` と `ntl_bm2023` は列名を共有する差し替え関係であり、同一データセットへ同時結合すると `join_tables()` が列名衝突として拒否する。副ソースでの感度分析は `--tables` に全テーブルを明示列挙した**別データセット**として生成する（`--scenario limited` を併用すると展開分の主ソースが混入して衝突するため、併用しない）。人口3版は列名に接尾辞が付いて衝突しないため、3版とも同時に結合する（6.4節）。
 

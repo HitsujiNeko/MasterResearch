@@ -226,7 +226,7 @@ RG は**境界線**であり（[survey_gis_data_preparation_status.md](../../03_
 
 ##### 測量GISの有効域は CS の図郭内枠から面として定義する
 
-測量GISの有効域は、**CS の Level 5 に描かれた図郭内枠（80図葉）の和集合**と定義する。図郭内枠は各図葉で測量図面が実際に描かれた範囲そのものであり、近似を介さずに測量範囲を表せるためである。`src/preprocessing/build_survey_extent_hanoi.py` が次の手順で単一ポリゴンを生成し、`data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`、EPSG:5897）に保存する。
+測量GISの有効域は、**CS の Level 5 に描かれた図郭内枠（80図葉）の和集合**と定義する。図郭内枠は各図葉で測量図面が実際に描かれた範囲そのものであり、近似を介さずに測量範囲を表せるためである。`src/preprocessing/build_survey_extent_hanoi.py` が次の手順で単一ポリゴンを生成し、`data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`、EPSG:5897）に保存する。入出力は WGS84 を基準とする原則の例外として EPSG:5897 のまま保存するのは、測量GISの原座標系であり、面積判定（`compute_polygon_coverage()`）も解析用CRS（EPSG:5897）で行うため、再投影を挟まずに図郭の直線・直角と面積を保てるからである。
 
 1. CS の Level 5 から長さ 300 m 以上の LineString（図郭内枠の4辺）を選ぶ。同じ Level の目盛り線（約25 m）は長さで除く
 2. 線を和集合（交点で分割）してから面化（polygonize）し、面積 0.1 km² 以上の面を図葉面として選ぶ。隣接図葉の内枠どうしの隙間・重なりにできる細い面（数 m²）は面積で除く

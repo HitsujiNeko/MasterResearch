@@ -48,12 +48,15 @@ class _FakePixel:
         self.value = value
 
     def bitwiseAnd(self, other: int) -> "_FakePixel":
+        """ビット単位の論理積を返す。"""
         return _FakePixel(self.value & other)
 
     def eq(self, other: int) -> "_FakePixel":
+        """値が等しければ 1、異なれば 0 を返す。"""
         return _FakePixel(int(self.value == other))
 
     def And(self, other: "_FakePixel") -> "_FakePixel":
+        """両方が真なら 1、それ以外は 0 を返す。"""
         return _FakePixel(int(bool(self.value) and bool(other.value)))
 
 
@@ -66,10 +69,12 @@ class _FakeImage:
         self.applied_mask = None
 
     def select(self, name: str) -> _FakePixel:
+        """選択したバンド名を記録し、QA_PIXEL の値を持つ画素を返す。"""
         self.selected.append(name)
         return _FakePixel(self.qa_value)
 
     def updateMask(self, mask: _FakePixel) -> "_FakeImage":
+        """適用したマスクを記録し、自身を返す。"""
         self.applied_mask = mask
         return self
 

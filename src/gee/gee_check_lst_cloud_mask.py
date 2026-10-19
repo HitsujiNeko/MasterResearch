@@ -543,13 +543,17 @@ def save_rows(rows: list[dict[str, Any]], output_path: Path) -> None:
     pd.DataFrame(rows).to_csv(output_path, index=False, encoding="utf-8")
 
 
-def run(args: argparse.Namespace) -> None:
+def run(args: argparse.Namespace) -> list[str]:
     """対象シーンを選び、シーンごとに集計して 2 つの CSV に保存する。
 
-    中断に備え、1 シーン処理するごとに CSV を上書き保存する。
+    中断に備え、1 シーン処理するごとに CSV を上書き保存する。処理の最後にも今回の結果で
+    必ず上書きするため、全シーンが失敗した場合は空の CSV になり、前回の結果は残らない。
 
     Args:
         args: `parse_arguments()` の結果。
+
+    Returns:
+        list[str]: 集計に失敗したシーンの system:index（失敗が無ければ空）。
 
     Raises:
         ValueError: 設定CSVに GCP プロジェクトID・ROI が無い場合。
@@ -604,15 +608,25 @@ def run(args: argparse.Namespace) -> None:
         )
 
     logger.info("完了: 成功 %s 件・失敗 %s 件", len(anomaly_rows), len(failures))
+    # 全シーンが失敗した場合も前回の CSV を残さないよう、今回の結果で必ず上書きする
+    save_rows(anomaly_rows, args.anomaly_csv_path)
+    save_rows(variant_rows, args.variant_csv_path)
     if failures:
         logger.warning("失敗したシーン: %s", ", ".join(failures))
     logger.info("異常画素の QA ビット集計: %s", args.anomaly_csv_path)
     logger.info("マスク候補ごとの影響比較: %s", args.variant_csv_path)
+    return failures
 
 
 def main() -> None:
-    """エントリポイント。"""
-    run(parse_arguments())
+    """エントリポイント。
+
+    集計に失敗したシーンが 1 件でもあれば、結果の欠落を呼び出し元が検知できるよう
+    終了コード 1 で終了する。
+    """
+    failures = run(parse_arguments())
+    if failures:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

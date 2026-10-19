@@ -8,7 +8,9 @@ QA_PIXEL / QA_RADSAT 値を持つ偽の `ee.Image` に適用して確認し、�
 
 from __future__ import annotations
 
+import argparse
 import math
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -25,12 +27,15 @@ class _FakePixel:
         self.value = value
 
     def bitwiseAnd(self, other: int) -> "_FakePixel":
+        """ビット単位の論理積を返す。"""
         return _FakePixel(self.value & other)
 
     def eq(self, other: int) -> "_FakePixel":
+        """値が等しければ 1、異なれば 0 を返す。"""
         return _FakePixel(int(self.value == other))
 
     def And(self, other: "_FakePixel") -> "_FakePixel":
+        """両方が真なら 1、それ以外は 0 を返す。"""
         return _FakePixel(int(bool(self.value) and bool(other.value)))
 
 
@@ -45,9 +50,11 @@ class _FakeImage:
         self.kept = kept
 
     def select(self, name: str) -> _FakePixel:
+        """指定したバンドの値を持つ画素を返す。"""
         return _FakePixel(self.bands[name])
 
     def updateMask(self, mask: _FakePixel) -> "_FakeImage":
+        """マスクを論理積で重ねた新しい画像を返す。"""
         return _FakeImage(
             self.bands["QA_PIXEL"],
             self.bands["QA_RADSAT"],
@@ -379,3 +386,102 @@ def test_build_anomaly_row() -> None:
 def test_to_count(value: object, expected: int) -> None:
     """None・NaN は 0、小数は四捨五入した整数にする。"""
     assert check.to_count(value) == expected
+
+
+# --- 実行全体（GEE 依存部分は差し替える） ---
+
+
+def _run_args(tmp_path: Path, scene_indices: list[str]) -> argparse.Namespace:
+    """`run()` に渡す引数を、一時ディレクトリの入出力で組み立てる。"""
+    results = pd.DataFrame(
+        {
+            "scene_index": ["LC09_A", "LC08_B"],
+            "observation_datetime_utc": ["2022-09-30T03:23:46", "2023-07-07T03:23:05"],
+            "satellite": ["Landsat9", "Landsat8"],
+            "lst_min_temp_c": [-102.2, 23.7],
+            "scene_coverage_ratio": [0.9, 0.9],
+            "indices_effective_roi_coverage": [50.0, 80.0],
+        }
+    )
+    results.to_csv(tmp_path / "results.csv", index=False)
+    pd.DataFrame({"scene_index": ["LC08_B", "LC09_A"]}).to_csv(
+        tmp_path / "ranking.csv", index=False
+    )
+    return argparse.Namespace(
+        config_path=tmp_path / "config.csv",
+        results_csv_path=tmp_path / "results.csv",
+        ranking_csv_path=tmp_path / "ranking.csv",
+        anomaly_csv_path=tmp_path / "anomaly.csv",
+        variant_csv_path=tmp_path / "variant.csv",
+        threshold_c=-20.0,
+        top_n=20,
+        adopted_observations=[],
+        scene_indices=scene_indices,
+    )
+
+
+def _patch_gee(monkeypatch: pytest.MonkeyPatch, failing: set[str]) -> None:
+    """GEE への接続を伴う関数を差し替え、`failing` のシーンだけ集計を失敗させる。"""
+    monkeypatch.setattr(
+        check,
+        "load_config",
+        lambda _: {"gee_project_id": "test-project", "roi_shapefile_path": "roi.shp"},
+    )
+    monkeypatch.setattr(check, "authenticate_gee", lambda project_id: None)
+    monkeypatch.setattr(check, "load_roi_from_shapefile", lambda _: object())
+
+    def _fake_summary(scene_index: str, roi: object, threshold_c: float) -> dict:
+        """失敗対象のシーンでは例外を送出し、それ以外は空の集計結果を返す。"""
+        if scene_index in failing:
+            raise RuntimeError("GEE の集計に失敗")
+        return {"variant": {"lst__total_count": 100}, "anomaly": {"anomaly_pixels": 0}}
+
+    monkeypatch.setattr(check, "compute_scene_summary", _fake_summary)
+
+
+def test_run_overwrites_previous_csv_when_all_scenes_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """全シーンが失敗しても前回の CSV を残さず、失敗したシーンを返す。"""
+    args = _run_args(tmp_path, ["LC09_A", "LC08_B"])
+    args.anomaly_csv_path.write_text("前回の結果", encoding="utf-8")
+    args.variant_csv_path.write_text("前回の結果", encoding="utf-8")
+    _patch_gee(monkeypatch, failing={"LC09_A", "LC08_B"})
+
+    failures = check.run(args)
+
+    assert failures == ["LC09_A", "LC08_B"]
+    assert "前回の結果" not in args.anomaly_csv_path.read_text(encoding="utf-8")
+    assert "前回の結果" not in args.variant_csv_path.read_text(encoding="utf-8")
+
+
+def test_run_saves_successful_scenes_and_reports_partial_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """一部のシーンが失敗した場合は、成功したシーンだけを保存し、失敗したシーンを返す。"""
+    args = _run_args(tmp_path, ["LC09_A", "LC08_B"])
+    _patch_gee(monkeypatch, failing={"LC09_A"})
+
+    failures = check.run(args)
+
+    assert failures == ["LC09_A"]
+    assert pd.read_csv(args.anomaly_csv_path)["scene_index"].tolist() == ["LC08_B"]
+    variant = pd.read_csv(args.variant_csv_path)
+    assert set(variant["scene_index"]) == {"LC08_B"}
+    assert len(variant) == len(check.MASK_VARIANTS)
+
+
+@pytest.mark.parametrize(("failures", "exits"), [(["LC09_A"], True), ([], False)])
+def test_main_exits_nonzero_only_when_scenes_fail(
+    monkeypatch: pytest.MonkeyPatch, failures: list[str], exits: bool
+) -> None:
+    """失敗したシーンがあれば終了コード 1 で終了し、無ければ正常に戻る。"""
+    monkeypatch.setattr(check, "parse_arguments", lambda: argparse.Namespace())
+    monkeypatch.setattr(check, "run", lambda args: failures)
+
+    if exits:
+        with pytest.raises(SystemExit) as excinfo:
+            check.main()
+        assert excinfo.value.code == 1
+    else:
+        check.main()

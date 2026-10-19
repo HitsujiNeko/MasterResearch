@@ -215,8 +215,9 @@ def cloud_mask(image: ee.Image) -> ee.Image:
     ビット定義は USGS「Landsat Collection 2 Quality Assessment Bands」による。
 
     原典 cloudmask.js の sr は bit 3・bit 4 のみを用いるが、本研究では bit 2・bit 5 も除外する
-    （原典からの意図的な差分）。低温の雲が Snow・Cirrus と判定されて Cloud フラグが立たずに残り、
-    LST が極端に低い画素（-100°C 前後）を生むことを検証で確認したためである。
+    （原典からの意図的な差分）。原典の条件では LST が極端に低い画素（-100°C 前後）が残り、
+    その画素には Cloud フラグが立たず Snow・Cirrus のフラグが立っていたことを検証で確認した
+    ためである（低温の雲が雪・氷と判定されたと推定される）。
 
     Args:
         image: Landsat 8 / Landsat 9 Collection 2 Level-2画像（QA_PIXELのビット定義は共通）

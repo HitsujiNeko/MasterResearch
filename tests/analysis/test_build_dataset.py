@@ -1056,6 +1056,20 @@ def test_end_to_end_join_matches_canonical_grid(city_environment: dict[str, Any]
     ]
 
 
+def test_end_to_end_joins_roi_and_survey_masks(city_environment: dict[str, Any]) -> None:
+    """ROIと測量GISの有効域フラグは、列名が衝突せず同一データセットへ同時に結合できる。"""
+    _run_param_calculation(city_environment, ["--params", "mask_roi", "mask_survey"])
+    _run_build_dataset(
+        city_environment,
+        ["--tables", "mask_roi", "mask_survey", "--name", "masks"],
+    )
+
+    dataset = _read_dataset(city_environment, "masks")
+
+    assert {"IN_ANALYSIS_AREA", "IN_ANALYSIS_AREA_SURVEY"} <= set(dataset.columns)
+    assert len(dataset) == len(city_environment["cell_ids_by_scale"][TARGET_SCALE])
+
+
 def test_end_to_end_values_match_source_tables(city_environment: dict[str, Any]) -> None:
     """結合後の値が、算出したパラメータテーブルの値と cell_id 単位で一致する。"""
     _run_param_calculation(city_environment, ["--params", "build_gba", "road_osm"])

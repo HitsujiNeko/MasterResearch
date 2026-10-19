@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-10-12  
+**最終更新**: 2026-10-19  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -200,7 +200,7 @@ LST と GIS データでは空間範囲が異なる。この非対称性を理�
 
 - `Satellite Only`: ROI 全体を対象にする
 - `Limited`: 公開 GIS の有効カバレッジと ROI の共通部分を対象にする。建物データが ROI 全域を覆わない場合は、カバレッジマスクまたは対象範囲制限を明示する
-- `Full`: RG/CS 等で定義した測量 GIS 有効域を対象にする
+- `Full`: 測量 GIS 有効域（CS の図郭内枠80図葉の和集合）を対象にする。正準グリッドは他シナリオと共通で、`mask_survey` テーブルの `IN_ANALYSIS_AREA_SURVEY = 1` で絞る（定義方式は [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md) 7.5.6節）
 - 測量 GIS では、DC/GT/TV 等の外れ値ジオメトリが全体BBoxを歪める可能性があるため、「分析対象域内に限定して集計」する
 
 **ピクセル値の区別**（GEE算出時に既に設定済み）:

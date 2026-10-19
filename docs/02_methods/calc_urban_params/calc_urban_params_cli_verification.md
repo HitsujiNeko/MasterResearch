@@ -1,6 +1,6 @@
 # calc_urban_params CLI・検証
 
-**最終更新**: 2026-08-23
+**最終更新**: 2026-10-19
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md)
 **前提知識**: [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章、[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7章（処理設計）
 
@@ -22,6 +22,7 @@
 | 11.5 人口密度・夜間光の目視確認（画像保存） | 5列を着色表示し画像として保存、分布の妥当性確認 |
 | 11.6 土地被覆クラス別面積率のCLI検証結果 | 6組み合わせの行数・構成比・スケール間挙動・有効画素率の実測 |
 | 11.7 土地被覆クラス別面積率の目視確認（画像保存） | 16列を着色表示し画像として保存、分布の妥当性確認 |
+| 11.8 測量GIS有効域（`mask_survey`）の検証 | 有効域の生成・正準グリッドとの包含・セル数と面積の整合・同時結合・目視確認 |
 
 ---
 
@@ -47,6 +48,10 @@ python -m src.analysis.urban_params --city hanoi \
   --lst-file data/satellite/lst/2023/LST_Landsat8_20230707_032329Z.tif \
   --satellite-file data/satellite/indices/2023/INDICES_Landsat8_20230707_032329Z.tif \
   --scales 30 90 300
+
+# 測量GIS有効域フラグ。入力の有効域ポリゴンを先に生成しておく（CS の図郭内枠から作る）
+python -m src.preprocessing.build_survey_extent_hanoi
+python -m src.analysis.urban_params --city hanoi --params mask_survey --scales 30 90 300
 ```
 
 主要引数:
@@ -62,7 +67,7 @@ python -m src.analysis.urban_params --city hanoi \
 
 `--params` / `--satellite-file` / `--lst-file` は少なくとも1つの指定が必要である。
 
-**廃止した引数**: `--scenario`（シナリオは結合側へ移動）、`--mask-layer-key`（解析範囲は ROI へ一本化し、有効域は `mask_roi` テーブルが持つ）、`--satellite-dir`（複数観測を1テーブルへ混ぜる余地を残すため、単一観測の指定に限る）。
+**廃止した引数**: `--scenario`（シナリオは結合側へ移動）、`--mask-layer-key`（解析範囲は ROI へ一本化し、有効域は `mask_roi` テーブル、測量GISの範囲は `mask_survey` テーブルが持つ）、`--satellite-dir`（複数観測を1テーブルへ混ぜる余地を残すため、単一観測の指定に限る）。
 
 ### 10.2 結合フェーズ
 
@@ -97,7 +102,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - **`params/lst.py`（`LST` / `LST_VALID_RATIO`）**: 設計確定・実装済み。LSTラスタ（`--lst-file`）を coarse グリッドへ平均再投影し、セル平均地表面温度（°C）とセル内のLST有効画素率（0-1）を算出する。目的変数であり `VALID_SATELLITE_MASK` の判定材料には含めない（[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.3節）。集約後の有効値の中央値が摂氏として妥当な範囲（-60〜90°C）の外なら警告する（ケルビン取り違えの検知。正常なLSTを弾かない広さに取る）。
 - **`params/population.py`（`POP_DEN_{データソース}` / `POP_VALID_RATIO_{データソース}`）**: 設計確定・実装済み。人口グリッド（`worldpop_hanoi_2020.tif` / `landscan_hanoi_{2020,2023}.tif`）の**密度バンド（band 2、人/km²）**を coarse グリッドへ平均再投影し、100 で割ってセル平均人口密度（人/ha）とセル内の有効画素率（0-1）を算出する。`grid.cell_area_ha()` は使わない（理由は [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節）。3版は列名にデータソース接尾辞が付き（`run.py: apply_column_suffix()`）、同一データセットへ同時に結合できる。カウントバンド（band 1）を誤って指した場合は、バンド説明の照合で警告する（値は出力されるため統計を見ても気づけないため）。
 - **`params/nightlight.py`（`NTL_MEAN` / `NTL_VALID_RATIO`）**: 設計確定・実装済み。夜間光ラスタ（`viirs_dnb_hanoi_2023.tif` / `black_marble_vnp46a4_hanoi_2023.tif`）の**主バンド（band 1）**を coarse グリッドへ平均再投影し、セル平均放射輝度（nW·cm⁻²·sr⁻¹）とセル内の有効画素率（0-1）を算出する。放射輝度は面積に比例しない強度量のため面積正規化しない。主バンド以外（`avg_radiance_masked` / `max_radiance` / `ntl_all_angle` / `cf_cvg` 等）を指した場合は、バンド説明の**完全一致**照合で警告する。部分一致では兄弟バンドが主バンドと語を共有するため素通りする。
-- **`params/mask.py`（`IN_ANALYSIS_AREA`）**: 設計確定・実装済み。ROI ポリゴンの被覆率が0より大きいセルを1とする。
+- **`params/mask.py`（`IN_ANALYSIS_AREA` / `IN_ANALYSIS_AREA_SURVEY`）**: 設計確定・実装済み。範囲ポリゴンの被覆率が0より大きいセルを1とする。`mask_roi` は ROI、`mask_survey` は測量GIS有効域（`survey_extent`、CS の図郭内枠80図葉の和集合）を範囲とし、後者は列名に接尾辞 `_SURVEY` が付く。範囲レイヤに面以外のジオメトリが含まれる場合は `params/mask.py: validate_resource()` が入力解決の段階で停止する（RG・CS の生レイヤの誤指定を防ぐため）。
 - **`params/lulc.py`（`LULC_{クラス}_COV` / `LULC_VALID_RATIO`）**: 設計確定・実装済み。土地被覆ラスタ（`glc_fcs30d_hanoi_2022.tif` / `esri_lulc_hanoi_2022.tif`、パラメータセット `lulc_glc2022` / `lulc_esri2022`）の画素値を共通クラス体系（[src/common/lulc_classes.py](../../../src/common/lulc_classes.py)）へ写像し、雪氷を除く7クラスの面積率とセル内有効画素率を算出する。クラスごとの二値マスクを1クラスずつ`Resampling.average`で再投影し、クリップ前の合計を分母に正規化する（詳細は[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.2節）。データセット（GLC/Esri）の識別は画素値からは行えないため、`RasterResource.class_scheme` の明示的な宣言に依存し、未設定・未知の値は `params/lulc.py: validate_resource()` が入力解決の段階で停止する。`GIS_INDICATOR_MODULES` には加えない（7クラスの和が有効セルで必ず1になるため、`VALID_GIS_MASK` 本来の意味が失われる）。
 - 衛星指標・LSTは `INDICES_*.tif` / `LST_*.tif` のバンド説明（衛星指標: NDVI, NDBI, NDWI／LST: LST）から検出・検証する。
 - 実行には `fiona`, `pyogrio`, `rasterio`, `shapely`, `pyproj` を含む `environment.yml` 相当の Python 環境が必要である。
@@ -376,5 +381,51 @@ python -m src.analysis.build_dataset --city hanoi --scenario limited --tables lu
 | `LULC_BARE_COV`（Esri） | ほぼ全域が最も薄い色だが、左上（三峰山系付近）と中央に少数のセルで濃い階級が現れる。実データで非ゼロは38,223セル中384件（1.0%）のみであり、300mグリッド上では点在する程度にしか見えないのが実態である |
 | `LULC_VALID_RATIO` | 非線形閾値でもなお、ほぼ全域が最上位階級（0.95-1.0）で塗られる。**配色の問題ではなく実データがそうである**（30mで有効画素率1.0未満のセルはGLC 0.6%・Esri 0.6%と少数、300mでも96.5%が0.8-1.0に収まる。11.6節） |
 | `LULC_BUILT_COV` と `BUILD_COV` の大小関係 | `LULC_BUILT_COV ≥ BUILD_COV` が一般に成り立つという[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節の記述を、`build_gba` テーブルとの突き合わせで確認した。GLCは違反（`LULC_BUILT_COV < BUILD_COV`）が38,214セル中7,707件（20.2%）、Esriは38,223セル中4,139件（10.8%）で残るが、差の平均はGLC +0.12・Esri +0.31とLULC側が明確に高く、違反セルでの逆転幅も平均−0.01程度とわずかである。「一般に成り立つ」（常に成り立つではない）という記述と整合する |
+
+ユーザー・Claude双方で目視確認済み。
+
+### 11.8 測量GIS有効域（`mask_survey`）の検証（2026-10-19）
+
+測量GISの有効域を CS の図郭内枠から面として定義し（定義方式と却下案は [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.5.6節）、`mask_survey` テーブルとして算出した結果を検証した。生成・算出のコマンドは10.1節を参照。
+
+**有効域ポリゴンの生成**（`src.preprocessing.build_survey_extent_hanoi`）:
+
+| 項目 | 結果 |
+|---|---|
+| 図葉数 | 80（想定どおり） |
+| 面積 | 99.895 km² |
+| 部分数・穴 | 1・0（図葉間の隙間はクロージングで解消） |
+| CRS | EPSG:5897 |
+
+**正準グリッドとの包含**: `canonical_grid.py --extent mask --mask-layer-key survey_extent --scales 30` を一時出力先に実行した。結果は **111,682 セル**で、いずれも ROI の正準グリッド `grid_30m`（3,739,454 セル）に含まれた（はみ出し0件）。測量GIS範囲用に別のグリッドを作らず、ROI のグリッドを `mask_survey` で絞る方式で欠けが生じないことの裏づけになる。
+
+**`mask_survey` の算出結果**:
+
+| スケール | 行数 | `IN_ANALYSIS_AREA_SURVEY = 1` | 面積換算 | 有効域面積との比 |
+|---|---|---|---|---|
+| 30m | 3,739,454 | 111,448 | 100.303 km² | 1.004 |
+| 90m | 417,694 | 12,549 | 101.647 km² | 1.018 |
+| 300m | 38,235 | 1,200 | 108.000 km² | 1.081 |
+
+- 全スケールで NULL は0件で、`IN_ANALYSIS_AREA_SURVEY = 1` かつ `IN_ANALYSIS_AREA = 0` のセルも0件だった（測量GIS範囲は ROI の解析対象域に包含される）
+- **面積換算が有効域より大きく、セルが粗いほど差が広がる。** これは「セル内に fine ピクセル中心が1つでも入れば1」とする判定（`mask_roi` と共通）により、境界にかかるセルが丸ごと1と数えられるためである。外周（約40 km）×セル幅の半分による概算（30m で約0.6 km²・90m で約1.8 km²・300m で約6 km²）と、実測の超過（0.4・1.8・8.1 km²）はおおむね同じ桁にある。300m で概算を上回る理由は**未確認**である。測量GIS範囲内に限った分析で境界セルの扱いが結果に効く場合は、境界セルの除外を別途検討する
+- 入力レイヤの実読み込みは3スケールで1回だった
+
+**同時結合**: `build_dataset.py --scale 300 --tables mask_roi mask_survey build_gba` を一時出力先に実行し、列名の衝突なく結合できることを確認した（38,235 行・11 列）。
+
+**範囲レイヤの検証**: 実データで `params/mask.py: validate_resource()` を確かめた。ROI は受理し、RG（LineString 512件・MultiLineString 82件・Point 59件を含む）と CS の生レイヤは拒否した。
+
+**QGIS での目視確認**: 有効域・ROI・CS の図郭内枠（Level 5）・RG・DC（MultiPolygon）・GBA 建物を重ねて確認した。
+
+| 確認項目 | 結果 |
+|---|---|
+| 有効域と図郭内枠の一致 | 有効域の外周が図郭内枠（8列×10行）の外周と一致し、内部に隙間・穴はない |
+| RG との関係 | RG は有効域の内側の区・坊の行政界で、範囲の縁で途切れて開いている（RG を面化しても範囲にならない理由を目視で確認） |
+| CRS の整合 | DC（EPSG:5897 を付与）と GBA 建物（EPSG:4326）の建物位置にずれはない |
+| DC が極端に少ない図葉（北端中央、DC 10件） | 同じ区域は GBA 建物もほぼ空白で、北側の河川沿いの建物が少ない区域に当たる。DC の欠落ファイル（図葉 251-c。[survey_gis_data_preparation_status.md](../../03_results/survey_gis_data_preparation_status.md) 2.6節）がこの図葉に当たるかは、図葉名と位置の対応を確かめておらず**未確認**である。当たる場合でも、建物が少ない区域のため欠落の影響は小さいと見込まれる（GBA との整合からの推定） |
+
+> **QGIS での注意**: 測量GISの merge ファイルはジオメトリ型が混在するため、QGIS はサブレイヤの1つ（DC では Point）だけを読み込む。建物面を見るには URI に `|geometrytype=MultiPolygon` を付けて読み込む。
+
+図は `images/urban_params/urban_params_in_analysis_area_survey_hanoi_300m.png` に保存した（11.3節の `mask_roi` 版と同じ体裁。ヘッドレスPyQGISで生成）。ROI 全体の中で測量GIS範囲（1,200セル）が占める位置を示す。
 
 ユーザー・Claude双方で目視確認済み。

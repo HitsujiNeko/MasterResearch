@@ -1,6 +1,6 @@
 # calc_urban_params 処理設計
 
-**最終更新**: 2026-09-30
+**最終更新**: 2026-10-19
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章、[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章（入出力仕様）
 
@@ -150,7 +150,7 @@ def compute(
 
 #### 7.5.1 既存 `grid.py` との関係
 
-`grid.py` の `build_grid()` はグリッド原点を解析範囲レイヤの BBox（`minx` / `maxy`）から取る。この BBox はシナリオごとに異なる基準レイヤ（`limited` は ROI、`full` は RG）に由来するため、**シナリオが変わるとセルが揃わず比較できない**。
+`grid.py` の `build_grid()` はグリッド原点を解析範囲レイヤの BBox（`minx` / `maxy`）から取る。この BBox はシナリオごとに異なる基準レイヤ（旧実装では `limited` は ROI、`full` は RG）に由来するため、**シナリオが変わるとセルが揃わず比較できない**。
 
 正準グリッドは原点を解析範囲から独立させてこれを解消する。`grid.py` は `build_grid()` の実装として引き続き使われるが、**渡す BBox を正準グリッドのセル境界に載る「整合BBox」へ差し替える**ことで、両者の格子を一致させている（7.6節）。
 
@@ -220,11 +220,40 @@ ROI でクリップする場合、「30m セルが ROI と交差するならそ�
 | `rg` | 721 | LineString 512 / MultiLineString 82 / Polygon 68 / Point 59 | 90.6% |
 | `cs` | 20,110 | LineString 11,201 / Point 8,407 / Polygon 502 | 97.5% |
 
-RG は**境界線**であり（[survey_gis_data_preparation_status.md](../../03_results/survey_gis_data_preparation_status.md)）、線と交差判定すると有効域の内部ではなく**境界線上のセルだけ**が選ばれる。実測でも RG の BBox 112,617 セル（30m）に対し選択は 9,835 セル（8.7%）と、面を塗った場合の値にならない。
+RG は**境界線**であり（[survey_gis_data_preparation_status.md](../../03_results/survey_gis_data_preparation_status.md)）、線と交差判定すると有効域の内部ではなく**境界線上のセルだけ**が選ばれる。実測でも RG の BBox 112,617 セル（30m）に対し選択は 9,835 セル（8.7%）と、面を塗った場合の値にならない。旧実装は `rg` をマスクにしていたが、300m 出力が実データ2行しかなく既に破綻していた。
 
-これは正準グリッド固有の問題ではなく、**測量GISから分析対象域をどう定義するかが未決である**ことに由来する。`params/mask.py` の `compute_polygon_coverage()` も面積ベースであり同じ前提を共有する。定義が決まるまで、マスクには面ジオメトリを持つレイヤ（現状は `roi`）を使う。
+`params/mask.py` の `compute_polygon_coverage()` も面積ベースであり同じ前提を共有する。このため `params/mask.py: validate_resource()` が、面以外を含むレイヤを入力解決の段階で拒否する（算出自体は例外なく終わり、ほぼ全セル 0 のテーブルが黙って出力されるため）。正準グリッド側（`--mask-layer-key`）には同等の検証を設けておらず、既定の `roi` 以外を指定する場合は面ジオメトリのレイヤであることを利用者が確かめる。
 
-**この未決が `full` シナリオの有効域定義に及ぶ。** 解析範囲を ROI へ一本化しているため、`full` に固有の有効域は現時点で定義されていない。旧実装は `rg` をマスクにしていたが、300m 出力が実データ2行しかなく既に破綻していた。
+##### 測量GISの有効域は CS の図郭内枠から面として定義する
+
+測量GISの有効域は、**CS の Level 5 に描かれた図郭内枠（80図葉）の和集合**と定義する。図郭内枠は各図葉で測量図面が実際に描かれた範囲そのものであり、近似を介さずに測量範囲を表せるためである。`src/preprocessing/build_survey_extent_hanoi.py` が次の手順で単一ポリゴンを生成し、`data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`、EPSG:5897）に保存する。入出力は WGS84 を基準とする原則の例外として EPSG:5897 のまま保存するのは、測量GISの原座標系であり、面積判定（`compute_polygon_coverage()`）も解析用CRS（EPSG:5897）で行うため、再投影を挟まずに図郭の直線・直角と面積を保てるからである。
+
+1. CS の Level 5 から長さ 300 m 以上の LineString（図郭内枠の4辺）を選ぶ。同じ Level の目盛り線（約25 m）は長さで除く
+2. 線を和集合（交点で分割）してから面化（polygonize）し、面積 0.1 km² 以上の面を図葉面として選ぶ。隣接図葉の内枠どうしの隙間・重なりにできる細い面（数 m²）は面積で除く
+3. 図葉面の和集合に半径 1 m のクロージング（膨張→収縮、角を保つ `mitre` 結合）をかけ、図葉間の隙間（合計約 4.6 m²。半径 0.5 m 以上で埋まる）を埋める
+4. 図葉数が 80・単一ポリゴン・穴なし・クロージングによる面積変化率が 10⁻³ 以下であることを検証し、外れたら例外で止める
+
+| 項目 | 値 |
+|---|---|
+| 図葉 | 8列 × 10行 = 80（内枠 1枚 約1,082 m × 1,153 m、約1.248 km²） |
+| 有効域の面積 | 99.895 km²（単一ポリゴン・穴なし） |
+| 30m の正準グリッドで面として切った場合のセル数 | 111,682（すべて ROI の正準グリッドに含まれる） |
+
+**却下した定義方式**:
+
+| 方式 | 却下理由 |
+|---|---|
+| RG の線を面化（polygonize） | RG は区・坊の行政界で、測量範囲の縁で途切れて開いている。面化しても 130面・57.1 km² にとどまり、建物が存在する北部・周縁部が抜ける |
+| RG の Polygon（68件）のみ | 1件 1.4〜5.8 m² の注記・記号の枠であり、範囲を表さない |
+| RG の外接矩形・凸包 | 外接矩形（100.8 km²）は図葉の傾きの分だけはみ出し、凸包（98.4 km²）は四隅を欠く。図郭という正確な範囲が得られる以上、近似を採る理由がない |
+| 建物・道路の分布から導出 | 「地物が無い」と「測量していない」を区別できず、河川・空地など値が 0 の正当なセルを落とす |
+| CS の図郭外枠（Level 7） | 隣接図葉と重なり、測量図面の描画範囲ではない |
+
+##### 測量GISの範囲はグリッドではなくテーブルで絞る
+
+`full` シナリオ用に測量GIS範囲の正準グリッドを別に作ることはしない。**正準グリッドは3シナリオとも ROI 由来で共通**とし、測量GISの範囲は `mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）で絞る。別グリッドにするとシナリオ間で `cell_id` の集合が分かれ、同じセル集合で Satellite Only / Limited / Full を比較できなくなるためである。ROI が全シナリオの解析範囲を包含する（上記）ことから、測量GIS範囲のセルは ROI の正準グリッドにすべて含まれ、別グリッドを作らなくても欠けは生じない（30m で実測。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。
+
+`--mask-layer-key survey_extent` で測量GIS範囲だけの正準グリッドを作ることは技術的には可能であり、面として正しく切れることの検証には使う。ただし分析用の正準グリッドとしては使わない。
 
 #### 7.5.7 CLI
 

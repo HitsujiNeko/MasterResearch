@@ -457,6 +457,39 @@ def test_build_param_tasks_resolves_all_inputs_before_running(
         build_param_tasks(["build_gba", "build_dc"], city_cfg, ANALYSIS_CRS)
 
 
+def test_build_param_tasks_rejects_non_polygon_mask_layer(
+    city_environment: dict[str, Any],
+) -> None:
+    """面以外のジオメトリを持つレイヤを範囲レイヤに指定すると、タスク組み立てで失敗する。
+
+    算出まで進めると全セル 0 のテーブルが黙って出力されるため、入力解決の段階で
+    ``params/mask.py`` の ``validate_resource()`` が呼ばれることを確かめる。
+    """
+    city_cfg = dict(city_environment["city_cfg"])
+    city_cfg["layers"] = dict(city_cfg["layers"])
+    # 道路レイヤ（線）を測量GISの範囲として誤指定した状態を作る。
+    city_cfg["layers"]["survey_extent"] = city_cfg["layers"]["open_roads"]
+
+    with pytest.raises(ValueError, match="面ジオメトリ"):
+        build_param_tasks(["mask_survey"], city_cfg, ANALYSIS_CRS)
+
+
+def test_main_writes_survey_mask_with_suffixed_column(city_environment: dict[str, Any]) -> None:
+    """mask_survey は接尾辞つきの列名で出力され、ROIより狭い範囲だけが 1 になる。"""
+    _run_main(city_environment, ["--params", "mask_roi", "mask_survey"])
+
+    roi_table = _read_table(city_environment["output_dir"], 20, "mask_roi")
+    survey_table = _read_table(city_environment["output_dir"], 20, "mask_survey")
+
+    assert list(survey_table.columns) == ["cell_id", "IN_ANALYSIS_AREA_SURVEY"]
+    np.testing.assert_array_equal(survey_table["cell_id"], roi_table["cell_id"])
+    survey_flags = survey_table["IN_ANALYSIS_AREA_SURVEY"].to_numpy()
+    roi_flags = roi_table["IN_ANALYSIS_AREA"].to_numpy()
+    # 合成の測量範囲は ROI の左半分なので、1 のセルは ROI より少なく、ROI に包含される。
+    assert 0 < survey_flags.sum() < roi_flags.sum()
+    assert not np.any((survey_flags == 1) & (roi_flags == 0))
+
+
 def test_build_satellite_task_missing_file_raises(tmp_path: Path) -> None:
     """存在しない衛星指標ファイルはFileNotFoundErrorになる。"""
     with pytest.raises(FileNotFoundError):
@@ -693,6 +726,7 @@ def test_param_set_columns_match_computed_columns(city_environment: dict[str, An
         "build_gba",
         "road_osm",
         "mask_roi",
+        "mask_survey",
         "elev_fabdem",
         "pop_worldpop2020",
         "pop_landscan2023",

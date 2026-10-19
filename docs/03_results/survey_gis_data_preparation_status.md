@@ -1,6 +1,6 @@
 # 測量由来 GIS データ整備状況レポート
 
-**最終更新**: 2026-04-21  
+**最終更新**: 2026-10-19  
 **作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、`gpkgの確認結果.md`、`DGNファイル内容確定結果.md` の確認メモをもとに整理  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md)
 
@@ -109,7 +109,7 @@ EPSG:5897を仮定してWGS84へ変換した結果：
 
 - 測量由来 GIS はハノイ全域ではなく、**中心部の矩形範囲**を主にカバーする
 - `merge_DC.gpkg` など一部レイヤには外れ値ジオメトリが含まれる可能性がある
-- そのため、`Full` シナリオでは RG / CS を基準に分析対象域を定義する方針が有力である
+- そのため、`Full` シナリオの分析対象域（測量GIS有効域）は CS の図郭内枠から面として定義した（2.5節）
 
 ### 2.5 レイヤ意味の確認結果
 
@@ -117,13 +117,15 @@ EPSG:5897を仮定してWGS84へ変換した結果：
 
 | 略語 | 現時点の理解 | Full での利用方針 |
 |------|------|------|
-| CS | 測地・数学基盤 | 分析変数には使わない |
+| CS | 測地・数学基盤（Level 5 が図郭内枠、Level 7 が図郭外枠） | 測量 GIS 有効域の定義（Level 5 の図郭内枠）。分析変数には使わない |
 | DC | 建物・住居 | 建物被覆率、建物密度 |
 | DH | 標高点・等高線寄り | 標高関連の補助変数候補 |
 | GT | 道路 | 道路密度候補 |
-| RG | 境界線 | 測量 GIS 有効域の定義 |
+| RG | 区・坊の行政界（線。測量範囲の縁で途切れて開いている） | 分析対象域の定義には使わない（面にならない） |
 | TH | 水系 | 水域率候補 |
 | TV | 植生・土地利用 | 緑地率候補 |
+
+**RG と CS の理解の更新（2026-10-19）**: 当初は RG を測量 GIS 有効域の定義に使う想定だったが、実データを調べた結果、RG の線（Level 7: 188本 / Level 10: 405本）は区・坊の行政界で、測量範囲の矩形の縁で途切れて開いており、面化しても 57.1 km² にとどまることが分かった。一方、CS の Level 5 の長い線（320本）は 80図葉 × 4辺の**図郭内枠**（1枚 約1,082 m × 1,153 m、8列 × 10行）であり、その和集合（99.895 km²、単一ポリゴン）が測量図面の描画範囲そのものになる。有効域はこれで定義し、`data/gis/survey/hanoi_survey_extent.gpkg` として生成している。定義方式・却下した案は [calc_urban_params_processing_design.md](../02_methods/calc_urban_params/calc_urban_params_processing_design.md) 7.5.6節を正本とする。
 
 ただし、`DH` / `TH` / `TV` の利用方法は最終確定ではない。  
 特に `DH` はポイントに標高値が多く、`TH` は水系、`TV` は植生・土地利用として使うのが現時点の第一候補である。
@@ -183,7 +185,7 @@ EPSG:5897を仮定してWGS84へ変換した結果：
 
 - `DC`: 建物被覆率、建物密度
 - `GT`: 道路密度
-- `RG`: 分析対象域の定義
+- `CS`: 分析対象域（測量 GIS 有効域）の定義（図郭内枠）
 
 ### 3.2 使い方をまだ詰める必要があるもの
 
@@ -233,7 +235,7 @@ MasterResearch/
 
 `Full` を始める前提として、少なくとも次を満たす必要がある。
 
-1. RG / CS を用いた分析対象域の定義
+1. ~~RG / CS を用いた分析対象域の定義~~ → 完了。CS の図郭内枠から定義し、`mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）として算出できる（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）
 2. DC / GT / TH / TV / DH の変数対応表の確定
 3. `calc_urban_params.py` で測量由来 GIS を安定して処理できること
 
@@ -265,7 +267,9 @@ MasterResearch/
 
 ### 📊 補足タスク
 
-- 欠落図葉の影響範囲を地図で確認する
+- 欠落図葉の影響範囲を地図で確認する（DC が極端に少ない図葉が北端中央に1つあり、欠落図葉 251-c に当たるかは未確認。[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）
+- DC の欠落のようなレイヤ別の欠けを、有効カバレッジとしてどう扱うかを決める（測量 GIS 有効域はレイヤ共通の範囲であり、レイヤ別の欠けは反映しない）
+- 測量 GIS 有効域に絞った Satellite Only / Limited を再実行し、Full と同じセル集合で比較する
 - `DH` の標高点利用方法を比較する
 - `TV` の土地利用分類がそのまま緑地率に使えるか確認する
 

@@ -11,6 +11,8 @@ from src.analysis.urban_params.config import (
     PARAM_SETS,
     PARAMS_OUTPUT_PARTS,
     POPULATION_BASE_COLUMNS,
+    PROJECT_ROOT,
+    SCENARIO_TABLES,
     ParamSet,
     grid_layer_name,
     resolve_table_path,
@@ -88,17 +90,27 @@ def test_population_columns_follow_source_suffix_rule() -> None:
 
 
 def test_column_suffix_is_declared_consistently_within_each_module() -> None:
-    """接尾辞の宣言はモジュール単位で揃い、列名は基底名＋接尾辞になる。
+    """接尾辞を使うモジュールでは列名が衝突せず、列名は基底名＋接尾辞になる。
 
     **特定のモジュール名を例外として書かない。** 「人口だけが接尾辞を持つ」と固定すると、
     同時結合が要る別ソースを他のパラメータへ追加したとき（設定のコメントは GHS-POP 等の
-    追加を想定している）に、規約違反ではないのにテストが落ちる。逆に、人口モジュールへ
-    接尾辞を宣言し忘れたセットを足しても、例外側に落ちるため検知できない。
+    追加を想定している）に、規約違反ではないのにテストが落ちる。
 
-    固定するのは規約そのもの、すなわち「同じモジュールの別ソース版は接尾辞の有無が揃い、
-    接尾辞を外せば同一の基底名になる」という不変条件である。これが崩れると、片方だけが
-    列名衝突を免れる半端な状態や、``run.py`` の ``apply_column_suffix()`` が組み立てる
-    列名と宣言列の食い違いが生じる。
+    固定するのは規約そのもの、すなわち次の不変条件である。
+
+    - 接尾辞を1つでも宣言するモジュール（同時結合を想定するモジュール）では、接尾辞なしの
+      セットは高々1つ（基準版）に限る。2つ以上あると、それらの列名が衝突して同時に結合
+      できず、片方だけが列名衝突を免れる半端な状態になる。基準版を許すのは、既存の分析が
+      参照する列名を変えずに別版を足せるようにするためである（解析対象域フラグの
+      ``mask_roi`` に対する ``mask_survey`` がこれに当たる）
+    - 接尾辞を宣言しないモジュール（差し替え関係）は、接尾辞なしのセットが複数あってよい
+    - 同じモジュール内で接尾辞は重複しない（重複すると接尾辞を付けた後の列名も衝突する）
+    - いずれのモジュールでも、接尾辞を外せば同一の基底名になる。崩れると ``run.py`` の
+      ``apply_column_suffix()`` が組み立てる列名と宣言列が食い違う
+
+    人口のように全セットへ接尾辞が要るモジュールで1つだけ宣言し忘れる誤りは、上記では
+    基準版と区別できない。これは人口専用の
+    ``test_population_columns_follow_source_suffix_rule()`` が検知する。
     """
     sets_by_module: dict[str, list[tuple[str, ParamSet]]] = {}
     for name, param_set in PARAM_SETS.items():
@@ -106,8 +118,16 @@ def test_column_suffix_is_declared_consistently_within_each_module() -> None:
 
     for module_name, entries in sets_by_module.items():
         suffixed = [name for name, param_set in entries if param_set.column_suffix]
-        assert len(suffixed) in (0, len(entries)), (
-            f"{module_name} で接尾辞の有無が揃っていません（宣言あり: {sorted(suffixed)}）"
+        unsuffixed = [name for name, param_set in entries if not param_set.column_suffix]
+        if suffixed:
+            assert len(unsuffixed) <= 1, (
+                f"{module_name} は接尾辞を使うのに、接尾辞なしのセットが複数あります"
+                f"（{sorted(unsuffixed)}）。同時に結合すると列名が衝突します"
+            )
+        # 接尾辞が重複すると、接尾辞を付けた後の列名も衝突する。
+        suffixes = [param_set.column_suffix for _, param_set in entries if param_set.column_suffix]
+        assert len(suffixes) == len(set(suffixes)), (
+            f"{module_name} で接尾辞が重複しています: {sorted(suffixes)}"
         )
 
         base_columns: set[tuple[str, ...]] = set()
@@ -218,3 +238,73 @@ def test_lulc_param_sets_declare_known_class_scheme() -> None:
             f"rasters['{key}'] の class_scheme が未知です（値: '{scheme}'）。"
             f" CLASS_SCHEMES のいずれか（{sorted(CLASS_SCHEMES)}）を指定してください。"
         )
+
+
+def test_layer_param_sets_reference_declared_layer_input() -> None:
+    """ベクタ入力のパラメータセットは、都市設定に実在する ``layers`` キーを指す。
+
+    ラスタ入力と同じく、キー名の打ち間違いをパラメータセット追加の時点で検知する。
+    """
+    declared_keys = set(CITY_CONFIG[CITY_KEY]["layers"])
+    missing = {
+        name: param_set.input_key
+        for name, param_set in PARAM_SETS.items()
+        if param_set.input_kind == "layer" and param_set.input_key not in declared_keys
+    }
+    assert not missing, f"CITY_CONFIG['{CITY_KEY}']['layers'] に無い入力キーです: {missing}"
+
+
+def test_mask_survey_declares_suffixed_column_on_survey_extent() -> None:
+    """測量GISの有効域フラグは survey_extent を入力とし、接尾辞つきの列名を持つ。
+
+    ``mask_roi`` の ``IN_ANALYSIS_AREA`` と同じ列名だと、両方を同一データセットへ
+    結合したときに ``join_tables()`` が列名衝突として拒否する。
+    """
+    mask_survey = PARAM_SETS["mask_survey"]
+
+    assert mask_survey.module_name == PARAM_SETS["mask_roi"].module_name
+    assert mask_survey.input_key == "survey_extent"
+    assert mask_survey.column_suffix == "SURVEY"
+    assert mask_survey.columns == ("IN_ANALYSIS_AREA_SURVEY",)
+    assert not set(mask_survey.columns) & set(PARAM_SETS["mask_roi"].columns)
+
+
+def test_survey_extent_layer_matches_generator_output() -> None:
+    """survey_extent の設定は、有効域を生成するスクリプトの出力先・レイヤ名と一致する。
+
+    生成側と参照側でパス・レイヤ名を別々に持つため、片方だけを変えると
+    パラメータ算出が「ファイルが見つからない」で止まる。CRS は生成元（CS）と揃える。
+    """
+    from src.preprocessing.build_survey_extent_hanoi import (
+        DEFAULT_OUTPUT_PATH,
+        OUTPUT_LAYER_NAME,
+    )
+
+    layers = CITY_CONFIG[CITY_KEY]["layers"]
+    survey_extent = layers["survey_extent"]
+
+    assert PROJECT_ROOT / survey_extent["path"] == DEFAULT_OUTPUT_PATH
+    assert survey_extent["layer"] == OUTPUT_LAYER_NAME
+    assert survey_extent["crs_epsg"] == layers["cs"]["crs_epsg"]
+
+
+def test_full_scenario_joins_both_masks() -> None:
+    """full シナリオは ROI と測量GISの両方の有効域フラグを結合する。"""
+    assert {"mask_roi", "mask_survey"} <= set(SCENARIO_TABLES["full"])
+
+
+@pytest.mark.parametrize("scenario", sorted(SCENARIO_TABLES))
+def test_scenario_tables_declare_no_column_collisions(scenario: str) -> None:
+    """各シナリオが結合するテーブルの宣言列は互いに重複しない。
+
+    重複があると ``build_dataset.py`` の ``join_tables()`` が結合を拒否し、
+    シナリオ名だけを指定したデータセット生成が実行時に失敗する。
+    """
+    owner_of_column: dict[str, str] = {}
+    for table_name in SCENARIO_TABLES[scenario]:
+        for column in PARAM_SETS[table_name].columns:
+            previous = owner_of_column.get(column)
+            assert previous is None, (
+                f"{scenario} で列名が重複しています: {column}（{previous} と {table_name}）"
+            )
+            owner_of_column[column] = table_name

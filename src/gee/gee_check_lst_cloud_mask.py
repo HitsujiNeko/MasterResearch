@@ -485,8 +485,10 @@ def compute_scene_summary(
         scale=REDUCE_SCALE_M,
         maxPixels=REDUCE_MAX_PIXELS,
     )
-    # 統計量は本番の extract_statistics と同じ reducer の組み合わせで求める
-    variant_stats = variant_image.select("lst__.*").reduceRegion(
+    # 統計量は本番の extract_statistics と同じ reducer の組み合わせで、候補の LST バンドだけに求める
+    # （unmask 済みの lst__total は画素数にのみ使う）
+    variant_lst_bands = [f"lst__{variant.name}" for variant in MASK_VARIANTS]
+    variant_stats = variant_image.select(variant_lst_bands).reduceRegion(
         reducer=ee.Reducer.mean()
         .combine(ee.Reducer.min(), "", True)
         .combine(ee.Reducer.max(), "", True)
@@ -497,7 +499,7 @@ def compute_scene_summary(
     )
 
     # 変更前のマスクを通った画素のうち LST が閾値未満の画素（異常画素）の QA ビット
-    current = next(v for v in MASK_VARIANTS if v.name == CURRENT_VARIANT_NAME)
+    current = MASK_VARIANTS[0]  # 先頭は変更前の条件（CURRENT_VARIANT_NAME）
     anomaly_mask = lst.lt(threshold_c).And(build_variant_mask(raw_sr_image, current))
     qa = raw_sr_image.select("QA_PIXEL")
     anomaly_bands = [lst.multiply(0).add(1).rename("anomaly_pixels")]

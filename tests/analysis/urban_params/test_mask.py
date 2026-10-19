@@ -6,6 +6,7 @@ from pathlib import Path
 
 import fiona
 import numpy as np
+import pytest
 
 from src.analysis.urban_params.grid import build_grid
 from src.analysis.urban_params.params import mask
@@ -128,3 +129,81 @@ def test_compute_ignores_line_geometry(line_resource) -> None:
     result = mask.compute(line_resource, ANALYSIS_BBOX, _build_grid_spec())
 
     assert int(result["IN_ANALYSIS_AREA"].sum()) == 0
+
+
+def _write_layer(path: Path, geometries: list[dict | None]) -> None:
+    """ジオメトリ型の混在を許すレイヤ（定義の型は Unknown）を書き出す（属性なし）。"""
+    with fiona.open(
+        path,
+        "w",
+        driver="GPKG",
+        layer="data",
+        crs=ANALYSIS_CRS,
+        schema={"geometry": "Unknown", "properties": {}},
+    ) as dst:
+        for geometry in geometries:
+            dst.write({"geometry": geometry, "properties": {}})
+
+
+SQUARE = {
+    "type": "Polygon",
+    "coordinates": [[(0.0, 60.0), (20.0, 60.0), (20.0, 80.0), (0.0, 80.0), (0.0, 60.0)]],
+}
+
+
+def test_validate_resource_accepts_polygon_layer(polygon_resource) -> None:
+    """面ジオメトリのみのレイヤは受け付ける。"""
+    mask.validate_resource(polygon_resource)
+
+
+def test_validate_resource_ignores_null_geometry_in_mixed_layer(tmp_path: Path) -> None:
+    """型の混在を許すレイヤでも、面と NULL だけなら受け付ける。"""
+    gpkg_path = tmp_path / "with_null.gpkg"
+    _write_layer(gpkg_path, [SQUARE, None])
+
+    mask.validate_resource(_make_layer_resource(gpkg_path, "data"))
+
+
+def test_validate_resource_accepts_multipolygon(tmp_path: Path) -> None:
+    """MultiPolygon も面ジオメトリとして受け付ける（測量GIS有効域の生成結果が該当しうる）。"""
+    gpkg_path = tmp_path / "multi.gpkg"
+    _write_layer(
+        gpkg_path,
+        [{"type": "MultiPolygon", "coordinates": [SQUARE["coordinates"]]}, SQUARE],
+    )
+
+    mask.validate_resource(_make_layer_resource(gpkg_path, "data"))
+
+
+def test_validate_resource_rejects_line_layer(line_resource) -> None:
+    """線レイヤ（測量GISの RG のような境界線主体のレイヤ）は拒否する。
+
+    算出自体は例外なく終わり全セル 0 のテーブルが出力されるため、入力解決の段階で
+    止めないと誤りに気づけない（``test_compute_ignores_line_geometry`` を参照）。
+    """
+    with pytest.raises(ValueError, match="ジオメトリ型 LineString"):
+        mask.validate_resource(line_resource)
+
+
+def test_validate_resource_rejects_mixed_layer(tmp_path: Path) -> None:
+    """面と線が混在するレイヤも、面以外を含む時点で拒否する。
+
+    レイヤ定義の型が ``Unknown`` のため、地物を読んで判定する経路を通る。
+    """
+    gpkg_path = tmp_path / "mixed.gpkg"
+    _write_layer(
+        gpkg_path,
+        [SQUARE, {"type": "LineString", "coordinates": [(0.0, 65.0), (80.0, 65.0)]}],
+    )
+
+    with pytest.raises(ValueError, match="LineString 1件"):
+        mask.validate_resource(_make_layer_resource(gpkg_path, "data"))
+
+
+def test_validate_resource_rejects_empty_layer(tmp_path: Path) -> None:
+    """地物が1件も無いレイヤは、全セル 0 になるだけなので拒否する。"""
+    gpkg_path = tmp_path / "empty.gpkg"
+    _write_layer(gpkg_path, [])
+
+    with pytest.raises(ValueError, match="地物がありません"):
+        mask.validate_resource(_make_layer_resource(gpkg_path, "data"))

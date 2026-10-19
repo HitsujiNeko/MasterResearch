@@ -16,10 +16,12 @@ RASTER_KEYS = ("NDVI", "NDBI", "NDWI", "MNDWI")
 # 解析範囲の基準レイヤ。正準グリッド（canonical_grid.py の --mask-layer-key 既定値）と
 # 同じレイヤを使う必要がある。食い違うと出力対象のセル集合が対応しなくなる。
 #
-# 測量GIS（RG）を基準にする経路は設けない。RGは境界「線」主体のレイヤで90.6%が
-# 面積ゼロであり、面積ベースの compute_polygon_coverage() と噛み合わないためである
-# （現行 full シナリオの300m出力が実データ2行しかないことがその破綻を示している）。
-# 測量GISから分析対象域をどう定義するかは未決であり、それまではROIへ一本化する。
+# 正準グリッドは3シナリオ共通でROIから作る。測量GISの範囲（survey_extent）で別の
+# グリッドを作ると、シナリオ間で cell_id の集合が分かれて公平に比較できなくなるため、
+# 測量GISの範囲はグリッドではなく mask_survey テーブル（IN_ANALYSIS_AREA_SURVEY）で絞る。
+#
+# 測量GISの RG は基準にしない。RGは区・坊の行政界の「線」主体のレイヤで、範囲の縁で
+# 途切れて開いており、面積ベースの compute_polygon_coverage() と噛み合わないためである。
 ANALYSIS_EXTENT_LAYER_KEY = "roi"
 
 # パラメータテーブルの既定の出力ルート（プロジェクトルートからの相対パス要素）。
@@ -97,6 +99,13 @@ CITY_CONFIG: dict[str, dict[str, Any]] = {
                 "path": "data/gis/roads/hanoi_osm_roads.gpkg",
                 "layer": "roads",
                 "crs_epsg": 4326,
+            },
+            # 測量GISの有効域（CS の図郭内枠80図葉の和集合、単一ポリゴン）。
+            # src.preprocessing.build_survey_extent_hanoi が CS から生成する。
+            "survey_extent": {
+                "path": "data/gis/survey/hanoi_survey_extent.gpkg",
+                "layer": "survey_extent",
+                "crs_epsg": 5897,
             },
             "rg": {
                 "path": "整備データ/merge/merge_RG.gpkg",
@@ -305,6 +314,16 @@ PARAM_SETS: dict[str, ParamSet] = {
     "lulc_glc2022": ParamSet("lulc", "raster", "glc2022", LULC_COLUMNS),
     "lulc_esri2022": ParamSet("lulc", "raster", "esri2022", LULC_COLUMNS),
     "mask_roi": ParamSet("mask", "layer", ANALYSIS_EXTENT_LAYER_KEY, ("IN_ANALYSIS_AREA",)),
+    # 測量GISの有効域フラグ。ROIの解析対象域フラグ（mask_roi）と同一データセットへ
+    # 同時に結合して「ROI内かつ測量GIS範囲内」で絞れるよう、接尾辞で列名を分ける。
+    # mask_roi は既存の分析が参照する基準版のため、接尾辞を付けずに残す。
+    "mask_survey": ParamSet(
+        "mask",
+        "layer",
+        "survey_extent",
+        ("IN_ANALYSIS_AREA_SURVEY",),
+        column_suffix="SURVEY",
+    ),
 }
 
 # シナリオごとに結合するテーブルの一覧。シナリオは「グリッドを変えるもの」ではなく
@@ -346,5 +365,7 @@ SCENARIO_TABLES: dict[str, tuple[str, ...]] = {
         "pop_landscan2020",
         "pop_landscan2023",
     ),
-    "full": ("mask_roi", "build_dc", "road_gt"),
+    # 測量GISの範囲はROIより狭いため、mask_survey を加えて測量GIS範囲内のセルを
+    # 識別できるようにする（mask_roi は他シナリオと同じ基準で残す）。
+    "full": ("mask_roi", "mask_survey", "build_dc", "road_gt"),
 }

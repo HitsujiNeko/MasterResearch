@@ -36,6 +36,8 @@ SCALES = (20, 60)
 FINE_RES_M = 10.0
 # 解析範囲。20m では 6x6 セル、60m では 3x3 セルの正準グリッドになる。
 ROI_BOUNDS = (50.0, 30.0, 150.0, 130.0)
+# 測量GISの有効域（ROIの左半分）。
+SURVEY_BOUNDS = (50.0, 30.0, 100.0, 130.0)
 CITY = "testcity"
 SATELLITE_FILE_NAME = "INDICES_TestSat_20230707_032329Z.tif"
 SATELLITE_TABLE_NAME = "idx_20230707_032329"
@@ -296,6 +298,8 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     data_dir.mkdir()
 
     _write_polygon_layer(data_dir / "roi.gpkg", [rectangle(*ROI_BOUNDS)])
+    # 測量GISの有効域。ROIの左半分だけを覆い、ROIより狭い範囲を表す。
+    _write_polygon_layer(data_dir / "survey.gpkg", [rectangle(*SURVEY_BOUNDS)])
     _write_building_layer(data_dir / "buildings.gpkg")
     _write_road_layer(data_dir / "roads.gpkg")
     _write_dem(data_dir / "dem.tif")
@@ -341,6 +345,11 @@ def city_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         "analysis_epsg": ANALYSIS_EPSG,
         "layers": {
             "roi": {"path": "data/roi.gpkg", "layer": "data", "crs_epsg": ANALYSIS_EPSG},
+            "survey_extent": {
+                "path": "data/survey.gpkg",
+                "layer": "data",
+                "crs_epsg": ANALYSIS_EPSG,
+            },
             "open_buildings": {
                 "path": "data/buildings.gpkg",
                 "layer": "data",

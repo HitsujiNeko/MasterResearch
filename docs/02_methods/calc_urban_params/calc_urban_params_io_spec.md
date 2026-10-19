@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-09-30
+**最終更新**: 2026-10-19
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -59,14 +59,17 @@
 | `lulc_glc2022` | `params/lulc.py` | `rasters.glc2022`（GLC_FCS30D 2022年、band 1、主ソース） | `LULC_WATER_COV` / `LULC_TREE_COV` / `LULC_CROP_COV` / `LULC_BUILT_COV` / `LULC_RANGE_COV` / `LULC_WETLAND_COV` / `LULC_BARE_COV` / `LULC_VALID_RATIO` |
 | `lulc_esri2022` | `params/lulc.py` | `rasters.esri2022`（Esri Sentinel-2 10m LULC 2022年、band 1、感度分析用の副ソース） | 同上 |
 | `mask_roi` | `params/mask.py` | `layers.roi` | `IN_ANALYSIS_AREA` |
+| `mask_survey` | `params/mask.py` | `layers.survey_extent`（測量GIS有効域。5.2.2節） | `IN_ANALYSIS_AREA_SURVEY` |
 
 **同じ列名の別ソース版を並置できる**（`build_gba` と `build_dc`、`road_osm` と `road_gt`、`ntl_viirs2023` と `ntl_bm2023`）ことが、感度分析を「結合先の差し替えだけ」で済ませる要である。`PARAM_SETS` は各セットが返すべき列を宣言し、`compute()` の戻り値と実行時に突き合わせて、別ソース版どうしで列が食い違う状態を検知する。
 
-**人口の3版だけは例外で、列名にデータソース接尾辞を付けて区別する。** 差し替え候補ではなく、概念も観測年も異なる別変数であり、同一データセットへ同時に結合するためである（6.4節）。接尾辞つきの列名は `PARAM_SETS` が宣言し、付与そのものは `run.py: apply_column_suffix()` が担う。
+**同一データセットへ同時に結合する別版だけは、列名にデータソース接尾辞を付けて区別する。** 該当するのは人口の3版（差し替え候補ではなく、概念も観測年も異なる別変数。6.4節）と、測量GISの有効域フラグ `mask_survey`（ROI の `mask_roi` と同時に結合して「ROI内かつ測量GIS範囲内」で絞るため）である。接尾辞つきの列名は `PARAM_SETS` が宣言し、付与そのものは `run.py: apply_column_suffix()` が担う。`mask_roi` は既存の分析が参照する基準版のため接尾辞を付けず、`mask` モジュールでは「接尾辞なしの基準版1つ＋接尾辞つきの別版」という構成になる（接尾辞を使うモジュールで接尾辞なしを高々1つに限る規約は `tests/analysis/urban_params/test_config.py` が検査する）。
 
 **シナリオは算出側では扱わない。** シナリオは「どのテーブルを結合するか」の選択へ還元されており、`SCENARIO_TABLES`（シナリオ → 結合するテーブル名の一覧）として結合フェーズが持つ（6.6節）。
 
-**解析範囲は当面 ROI へ一本化する。** 測量GIS（RG）を基準にするパラメータセットは設けない。RG は境界**線**主体のレイヤで 90.6% が面積ゼロであり、面積ベースの `compute_polygon_coverage()` と噛み合わないためである（[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.5.6節）。**したがって `full` シナリオの有効域定義は未決のままである。**
+**正準グリッド（解析範囲）は3シナリオとも ROI から作り、測量GISの範囲はテーブルで絞る。** 測量GISの有効域は **CS の図郭内枠（Level 5）80図葉の和集合**と定義し、`mask_survey` テーブルの `IN_ANALYSIS_AREA_SURVEY` として出力する。測量GISの範囲で別の正準グリッドを作らないのは、シナリオ間で `cell_id` の集合が分かれ、共通の母集団で比較できなくなるためである。定義方式と却下した案（RG の面化・凸包等）は [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.5.6節を正本とする。
+
+**範囲レイヤ（`mask_*` の入力）は面ジオメトリのみで構成されている必要がある。** 線・点は面積を持たず、被覆判定に寄与しないためである。`params/mask.py: validate_resource()` が入力解決の段階で面以外を含むレイヤを拒否する（RG・CS の生レイヤを指定すると、この検証で止まる）。
 
 #### 5.2.1 Limited
 
@@ -84,7 +87,7 @@
 
 #### 5.2.2 Full
 
-- `整備データ/merge/merge_RG.gpkg`（分析範囲定義）
+- `data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`。測量GIS有効域の単一ポリゴン、EPSG:5897、約99.9 km²。`整備データ/merge/merge_CS.gpkg` の図郭内枠から `python -m src.preprocessing.build_survey_extent_hanoi` で生成する。生成物は Git 追跡外）
 - `整備データ/merge/merge_DC.gpkg`（建物）
 - `整備データ/merge/merge_GT.gpkg`（道路）
 - `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連、利用方法は要確認）
@@ -156,7 +159,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 
 **テーブルは `lon` / `lat` を持たない。** 座標は正準グリッドのレイヤが保持しており、全テーブルに複製するとパラメータ単位で独立させる狙いに反するためである。
 
-**行集合を有効域と同一視してはならない。** 正準グリッドのセル集合は「セルとマスクポリゴンの交差」で選ばれるのに対し、`IN_ANALYSIS_AREA` は「fineピクセル中心がポリゴン内に入るか」で判定する。両者は「交差 ⊇ `IN_ANALYSIS_AREA`」の包含関係にあり、テーブルには解析対象域外のセルも含まれる（実測: 300mで 38,235 セル中 35 セルが `IN_ANALYSIS_AREA = 0`）。有効域の判定には `mask_roi` テーブルの `IN_ANALYSIS_AREA` を使う。
+**行集合を有効域と同一視してはならない。** 正準グリッドのセル集合は「セルとマスクポリゴンの交差」で選ばれるのに対し、`IN_ANALYSIS_AREA` は「fineピクセル中心がポリゴン内に入るか」で判定する。両者は「交差 ⊇ `IN_ANALYSIS_AREA`」の包含関係にあり、テーブルには解析対象域外のセルも含まれる（実測: 300mで 38,235 セル中 35 セルが `IN_ANALYSIS_AREA = 0`）。有効域の判定には `mask_roi` テーブルの `IN_ANALYSIS_AREA` を使う（測量GIS範囲で絞る場合は、`mask_survey` テーブルの `IN_ANALYSIS_AREA_SURVEY` を併用する）。
 
 **欠測は GeoPackage の NULL として保持される。** CSV で空文字になり型が揺れる問題は解消した。
 
@@ -171,7 +174,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 
 品質管理列は**パラメータテーブルには持たせず、結合したパラメータ列から導出する**。
 
-- `IN_ANALYSIS_AREA`（解析範囲レイヤ内のセルか）: **独立したテーブル `mask_roi`** として出力する。全テーブルに複製するとパラメータ単位で独立させる狙いに反するため
+- `IN_ANALYSIS_AREA`（解析範囲レイヤ内のセルか）: **独立したテーブル `mask_roi`** として出力する。全テーブルに複製するとパラメータ単位で独立させる狙いに反するため。測量GIS有効域内のセルかを表す `IN_ANALYSIS_AREA_SURVEY` も同じ考え方で、独立したテーブル `mask_survey` として出力する
 - `VALID_GIS_MASK`（少なくとも1つのGIS指標が有効なセル）
   - **判定材料に標高由来の列（`ELEV_MEAN` / `ELEV_VALID_RATIO`）は含めない。** 判定は「値が0より大きいセルを有効」とみなすが、これは被覆率・密度のような「地物の量」を前提とした基準である。標高は連続量であり `0` は「データが無い」ではなく海抜0mを意味するため、この基準の適用自体が不適切である。有効画素率も「DEMが覆っているか」を表す指標であり、建物・道路データの有無とは別の軸である。加えて標高を含めるとROI内のほぼ全セルが有効となり、本列が「建物・道路データが存在するか」という本来の意味を失う
   - 解析対象域フラグ（`IN_ANALYSIS_AREA`）も判定材料に含めない。有効域の定義であって地物の量ではないため
@@ -356,6 +359,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `NDVI`, `NDBI`, `NDWI`, `MNDWI` | `idx_*` テーブル | `params/raster.py: compute()` → `aggregate_raster_to_grid()` | 確定・実装済（`--satellite-file` 指定時のみ） |
 | `LST`, `LST_VALID_RATIO` | `lst_*` テーブル | `params/lst.py: compute()` → `params/raster.py: aggregate_raster_to_grid()` / `aggregate_valid_ratio_to_grid()` | 確定・実装済（`--lst-file` 指定時のみ） |
 | `IN_ANALYSIS_AREA` | `mask_roi` テーブル | `params/mask.py: compute()` → `geometry.compute_polygon_coverage()` | 確定・実装済 |
+| `IN_ANALYSIS_AREA_SURVEY` | `mask_survey` テーブル | `params/mask.py: compute()` → `geometry.compute_polygon_coverage()`（接尾辞は `run.py: apply_column_suffix()` が付与） | 確定・実装済 |
 | `VALID_GIS_MASK`, `MISSING_REASON` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（判定材料の列がある場合のみ付与。6.3節） |
 | `VALID_SATELLITE_MASK` | データセット | `build_dataset.add_quality_columns()` | 確定・実装済（同上） |
 | `BUILD_COV`, `BUILD_DEN`, `BUILD_H_MEAN`, `BUILD_H_MAX` | `build_gba` / `build_dc` テーブル | `params/buildings.py: compute()` | 確定・実装済 |
@@ -388,7 +392,9 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 |---|---|---|
 | `satellite_only` | `mask_roi` | `--tables` に `idx_*` を伴う場合のみ可（下記） |
 | `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` / `lulc_glc2022` / `ntl_viirs2023` / `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` | 可 |
-| `full` | `mask_roi` / `build_dc` / `road_gt` | 可 |
+| `full` | `mask_roi` / `mask_survey` / `build_dc` / `road_gt` | 可 |
+
+**`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で Satellite Only / Limited を比較する用途に使える。
 
 **`limited` が土地被覆・夜間光の主ソースのみを列挙する理由**: `lulc_glc2022` と `lulc_esri2022`、`ntl_viirs2023` と `ntl_bm2023` は列名を共有する差し替え関係であり、同一データセットへ同時結合すると `join_tables()` が列名衝突として拒否する。副ソースでの感度分析は `--tables` に全テーブルを明示列挙した**別データセット**として生成する（`--scenario limited` を併用すると展開分の主ソースが混入して衝突するため、併用しない）。人口3版は列名に接尾辞が付いて衝突しないため、3版とも同時に結合する（6.4節）。
 

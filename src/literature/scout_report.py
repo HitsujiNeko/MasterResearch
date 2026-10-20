@@ -18,7 +18,7 @@
 終了コード:
 
 - 0: コメント本文を書き出した
-- 1: 既存コメントを読めない（保存ファイルが空・JSON 配列でない）、または探索に失敗した
+- 1: 既存コメントを読めない（保存ファイルが無い・空・JSON 配列でない）、または探索に失敗した
   （候補を1件も取得できなかった。起点を解決できない・OpenAlex 不通など）
 - 3: 新規候補が無い（コメント本文は書き出さない）
 """
@@ -258,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         comment_bodies = load_comment_bodies(resolve_existing_path(Path(args.comments_json)))
-    except ValueError as exc:
+    except (OSError, ValueError) as exc:
         # 提示済みの候補を判定できないまま進むと全件を再掲しうるため、探索せずに終える
         print(f"既存コメントを読めませんでした: {exc}", file=sys.stderr)
         return 1

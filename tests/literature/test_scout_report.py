@@ -383,6 +383,36 @@ class TestMain:
         assert not output.exists()
         assert "既存コメントを読めませんでした" in capsys.readouterr().err
 
+    def test_missing_comments_file_returns_one_without_search(
+        self,
+        tmp_path: Path,
+        papers_csv: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """既存コメントの保存ファイルが無ければ、探索せずに 1 を返す（トレースバックにしない）。"""
+
+        def fail_scout(**kwargs: object) -> None:
+            raise AssertionError("既存コメントを読めないのに探索が呼ばれた")
+
+        monkeypatch.setattr(paper_scout, "scout", fail_scout)
+        output = tmp_path / "out.md"
+
+        code = scout_report.main(
+            [
+                "--comments-json",
+                str(tmp_path / "absent.json"),
+                "--output",
+                str(output),
+                "--csv",
+                str(papers_csv),
+            ]
+        )
+
+        assert code == 1
+        assert not output.exists()
+        assert "既存コメントを読めませんでした" in capsys.readouterr().err
+
     def test_search_failure_returns_one(
         self, tmp_path: Path, papers_csv: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

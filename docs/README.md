@@ -218,6 +218,7 @@ docs/
 ### ✅ 定期メンテナンス
 
 - [ ] 週次: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
+- [ ] 月次: 外部依存のヘルスチェック・文献探索（`/paper-scout` の月次自動実行）。週次・月次の定期実行の設定と登録手順は [scheduled-tasks.md](../.github/scheduled-tasks.md) を正本とする
 - [ ] 研究フェーズ移行時: ドキュメント構成の見直し
 - [ ] 論文投稿前: 全ドキュメントの整合性確認
 
@@ -258,7 +259,7 @@ MasterResearch/
 | ディレクトリ | 正本ドキュメント |
 |------------|----------------|
 | `.claude/skills/` | [skill_operation_rules.md](02_methods/skill_operation_rules.md) |
-| `.github/`（タスク管理） | [task-workflow.md](../.github/task-workflow.md) / [parallel-workflow.md](../.github/parallel-workflow.md) |
+| `.github/`（タスク管理） | [task-workflow.md](../.github/task-workflow.md) / [parallel-workflow.md](../.github/parallel-workflow.md) / [scheduled-tasks.md](../.github/scheduled-tasks.md)（定期実行） |
 | `src/`・`tests/` | [CodingRule.md](02_methods/CodingRule.md)・`02_methods/` の各仕様書 |
 | `data/` | [data_management_guide.md](02_methods/data_management_guide.md) |
 | `qgis/` | [qgis_operation_guidelines.md](02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](02_methods/qgis_mcp_usage_guide.md) |

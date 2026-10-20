@@ -196,6 +196,30 @@ class TestCheckGee:
 
         assert result.status == target.STATUS_UNKNOWN
 
+    def test_launch_failure_is_unknown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Python を起動できなければ例外で落ちずに UNKNOWN。"""
+        monkeypatch.setattr(target, "resolve_gee_project_id", lambda explicit, path: "demo-project")
+
+        def fake_runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            raise OSError("起動できない")
+
+        result = target.check_gee("", Path("unused.csv"), "python", runner=fake_runner)
+
+        assert result.status == target.STATUS_UNKNOWN
+
+    def test_missing_earthengine_api_is_unknown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """earthengine-api を読み込めなければ UNKNOWN。"""
+
+        def raise_import_error(explicit: str, path: Path) -> str:
+            raise ImportError("No module named 'ee'")
+
+        monkeypatch.setattr(target, "resolve_gee_project_id", raise_import_error)
+
+        result = target.check_gee("", Path("unused.csv"), "python")
+
+        assert result.status == target.STATUS_UNKNOWN
+        assert "earthengine-api" in result.message
+
     def test_missing_project_id_is_unknown(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """プロジェクト ID を解決できなければ子プロセスを起動せず UNKNOWN。"""
 
@@ -456,6 +480,52 @@ class TestMain:
 
         assert target.main([]) == 0
         assert "問題なし" in capsys.readouterr().out
+
+    def test_passes_cli_options_to_checks(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """CLI 引数が各判定関数へ正しく渡る。"""
+        received: dict[str, tuple[object, ...]] = {}
+        fixed = target.CheckResult("x", target.STATUS_OK, "m")
+
+        def recorder(name: str):
+            def record(*args: object) -> target.CheckResult:
+                received[name] = args
+                return fixed
+
+            return record
+
+        for name in ("check_earthdata_token", "check_gee", "check_proj_db", "check_ruff"):
+            monkeypatch.setattr(target, name, recorder(name))
+        env_path = tmp_path / "custom.env"
+        gee_config = tmp_path / "gee.csv"
+
+        code = target.main(
+            [
+                "--env-file",
+                str(env_path),
+                "--warn-days",
+                "10",
+                "--gee-project-id",
+                "demo-project",
+                "--gee-config",
+                str(gee_config),
+                "--osgeo4w-root",
+                "D:/OSGeo4W",
+            ]
+        )
+
+        assert code == 0
+        assert received["check_earthdata_token"][1] == env_path
+        assert received["check_earthdata_token"][3] == 10
+        assert received["check_gee"][:2] == ("demo-project", gee_config)
+        assert received["check_proj_db"][0] == "D:/OSGeo4W"
+
+    @pytest.mark.parametrize("warn_days", ["-1", "x"])
+    def test_rejects_invalid_warn_days(self, warn_days: str) -> None:
+        """--warn-days は 0 以上の整数のみ受け付ける。"""
+        with pytest.raises(SystemExit):
+            target.main(["--warn-days", warn_days])
 
     def test_returns_one_when_problem_exists(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

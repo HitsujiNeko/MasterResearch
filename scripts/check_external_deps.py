@@ -15,6 +15,9 @@ GitHub などの外部サービスには書き込まない。
 
 - トークンの値は出力にもログにも出さない。扱うのは有効期限などのメタ情報のみ
 - JWT の署名は検証しない（有効期限の目安を読むだけで、認証には使わないため）
+- Earthdata トークンの有効期限の正本は LAADS DAAC プロフィールページの `Expires at`
+  （docs/02_methods/data_management_guide.md 7.2節）。ここで読む JWT の `exp` は、
+  その期限を定期的に気づくための目安として扱う
 
 実行はプロジェクトルートから行う（`src` パッケージを import するため）。
 
@@ -36,6 +39,7 @@ import sqlite3
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -299,6 +303,8 @@ def check_gee(
         )
     except subprocess.TimeoutExpired:
         return judge_gee_probe(None, "", timed_out=True)
+    except OSError as exc:
+        return CheckResult("GEE 認証", STATUS_UNKNOWN, f"Python を起動できませんでした: {exc}")
     return judge_gee_probe(completed.returncode, completed.stderr or "", timed_out=False)
 
 
@@ -366,7 +372,9 @@ def read_proj_db_metadata(proj_db_path: Path) -> dict[str, str]:
         return {}
     uri = f"{proj_db_path.resolve().as_uri()}?mode=ro"
     try:
-        with sqlite3.connect(uri, uri=True) as connection:
+        # `with sqlite3.connect()` はトランザクションを管理するだけで接続を閉じないため、
+        # closing で確実に閉じる
+        with closing(sqlite3.connect(uri, uri=True)) as connection:
             rows = connection.execute("SELECT key, value FROM metadata").fetchall()
     except sqlite3.Error:
         return {}
@@ -514,7 +522,13 @@ def judge_ruff_versions(
 
 
 def read_text_if_exists(path: Path) -> str:
-    """ファイルがあれば本文を返し、無ければ空文字列を返す。"""
+    """ファイルがあれば本文を返し、無ければ空文字列を返す。
+
+    Args:
+        path: 読み込むファイルのパス。
+    Returns:
+        ファイルの本文。ファイルが無ければ空文字列。
+    """
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
@@ -605,12 +619,31 @@ def format_report(results: list[CheckResult], checked_at: dt.datetime) -> str:
     return "\n".join(lines)
 
 
+def non_negative_int(value: str) -> int:
+    """0 以上の整数として引数を解釈する（argparse の type 用）。
+
+    Args:
+        value: 引数の文字列。
+    Returns:
+        解釈した整数。
+    Raises:
+        argparse.ArgumentTypeError: 整数でない、または負の場合。
+    """
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"整数を指定してください: {value}") from exc
+    if number < 0:
+        raise argparse.ArgumentTypeError(f"0 以上の整数を指定してください: {value}")
+    return number
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """コマンドライン引数を解釈する。"""
     parser = argparse.ArgumentParser(description="外部依存（認証・環境）のヘルスチェック")
     parser.add_argument(
         "--warn-days",
-        type=int,
+        type=non_negative_int,
         default=DEFAULT_WARN_DAYS,
         help=f"Earthdata トークンを期限間近とみなす残り日数（既定 {DEFAULT_WARN_DAYS}）",
     )

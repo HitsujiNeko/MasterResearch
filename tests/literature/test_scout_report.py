@@ -121,19 +121,38 @@ class TestSelectNewCandidates:
         ]
         presented = {"doi:10.1/a", "openalex:W2"}
 
-        selected, total_new = scout_report.select_new_candidates(candidates, presented, top=1)
+        selected, total_new, presented_count = scout_report.select_new_candidates(
+            candidates, presented, top=1
+        )
 
         assert [cand.doi for cand in selected] == ["10.1/c"]
         assert total_new == 2
+        assert presented_count == 2
 
     def test_returns_empty_when_all_presented(self) -> None:
         """全件提示済みなら空。"""
         candidates = [_candidate("W1", "10.1/a", 90.0)]
 
-        selected, total_new = scout_report.select_new_candidates(candidates, {"doi:10.1/a"}, top=10)
+        selected, total_new, presented_count = scout_report.select_new_candidates(
+            candidates, {"doi:10.1/a"}, top=10
+        )
 
         assert selected == []
         assert total_new == 0
+        assert presented_count == 1
+
+    def test_skips_keyless_candidates_without_counting_as_presented(self) -> None:
+        """判定キーを作れない候補は掲載せず、提示済みの件数にも数えない。"""
+        keyless = Candidate(openalex_id="", title="T", year=None, venue=None, doi=None, score=99.0)
+        candidates = [keyless, _candidate("W1", "10.1/a", 90.0)]
+
+        selected, total_new, presented_count = scout_report.select_new_candidates(
+            candidates, set(), top=10
+        )
+
+        assert [cand.doi for cand in selected] == ["10.1/a"]
+        assert total_new == 1
+        assert presented_count == 0
 
 
 class TestFormatReportComment:
@@ -253,6 +272,64 @@ class TestMain:
 
         assert code == scout_report.EXIT_NO_NEW_CANDIDATES
         assert not output.exists()
+
+    def test_partially_resolved_starts_still_post(
+        self, tmp_path: Path, papers_csv: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """一部の起点を解決できなくても候補があれば 0 を返し、解決できなかった起点を併記する。"""
+        self._patch_scout(
+            monkeypatch,
+            [_candidate("W1", "10.1/a", 90.0)],
+            skipped=["S2: 起点をOpenAlexで解決できませんでした"],
+        )
+        comments_path = tmp_path / "comments.json"
+        comments_path.write_text("[]", encoding="utf-8")
+        output = tmp_path / "out.md"
+
+        code = scout_report.main(
+            [
+                "--comments-json",
+                str(comments_path),
+                "--output",
+                str(output),
+                "--csv",
+                str(papers_csv),
+            ]
+        )
+
+        assert code == 0
+        assert "- S2: 起点をOpenAlexで解決できませんでした" in output.read_text(encoding="utf-8")
+
+    def test_empty_result_without_skipped_starts_returns_one(
+        self, tmp_path: Path, papers_csv: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """起点は解決できても候補が1件も取れなければ（取得の全滅）、新規なしではなく失敗とする。"""
+        self._patch_scout(monkeypatch, [])
+        comments_path = tmp_path / "comments.json"
+        comments_path.write_text("[]", encoding="utf-8")
+        output = tmp_path / "out.md"
+
+        code = scout_report.main(
+            [
+                "--comments-json",
+                str(comments_path),
+                "--output",
+                str(output),
+                "--csv",
+                str(papers_csv),
+            ]
+        )
+
+        assert code == 1
+        assert not output.exists()
+
+    @pytest.mark.parametrize("top", ["0", "-1", "x"])
+    def test_rejects_invalid_top(self, tmp_path: Path, top: str) -> None:
+        """--top は 1 以上の整数のみ受け付ける。"""
+        with pytest.raises(SystemExit):
+            scout_report.main(
+                ["--comments-json", "c.json", "--output", str(tmp_path / "o.md"), "--top", top]
+            )
 
     def test_search_failure_returns_one(
         self, tmp_path: Path, papers_csv: Path, monkeypatch: pytest.MonkeyPatch

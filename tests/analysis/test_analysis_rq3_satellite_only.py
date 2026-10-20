@@ -43,6 +43,13 @@ from src.analysis.analysis_rq3_satellite_only import (
     resolve_output_stem,
 )
 from src.analysis.urban_params.canonical_grid import make_cell_id
+from src.common.analysis_dataset import (
+    ANALYSIS_AREA_ROI,
+    ANALYSIS_AREA_SURVEY,
+    DEFAULT_REQUIRED_MASK_COLUMNS,
+    IN_ANALYSIS_AREA_COLUMN,
+    IN_ANALYSIS_AREA_SURVEY_COLUMN,
+)
 from src.common.run_parameters import build_run_parameters_from_args
 
 
@@ -391,3 +398,190 @@ class TestRunParametersFromDefaults:
         assert run_parameters["rf_trees"] == 300
         assert run_parameters["requested_sample_size"] == 100_000
         assert run_parameters["scale_m"] == DEFAULT_SCALE_M
+
+
+class TestAnalysisAreaArguments:
+    """--analysis-area の引数解析と出力名のテスト。"""
+
+    def test_default_is_roi(self) -> None:
+        """既定は roi（既存コマンドの挙動を変えない）。"""
+        assert parse_arguments([]).analysis_area == ANALYSIS_AREA_ROI
+
+    def test_accepts_survey(self) -> None:
+        args = parse_arguments(["--analysis-area", ANALYSIS_AREA_SURVEY])
+
+        assert args.analysis_area == ANALYSIS_AREA_SURVEY
+
+    def test_rejects_unknown_area(self) -> None:
+        with pytest.raises(SystemExit):
+            parse_arguments(["--analysis-area", "full"])
+
+    def test_roi_keeps_existing_output_stem(self) -> None:
+        """roi は従来と同じ出力名になる（既存出力名との互換の回帰テスト）。"""
+        path = Path("data/output/datasets/dataset_satellite_only_20230707_032305_hanoi_30m.gpkg")
+
+        assert resolve_output_stem(path) == resolve_output_stem(path, ANALYSIS_AREA_ROI)
+        assert (
+            resolve_output_stem(path, ANALYSIS_AREA_ROI)
+            == "dataset_satellite_only_20230707_032305_hanoi_30m"
+        )
+
+    def test_survey_appends_area_suffix(self) -> None:
+        """survey は末尾に _area_survey を付け、全域ランの出力を上書きしない。"""
+        path = Path("dataset_satellite_only_masksurvey_20230707_032305_hanoi_30m.gpkg")
+
+        assert (
+            resolve_output_stem(path, ANALYSIS_AREA_SURVEY)
+            == "dataset_satellite_only_masksurvey_20230707_032305_hanoi_30m_area_survey"
+        )
+
+
+class TestBuildFilteredSampleAnalysisArea:
+    """build_filtered_sample の required_mask_columns（分析対象範囲の絞り込み）のテスト。"""
+
+    _SURVEY_MASK_COLUMNS = (*DEFAULT_REQUIRED_MASK_COLUMNS, IN_ANALYSIS_AREA_SURVEY_COLUMN)
+
+    def test_default_ignores_survey_flag(self) -> None:
+        """既定（IN_ANALYSIS_AREA のみ）では測量GISフラグを見ない（従来どおり）。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1] * 4 + [0] * 6
+
+        result = build_filtered_sample(
+            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+        )
+
+        assert len(result.sampled) == 10
+
+    def test_survey_mask_narrows_sample_and_dropout_baseline(self) -> None:
+        """測量GISフラグを加えると、分析母数と脱落診断の基準が同じ範囲に絞られる。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1] * 4 + [0] * 6
+        dataframe.loc[0, "NDVI"] = np.nan  # 測量GIS範囲内の1件を非NULL要求で落とす
+
+        result = build_filtered_sample(
+            dataframe,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
+            required_mask_columns=self._SURVEY_MASK_COLUMNS,
+        )
+        stages = result.filter_dropout["stages"]
+
+        assert set(result.sampled["cell_id"]) == {1, 2, 3}
+        # 脱落診断も同じ品質列で絞っている（基準段階が測量GIS範囲の4件になる）
+        assert stages["mask_passed"] == 4
+        assert stages["target_available"] == 4
+        assert stages["feature_complete"] == len(result.sampled)
+
+
+class TestMainAnalysisArea:
+    """main() の分析対象範囲の結線（読込列・列不足時の停止・結果JSONへの記録）のテスト。
+
+    読込関数は、実物と同じく「指定された列のうち存在する列だけを返す」偽物へ
+    差し替える。`gpd.read_file(columns=...)` は存在しない列を黙って読み飛ばす
+    ため、読込列への追加漏れや列不足を、実物と同じ条件で検出できる。
+    """
+
+    def _install_loader(
+        self, monkeypatch: pytest.MonkeyPatch, dataframe: pd.DataFrame
+    ) -> dict[str, list[str]]:
+        """列選択を模した読込関数へ差し替え、要求された列を控える。"""
+        captured: dict[str, list[str]] = {}
+
+        def fake_loader(dataset_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+            captured["columns"] = list(columns or [])
+            available = [column for column in captured["columns"] if column in dataframe.columns]
+            return dataframe[available].copy()
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset", fake_loader
+        )
+        return captured
+
+    def _set_argv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> Path:
+        """main() のCLI引数を設定し、出力先ディレクトリを返す。"""
+        dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        dataset_path.write_bytes(DUMMY_DATASET_BYTES)
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_satellite_only.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(output_dir),
+                "--sample-size",
+                "0",
+                "--rf-trees",
+                "5",
+                "--shap-sample-size",
+                "10",
+                "--shap-background-size",
+                "10",
+                *extra_args,
+            ],
+        )
+        return output_dir
+
+    def test_survey_without_mask_survey_column_stops_before_modeling(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """mask_survey を結合していないデータセットでは、モデル学習前に ValueError で止まる。"""
+        self._install_loader(monkeypatch, _spread_dataframe())
+
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("列不足のままモデル学習へ進んではならない")
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.run_random_split_models", _fail_if_called
+        )
+        self._set_argv(monkeypatch, tmp_path, "--analysis-area", ANALYSIS_AREA_SURVEY)
+
+        with pytest.raises(ValueError, match="mask_survey"):
+            main()
+
+    def test_survey_reads_flag_and_records_area(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """survey は測量GISフラグを読込列に含め、絞った母数で実行し、結果JSONに範囲を残す。"""
+        dataframe = _spread_dataframe(n=200)
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1] * 150 + [0] * 50
+        captured = self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(monkeypatch, tmp_path, "--analysis-area", ANALYSIS_AREA_SURVEY)
+
+        main()
+
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN in captured["columns"]
+        result_files = list(output_dir.glob("*_results.json"))
+        assert [path.name for path in result_files] == [
+            "dataset_satellite_only_dummy_hanoi_30m_area_survey_results.json"
+        ]
+        result = json.loads(result_files[0].read_text(encoding="utf-8"))
+        assert result["analysis_area"] == ANALYSIS_AREA_SURVEY
+        assert result["required_mask_columns"] == [
+            IN_ANALYSIS_AREA_COLUMN,
+            IN_ANALYSIS_AREA_SURVEY_COLUMN,
+        ]
+        assert result["sample_size"] == 150
+        assert result["filter_dropout"]["stages"]["mask_passed"] == 150
+
+    def test_roi_keeps_existing_behavior(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """roi（既定）は測量GISフラグを読まず、従来の出力名・母数のまま範囲を記録する。"""
+        captured = self._install_loader(monkeypatch, _spread_dataframe(n=200))
+        output_dir = self._set_argv(monkeypatch, tmp_path)
+
+        main()
+
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN not in captured["columns"]
+        result_files = list(output_dir.glob("*_results.json"))
+        assert [path.name for path in result_files] == [
+            "dataset_satellite_only_dummy_hanoi_30m_results.json"
+        ]
+        result = json.loads(result_files[0].read_text(encoding="utf-8"))
+        assert result["analysis_area"] == ANALYSIS_AREA_ROI
+        assert result["required_mask_columns"] == [IN_ANALYSIS_AREA_COLUMN]
+        assert result["sample_size"] == 200

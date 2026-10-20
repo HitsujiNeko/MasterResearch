@@ -93,7 +93,13 @@ from src.analysis.analysis_rq3_satellite_only import (
     parse_arguments as parse_satellite_only_arguments,
 )
 from src.analysis.urban_params.canonical_grid import make_cell_id
-from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN, LST_VALID_RATIO_COLUMN
+from src.common.analysis_dataset import (
+    ANALYSIS_AREA_ROI,
+    ANALYSIS_AREA_SURVEY,
+    IN_ANALYSIS_AREA_COLUMN,
+    IN_ANALYSIS_AREA_SURVEY_COLUMN,
+    LST_VALID_RATIO_COLUMN,
+)
 from src.common.regression_models import fit_linear_regression
 from src.common.run_parameters import build_run_parameters_from_args
 
@@ -2592,3 +2598,204 @@ class TestMainWaterIndex:
 
         with pytest.raises(ValueError, match="MNDWI"):
             self._run(monkeypatch, tmp_path, dataframe)
+
+
+class TestAnalysisAreaArguments:
+    """--analysis-area の引数解析と出力名のテスト。"""
+
+    _DATASET_PATH = Path("dataset_limited_masksurvey_20230707_032305_hanoi_30m.gpkg")
+
+    def test_default_is_roi(self) -> None:
+        """既定は roi（既存コマンドの挙動を変えない）。"""
+        assert parse_arguments([]).analysis_area == ANALYSIS_AREA_ROI
+
+    def test_accepts_survey(self) -> None:
+        args = parse_arguments(["--analysis-area", ANALYSIS_AREA_SURVEY])
+
+        assert args.analysis_area == ANALYSIS_AREA_SURVEY
+
+    def test_rejects_unknown_area(self) -> None:
+        with pytest.raises(SystemExit):
+            parse_arguments(["--analysis-area", "full"])
+
+    def test_same_choices_as_satellite_only(self) -> None:
+        """シナリオ間で同じ範囲名・既定値を受け付ける（比較の前提をそろえる）。"""
+        for argv in ([], ["--analysis-area", ANALYSIS_AREA_SURVEY]):
+            assert (
+                parse_arguments(argv).analysis_area
+                == parse_satellite_only_arguments(argv).analysis_area
+            )
+
+    def test_roi_keeps_existing_output_stem(self) -> None:
+        """roi は従来と同じ出力名になる（既存出力名との互換の回帰テスト）。"""
+        stem_without_area = resolve_output_stem(
+            self._DATASET_PATH,
+            "both",
+            DEFAULT_POPULATION_SOURCES,
+            require_valid_gis_mask=False,
+            building_height_mode="mean",
+            water_index_mode="none",
+        )
+        stem_roi = resolve_output_stem(
+            self._DATASET_PATH,
+            "both",
+            DEFAULT_POPULATION_SOURCES,
+            require_valid_gis_mask=False,
+            building_height_mode="mean",
+            water_index_mode="none",
+            analysis_area=ANALYSIS_AREA_ROI,
+        )
+
+        assert stem_roi == stem_without_area
+        assert (
+            stem_roi == "dataset_limited_masksurvey_20230707_032305_hanoi_30m_both_bh_mean_wi_none"
+        )
+
+    def test_survey_appends_area_suffix_last(self) -> None:
+        """survey は _area_survey を _gismask の後ろ（末尾）に付ける。"""
+        stem = resolve_output_stem(
+            self._DATASET_PATH,
+            "both",
+            DEFAULT_POPULATION_SOURCES,
+            require_valid_gis_mask=True,
+            building_height_mode="mean",
+            water_index_mode="ndwi",
+            analysis_area=ANALYSIS_AREA_SURVEY,
+        )
+
+        assert stem == (
+            "dataset_limited_masksurvey_20230707_032305_hanoi_30m_both_bh_mean_gismask_area_survey"
+        )
+
+
+class TestMainAnalysisArea:
+    """main() の分析対象範囲の結線（読込列・列不足時の停止・JSONへの記録）のテスト。
+
+    読込関数は、実物と同じく「指定された列のうち存在する列だけを返す」偽物へ
+    差し替える。`gpd.read_file(columns=...)` は存在しない列を黙って読み飛ばす
+    ため、読込列への追加漏れや列不足を、実物と同じ条件で検出できる。
+    """
+
+    def _install_loader(
+        self, monkeypatch: pytest.MonkeyPatch, dataframe: pd.DataFrame
+    ) -> dict[str, list[str]]:
+        """列選択を模した読込関数へ差し替え、要求された列を控える。"""
+        captured: dict[str, list[str]] = {}
+
+        def fake_loader(dataset_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+            captured["columns"] = list(columns or [])
+            available = [column for column in captured["columns"] if column in dataframe.columns]
+            return dataframe[available].copy()
+
+        monkeypatch.setattr("src.analysis.analysis_rq3_limited.load_analysis_dataset", fake_loader)
+        return captured
+
+    def _set_argv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> Path:
+        """main() のCLI引数を設定し、出力先ディレクトリを返す。"""
+        dataset_path = _write_dummy_dataset(tmp_path)
+        output_dir = tmp_path / "output"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_limited.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(output_dir),
+                *extra_args,
+            ],
+        )
+        return output_dir
+
+    @staticmethod
+    def _survey_dataframe(n: int, n_inside: int) -> pd.DataFrame:
+        """先頭 n_inside 件だけが測量GIS範囲内の合成データ（Spatial CV が組める配置）。"""
+        dataframe = _quality_dataframe(n=n)
+        dataframe["cell_id"] = make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30)
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1] * n_inside + [0] * (n - n_inside)
+        return dataframe
+
+    def test_survey_without_mask_survey_column_stops(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """mask_survey を結合していないデータセットでは、ValueError で止まる。"""
+        self._install_loader(monkeypatch, _quality_dataframe(n=20))
+        self._set_argv(
+            monkeypatch, tmp_path, "--diagnose-only", "--analysis-area", ANALYSIS_AREA_SURVEY
+        )
+
+        with pytest.raises(ValueError, match="mask_survey"):
+            main()
+
+    def test_survey_diagnose_only_records_area(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """survey は測量GISフラグを読込列に含めて母数を絞り、診断JSONにも範囲を残す。"""
+        captured = self._install_loader(monkeypatch, self._survey_dataframe(n=40, n_inside=25))
+        output_dir = self._set_argv(
+            monkeypatch, tmp_path, "--diagnose-only", "--analysis-area", ANALYSIS_AREA_SURVEY
+        )
+
+        main()
+
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN in captured["columns"]
+        diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
+        assert len(diagnostics_files) == 1
+        assert diagnostics_files[0].name.endswith("_area_survey_diagnostics.json")
+        diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
+        assert diagnostics["analysis_area"] == ANALYSIS_AREA_SURVEY
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN in diagnostics["required_mask_columns"]
+        assert diagnostics["population_size"] == 25
+        assert diagnostics["filter_dropout"]["stages"]["mask_passed"] == 25
+
+    def test_roi_diagnose_only_keeps_existing_behavior(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """roi（既定）は測量GISフラグを読まず、従来の出力名・母数のまま範囲を記録する。"""
+        captured = self._install_loader(monkeypatch, _quality_dataframe(n=20))
+        output_dir = self._set_argv(monkeypatch, tmp_path, "--diagnose-only")
+
+        main()
+
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN not in captured["columns"]
+        diagnostics_files = list(output_dir.glob("*_diagnostics.json"))
+        assert len(diagnostics_files) == 1
+        assert "_area_" not in diagnostics_files[0].name
+        diagnostics = json.loads(diagnostics_files[0].read_text(encoding="utf-8"))
+        assert diagnostics["analysis_area"] == ANALYSIS_AREA_ROI
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN not in diagnostics["required_mask_columns"]
+        assert diagnostics["population_size"] == 20
+
+    def test_survey_full_run_records_area_in_results(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """フル実行の結果JSONにも範囲と品質列が残り、母数が測量GIS範囲に絞られる。"""
+        self._install_loader(monkeypatch, self._survey_dataframe(n=200, n_inside=150))
+        output_dir = self._set_argv(
+            monkeypatch,
+            tmp_path,
+            "--analysis-area",
+            ANALYSIS_AREA_SURVEY,
+            "--sample-size",
+            "0",
+            "--rf-trees",
+            "5",
+            "--shap-sample-size",
+            "10",
+            "--shap-background-size",
+            "10",
+            # 記録の検証が目的のため、特徴量の少ない構成でSHAP図の生成時間を抑える
+            "--variable-set",
+            "spectral",
+        )
+
+        main()
+
+        result_files = list(output_dir.glob("*_results.json"))
+        assert len(result_files) == 1
+        assert result_files[0].name.endswith("_area_survey_results.json")
+        result = json.loads(result_files[0].read_text(encoding="utf-8"))
+        assert result["analysis_area"] == ANALYSIS_AREA_SURVEY
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN in result["required_mask_columns"]
+        assert result["sample_size"] == 150

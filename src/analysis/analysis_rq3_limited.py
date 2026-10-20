@@ -46,11 +46,16 @@ from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
 from src.common.analysis_dataset import (  # noqa: E402
+    ANALYSIS_AREA_ROI,
+    ANALYSIS_AREAS,
     DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_COLUMN,
     LST_VALID_RATIO_COLUMN,
+    analysis_area_output_part,
     filter_valid_rows,
     load_analysis_dataset,
+    require_analysis_area_columns,
+    resolve_analysis_area_mask_columns,
     sample_dataset,
     summarize_filter_dropout,
     valid_population_mask_column,
@@ -362,6 +367,16 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "モデルへ投入する人口密度のデータソース（複数指定可）。"
             f"{POPULATION_SOURCE_NONE} は人口を投入しない指定であり、他の値とは併用できない。"
+        ),
+    )
+    parser.add_argument(
+        "--analysis-area",
+        choices=ANALYSIS_AREAS,
+        default=ANALYSIS_AREA_ROI,
+        help=(
+            "分析対象範囲。roi は IN_ANALYSIS_AREA == 1 のセル（従来どおり）、survey は"
+            "さらに IN_ANALYSIS_AREA_SURVEY == 1（測量GIS範囲）に絞る。survey には"
+            "mask_survey テーブルを結合したデータセットが必要。"
         ),
     )
     parser.add_argument(
@@ -756,11 +771,12 @@ def resolve_output_stem(
     require_valid_gis_mask: bool,
     building_height_mode: str = DEFAULT_BUILDING_HEIGHT_MODE,
     water_index_mode: str | None = DEFAULT_WATER_INDEX_MODE,
+    analysis_area: str = ANALYSIS_AREA_ROI,
 ) -> str:
     """データセットパスと実行条件から出力ファイル名の接頭辞を求める。
 
     構成の異なるランを同一ディレクトリへ出力しても上書きしないよう、
-    `{データセットstem}_{変数セット}[_bh_{建物高さ}][_wi_{水指数}][_pop_{ソース}...][_gismask]`
+    `{データセットstem}_{変数セット}[_bh_{建物高さ}][_wi_{水指数}][_pop_{ソース}...][_gismask][_area_{範囲}]`
     の順で組み立てる。これにより出力ファイル名自体が実行条件を示す。
 
     **省略の基準が人口ソースと建物高さ・水指数で異なる。**
@@ -778,6 +794,10 @@ def resolve_output_stem(
       付けない。** 水指数を持たない `coverage`（`water_index_mode` が `None`）にも
       付けない。
     - **`_gismask` は末尾に置く。** 感度分析の印を末尾に付ける既存の規約を保つ。
+    - **分析対象範囲は `roi` という値の場合に付けず、それ以外は `_gismask` の後ろに
+      `_area_{範囲}` を付ける。** 建物高さ・水指数と同じく値を基準に省略し、
+      既存の出力名を動かさない。範囲の絞り込みも感度分析の印として末尾に置く。
+      部品の規則は `analysis_area_output_part` に一本化し、Satellite Only と共有する。
 
     Args:
         dataset_path: 分析用データセットGeoPackageのパス。
@@ -788,6 +808,7 @@ def resolve_output_stem(
             `DEFAULT_BUILDING_HEIGHT_MODE`。
         water_index_mode: `WATER_INDEX_MODES` のいずれか、または水指数を持たない
             構成での `None`。既定は `DEFAULT_WATER_INDEX_MODE`。
+        analysis_area: `ANALYSIS_AREAS` のいずれか。既定は `ANALYSIS_AREA_ROI`。
     Returns:
         出力ファイル名の接頭辞。
     """
@@ -800,6 +821,9 @@ def resolve_output_stem(
         parts.extend(f"pop_{source}" for source in population_sources)
     if require_valid_gis_mask:
         parts.append("gismask")
+    area_part = analysis_area_output_part(analysis_area)
+    if area_part:
+        parts.append(area_part)
     return "_".join(parts)
 
 
@@ -1335,13 +1359,22 @@ def main() -> None:
         args.require_valid_gis_mask,
         args.building_height,
         args.water_index,
+        args.analysis_area,
     )
     observation_label = build_observation_label(output_stem)
 
     # 人口・夜間光は非NULL要求ではなく有効域品質列で判定する
     # （`resolve_filter_columns` / `resolve_auxiliary_mask_columns` のdocstring参照）。
     auxiliary_mask_columns = resolve_auxiliary_mask_columns(args.population_source)
-    required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, *auxiliary_mask_columns)
+    # 分析対象範囲の品質列は、フィルタ条件（required_mask_columns）だけでなく
+    # 読込列（required_columns）にも加える。読込列に無いと列が読まれず、
+    # require_analysis_area_columns が常に停止する。
+    analysis_area_mask_columns = resolve_analysis_area_mask_columns(args.analysis_area)
+    required_mask_columns = (
+        *DEFAULT_REQUIRED_MASK_COLUMNS,
+        *analysis_area_mask_columns,
+        *auxiliary_mask_columns,
+    )
     if args.require_valid_gis_mask:
         required_mask_columns = (*required_mask_columns, VALID_GIS_MASK_COLUMN)
 
@@ -1368,8 +1401,11 @@ def main() -> None:
         LST_VALID_RATIO_COLUMN,
         VALID_GIS_MASK_COLUMN,
         *auxiliary_mask_columns,
+        *analysis_area_mask_columns,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
+    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
+    require_analysis_area_columns(dataframe, args.analysis_area, args.dataset_path)
     # フィルタ列・有効域品質列・人口/夜間光の実測値列はいずれも投入列の上位集合で
     # あり、変数セットに依らず全て必要になる。
     missing_columns = [
@@ -1463,6 +1499,9 @@ def main() -> None:
         "dropped_constant_features": dropped_constant_features,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
         "require_valid_gis_mask": args.require_valid_gis_mask,
+        # 分析対象範囲。有効カバレッジ（測量GIS範囲等）をROI全体と同一視しないよう、
+        # 結果JSONと診断JSONの両方に残す（run_conditions は両方へ展開される）。
+        "analysis_area": args.analysis_area,
         "required_mask_columns": list(required_mask_columns),
     }
     if building_height_pc1 is not None:

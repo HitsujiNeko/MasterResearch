@@ -18,6 +18,7 @@ from src.common.analysis_dataset import (
     ANALYSIS_AREAS,
     DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
+    analysis_area_output_part,
     filter_valid_rows,
     load_analysis_dataset,
     require_analysis_area_columns,
@@ -104,6 +105,23 @@ class TestResolveAnalysisAreaMaskColumns:
             ),
         )
         assert list(result["cell_id"]) == [1]
+
+
+class TestAnalysisAreaOutputPart:
+    """analysis_area_output_part のテスト（両シナリオが共有する出力名の規則）。"""
+
+    def test_roi_returns_empty(self) -> None:
+        """roi は出力名に何も付けない（既存の出力名との互換）。"""
+        assert analysis_area_output_part(ANALYSIS_AREA_ROI) == ""
+
+    def test_survey_returns_area_part(self) -> None:
+        """survey は区切りの _ を含まない area_survey を返す（連結は呼び出し側）。"""
+        assert analysis_area_output_part(ANALYSIS_AREA_SURVEY) == "area_survey"
+
+    def test_unknown_area_raises(self) -> None:
+        """対応外の範囲名はファイル名へ混ぜずに止める。"""
+        with pytest.raises(ValueError, match="未対応の分析対象範囲"):
+            analysis_area_output_part("full")
 
 
 class TestRequireAnalysisAreaColumns:

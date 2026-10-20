@@ -63,6 +63,29 @@ def resolve_analysis_area_mask_columns(analysis_area: str) -> tuple[str, ...]:
     return _ANALYSIS_AREA_MASK_COLUMNS[analysis_area]
 
 
+def analysis_area_output_part(analysis_area: str) -> str:
+    """分析対象範囲を出力ファイル名に付けるときの部品を返す。
+
+    `roi` は既定ではなく値を基準に省略し、空文字を返す（既定を変えても既存の
+    出力名が動かないようにするため）。それ以外は `area_{範囲}` を返し、同じ
+    データセットから回した全域ランの出力を上書きしないようにする。区切りの
+    `_` は付けないので、呼び出し側が自分の命名規則に沿って連結する。両シナリオの
+    分析スクリプトで規則を二重定義しないよう、ここに置く。
+
+    Args:
+        analysis_area: 分析対象範囲の識別子（`ANALYSIS_AREAS` のいずれか）。
+    Returns:
+        出力ファイル名の部品。`roi` は空文字、それ以外は `area_{範囲}`。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
+    """
+    # 対応外の範囲名をファイル名へ混ぜないよう、先に検証する。
+    resolve_analysis_area_mask_columns(analysis_area)
+    if analysis_area == ANALYSIS_AREA_ROI:
+        return ""
+    return f"area_{analysis_area}"
+
+
 def require_analysis_area_columns(
     dataframe: pd.DataFrame, analysis_area: str, dataset_path: Path
 ) -> None:

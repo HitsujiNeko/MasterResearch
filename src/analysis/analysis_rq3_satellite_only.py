@@ -34,10 +34,16 @@ import pandas as pd  # noqa: E402
 
 from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
 from src.common.analysis_dataset import (  # noqa: E402
+    ANALYSIS_AREA_ROI,
+    ANALYSIS_AREAS,
+    DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_COLUMN,
     LST_VALID_RATIO_COLUMN,
+    analysis_area_output_part,
     filter_valid_rows,
     load_analysis_dataset,
+    require_analysis_area_columns,
+    resolve_analysis_area_mask_columns,
     sample_dataset,
     summarize_filter_dropout,
 )
@@ -134,18 +140,38 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--shap-sample-size", type=int, default=2_000, help="SHAP評価サンプル数")
     parser.add_argument("--shap-background-size", type=int, default=500, help="SHAP背景データ数")
     parser.add_argument("--rf-trees", type=int, default=300, help="ランダムフォレストの決定木本数")
+    parser.add_argument(
+        "--analysis-area",
+        choices=ANALYSIS_AREAS,
+        default=ANALYSIS_AREA_ROI,
+        help=(
+            "分析対象範囲。roi は IN_ANALYSIS_AREA == 1 のセル（従来どおり）、survey は"
+            "さらに IN_ANALYSIS_AREA_SURVEY == 1（測量GIS範囲）に絞る。survey には"
+            "mask_survey テーブルを結合したデータセットが必要。"
+        ),
+    )
     return parser.parse_args(argv)
 
 
-def resolve_output_stem(dataset_path: Path) -> str:
-    """データセットパスから出力ファイル名の接頭辞を求める。
+def resolve_output_stem(dataset_path: Path, analysis_area: str = ANALYSIS_AREA_ROI) -> str:
+    """データセットパスと分析対象範囲から出力ファイル名の接頭辞を求める。
+
+    分析対象範囲の部品（`roi` は付けず、それ以外は `area_{範囲}`）の規則は
+    `analysis_area_output_part` に一本化しており、Limited と共有する。
 
     Args:
         dataset_path: 分析用データセットGeoPackageのパス。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
     Returns:
-        出力ファイル名の接頭辞（データセットファイル名の拡張子を除いた部分）。
+        出力ファイル名の接頭辞（データセットファイル名の拡張子を除いた部分に、
+        `roi` 以外なら範囲の印を `_` で連結したもの）。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
     """
-    return dataset_path.stem
+    area_part = analysis_area_output_part(analysis_area)
+    if not area_part:
+        return dataset_path.stem
+    return f"{dataset_path.stem}_{area_part}"
 
 
 @dataclass(frozen=True)
@@ -175,6 +201,7 @@ def build_filtered_sample(
     random_state: int,
     block_size_m: int = DEFAULT_BLOCK_SIZE_M,
     scale: int = DEFAULT_SCALE_M,
+    required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
 ) -> FilteredSampleResult:
     """品質列フィルタ→サンプリング→フィルタ脱落診断の順に適用する。
 
@@ -202,6 +229,10 @@ def build_filtered_sample(
         block_size_m: フィルタ脱落診断用ブロックの一辺の長さ（m）。既定は
             `DEFAULT_BLOCK_SIZE_M`。
         scale: 正準グリッドの解像度（m/セル）。既定は `DEFAULT_SCALE_M`。
+        required_mask_columns: `== 1` を要求する品質列名。既定は `IN_ANALYSIS_AREA`
+            のみ。分析対象範囲を測量GIS範囲に絞る場合は `IN_ANALYSIS_AREA_SURVEY`
+            を加える。`filter_valid_rows` と `summarize_filter_dropout` の両方へ
+            同じ値を渡し、脱落診断の基準と分析の母数を揃える。
     Returns:
         `FilteredSampleResult`。
     """
@@ -214,6 +245,7 @@ def build_filtered_sample(
         feature_columns=FEATURE_COLUMNS,
         target_column=TARGET_COLUMN,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
     )
     sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
 
@@ -227,6 +259,7 @@ def build_filtered_sample(
         block_id=dropout_block_ids,
         block_size_m=block_size_m,
         sampled_row_count=len(sampled),
+        required_mask_columns=required_mask_columns,
     )
 
     return FilteredSampleResult(sampled=sampled, filter_dropout=filter_dropout)
@@ -245,8 +278,14 @@ def main() -> None:
     args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     validate_scale_matches_dataset(args.dataset_path, args.scale)
-    output_stem = resolve_output_stem(args.dataset_path)
+    output_stem = resolve_output_stem(args.dataset_path, args.analysis_area)
     observation_label = build_observation_label(output_stem)
+
+    # 分析対象範囲の品質列は、フィルタ条件（required_mask_columns）だけでなく
+    # 読込列（required_columns）にも加える。読込列に無いと列が読まれず、
+    # require_analysis_area_columns が常に停止する。
+    analysis_area_mask_columns = resolve_analysis_area_mask_columns(args.analysis_area)
+    required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, *analysis_area_mask_columns)
 
     # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
     required_columns = [
@@ -257,8 +296,11 @@ def main() -> None:
         TARGET_COLUMN,
         IN_ANALYSIS_AREA_COLUMN,
         LST_VALID_RATIO_COLUMN,
+        *analysis_area_mask_columns,
     ]
     dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
+    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
+    require_analysis_area_columns(dataframe, args.analysis_area, args.dataset_path)
     filtered_sample_result = build_filtered_sample(
         dataframe,
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
@@ -266,6 +308,7 @@ def main() -> None:
         random_state=args.random_state,
         block_size_m=args.block_size_m,
         scale=args.scale,
+        required_mask_columns=required_mask_columns,
     )
     sampled = filtered_sample_result.sampled
     if sampled.empty:
@@ -369,6 +412,10 @@ def main() -> None:
         "test_size": int(len(random_split.x_test)),
         "features": FEATURE_COLUMNS,
         "lst_valid_ratio_threshold": args.lst_valid_ratio_threshold,
+        # 分析対象範囲。有効カバレッジ（測量GIS範囲等）をROI全体と同一視しないよう、
+        # 範囲名と、実際に == 1 を要求した品質列の両方を残す。
+        "analysis_area": args.analysis_area,
+        "required_mask_columns": list(required_mask_columns),
         # 結果ファイルの他のキーから読めない実行条件（乱数シード・RF本数・固定値等）。
         # 記録範囲の判断は `src.common.run_parameters` のmodule docstringを参照する。
         "run_parameters": build_run_parameters_from_args(args),

@@ -264,3 +264,4 @@ def test_fetch_forward_pages_with_page_number_up_to_max_forward(
         assert "filter=cites:W9" in url
         assert f"&page={page}&" in url
         assert "cursor" not in url
+        assert "&sort=cited_by_count:desc,ids.openalex&" in url

@@ -309,6 +309,7 @@ def fetch_paged(
     mailto: str | None,
     timeout: int,
     max_results: int,
+    sort: str,
     per_page: int = PER_PAGE,
 ) -> tuple[list[dict[str, Any]], bool]:
     """``page=1,2,...`` の basic paging で work を上限件数まで取得する。
@@ -320,11 +321,18 @@ def fetch_paged(
     次のいずれかで打ち切る: 上限件数に達した／件数が ``per_page`` 未満のページ（最終ページ）／
     basic paging の上限に達した／リクエストが失敗した（取得済みの分は返す）。
 
+    basic paging はページごとに独立した問い合わせになるため、並び順が一意に定まらないと
+    ページの境目で順序が入れ替わり、重複と取りこぼしが起きる（並び順を指定しない場合に
+    実測で確認）。そのため ``sort`` は必須とし、最後のキーには ``ids.openalex`` のような
+    一意なキーを置く。
+
     Args:
         query: ``filter=...`` 等のクエリ断片（``per-page``・``page`` は付けない）。
         mailto: polite pool 用メールアドレス（API キー未設定時のみ使用）。
         timeout: タイムアウト秒数。
         max_results: 取得上限件数。
+        sort: OpenAlex の ``sort`` パラメータ（例: ``cited_by_count:desc,ids.openalex``）。
+            上限件数で打ち切る場合は、この並び順の先頭から取得する。
         per_page: 1ページの件数（OpenAlex の上限は 200）。
     Returns:
         (取得した work のリスト（最大 max_results 件）, 1回でも取得に成功したか)。
@@ -334,7 +342,7 @@ def fetch_paged(
     max_page = BASIC_PAGING_LIMIT // per_page
     page = 1
     while len(collected) < max_results and page <= max_page:
-        url = build_url(f"{query}&per-page={per_page}&page={page}", mailto)
+        url = build_url(f"{query}&sort={sort}&per-page={per_page}&page={page}", mailto)
         result = safe_fetch(url, timeout)
         if result is None:
             break

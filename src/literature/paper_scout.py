@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 # 起点 work は後方引用（referenced_works）も取得する
 _SELECT_START = openalex.SELECT_FIELDS + ",referenced_works"
 
+# 前方引用の並び順（被引用数の多い順。同数は ID 順で一意に定め、ページの境目を安定させる）
+_FORWARD_SORT = "cited_by_count:desc,ids.openalex"
+
 # 1リクエストで OR 連結する OpenAlex ID の最大数
 _ID_BATCH_SIZE = 50
 
@@ -199,9 +202,12 @@ def fetch_forward(
         timeout: タイムアウト秒数。
         max_forward: 取得上限件数（暴走防止）。
     Returns:
-        被引用 work のリスト（最大 max_forward 件）。途中で取得に失敗した場合は取得済みの分。
+        被引用 work のリスト（被引用数の多い順に最大 max_forward 件）。
+        途中で取得に失敗した場合は取得済みの分。
     """
-    works, _ = openalex.fetch_paged(f"filter=cites:{short_id}", mailto, timeout, max_forward)
+    works, _ = openalex.fetch_paged(
+        f"filter=cites:{short_id}", mailto, timeout, max_forward, sort=_FORWARD_SORT
+    )
     return works
 
 
@@ -348,7 +354,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--max-forward",
         type=int,
         default=400,
-        help="1起点あたりの前方引用取得上限",
+        help="1起点あたりの前方引用取得上限（被引用数の多い順。OpenAlex の制約で最大 10,000）",
     )
     parser.add_argument("--timeout", type=int, default=20, help="タイムアウト秒数")
     parser.add_argument(

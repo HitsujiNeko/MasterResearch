@@ -52,6 +52,10 @@ _DEFAULT_DAYS = 7
 # 1回の実行で取得する新着 work の上限（暴走防止）
 _DEFAULT_MAX_RESULTS = 400
 
+# 新着 work の並び順（新しい順。同日は ID 順で一意に定め、ページの境目を安定させる）。
+# 関連度順（検索時の既定）はページをまたぐと順序が安定せず、重複・取りこぼしが出た（実測）。
+_RECENT_SORT = "publication_date:desc,ids.openalex"
+
 _missing_terms = [term for term in CORE_SEARCH_TERMS if term not in openalex.KEYWORD_WEIGHTS]
 if _missing_terms:
     raise RuntimeError(
@@ -95,7 +99,7 @@ def build_search_filter(from_date: str) -> str:
 def fetch_recent(
     from_date: str, mailto: str | None, timeout: int, max_results: int
 ) -> tuple[list[dict[str, Any]], bool]:
-    """新着 work を page ページングで取得する。
+    """新着 work を新しい順に page ページングで取得する。
 
     Args:
         from_date: 検索開始日（``YYYY-MM-DD``）。
@@ -107,7 +111,9 @@ def fetch_recent(
         1ページ目から取得に失敗した場合は ``([], False)``（＝API 不通としてスキップ可能）。
     """
     encoded_filter = quote(build_search_filter(from_date), safe=":,")
-    return openalex.fetch_paged(f"filter={encoded_filter}", mailto, timeout, max_results)
+    return openalex.fetch_paged(
+        f"filter={encoded_filter}", mailto, timeout, max_results, sort=_RECENT_SORT
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +272,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--max-results",
         type=int,
         default=_DEFAULT_MAX_RESULTS,
-        help=f"取得する新着 work の上限（既定 {_DEFAULT_MAX_RESULTS}）",
+        help=(
+            f"取得する新着 work の上限（既定 {_DEFAULT_MAX_RESULTS}。新しい順。"
+            "OpenAlex の制約で最大 10,000）"
+        ),
     )
     parser.add_argument("--timeout", type=int, default=20, help="タイムアウト秒数")
     parser.add_argument(

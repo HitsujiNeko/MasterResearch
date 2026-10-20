@@ -145,6 +145,10 @@ def test_safe_fetch_returns_none_on_error(monkeypatch: pytest.MonkeyPatch, exc: 
     assert openalex.safe_fetch("https://example.org", 5) is None
 
 
+# テスト用の並び順（実装と同じく一意なキーで終える）
+_SORT = "cited_by_count:desc,ids.openalex"
+
+
 def _page_of(start: int, count: int) -> dict[str, Any]:
     """ID が start から連番の work を count 件含むページを返す。"""
     return {"results": [{"id": f"W{start + offset}"} for offset in range(count)]}
@@ -165,19 +169,25 @@ def _fake_pages(monkeypatch: pytest.MonkeyPatch, pages: list[dict[str, Any] | No
 def test_fetch_paged_uses_page_numbers_not_cursor(monkeypatch: pytest.MonkeyPatch) -> None:
     # 満杯のページが続く間はページ番号を増やし、件数が per_page 未満のページで終わる
     calls = _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2), _page_of(5, 1)])
-    works, ok = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, per_page=2)
+    works, ok = openalex.fetch_paged(
+        "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
+    )
     assert ok is True
     assert [w["id"] for w in works] == ["W1", "W2", "W3", "W4", "W5"]
     assert len(calls) == 3
     for page, url in enumerate(calls, start=1):
         assert f"&per-page=2&page={page}&" in url
+        # 並び順を毎ページ指定し、ページの境目を安定させている
+        assert f"&sort={_SORT}&" in url
         assert "cursor" not in url
 
 
 def test_fetch_paged_stops_at_max_results(monkeypatch: pytest.MonkeyPatch) -> None:
     # 上限に達したら次のページを取りに行かず、上限件数に切り詰める
     calls = _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2), _page_of(5, 2)])
-    works, ok = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=3, per_page=2)
+    works, ok = openalex.fetch_paged(
+        "filter=cites:W1", None, 5, max_results=3, sort=_SORT, per_page=2
+    )
     assert ok is True
     assert [w["id"] for w in works] == ["W1", "W2", "W3"]
     assert len(calls) == 2
@@ -185,7 +195,9 @@ def test_fetch_paged_stops_at_max_results(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_fetch_paged_stops_on_empty_page(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = _fake_pages(monkeypatch, [_page_of(1, 2), {"results": []}])
-    works, ok = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, per_page=2)
+    works, ok = openalex.fetch_paged(
+        "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
+    )
     assert ok is True
     assert len(works) == 2
     assert len(calls) == 2
@@ -196,7 +208,9 @@ def test_fetch_paged_keeps_partial_results_when_later_page_fails(
 ) -> None:
     # 2ページ目が失敗（None）しても、取得済みの1ページ目は返す
     _fake_pages(monkeypatch, [_page_of(1, 2), None])
-    works, ok = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, per_page=2)
+    works, ok = openalex.fetch_paged(
+        "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
+    )
     assert ok is True
     assert [w["id"] for w in works] == ["W1", "W2"]
 
@@ -205,7 +219,9 @@ def test_fetch_paged_reports_failure_when_first_page_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fake_pages(monkeypatch, [None])
-    works, ok = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, per_page=2)
+    works, ok = openalex.fetch_paged(
+        "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
+    )
     assert works == []
     assert ok is False
 
@@ -218,7 +234,9 @@ def test_fetch_paged_stops_at_basic_paging_limit(
     pages = [_page_of(1, 2), _page_of(3, 2), _page_of(5, 2)]
     calls = _fake_pages(monkeypatch, pages)
     with caplog.at_level("WARNING", logger=openalex.logger.name):
-        works, ok = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, per_page=2)
+        works, ok = openalex.fetch_paged(
+            "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
+        )
     assert ok is True
     assert len(works) == 4
     assert len(calls) == 2
@@ -232,7 +250,9 @@ def test_fetch_paged_does_not_warn_when_max_results_reached_at_limit(
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
-        works, _ = openalex.fetch_paged("filter=cites:W1", None, 5, max_results=4, per_page=2)
+        works, _ = openalex.fetch_paged(
+            "filter=cites:W1", None, 5, max_results=4, sort=_SORT, per_page=2
+        )
     assert len(works) == 4
     assert "basic paging の上限" not in caplog.text
 

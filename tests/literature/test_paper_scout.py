@@ -121,7 +121,7 @@ def test_scout_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
         if "filter=ids.openalex:" in url:
             return {"results": [backward_work]}
         if "filter=cites:" in url:
-            return {"results": [forward_work], "meta": {"next_cursor": None}}
+            return {"results": [forward_work]}
         return {"results": []}
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)

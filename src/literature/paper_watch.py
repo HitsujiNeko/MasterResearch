@@ -95,7 +95,7 @@ def build_search_filter(from_date: str) -> str:
 def fetch_recent(
     from_date: str, mailto: str | None, timeout: int, max_results: int
 ) -> tuple[list[dict[str, Any]], bool]:
-    """新着 work を cursor ページングで取得する。
+    """新着 work を page ページングで取得する。
 
     Args:
         from_date: 検索開始日（``YYYY-MM-DD``）。
@@ -106,24 +106,8 @@ def fetch_recent(
         (取得した work のリスト, 1回でも取得に成功したか)。
         1ページ目から取得に失敗した場合は ``([], False)``（＝API 不通としてスキップ可能）。
     """
-    collected: list[dict[str, Any]] = []
-    any_success = False
-    cursor: str | None = "*"
     encoded_filter = quote(build_search_filter(from_date), safe=":,")
-    while cursor and len(collected) < max_results:
-        query = f"filter={encoded_filter}&per-page=200&cursor={cursor}"
-        url = openalex.build_url(query, mailto)
-        result = openalex.safe_fetch(url, timeout)
-        if result is None:
-            break
-        any_success = True
-        page_results = result.get("results") or []
-        # 結果0件のページで打ち切る（データ終端、および cursor が進まない場合の暴走防止）
-        if not page_results:
-            break
-        collected.extend(page_results)
-        cursor = (result.get("meta") or {}).get("next_cursor")
-    return collected[:max_results], any_success
+    return openalex.fetch_paged(f"filter={encoded_filter}", mailto, timeout, max_results)
 
 
 # ---------------------------------------------------------------------------

@@ -84,8 +84,9 @@ def test_fetch_recent_paginates_with_page_number(
     assert len(calls) == 2
     # cursor ではなくページ番号で2ページ目を要求している
     assert "&page=2&" in calls[1]
-    # 新しい順・同日は ID 順で並べ、ページの境目を安定させている
-    assert "&sort=publication_date:desc,ids.openalex&" in calls[1]
+    # 全ページで、検索式の後ろに新しい順・同日は ID 順の並び順を付け、ページの境目を安定させている
+    for url in calls:
+        assert "&sort=publication_date:desc,ids.openalex&" in url
     assert "cursor" not in calls[1]
 
 

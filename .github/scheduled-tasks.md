@@ -57,7 +57,7 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 リポジトリ {リポジトリのルート} で外部依存のヘルスチェックを**自動実行**として実行する（担当者不在のため、ユーザーへの確認は行わない）。
 
 手順:
-1. 作業ディレクトリを {リポジトリのルート} にする。Bash ツールで git branch --show-current を実行し、結果が main でない場合、または scripts/check_external_deps.py が存在しない場合は、何も実行せず「{ブランチ名} がチェックアウトされているため実行を見送った」と報告して終了する（チェックアウトの切り替え・pull はしない）。
+1. 作業ディレクトリを {リポジトリのルート} にする。Bash ツールで git branch --show-current を実行し、結果が main でない場合は、何も実行せず「{ブランチ名} がチェックアウトされているため実行を見送った」と報告して終了する。main であっても scripts/check_external_deps.py が存在しない場合は、何も実行せず「main に scripts/check_external_deps.py が無いため実行を見送った（main が古い可能性がある）」と報告して終了する（いずれもチェックアウトの切り替え・pull はしない）。
 2. PowerShell ツールで次を実行する（conda 環境の python.exe をフルパスで呼ぶ。conda activate は使えない）:
    & "{masterresearch 環境の python.exe}" -m scripts.check_external_deps
 3. 終了コード 1 は「要対応の項目あり」を意味し、スクリプトの異常ではない。出力された項目をそのまま報告し、各項目に出力中の対処を1行で添える。終了コード 0 の場合は「問題なし」の1行だけを報告する。
@@ -74,7 +74,7 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 リポジトリ {リポジトリのルート} で文献探索を**月次自動実行**として実行する（担当者不在のため、ユーザーへの確認は行わない）。
 
 手順:
-1. 作業ディレクトリを {リポジトリのルート} にする。Bash ツールで git branch --show-current を実行し、結果が main でない場合、または .claude/skills/paper-scout/SKILL.md に「月次自動実行モード」の節が無い場合は、何も実行せず「{ブランチ名} がチェックアウトされているため実行を見送った」と報告して終了する（チェックアウトの切り替え・pull はしない）。
+1. 作業ディレクトリを {リポジトリのルート} にする。Bash ツールで git branch --show-current を実行し、結果が main でない場合は、何も実行せず「{ブランチ名} がチェックアウトされているため実行を見送った」と報告して終了する。main であっても .claude/skills/paper-scout/SKILL.md に「月次自動実行モード」の節が無い場合は、何も実行せず「main の paper-scout スキルに月次自動実行モードの節が無いため実行を見送った（main が古い可能性がある）」と報告して終了する（いずれもチェックアウトの切り替え・pull はしない）。
 2. Skill ツールで `paper-scout` スキルを呼び出し、スキルの「月次自動実行モード」の手順に厳密に従う。Python は conda 環境の python.exe（{masterresearch 環境の python.exe}）をフルパスで呼ぶ。出力先はこのセッションのスクラッチパッドとする。
 3. 日本語本文は一時ファイルに書き出して --body-file で投稿する。
 4. GitHub への書き込みは、スキルの手順にある報告 Issue の作成（初回のみ）とコメント追記だけとする。リポジトリへのコミット・push は行わない。OPENALEX_API_KEY 等の値は表示しない。

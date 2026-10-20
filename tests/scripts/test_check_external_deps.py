@@ -527,6 +527,50 @@ class TestMain:
         with pytest.raises(SystemExit):
             target.main(["--warn-days", warn_days])
 
+    def test_unexpected_exception_becomes_unknown_with_type_name_only(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """1項目で予期しない例外が出ても他の項目は報告され、例外の本文は出さない。"""
+        self._patch_checks(monkeypatch, target.STATUS_OK)
+
+        def broken(*args: object) -> target.CheckResult:
+            raise PermissionError("secret-token-value を含むメッセージ")
+
+        monkeypatch.setattr(target, "check_proj_db", broken)
+
+        code = target.main(["--skip-gee"])
+
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "要対応 1 件 / 3 項目" in out
+        assert (
+            f"[UNKNOWN] {target.CHECK_NAME_PROJ_DB}: "
+            "判定中に予期しない例外が発生しました（PermissionError）"
+        ) in out
+        assert "secret-token-value" not in out
+
+    def test_utf16_env_file_is_reported_as_unknown(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: Path,
+    ) -> None:
+        """UTF-16 の .env でも全体は落ちず、Earthdata の項目だけが UNKNOWN になる。"""
+        fixed = target.CheckResult("x", target.STATUS_OK, "m")
+        monkeypatch.setattr(target, "check_proj_db", lambda *args: fixed)
+        monkeypatch.setattr(target, "check_ruff", lambda *args: fixed)
+        monkeypatch.delenv(target.EARTHDATA_TOKEN_ENV_VAR, raising=False)
+        env_path = tmp_path / "utf16.env"
+        env_path.write_text(f"{target.EARTHDATA_TOKEN_ENV_VAR}=secret-token-value\n", "utf-16")
+
+        code = target.main(["--skip-gee", "--env-file", str(env_path)])
+
+        out = capsys.readouterr().out
+        assert code == 1
+        assert f"[UNKNOWN] {target.CHECK_NAME_EARTHDATA}: " in out
+        assert "UnicodeDecodeError" in out
+        assert "secret-token-value" not in out
+
     def test_returns_one_when_problem_exists(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:

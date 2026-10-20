@@ -109,6 +109,11 @@ def load_comment_bodies(comments_json_path: Path) -> list[str]:
         ValueError: JSON 配列として解釈できない場合。
     """
     text = comments_json_path.read_text(encoding="utf-8-sig")
+    if not text.strip():
+        # `gh api` が認証切れ等で失敗すると、リダイレクト先に空のファイルができる。
+        # 空を「コメント0件」と扱うと提示済み候補の除外が効かなくなるため、
+        # 正常な 0 件（JSON 配列 `[]`）と区別してエラーにする。
+        raise ValueError(f"コメント一覧が空です: {comments_json_path.name}")
     decoder = json.JSONDecoder()
     bodies: list[str] = []
     position = 0

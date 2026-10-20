@@ -535,3 +535,51 @@ class TestMain:
 
         assert target.main(["--skip-gee"]) == 1
         assert "要対応 3 件 / 3 項目" in capsys.readouterr().out
+
+    def test_unexpected_exception_in_one_check_becomes_unknown(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """1項目の予期しない例外は型名だけの UNKNOWN になり、他項目の報告は出る。"""
+        fixed = target.CheckResult("x", target.STATUS_OK, "m")
+        warn = target.CheckResult("y", target.STATUS_WARN, "w")
+        monkeypatch.setattr(target, "check_earthdata_token", lambda *args: fixed)
+        monkeypatch.setattr(target, "check_gee", lambda *args: fixed)
+
+        def boom(*args: object) -> target.CheckResult:
+            # 例外メッセージ本文（秘密情報を含みうる）が出力に漏れないことを確認するため、
+            # 本文を持つ例外を投げる。
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "illegal byte")
+
+        monkeypatch.setattr(target, "check_proj_db", boom)
+        monkeypatch.setattr(target, "check_ruff", lambda *args: warn)
+
+        code = target.main([])
+
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "要対応 2 件 / 4 項目" in out
+        assert "[UNKNOWN]" in out
+        assert "[WARN]" in out
+        assert "UnicodeDecodeError" in out
+        assert "illegal byte" not in out
+
+    def test_unknown_exception_message_body_is_not_printed(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """予期しない例外のメッセージ本文は報告文に出ない（秘密情報の混入防止）。"""
+        fixed = target.CheckResult("x", target.STATUS_OK, "m")
+        monkeypatch.setattr(target, "check_gee", lambda *args: fixed)
+        monkeypatch.setattr(target, "check_proj_db", lambda *args: fixed)
+        monkeypatch.setattr(target, "check_ruff", lambda *args: fixed)
+
+        def boom(*args: object) -> target.CheckResult:
+            raise PermissionError("/home/user/secret.pem")
+
+        monkeypatch.setattr(target, "check_earthdata_token", boom)
+
+        code = target.main(["--skip-gee"])
+
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "PermissionError" in out
+        assert "/home/user/secret.pem" not in out

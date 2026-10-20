@@ -107,6 +107,22 @@ class TestLoadCommentBodies:
         with pytest.raises(ValueError):
             scout_report.load_comment_bodies(path)
 
+    def test_rejects_empty_file(self, tmp_path: Path) -> None:
+        """空のファイル（gh api の失敗でできる空出力）は ValueError。"""
+        path = tmp_path / "comments.json"
+        path.write_text("", encoding="utf-8")
+
+        with pytest.raises(ValueError):
+            scout_report.load_comment_bodies(path)
+
+    def test_rejects_whitespace_only_file(self, tmp_path: Path) -> None:
+        """空白だけのファイルも空ファイルと同様に ValueError。"""
+        path = tmp_path / "comments.json"
+        path.write_text(" \n\t", encoding="utf-8")
+
+        with pytest.raises(ValueError):
+            scout_report.load_comment_bodies(path)
+
 
 class TestSelectNewCandidates:
     """select_new_candidates のテスト。"""

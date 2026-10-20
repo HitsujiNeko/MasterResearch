@@ -663,6 +663,25 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _run_check(name: str, run: Callable[[], CheckResult]) -> CheckResult:
+    """1項目の判定を実行し、予期しない例外は型名だけの UNKNOWN に変える。
+
+    1項目の例外（例: UTF-16 の .env による UnicodeDecodeError）で報告全体が
+    消えるのを防ぐ。例外のメッセージ本文には秘密情報が混入しうるため、
+    型名のみを出す。
+
+    Args:
+        name: 項目名（UNKNOWN 時に使う）。
+        run: 判定関数を呼び出す呼び出し可能オブジェクト。
+    Returns:
+        判定結果。run が例外を投げた場合は UNKNOWN。
+    """
+    try:
+        return run()
+    except Exception as exc:  # 予期しない失敗も報告から落とさない
+        return CheckResult(name, STATUS_UNKNOWN, f"判定中に予期しない例外: {type(exc).__name__}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI エントリポイント。問題があれば 1、無ければ 0 を返す。"""
     for stream in (sys.stdout, sys.stderr):
@@ -674,11 +693,27 @@ def main(argv: list[str] | None = None) -> int:
     environment = dict(os.environ)
     now = dt.datetime.now(dt.timezone.utc)
 
-    results = [check_earthdata_token(environment, Path(args.env_file), now, args.warn_days)]
+    results = [
+        _run_check(
+            "Earthdata トークン",
+            lambda: check_earthdata_token(
+                environment, Path(args.env_file), now, args.warn_days
+            ),
+        )
+    ]
     if not args.skip_gee:
-        results.append(check_gee(args.gee_project_id, Path(args.gee_config), sys.executable))
-    results.append(check_proj_db(args.osgeo4w_root, environment))
-    results.append(check_ruff(sys.executable))
+        results.append(
+            _run_check(
+                "GEE 認証",
+                lambda: check_gee(args.gee_project_id, Path(args.gee_config), sys.executable),
+            )
+        )
+    results.append(
+        _run_check(
+            "OSGeo4W の proj.db", lambda: check_proj_db(args.osgeo4w_root, environment)
+        )
+    )
+    results.append(_run_check("ruff の版", lambda: check_ruff(sys.executable)))
 
     print(format_report(results, now.astimezone()))
     return 1 if any(result.status != STATUS_OK for result in results) else 0

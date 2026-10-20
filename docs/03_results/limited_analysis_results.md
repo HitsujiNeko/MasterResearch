@@ -1,7 +1,7 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-10-11  
-**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [observation_selection.md](../02_methods/observation_selection.md)  
+**最終更新**: 2026-10-20  
+**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -26,6 +26,8 @@ RQ3 では Full / Limited / Satellite Only の3シナリオを比較する。Sat
 | fold別評価値 | `{接頭辞}_spatial_cv_folds.csv` |
 
 いずれも `data/output/limited/20230707_032305/` に置き、Git管理下にある（サンプルCSV `*_sample_*.csv` のみ管理外）。**ラン12〜15（水指数ブロックの構成比較）だけは `data/output/limited/20230707_032305_water_index/` に置く。** データセットの世代が異なり（1.4節）、同じ出力接頭辞のラン1の出力を上書きしないためである。
+
+**測量GIS範囲と全域の比較（ラン12・13 の構成を `mask_survey` 結合データセットで回し直したもの）は `data/output/limited/20230707_032305_area_comparison/` に置く。** 本ドキュメントの台帳には含めず、結果と解釈は [survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは、ラン12・13 の母数・サンプル・Spatial CV の R² を再現している（同ドキュメント3.3節）。
 
 ### 1.2 現行の定義（建物高さ・人口・夜間光）
 

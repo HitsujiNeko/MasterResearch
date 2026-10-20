@@ -1,7 +1,7 @@
 # Satellite Only 分析結果（cell_id結合経路）
 
-**最終更新**: 2026-09-30  
-**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
+**最終更新**: 2026-10-20  
+**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -37,6 +37,8 @@ RQ3 では Full / Limited / Satellite Only の3シナリオを比較する。本
 | fold別評価値 | `{接頭辞}_spatial_cv_folds.csv` |
 
 接頭辞は `dataset_satellite_only_20230707_032305_hanoi_30m`、配置は `data/output/satellite_only_cellbased/20230707_032305/` である。
+
+測量GIS範囲と全域の比較（新世代の指標から作り直したデータセットによる）は `data/output/satellite_only_cellbased/20230707_032305_area_comparison/` に置き、[survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは本ドキュメントの数値と世代が異なるため、直接比較しない（3.1節）。
 
 **4.5節（ブロック境界の実測）だけは上記ファイルに含まれない。** フィルタ後全数を対象とした一時的な診断であり、算出方法を同節に記す（再測定にはデータセットの再生成が要る）。
 

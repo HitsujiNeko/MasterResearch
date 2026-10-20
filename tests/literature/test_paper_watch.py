@@ -60,13 +60,16 @@ def _work(
     }
 
 
-def test_fetch_recent_paginates_until_cursor_exhausted(
+def _full_page(start: int) -> dict[str, Any]:
+    """ID が start から連番の work を1ページ分（PER_PAGE 件）含むページを返す。"""
+    return {"results": [_work(f"W{start + i}") for i in range(openalex.PER_PAGE)]}
+
+
+def test_fetch_recent_paginates_with_page_number(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pages = [
-        {"results": [_work("W1")], "meta": {"next_cursor": "c2"}},
-        {"results": [_work("W2")], "meta": {"next_cursor": None}},
-    ]
+    # 満杯のページが続く間は page=1,2,... で送り、件数が1ページ未満のページで終わる
+    pages = [_full_page(0), {"results": [_work("W_last")]}]
     calls: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
@@ -74,21 +77,23 @@ def test_fetch_recent_paginates_until_cursor_exhausted(
         return pages.pop(0)
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
-    works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
+    works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=1000)
     assert ok is True
-    assert [w["id"] for w in works] == [
-        "https://openalex.org/W1",
-        "https://openalex.org/W2",
-    ]
-    # 2ページ目のリクエストで cursor=c2 が使われている
-    assert "cursor=c2" in calls[1]
+    assert len(works) == openalex.PER_PAGE + 1
+    assert works[-1]["id"] == "https://openalex.org/W_last"
+    assert len(calls) == 2
+    # cursor ではなくページ番号で2ページ目を要求している
+    assert "&page=2&" in calls[1]
+    # 全ページで、検索式の後ろに新しい順・同日は ID 順の並び順を付け、ページの境目を安定させている
+    for url in calls:
+        assert "&sort=publication_date:desc,ids.openalex&" in url
+    assert "cursor" not in calls[1]
 
 
 def test_fetch_recent_respects_max_results(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
         return {
             "results": [_work("W1"), _work("W2"), _work("W3")],
-            "meta": {"next_cursor": None},
         }
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
@@ -102,7 +107,7 @@ def test_fetch_recent_keeps_partial_results_when_later_page_fails(
 ) -> None:
     # 1ページ目成功・2ページ目失敗（None）でも、取得済みの1ページ目結果を破棄しない
     pages: list[dict[str, Any] | None] = [
-        {"results": [_work("W1")], "meta": {"next_cursor": "c2"}},
+        _full_page(0),
         None,  # 2ページ目で取得失敗
     ]
 
@@ -110,21 +115,21 @@ def test_fetch_recent_keeps_partial_results_when_later_page_fails(
         return pages.pop(0)
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
-    works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
-    # 部分取得成功: 1件目は保持され、1回でも成功したため ok=True
-    assert [w["id"] for w in works] == ["https://openalex.org/W1"]
+    works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=1000)
+    # 部分取得成功: 1ページ目は保持され、1回でも成功したため ok=True
+    assert len(works) == openalex.PER_PAGE
     assert ok is True
 
 
 def test_fetch_recent_stops_on_empty_results_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # results が空でも next_cursor が非None を返し続けるケースでも1回で打ち切る
+    # results が空のページで打ち切り、次のページを要求しない
     calls: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
         calls.append(url)
-        return {"results": [], "meta": {"next_cursor": "never-ends"}}
+        return {"results": []}
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
     works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
@@ -201,7 +206,7 @@ def test_watch_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
         assert "from_publication_date:2026-07-15" in url
-        return {"results": [known, fresh], "meta": {"next_cursor": None}}
+        return {"results": [known, fresh]}
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
     candidates, from_date, ok = paper_watch.watch(
@@ -328,7 +333,7 @@ def test_main_writes_csv_and_table(
     monkeypatch.setattr(
         openalex,
         "safe_fetch",
-        lambda url, timeout: {"results": [fresh], "meta": {"next_cursor": None}},
+        lambda url, timeout: {"results": [fresh]},
     )
     output = tmp_path / "out.csv"
     exit_code = paper_watch.main(["--csv", str(csv_path), "--output", str(output), "--top", "5"])

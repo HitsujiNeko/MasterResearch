@@ -121,7 +121,7 @@ def test_scout_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
         if "filter=ids.openalex:" in url:
             return {"results": [backward_work]}
         if "filter=cites:" in url:
-            return {"results": [forward_work], "meta": {"next_cursor": None}}
+            return {"results": [forward_work]}
         return {"results": []}
 
     monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
@@ -242,3 +242,26 @@ def test_fetch_backward_uses_documented_filter_key(
     paper_scout.fetch_backward(work, None, timeout=5)
     assert captured
     assert "filter=ids.openalex:W1|W2" in captured[0]
+
+
+def test_fetch_forward_pages_with_page_number_up_to_max_forward(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # cursor ではなく page=1,2,... で送り、max_forward 件まで取得する（満杯のページが続く場合）
+    captured: list[str] = []
+
+    def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:
+        captured.append(url)
+        page = len(captured)
+        start = (page - 1) * openalex.PER_PAGE
+        return {"results": [_work(f"W{start + i}") for i in range(openalex.PER_PAGE)]}
+
+    monkeypatch.setattr(openalex, "safe_fetch", fake_safe_fetch)
+    works = paper_scout.fetch_forward("W9", None, timeout=5, max_forward=450)
+    assert len(works) == 450
+    assert len(captured) == 3
+    for page, url in enumerate(captured, start=1):
+        assert "filter=cites:W9" in url
+        assert f"&page={page}&" in url
+        assert "cursor" not in url
+        assert "&sort=cited_by_count:desc,ids.openalex&" in url

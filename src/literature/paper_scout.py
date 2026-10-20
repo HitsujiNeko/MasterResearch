@@ -191,7 +191,7 @@ def fetch_backward(work: dict[str, Any], mailto: str | None, timeout: int) -> li
 def fetch_forward(
     short_id: str, mailto: str | None, timeout: int, max_forward: int
 ) -> list[dict[str, Any]]:
-    """前方引用（被引用）の work メタデータを cursor ページングで取得する。
+    """前方引用（被引用）の work メタデータを page ページングで取得する。
 
     Args:
         short_id: 起点 work の短縮 ID（例: ``W123``）。
@@ -199,18 +199,10 @@ def fetch_forward(
         timeout: タイムアウト秒数。
         max_forward: 取得上限件数（暴走防止）。
     Returns:
-        被引用 work のリスト（最大 max_forward 件）。
+        被引用 work のリスト（最大 max_forward 件）。途中で取得に失敗した場合は取得済みの分。
     """
-    collected: list[dict[str, Any]] = []
-    cursor = "*"
-    while cursor and len(collected) < max_forward:
-        url = openalex.build_url(f"filter=cites:{short_id}&per-page=200&cursor={cursor}", mailto)
-        result = openalex.safe_fetch(url, timeout)
-        if not result:
-            break
-        collected.extend(result.get("results") or [])
-        cursor = (result.get("meta") or {}).get("next_cursor")
-    return collected[:max_forward]
+    works, _ = openalex.fetch_paged(f"filter=cites:{short_id}", mailto, timeout, max_forward)
+    return works
 
 
 # ---------------------------------------------------------------------------

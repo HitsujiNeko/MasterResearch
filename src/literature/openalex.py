@@ -12,6 +12,8 @@ OpenAlex アクセス方針:
   未認証の無料枠内に収まる。
 - API キーはログ・出力に一切出さない（``_redact`` で伏字化する）。
 - HTTP 429（無料枠超過）は探索を停止せず、当該リクエストをスキップして続行する。
+- 複数ページの取得は cursor ではなく ``page=N`` の basic paging で行う（``fetch_paged``）。
+  OpenAlex は API キーなしの cursor ページングを2ページ目以降で 401 として拒否するため。
 """
 
 from __future__ import annotations
@@ -36,6 +38,12 @@ OPENALEX_BASE_URL = "https://api.openalex.org/works"
 SELECT_FIELDS = (
     "id,doi,title,display_name,publication_year,primary_location,abstract_inverted_index"
 )
+
+# 1ページの取得件数（OpenAlex の per-page 上限）
+PER_PAGE = 200
+
+# basic paging（page=N）で取得できる先頭件数の上限（OpenAlex の仕様）
+BASIC_PAGING_LIMIT = 10_000
 
 # タイトルへのマッチはアブストラクトより重視するための倍率
 _TITLE_WEIGHT = 2.0
@@ -294,6 +302,53 @@ def safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
     except (RuntimeError, ValueError) as exc:
         logger.warning("取得をスキップします（%s）: %s", exc, _redact(url))
         return None
+
+
+def fetch_paged(
+    query: str,
+    mailto: str | None,
+    timeout: int,
+    max_results: int,
+    per_page: int = PER_PAGE,
+) -> tuple[list[dict[str, Any]], bool]:
+    """``page=1,2,...`` の basic paging で work を上限件数まで取得する。
+
+    OpenAlex は API キーなしの cursor ページングを2ページ目以降で 401 として拒否するため、
+    キーの有無によらず動く basic paging を用いる。basic paging は先頭
+    ``BASIC_PAGING_LIMIT`` 件までしか取得できないため、そこで打ち切る。
+
+    次のいずれかで打ち切る: 上限件数に達した／件数が ``per_page`` 未満のページ（最終ページ）／
+    basic paging の上限に達した／リクエストが失敗した（取得済みの分は返す）。
+
+    Args:
+        query: ``filter=...`` 等のクエリ断片（``per-page``・``page`` は付けない）。
+        mailto: polite pool 用メールアドレス（API キー未設定時のみ使用）。
+        timeout: タイムアウト秒数。
+        max_results: 取得上限件数。
+        per_page: 1ページの件数（OpenAlex の上限は 200）。
+    Returns:
+        (取得した work のリスト（最大 max_results 件）, 1回でも取得に成功したか)。
+    """
+    collected: list[dict[str, Any]] = []
+    any_success = False
+    max_page = BASIC_PAGING_LIMIT // per_page
+    page = 1
+    while len(collected) < max_results and page <= max_page:
+        url = build_url(f"{query}&per-page={per_page}&page={page}", mailto)
+        result = safe_fetch(url, timeout)
+        if result is None:
+            break
+        any_success = True
+        page_results = result.get("results") or []
+        collected.extend(page_results)
+        if len(page_results) < per_page:
+            break
+        page += 1
+    if page > max_page and len(collected) < max_results:
+        logger.warning(
+            "basic paging の上限（先頭 %d 件）に達したため打ち切ります", BASIC_PAGING_LIMIT
+        )
+    return collected[:max_results], any_success
 
 
 # ---------------------------------------------------------------------------

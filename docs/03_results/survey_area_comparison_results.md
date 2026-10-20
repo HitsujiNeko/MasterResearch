@@ -1,4 +1,4 @@
-# 測量GIS範囲と全域の分析結果の比較（Satellite Only・Limited）
+# ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（Satellite Only・Limited）
 
 **最終更新**: 2026-10-20  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節, [research_guide.md](../01_planning/research_guide.md)  
@@ -11,7 +11,9 @@
 
 Full シナリオ（測量GISを追加）は測量GISのある範囲でしか成立しない。一方、既存の Satellite Only・Limited の結果は ROI 全域で得たものであり、そのまま Full と並べると「データの違い」と「範囲の違い」が混ざる。本ドキュメントは、**Satellite Only・Limited を測量GIS範囲に絞って回し直し、同じデータセットから回した全域の結果と比べる**ことで、範囲の違いだけによる差を切り分ける。ここで得た測量GIS範囲の結果は、Full シナリオと比較するときの基準になる。
 
-**有効カバレッジを ROI と同一視しない。** 本ドキュメントでいう「測量GIS範囲」は `IN_ANALYSIS_AREA_SURVEY = 1` のセル（30m で 111,448 セル・約100 km²）であり、ROI の解析対象域（`IN_ANALYSIS_AREA = 1`）の約3%にあたる都心部である。結果 JSON の `analysis_area`（`"roi"` / `"survey"`）と `required_mask_columns` に、どちらの範囲で絞ったかが記録されている。
+**本ドキュメントの「測量GIS範囲」の結果は、ハノイ都心部に絞った分析結果である。** 山地・農地・郊外を含む ROI 全域の結果とは、対象とする地域の性格が異なる（4節）。
+
+**有効カバレッジを ROI と同一視しない。** 本ドキュメントでいう「測量GIS範囲」は `IN_ANALYSIS_AREA_SURVEY = 1` のセル（30m で 111,448 セル・約100 km²）であり、ROI の解析対象域（`IN_ANALYSIS_AREA = 1`）の約3%にあたるハノイ都心部である。結果 JSON の `analysis_area`（`"roi"` / `"survey"`）と `required_mask_columns` に、どちらの範囲で絞ったかが記録されている。
 
 ### 1.1 数値の正本
 
@@ -69,7 +71,7 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 
 - 全域ランは従来どおり `IN_ANALYSIS_AREA == 1` で、測量GIS範囲ランはさらに `IN_ANALYSIS_AREA_SURVEY == 1` で絞る。それ以外のフィルタ条件（`LST_VALID_RATIO >= 0.5`・非NULL要求の列・Limited の人口/夜間光の有効域品質列）は両範囲で同じである
 - **境界にかかる部分被覆セルは除外せず、そのまま使う。** `IN_ANALYSIS_AREA_SURVEY = 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味するため境界セルを含むが、30m での面積換算の超過は約0.4%にとどまる（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節）。境界セルの被覆率を表す列の追加は、この大きさに見合わないと判断した
-- **90m・300m で使う場合は再検討が要る。** 超過は 90m で約1.8%、300m で約8% に広がる（同上）
+- **90m・300m で使う場合は再検討が要る。** 超過は 90m で約1.8%、300m で約8% に広がる（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）
 
 ### 3.3 全域ランによる再現確認（Limited）
 
@@ -125,11 +127,11 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 | ラン | 平均 | 標準偏差 |
 |---|---:|---:|
 | Satellite Only・全域 | 35.49 | 2.52 |
-| Satellite Only・測量GIS範囲 | 37.85 | 3.72 |
+| Satellite Only・測量GIS範囲 | 37.84 | 3.72 |
 | Limited・全域 | 35.52 | 2.50 |
 | Limited・測量GIS範囲 | 37.89 | 3.70 |
 
-**測量GIS範囲の LST は、全域より平均が約2.4°C 高く、標準偏差も約1.5倍大きい。** 計画の段階では「都心部は山間部・農地を含まないため LST の分散が小さくなる」と想定していたが、実測は逆だった。測量GIS範囲は高温の密集市街地と低温の水域（`LULC_WATER_COV` の平均が全域 0.055 に対し 0.138）を併せ持ち、一方の全域は農地が支配的で LST が中位に集まる、と考えられる。この解釈は分布の要約値からの推測であり、空間分布は確認していない（**未確認**）。
+**測量GIS範囲の LST は、全域より平均が約2.4°C 高く、標準偏差も約1.5倍大きい。** 計画の段階では「都心部は山間部・農地を含まないため LST の分散が小さくなる」と想定していたが、実測は逆だった。測量GIS範囲は高温の密集市街地と低温の水域（Limited のフィルタ後の母数で、`LULC_WATER_COV` の平均が全域 0.054 に対し 0.138）を併せ持ち、一方の全域は農地が支配的で LST が中位に集まる、と考えられる。この解釈は分布の要約値からの推測であり、空間分布は確認していない（**未確認**）。
 
 ### 4.2 モデル性能
 
@@ -166,7 +168,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル（`*_sample_100000.csv`。Git 管理外のため、確認には再実行が要る）から求めた。
 
 - **採用構成（ラン13相当）の VIF は、測量GIS範囲で最大 4.90（`NDBI`）** であり、全域（最大 3.24）より上がるが、危険水準（10）には達しない
-- **ラン12相当の `NDVI`・`NDWI` は両範囲とも危険水準である**（全域 32.2・34.5、測量GIS範囲 38.5・44.8）。Satellite Only も同様（全域 26.5・24.8、測量GIS範囲 34.2・31.5）。この2列の係数・寄与を個別に解釈しない方針（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）は、測量GIS範囲でも変わらない
+- **ラン12相当の `NDVI`・`NDWI` は両範囲とも危険水準である**（全域 32.2・34.5、測量GIS範囲 38.5・44.8）。Satellite Only も同様（全域 26.5・24.8、測量GIS範囲 34.1・31.5）。この2列の係数・寄与を個別に解釈しない方針（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）は、測量GIS範囲でも変わらない
 - 測量GIS範囲でほぼ一定になる変数（Limited のサンプル）:
 
 | 変数 | 全域 標準偏差 | 全域 0の割合 | 測量GIS範囲 標準偏差 | 測量GIS範囲 0の割合 |
@@ -202,7 +204,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 | 測量GIS範囲 | 1.798 / 1.465 | 1.231 / 1.115 | −0.567 / −0.350 |
 
 - **都市構造変数を加えることによる誤差の減少は、測量GIS範囲のほうが大きい**（特に線形）。測量GIS範囲では建物・道路・人口・夜間光の変動が大きく（4.4節）、分光指数だけでは捉えにくい差を説明していると考えられる
-- **母数が揃っていないため、この差は参考値である。** Satellite Only は分光指数3列、Limited は MNDWI を含む4列と人口・夜間光の有効域に非NULLを要求するため、母数が異なる（全域で 3,317,260 対 3,274,657、測量GIS範囲で 111,446 対 110,534）。同じセル上の比較ではない
+- **母数が揃っていないため、この差は参考値である。** Limited は、人口・夜間光の有効域品質列（`VALID_POP_WORLDPOP2020_MASK`・`VALID_NTL_MASK`）が `== 1` であることを追加で要求し、非NULLを要求する列も多い（MNDWI を含む分光指数4列・土地被覆等）。そのため母数が異なる（全域で 3,317,260 対 3,274,657、測量GIS範囲で 111,446 対 110,534）。測量GIS範囲の差（912セル）は、`mask_passed` の段階の差（111,448 対 110,536）と一致し、すべて有効域品質列によるものである。同じセル上の比較ではない
 
 ### 5.3 変数の寄与の変化
 
@@ -215,7 +217,8 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 ### 5.5 限界
 
-- **ハノイROI・30m・単一観測（032305）の結果である。** 測量GIS範囲は約100 km² の都心部1か所であり、他の範囲・都市への一般化はしない
+- **ハノイROI・30m・単一観測（032305）の結果である。** 測量GIS範囲は約100 km² のハノイ都心部1か所であり、他の範囲・都市への一般化はしない
+- **抽出密度の差が Spatial CV に与える影響は未評価である。** 抽出率は全域で約3%、測量GIS範囲で約90%と異なる（3.4節）。測量GIS範囲では隣接セルがほぼすべてサンプルに入るため、ブロック境界をはさんだ近傍セルが学習側に入る割合も全域より高く、Spatial CV でも境界での情報の漏れが強まりうる。全域でも、別 fold の隣接セルを持つ境界セルは約4%あるが、それが R² をどれだけ押し上げているかは未評価である（[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 4.5節）。測量GIS範囲での割合も測っていない
 - **測量GIS範囲の Spatial CV は24ブロックに依存する。** 判定基準は満たしたが、fold 間のばらつきが大きい（3.5節）
 - **全域と測量GIS範囲は母集団の性格が異なる。** 測量GIS範囲は全域の部分集合だが、土地被覆・標高・人口の分布が大きく異なり（4.4節）、抽出率も異なる（3.4節）。両範囲の差を「範囲の広さ」だけの効果とは読まない
 

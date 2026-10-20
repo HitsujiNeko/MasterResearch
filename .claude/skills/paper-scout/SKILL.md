@@ -1,6 +1,6 @@
 ---
 name: paper-scout
-description: "登録済み文献の引用関係をたどって未登録の文献候補を探索する。papers_database.csv の起点論文（S番号）から OpenAlex で前方引用（cited_by）・後方引用（references）を取得し、RQ1-3 キーワードでスコアリングした候補リスト（タイトル・年・誌名・DOI・スコア・経由S番号）を提示する。「文献を探索」「引用スノーボーリング」「関連論文を探して」「paper-scout」「S◯を起点に候補を探して」などのリクエストで使用する。採否・精読・登録は研究者が /add-paper で行う。"
+description: "登録済み文献の引用関係をたどって未登録の文献候補を探索する。papers_database.csv の起点論文（S番号）から OpenAlex で前方引用（cited_by）・後方引用（references）を取得し、RQ1-3 キーワードでスコアリングした候補リスト（タイトル・年・誌名・DOI・スコア・経由S番号）を提示する。「文献を探索」「引用スノーボーリング」「関連論文を探して」「paper-scout」「S◯を起点に候補を探して」などのリクエストで使用する。採否・精読・登録は研究者が /add-paper で行う。月次自動実行（報告 Issue へのコメント追記・提示済み候補の重複除外）にも対応する。"
 ---
 
 # 文献候補探索スキル（引用スノーボーリング）
@@ -64,6 +64,46 @@ python -m src.literature.paper_scout \
 
 - ユーザーが精読したい候補を選んだら、claude.ai（Claude Projects）での精読 → 構造化要約生成 → [/add-paper](../add-paper/SKILL.md) での登録、という既存フローにつなぐ。
 - 本スキルは登録を行わない。DOI を /add-paper に渡せば書誌照合（Crossref）から登録まで進められる。
+
+## 月次自動実行モード
+
+定期実行（毎月1日）から呼び出され、プロンプトに「月次自動実行」と明記されている場合はこのモードで実行する。対話の手順（上記 Step 1-4）は使わず、ユーザーへの確認も行わない。**提示済みの候補は重複して載せない**。
+
+提示済みかどうかは、報告 Issue の過去のコメント末尾に埋め込まれた不可視のマーカー（`<!-- paper-scout-presented: ... -->`）から [scout_report.py](../../../src/literature/scout_report.py) が判定する。マーカーを手で編集・削除しない（削除すると、その回の候補が次回また提示される）。
+
+1. 報告 Issue を検索する:
+
+   ```bash
+   gh issue list --state open --search "文献候補 月次レポート in:title" --json number,title
+   ```
+
+   **存在しない場合（初回のみ）**: タイトル「文献候補 月次レポート」・ラベル `literature` で Issue を作成する。本文には「この Issue は文献探索（/paper-scout）の月次結果の蓄積専用。月次の定期実行がコメントを追記する。採否・精読・登録は研究者が /add-paper で行う」と記載する。プロジェクトへの追加・優先度設定は行わない
+
+2. 既存コメントをスクラッチパッドに保存する（`{owner}/{repo}` は gh が補う）:
+
+   ```bash
+   gh api "repos/{owner}/{repo}/issues/{Issue番号}/comments" --paginate > "{スクラッチパッド}/scout_comments.json"
+   ```
+
+3. 探索とコメント本文の生成を行う（全起点・スコア30以上・上位15件が既定）:
+
+   ```sh
+   python -m src.literature.scout_report \
+     --comments-json "{スクラッチパッド}/scout_comments.json" \
+     --output "{スクラッチパッド}/scout_comment.md"
+   ```
+
+4. 終了コードに応じて投稿する:
+
+   | 終了コード | 意味 | 動作 |
+   |---|---|---|
+   | 0 | コメント本文を書き出した | `gh issue comment {Issue番号} --body-file "{スクラッチパッド}/scout_comment.md"` で追記する |
+   | 3 | 新規候補なし | 書き込まない。「新規候補なし」と報告する |
+   | 1 | 探索に失敗（起点を解決できない・OpenAlex 不通） | 書き込まない。標準エラーの内容を報告する |
+
+5. 投稿したコメントの URL（または書き込まなかった理由）を報告する
+
+GitHub への書き込みは、報告 Issue の作成（初回のみ）とコメント追記だけとする。リポジトリへのコミット・push は行わない。`OPENALEX_API_KEY` の値は出力しない。
 
 ## 注意事項
 

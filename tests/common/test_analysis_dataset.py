@@ -10,10 +10,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.analysis.urban_params.config import PARAM_SETS
 from src.analysis.urban_params.tables import write_attribute_table
 from src.common.analysis_dataset import (
+    ANALYSIS_AREA_ROI,
+    ANALYSIS_AREA_SURVEY,
+    ANALYSIS_AREAS,
+    DEFAULT_REQUIRED_MASK_COLUMNS,
+    IN_ANALYSIS_AREA_SURVEY_COLUMN,
     filter_valid_rows,
     load_analysis_dataset,
+    require_analysis_area_columns,
+    resolve_analysis_area_mask_columns,
     sample_dataset,
     summarize_filter_dropout,
     valid_population_mask_column,
@@ -36,6 +44,110 @@ class TestValidPopulationMaskColumn:
         assert valid_population_mask_column("WORLDPOP2020") != valid_population_mask_column(
             "LANDSCAN2020"
         )
+
+
+class TestResolveAnalysisAreaMaskColumns:
+    """resolve_analysis_area_mask_columns のテスト。"""
+
+    def test_roi_adds_no_columns(self) -> None:
+        """roi は従来どおり DEFAULT_REQUIRED_MASK_COLUMNS のみで絞る（追加列なし）。"""
+        assert resolve_analysis_area_mask_columns(ANALYSIS_AREA_ROI) == ()
+
+    def test_survey_adds_survey_flag(self) -> None:
+        assert resolve_analysis_area_mask_columns(ANALYSIS_AREA_SURVEY) == (
+            IN_ANALYSIS_AREA_SURVEY_COLUMN,
+        )
+
+    def test_survey_flag_column_name(self) -> None:
+        """mask_survey テーブルが書き出す列名と一致する（urban_params の列宣言）。
+
+        文字列リテラルではなく宣言側と照合し、宣言だけが変わった場合に
+        分析側が列を見失う不整合をテストで検出する。
+        """
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN in PARAM_SETS["mask_survey"].columns
+
+    def test_all_declared_areas_are_resolvable(self) -> None:
+        """ANALYSIS_AREAS（argparse の choices）の全値が解決できる。"""
+        for analysis_area in ANALYSIS_AREAS:
+            resolve_analysis_area_mask_columns(analysis_area)
+
+    def test_unknown_area_raises(self) -> None:
+        with pytest.raises(ValueError, match="未対応の分析対象範囲"):
+            resolve_analysis_area_mask_columns("full")
+
+    def test_survey_columns_narrow_filter_valid_rows(self) -> None:
+        """戻り値を required_mask_columns に足すと、測量GIS範囲外の行が落ちる。"""
+        dataframe = _sample_dataframe()
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [0, 1, 1, 1, 1]
+        # 行1（全条件を満たす）だけを測量GIS範囲外にしたので、何も残らない。
+        result = filter_valid_rows(
+            dataframe,
+            feature_columns=["NDVI", "NDBI", "NDWI"],
+            target_column="LST",
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=(
+                *DEFAULT_REQUIRED_MASK_COLUMNS,
+                *resolve_analysis_area_mask_columns(ANALYSIS_AREA_SURVEY),
+            ),
+        )
+        assert result.empty
+
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1, 0, 0, 0, 0]
+        result = filter_valid_rows(
+            dataframe,
+            feature_columns=["NDVI", "NDBI", "NDWI"],
+            target_column="LST",
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=(
+                *DEFAULT_REQUIRED_MASK_COLUMNS,
+                *resolve_analysis_area_mask_columns(ANALYSIS_AREA_SURVEY),
+            ),
+        )
+        assert list(result["cell_id"]) == [1]
+
+
+class TestRequireAnalysisAreaColumns:
+    """require_analysis_area_columns のテスト。"""
+
+    def test_roi_never_raises_without_survey_column(self) -> None:
+        """roi は追加列を要求しないため、mask_survey の無いデータセットでも通る。"""
+        require_analysis_area_columns(_sample_dataframe(), ANALYSIS_AREA_ROI, Path("dataset.gpkg"))
+
+    def test_survey_raises_when_column_missing(self) -> None:
+        """列が無ければ、mask_survey の結合を案内する ValueError で止まる。"""
+        with pytest.raises(ValueError, match="IN_ANALYSIS_AREA_SURVEY") as excinfo:
+            require_analysis_area_columns(
+                _sample_dataframe(), ANALYSIS_AREA_SURVEY, Path("dataset.gpkg")
+            )
+        assert "mask_survey" in str(excinfo.value)
+        assert "dataset.gpkg" in str(excinfo.value)
+
+    def test_survey_passes_when_column_present(self) -> None:
+        dataframe = _sample_dataframe()
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = 1
+        require_analysis_area_columns(dataframe, ANALYSIS_AREA_SURVEY, Path("dataset.gpkg"))
+
+    def test_unknown_area_raises(self) -> None:
+        with pytest.raises(ValueError, match="未対応の分析対象範囲"):
+            require_analysis_area_columns(_sample_dataframe(), "full", Path("dataset.gpkg"))
+
+    def test_detects_column_silently_skipped_by_reader(self, tmp_path: Path) -> None:
+        """読込時に存在しない列を指定しても例外にならないため、読込後の検査で止める。
+
+        `gpd.read_file(columns=...)` が存在しない列を黙って読み飛ばす挙動を前提に
+        読込後の検査を置いているため、その前提ごと固定する。
+        """
+        table = pd.DataFrame({"cell_id": [1, 2], "IN_ANALYSIS_AREA": [1, 1]})
+        dataset_path = tmp_path / "dataset.gpkg"
+        write_attribute_table(table, dataset_path, layer_name="dataset")
+
+        loaded = load_analysis_dataset(
+            dataset_path, columns=["cell_id", "IN_ANALYSIS_AREA", IN_ANALYSIS_AREA_SURVEY_COLUMN]
+        )
+
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN not in loaded.columns
+        with pytest.raises(ValueError, match="mask_survey"):
+            require_analysis_area_columns(loaded, ANALYSIS_AREA_SURVEY, dataset_path)
 
 
 class TestLoadAnalysisDataset:

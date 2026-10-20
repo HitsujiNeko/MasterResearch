@@ -26,6 +26,74 @@ LST_VALID_RATIO_COLUMN = "LST_VALID_RATIO"
 # （`src.analysis.build_dataset.add_quality_columns` 参照）ため、呼び出し側が
 # `required_mask_columns` で追加できるようにしている。
 DEFAULT_REQUIRED_MASK_COLUMNS: tuple[str, ...] = (IN_ANALYSIS_AREA_COLUMN,)
+# 測量GISの有効域フラグ（`mask_survey` テーブル）。1のセルのみを測量GIS範囲とする。
+# ROIより狭い範囲であり、有効カバレッジをROI全体と同一視しないために別列で持つ。
+IN_ANALYSIS_AREA_SURVEY_COLUMN = "IN_ANALYSIS_AREA_SURVEY"
+# 分析対象範囲の識別子。`roi` は従来どおり `IN_ANALYSIS_AREA` のみで絞り、
+# `survey` はさらに `IN_ANALYSIS_AREA_SURVEY` で測量GIS範囲に絞る。
+ANALYSIS_AREA_ROI = "roi"
+ANALYSIS_AREA_SURVEY = "survey"
+ANALYSIS_AREAS: tuple[str, ...] = (ANALYSIS_AREA_ROI, ANALYSIS_AREA_SURVEY)
+# 範囲ごとに、`DEFAULT_REQUIRED_MASK_COLUMNS` に追加で `== 1` を要求する品質列。
+_ANALYSIS_AREA_MASK_COLUMNS: dict[str, tuple[str, ...]] = {
+    ANALYSIS_AREA_ROI: (),
+    ANALYSIS_AREA_SURVEY: (IN_ANALYSIS_AREA_SURVEY_COLUMN,),
+}
+
+
+def resolve_analysis_area_mask_columns(analysis_area: str) -> tuple[str, ...]:
+    """分析対象範囲の識別子から、追加で `== 1` を要求する品質列名を返す。
+
+    戻り値は `filter_valid_rows` の `required_mask_columns` に加えるだけでなく、
+    `load_analysis_dataset` の `columns` にも加える必要がある（読込列に含めないと
+    列が読まれず、`require_analysis_area_columns` が常に停止するため）。
+
+    Args:
+        analysis_area: 分析対象範囲の識別子（`ANALYSIS_AREAS` のいずれか）。
+    Returns:
+        追加で要求する品質列名のタプル。`roi` は空タプル（従来の
+        `DEFAULT_REQUIRED_MASK_COLUMNS` のみで絞る）。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
+    """
+    if analysis_area not in _ANALYSIS_AREA_MASK_COLUMNS:
+        raise ValueError(
+            f"未対応の分析対象範囲です: {analysis_area}（対応: {list(ANALYSIS_AREAS)}）。"
+        )
+    return _ANALYSIS_AREA_MASK_COLUMNS[analysis_area]
+
+
+def require_analysis_area_columns(
+    dataframe: pd.DataFrame, analysis_area: str, dataset_path: Path
+) -> None:
+    """分析対象範囲の絞り込みに必要な品質列がデータセットにあるかを検査する。
+
+    `gpd.read_file(columns=...)` は存在しない列を指定してもエラーにせず読み飛ばす
+    ため、読込後のデータフレームで列の有無を確かめる。検査しないと、後段の
+    フィルタで `KeyError` になるまで原因に気づけない。
+
+    Args:
+        dataframe: `load_analysis_dataset` で読み込んだデータフレーム。
+        analysis_area: 分析対象範囲の識別子（`ANALYSIS_AREAS` のいずれか）。
+        dataset_path: 読み込んだデータセットのパス（エラーメッセージ用）。
+    Returns:
+        None
+    Raises:
+        ValueError: 範囲の絞り込みに必要な列が `dataframe` に無い場合、または
+            `analysis_area` が対応外の場合。
+    """
+    missing_columns = [
+        column
+        for column in resolve_analysis_area_mask_columns(analysis_area)
+        if column not in dataframe.columns
+    ]
+    if missing_columns:
+        raise ValueError(
+            f"分析対象範囲 {analysis_area} の絞り込みに必要な列がデータセットに存在しません: "
+            f"{missing_columns}（{dataset_path}）。"
+            "`python -m src.analysis.build_dataset ... --tables ... mask_survey` で "
+            "mask_survey を結合したデータセットを指定してください。"
+        )
 
 
 def valid_population_mask_column(column_suffix: str) -> str:

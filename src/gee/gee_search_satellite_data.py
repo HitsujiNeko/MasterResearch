@@ -26,6 +26,7 @@ import argparse
 import datetime as dt
 import logging
 import math
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -200,6 +201,31 @@ def filter_collection_by_target_dates(
         filtered_collection = filtered_collection.merge(_filter_by_date(date_text))
 
     return filtered_collection
+
+
+_MERGE_SCENE_INDEX_PREFIX_PATTERN = re.compile(r"^\d+_")
+
+
+def strip_merge_prefix(scene_index: str) -> str:
+    """`ImageCollection.merge()` が `system:index` に付ける連番接頭辞を取り除く。
+
+    観測日時指定モードでは対象日ごとに絞り込んだコレクションを
+    `ImageCollection.merge()` で結合するため、GEE が結合元の連番を
+    `system:index` の接頭辞として付与する（例: ``1_LC08_127045_20240810``）。
+    そのまま結果 CSV に書き出すと、日時指定なしの探索結果 CSV と
+    `scene_index` で突き合わせられない。
+
+    Landsat の `system:index` は英字（``LC08_`` 等）で始まるため、
+    数字＋アンダースコアの接頭辞は merge 由来と一意に識別できる。
+    日時指定なしの探索（merge を通らない）では何も変わらない。
+
+    Args:
+        scene_index (str): `system:index` の値。
+
+    Returns:
+        str: 接頭辞を取り除いた `system:index`。
+    """
+    return _MERGE_SCENE_INDEX_PREFIX_PATTERN.sub("", scene_index)
 
 
 def calculate_scene_coverage_ratio(image: ee.Image, roi: ee.Geometry) -> float:
@@ -569,7 +595,7 @@ def process_scene(
         ee.Date(raw_sr_image.get("system:time_start")).format("YYYY-MM-dd'T'HH:mm:ss").getInfo()
     )
     date_text = observation_datetime_utc[:10]
-    scene_index = ee.String(raw_sr_image.get("system:index")).getInfo()
+    scene_index = strip_merge_prefix(ee.String(raw_sr_image.get("system:index")).getInfo())
     cloud_cover_info = raw_sr_image.get("CLOUD_COVER").getInfo()
     cloud_cover = to_float_or_nan(cloud_cover_info)
 
@@ -700,7 +726,7 @@ def process_sensor_scenes(
     for path_row, count in count_scenes_by_path_row(scene_rows).items():
         logger.info("  %s path/row=%s: %s 件", sensor_label, path_row, count)
 
-    scene_indices = [row[2] for row in scene_rows]
+    scene_indices = [strip_merge_prefix(row[2]) for row in scene_rows]
     image_list = collection_sr_raw.toList(image_count)
     results: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []

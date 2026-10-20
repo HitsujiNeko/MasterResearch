@@ -71,15 +71,17 @@ python -m src.literature.paper_scout \
 
 提示済みかどうかは、報告 Issue の過去のコメント末尾に埋め込まれた不可視のマーカー（`<!-- paper-scout-presented: ... -->`）から [scout_report.py](../../../src/literature/scout_report.py) が判定する。マーカーを手で編集・削除しない（削除すると、その回の候補が次回また提示される）。
 
-1. 報告 Issue を検索する:
+1. 報告 Issue を検索する（close 済みも含める）:
 
    ```bash
-   gh issue list --state open --search "文献候補 月次レポート in:title" --json number,title
+   gh issue list --state all --search "文献候補 月次レポート in:title" --json number,title,state
    ```
 
-   **存在しない場合（初回のみ）**: タイトル「文献候補 月次レポート」・ラベル `literature` で Issue を作成する。本文には「この Issue は文献探索（/paper-scout）の月次結果の蓄積専用。月次の定期実行がコメントを追記する。採否・精読・登録は研究者が /add-paper で行う」と記載する。プロジェクトへの追加・優先度設定は行わない
+   検索はあいまい一致のため、**タイトルが「文献候補 月次レポート」と完全に一致するものだけ**を報告 Issue とする。複数あれば番号が最も小さいものを使う。close 済みでも reopen せず、そのままコメントを追記する（新しく作ると提示済みの履歴が途切れ、同じ候補が再び載るため）。
 
-2. 既存コメントをスクラッチパッドに保存する（`{owner}/{repo}` は gh が補う）:
+   **完全に一致するものが無い場合（初回のみ）**: タイトル「文献候補 月次レポート」・ラベル `literature` で Issue を作成する。本文には「この Issue は文献探索（/paper-scout）の月次結果の蓄積専用。月次の定期実行がコメントを追記する。採否・精読・登録は研究者が /add-paper で行う」と記載する。プロジェクトへの追加・優先度設定は行わない
+
+2. 既存コメントをスクラッチパッドに保存する（`{owner}/{repo}` は gh が補う）。**Bash ツールで実行する**（PowerShell のリダイレクトは出力の文字コードを変え、JSON を壊すおそれがあるため）:
 
    ```bash
    gh api "repos/{owner}/{repo}/issues/{Issue番号}/comments" --paginate > "{スクラッチパッド}/scout_comments.json"
@@ -99,7 +101,7 @@ python -m src.literature.paper_scout \
    |---|---|---|
    | 0 | コメント本文を書き出した | `gh issue comment {Issue番号} --body-file "{スクラッチパッド}/scout_comment.md"` で追記する |
    | 3 | 新規候補なし | 書き込まない。「新規候補なし」と報告する |
-   | 1 | 探索に失敗（起点を解決できない・OpenAlex 不通） | 書き込まない。標準エラーの内容を報告する |
+   | 1 | 探索に失敗（候補を1件も取得できない。起点を解決できない・OpenAlex 不通など） | 書き込まない。標準エラーの内容を報告する |
 
 5. 投稿したコメントの URL（または書き込まなかった理由）を報告する
 

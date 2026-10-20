@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-10-19  
+**最終更新**: 2026-10-20  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -505,15 +505,17 @@ RQ3 は、現在次の順で進める。
 |---------|---------|----------|--------|
 | **Phase 1** | GISデータ空間範囲の把握（BBox比較） | `src/analysis/analyze_spatial_extents.py` | ✅ 完了（2026-03-03） |
 | **Phase 1.5** | Satellite Only データセット構築 | （削除済み） | ✅ 完了 |
-| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・1観測日。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲） | ✅ 完了 |
+| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・1観測日。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲。分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 2** | 公開 GIS 候補の取得・QA | `extract_geofabrik_roads_hanoi.py`, `fetch_microsoft_buildings_hanoi.py`, Google / OSM 建物取得スクリプト | 🔴 高 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
 | **Phase 3** | 近傍変数算出 | `calc_neighborhood_vars.py` | 🟡 中 |
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
-| **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など | ✅ 完了 |
+| **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など（分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 5** | `Full` シナリオ比較（RQ3） | `analysis_rq3_full.py` など | 🟡 中 |
 | **Phase 6** | RQ1 / RQ2 本分析 | `analysis_rq1.py`, `analysis_rq2.py` | 🟢 後 |
 | **Phase 6** | 可視化・図表作成 | `visualize_*.py` | 🟢 後 |
+
+> **分析対象範囲の指定**: `analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py` は `--analysis-area {roi,survey}`（既定 `roi`）を持つ。`roi` は従来どおり `IN_ANALYSIS_AREA == 1` で絞り、出力名・母数は変わらない。`survey` は測量GIS範囲（ハノイ都心部）に絞るため `IN_ANALYSIS_AREA_SURVEY == 1` を追加で要求し、`mask_survey` テーブルを結合したデータセット（`build_dataset.py --tables ... mask_survey`）を必要とする（列が無ければモデル学習前に停止する）。`survey` の出力名には末尾に `_area_survey` が付き、結果 JSON（Limited は `--diagnose-only` の診断 JSON も）に `analysis_area` と `required_mask_columns` が記録される。両範囲の比較結果は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) を正本とする。
 
 ---
 

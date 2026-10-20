@@ -38,6 +38,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import traceback
 from collections.abc import Callable, Mapping
 from contextlib import closing
 from dataclasses import dataclass
@@ -324,10 +325,11 @@ def find_osgeo4w_root(
     environment: Mapping[str, str],
     candidates: tuple[Path, ...] = OSGEO4W_ROOT_CANDIDATES,
 ) -> Path | None:
-    """OSGeo4W のインストール先を、明示指定 → 環境変数 → 探索候補の順で決める。
+    """OSGeo4W のインストール先を決める。
 
-    明示指定がある場合はそれだけを見る（無効でも環境変数・探索候補へは進まない）。
-    指定と異なるインストール先を黙って判定すると、指定したものの結果と誤読されるため。
+    明示指定があればそれのみを見て、無ければ環境変数 → 探索候補の順で探す。
+    明示指定が無効でも環境変数・探索候補へは進まない。指定と異なるインストール先を黙って
+    判定すると、指定したものの結果と誤読されるため。
 
     Args:
         explicit_root: 明示指定のパス（空なら無視する）。
@@ -336,10 +338,10 @@ def find_osgeo4w_root(
     Returns:
         `bin/gdalsrsinfo.exe` を持つインストール先。見つからなければ None。
     """
-    ordered: list[Path] = []
     if explicit_root.strip():
         explicit = Path(explicit_root.strip())
         return explicit if _has_gdalsrsinfo(explicit) else None
+    ordered: list[Path] = []
     if environment.get("OSGEO4W_ROOT", "").strip():
         ordered.append(Path(environment["OSGEO4W_ROOT"].strip()))
     ordered.extend(candidates)
@@ -623,7 +625,7 @@ def run_check(name: str, check: Callable[..., CheckResult], *args: object) -> Ch
 
     1項目の例外（文字コードの異なる .env による UnicodeDecodeError、PermissionError 等）で
     他の項目の報告まで失われないようにするため。例外のメッセージ本文はファイルの内容など
-    秘密情報を含みうるため出さず、型名だけを示す。
+    秘密情報を含みうるため出さず、型名と発生位置（ファイル名・関数名・行番号）だけを示す。
 
     Args:
         name: 項目名（例外時の結果に使う）。
@@ -638,8 +640,37 @@ def run_check(name: str, check: Callable[..., CheckResult], *args: object) -> Ch
         return CheckResult(
             name,
             STATUS_UNKNOWN,
-            f"判定中に予期しない例外が発生しました（{type(exc).__name__}）",
+            f"判定中に予期しない例外が発生しました（{type(exc).__name__}"
+            f"{_describe_exception_location(exc)}）。スクリプトの不具合か想定外の環境の"
+            "可能性があるため、手元で再実行して原因を確認してください",
         )
+
+
+def _describe_exception_location(exc: BaseException) -> str:
+    """例外が発生した位置を「 @ ファイル名:関数名:行番号」の形で返す。
+
+    標準ライブラリ（``<frozen codecs>`` のような凍結モジュールを含む）・site-packages の
+    中のフレームは原因の手がかりにならないため飛ばし、
+    最も内側の自前コードの位置を示す（自前コードが無ければ最も内側のフレーム）。
+    ファイルはパスを除いた名前だけにする（ユーザー名などを含むパスを出さないため）。
+
+    Args:
+        exc: 例外。
+    Returns:
+        位置の文字列。トレースバックが無ければ空文字列。
+    """
+    frames = traceback.extract_tb(exc.__traceback__)
+    if not frames:
+        return ""
+    library_roots = {Path(sys.prefix).resolve(), Path(sys.base_prefix).resolve()}
+    own_frames = [
+        frame
+        for frame in frames
+        if not frame.filename.startswith("<")
+        and not any(root in Path(frame.filename).resolve().parents for root in library_roots)
+    ]
+    frame = (own_frames or frames)[-1]
+    return f" @ {Path(frame.filename).name}:{frame.name}:{frame.lineno}"
 
 
 def format_report(results: list[CheckResult], checked_at: dt.datetime) -> str:

@@ -570,9 +570,13 @@ class TestMain:
         assert "要対応 1 件 / 3 項目" in out
         assert (
             f"[UNKNOWN] {target.CHECK_NAME_PROJ_DB}: "
-            "判定中に予期しない例外が発生しました（PermissionError）"
+            "判定中に予期しない例外が発生しました（PermissionError @ "
+            "test_check_external_deps.py:broken:"
         ) in out
+        assert "手元で再実行して原因を確認してください" in out
         assert "secret-token-value" not in out
+        # 発生位置はファイル名だけを示し、ディレクトリ（ユーザー名を含みうる）は出さない
+        assert str(Path(__file__).parent) not in out
 
     def test_utf16_env_file_is_reported_as_unknown(
         self,
@@ -593,7 +597,8 @@ class TestMain:
         out = capsys.readouterr().out
         assert code == 1
         assert f"[UNKNOWN] {target.CHECK_NAME_EARTHDATA}: " in out
-        assert "UnicodeDecodeError" in out
+        # 発生位置は標準ライブラリ（codecs 等）ではなく、.env を読む自前コードを指す
+        assert "UnicodeDecodeError @ env_file.py:" in out
         assert "secret-token-value" not in out
 
     def test_returns_one_when_problem_exists(

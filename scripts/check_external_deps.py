@@ -326,6 +326,9 @@ def find_osgeo4w_root(
 ) -> Path | None:
     """OSGeo4W のインストール先を、明示指定 → 環境変数 → 探索候補の順で決める。
 
+    明示指定がある場合はそれだけを見る（無効でも環境変数・探索候補へは進まない）。
+    指定と異なるインストール先を黙って判定すると、指定したものの結果と誤読されるため。
+
     Args:
         explicit_root: 明示指定のパス（空なら無視する）。
         environment: 環境変数の辞書（`OSGEO4W_ROOT` を見る）。
@@ -335,14 +338,20 @@ def find_osgeo4w_root(
     """
     ordered: list[Path] = []
     if explicit_root.strip():
-        ordered.append(Path(explicit_root.strip()))
+        explicit = Path(explicit_root.strip())
+        return explicit if _has_gdalsrsinfo(explicit) else None
     if environment.get("OSGEO4W_ROOT", "").strip():
         ordered.append(Path(environment["OSGEO4W_ROOT"].strip()))
     ordered.extend(candidates)
     for root in ordered:
-        if (root / "bin" / "gdalsrsinfo.exe").exists():
+        if _has_gdalsrsinfo(root):
             return root
     return None
+
+
+def _has_gdalsrsinfo(root: Path) -> bool:
+    """インストール先に `bin/gdalsrsinfo.exe` があるかを返す。"""
+    return (root / "bin" / "gdalsrsinfo.exe").exists()
 
 
 def build_isolated_environment(
@@ -444,6 +453,13 @@ def check_proj_db(
         判定結果。
     """
     root = find_osgeo4w_root(explicit_root, environment, candidates)
+    if root is None and explicit_root.strip():
+        return CheckResult(
+            CHECK_NAME_PROJ_DB,
+            STATUS_UNKNOWN,
+            "--osgeo4w-root で指定したインストール先に bin/gdalsrsinfo.exe がありません"
+            f"（{explicit_root.strip()}）",
+        )
     if root is None:
         return CheckResult(
             CHECK_NAME_PROJ_DB,
@@ -486,7 +502,7 @@ def parse_pinned_version(text: str, pattern: str) -> str | None:
 # 各設定ファイルで ruff の版を固定している書式
 CI_RUFF_PATTERN = r"ruff==([0-9][0-9A-Za-z.]*)"
 ENVIRONMENT_RUFF_PATTERN = r"^\s*-\s*ruff\s*=+\s*([0-9][0-9A-Za-z.]*)"
-PRE_COMMIT_RUFF_PATTERN = r"ruff-pre-commit\s*\n\s*rev:\s*v?([0-9][0-9A-Za-z.]*)"
+PRE_COMMIT_RUFF_PATTERN = r"ruff-pre-commit\s*\n\s*rev:\s*[\"']?v?([0-9][0-9A-Za-z.]*)"
 LOCAL_RUFF_PATTERN = r"ruff\s+([0-9][0-9A-Za-z.]*)"
 
 
@@ -690,7 +706,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=str(DEFAULT_ENV_FILE_PATH),
         help="Earthdata トークンを読む .env（環境変数が優先される）",
     )
-    parser.add_argument("--osgeo4w-root", default="", help="OSGeo4W のインストール先")
+    parser.add_argument(
+        "--osgeo4w-root",
+        default="",
+        help="OSGeo4W のインストール先（指定時は環境変数・既定の探索先を見ない）",
+    )
     parser.add_argument("--skip-gee", action="store_true", help="GEE の判定を省略する")
     return parser.parse_args(argv)
 

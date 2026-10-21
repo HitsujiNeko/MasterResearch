@@ -385,6 +385,8 @@ def _warn_if_truncated(
     """取得上限または basic paging の上限で続きを切り捨てたときに WARNING を出す。
 
     総件数が不明で切り捨てを断定できない場合は「続きがある可能性」として知らせる。
+    総件数（``meta.count``）が取得済みの件数より少ない場合は、ページ間で古くなった値と
+    みなして不明として扱う。
     ログには問い合わせ条件のみを出し、URL（API キーを含む）は出さない。
 
     Args:
@@ -398,6 +400,9 @@ def _warn_if_truncated(
     """
     # URL エンコード済みの filter も読めるようにデコードして出す（API キーは query に含まれない）
     query_text = unquote(_redact(query))
+    # 総件数は最初のページのもので、実際の取得件数と矛盾するなら信用しない
+    if total_count is not None and total_count < collected_count:
+        total_count = None
     if collected_count >= max_results:
         if not _is_truncated_by_max_results(
             collected_count, max_results, total_count, last_page_full
@@ -464,16 +469,19 @@ def _is_truncated_by_max_results(
 ) -> bool:
     """取得上限で止めたとき、まだ続きがあった（切り捨てた）かを判定する。
 
-    上限を超えて取得していた（取得済みの分を捨てた）場合は、総件数によらず切り捨てとする。
-    上限ちょうどの場合、総件数が分かればそれと上限を比べ、分からなければ最後のページが
-    満杯だった（続きがありうる）ときに切り捨てとみなし、知らせる側に倒す。
     総件数（``meta.count``）は最初のページのものであり、ページ間で変わりうるため、
-    実際に取得した件数を優先する。
+    実際の取得結果を優先して次の順に判定する。
+
+    1. 上限を超えて取得していた（取得済みの分を捨てた）→ 切り捨て
+    2. 上限ちょうどで、最後のページが満杯でない（データが尽きた）→ 切り捨てではない
+    3. 上限ちょうどで最後のページが満杯 → 総件数が分かれば上限と比べ、分からなければ
+       続きがありうるため切り捨てとみなし、知らせる側に倒す
 
     Args:
         collected_count: 取得済みの件数（上限で切り詰める前）。
         max_results: 取得上限件数。
-        total_count: 条件に合う総件数（``meta.count``）。不明なら None。
+        total_count: 条件に合う総件数（``meta.count``）。不明、または取得済みの件数と
+            矛盾する（古い）場合は None。
         last_page_full: 最後に取得したページが ``per_page`` 件で満杯だったか。
     Returns:
         切り捨てが起きた（起きた可能性がある）場合は True。
@@ -486,9 +494,12 @@ def _is_truncated_by_max_results(
         return False
     if collected_count > max_results:
         return True
+    # 満杯でないページは最終ページなので、総件数によらず続きは無い
+    if not last_page_full:
+        return False
     if total_count is not None:
         return total_count > max_results
-    return last_page_full
+    return True
 
 
 def _format_count(count: int | None) -> str:

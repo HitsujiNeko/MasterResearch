@@ -304,11 +304,18 @@ def test_fetch_paged_warns_basic_paging_limit_with_total(
             4,
             ["打ち切りました", "総件数: 10 件"],
         ),
-        # 1ページ目の総件数が古く、実際には上限を超えて取得していた（取得件数を優先する）
+        # 1ページ目の総件数が古く、実際には上限を超えて取得していた（取得件数を優先し、
+        # 矛盾する総件数は出さない）
         (
             [_page_of(1, 2, total=3), _page_of(3, 2, total=3)],
             3,
-            ["打ち切りました", "総件数: 3 件"],
+            ["打ち切りました", "総件数: 不明"],
+        ),
+        # 1ページ目の総件数が取得件数より少なく古い（最後のページが満杯なので続きがありうる）
+        (
+            [_page_of(1, 2, total=0), _page_of(3, 2, total=0)],
+            4,
+            ["取得を止めました", "総件数: 不明", "続きがある可能性"],
         ),
         # 総件数が不明で、上限を超えて取得していた（切り捨ては確実）
         ([_page_of(1, 2), _page_of(3, 2)], 3, ["打ち切りました", "総件数: 不明"]),
@@ -402,6 +409,19 @@ def test_fetch_paged_warns_paging_limit_as_possible_when_total_unknown(
     assert "続きがある可能性" in caplog.text
 
 
+def test_fetch_paged_treats_stale_total_as_unknown_at_paging_limit(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # 総件数が取得件数より少なく古い場合は、basic paging の上限でも不明として扱う
+    monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
+    _fake_pages(monkeypatch, [_page_of(1, 2, total=1), _page_of(3, 2, total=1)])
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2)
+    assert "basic paging の上限" in caplog.text
+    assert "総件数: 不明" in caplog.text
+    assert "続きがある可能性" in caplog.text
+
+
 @pytest.mark.parametrize("max_results", [0, -1])
 def test_fetch_paged_returns_empty_without_warning_for_non_positive_max(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, max_results: int
@@ -427,6 +447,8 @@ def test_fetch_paged_returns_empty_without_warning_for_non_positive_max(
         ([_page_of(1, 2, total=3), _page_of(3, 1, total=3)], 4),
         # 総件数が不明でも、満杯でない最終ページで上限ちょうどに達した
         ([_page_of(1, 2), _page_of(3, 1)], 3),
+        # 総件数が古く上限を超えていても、満杯でない最終ページで上限ちょうどに達した
+        ([_page_of(1, 2, total=10), _page_of(3, 1, total=10)], 3),
         # 上限に達する前に最終ページで終わった
         ([_page_of(1, 2), _page_of(3, 1)], 100),
     ],

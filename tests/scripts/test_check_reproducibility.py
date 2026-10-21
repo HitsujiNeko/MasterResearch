@@ -461,3 +461,41 @@ def test_main_requires_target_selection() -> None:
     """`--target` も `--all` も無ければ引数エラーにする。"""
     with pytest.raises(SystemExit):
         target.main([])
+
+
+# --- レビューで補った境界・異常系 ---
+
+
+def test_values_match_treats_both_nan_as_equal() -> None:
+    """両方が NaN なら一致とし、片方だけが NaN なら不一致とする。"""
+    nan = float("nan")
+    assert target.values_match(nan, nan, 1e-9, 1e-6) is True
+    assert target.values_match(nan, 0.5, 1e-9, 1e-6) is False
+    assert target.values_match(float("inf"), float("inf"), 1e-9, 1e-6) is True
+
+
+def test_run_target_fails_when_nothing_compared(project: Path, tmp_path: Path) -> None:
+    """照合キーがどちらの結果 JSON にも無く照合が0件なら、一致ではなく実行失敗とする。"""
+    report = target.run_target(_target(compare_keys=("typo_key",)), tmp_path / "work", project, 120)
+    assert report.status == target.STATUS_ERROR
+    assert report.compared_count == 0
+    assert "0件" in report.error
+
+
+def test_run_target_refuses_non_empty_output_dir(project: Path, tmp_path: Path) -> None:
+    """構成ごとの出力先に前回の出力が残っていれば、消さずに実行失敗とする。"""
+    work_dir = tmp_path / "work"
+    leftover = work_dir / "fake" / "old_results.json"
+    leftover.parent.mkdir(parents=True)
+    leftover.write_text("{}", encoding="utf-8")
+    calls: list[object] = []
+
+    def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    report = target.run_target(_target(), work_dir, project, 120, runner)
+    assert report.status == target.STATUS_ERROR
+    assert "空ではない" in report.error
+    assert calls == []
+    assert leftover.is_file()

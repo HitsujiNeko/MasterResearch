@@ -17,14 +17,22 @@
 照合の規則:
 
 - `compare_keys` 配下の値を葉まで平らにし、同じキーの値どうしを比べる
-- 数値（真偽値を除く）は許容誤差つきで比べ、それ以外は完全一致を求める
+- 数値（真偽値を除く）は許容誤差つきで比べ、それ以外は完全一致を求める。両方が NaN なら
+  一致とみなす（同じ計算が同じく破綻した状態であり、再現している）
 - 片方にしかないキーも不一致として列挙する
+- 照合した値が0件の構成は、照合キーの打ち間違いや結果 JSON の構造変更で照合が働いて
+  いないとみなし、一致ではなく実行失敗とする
 - 出力ファイルの一覧（`outputs`）とパス類（キー名が `_path` で終わるもの）は、
   出力先によって必ず変わるため照合しない
 
 安全のため、再実行の出力先（`--work-dir`）が `data/output/` の内側なら拒否する
 （保存済み結果の上書きを防ぐため）。`--work-dir` を省略した場合は一時ディレクトリを作り、
-終了時に削除する（`--keep-work-dir` で残せる）。
+終了時に削除する（`--keep-work-dir` で残せる）。構成ごとの出力先（`{work_dir}/{構成名}/`）が
+空でなければ、前回の結果と取り違えないよう、その構成は再実行せずに実行失敗とする。
+
+子プロセス（分析スクリプト）は本スクリプトの環境変数をそのまま引き継ぐ。Windows の conda
+環境では、回帰・ランダムフォレストなど BLAS を使う処理のために、環境の `Library\\bin` 等が
+`PATH` に含まれている必要がある（含まれていないと子プロセスが異常終了する）。
 
 終了コード: 0=全構成が一致／1=実行できない（設定の不正・再実行の失敗・結果の欠落）／
 2=不一致がある
@@ -325,9 +333,12 @@ def values_match(
         abs_tolerance: 数値の絶対許容誤差。
         rel_tolerance: 数値の相対許容誤差。
     Returns:
-        一致すれば True。数値は許容誤差つき、それ以外は型と値の完全一致で判定する。
+        一致すれば True。数値は許容誤差つき（両方 NaN なら一致）、それ以外は型と値の
+        完全一致で判定する。
     """
     if _is_number(reference) and _is_number(rerun):
+        if math.isnan(reference) and math.isnan(rerun):
+            return True
         return math.isclose(reference, rerun, rel_tol=rel_tolerance, abs_tol=abs_tolerance)
     return type(reference) is type(rerun) and reference == rerun
 
@@ -483,6 +494,12 @@ def run_target(
         return report
 
     output_dir = work_dir / target.name
+    if output_dir.is_dir() and any(output_dir.iterdir()):
+        # 前回の結果が残っていると取り違えるおそれがあるため、消さずに止める
+        report.error = (
+            f"再実行の出力先が空ではない（前回の出力を退避してから実行する）: {output_dir}"
+        )
+        return report
     output_dir.mkdir(parents=True, exist_ok=True)
     log_path = work_dir / f"{target.name}.log"
     report.log_path = log_path.as_posix()
@@ -519,6 +536,11 @@ def run_target(
         return report
     report.compared_count, report.mismatches = compare_results(reference, rerun, target)
     report.package_differences = compare_packages(reference, rerun)
+    if report.compared_count == 0:
+        report.error = (
+            f"照合した値が0件（照合キー {list(target.compare_keys)} がどちらの結果 JSON にも無い）"
+        )
+        return report
     report.status = STATUS_MISMATCH if report.mismatches else STATUS_MATCH
     return report
 

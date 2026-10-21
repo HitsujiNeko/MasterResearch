@@ -68,7 +68,7 @@ python -m scripts.check_result_staleness \
 ```
 
 - 入力の GeoPackage は git 管理外のため、作業ツリーに無ければ「入力欠落」になる。対話実行で別の作業ツリーの入力を使って判定したい場合に限り `--data-root {その作業ツリーのルート}` を付ける（入力は読み取りだけに使われる）
-- `src/common/` 以外に監視したいコードがあれば `--extra-watch-path {パス}` を付ける
+- 既定の監視パス（スクリプトの `DEFAULT_WATCH_PATHS`）以外に監視したいコードがあれば `--extra-watch-path {パス}` を付ける
 
 ### Step 4: 状況別の動作
 
@@ -77,7 +77,7 @@ python -m scripts.check_result_staleness \
 | なし | 0（問題あり。起票本文を書き出した） | 下記「新規起票」 |
 | なし | 3（問題なし） | 書き込まない。「問題なし」と報告する |
 | あり | 0（前回から差分あり） | `gh issue comment {番号} --body-file "{スクラッチパッド}/staleness_report.md"` で差分コメントを追記する |
-| あり | 3（差分なし） | 書き込まない。自動実行は何も報告に残さず終える。対話実行は「前回から変化なし」と報告する |
+| あり | 3（差分なし） | GitHub には書き込まない。「前回から変化なし」と報告する |
 | あり | 4（全件解消） | 差分コメント（解消一覧）を追記したのち `gh issue close {番号} --reason completed` で close する |
 | — | 1（判定できない・報告 Issue を読めない） | 書き込まない。標準エラーの内容を報告する |
 

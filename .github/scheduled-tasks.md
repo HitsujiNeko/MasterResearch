@@ -1,6 +1,6 @@
 # 定期実行（スケジュールタスク）の設定と登録手順
 
-> **最終更新**: 2026-10-20
+> **最終更新**: 2026-10-21
 > **関連ドキュメント**: [task-workflow.md](./task-workflow.md)（タスク管理の正本）／[docs/README.md](../docs/README.md)（定期メンテナンス）
 > **前提知識**: Claude デスクトップアプリのスケジュールタスク（`scheduled-tasks` MCP）、[スキル運用ルール](../docs/02_methods/skill_operation_rules.md)
 
@@ -15,6 +15,7 @@ Claude デスクトップアプリに登録している定期実行の設定内�
 |---|---|---|---|---|
 | `weekly-docs-consistency-check` | （taskId のまま） | 毎週月曜 9:00（`0 9 * * 1`） | `/check-docs-consistency` | 報告 Issue の起票・差分コメント・close |
 | `weekly-digest` | （taskId のまま） | 毎週月曜 9:00（`0 9 * * 1`） | `/weekly-digest` | 「研究進捗 週次ダイジェスト」へのコメント |
+| `weekly-result-staleness-check` | 【毎週】分析結果の陳腐化検出 | 毎週月曜 9:30（`30 9 * * 1`） | `/check-result-staleness` | 報告 Issue の起票・差分コメント・close |
 | `monthly-external-deps-health-check` | 【毎月】外部依存のヘルスチェック | 毎月1日 9:00（`0 9 1 * *`） | `scripts/check_external_deps.py` | **なし** |
 | `monthly-paper-scout` | 【毎月】文献探索（paper-scout） | 毎月1日 9:30（`30 9 1 * *`） | `/paper-scout`（月次自動実行モード） | 「文献候補 月次レポート」の作成（初回のみ）とコメント |
 
@@ -49,7 +50,22 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 6. 完了したら投稿したコメントのURLを報告する。失敗した場合は、どのステップで何のエラーが出たかを具体的に報告する。
 ```
 
-### 2.3 monthly-external-deps-health-check
+### 2.3 weekly-result-staleness-check
+
+判定の分類と終了コードは [check_result_staleness.py](../scripts/check_result_staleness.py) の冒頭の説明、報告 Issue の特定と書き込みの分岐は [check-result-staleness スキル](../.claude/skills/check-result-staleness/SKILL.md)を正本とする。既存の週次2件と重ならないよう 9:30 に置く。
+
+```text
+リポジトリ {リポジトリのルート} で分析結果の陳腐化検出を**自動実行**として実行する（担当者不在のため、ユーザーへの確認は行わない）。
+
+手順:
+1. 作業ディレクトリを {リポジトリのルート} にする。Bash ツールで git branch --show-current を実行し、結果が main でない場合は、何も実行せず「{ブランチ名} がチェックアウトされているため実行を見送った」と報告して終了する（結果が空の場合は {ブランチ名} を「detached HEAD」とする）。main であっても scripts/check_result_staleness.py が存在しない場合は、何も実行せず「main に scripts/check_result_staleness.py が無いため実行を見送った（main が古い可能性がある）」と報告して終了する（いずれもチェックアウトの切り替え・pull はしない）。
+2. Skill ツールで `check-result-staleness` スキルを呼び出し、スキルの手順に自動実行として厳密に従う。Python は conda 環境の python.exe（{masterresearch 環境の python.exe}）をフルパスで呼ぶ。一時ファイルの出力先はこのセッションのスクラッチパッドとする。
+3. 日本語本文は一時ファイルに書き出して --body-file で投稿する。
+4. GitHub への書き込みは、スキルの「状況別の動作」にある報告 Issue の起票・差分コメント・close だけとする。分析の再実行、結果ファイルの変更、リポジトリへのコミット・push は行わない。
+5. 完了したら、行った書き込み（Issue・コメントの URL、または書き込まなかった理由）と分類別の件数を報告する。失敗した場合は、どのステップで何のエラーが出たかを具体的に報告する。
+```
+
+### 2.4 monthly-external-deps-health-check
 
 確認項目と判定基準は [check_external_deps.py](../scripts/check_external_deps.py) の冒頭の説明を正本とする（Earthdata トークンの有効期限・GEE の認証状態・OSGeo4W の proj.db・ruff のローカル版と CI 固定版の一致）。問題のある項目（期限切れ・残り45日未満・不一致・判定不能）だけを出力し、終了コードは問題あり=1／問題なし=0。
 
@@ -66,7 +82,7 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 6. スクリプトを起動できない（ImportError 等）場合は、実行したコマンドと出たエラーを報告して終了する。
 ```
 
-### 2.4 monthly-paper-scout
+### 2.5 monthly-paper-scout
 
 手順の本体は [paper-scout スキル](../.claude/skills/paper-scout/SKILL.md)の「月次自動実行モード」を正本とする。提示済みの候補は、報告 Issue の過去コメントに埋め込んだマーカーから [scout_report.py](../src/literature/scout_report.py) が判定して除外する。
 
@@ -98,8 +114,8 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 
 ## 4. 運用上の注意
 
-- 定期実行は `{リポジトリのルート}` に**その時点でチェックアウトされているブランチ**のスキル・スクリプトで動く（`main` そのものではない）。作業ブランチがチェックアウトされたままだと、古い手順や作業中の手順で動いてしまう。そのため `monthly-*` の2件は、冒頭で `main` 以外なら実行を見送るようにしている（見送った旨は実行履歴に残る）。手順を変えた場合は、変更を merge したうえで `{リポジトリのルート}` の `main` を最新にするまで反映されない
-- 週次の2件（`weekly-*`）にはこの確認を入れていない（既存の設定のまま）
+- 定期実行は `{リポジトリのルート}` に**その時点でチェックアウトされているブランチ**のスキル・スクリプトで動く（`main` そのものではない）。作業ブランチがチェックアウトされたままだと、古い手順や作業中の手順で動いてしまう。そのため `monthly-*` の2件と `weekly-result-staleness-check` は、冒頭で `main` 以外なら実行を見送るようにしている（見送った旨は実行履歴に残る）。手順を変えた場合は、変更を merge したうえで `{リポジトリのルート}` の `main` を最新にするまで反映されない
+- `weekly-docs-consistency-check`・`weekly-digest` の2件にはこの確認を入れていない（既存の設定のまま）
 - Earthdata トークンの有効期限が切れていなくても、LAADS DAAC からの取得にはプロダクトごとのデータ利用許諾への同意が別に必要である。同意していない場合も「リダイレクト先で 401」となり失効と症状が似るため、ヘルスチェックが OK でも取得に失敗したら同意状況を確認する
 - 実行時の権限モードは、登録したセッションのモードではなく **Claude Code の既定のモード**になることがあり、その場合はツールの承認待ちで止まりうる。登録後にアプリのスケジュール欄から一度「今すぐ実行」して必要なツールを承認しておくと、承認内容がタスクに保存され、以後の実行で自動適用される
 - PushNotification がスケジュールタスクの実行セッションで使えるかは**未確認**である。使えない場合でも、実行結果はアプリのスケジュールタスクの実行履歴から確認できる

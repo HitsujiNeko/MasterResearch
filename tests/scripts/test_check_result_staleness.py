@@ -64,6 +64,10 @@ def repo(tmp_path: Path) -> Path:
     (root / "src" / "analysis" / "run_model.py").write_text("VERSION = 1\n", encoding="utf-8")
     (root / "src" / "analysis" / "other.py").write_text("VALUE = 1\n", encoding="utf-8")
     (root / "src" / "common" / "util.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (root / "src" / "analysis" / "urban_params").mkdir(parents=True)
+    (root / "src" / "analysis" / "urban_params" / "canonical_grid.py").write_text(
+        "BLOCK = 1\n", encoding="utf-8"
+    )
     (root / "data" / "output" / "datasets").mkdir(parents=True)
     (root / INPUT_REL).write_bytes(b"dataset-v1")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
@@ -201,11 +205,15 @@ def test_hash_comparison_ignores_case(repo: Path) -> None:
 
 @pytest.mark.parametrize(
     "changed_file",
-    ["src/analysis/run_model.py", "src/common/util.py"],
-    ids=["script", "common"],
+    [
+        "src/analysis/run_model.py",
+        "src/common/util.py",
+        "src/analysis/urban_params/canonical_grid.py",
+    ],
+    ids=["script", "common", "canonical_grid"],
 )
 def test_stale_code_when_watched_file_changed(repo: Path, changed_file: str) -> None:
-    """生成スクリプトか src/common/ が変わっていれば要再実行（コード変更）と判定する。"""
+    """生成スクリプトか既定の監視パスが変わっていれば要再実行（コード変更）と判定する。"""
     commit = _git(repo, "rev-parse", "HEAD")
     (repo / changed_file).write_text("VERSION = 2\n", encoding="utf-8")
     _commit_all(repo, "change")
@@ -287,7 +295,7 @@ def test_stale_code_when_commit_unavailable(
 
 
 def test_stale_code_when_script_not_recorded(repo: Path) -> None:
-    """生成スクリプトが記録されていない場合は、src/common/ だけを監視し理由を残す。"""
+    """生成スクリプトが記録されていない場合は、既定の監視パスだけを監視し理由を残す。"""
     commit = _git(repo, "rev-parse", "HEAD")
     path = _write_result(
         repo,
@@ -684,3 +692,46 @@ def test_previous_issue_json_requires_report_output(
     monkeypatch.setattr(target, "PROJECT_ROOT", repo)
     with pytest.raises(SystemExit):
         target.main(["--previous-issue-json", "issue.json"])
+
+
+def test_main_report_mode_all_resolved(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """前回の問題がすべて解消すれば、解消一覧を書き出して終了コード4を返す。"""
+    commit = _git(repo, "rev-parse", "HEAD")
+    _write_result(
+        repo, "a_results.json", {"provenance": _provenance(commit, inputs=[_input_entry()])}
+    )
+    previous = target.format_state_marker(
+        {"data/output/analysis/a_results.json": target.STATUS_STALE_CODE}
+    )
+    issue_path = _issue_json(tmp_path, previous, [])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    exit_code = target.main(
+        [
+            "--output-md",
+            "out/staleness.md",
+            "--report-output",
+            "out/report.md",
+            "--previous-issue-json",
+            str(issue_path),
+        ]
+    )
+    assert exit_code == target.EXIT_ALL_RESOLVED
+    text = (repo / "out" / "report.md").read_text(encoding="utf-8")
+    assert "- `data/output/analysis/a_results.json`（前回: 要再実行（コード変更））" in text
+    assert target.extract_latest_state([text]) == {}
+
+
+def test_main_report_mode_fails_without_marker(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """報告 Issue にマーカーが無ければ、書き出さずに終了コード1を返す。"""
+    issue_path = _issue_json(tmp_path, "手で書き換えた本文", ["補足"])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    exit_code = target.main(
+        ["--report-output", "out/report.md", "--previous-issue-json", str(issue_path)]
+    )
+    assert exit_code == target.EXIT_FAILURE
+    assert not (repo / "out" / "report.md").exists()
+    assert "マーカー" in capsys.readouterr().err

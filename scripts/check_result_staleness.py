@@ -11,8 +11,8 @@
 3. 要再実行・入力変更（`stale_input`）: 入力ファイルの SHA-256 が記録値と一致しない
    （記録値が無い場合を含む）
 4. 要再実行・コード変更（`stale_code`）: 記録コミットと現在の `HEAD` の間で、
-   生成スクリプトまたは `src/common/` に差分がある。`git.dirty` が真、記録コミットが
-   無い・ローカルに無い場合も、生成時のコードを復元できないためここに含める
+   生成スクリプトまたは既定の監視パス（`src/common/` 等）に差分がある。`git.dirty` が真、
+   記録コミットが無い・ローカルに無い場合も、生成時のコードを復元できないためここに含める
 5. 最新（`up_to_date`）: 上記のいずれにも当たらない
 
 コードの差分は `git diff --name-only {記録コミット} HEAD -- {監視パス}` の木の比較で
@@ -21,9 +21,16 @@
 
 既知の限界:
 
-- 生成スクリプトが import する `src/common/` 以外のモジュール（`src/analysis/` の
-  補助モジュール等）の変更は「コード変更」に含めない。必要なら `--extra-watch-path` で
-  監視パスを追加する
+- 記録コミットがローカルに無いと、コードの差分を判定できず「要再実行（コード変更）」になる
+  （理由に「記録コミットがローカルに無い」と明記する）。squash merge で作業ブランチを
+  消す運用では、作業ブランチ上で生成した結果の記録コミットはどのブランチからもたどれず、
+  reflog が期限切れになった後の gc で消える。新しい clone でも最初から無い。この理由の
+  結果は「コードが変わった」ではなく「生成時のコードを確かめられない」と読む
+- 生成スクリプトが import するモジュールのうち、監視するのは `DEFAULT_WATCH_PATHS`
+  （`src/common/` と Spatial CV のブロック分割）だけで、それ以外の補助モジュールの変更は
+  「コード変更」に含めない。必要なら `--extra-watch-path` で監視パスを追加する
+- 走査するのは `*_results.json` だけで、来歴を持つ他の JSON（例: NoData 脱落診断の
+  `*_nodata_dropout_summary.json`）は対象外である
 - 入力のデータセット GPKG 自体を作るスクリプトの変更はたどらない（GPKG が作り直されれば
   ハッシュの不一致で検出される）
 - 判定の基準は実行時にチェックアウトされている `HEAD` である
@@ -116,8 +123,12 @@ STATUS_LABELS: dict[str, str] = {
 DEFAULT_RESULTS_ROOT = Path("data") / "output"
 RESULTS_GLOB = "**/*_results.json"
 
-# 生成スクリプトに加えて常に監視するパス（分析スクリプトが共通して import する処理）
-DEFAULT_WATCH_PATHS: tuple[str, ...] = ("src/common",)
+# 生成スクリプトに加えて常に監視するパス（分析スクリプトが共通して import する処理。
+# canonical_grid は Spatial CV のブロック分割を決め、評価指標に直接影響する）
+DEFAULT_WATCH_PATHS: tuple[str, ...] = (
+    "src/common",
+    "src/analysis/urban_params/canonical_grid.py",
+)
 
 # git コマンドの待ち時間の上限（秒）
 _GIT_TIMEOUT_SECONDS = 30
@@ -768,7 +779,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--extra-watch-path",
         action="append",
         default=[],
-        help="生成スクリプトと src/common/ に加えて差分を監視するパス（複数指定可）",
+        help="生成スクリプトと既定の監視パスに加えて差分を監視するパス（複数指定可）",
     )
     parser.add_argument("--output-json", default=None, help="判定結果（JSON）の出力先")
     parser.add_argument(

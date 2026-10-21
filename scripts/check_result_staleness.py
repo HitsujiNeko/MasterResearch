@@ -29,8 +29,24 @@
 - 判定の基準は実行時にチェックアウトされている `HEAD` である
 
 本スクリプトは結果ファイル・`docs/` を書き換えず、GitHub にも書き込まない。
+報告 Issue の特定・起票・コメント・close は `/check-result-staleness` スキルの手順で行う。
 
-終了コード: 0=判定を出力した／1=判定できない（git の `HEAD` を取得できない・走査先が無い）
+報告モード（`--report-output` を指定した場合）:
+
+- `--previous-issue-json` なし: 新規起票用の Issue 本文を書き出す
+- `--previous-issue-json` あり: 報告 Issue（`gh issue view {番号} --json body,comments` の
+  保存ファイル）の本文とコメントに埋め込んだ不可視マーカー
+  ``<!-- result-staleness-state: パス=分類 ... -->`` のうち最新のものから前回の問題
+  （最新以外の結果）を復元し、新規・解消・分類変化・継続を記した差分コメントを書き出す。
+  報告 Issue 自体を前回状態の正本とし、ローカルに状態ファイルを持たない
+
+終了コード:
+
+- 0: 判定を出力した（報告モードでは、新規起票の本文または差分コメントを書き出した）
+- 1: 判定できない（git の `HEAD` を取得できない・走査先が無い）、または報告 Issue の
+  保存ファイルを読めない（空・不正な JSON・マーカーが無い）。報告モードでは何も書き出さない
+- 3: 報告モードで書き込む内容が無い（問題なしで報告 Issue も無い・前回から差分なし）
+- 4: 報告モードで前回の問題がすべて解消した（解消一覧を書き出した。スキルは追記後に close する）
 
 実行はプロジェクトルートから行う（`src` パッケージを import するため）。
 
@@ -44,15 +60,34 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, unquote
 
 from src.common.config import PROJECT_ROOT
 from src.common.paths import prepare_output_path, to_project_relative_string
 from src.common.summary import compute_file_sha256
+
+EXIT_REPORT_WRITTEN = 0
+EXIT_FAILURE = 1
+EXIT_NO_CHANGE = 3
+EXIT_ALL_RESOLVED = 4
+
+# 前回の問題（結果パス → 分類）を埋め込む不可視マーカー
+_MARKER_LABEL = "result-staleness-state:"
+_MARKER_PATTERN = re.compile(r"<!--\s*result-staleness-state:(.*?)-->", re.DOTALL)
+
+# パスを URL エンコードする際に残す文字（`=`・`>`・空白はエンコードされ、マーカーを壊さない）
+_PATH_SAFE_CHARS = "/._()"
+
+# 報告 Issue・コメントの識別用フッタ（スキルはこの文言で報告 Issue を特定する）
+ISSUE_FOOTER = "🤖 このIssueは /check-result-staleness スキルにより作成されました。"
+COMMENT_FOOTER = "🤖 このコメントは /check-result-staleness スキルにより追記されました。"
 
 # 分類のキー（表の上から優先する順に並べる）
 STATUS_NO_PROVENANCE = "no_provenance"
@@ -460,6 +495,259 @@ def format_markdown_report(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+@dataclass
+class StateDiff:
+    """前回と今回の問題（最新以外の結果）の差分。
+
+    Attributes:
+        new: 今回新たに問題になった結果（パス → 今回の分類）。
+        resolved: 前回は問題で、今回は最新になった・無くなった結果（パス → 前回の分類）。
+        changed: 問題のまま分類が変わった結果（パス → (前回の分類, 今回の分類)）。
+        continuing: 同じ分類のまま残っている結果（パス → 分類）。
+    """
+
+    new: dict[str, str]
+    resolved: dict[str, str]
+    changed: dict[str, tuple[str, str]]
+    continuing: dict[str, str]
+
+    @property
+    def has_change(self) -> bool:
+        """新規・解消・分類変化のいずれかがあれば True を返す。"""
+        return bool(self.new or self.resolved or self.changed)
+
+
+def problem_state(report: dict[str, Any]) -> dict[str, str]:
+    """判定結果から問題（最新以外）の状態を取り出す。
+
+    Args:
+        report: `build_report_data` の戻り値。
+    Returns:
+        結果パス → 分類。
+    """
+    return {
+        entry["path"]: entry["status"]
+        for entry in report["results"]
+        if entry["status"] != STATUS_UP_TO_DATE
+    }
+
+
+def format_state_marker(state: dict[str, str]) -> str:
+    """問題の状態を埋め込んだ不可視マーカーを作る。
+
+    Args:
+        state: 結果パス → 分類。
+    Returns:
+        HTML コメント形式のマーカー。
+    """
+    tokens = " ".join(
+        f"{quote(path, safe=_PATH_SAFE_CHARS)}={status}" for path, status in sorted(state.items())
+    )
+    return f"<!-- {_MARKER_LABEL} {tokens} -->"
+
+
+def extract_latest_state(bodies: Iterable[str]) -> dict[str, str] | None:
+    """本文・コメントの並びから、最後に現れたマーカーの状態を復元する。
+
+    Args:
+        bodies: Issue 本文に続けてコメント本文を古い順に並べたもの。
+    Returns:
+        結果パス → 分類。マーカーが1つも無ければ None。
+    Raises:
+        ValueError: マーカーの中身が `パス=分類` の形式でない場合。
+    """
+    latest: str | None = None
+    for body in bodies:
+        matches = _MARKER_PATTERN.findall(body or "")
+        if matches:
+            latest = matches[-1]
+    if latest is None:
+        return None
+    state: dict[str, str] = {}
+    for token in latest.split():
+        encoded_path, separator, status = token.rpartition("=")
+        if not separator or not encoded_path or status not in STATUS_ORDER:
+            raise ValueError(f"マーカーの形式が不正です: {token}")
+        state[unquote(encoded_path)] = status
+    return state
+
+
+def load_issue_bodies(issue_json_path: Path) -> list[str]:
+    """`gh issue view {番号} --json body,comments` の保存ファイルから本文の並びを取り出す。
+
+    空ファイル（空白だけのものを含む）は `gh` の失敗（認証切れ等）でリダイレクト先だけが
+    作られた状態とみなし、例外にする（前回状態を復元できないまま差分を作ると、継続中の
+    問題をすべて「新規」として再掲してしまうため）。
+
+    Args:
+        issue_json_path: 保存ファイルのパス。
+    Returns:
+        Issue 本文に続けてコメント本文を古い順に並べたリスト。
+    Raises:
+        ValueError: ファイルが空・JSON オブジェクトでない・`comments` がリストでない場合。
+    """
+    text = issue_json_path.read_text(encoding="utf-8-sig")
+    if not text.strip():
+        raise ValueError(
+            f"報告 Issue のファイルが空です（gh の失敗が疑われます）: {issue_json_path.name}"
+        )
+    data = json.loads(text)
+    if not isinstance(data, dict) or not isinstance(data.get("comments", []), list):
+        raise ValueError(f"報告 Issue の JSON の形式が不正です: {issue_json_path.name}")
+    bodies = [str(data.get("body") or "")]
+    bodies.extend(
+        str(comment.get("body") or "")
+        for comment in data.get("comments", [])
+        if isinstance(comment, dict)
+    )
+    return bodies
+
+
+def diff_states(previous: dict[str, str], current: dict[str, str]) -> StateDiff:
+    """前回と今回の問題の状態を比べる。
+
+    Args:
+        previous: 前回の問題（結果パス → 分類）。
+        current: 今回の問題（結果パス → 分類）。
+    Returns:
+        差分。
+    """
+    return StateDiff(
+        new={path: status for path, status in current.items() if path not in previous},
+        resolved={path: status for path, status in previous.items() if path not in current},
+        changed={
+            path: (previous[path], status)
+            for path, status in current.items()
+            if path in previous and previous[path] != status
+        },
+        continuing={
+            path: status for path, status in current.items() if previous.get(path) == status
+        },
+    )
+
+
+def _format_reason_lines(report: dict[str, Any], paths: Iterable[str]) -> list[str]:
+    """指定した結果の分類と理由を箇条書きにする。"""
+    entries = {entry["path"]: entry for entry in report["results"]}
+    lines = []
+    for path in sorted(paths):
+        entry = entries[path]
+        reasons = "／".join(item["reason"] for item in entry["reasons"])
+        lines.append(f"- `{path}`（{STATUS_LABELS[entry['status']]}）: {reasons}")
+    return lines
+
+
+def format_issue_body(report: dict[str, Any]) -> str:
+    """新規起票する報告 Issue の本文を作る。
+
+    Args:
+        report: `build_report_data` の戻り値。
+    Returns:
+        Issue 本文（判定結果・前回状態のマーカー・識別用フッタ）。
+    """
+    return (
+        format_markdown_report(report)
+        + "\n"
+        + format_state_marker(problem_state(report))
+        + f"\n\n---\n{ISSUE_FOOTER}\n"
+    )
+
+
+def format_diff_comment(report: dict[str, Any], diff: StateDiff, run_date: dt.date) -> str:
+    """報告 Issue に追記する差分コメントを作る（全件解消時は解消一覧になる）。
+
+    継続中の問題は件数と一覧（折りたたみ）を載せ、マーカーには今回の問題をすべて記録する
+    （最新のコメント1件で現状を復元できるようにするため）。
+
+    Args:
+        report: `build_report_data` の戻り値。
+        diff: 前回との差分。
+        run_date: 実行日。
+    Returns:
+        コメント本文。
+    """
+    counts = report["counts"]
+    lines = [
+        f"## 陳腐化検出 差分報告 ({run_date:%Y-%m-%d})",
+        "",
+        f"- 基準コミット（HEAD）: `{report['head_commit']}`",
+        "- 今回の件数: "
+        + "／".join(f"{STATUS_LABELS[status]} {counts[status]}" for status in STATUS_ORDER),
+        "",
+        "### 新規",
+        "",
+    ]
+    lines.extend(_format_reason_lines(report, diff.new) or ["- なし"])
+    lines.extend(["", "### 分類変化", ""])
+    lines.extend(
+        f"- `{path}`: {STATUS_LABELS[before]} → {STATUS_LABELS[after]}"
+        for path, (before, after) in sorted(diff.changed.items())
+    )
+    if not diff.changed:
+        lines.append("- なし")
+    lines.extend(["", "### 解消", ""])
+    lines.extend(
+        f"- `{path}`（前回: {STATUS_LABELS[status]}）"
+        for path, status in sorted(diff.resolved.items())
+    )
+    if not diff.resolved:
+        lines.append("- なし")
+    lines.extend(["", f"### 継続（{len(diff.continuing)} 件）", ""])
+    if diff.continuing:
+        lines.extend(["<details><summary>一覧</summary>", ""])
+        lines.extend(_format_reason_lines(report, diff.continuing))
+        lines.extend(["", "</details>"])
+    else:
+        lines.append("- なし")
+    lines.extend(["", format_state_marker(problem_state(report)), "", "---", COMMENT_FOOTER])
+    return "\n".join(lines) + "\n"
+
+
+def build_report_text(
+    report: dict[str, Any], previous: dict[str, str] | None, run_date: dt.date
+) -> tuple[int, str | None]:
+    """報告モードで書き出す本文と終了コードを決める。
+
+    Args:
+        report: `build_report_data` の戻り値。
+        previous: 前回の問題の状態。報告 Issue が無い（新規起票の判断をする）場合は None。
+        run_date: 実行日。
+    Returns:
+        (終了コード, 書き出す本文)。書き出す内容が無ければ本文は None。
+    """
+    current = problem_state(report)
+    if previous is None:
+        if not current:
+            return EXIT_NO_CHANGE, None
+        return EXIT_REPORT_WRITTEN, format_issue_body(report)
+    diff = diff_states(previous, current)
+    if not current:
+        if not previous:
+            return EXIT_NO_CHANGE, None
+        return EXIT_ALL_RESOLVED, format_diff_comment(report, diff, run_date)
+    if not diff.has_change:
+        return EXIT_NO_CHANGE, None
+    return EXIT_REPORT_WRITTEN, format_diff_comment(report, diff, run_date)
+
+
+def load_previous_state(issue_json_path: Path) -> dict[str, str]:
+    """報告 Issue の保存ファイルから前回の問題の状態を復元する。
+
+    Args:
+        issue_json_path: `gh issue view {番号} --json body,comments` の保存ファイル。
+    Returns:
+        前回の問題（結果パス → 分類）。
+    Raises:
+        ValueError: ファイルが不正、またはマーカーが1つも無い場合。
+    """
+    state = extract_latest_state(load_issue_bodies(issue_json_path))
+    if state is None:
+        # 本スクリプトが作る本文・コメントには必ずマーカーがあるため、無いのは本文の
+        # 手動編集など想定外の状態とみなし、推測で差分を作らずに止める
+        raise ValueError(f"前回状態のマーカーが見つかりません: {issue_json_path.name}")
+    return state
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """コマンドライン引数を解釈する。"""
     parser = argparse.ArgumentParser(description="分析結果の陳腐化を検出する")
@@ -486,7 +774,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--output-md", default=None, help="判定結果（Markdown）の出力先。省略時は標準出力"
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--report-output",
+        default=None,
+        help="報告モード: 新規起票の本文または差分コメントの出力先",
+    )
+    parser.add_argument(
+        "--previous-issue-json",
+        default=None,
+        help="報告モード: 報告 Issue（gh issue view {番号} --json body,comments）の保存ファイル",
+    )
+    args = parser.parse_args(argv)
+    if args.previous_issue_json and not args.report_output:
+        parser.error("--previous-issue-json は --report-output と組み合わせて指定してください")
+    return args
 
 
 def _resolve(value: str, project_root: Path) -> Path:
@@ -507,12 +808,20 @@ def main(argv: list[str] | None = None) -> int:
     data_root = _resolve(args.data_root, project_root) if args.data_root else project_root
     if not results_root.is_dir():
         print(f"走査先のディレクトリがありません: {results_root}", file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
+    previous: dict[str, str] | None = None
+    if args.previous_issue_json:
+        try:
+            # 大容量の入力のハッシュ計算より先に読み、読めなければ判定せずに止める
+            previous = load_previous_state(_resolve(args.previous_issue_json, project_root))
+        except (OSError, ValueError) as exc:
+            print(f"報告 Issue を読めませんでした: {exc}", file=sys.stderr)
+            return EXIT_FAILURE
     git = GitRepository(project_root)
     head_commit = git.head_commit()
     if head_commit is None:
         print("git の HEAD を取得できないため、コードの差分を判定できません。", file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     hash_cache: dict[Path, str] = {}
     extra_watch_paths = tuple(args.extra_watch_path)
@@ -541,7 +850,17 @@ def main(argv: list[str] | None = None) -> int:
     counts = report["counts"]
     summary = "／".join(f"{STATUS_LABELS[status]} {counts[status]}" for status in STATUS_ORDER)
     print(f"判定件数 {len(results)} 件（{summary}）", file=sys.stderr)
-    return 0
+    if not args.report_output:
+        return EXIT_REPORT_WRITTEN
+
+    exit_code, text = build_report_text(report, previous, dt.date.today())
+    if text is None:
+        print("報告に書き込む内容がないため、本文は書き出しません。", file=sys.stderr)
+        return exit_code
+    report_path = prepare_output_path(Path(args.report_output), project_root)
+    report_path.write_text(text, encoding="utf-8")
+    print(f"報告本文を書き出しました（終了コード {exit_code}）: {report_path}", file=sys.stderr)
+    return exit_code
 
 
 if __name__ == "__main__":

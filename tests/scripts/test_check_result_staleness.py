@@ -456,3 +456,231 @@ def test_main_fails_outside_git_repository(
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
     assert target.main([]) == 1
     assert "HEAD" in capsys.readouterr().err
+
+
+# --- 報告モード（前回マーカーとの差分） ---
+
+RUN_DATE = target.dt.date(2026, 10, 26)
+
+
+def _report(statuses: dict[str, str]) -> dict[str, object]:
+    """結果パス → 分類から判定結果（`build_report_data` の戻り値）を作る。"""
+    results = []
+    for path, status in statuses.items():
+        result = target.StalenessResult(path=path)
+        if status != target.STATUS_UP_TO_DATE:
+            result.add_reason(status, f"理由-{status}")
+        results.append(result)
+    return target.build_report_data(
+        results, "abc123", "data/output", target.dt.datetime(2026, 10, 26)
+    )
+
+
+def _issue_json(tmp_path: Path, body: str, comments: list[str]) -> Path:
+    """`gh issue view --json body,comments` 相当の保存ファイルを作る。"""
+    path = tmp_path / "issue.json"
+    data = {"body": body, "comments": [{"body": text} for text in comments]}
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def test_marker_round_trip_with_special_characters() -> None:
+    """空白・`=`・`>` を含むパスでもマーカーから状態を復元できる。"""
+    state = {
+        "data/output/a b/x=1_results.json": target.STATUS_STALE_CODE,
+        "data/output/日本語->_results.json": target.STATUS_INPUT_MISSING,
+    }
+    marker = target.format_state_marker(state)
+    assert marker.count("-->") == 1
+    assert target.extract_latest_state([f"本文\n{marker}\n"]) == state
+
+
+def test_extract_latest_state_uses_last_marker() -> None:
+    """本文とコメントのうち、最後に現れたマーカーを前回状態とする。"""
+    first = target.format_state_marker({"a_results.json": target.STATUS_STALE_CODE})
+    last = target.format_state_marker({})
+    assert target.extract_latest_state([first, "ユーザーの補足", last, "補足2"]) == {}
+    assert target.extract_latest_state(["マーカーなし"]) is None
+
+
+def test_extract_latest_state_rejects_malformed_marker() -> None:
+    """マーカーの中身が `パス=分類` の形式でなければ例外にする。"""
+    with pytest.raises(ValueError, match="形式"):
+        target.extract_latest_state(["<!-- result-staleness-state: a_results.json=unknown -->"])
+
+
+def test_diff_states_classifies_new_resolved_changed_continuing() -> None:
+    """新規・解消・分類変化・継続を区別する。"""
+    previous = {
+        "keep": target.STATUS_NO_PROVENANCE,
+        "change": target.STATUS_INPUT_MISSING,
+        "fixed": target.STATUS_STALE_CODE,
+    }
+    current = {
+        "keep": target.STATUS_NO_PROVENANCE,
+        "change": target.STATUS_STALE_INPUT,
+        "added": target.STATUS_STALE_CODE,
+    }
+    diff = target.diff_states(previous, current)
+    assert diff.new == {"added": target.STATUS_STALE_CODE}
+    assert diff.resolved == {"fixed": target.STATUS_STALE_CODE}
+    assert diff.changed == {"change": (target.STATUS_INPUT_MISSING, target.STATUS_STALE_INPUT)}
+    assert diff.continuing == {"keep": target.STATUS_NO_PROVENANCE}
+    assert diff.has_change
+
+
+def test_build_report_text_new_issue_when_problems_exist() -> None:
+    """報告 Issue が無く問題があれば、マーカーとフッタつきの起票本文を返す。"""
+    report = _report({"a": target.STATUS_STALE_CODE, "b": target.STATUS_UP_TO_DATE})
+    exit_code, text = target.build_report_text(report, None, RUN_DATE)
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    assert text.rstrip().endswith(target.ISSUE_FOOTER)
+    assert target.extract_latest_state([text]) == {"a": target.STATUS_STALE_CODE}
+
+
+def test_build_report_text_no_issue_and_no_problem() -> None:
+    """報告 Issue が無く問題も無ければ、何も書き出さない。"""
+    report = _report({"a": target.STATUS_UP_TO_DATE})
+    assert target.build_report_text(report, None, RUN_DATE) == (target.EXIT_NO_CHANGE, None)
+
+
+def test_build_report_text_diff_comment() -> None:
+    """前回から差分があれば、新規・解消・継続を載せた差分コメントを返す。"""
+    report = _report(
+        {
+            "keep": target.STATUS_NO_PROVENANCE,
+            "added": target.STATUS_STALE_INPUT,
+            "fixed": target.STATUS_UP_TO_DATE,
+        }
+    )
+    previous = {"keep": target.STATUS_NO_PROVENANCE, "fixed": target.STATUS_STALE_CODE}
+    exit_code, text = target.build_report_text(report, previous, RUN_DATE)
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    assert "## 陳腐化検出 差分報告 (2026-10-26)" in text
+    assert "- `added`（要再実行（入力変更））: 理由-stale_input" in text
+    assert "- `fixed`（前回: 要再実行（コード変更））" in text
+    assert "### 継続（1 件）" in text
+    assert text.rstrip().endswith(target.COMMENT_FOOTER)
+    assert target.extract_latest_state([text]) == {
+        "keep": target.STATUS_NO_PROVENANCE,
+        "added": target.STATUS_STALE_INPUT,
+    }
+
+
+def test_build_report_text_status_change_counts_as_diff() -> None:
+    """件数が同じでも分類が変われば差分コメントを返す。"""
+    report = _report({"a": target.STATUS_STALE_INPUT})
+    exit_code, text = target.build_report_text(report, {"a": target.STATUS_INPUT_MISSING}, RUN_DATE)
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    assert "- `a`: 入力欠落 → 要再実行（入力変更）" in text
+
+
+def test_build_report_text_no_change() -> None:
+    """前回と同じ問題だけが残っていれば、何も書き出さない。"""
+    report = _report({"a": target.STATUS_STALE_CODE, "b": target.STATUS_UP_TO_DATE})
+    previous = {"a": target.STATUS_STALE_CODE}
+    assert target.build_report_text(report, previous, RUN_DATE) == (target.EXIT_NO_CHANGE, None)
+
+
+def test_build_report_text_all_resolved() -> None:
+    """前回の問題がすべて解消すれば、解消一覧と空のマーカーを返す。"""
+    report = _report({"a": target.STATUS_UP_TO_DATE})
+    exit_code, text = target.build_report_text(report, {"a": target.STATUS_STALE_CODE}, RUN_DATE)
+    assert exit_code == target.EXIT_ALL_RESOLVED
+    assert "- `a`（前回: 要再実行（コード変更））" in text
+    assert target.extract_latest_state([text]) == {}
+
+
+def test_build_report_text_previous_empty_and_no_problem() -> None:
+    """前回も今回も問題が無ければ（解消済みの Issue）、何も書き出さない。"""
+    report = _report({"a": target.STATUS_UP_TO_DATE})
+    assert target.build_report_text(report, {}, RUN_DATE) == (target.EXIT_NO_CHANGE, None)
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["", "  \n", "{not json", "[]", '{"body": "x", "comments": "text"}'],
+    ids=["empty", "blank", "invalid_json", "not_object", "comments_not_list"],
+)
+def test_load_previous_state_rejects_broken_file(tmp_path: Path, content: str) -> None:
+    """保存ファイルが空・不正なら例外にする（前回状態を推測しない）。"""
+    path = tmp_path / "issue.json"
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError):
+        target.load_previous_state(path)
+
+
+def test_load_previous_state_requires_marker(tmp_path: Path) -> None:
+    """マーカーが1つも無ければ例外にする。"""
+    path = _issue_json(tmp_path, "本文", ["補足"])
+    with pytest.raises(ValueError, match="マーカー"):
+        target.load_previous_state(path)
+
+
+def test_load_previous_state_reads_comments(tmp_path: Path) -> None:
+    """本文よりコメントのマーカーを優先し、最新のコメントの状態を返す。"""
+    body = target.format_state_marker({"a": target.STATUS_STALE_CODE})
+    comment = target.format_state_marker({"b": target.STATUS_INPUT_MISSING})
+    path = _issue_json(tmp_path, body, [comment])
+    assert target.load_previous_state(path) == {"b": target.STATUS_INPUT_MISSING}
+
+
+def test_main_report_mode_with_previous_issue(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """報告モードで前回の Issue を渡すと、差分コメントを書き出して終了コード0を返す。"""
+    _write_result(repo, "a_results.json", {"sample_size": 1})
+    issue_path = _issue_json(tmp_path, target.format_state_marker({}), [])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    exit_code = target.main(
+        [
+            "--output-md",
+            "out/staleness.md",
+            "--report-output",
+            "out/report.md",
+            "--previous-issue-json",
+            str(issue_path),
+        ]
+    )
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    text = (repo / "out" / "report.md").read_text(encoding="utf-8")
+    assert "data/output/analysis/a_results.json" in text
+    assert text.rstrip().endswith(target.COMMENT_FOOTER)
+
+
+def test_main_report_mode_stops_before_checking_when_issue_unreadable(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """報告 Issue を読めなければ、判定も書き出しもせずに終了コード1を返す。"""
+    empty = tmp_path / "issue.json"
+    empty.write_text("", encoding="utf-8")
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+
+    def must_not_scan(_root: Path) -> list[Path]:
+        pytest.fail("報告 Issue を読めないまま判定に進んではいけない")
+
+    monkeypatch.setattr(target, "find_result_files", must_not_scan)
+    exit_code = target.main(
+        ["--report-output", "out/report.md", "--previous-issue-json", str(empty)]
+    )
+    assert exit_code == target.EXIT_FAILURE
+    assert not (repo / "out" / "report.md").exists()
+
+
+def test_main_report_mode_no_change_writes_nothing(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """報告 Issue が無く問題も無ければ、終了コード3で本文を書き出さない。"""
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    exit_code = target.main(["--output-md", "out/staleness.md", "--report-output", "out/report.md"])
+    assert exit_code == target.EXIT_NO_CHANGE
+    assert not (repo / "out" / "report.md").exists()
+
+
+def test_previous_issue_json_requires_report_output(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--previous-issue-json` だけを指定すると引数エラーにする。"""
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    with pytest.raises(SystemExit):
+        target.main(["--previous-issue-json", "issue.json"])

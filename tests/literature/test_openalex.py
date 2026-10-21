@@ -149,9 +149,15 @@ def test_safe_fetch_returns_none_on_error(monkeypatch: pytest.MonkeyPatch, exc: 
 _SORT = "cited_by_count:desc,ids.openalex"
 
 
-def _page_of(start: int, count: int) -> dict[str, Any]:
-    """ID が start から連番の work を count 件含むページを返す。"""
-    return {"results": [{"id": f"W{start + offset}"} for offset in range(count)]}
+def _page_of(start: int, count: int, total: int | None = None) -> dict[str, Any]:
+    """ID が start から連番の work を count 件含むページを返す。
+
+    total を指定した場合は、OpenAlex と同じく ``meta.count`` に総件数を入れる。
+    """
+    page: dict[str, Any] = {"results": [{"id": f"W{start + offset}"} for offset in range(count)]}
+    if total is not None:
+        page["meta"] = {"count": total}
+    return page
 
 
 def _fake_pages(monkeypatch: pytest.MonkeyPatch, pages: list[dict[str, Any] | None]) -> list[str]:
@@ -255,6 +261,130 @@ def test_fetch_paged_does_not_warn_when_max_results_reached_at_limit(
         )
     assert len(works) == 4
     assert "basic paging の上限" not in caplog.text
+
+
+def test_fetch_paged_does_not_warn_when_total_equals_basic_paging_limit(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # 総件数がちょうど上限件数の場合、最終ページが満杯でも取りこぼしはない
+    monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
+    _fake_pages(monkeypatch, [_page_of(1, 2, total=4), _page_of(3, 2, total=4)])
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        works, _ = openalex.fetch_paged(
+            "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
+        )
+    assert len(works) == 4
+    assert caplog.text == ""
+
+
+def test_fetch_paged_warns_basic_paging_limit_with_total(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # 総件数が basic paging の上限を超える場合は、総件数を添えて警告する
+    monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
+    _fake_pages(monkeypatch, [_page_of(1, 2, total=5), _page_of(3, 2, total=5)])
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        openalex.fetch_paged("filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2)
+    assert "basic paging の上限" in caplog.text
+    assert "総件数: 5 件" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("pages", "max_results", "total_text"),
+    [
+        # 総件数が上限を超える（ページ途中で上限に達した）
+        ([_page_of(1, 2, total=10), _page_of(3, 2, total=10)], 3, "総件数: 10 件"),
+        # 総件数が上限を超える（ページの境目で上限ちょうどに達した）
+        ([_page_of(1, 2, total=10), _page_of(3, 2, total=10)], 4, "総件数: 10 件"),
+        # 総件数が不明で、上限を超えて取得していた
+        ([_page_of(1, 2), _page_of(3, 2)], 3, "総件数: 不明"),
+        # 総件数が不明で、最後のページが満杯（続きがありうる）
+        ([_page_of(1, 2), _page_of(3, 2)], 4, "総件数: 不明"),
+    ],
+)
+def test_fetch_paged_warns_when_truncated_by_max_results(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    pages: list[dict[str, Any]],
+    max_results: int,
+    total_text: str,
+) -> None:
+    _fake_pages(monkeypatch, pages)
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        works, _ = openalex.fetch_paged(
+            "filter=cites:W1", None, 5, max_results=max_results, sort=_SORT, per_page=2
+        )
+    assert len(works) == max_results
+    assert f"取得上限 {max_results} 件に達したため打ち切りました" in caplog.text
+    assert total_text in caplog.text
+    # どの並び順の先頭を残したか・どの問い合わせかが分かる
+    assert _SORT in caplog.text
+    assert "filter=cites:W1" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("pages", "max_results"),
+    [
+        # 総件数がちょうど上限件数（最終ページが満杯のまま上限に達した）
+        ([_page_of(1, 2, total=4), _page_of(3, 2, total=4)], 4),
+        # 総件数が上限より少ない
+        ([_page_of(1, 2, total=3), _page_of(3, 1, total=3)], 4),
+        # 総件数が不明でも、満杯でない最終ページで上限ちょうどに達した
+        ([_page_of(1, 2), _page_of(3, 1)], 3),
+        # 上限に達する前に最終ページで終わった
+        ([_page_of(1, 2), _page_of(3, 1)], 100),
+    ],
+)
+def test_fetch_paged_does_not_warn_when_not_truncated(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    pages: list[dict[str, Any]],
+    max_results: int,
+) -> None:
+    _fake_pages(monkeypatch, pages)
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        openalex.fetch_paged(
+            "filter=cites:W1", None, 5, max_results=max_results, sort=_SORT, per_page=2
+        )
+    assert caplog.text == ""
+
+
+def test_fetch_paged_does_not_warn_truncation_when_later_page_fails(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # 取得失敗で止まった場合は上限による打ち切りではない（失敗は safe_fetch が別途警告する）
+    _fake_pages(monkeypatch, [_page_of(1, 2, total=10), None])
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        openalex.fetch_paged("filter=cites:W1", None, 5, max_results=3, sort=_SORT, per_page=2)
+    assert "取得上限" not in caplog.text
+
+
+def test_fetch_paged_truncation_warning_hides_api_key(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # API キーを設定していても、打ち切りのログにキーの値は出ない
+    monkeypatch.setenv("OPENALEX_API_KEY", "secret-key")
+    calls = _fake_pages(monkeypatch, [_page_of(1, 2, total=10), _page_of(3, 2, total=10)])
+    with caplog.at_level("WARNING", logger=openalex.logger.name):
+        openalex.fetch_paged("filter=cites:W1", None, 5, max_results=3, sort=_SORT, per_page=2)
+    # 前提: リクエスト URL にはキーが付いている
+    assert "secret-key" in calls[0]
+    assert "取得上限" in caplog.text
+    assert "secret-key" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        ({"meta": {"count": 12}, "results": []}, 12),
+        ({"results": []}, None),
+        ({"meta": None, "results": []}, None),
+        ({"meta": {"count": "12"}, "results": []}, None),
+        ({"meta": {"count": True}, "results": []}, None),
+    ],
+)
+def test_total_count_reads_meta_count(result: dict[str, Any], expected: int | None) -> None:
+    assert openalex._total_count(result) == expected
 
 
 class _RaisingReconfigure:

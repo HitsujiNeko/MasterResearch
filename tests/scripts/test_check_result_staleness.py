@@ -172,6 +172,16 @@ def test_input_missing_when_input_record_is_malformed(repo: Path, inputs: object
     assert _check(repo, path).status == target.STATUS_INPUT_MISSING
 
 
+@pytest.mark.parametrize("inputs", [None, []], ids=["none", "empty"])
+def test_missing_or_empty_inputs_are_not_checked(repo: Path, inputs: object) -> None:
+    """入力の記録が無い・空なら入力は照合せず、ほかに問題が無ければ最新とする（既知の限界）。"""
+    commit = _git(repo, "rev-parse", "HEAD")
+    provenance = _provenance(commit)
+    provenance["inputs"] = inputs
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    assert _check(repo, path).status == target.STATUS_UP_TO_DATE
+
+
 def test_stale_input_when_hash_differs(repo: Path) -> None:
     """入力ファイルのハッシュが記録値と違えば要再実行（入力変更）と判定する。"""
     commit = _git(repo, "rev-parse", "HEAD")

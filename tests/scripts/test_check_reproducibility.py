@@ -202,6 +202,8 @@ def test_compare_packages() -> None:
     ("overrides", "message"),
     [
         ({"name": ""}, "name"),
+        ({"name": "../escape"}, "name"),
+        ({"name": "C:/data/output/x"}, "name"),
         ({"module": 1}, "module"),
         ({"args": "--x"}, "args"),
         ({"args": ["--output-dir", "x"]}, "--output-dir"),
@@ -213,6 +215,8 @@ def test_compare_packages() -> None:
     ],
     ids=[
         "empty_name",
+        "name_with_separator",
+        "name_absolute_path",
         "module_not_str",
         "args_not_list",
         "output_dir",

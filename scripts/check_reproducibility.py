@@ -34,8 +34,8 @@
 環境では、回帰・ランダムフォレストなど BLAS を使う処理のために、環境の `Library\\bin` 等が
 `PATH` に含まれている必要がある（含まれていないと子プロセスが異常終了する）。
 
-終了コード: 0=全構成が一致／1=実行できない（設定の不正・再実行の失敗・結果の欠落）／
-2=不一致がある
+終了コード: 0=全構成が一致／1=実行できない（設定の不正・再実行の失敗・結果の欠落・
+照合した値が0件・構成ごとの出力先が空でない）／2=不一致がある
 
 実行はプロジェクトルートから行う（`src` パッケージを import するため）。
 
@@ -50,6 +50,7 @@ import argparse
 import datetime as dt
 import json
 import math
+import re
 import shutil
 import subprocess
 import sys
@@ -85,6 +86,9 @@ DEFAULT_REL_TOLERANCE = 1e-6
 
 # 再実行1構成あたりの待ち時間の上限（秒）の既定値
 DEFAULT_TIMEOUT_SECONDS = 4 * 60 * 60
+
+# 構成名に使える文字（構成名は出力先のディレクトリ名になる）
+_TARGET_NAME_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
 
 # 照合しないキー（出力先によって必ず変わる）
 _IGNORED_KEYS = frozenset({"outputs"})
@@ -203,6 +207,10 @@ def parse_target(entry: object, index: int) -> ReproducibilityTarget:
     if not isinstance(entry, dict):
         raise ValueError(f"{label}: 構成はオブジェクトで指定してください")
     name = _require_str(entry, "name", label)
+    if not _TARGET_NAME_PATTERN.fullmatch(name):
+        # 構成名は出力先のディレクトリ名になるため、区切り文字や絶対パスで出力先が
+        # data/output/ の保護の外へ置き換わらないよう制限する
+        raise ValueError(f"{label}: `name` は英数字・`_`・`-` だけで指定してください: {name}")
     label = f"{label}（{name}）"
     args = entry.get("args", [])
     if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
@@ -538,7 +546,8 @@ def run_target(
     report.package_differences = compare_packages(reference, rerun)
     if report.compared_count == 0:
         report.error = (
-            f"照合した値が0件（照合キー {list(target.compare_keys)} がどちらの結果 JSON にも無い）"
+            f"照合した値が0件（照合キー {list(target.compare_keys)} が結果 JSON に無いか、"
+            "中身が空）"
         )
         return report
     report.status = STATUS_MISMATCH if report.mismatches else STATUS_MATCH

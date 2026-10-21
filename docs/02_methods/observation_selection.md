@@ -61,7 +61,7 @@ effective_roi_coverage = scene_coverage_ratio × valid_pixel_ratio
 実効ROIカバー率3列を算出し、`effective_roi_coverage` 降順のランキングCSV
 （`data/output/gee_search_observation_ranking.csv`）を出力する。
 
-2023–2024年の探索結果132件（Landsat 8のみ）を再ランキングした上位5件と、比較対象の当時の採用観測は次の通り。
+2023–2024年の探索結果132件（Landsat 8のみ）を再ランキングした上位5件と、比較対象の見直し前の採用観測は次の通り。
 探索結果はその後、Landsat 9を加えて2022年以降へ拡張した（7章）。本章の順位は拡張前の132件での値である。
 
 | 順位 | 観測日時（UTC） | シーン被覆率 | LST有効率 | 指標有効率 | 実効ROIカバー率 | 雲量(%) |
@@ -71,9 +71,9 @@ effective_roi_coverage = scene_coverage_ratio × valid_pixel_ratio
 | 3 | `2023-07-07T03:23:05` | 0.935 | 95.57% | 94.90% | **88.7%** | 32.23 |
 | 4 | `2023-07-23T03:23:09` | 0.932 | 88.30% | 85.73% | 79.9% | 20.97 |
 | 5 | `2024-04-20T03:22:52` | 0.937 | 82.48% | 79.59% | 74.5% | 48.29 |
-| 12 | `2023-07-07T03:23:29`（当時の採用観測） | **0.526** | 99.60% | 99.57% | 52.3% | 8.38 |
+| 12 | `2023-07-07T03:23:29`（見直し前の採用観測） | **0.526** | 99.60% | 99.57% | 52.3% | 8.38 |
 
-当時の採用観測 `2023-07-07T03:23:29` は雲量こそ低い（8.38%）ものの、シーン被覆率が0.526と
+見直し前の採用観測 `2023-07-07T03:23:29` は雲量こそ低い（8.38%）ものの、シーン被覆率が0.526と
 ROIの約半分しか覆っておらず、実効ROIカバー率は12位（52.3%）にとどまる。
 これが今回の見直しの直接の動機である。
 
@@ -126,7 +126,7 @@ ROIの約半分しか覆っておらず、実効ROIカバー率は12位（52.3%�
 | 季節 | 9月（雨季）。既存のSatellite Only / Limitedの分析結果（7月）と季節がそろう |
 | 値の妥当性 | 平均 ± 6σ を超える画素は 0.013%（埋立地・中州の砂地・工場の屋根と、原因未確認の川岸1か所）で、合否基準（0.1%以下）に合格（8.4） |
 | ラスタ | `data/satellite/lst/2022/LST_Landsat8_20220906_032358Z.tif`, `data/satellite/indices/2022/INDICES_Landsat8_20220906_032358Z.tif` |
-| 比較用の観測 | `2023-07-07T03:23:05`（旧採用・雨季）、`2024-11-30T03:23:36`（乾季）。ラスタは `data/satellite/{lst,indices}/2023/` に在庫 |
+| 比較用の観測 | `2023-07-07T03:23:05`（旧採用・雨季）、`2024-11-30T03:23:36`（乾季）。ラスタは `data/satellite/{lst,indices}/2023/` に在庫（`2024-11-30` の指標は MNDWI が無く、分析前に再エクスポートが要る。9.1） |
 
 **旧採用（2026-10-21 まで）**: `2023-07-07T03:23:05` 単独（実効ROIカバー率 88.7%、2023–2024年の132件で3位）。
 既存の分析結果はこの観測に基づく。主採用の変更に伴う再実行の要否は9章に記す。
@@ -270,7 +270,7 @@ Cirrus（bit 2）・Snow（bit 5）は除外していなかった（衛星指標
 #### QA ビットの検証
 
 [gee_check_lst_cloud_mask.py](../../src/gee/gee_check_lst_cloud_mask.py) で、LST最小値が-20°C未満の
-7件とランキング上位20件（採用観測を含む）の計27件について、異常画素（変更前のマスクを通過し、LST < -20°C の画素）の
+7件とランキング上位20件（当時の採用観測を含む）の計27件について、異常画素（変更前のマスクを通過し、LST < -20°C の画素）の
 QA ビットと、マスク候補ごとの影響を集計した（結果: `data/output/lst_cloud_mask_anomaly_qa_bits.csv`・
 `data/output/lst_cloud_mask_variant_comparison.csv`）。LST は QA マスクなしで1回だけ計算し、各候補のマスクを
 後からかけている。変更前のマスク（`current`）の有効画素数・最小値・最大値・平均・標準偏差は、27件すべてで
@@ -330,7 +330,7 @@ Cloud フラグが立たずに残ったと考えられる（推定）。なお�
 - LST有効画素数が増えた観測は無い。選定キーは指標側で決まっている観測が大半のため、LST側の減少はほとんど反映されない
 - ランキングは1〜49位が変更前と同じで、50位・51位が入れ替わった（`2022-11-01T03:24:14` が 43.81% → 43.79%）。
   7.3 の件数・月別の欠落・上位10件の顔ぶれは変わらない
-- 当時の採用観測 `2023-07-07T03:23:05` は、有効画素率・実効ROIカバー率・LST統計量のすべてが変更前と一致した
+- 当時の採用観測 `2023-07-07T03:23:05`（8章の再選定後は比較用）は、有効画素率・実効ROIカバー率・LST統計量のすべてが変更前と一致した
 - LST最小値が-20°Cを下回る観測は7件から2件に減り（`2022-07-20T03:23:42` の -40.7°C と `2024-05-23T03:17:04` の
   -26.6°C）、実効ROIカバー率50%以上の観測では0件になった。2件とも実効ROIカバー率は7.5%以下である
 - `export_reason` は3件で `lst_valid_ratio_below_threshold` が加わったが、3件とも元から ROI を完全包含しておらず、
@@ -444,7 +444,7 @@ ROI に対する有効画素の割合で比べた。
 
 指標の GeoTIFF のバンド構成は、`2022-09-06`（今回エクスポート）と `2023-07-07`（在庫）が4バンド（NDVI・NDBI・NDWI・MNDWI）、
 `2024-11-30`（在庫）だけが3バンド（NDVI・NDBI・NDWI）である。`2023-07-07` は MNDWI を加えるために作り直している
-（[limited_analysis_results.md](../03_results/limited_analysis_results.md) のデータセットの世代の説明）。都市構造パラメータの
+（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）。都市構造パラメータの
 算出と Limited の分析は4つの指標を前提とするため、`2024-11-30` で分析するには指標の再エクスポートが要る（9.1）。
 
 **合否**: GEE 上の集計（[gee_check_lst_cloud_mask.py](../../src/gee/gee_check_lst_cloud_mask.py)、3件を指定）では、
@@ -538,18 +538,21 @@ ROI に対する有効画素の割合で比べた。
 
 **主採用を `2023-07-07T03:23:05` から `2022-09-06T03:23:58` に変えたため、主結果を得るには再実行が必要である。**
 再実行と、比較用の観測（8.5）での分析は、8章の再選定の範囲外とし別タスクで扱う。`032305` で実行済みの既存の分析結果は、
-旧採用（比較用の観測の1つ）に基づく結果として有効である。
+旧採用（比較用の観測の1つ）に基づく結果として有効である。ただし `032305` の結果は衛星指標の作り方で2世代に分かれ
+（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）、世代をまたいだ数値は直接比べない。
+新しい主採用は現行の手順（新世代: ROI でクリップ済み・MNDWI あり）で実行するため、比較に使えるのは新世代のラン
+（Limited はラン12〜15、採用構成はラン13）に限る。
 
 | 段階 | 再実行の要否 | 対象 |
 |---|---|---|
 | 都市構造パラメータ | 要 | `python -m src.analysis.urban_params`（ラスタ → PostGIS テーブル。`lst_20220906_032358`・`idx_20220906_032358` を新たに作る） |
 | データセット構築 | 要 | Satellite Only・Limited の gpkg（現在は `dataset_*_20230707_032305_hanoi_30m.gpkg`） |
 | 分析 | 要 | [analysis_rq3_limited.py](../../src/analysis/analysis_rq3_limited.py)・[analysis_rq3_satellite_only.py](../../src/analysis/analysis_rq3_satellite_only.py)（既定の入力パスと出力先が `20230707_032305` を指す） |
-| 比較用の観測 | `2024-11-30` を新たに実行 | `2024-11-30T03:23:36`。在庫の指標 GeoTIFF に MNDWI が無いため、先に指標を再エクスポートする（8.4）。`2023-07-07` は `032305` で実行済みの結果を使える |
+| 比較用の観測 | `2024-11-30` を新たに実行 | `2024-11-30T03:23:36`。在庫の指標 GeoTIFF に MNDWI が無いため、先に指標を再エクスポートする（8.4）。`2023-07-07` は `032305` で実行済みの新世代のランを使える（旧世代のランは比較に使わない） |
 
 主結果を新しい観測に差し替える際に、追従が要る文書は次の通りである（いずれも旧採用の観測を前提に書かれている）。
 
-- [GIS_IDEAS_poster.md](../03_results/GIS_IDEAS_poster.md)（4.2節を引用している）
+- [GIS_IDEAS_poster.md](../03_results/GIS_IDEAS_poster.md)（本ドキュメントの4.2節を引用している）
 - [analysis_rq3_satellite_only_guide.md](analysis_rq3_satellite_only_guide.md)、[qgis_operation_guidelines.md](qgis_operation_guidelines.md)
 - [limited_analysis_results.md](../03_results/limited_analysis_results.md)、[satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md)、
   [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)、[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md)

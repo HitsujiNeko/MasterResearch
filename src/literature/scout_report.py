@@ -18,7 +18,8 @@
 終了コード:
 
 - 0: コメント本文を書き出した
-- 1: 探索に失敗した（候補を1件も取得できなかった。起点を解決できない・OpenAlex 不通など）
+- 1: 既存コメントを読めない（保存ファイルが無い・空・JSON 配列でない）、または探索に失敗した
+  （候補を1件も取得できなかった。起点を解決できない・OpenAlex 不通など）
 - 3: 新規候補が無い（コメント本文は書き出さない）
 """
 
@@ -101,14 +102,23 @@ def load_comment_bodies(comments_json_path: Path) -> list[str]:
     `--paginate` はページごとの JSON 配列を連結して出力するため（``[...][...]``）、
     先頭から順に配列を読み進める。
 
+    コメントが0件の Issue でも `gh api` は ``[]`` を出力する。空ファイル（空白だけのものを
+    含む）は `gh api` の失敗（認証切れ等）でリダイレクト先だけが作られた状態とみなし、
+    「コメント0件」とは扱わない（提示済みの候補を除外できず、全件を再掲してしまうため）。
+
     Args:
         comments_json_path: 出力を保存したファイル。
     Returns:
         コメント本文のリスト。
     Raises:
-        ValueError: JSON 配列として解釈できない場合。
+        ValueError: ファイルが空の場合、または JSON 配列として解釈できない場合。
     """
     text = comments_json_path.read_text(encoding="utf-8-sig")
+    if not text.strip():
+        raise ValueError(
+            "コメント一覧のファイルが空です（gh api の失敗が疑われます）: "
+            f"{comments_json_path.name}"
+        )
     decoder = json.JSONDecoder()
     bodies: list[str] = []
     position = 0
@@ -232,9 +242,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--min-score", type=float, default=30.0, help="このスコア未満の候補を除外する"
     )
     parser.add_argument(
-        "--max-forward", type=int, default=400, help="1起点あたりの前方引用取得上限"
+        "--max-forward", type=positive_int, default=400, help="1起点あたりの前方引用取得上限"
     )
-    parser.add_argument("--timeout", type=int, default=20, help="タイムアウト秒数")
+    parser.add_argument("--timeout", type=positive_int, default=20, help="タイムアウト秒数")
     parser.add_argument(
         "--mailto", default=None, help="polite pool 用メールアドレス（API キー未設定時のみ）"
     )
@@ -246,9 +256,13 @@ def main(argv: list[str] | None = None) -> int:
     openalex.force_utf8_output()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _parse_args(argv)
-    presented_keys = extract_presented_keys(
-        load_comment_bodies(resolve_existing_path(Path(args.comments_json)))
-    )
+    try:
+        comment_bodies = load_comment_bodies(resolve_existing_path(Path(args.comments_json)))
+    except (OSError, ValueError) as exc:
+        # 提示済みの候補を判定できないまま進むと全件を再掲しうるため、探索せずに終える
+        print(f"既存コメントを読めませんでした: {exc}", file=sys.stderr)
+        return 1
+    presented_keys = extract_presented_keys(comment_bodies)
     candidates, skipped = paper_scout.scout(
         csv_path=resolve_existing_path(Path(args.csv)),
         s_numbers=args.s.split(",") if args.s else None,

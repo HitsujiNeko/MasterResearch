@@ -266,6 +266,24 @@ class TestCheckProjDb:
         assert target.find_osgeo4w_root("", {}, (fallback,)) == fallback
         assert target.find_osgeo4w_root("", {}, (tmp_path / "absent",)) is None
 
+    def test_invalid_explicit_root_does_not_fall_back(self, tmp_path: Path) -> None:
+        """明示指定が無効なら、環境変数・探索候補が有効でも使わず UNKNOWN にする。"""
+        from_env = _make_osgeo4w(tmp_path / "env")
+        fallback = _make_osgeo4w(tmp_path / "fallback")
+        environment = {"OSGEO4W_ROOT": str(from_env)}
+        absent = tmp_path / "absent"
+
+        def fail_runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+            raise AssertionError("無効な明示指定なのに gdalsrsinfo が実行された")
+
+        assert target.find_osgeo4w_root(str(absent), environment, (fallback,)) is None
+        result = target.check_proj_db(
+            str(absent), environment, runner=fail_runner, candidates=(fallback,)
+        )
+        assert result.status == target.STATUS_UNKNOWN
+        assert "--osgeo4w-root で指定したインストール先" in result.message
+        assert str(absent) in result.message
+
     def test_isolated_environment_drops_proj_settings(self, tmp_path: Path) -> None:
         """PROJ_LIB 等を取り除き、PATH を OSGeo4W の bin から始める。"""
         environment = {
@@ -357,6 +375,13 @@ class TestRuffVersions:
         )
         assert target.parse_pinned_version("ruff 0.15.17\n", target.LOCAL_RUFF_PATTERN) == "0.15.17"
         assert target.parse_pinned_version("", target.CI_RUFF_PATTERN) is None
+
+    @pytest.mark.parametrize("rev", ['"v0.16.0"', "'v0.16.0'", "0.16.0"])
+    def test_parses_quoted_pre_commit_rev(self, rev: str) -> None:
+        """pre-commit の rev は引用符つき・v なしの書式でも読む。"""
+        text = f"repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: {rev}\n"
+
+        assert target.parse_pinned_version(text, target.PRE_COMMIT_RUFF_PATTERN) == "0.16.0"
 
     def test_matching_versions_are_ok(self) -> None:
         """すべて一致すれば OK。"""
@@ -526,6 +551,55 @@ class TestMain:
         """--warn-days は 0 以上の整数のみ受け付ける。"""
         with pytest.raises(SystemExit):
             target.main(["--warn-days", warn_days])
+
+    def test_unexpected_exception_becomes_unknown_with_type_name_only(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """1項目で予期しない例外が出ても他の項目は報告され、例外の本文は出さない。"""
+        self._patch_checks(monkeypatch, target.STATUS_OK)
+
+        def broken(*args: object) -> target.CheckResult:
+            raise PermissionError("secret-token-value を含むメッセージ")
+
+        monkeypatch.setattr(target, "check_proj_db", broken)
+
+        code = target.main(["--skip-gee"])
+
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "要対応 1 件 / 3 項目" in out
+        assert (
+            f"[UNKNOWN] {target.CHECK_NAME_PROJ_DB}: "
+            "判定中に予期しない例外が発生しました（PermissionError @ "
+            "test_check_external_deps.py:broken:"
+        ) in out
+        assert "手元で再実行して原因を確認してください" in out
+        assert "secret-token-value" not in out
+        # 発生位置はファイル名だけを示し、ディレクトリ（ユーザー名を含みうる）は出さない
+        assert str(Path(__file__).parent) not in out
+
+    def test_utf16_env_file_is_reported_as_unknown(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: Path,
+    ) -> None:
+        """UTF-16 の .env でも全体は落ちず、Earthdata の項目だけが UNKNOWN になる。"""
+        fixed = target.CheckResult("x", target.STATUS_OK, "m")
+        monkeypatch.setattr(target, "check_proj_db", lambda *args: fixed)
+        monkeypatch.setattr(target, "check_ruff", lambda *args: fixed)
+        monkeypatch.delenv(target.EARTHDATA_TOKEN_ENV_VAR, raising=False)
+        env_path = tmp_path / "utf16.env"
+        env_path.write_text(f"{target.EARTHDATA_TOKEN_ENV_VAR}=secret-token-value\n", "utf-16")
+
+        code = target.main(["--skip-gee", "--env-file", str(env_path)])
+
+        out = capsys.readouterr().out
+        assert code == 1
+        assert f"[UNKNOWN] {target.CHECK_NAME_EARTHDATA}: " in out
+        # 発生位置は標準ライブラリ（codecs 等）ではなく、.env を読む自前コードを指す
+        assert "UnicodeDecodeError @ env_file.py:" in out
+        assert "secret-token-value" not in out
 
     def test_returns_one_when_problem_exists(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

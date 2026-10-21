@@ -38,6 +38,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import traceback
 from collections.abc import Callable, Mapping
 from contextlib import closing
 from dataclasses import dataclass
@@ -54,6 +55,12 @@ STATUS_UNKNOWN = "UNKNOWN"
 
 # 出力時の並び順（深刻なものを先に出す）
 _STATUS_ORDER = {STATUS_FAIL: 0, STATUS_WARN: 1, STATUS_UNKNOWN: 2, STATUS_OK: 3}
+
+# 項目名（判定関数と、予期しない例外を UNKNOWN にする main とで共有する）
+CHECK_NAME_EARTHDATA = "Earthdata トークン"
+CHECK_NAME_GEE = "GEE 認証"
+CHECK_NAME_PROJ_DB = "OSGeo4W の proj.db"
+CHECK_NAME_RUFF = "ruff の版"
 
 EARTHDATA_TOKEN_ENV_VAR = "EARTHDATA_TOKEN"
 EARTHDATA_TOKEN_URL = "https://ladsweb.modaps.eosdis.nasa.gov/profile/#generate-token"
@@ -166,7 +173,7 @@ def judge_token_expiry(
     Returns:
         判定結果。
     """
-    name = "Earthdata トークン"
+    name = CHECK_NAME_EARTHDATA
     if not has_token:
         return CheckResult(
             name,
@@ -251,7 +258,7 @@ def judge_gee_probe(returncode: int | None, stderr: str, timed_out: bool) -> Che
     Returns:
         判定結果。
     """
-    name = "GEE 認証"
+    name = CHECK_NAME_GEE
     if timed_out:
         return CheckResult(
             name,
@@ -287,9 +294,11 @@ def check_gee(
     try:
         project_id = resolve_gee_project_id(explicit_project_id, config_path)
     except ImportError as exc:
-        return CheckResult("GEE 認証", STATUS_UNKNOWN, f"earthengine-api を読み込めません: {exc}")
+        return CheckResult(
+            CHECK_NAME_GEE, STATUS_UNKNOWN, f"earthengine-api を読み込めません: {exc}"
+        )
     except (FileNotFoundError, ValueError) as exc:
-        return CheckResult("GEE 認証", STATUS_UNKNOWN, str(exc))
+        return CheckResult(CHECK_NAME_GEE, STATUS_UNKNOWN, str(exc))
 
     try:
         completed = runner(
@@ -304,7 +313,7 @@ def check_gee(
     except subprocess.TimeoutExpired:
         return judge_gee_probe(None, "", timed_out=True)
     except OSError as exc:
-        return CheckResult("GEE 認証", STATUS_UNKNOWN, f"Python を起動できませんでした: {exc}")
+        return CheckResult(CHECK_NAME_GEE, STATUS_UNKNOWN, f"Python を起動できませんでした: {exc}")
     return judge_gee_probe(completed.returncode, completed.stderr or "", timed_out=False)
 
 
@@ -316,7 +325,11 @@ def find_osgeo4w_root(
     environment: Mapping[str, str],
     candidates: tuple[Path, ...] = OSGEO4W_ROOT_CANDIDATES,
 ) -> Path | None:
-    """OSGeo4W のインストール先を、明示指定 → 環境変数 → 探索候補の順で決める。
+    """OSGeo4W のインストール先を決める。
+
+    明示指定があればそれのみを見て、無ければ環境変数 → 探索候補の順で探す。
+    明示指定が無効でも環境変数・探索候補へは進まない。指定と異なるインストール先を黙って
+    判定すると、指定したものの結果と誤読されるため。
 
     Args:
         explicit_root: 明示指定のパス（空なら無視する）。
@@ -325,16 +338,22 @@ def find_osgeo4w_root(
     Returns:
         `bin/gdalsrsinfo.exe` を持つインストール先。見つからなければ None。
     """
-    ordered: list[Path] = []
     if explicit_root.strip():
-        ordered.append(Path(explicit_root.strip()))
+        explicit = Path(explicit_root.strip())
+        return explicit if _has_gdalsrsinfo(explicit) else None
+    ordered: list[Path] = []
     if environment.get("OSGEO4W_ROOT", "").strip():
         ordered.append(Path(environment["OSGEO4W_ROOT"].strip()))
     ordered.extend(candidates)
     for root in ordered:
-        if (root / "bin" / "gdalsrsinfo.exe").exists():
+        if _has_gdalsrsinfo(root):
             return root
     return None
+
+
+def _has_gdalsrsinfo(root: Path) -> bool:
+    """インストール先に `bin/gdalsrsinfo.exe` があるかを返す。"""
+    return (root / "bin" / "gdalsrsinfo.exe").exists()
 
 
 def build_isolated_environment(
@@ -391,7 +410,7 @@ def judge_proj_db(returncode: int | None, stderr: str, metadata: Mapping[str, st
     Returns:
         判定結果。
     """
-    name = "OSGeo4W の proj.db"
+    name = CHECK_NAME_PROJ_DB
     detail_parts = []
     if metadata.get("PROJ.VERSION"):
         detail_parts.append(f"PROJ.VERSION={metadata['PROJ.VERSION']}")
@@ -436,9 +455,16 @@ def check_proj_db(
         判定結果。
     """
     root = find_osgeo4w_root(explicit_root, environment, candidates)
+    if root is None and explicit_root.strip():
+        return CheckResult(
+            CHECK_NAME_PROJ_DB,
+            STATUS_UNKNOWN,
+            "--osgeo4w-root で指定したインストール先に bin/gdalsrsinfo.exe がありません"
+            f"（{explicit_root.strip()}）",
+        )
     if root is None:
         return CheckResult(
-            "OSGeo4W の proj.db",
+            CHECK_NAME_PROJ_DB,
             STATUS_UNKNOWN,
             "OSGeo4W が見つかりません（--osgeo4w-root か環境変数 OSGEO4W_ROOT で指定できます）",
         )
@@ -478,7 +504,7 @@ def parse_pinned_version(text: str, pattern: str) -> str | None:
 # 各設定ファイルで ruff の版を固定している書式
 CI_RUFF_PATTERN = r"ruff==([0-9][0-9A-Za-z.]*)"
 ENVIRONMENT_RUFF_PATTERN = r"^\s*-\s*ruff\s*=+\s*([0-9][0-9A-Za-z.]*)"
-PRE_COMMIT_RUFF_PATTERN = r"ruff-pre-commit\s*\n\s*rev:\s*v?([0-9][0-9A-Za-z.]*)"
+PRE_COMMIT_RUFF_PATTERN = r"ruff-pre-commit\s*\n\s*rev:\s*[\"']?v?([0-9][0-9A-Za-z.]*)"
 LOCAL_RUFF_PATTERN = r"ruff\s+([0-9][0-9A-Za-z.]*)"
 
 
@@ -496,7 +522,7 @@ def judge_ruff_versions(
     Returns:
         判定結果。
     """
-    name = "ruff の版"
+    name = CHECK_NAME_RUFF
     if ci_version is None:
         return CheckResult(name, STATUS_UNKNOWN, "ci.yml から ruff の固定版を読み取れませんでした")
     if local_version is None:
@@ -594,6 +620,59 @@ def check_ruff(
 # ---------------------------------------------------------------------------
 # 出力
 # ---------------------------------------------------------------------------
+def run_check(name: str, check: Callable[..., CheckResult], *args: object) -> CheckResult:
+    """1項目の判定を実行し、予期しない例外は UNKNOWN の結果に置き換える。
+
+    1項目の例外（文字コードの異なる .env による UnicodeDecodeError、PermissionError 等）で
+    他の項目の報告まで失われないようにするため。例外のメッセージ本文はファイルの内容など
+    秘密情報を含みうるため出さず、型名と発生位置（ファイル名・関数名・行番号）だけを示す。
+
+    Args:
+        name: 項目名（例外時の結果に使う）。
+        check: 判定関数。
+        *args: 判定関数に渡す引数。
+    Returns:
+        判定結果。
+    """
+    try:
+        return check(*args)
+    except Exception as exc:  # 項目単位で捕捉し、残りの項目を判定し続ける
+        return CheckResult(
+            name,
+            STATUS_UNKNOWN,
+            f"判定中に予期しない例外が発生しました（{type(exc).__name__}"
+            f"{_describe_exception_location(exc)}）。スクリプトの不具合か想定外の環境の"
+            "可能性があるため、手元で再実行して原因を確認してください",
+        )
+
+
+def _describe_exception_location(exc: BaseException) -> str:
+    """例外が発生した位置を「 @ ファイル名:関数名:行番号」の形で返す。
+
+    標準ライブラリ（``<frozen codecs>`` のような凍結モジュールを含む）・site-packages の
+    中のフレームは原因の手がかりにならないため飛ばし、
+    最も内側の自前コードの位置を示す（自前コードが無ければ最も内側のフレーム）。
+    ファイルはパスを除いた名前だけにする（ユーザー名などを含むパスを出さないため）。
+
+    Args:
+        exc: 例外。
+    Returns:
+        位置の文字列。トレースバックが無ければ空文字列。
+    """
+    frames = traceback.extract_tb(exc.__traceback__)
+    if not frames:
+        return ""
+    library_roots = {Path(sys.prefix).resolve(), Path(sys.base_prefix).resolve()}
+    own_frames = [
+        frame
+        for frame in frames
+        if not frame.filename.startswith("<")
+        and not any(root in Path(frame.filename).resolve().parents for root in library_roots)
+    ]
+    frame = (own_frames or frames)[-1]
+    return f" @ {Path(frame.filename).name}:{frame.name}:{frame.lineno}"
+
+
 def format_report(results: list[CheckResult], checked_at: dt.datetime) -> str:
     """問題のある項目だけを並べた報告文を作る。
 
@@ -658,7 +737,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=str(DEFAULT_ENV_FILE_PATH),
         help="Earthdata トークンを読む .env（環境変数が優先される）",
     )
-    parser.add_argument("--osgeo4w-root", default="", help="OSGeo4W のインストール先")
+    parser.add_argument(
+        "--osgeo4w-root",
+        default="",
+        help="OSGeo4W のインストール先（指定時は環境変数・既定の探索先を見ない）",
+    )
     parser.add_argument("--skip-gee", action="store_true", help="GEE の判定を省略する")
     return parser.parse_args(argv)
 
@@ -674,11 +757,28 @@ def main(argv: list[str] | None = None) -> int:
     environment = dict(os.environ)
     now = dt.datetime.now(dt.timezone.utc)
 
-    results = [check_earthdata_token(environment, Path(args.env_file), now, args.warn_days)]
+    results = [
+        run_check(
+            CHECK_NAME_EARTHDATA,
+            check_earthdata_token,
+            environment,
+            Path(args.env_file),
+            now,
+            args.warn_days,
+        )
+    ]
     if not args.skip_gee:
-        results.append(check_gee(args.gee_project_id, Path(args.gee_config), sys.executable))
-    results.append(check_proj_db(args.osgeo4w_root, environment))
-    results.append(check_ruff(sys.executable))
+        results.append(
+            run_check(
+                CHECK_NAME_GEE,
+                check_gee,
+                args.gee_project_id,
+                Path(args.gee_config),
+                sys.executable,
+            )
+        )
+    results.append(run_check(CHECK_NAME_PROJ_DB, check_proj_db, args.osgeo4w_root, environment))
+    results.append(run_check(CHECK_NAME_RUFF, check_ruff, sys.executable))
 
     print(format_report(results, now.astimezone()))
     return 1 if any(result.status != STATUS_OK for result in results) else 0

@@ -99,6 +99,15 @@ class TestLoadCommentBodies:
 
         assert scout_report.load_comment_bodies(path) == [""]
 
+    @pytest.mark.parametrize("text", ["", "  \n\t\n", "﻿"])
+    def test_rejects_empty_file(self, tmp_path: Path, text: str) -> None:
+        """空・空白だけ・BOM だけのファイル（gh api の失敗）は、0件ではなく ValueError。"""
+        path = tmp_path / "comments.json"
+        path.write_text(text, encoding="utf-8")
+
+        with pytest.raises(ValueError, match="空です"):
+            scout_report.load_comment_bodies(path)
+
     def test_rejects_non_array(self, tmp_path: Path) -> None:
         """配列でない JSON（エラー応答など）は ValueError。"""
         path = tmp_path / "comments.json"
@@ -330,6 +339,79 @@ class TestMain:
             scout_report.main(
                 ["--comments-json", "c.json", "--output", str(tmp_path / "o.md"), "--top", top]
             )
+
+    @pytest.mark.parametrize("option", ["--max-forward", "--timeout"])
+    @pytest.mark.parametrize("value", ["0", "-1", "x"])
+    def test_rejects_invalid_fetch_options(self, tmp_path: Path, option: str, value: str) -> None:
+        """--max-forward・--timeout は 1 以上の整数のみ受け付ける。"""
+        with pytest.raises(SystemExit):
+            scout_report.main(
+                ["--comments-json", "c.json", "--output", str(tmp_path / "o.md"), option, value]
+            )
+
+    @pytest.mark.parametrize("text", ["", "not json", '{"message": "Bad credentials"}'])
+    def test_unreadable_comments_return_one_without_search(
+        self,
+        tmp_path: Path,
+        papers_csv: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        text: str,
+    ) -> None:
+        """既存コメントを読めなければ、探索せずに 1 を返し、ファイルを作らない。"""
+
+        def fail_scout(**kwargs: object) -> None:
+            raise AssertionError("既存コメントを読めないのに探索が呼ばれた")
+
+        monkeypatch.setattr(paper_scout, "scout", fail_scout)
+        comments_path = tmp_path / "comments.json"
+        comments_path.write_text(text, encoding="utf-8")
+        output = tmp_path / "out.md"
+
+        code = scout_report.main(
+            [
+                "--comments-json",
+                str(comments_path),
+                "--output",
+                str(output),
+                "--csv",
+                str(papers_csv),
+            ]
+        )
+
+        assert code == 1
+        assert not output.exists()
+        assert "既存コメントを読めませんでした" in capsys.readouterr().err
+
+    def test_missing_comments_file_returns_one_without_search(
+        self,
+        tmp_path: Path,
+        papers_csv: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """既存コメントの保存ファイルが無ければ、探索せずに 1 を返す（トレースバックにしない）。"""
+
+        def fail_scout(**kwargs: object) -> None:
+            raise AssertionError("既存コメントを読めないのに探索が呼ばれた")
+
+        monkeypatch.setattr(paper_scout, "scout", fail_scout)
+        output = tmp_path / "out.md"
+
+        code = scout_report.main(
+            [
+                "--comments-json",
+                str(tmp_path / "absent.json"),
+                "--output",
+                str(output),
+                "--csv",
+                str(papers_csv),
+            ]
+        )
+
+        assert code == 1
+        assert not output.exists()
+        assert "既存コメントを読めませんでした" in capsys.readouterr().err
 
     def test_search_failure_returns_one(
         self, tmp_path: Path, papers_csv: Path, monkeypatch: pytest.MonkeyPatch

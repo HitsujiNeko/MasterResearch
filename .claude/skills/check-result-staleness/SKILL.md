@@ -35,6 +35,8 @@ gh issue list --state open --label analysis --limit 100 \
   --json number,title,body,createdAt > "{スクラッチパッド}/staleness_issues.json"
 ```
 
+`gh` が非0の終了コードで終わった場合（認証切れ・ネットワーク断など）は、以降の手順を行わず、書き込まずに終了してエラーを報告する（保存ファイルが空のまま「報告 Issue なし」と読むと、報告 Issue を重複して起票してしまうため）。
+
 次の 3 条件をすべて満たす OPEN の Issue を報告 Issue とする（本ファイルに特定の Issue 番号は書かない）。
 
 - タイトルが「analysis: 分析結果の陳腐化検出報告」で始まる
@@ -55,7 +57,7 @@ gh issue view {番号} --json body,comments > "{スクラッチパッド}/stalen
 
 ### Step 3: 判定と報告本文の生成
 
-プロジェクトルートから `python -m` 形式で実行する。報告 Issue がある場合だけ `--previous-issue-json` を付ける。
+プロジェクトルートから `python -m` 形式で実行する。Python は conda 環境 `masterresearch` の python.exe をフルパスで呼ぶ（Claude Code のツールからは `conda activate` が使えず、`python` が別の Python を指すことがあるため）。報告 Issue がある場合だけ `--previous-issue-json` を付ける。
 
 ```sh
 python -m scripts.check_result_staleness \
@@ -98,6 +100,7 @@ gh issue create \
 
 - 行った書き込み（新規起票／差分追記／close／書き込みなし）と、その URL または書き込まなかった理由を報告する
 - `{スクラッチパッド}/staleness.md` の分類別の件数を添える
+- 「要再実行（コード変更）」のうち、理由が「記録コミットがローカルに無い」ものは、コードが変わったのではなく生成時のコードを確かめられない状態である（スクリプト冒頭の既知の限界）。その件数を分けて添える
 - **対話実行**のみ: 「要再実行」の結果が残っていれば、再実行するかをユーザーに確認する（再実行の要否・順序は研究者が判断する。本スキルは再実行しない）
 
 ---

@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from src.common.http_fetch import fetch_json_with_retry
 
@@ -396,7 +396,8 @@ def _warn_if_truncated(
         last_page_full: 最後に取得したページが ``per_page`` 件で満杯だったか。
         reached_paging_limit: basic paging で要求できる最後のページまで取得したか。
     """
-    query_text = _redact(query)
+    # URL エンコード済みの filter も読めるようにデコードして出す（API キーは query に含まれない）
+    query_text = unquote(_redact(query))
     if collected_count >= max_results:
         if not _is_truncated_by_max_results(
             collected_count, max_results, total_count, last_page_full
@@ -414,7 +415,7 @@ def _warn_if_truncated(
         else:
             logger.warning(
                 "取得上限 %d 件に達したため打ち切りました（総件数: %s。並び順 %s の先頭から"
-                "取得し、残りは取得していません）: %s",
+                "取得し、残りは結果に含めていません）: %s",
                 max_results,
                 _format_count(total_count),
                 sort,

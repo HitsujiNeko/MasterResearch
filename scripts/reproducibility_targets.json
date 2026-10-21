@@ -1,0 +1,44 @@
+{
+  "description": "scripts/check_reproducibility.py の対象構成。現在の構成は仕組みの動作確認用の暫定構成であり、本番の対象構成と定期実行は採用観測の再選定の結果を受けて別途決める。args には保存済み結果に記録された設定を既定値に頼らず明示する（既定値の変更で構成がずれるのを防ぐため）。",
+  "targets": [
+    {
+      "name": "limited_masksurvey_both_bh_mean",
+      "module": "src.analysis.analysis_rq3_limited",
+      "args": [
+        "--dataset-path",
+        "data/output/datasets/dataset_limited_masksurvey_20230707_032305_hanoi_30m.gpkg",
+        "--variable-set",
+        "both",
+        "--building-height",
+        "mean",
+        "--water-index",
+        "ndwi",
+        "--population-source",
+        "worldpop2020",
+        "--analysis-area",
+        "roi",
+        "--scale",
+        "30",
+        "--lst-valid-ratio-threshold",
+        "0.5",
+        "--sample-size",
+        "100000",
+        "--random-state",
+        "42",
+        "--cv-splits",
+        "5",
+        "--block-size-m",
+        "2700",
+        "--shap-sample-size",
+        "2000",
+        "--shap-background-size",
+        "500",
+        "--rf-trees",
+        "300"
+      ],
+      "reference_results": "data/output/limited/20230707_032305_area_comparison/dataset_limited_masksurvey_20230707_032305_hanoi_30m_both_bh_mean_results.json",
+      "abs_tolerance": 1e-9,
+      "rel_tolerance": 1e-6
+    }
+  ]
+}

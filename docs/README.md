@@ -218,6 +218,7 @@ docs/
 ### ✅ 定期メンテナンス
 
 - [ ] 週次: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
+- [ ] 週次: 分析結果の陳腐化検出（`/check-result-staleness` skillを使用。来歴を現在の入力・コードと照合し、要再実行の結果を報告 Issue にまとめる）
 - [ ] 月次: 外部依存のヘルスチェック・文献探索（`/paper-scout` の月次自動実行）。週次・月次の定期実行の設定と登録手順は [scheduled-tasks.md](../.github/scheduled-tasks.md) を正本とする
 - [ ] 研究フェーズ移行時: ドキュメント構成の見直し
 - [ ] 論文投稿前: 全ドキュメントの整合性確認

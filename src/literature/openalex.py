@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from src.common.http_fetch import fetch_json_with_retry
 
@@ -320,6 +320,10 @@ def fetch_paged(
 
     次のいずれかで打ち切る: 上限件数に達した／件数が ``per_page`` 未満のページ（最終ページ）／
     basic paging の上限に達した／リクエストが失敗した（取得済みの分は返す）。
+    上限件数または basic paging の上限で続きを切り捨てたときは WARNING を出す。切り捨ての
+    有無は、取得済みの件数と最初のページの ``meta.count``（条件に合う総件数）で判定する。
+    ``meta.count`` が無い場合は、最後のページが満杯なら続きがある可能性として知らせる
+    （判定の詳細は ``_is_truncated_by_max_results`` を参照）。
 
     basic paging はページごとに独立した問い合わせになるため、並び順が一意に定まらないと
     ページの境目で順序が入れ替わり、重複と取りこぼしが起きる（並び順を指定しない場合に
@@ -339,6 +343,8 @@ def fetch_paged(
     """
     collected: list[dict[str, Any]] = []
     any_success = False
+    total_count: int | None = None
+    last_page_full = False
     max_page = BASIC_PAGING_LIMIT // per_page
     page = 1
     while len(collected) < max_results and page <= max_page:
@@ -346,17 +352,159 @@ def fetch_paged(
         result = safe_fetch(url, timeout)
         if result is None:
             break
+        if not any_success:
+            total_count = _total_count(result)
         any_success = True
         page_results = result.get("results") or []
         collected.extend(page_results)
-        if len(page_results) < per_page:
+        last_page_full = len(page_results) >= per_page
+        if not last_page_full:
             break
         page += 1
-    if page > max_page and len(collected) < max_results:
-        logger.warning(
-            "basic paging の上限（先頭 %d 件）に達したため打ち切ります", BASIC_PAGING_LIMIT
-        )
+    _warn_if_truncated(
+        query,
+        sort,
+        max_results,
+        collected_count=len(collected),
+        total_count=total_count,
+        last_page_full=last_page_full,
+        reached_paging_limit=page > max_page,
+    )
     return collected[:max_results], any_success
+
+
+def _warn_if_truncated(
+    query: str,
+    sort: str,
+    max_results: int,
+    collected_count: int,
+    total_count: int | None,
+    last_page_full: bool,
+    reached_paging_limit: bool,
+) -> None:
+    """取得上限または basic paging の上限で続きを切り捨てたときに WARNING を出す。
+
+    総件数が不明で切り捨てを断定できない場合は「続きがある可能性」として知らせる。
+    総件数（``meta.count``）が取得済みの件数より少ない場合は、ページ間で古くなった値と
+    みなして不明として扱う。
+    ログには問い合わせ条件のみを出し、URL（API キーを含む）は出さない。
+
+    Args:
+        query: ``filter=...`` 等のクエリ断片。
+        sort: 取得時の並び順（どの順の先頭を残したかを示すため）。
+        max_results: 取得上限件数。
+        collected_count: 取得済みの件数（上限で切り詰める前）。
+        total_count: 条件に合う総件数（``meta.count``）。不明なら None。
+        last_page_full: 最後に取得したページが ``per_page`` 件で満杯だったか。
+        reached_paging_limit: basic paging で要求できる最後のページまで取得したか。
+    """
+    # URL エンコード済みの filter も読めるようにデコードして出す（API キーは query に含まれない）
+    query_text = unquote(_redact(query))
+    # 総件数は最初のページのもので、実際の取得件数と矛盾するなら信用しない
+    if total_count is not None and total_count < collected_count:
+        total_count = None
+    if collected_count >= max_results:
+        if not _is_truncated_by_max_results(
+            collected_count, max_results, total_count, last_page_full
+        ):
+            return
+        # 上限を超えて取得していれば、総件数が不明でも切り捨ては確実
+        if total_count is None and collected_count <= max_results:
+            logger.warning(
+                "取得上限 %d 件に達したため取得を止めました（総件数: 不明。続きがある可能性が"
+                "あります。並び順 %s の先頭から取得）: %s",
+                max_results,
+                sort,
+                query_text,
+            )
+        else:
+            logger.warning(
+                "取得上限 %d 件に達したため打ち切りました（総件数: %s。並び順 %s の先頭から"
+                "取得し、残りは結果に含めていません）: %s",
+                max_results,
+                _format_count(total_count),
+                sort,
+                query_text,
+            )
+        return
+    if not reached_paging_limit:
+        return
+    if total_count is None:
+        logger.warning(
+            "basic paging の上限（先頭 %d 件）に達したため取得を止めました（総件数: 不明。"
+            "続きがある可能性があります）: %s",
+            BASIC_PAGING_LIMIT,
+            query_text,
+        )
+    # 総件数が分かれば、取得済みの件数ちょうどで尽きた場合（最終ページが満杯）を除外できる
+    elif total_count > collected_count:
+        logger.warning(
+            "basic paging の上限（先頭 %d 件）に達したため打ち切りました（総件数: %s）: %s",
+            BASIC_PAGING_LIMIT,
+            _format_count(total_count),
+            query_text,
+        )
+
+
+def _total_count(result: dict[str, Any]) -> int | None:
+    """OpenAlex の一覧応答から条件に合う総件数（``meta.count``）を取り出す。
+
+    Args:
+        result: OpenAlex の一覧応答。
+    Returns:
+        総件数。``meta.count`` が無い・整数でない場合は None。
+    """
+    meta = result.get("meta")
+    if not isinstance(meta, dict):
+        return None
+    count = meta.get("count")
+    # bool は int のサブクラスのため明示的に除外する
+    if isinstance(count, int) and not isinstance(count, bool):
+        return count
+    return None
+
+
+def _is_truncated_by_max_results(
+    collected_count: int, max_results: int, total_count: int | None, last_page_full: bool
+) -> bool:
+    """取得上限で止めたとき、まだ続きがあった（切り捨てた）かを判定する。
+
+    総件数（``meta.count``）は最初のページのものであり、ページ間で変わりうるため、
+    実際の取得結果を優先して次の順に判定する。
+
+    1. 上限を超えて取得していた（取得済みの分を捨てた）→ 切り捨て
+    2. 上限ちょうどで、最後のページが満杯でない（データが尽きた）→ 切り捨てではない
+    3. 上限ちょうどで最後のページが満杯 → 総件数が分かれば上限と比べ、分からなければ
+       続きがありうるため切り捨てとみなし、知らせる側に倒す
+
+    Args:
+        collected_count: 取得済みの件数（上限で切り詰める前）。
+        max_results: 取得上限件数。
+        total_count: 条件に合う総件数（``meta.count``）。不明、または取得済みの件数と
+            矛盾する（古い）場合は None。
+        last_page_full: 最後に取得したページが ``per_page`` 件で満杯だったか。
+    Returns:
+        切り捨てが起きた（起きた可能性がある）場合は True。
+    """
+    # 上限が 0 以下なら1件も要求していない（負値で「上限超過」と誤判定しないため）
+    if max_results <= 0:
+        return False
+    # 上限に達していなければ、最終ページ・失敗・basic paging 上限など別の理由で止まっている
+    if collected_count < max_results:
+        return False
+    if collected_count > max_results:
+        return True
+    # 満杯でないページは最終ページなので、総件数によらず続きは無い
+    if not last_page_full:
+        return False
+    if total_count is not None:
+        return total_count > max_results
+    return True
+
+
+def _format_count(count: int | None) -> str:
+    """ログ用に件数を整形する（不明な場合は「不明」）。"""
+    return "不明" if count is None else f"{count:,} 件"
 
 
 # ---------------------------------------------------------------------------

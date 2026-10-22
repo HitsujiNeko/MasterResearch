@@ -72,7 +72,8 @@ def repo(tmp_path: Path) -> Path:
     )
     (root / "data" / "output" / "datasets").mkdir(parents=True)
     (root / INPUT_REL).write_bytes(b"dataset-v1")
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    # 報告モードは main でのみ動くため、利用者の init.defaultBranch に依らず main にそろえる
+    subprocess.run(["git", "init", "-q", "--initial-branch", "main"], cwd=root, check=True)
     _commit_all(root, "initial")
     return root
 
@@ -992,3 +993,74 @@ def test_main_report_mode_fails_without_marker(
     assert exit_code == target.EXIT_FAILURE
     assert not (repo / "out" / "report.md").exists()
     assert "マーカー" in capsys.readouterr().err
+
+
+# --- 報告モードのブランチ制限 ---
+
+
+def _forbid_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """結果ファイルの走査に進んだらテストを失敗させる。"""
+
+    def must_not_scan(_root: Path) -> list[Path]:
+        pytest.fail("main 以外のブランチで報告モードの判定に進んではいけない")
+
+    monkeypatch.setattr(target, "find_result_files", must_not_scan)
+
+
+@pytest.mark.parametrize("checkout", ["branch", "detached"])
+def test_main_report_mode_refuses_outside_main(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    checkout: str,
+) -> None:
+    """main 以外では、報告 Issue を渡しても判定・書き出しをせずに終了コード1を返す。"""
+    if checkout == "branch":
+        _git(repo, "checkout", "-q", "-b", "351/work")
+        expected = "351/work"
+    else:
+        _git(repo, "checkout", "-q", "--detach")
+        expected = "detached HEAD"
+    issue_path = _issue_json(tmp_path, target.format_state_marker({}), [])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    _forbid_scan(monkeypatch)
+    exit_code = target.main(
+        ["--report-output", "out/report.md", "--previous-issue-json", str(issue_path)]
+    )
+    assert exit_code == target.EXIT_FAILURE
+    assert not (repo / "out" / "report.md").exists()
+    err = capsys.readouterr().err
+    assert f"現在: {expected}" in err
+    assert "--report-output を外して" in err
+
+
+def test_main_report_mode_refuses_new_issue_outside_main(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """報告 Issue が無い（新規起票の）場合も、main 以外では本文を書き出さない。"""
+    _git(repo, "checkout", "-q", "-b", "351/work")
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    _forbid_scan(monkeypatch)
+    assert target.main(["--report-output", "out/report.md"]) == target.EXIT_FAILURE
+    assert not (repo / "out" / "report.md").exists()
+
+
+def test_main_without_report_output_runs_outside_main(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--report-output` なしの判定だけの実行は、main 以外のブランチでも動く。"""
+    _git(repo, "checkout", "-q", "-b", "351/work")
+    _write_result(repo, "a_results.json", {"sample_size": 1})
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    assert target.main(["--output-json", "out/staleness.json"]) == target.EXIT_REPORT_WRITTEN
+    report = json.loads((repo / "out" / "staleness.json").read_text(encoding="utf-8"))
+    assert [entry["status"] for entry in report["results"]] == [target.STATUS_NO_PROVENANCE]
+
+
+def test_current_branch(repo: Path) -> None:
+    """ブランチ名を返し、detached HEAD では None を返す。"""
+    git = target.GitRepository(repo)
+    assert git.current_branch() == "main"
+    _git(repo, "checkout", "-q", "--detach")
+    assert git.current_branch() is None

@@ -121,11 +121,11 @@ qgis/
 | 場面 | 手段 | 理由 |
 |---|---|---|
 | 図の生成（1 枚でも複数枚でも）・スタイルを当てた PNG の書き出し | **ヘッドレス PyQGIS**（既定） | キャンバスの再描画とレイヤツリーの更新が起きないため速く、ユーザーの QGIS 本体を巻き込まない |
-| 起動中のプロジェクトの構成を変える（Map Theme のレコード編集、レイヤグループの可視性設定、`.qml`を作るためのレイヤへのスタイル設定など） | `execute_code` | 対象が「いま開いているプロジェクト」そのものであり、ヘッドレスでは触れない |
+| 起動中のプロジェクトの構成を変える（Map Theme のレコード編集、レイヤグループの可視性設定など）、起動中のプロジェクトのレイヤにスタイルを当てて`.qml`を作る | `execute_code` | 対象が「いま開いているプロジェクト」やそのレイヤそのものであり、ヘッドレスでは触れない |
 | 起動中のレイヤの状態を軽く確かめる（CRS の WKT・地図単位、件数・範囲など） | `execute_code`（専用ツールで足りるならそちら） | 1 回の呼び出しが数秒で終わる読み取りに限る |
-| 目視確認のための即時表示 | `get_canvas_screenshot` / `render_map` | ファイル保存の要否は[保存機構](#取得方法構図)を参照 |
+| 目視確認のための即時表示、起動中の QGIS での軽い単発の図 | `get_canvas_screenshot` / `render_map` | コミット用 PNG にできるのは`render_map(path=...)`のみ（[保存機構](#取得方法構図)を参照） |
 
-**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（所要時間の記録は本節を正本とする。このとき作った図は[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)に掲載されているが、同ドキュメントに所要時間の記載はない）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
+**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる（2026-08-15 の事象で観察した値。クライアント・サーバーの設定値かは未確認）。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（起動・終了を含むかは記録がなく未確認。所要時間の記録は本節を正本とする。このとき作った図は[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)に掲載されているが、同ドキュメントに所要時間の記載はない）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
 
 ### 実行手順
 
@@ -158,6 +158,8 @@ try:
     from src.visualization import figure_layout as fl
     from src.visualization import qgis_figure as qf
 
+    print(qf.__file__)  # 読み込まれたモジュールの場所（worktree で作業中なら必ず確かめる）
+
     project = QgsProject.instance()
     roi = QgsVectorLayer(str(roi_path), "ROI", "ogr")
     dem = QgsRasterLayer(str(raster_path), "FABDEM")
@@ -168,7 +170,7 @@ try:
     result = qf.build_gis_figure(
         "FABDEM", "ROI", "FABDEM 標高 2023 － Hanoi ROI", str(out_png), legend_kind=fl.LEGEND_ITEMS
     )
-    print(result)  # {"ok": True, "path": ...}
+    print(result)  # 例: {'ok': True, 'path': '...'}
 finally:
     app.exitQgis()
 ```
@@ -187,7 +189,7 @@ finally:
 
 ### 注意点
 
-- **proj.db の警告**: 実行時に`proj.db contains DATABASE.LAYOUT.VERSION.MINOR = 2 whereas a number >= 4 is expected`という警告が大量に出る。OSGeo4W 同梱の proj.db が古いためで、EPSG:4326 のデータを描く限り図は正しく出力される（2026-10-22 に確認）。ただし**EPSG:5897 からの再投影は失敗し、ラスタが描画されない**ため、測量 GIS 由来のデータは事前に EPSG:4326 へ再投影してから渡す（事例は[limited_analysis_results.md](../03_results/limited_analysis_results.md)の図の生成）。proj.db の状態は`scripts/check_external_deps.py`で確認できる
+- **proj.db の警告**: 実行時に`proj.db contains DATABASE.LAYOUT.VERSION.MINOR = 2 whereas a number >= 4 is expected`という警告が大量に出る。OSGeo4W 同梱の proj.db が古いためで、EPSG:4326 のデータを描く限り図は正しく出力される（2026-10-22 に確認）。ただし**EPSG:5897 のラスタは EPSG:4326 への再投影に失敗し、描画されない**ため、EPSG:5897 のデータ（測量 GIS や、正準グリッドへラスタ化したデータなど）は事前に EPSG:4326 へ再投影してから渡す（事例は[limited_analysis_results.md](../03_results/limited_analysis_results.md)の図の生成。EPSG:5897 のベクタで同じことが起きるかは未確認）。proj.db の状態は`scripts/check_external_deps.py`で確認できる
 - **`The PNG driver does not support update access`**: 書き出し時に出るが、PNG 自体は出力される（同上）
 - **凡例の言語**: ヘッドレスでは QGIS の日本語ロケールが読まれず、自動生成される凡例の文字列だけが英語になる（ラスタのバンド凡例が`バンド 1 (グレー)`ではなく`Band 1 (Gray)`になる）。`build_gis_figure`の凡例タイトル（`凡例`）、レイヤ名、呼び出し側が渡すラベルは渡したとおりに出るため、ベクタ主題図の体裁は変わらない
 - **プロジェクトを汚さない**: ヘッドレスの`QgsProject.instance()`はランナー内だけの空のプロジェクトであり、`hanoi.qgz`は読み込まない限り変わらない。`qgis/projects/*.qgz`を`read()`で読み込んで使う場合も、`write()`を呼ばない
@@ -346,7 +348,7 @@ Esri LULC（`io-lulc-annual-v02`）では、STACコレクションの`item_asset
 
 **保存機構**:
 
-- コミット用 PNG は `render_map(path=...)`、または印刷レイアウト export（`build_gis_figure` はこちら）で生成する
+- コミット用 PNG は印刷レイアウト export（`build_gis_figure`）で生成し、呼び出しはヘッドレス実行を既定とする。`render_map(path=...)` もファイルを保存できるが、起動中の QGIS で描画するため軽い単発の図に限る（重い描画を避ける理由は[図の生成手段](#図の生成手段ヘッドレス-pyqgis-を既定とする)を参照）
 - `get_canvas_screenshot` は画像をインライン返却するのみで**ファイル保存しない**。即時の目視確認用であり、コミット用 PNG の生成には使わない
 
 ### 保存先・命名規則

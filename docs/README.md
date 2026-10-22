@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-10-20  
+**最終更新**: 2026-10-22  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -93,8 +93,8 @@ docs/
 | [GIS_IDEAS_poster.md](03_results/GIS_IDEAS_poster.md) | GIS-IDEAS学会用ポスター原稿（Limited・日英対訳） | A1縦を前提とした6パネルの日英対訳原稿（背景・対象とデータ・手法・モデル性能・変数重要度・結論と限界）、用語対訳表、想定問答、参考文献、版面の実測値。実物のpptxと1対1で対応させる。数値はラン1（主結果）に限り、出所の節番号を併記する | `docs/03_results/limited_analysis_results.md`, `docs/02_methods/observation_selection.md`, `data/output/limited/20230707_032305/` |
 | [fig4_limited_workflow_poster.mmd](03_results/fig4_limited_workflow_poster.mmd) | ポスター用Mermaid図 | Limited 分析フローを横流し6ステップへ簡約した図。ポスターで図中の文字が読める粒度にしたもので、処理条件を追える詳細版は fig3_limited_workflow.mmd が正本 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果（旧経路・ピクセル単位） | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | （2026-04-21時点のスクリプトによる記録。`analysis_rq3_satellite_only.py` はcell_id結合経路へ書き換え済みのため再現不可） |
-| [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（cell_id結合・観測20230707_032305） | 分光指数3変数のベースライン、フィルタ脱落の診断（母数のファネル・脱落の空間的な集中）、物理的に等間隔なブロックによるSpatial CV、SHAP、ブロック境界の残差リークの実測。Limited と同一観測・同一格子であり、シナリオ間比較は `limited_analysis_results.md` 6.7節が正本 | `src/analysis/analysis_rq3_satellite_only.py` |
-| [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合・観測20230707_032305） | 単一観測15ランの台帳（1ラン=1行）と標本統制の可否、衛星指標の再生成（MNDWI 追加・ROI クリップ）によるデータセットの世代の区別、ラン間で共通の処理条件（フィルタ脱落と欠損値処理の診断・水域被覆の偏り・分析実行前のモデル前提の精査）、モデル性能・変数重要度・多重共線性をランを横断して整理。変数セット軸（spectral/coverage/both）・建物高さ構成軸（both/mean/max/pc1）・水指数構成軸（ndwi/none/pc1/mndwi）・人口ソース軸・土地被覆ソース軸の比較と採用構成の根拠（事前基準からの逸脱の経緯・先行研究との位置づけを含む）を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
+| [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 分光指数3変数のベースライン。主結果は主採用の観測による7章（母数・モデル性能・変数重要度と、旧採用の観測との相対量の比較）。1〜6章は旧採用の観測による記録で、フィルタ脱落の診断（母数のファネル・脱落の空間的な集中）、物理的に等間隔なブロックによるSpatial CV、SHAP、ブロック境界の残差リークの実測を含む。Limited と同一観測・同一格子であり、シナリオ間比較は `limited_analysis_results.md` 8.6節・6.7節が正本 | `src/analysis/analysis_rq3_satellite_only.py` |
+| [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 主結果は主採用の観測で採用構成を実行した8章（母数・モデル性能・変数重要度、旧採用の観測との相対量の比較、Satellite Only との参考比較）。2〜7章は旧採用の観測による記録で、単一観測15ランの台帳（1ラン=1行）と標本統制の可否、衛星指標の再生成（MNDWI 追加・ROI クリップ）によるデータセットの世代の区別、ラン間で共通の処理条件（フィルタ脱落と欠損値処理の診断・水域被覆の偏り・分析実行前のモデル前提の精査）、モデル性能・変数重要度・多重共線性をランを横断して整理。変数セット軸（spectral/coverage/both）・建物高さ構成軸（both/mean/max/pc1）・水指数構成軸（ndwi/none/pc1/mndwi）・人口ソース軸・土地被覆ソース軸の比較と採用構成の根拠（事前基準からの逸脱の経緯・先行研究との位置づけを含む）を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
 | [survey_area_comparison_results.md](03_results/survey_area_comparison_results.md) | ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（Satellite Only・Limited） | mask_survey を結合したデータセットで Satellite Only と Limited（採用構成・水指数 ndwi）を全域・測量GIS範囲の両方で回し直した比較。全域ランによる既存結果の再現確認、境界セルの扱い、測量GIS範囲での Spatial CV のブロック判定、LST 分布・モデル性能（RMSE 主体の比較）・変数の寄与・ほぼ一定になる変数の解釈保留、都市構造変数の上乗せ効果。Full シナリオとの比較の基準 | `src/analysis/analysis_rq3_satellite_only.py`, `src/analysis/analysis_rq3_limited.py`, `data/output/*/20230707_032305_area_comparison/` |
 
 ### 📦 04_archive - アーカイブ（旧結果・先行研究・文献管理）

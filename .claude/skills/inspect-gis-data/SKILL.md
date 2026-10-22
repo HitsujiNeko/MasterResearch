@@ -73,7 +73,8 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QG
    対象レイヤ全体にズームすると、外れ値ジオメトリがある場合に実データが1点に潰れて見えないため、
    まず ROI 基準で重なりを確認する（下記 Step 3 のジオメトリ確認と連動）。
    **データ取得タスクの検証としてスクリーンショットをコミットする場合**は、再利用ヘルパー
-   `src/visualization/qgis_figure.py`（`build_gis_figure`）でタイトル・スケールバー・凡例つきの PNG を生成し、
+   `src/visualization/qgis_figure.py`（`build_gis_figure`）をヘッドレス PyQGIS で呼び出して
+   （手順は [qgis_operation_guidelines.md の「図の生成手段」](../../../docs/02_methods/qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）タイトル・スケールバー・凡例つきの PNG を生成し、
    [reference.md](reference.md) の「スクリーンショットの保存先・命名規則」に従って
    `images/gis_data/{カテゴリ}/` に保存する（構図要件・保存機構・対象範囲は
    [qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照）

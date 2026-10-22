@@ -128,7 +128,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | グループ作成・移動 | `create_layer_group` → `move_layer_to_group` | ROI は `ROI` グループへ |
 | 範囲へズーム | `zoom_to_layer` | |
 | 描画取得（目視用） | `get_canvas_screenshot` | 再レンダリングなしの高速確認。**ファイル保存はしない**。ROI 基準でズーム |
-| 図の生成（コミット用） | `src/visualization/qgis_figure.py` の `build_gis_figure`、または MCP ツール `render_map(path=)` | タイトル・スケールバー・凡例つき PNG を出力・保存 |
+| 図の生成（コミット用） | `src/visualization/qgis_figure.py` の `build_gis_figure` をヘッドレス PyQGIS で呼ぶ | タイトル・スケールバー・凡例つき PNG を出力・保存。`render_map(path=)` はこれらを付けられないため Git 管理外の画像に限る |
 | 保存 | `save_project` | 明示指示がある時のみ。大規模レイヤはこまめに（クラッシュ対策） |
 
 ### スクリーンショットの保存先・命名規則
@@ -141,7 +141,7 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 | 保存先パス | `images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`（英小文字スネークケース） |
 | 例 | `images/gis_data/roads/roads_osm_hanoi.png` |
 | 複数枚 | `_overview` / `_detail` 等の接尾辞を付す |
-| 取得方法 | 再利用ヘルパー `build_gis_figure`（印刷レイアウト export）または `render_map(path=)`。`get_canvas_screenshot` はファイル保存不可の目視用 |
+| 取得方法 | 再利用ヘルパー `build_gis_figure`（印刷レイアウト export）をヘッドレス PyQGIS で呼ぶ（手順は [qgis_operation_guidelines.md の「図の生成手段」](../../../docs/02_methods/qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）。`render_map(path=)` はタイトル・スケールバー・凡例を付けられないため Git 管理外の画像に限る。`get_canvas_screenshot` はファイル保存不可の目視用 |
 | 構図 | 地図フレームは ROI 比率で固定（見切れ防止）。タイトル・スケールバーは常時、凡例はラスタに付す（単一シンボルはタイトルのみ）。ROI 基準でカバレッジ・CRS 整合・分布/外れ値が判読できること |
 | 対象範囲 | 空間データ（ラスタ・ベクタ）全般。非空間データ（統計 CSV 等）は対象外 |
 

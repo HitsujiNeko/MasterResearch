@@ -434,14 +434,20 @@ class CodeRecord:
 
 
 def normalize_watch_path(path: str) -> str:
-    """監視パスを比較用の形（`/` 区切り・末尾の `/` なし）にそろえる。
+    """監視パスを比較用の形（`/` 区切り・先頭の `./` なし・末尾の `/` なし）にそろえる。
+
+    PowerShell のタブ補完は `.\\src\\...` の形でパスを補うため、先頭の `./` も取り除く
+    （残すと、記録範囲の配下のパスでも記録範囲との比較で一致しなくなる）。
 
     Args:
         path: 監視パス（`--extra-watch-path` の指定値を含む）。
     Returns:
         正規化したパス。
     """
-    return path.replace("\\", "/").rstrip("/")
+    normalized = path.replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.rstrip("/")
 
 
 def parse_code_record(code: object) -> CodeRecord | None:

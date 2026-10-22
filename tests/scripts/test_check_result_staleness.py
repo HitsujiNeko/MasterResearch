@@ -478,6 +478,27 @@ def test_extra_watch_path_inside_recorded_range_uses_hash(repo: Path) -> None:
     assert "ハッシュの記録が無い" not in "".join(result.reasons[target.STATUS_STALE_CODE])
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (r".\src\common\util.py", "src/common/util.py"),
+        ("././src/common/", "src/common"),
+        ("src/common", "src/common"),
+    ],
+    ids=["powershell_completion", "repeated_dot_slash", "already_normalized"],
+)
+def test_normalize_watch_path(raw: str, expected: str) -> None:
+    """区切り文字・先頭の `./`・末尾の `/` をそろえる。"""
+    assert target.normalize_watch_path(raw) == expected
+
+
+def test_dot_slash_extra_watch_path_inside_recorded_range_uses_hash(repo: Path) -> None:
+    """`.\\` 付きで記録範囲の配下を指定しても、記録コミット無しでハッシュにより判定できる。"""
+    path = _write_result(repo, "a_results.json", {"provenance": _hashed_provenance(repo, "0" * 40)})
+    result = _check(repo, path, extra_watch_paths=(r".\src\common\util.py",))
+    assert result.status == target.STATUS_UP_TO_DATE
+
+
 def test_extra_watch_path_wider_than_recorded_range_uses_tree(repo: Path) -> None:
     """記録範囲より広いパスは記録が無いファイルを含みうるため、木の比較に回す。"""
     path = _write_result(repo, "a_results.json", {"provenance": _hashed_provenance(repo, "0" * 40)})

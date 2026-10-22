@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-09-29  
+**最終更新**: 2026-10-22  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -215,6 +215,7 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `executed_at` | 来歴を生成した時刻（UTC・ISO 8601）。呼び出し側が指定しない場合は保存直前の時刻となり、実行開始時刻ではない |
 | `python_version` / `platform` | Python のバージョンと OS |
 | `git.commit` / `git.dirty` | コミットハッシュと、コード（`src/` 配下。未追跡ファイルを含む）の未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。結果ファイル等のコード以外の変更は判定に含めない。git を利用できない環境では両方 `null` |
+| `code` | 生成時のコードのファイルハッシュ。`watch_paths`（ハッシュを取った範囲: 生成スクリプトと既定の監視パス `src.common.summary.CODE_WATCH_PATHS`）と、その配下の git 追跡ファイルごとの `path`・`sha256` のリスト（`files`）。ハッシュは改行を LF にそろえた内容から計算する（`core.autocrlf` で作業ツリーが CRLF になる Windows と、LF の clone とで一致させるため）。記録コミットがローカルから消えても、陳腐化検出が生成時のコードと現在の `HEAD` を比べられるようにする。git を利用できない環境では `null` |
 | `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。未インストールは `null` |
 | `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト。プロジェクトルート外のパスは絶対パスのまま記録されるため、入力はプロジェクト内（`data/` 配下）に配置して実行する |
 

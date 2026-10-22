@@ -10,25 +10,36 @@
    （入力の記録にパスが無い場合を含む）
 3. 要再実行・入力変更（`stale_input`）: 入力ファイルの SHA-256 が記録値と一致しない
    （記録値が無い場合を含む）
-4. 要再実行・コード変更（`stale_code`）: 記録コミットと現在の `HEAD` の間で、
-   生成スクリプトまたは既定の監視パス（`src/common/` 等）に差分がある。`git.dirty` が真、
-   記録コミットが無い・ローカルに無い場合も、生成時のコードを復元できないためここに含める
+4. 要再実行・コード変更（`stale_code`）: 生成時と現在の `HEAD` の間で、生成スクリプト
+   または既定の監視パス（`src/common/` 等）のコードに差分がある。`git.dirty` が真の場合や、
+   差分を判定する手がかり（コードのハッシュ・記録コミット）が無い場合も、生成時のコードを
+   確かめられないためここに含める
 5. 最新（`up_to_date`）: 上記のいずれにも当たらない
 
-コードの差分は `git diff --name-only {記録コミット} HEAD -- {監視パス}` の木の比較で
-判定する（祖先関係を問わないため、squash merge で消えた作業ブランチ上のコミットでも、
-ローカルに残っていれば判定できる）。
+コードの差分は、来歴にコードのファイルハッシュ（`provenance.code`）があれば、それと
+`HEAD` の木にあるファイルの内容（改行を LF にそろえる）のハッシュを比べて判定する
+（ファイルの変更・追加・削除をすべて差分とする）。記録コミットが不要なため、squash merge で
+消えた作業ブランチ上で生成した結果や、新しい clone でも判定できる。
+
+ハッシュの記録が無い範囲（`provenance.code` を持たない旧形式の結果、および記録した範囲
+（`provenance.code.watch_paths`）の配下に無い監視パス。生成後に増えた既定の監視パスや、
+記録範囲外の `--extra-watch-path` が該当する）は、`git diff --name-only {記録コミット}
+HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わないため、作業ブランチ上の
+コミットでもローカルに残っていれば判定できる）。
 
 既知の限界:
 
-- 記録コミットがローカルに無いと、コードの差分を判定できず「要再実行（コード変更）」になる
-  （理由に「記録コミットがローカルに無い」と明記する）。squash merge で作業ブランチを
-  消す運用では、作業ブランチ上で生成した結果の記録コミットはどのブランチからもたどれず、
-  reflog が期限切れになった後の gc で消える。新しい clone でも最初から無い。この理由の
-  結果は「コードが変わった」ではなく「生成時のコードを確かめられない」と読む
+- ハッシュの記録が無い範囲は、記録コミットがローカルに無いとコードの差分を判定できず
+  「要再実行（コード変更）」になる（理由に「記録コミットがローカルに無い」と明記する）。
+  squash merge で作業ブランチを消す運用では、作業ブランチ上で生成した結果の記録コミットは
+  どのブランチからもたどれず、reflog が期限切れになった後の gc で消える。新しい clone でも
+  最初から無い。この理由の結果は「コードが変わった」ではなく「生成時のコードを確かめられ
+  ない」と読む。コードのハッシュを持つ結果では、記録範囲の外を監視しない限り起きない
 - 生成スクリプトが import するモジュールのうち、監視するのは `DEFAULT_WATCH_PATHS`
   （`src/common/` と Spatial CV のブロック分割）だけで、それ以外の補助モジュールの変更は
   「コード変更」に含めない。必要なら `--extra-watch-path` で監視パスを追加する
+- 来歴のコードのハッシュ（`provenance.code`）の形式が不正な場合は、ハッシュの記録が無い
+  ものとして木の比較で判定する
 - 来歴に入力の記録（`inputs`）が無い・空のリストの場合は、入力を照合できないが理由は
   付けない（ほかに問題が無ければ「最新」になる）。来歴を付ける分析スクリプトはいずれも
   入力を記録するため、この形は想定していない
@@ -81,7 +92,12 @@ from urllib.parse import quote, unquote
 
 from src.common.config import PROJECT_ROOT
 from src.common.paths import prepare_output_path, to_project_relative_string
-from src.common.summary import compute_file_sha256
+from src.common.summary import (
+    CODE_WATCH_PATHS,
+    compute_code_sha256,
+    compute_file_sha256,
+    script_module_to_path,
+)
 
 EXIT_REPORT_WRITTEN = 0
 EXIT_FAILURE = 1
@@ -126,12 +142,9 @@ STATUS_LABELS: dict[str, str] = {
 DEFAULT_RESULTS_ROOT = Path("data") / "output"
 RESULTS_GLOB = "**/*_results.json"
 
-# 生成スクリプトに加えて常に監視するパス（分析スクリプトが共通して import する処理。
-# canonical_grid は Spatial CV のブロック分割を決め、評価指標に直接影響する）
-DEFAULT_WATCH_PATHS: tuple[str, ...] = (
-    "src/common",
-    "src/analysis/urban_params/canonical_grid.py",
-)
+# 生成スクリプトに加えて常に監視するパス。来歴にハッシュを記録する範囲と一致させるため、
+# 定義は来歴の生成側（`src.common.summary.CODE_WATCH_PATHS`）に置く
+DEFAULT_WATCH_PATHS: tuple[str, ...] = CODE_WATCH_PATHS
 
 # git コマンドの待ち時間の上限（秒）
 _GIT_TIMEOUT_SECONDS = 30
@@ -145,7 +158,7 @@ class StalenessResult:
         path: 結果ファイルのプロジェクト相対パス。
         reasons: 該当した分類ごとの理由（分類キー → 理由の一覧）。
         recorded_commit: 来歴に記録されたコミット（無ければ None）。
-        changed_files: 記録コミットと `HEAD` の間で差分のあった監視対象ファイル。
+        changed_files: 生成時と `HEAD` の間で差分のあった監視対象ファイル。
     """
 
     path: str
@@ -196,6 +209,8 @@ class GitRepository:
         self.repo_root = repo_root
         self._commit_exists: dict[str, bool] = {}
         self._diff_cache: dict[tuple[str, tuple[str, ...]], list[str] | None] = {}
+        self._head_hash_cache: dict[tuple[str, ...], dict[str, str] | None] = {}
+        self._blob_hash_cache: dict[str, str] = {}
 
     def _run(self, args: list[str]) -> subprocess.CompletedProcess[str] | None:
         """git コマンドを実行する。git を起動できない場合は None を返す。
@@ -258,16 +273,81 @@ class GitRepository:
                 )
         return self._diff_cache[key]
 
+    def head_code_hashes(self, paths: tuple[str, ...]) -> dict[str, str] | None:
+        """`HEAD` の木にある監視パス配下のファイルと、その内容のハッシュを返す。
 
-def script_module_to_path(module_name: str) -> str:
-    """生成スクリプトのモジュール名をリポジトリ相対のファイルパスに変換する。
+        ハッシュは来歴の記録と同じく、改行を LF にそろえた内容から計算する
+        （`compute_code_sha256`）。作業ツリーではなく `HEAD` の内容を使うのは、
+        未コミットの変更を数えないという判定の基準をそろえるため。
 
-    Args:
-        module_name: `provenance.script` の値（例: `src.analysis.analysis_rq3_limited`）。
-    Returns:
-        ファイルパス（例: `src/analysis/analysis_rq3_limited.py`）。
-    """
-    return module_name.replace(".", "/") + ".py"
+        Args:
+            paths: 監視するパス（リポジトリルート基準の `/` 区切り）。
+        Returns:
+            ファイルパス → SHA-256。git の実行に失敗した場合は None。
+        """
+        if paths not in self._head_hash_cache:
+            self._head_hash_cache[paths] = self._list_head_code_hashes(paths)
+        return self._head_hash_cache[paths]
+
+    def _list_head_code_hashes(self, paths: tuple[str, ...]) -> dict[str, str] | None:
+        """`head_code_hashes` の本体（キャッシュを介さずに git へ問い合わせる）。"""
+        completed = self._run(["ls-tree", "-r", "-z", "HEAD", "--", *paths])
+        if completed is None or completed.returncode != 0:
+            return None
+        blobs: dict[str, str] = {}
+        for entry in completed.stdout.split("\0"):
+            if not entry:
+                continue
+            # 形式: "{モード} {種別} {オブジェクトID}\t{パス}"
+            meta, _, file_path = entry.partition("\t")
+            fields = meta.split()
+            # サブモジュール（commit）等はファイルの内容を持たないため対象外とする
+            if len(fields) == 3 and fields[1] == "blob":
+                blobs[file_path] = fields[2]
+        missing = sorted({oid for oid in blobs.values() if oid not in self._blob_hash_cache})
+        if missing and not self._hash_blobs(missing):
+            return None
+        return {file_path: self._blob_hash_cache[oid] for file_path, oid in blobs.items()}
+
+    def _hash_blobs(self, object_ids: list[str]) -> bool:
+        """git のオブジェクト（ファイルの内容）を読み、ハッシュを保持先に追加する。
+
+        内容はバイト列のまま扱う必要があるため、`git cat-file --batch` を直接呼ぶ。
+
+        Args:
+            object_ids: 読み込むオブジェクト ID。
+        Returns:
+            すべて読み込めた場合は True。
+        """
+        try:
+            completed = subprocess.run(
+                ["git", "cat-file", "--batch"],
+                cwd=self.repo_root,
+                input="".join(f"{oid}\n" for oid in object_ids).encode("ascii"),
+                capture_output=True,
+                timeout=_GIT_TIMEOUT_SECONDS,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        if completed.returncode != 0:
+            return False
+        output = completed.stdout
+        position = 0
+        for oid in object_ids:
+            # 形式: "{オブジェクトID} {種別} {サイズ}\n{内容}\n"（無ければ "... missing\n"）
+            header_end = output.find(b"\n", position)
+            header = output[position:header_end].split() if header_end >= 0 else []
+            # 想定外の形式（読めなかったオブジェクト・壊れた出力）は例外にせず失敗として返す
+            if len(header) != 3 or header[0] != oid.encode("ascii") or not header[2].isdigit():
+                return False
+            content_start = header_end + 1
+            content_end = content_start + int(header[2])
+            if content_end > len(output):
+                return False
+            self._blob_hash_cache[oid] = compute_code_sha256(output[content_start:content_end])
+            position = content_end + 1
+        return True
 
 
 def resolve_input_path(recorded_path: str, data_root: Path) -> Path:
@@ -340,6 +420,177 @@ def check_inputs(
             result.add_reason(STATUS_STALE_INPUT, f"入力ファイルが変更されている: {recorded_path}")
 
 
+@dataclass(frozen=True)
+class CodeRecord:
+    """来歴に記録されたコードのファイルハッシュ（`provenance.code`）。
+
+    Attributes:
+        watch_paths: ハッシュを取った範囲（正規化済みのパス）。
+        files: ファイルパス → SHA-256（小文字）。
+    """
+
+    watch_paths: frozenset[str]
+    files: dict[str, str]
+
+
+def normalize_watch_path(path: str) -> str:
+    """監視パスを比較用の形（`/` 区切り・先頭の `./` なし・末尾の `/` なし）にそろえる。
+
+    PowerShell のタブ補完は `.\\src\\...` の形でパスを補うため、先頭の `./` も取り除く
+    （残すと、記録範囲の配下のパスでも記録範囲との比較で一致しなくなる）。
+
+    Args:
+        path: 監視パス（`--extra-watch-path` の指定値を含む）。
+    Returns:
+        正規化したパス。
+    """
+    normalized = path.replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.rstrip("/")
+
+
+def parse_code_record(code: object) -> CodeRecord | None:
+    """`provenance.code` を解釈する。
+
+    形式が不正な記録は、ハッシュの記録が無いもの（旧形式）として扱う（記録コミットとの
+    木の比較に回り、推測でハッシュの一致・不一致を決めないため）。
+
+    Args:
+        code: `provenance.code` の値。
+    Returns:
+        解釈した記録。記録が無い・形式が不正な場合は None。
+    """
+    if not isinstance(code, dict):
+        return None
+    watch_paths = code.get("watch_paths")
+    files = code.get("files")
+    if not isinstance(watch_paths, list) or not isinstance(files, list):
+        return None
+    if not all(isinstance(path, str) and path for path in watch_paths):
+        return None
+    hashes: dict[str, str] = {}
+    for entry in files:
+        file_path = entry.get("path") if isinstance(entry, dict) else None
+        sha256 = entry.get("sha256") if isinstance(entry, dict) else None
+        if not isinstance(file_path, str) or not file_path:
+            return None
+        if not isinstance(sha256, str) or not sha256:
+            return None
+        hashes[file_path] = sha256.lower()
+    return CodeRecord(frozenset(normalize_watch_path(path) for path in watch_paths), hashes)
+
+
+def is_under_paths(file_path: str, paths: Iterable[str]) -> bool:
+    """ファイルがいずれかの監視パス（ファイルそのもの、またはディレクトリの配下）に含まれるか。
+
+    Args:
+        file_path: リポジトリ相対のファイルパス。
+        paths: 正規化済みの監視パス。
+    Returns:
+        含まれれば True。
+    """
+    return any(file_path == path or file_path.startswith(path + "/") for path in paths)
+
+
+def describe_commit_problem(commit: str | None, git: GitRepository) -> str | None:
+    """記録コミットとの木の比較ができない理由を返す。
+
+    Args:
+        commit: 記録コミット（無ければ None）。
+        git: git 操作。
+    Returns:
+        理由の説明。比較できる場合は None。
+    """
+    if commit is None:
+        return "来歴にコミットが記録されていない"
+    if not git.commit_exists(commit):
+        return f"記録コミットがローカルに無い（fetch が必要か、失われた）: {commit}"
+    return None
+
+
+def resolve_watch_paths(
+    result: StalenessResult, script: object, extra_watch_paths: tuple[str, ...]
+) -> list[str]:
+    """生成スクリプト・既定の監視パス・追加の監視パスを並べる（重複は除く）。
+
+    生成スクリプトが記録されていない場合は理由を追加し、既定と追加の監視パスだけを返す。
+
+    Args:
+        result: 判定結果（理由の追加先）。
+        script: `provenance.script` の値。
+        extra_watch_paths: 既定に加えて監視するパス。
+    Returns:
+        正規化した監視パスの一覧。
+    """
+    paths = list(DEFAULT_WATCH_PATHS) + list(extra_watch_paths)
+    if isinstance(script, str) and script:
+        paths.insert(0, script_module_to_path(script))
+    else:
+        result.add_reason(STATUS_STALE_CODE, "来歴に生成スクリプトが記録されていない")
+    return list(dict.fromkeys(normalize_watch_path(path) for path in paths))
+
+
+def compare_code_hashes(
+    result: StalenessResult,
+    record: CodeRecord,
+    commit: str | None,
+    commit_problem: str | None,
+    watch_paths: list[str],
+    git: GitRepository,
+) -> list[str] | None:
+    """コードのハッシュの記録と `HEAD` を比べ、差分のあるファイルを返す。
+
+    記録範囲の配下にある監視パスは `HEAD` の木の内容のハッシュと比べ（変更・追加・削除を
+    差分とする）、記録範囲の配下に無い監視パスだけ記録コミットとの木の比較に回す。
+
+    Args:
+        result: 判定結果（理由の追加先）。
+        record: 来歴のコードのハッシュ。
+        commit: 記録コミット（無ければ None）。
+        commit_problem: 記録コミットとの比較ができない理由（できる場合は None）。
+        watch_paths: 正規化済みの監視パス。
+        git: git 操作。
+    Returns:
+        差分のあったファイル（ソート済み）。`HEAD` の内容を取得できない場合は None。
+    """
+    # 記録範囲の配下にあるパス（例: 記録済みの `src/common` に対する `src/common/x.py`）も
+    # ハッシュで判定できる。記録範囲より広いパスは記録が無いファイルを含みうるため木の比較に回す
+    hashed = tuple(path for path in watch_paths if is_under_paths(path, record.watch_paths))
+    unhashed = tuple(path for path in watch_paths if path not in hashed)
+    changed: set[str] = set()
+    if hashed:
+        head_hashes = git.head_code_hashes(hashed)
+        if head_hashes is None:
+            result.add_reason(STATUS_STALE_CODE, "HEAD のコードのハッシュを取得できない")
+            return None
+        recorded = {
+            file_path: sha256
+            for file_path, sha256 in record.files.items()
+            if is_under_paths(file_path, hashed)
+        }
+        changed.update(
+            file_path
+            for file_path in recorded.keys() | head_hashes.keys()
+            if recorded.get(file_path) != head_hashes.get(file_path)
+        )
+    if unhashed:
+        if commit_problem is not None:
+            result.add_reason(
+                STATUS_STALE_CODE,
+                f"ハッシュの記録が無い監視パスがあり（{'、'.join(unhashed)}）、{commit_problem}",
+            )
+        else:
+            tree_changed = git.changed_files(commit, unhashed)
+            if tree_changed is None:
+                result.add_reason(
+                    STATUS_STALE_CODE, f"記録コミットとの差分を取得できない: {commit}"
+                )
+            else:
+                changed.update(tree_changed)
+    return sorted(changed)
+
+
 def check_code(
     result: StalenessResult,
     provenance: dict[str, Any],
@@ -347,6 +598,9 @@ def check_code(
     extra_watch_paths: tuple[str, ...],
 ) -> None:
     """生成時のコードと現在の `HEAD` の差分を判定し、理由を追加する。
+
+    来歴にコードのハッシュがあればそれで判定し、記録コミットの有無は問わない。
+    ハッシュが無い旧形式の結果は、記録コミットとの木の比較で判定する。
 
     Args:
         result: 判定結果（理由の追加先）。
@@ -357,27 +611,24 @@ def check_code(
     git_state = provenance.get("git")
     git_state = git_state if isinstance(git_state, dict) else {}
     commit = git_state.get("commit")
+    commit = commit if isinstance(commit, str) and commit else None
     if git_state.get("dirty") is True:
         result.add_reason(STATUS_STALE_CODE, "未コミットのコード変更がある状態で生成されている")
-    if not isinstance(commit, str) or not commit:
-        result.add_reason(STATUS_STALE_CODE, "来歴にコミットが記録されていない")
-        return
     result.recorded_commit = commit
-    if not git.commit_exists(commit):
-        result.add_reason(
-            STATUS_STALE_CODE, f"記録コミットがローカルに無い（fetch が必要か、失われた）: {commit}"
-        )
+    record = parse_code_record(provenance.get("code"))
+    commit_problem = describe_commit_problem(commit, git)
+    if record is None and commit_problem is not None:
+        result.add_reason(STATUS_STALE_CODE, commit_problem)
         return
 
-    script = provenance.get("script")
-    watch_paths = list(DEFAULT_WATCH_PATHS) + list(extra_watch_paths)
-    if isinstance(script, str) and script:
-        watch_paths.insert(0, script_module_to_path(script))
+    watch_paths = resolve_watch_paths(result, provenance.get("script"), extra_watch_paths)
+    if record is not None:
+        changed = compare_code_hashes(result, record, commit, commit_problem, watch_paths, git)
     else:
-        result.add_reason(STATUS_STALE_CODE, "来歴に生成スクリプトが記録されていない")
-    changed = git.changed_files(commit, tuple(watch_paths))
+        changed = git.changed_files(commit, tuple(watch_paths))
+        if changed is None:
+            result.add_reason(STATUS_STALE_CODE, f"記録コミットとの差分を取得できない: {commit}")
     if changed is None:
-        result.add_reason(STATUS_STALE_CODE, f"記録コミットとの差分を取得できない: {commit}")
         return
     result.changed_files = changed
     if changed:

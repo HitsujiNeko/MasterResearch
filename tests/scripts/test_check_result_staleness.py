@@ -18,6 +18,8 @@ from types import ModuleType
 
 import pytest
 
+from src.common.summary import describe_code_files
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_result_staleness.py"
 
 
@@ -302,6 +304,163 @@ def test_stale_code_when_commit_unavailable(
     result = _check(repo, path)
     assert result.status == target.STATUS_STALE_CODE
     assert expected_word in result.reasons[target.STATUS_STALE_CODE][0]
+
+
+def _code_record(repo: Path, extra_paths: tuple[str, ...] = ()) -> dict[str, object]:
+    """来歴の生成側と同じ関数で、現在の作業ツリーのコードのハッシュを記録する。"""
+    watch_paths = [target.script_module_to_path(SCRIPT_MODULE), *target.DEFAULT_WATCH_PATHS]
+    return describe_code_files([*watch_paths, *extra_paths], repo)
+
+
+def _hashed_provenance(repo: Path, commit: str | None, **kwargs: object) -> dict[str, object]:
+    """コードのハッシュを持つ（新形式の）来歴を作る。"""
+    provenance = _provenance(commit, inputs=[_input_entry()], **kwargs)
+    provenance["code"] = _code_record(repo)
+    return provenance
+
+
+@pytest.mark.parametrize("commit", [None, "0" * 40], ids=["not_recorded", "not_found"])
+def test_code_hash_judges_up_to_date_without_recorded_commit(
+    repo: Path, commit: str | None
+) -> None:
+    """コードのハッシュがあれば、記録コミットが無い・ローカルに無くても最新と判定できる。"""
+    path = _write_result(repo, "a_results.json", {"provenance": _hashed_provenance(repo, commit)})
+    result = _check(repo, path)
+    assert result.status == target.STATUS_UP_TO_DATE
+    assert result.reasons == {}
+    # 記録コミットは判定に使わなくても出力に残す
+    assert result.recorded_commit == commit
+
+
+@pytest.mark.parametrize(
+    "changed_file",
+    [
+        "src/analysis/run_model.py",
+        "src/common/util.py",
+        "src/analysis/urban_params/canonical_grid.py",
+    ],
+    ids=["script", "common", "canonical_grid"],
+)
+def test_code_hash_detects_change_without_recorded_commit(repo: Path, changed_file: str) -> None:
+    """記録コミットがローカルに無くても、ハッシュの不一致でコード変更を検出する。"""
+    provenance = _hashed_provenance(repo, "0" * 40)
+    (repo / changed_file).write_text("VERSION = 2\n", encoding="utf-8")
+    _commit_all(repo, "change")
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    result = _check(repo, path)
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.changed_files == [changed_file]
+    assert result.reasons[target.STATUS_STALE_CODE] == [
+        "生成時からコードが変更されている（1 ファイル）"
+    ]
+
+
+def test_code_hash_detects_added_and_deleted_files(repo: Path) -> None:
+    """監視パス配下へのファイルの追加・削除も差分として検出する。"""
+    provenance = _hashed_provenance(repo, "0" * 40)
+    (repo / "src" / "common" / "added.py").write_text("NEW = 1\n", encoding="utf-8")
+    (repo / "src" / "common" / "util.py").unlink()
+    _commit_all(repo, "add and delete")
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    result = _check(repo, path)
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.changed_files == ["src/common/added.py", "src/common/util.py"]
+
+
+def test_code_hash_ignores_unwatched_and_uncommitted_changes(repo: Path) -> None:
+    """ハッシュでの判定でも、監視対象外の変更と未コミットの作業ツリーの変更は数えない。"""
+    provenance = _hashed_provenance(repo, "0" * 40)
+    (repo / "src" / "analysis" / "other.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _commit_all(repo, "change other")
+    (repo / "src" / "common" / "util.py").write_text("VALUE = 9\n", encoding="utf-8")
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    assert _check(repo, path).status == target.STATUS_UP_TO_DATE
+
+
+def test_code_hash_ignores_crlf_in_working_tree(repo: Path) -> None:
+    """生成時の作業ツリーが CRLF でも、HEAD の内容（LF）と同じコードなら最新と判定する。"""
+    (repo / "src" / "common" / "util.py").write_bytes(b"VALUE = 1\r\n")
+    provenance = _hashed_provenance(repo, "0" * 40)
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    assert _check(repo, path).status == target.STATUS_UP_TO_DATE
+
+
+def test_unhashed_watch_path_falls_back_to_tree_comparison(repo: Path) -> None:
+    """ハッシュの記録が無い監視パスだけは、記録コミットとの木の比較で判定する。"""
+    commit = _git(repo, "rev-parse", "HEAD")
+    provenance = _hashed_provenance(repo, commit)
+    (repo / "src" / "analysis" / "other.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _commit_all(repo, "change other")
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    result = _check(repo, path, extra_watch_paths=("src/analysis/other.py",))
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.changed_files == ["src/analysis/other.py"]
+
+
+def test_unhashed_watch_path_without_commit_names_the_paths(repo: Path) -> None:
+    """記録の無い監視パスがあり記録コミットも無ければ、要再実行とし対象のパスを理由に残す。"""
+    path = _write_result(repo, "a_results.json", {"provenance": _hashed_provenance(repo, "0" * 40)})
+    result = _check(repo, path, extra_watch_paths=("src/analysis/other.py/",))
+    assert result.status == target.STATUS_STALE_CODE
+    reason = result.reasons[target.STATUS_STALE_CODE][0]
+    assert "ハッシュの記録が無い監視パス" in reason
+    assert "src/analysis/other.py" in reason
+    assert "ローカルに無い" in reason
+    # ハッシュの記録がある範囲は判定でき、差分は無い
+    assert result.changed_files == []
+
+
+def test_code_hash_keeps_dirty_and_script_reasons(repo: Path) -> None:
+    """ハッシュがあっても、dirty と生成スクリプトの記録漏れは従来どおり要再実行とする。"""
+    path = _write_result(
+        repo,
+        "a_results.json",
+        {"provenance": _hashed_provenance(repo, "0" * 40, dirty=True, script=None)},
+    )
+    reasons = _check(repo, path).reasons[target.STATUS_STALE_CODE]
+    assert "未コミット" in reasons[0]
+    assert "生成スクリプト" in reasons[1]
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        None,
+        "text",
+        {"watch_paths": ["src/common"]},
+        {"watch_paths": ["src/common"], "files": [{"path": "src/common/util.py"}]},
+        {"watch_paths": "src/common", "files": []},
+    ],
+    ids=["null", "not_dict", "no_files", "no_sha256", "watch_paths_not_list"],
+)
+def test_malformed_code_record_falls_back_to_commit(repo: Path, code: object) -> None:
+    """コードのハッシュが無い・不正な場合は、旧形式として記録コミットで判定する。"""
+    provenance = _provenance("0" * 40, inputs=[_input_entry()])
+    provenance["code"] = code
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    result = _check(repo, path)
+    assert result.status == target.STATUS_STALE_CODE
+    assert "ローカルに無い" in result.reasons[target.STATUS_STALE_CODE][0]
+
+
+def test_head_code_hashes_are_cached(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """同じ監視パスの HEAD のハッシュは、結果ファイルが複数あっても1回だけ計算する。"""
+    git = target.GitRepository(repo)
+    calls: list[tuple[str, ...]] = []
+    original = git._list_head_code_hashes
+
+    def counting(paths: tuple[str, ...]) -> dict[str, str] | None:
+        calls.append(paths)
+        return original(paths)
+
+    monkeypatch.setattr(git, "_list_head_code_hashes", counting)
+    provenance = _hashed_provenance(repo, "0" * 40)
+    for name in ("a_results.json", "b_results.json"):
+        path = _write_result(repo, name, {"provenance": provenance})
+        assert target.check_result_file(path, repo, repo, git, {}).status == (
+            target.STATUS_UP_TO_DATE
+        )
+    assert len(calls) == 1
 
 
 def test_stale_code_when_script_not_recorded(repo: Path) -> None:

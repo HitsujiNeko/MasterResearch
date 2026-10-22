@@ -121,19 +121,20 @@ qgis/
 | 場面 | 手段 | 理由 |
 |---|---|---|
 | 図の生成（1 枚でも複数枚でも）・スタイルを当てた PNG の書き出し | **ヘッドレス PyQGIS**（既定） | キャンバスの再描画とレイヤツリーの更新が起きないため速く、ユーザーの QGIS 本体を巻き込まない |
-| 起動中のプロジェクトの構成を変える（Map Theme のレコード編集、レイヤグループの可視性設定など） | `execute_code` | 対象が「いま開いているプロジェクト」そのものであり、ヘッドレスでは触れない |
+| 起動中のプロジェクトの構成を変える（Map Theme のレコード編集、レイヤグループの可視性設定、`.qml`を作るためのレイヤへのスタイル設定など） | `execute_code` | 対象が「いま開いているプロジェクト」そのものであり、ヘッドレスでは触れない |
 | 起動中のレイヤの状態を軽く確かめる（CRS の WKT・地図単位、件数・範囲など） | `execute_code`（専用ツールで足りるならそちら） | 1 回の呼び出しが数秒で終わる読み取りに限る |
 | 目視確認のための即時表示 | `get_canvas_screenshot` / `render_map` | ファイル保存の要否は[保存機構](#取得方法構図)を参照 |
 
-**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（図は[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)の主題図）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
+**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（所要時間の記録は本節を正本とする。このとき作った図は[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)に掲載されているが、同ドキュメントに所要時間の記載はない）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
 
 ### 実行手順
 
 QGIS 同梱の Python（OSGeo4W の`python-qgis-ltr.bat`）でランナースクリプトを実行する。conda 環境`masterresearch`の Python には`qgis.core`が無いため使えない。
 
 ```powershell
-# OSGeo4W のインストール先が既定（C:\OSGeo4W）の場合。リポジトリルートで実行する
-& "C:\OSGeo4W\bin\python-qgis-ltr.bat" ランナー.py
+# OSGeo4W のインストール先が既定（C:\OSGeo4W）の場合。<runner> はランナーのパス、
+# <repo_root> はリポジトリ（worktree で作業中なら worktree）のルートに置き換える
+& "C:\OSGeo4W\bin\python-qgis-ltr.bat" <runner>.py <repo_root>
 ```
 
 ランナーの骨格は次のとおり。作図そのものは`src/visualization/qgis_figure.py`の関数（`build_gis_figure`等）に任せ、ランナーにはレイヤの読み込みと呼び出しだけを書く。
@@ -143,8 +144,8 @@ import os
 import sys
 from pathlib import Path
 
-# リポジトリルート（ランナーの置き場所に合わせて調整する）を先頭に加える
-REPO_ROOT = Path(__file__).resolve().parents[1]
+# リポジトリルートを第 1 引数で受け取り、先頭に加える（ランナーの置き場所に依存させない）
+REPO_ROOT = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(REPO_ROOT))
 
 from qgis.core import QgsApplication, QgsProject, QgsRasterLayer, QgsVectorLayer
@@ -165,14 +166,15 @@ try:
     qf.style_roi_outline(roi)  # 省略すると ROI の塗りがデータを覆う
     qf.set_raster_itemized_legend(dem)
     result = qf.build_gis_figure(
-        "FABDEM", "ROI", "FABDEM 標高 － Hanoi ROI", str(out_png), legend_kind=fl.LEGEND_ITEMS
+        "FABDEM", "ROI", "FABDEM 標高 2023 － Hanoi ROI", str(out_png), legend_kind=fl.LEGEND_ITEMS
     )
     print(result)  # {"ok": True, "path": ...}
 finally:
     app.exitQgis()
 ```
 
-- `roi_path` / `raster_path` / `out_png`は引数や設定から受け取り、研究データの絶対パスをランナーに書かない（[CodingRule.md](CodingRule.md) 7章）
+- `roi_path` / `raster_path` / `out_png`もリポジトリルートと同様に引数や設定から受け取り、研究データの絶対パスをランナーに書かない（[CodingRule.md](CodingRule.md) 7章）
+- タイトルの書式は[取得方法・構図](#取得方法構図)に従う（例の`2023`は FABDEM V1-2 の公開年）
 - 複数枚を作る場合は、`initQgis()`から`exitQgis()`までの 1 回の起動の中でループする。起動と終了には数秒かかるため、1 枚ごとに起動し直さない
 - 2026-10-22 の実測: ハノイ ROI と FABDEM の項目凡例つきの図 1 枚が、描画・書き出し 1.2〜2.2 秒、起動・終了込みで約 6.4 秒だった
 
@@ -181,7 +183,7 @@ finally:
 `python-qgis-ltr.bat`は内部で OSGeo4W の初期化（`o4w_env.bat`）を呼び、`GDAL_DATA` / `PROJ_LIB` / `PYTHONHOME`を OSGeo4W 側の値に設定し直し、`PYTHONPATH`を空にしてから QGIS の Python パスを加える。`QGIS_PREFIX_PATH`もここで設定される。
 
 - そのため、Claude Code の設定で conda 環境向けに入れている`GDAL_DATA` / `PROJ_LIB`は**引き継がれず、干渉もしない**。呼び出し前に外す必要はない
-- 同じ理由で`PYTHONPATH`経由のリポジトリルートも消える。`src`を import するには、上記の骨格のとおりランナー内で`sys.path`に加える。worktree で作業している場合はメインのチェックアウトではなく worktree のルートを加え、`qgis_figure.__file__`を表示して、変更中のモジュールが読み込まれていることを確かめる
+- 同じ理由で`PYTHONPATH`経由のリポジトリルートも消える。`src`を import するには、上記の骨格のとおりランナー内で`sys.path`に加える。worktree で作業している場合はメインのチェックアウトではなく worktree のルートを第 1 引数に渡し、`qgis_figure.__file__`を表示して、変更中のモジュールが読み込まれていることを確かめる
 
 ### 注意点
 

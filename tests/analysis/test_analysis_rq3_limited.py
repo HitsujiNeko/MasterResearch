@@ -100,6 +100,7 @@ from src.common.analysis_dataset import (
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
     LST_VALID_RATIO_COLUMN,
 )
+from src.common.analysis_runs import build_observation_label
 from src.common.regression_models import fit_linear_regression
 from src.common.run_parameters import build_run_parameters_from_args
 
@@ -129,6 +130,19 @@ class TestParseArguments:
         assert args.shap_sample_size == 2_000
         assert args.shap_background_size == 500
         assert args.rf_trees == 300
+
+    def test_default_dataset_and_output_dir_share_observation(self) -> None:
+        """既定の入力データセットと出力先が同じ観測日時を指す。
+
+        片方だけを別の観測へ切り替えると、引数を省略した実行で別観測の結果が
+        出力先に混在するため、両者の観測日時ラベルの一致を確かめる。
+        """
+        dataset_label = build_observation_label(DEFAULT_DATASET_PATH.stem)
+        output_label = build_observation_label(DEFAULT_OUTPUT_DIR.name)
+
+        # パターンが見つからないと入力がそのまま返るため、整形済みであることも確かめる
+        assert dataset_label != DEFAULT_DATASET_PATH.stem
+        assert dataset_label == output_label
 
     def test_overrides(self) -> None:
         """指定した引数で既定値を上書きできる。"""

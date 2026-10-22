@@ -15,13 +15,47 @@ import pytest
 
 from src.common import summary as summary_module
 from src.common.summary import (
+    CODE_WATCH_PATHS,
     build_provenance,
+    compute_code_sha256,
     compute_file_sha256,
+    describe_code_files,
     describe_input_files,
     get_git_state,
     get_package_versions,
     save_summary,
+    script_module_to_path,
 )
+
+
+def _git(repo: Path, *args: str) -> None:
+    """一時リポジトリで git を実行する（実行者のグローバル設定の影響を切り離す）。"""
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, env=env)
+
+
+def _commit_all(repo: Path) -> None:
+    """作業ツリーの内容をすべてコミットする（コミット署名は無効にする）。"""
+    _git(repo, "add", ".")
+    _git(
+        repo,
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-q",
+        "-m",
+        "init",
+    )
+
+
+def _require_git() -> None:
+    """git が無い環境では実リポジトリを使うテストを飛ばす。"""
+    if shutil.which("git") is None:
+        pytest.skip("git が利用できない環境")
 
 
 def test_save_summary_round_trip(tmp_path: Path) -> None:
@@ -129,32 +163,12 @@ def test_get_git_state_returns_none_when_git_fails(monkeypatch: pytest.MonkeyPat
 
 def test_get_git_state_ignores_changes_outside_src(tmp_path: Path) -> None:
     """実際の git リポジトリで、src 外の変更・未追跡ファイルは dirty にしない。"""
-    if shutil.which("git") is None:
-        pytest.skip("git が利用できない環境")
-
-    # 実行者のグローバル設定（コミット署名など）の影響を受けないよう切り離す
-    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
-
-    def git(*args: str) -> None:
-        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True, env=env)
-
-    git("init", "-q")
+    _require_git()
+    _git(tmp_path, "init", "-q")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "code.py").write_text("x = 1\n", encoding="utf-8")
     (tmp_path / "result.json").write_text("{}\n", encoding="utf-8")
-    git("add", ".")
-    git(
-        "-c",
-        "user.name=test",
-        "-c",
-        "user.email=test@example.com",
-        "-c",
-        "commit.gpgsign=false",
-        "commit",
-        "-q",
-        "-m",
-        "init",
-    )
+    _commit_all(tmp_path)
 
     # 結果ファイルの更新と src 外の未追跡ファイルでは dirty にならない
     (tmp_path / "result.json").write_text('{"a": 1}\n', encoding="utf-8")
@@ -172,6 +186,59 @@ def test_get_git_state_ignores_changes_outside_src(tmp_path: Path) -> None:
     # コードの変更では dirty になる
     (tmp_path / "src" / "code.py").write_text("x = 2\n", encoding="utf-8")
     assert get_git_state(tmp_path)["dirty"] is True
+
+
+def test_compute_code_sha256_ignores_crlf_difference() -> None:
+    """CRLF と LF の違いだけならハッシュは一致し、LF の内容の SHA-256 になる。"""
+    lf_content = b"x = 1\ny = 2\n"
+
+    assert compute_code_sha256(b"x = 1\r\ny = 2\r\n") == compute_code_sha256(lf_content)
+    assert compute_code_sha256(lf_content) == hashlib.sha256(lf_content).hexdigest()
+    # 改行以外の内容の違いは別のハッシュになる
+    assert compute_code_sha256(b"x = 2\n") != compute_code_sha256(b"x = 1\n")
+
+
+def test_script_module_to_path() -> None:
+    """モジュール名をリポジトリ相対の .py のパスに変換する。"""
+    assert (
+        script_module_to_path("src.analysis.analysis_rq3_limited")
+        == "src/analysis/analysis_rq3_limited.py"
+    )
+
+
+def test_describe_code_files_lists_tracked_files_under_watch_paths(tmp_path: Path) -> None:
+    """監視パス配下の追跡ファイルだけを、パス順に LF にそろえたハッシュで記録する。"""
+    _require_git()
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src" / "common").mkdir(parents=True)
+    (tmp_path / "src" / "common" / "b.py").write_bytes(b"b = 1\r\n")
+    (tmp_path / "src" / "common" / "a.py").write_bytes(b"a = 1\n")
+    (tmp_path / "src" / "common" / "gone.py").write_bytes(b"gone = 1\n")
+    (tmp_path / "src" / "script.py").write_bytes(b"run()\n")
+    (tmp_path / "src" / "other.py").write_bytes(b"other = 1\n")
+    _commit_all(tmp_path)
+
+    # 未追跡のファイルと、作業ツリーから削除した追跡ファイルは含めない
+    (tmp_path / "src" / "common" / "untracked.py").write_bytes(b"u = 1\n")
+    (tmp_path / "src" / "common" / "gone.py").unlink()
+
+    code = describe_code_files(["src/script.py", "src/common"], tmp_path)
+
+    assert code == {
+        "watch_paths": ["src/script.py", "src/common"],
+        "files": [
+            {"path": "src/common/a.py", "sha256": hashlib.sha256(b"a = 1\n").hexdigest()},
+            {"path": "src/common/b.py", "sha256": hashlib.sha256(b"b = 1\n").hexdigest()},
+            {"path": "src/script.py", "sha256": hashlib.sha256(b"run()\n").hexdigest()},
+        ],
+    }
+
+
+def test_describe_code_files_returns_none_when_git_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """git の実行に失敗した場合は例外にせず None を返す。"""
+    monkeypatch.setattr(summary_module, "_run_git", lambda args, repo_root: None)
+
+    assert describe_code_files(["src/common"]) is None
 
 
 def test_describe_input_files_uses_project_relative_path(tmp_path: Path) -> None:
@@ -207,6 +274,7 @@ def test_build_provenance_schema_and_json_serializable(tmp_path: Path) -> None:
         "python_version",
         "platform",
         "git",
+        "code",
         "packages",
         "inputs",
     }
@@ -220,6 +288,24 @@ def test_build_provenance_schema_and_json_serializable(tmp_path: Path) -> None:
     save_summary({"count": 1, "provenance": provenance}, summary_path)
     saved = json.loads(summary_path.read_text(encoding="utf-8"))
     assert saved["provenance"] == provenance
+
+
+def test_build_provenance_records_code_of_script_and_watch_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """コードのハッシュは生成スクリプトと既定の監視パスを範囲として記録する。"""
+    calls: list[list[str]] = []
+
+    def fake_describe_code_files(watch_paths: list[str], repo_root: Path) -> dict[str, object]:
+        calls.append(list(watch_paths))
+        return {"watch_paths": list(watch_paths), "files": []}
+
+    monkeypatch.setattr(summary_module, "describe_code_files", fake_describe_code_files)
+
+    provenance = build_provenance("src.analysis.example", packages=[], repo_root=tmp_path)
+
+    assert calls == [["src/analysis/example.py", *CODE_WATCH_PATHS]]
+    assert provenance["code"] == {"watch_paths": calls[0], "files": []}
 
 
 def test_build_provenance_rejects_naive_datetime(tmp_path: Path) -> None:

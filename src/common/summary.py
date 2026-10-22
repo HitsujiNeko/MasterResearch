@@ -50,6 +50,14 @@ _GIT_TIMEOUT_SEC = 10
 # 未追跡ディレクトリでは dirty にしないため、ソースコードのディレクトリに限定する
 _GIT_DIRTY_PATHSPEC = "src"
 
+# 生成スクリプトに加えて、来歴にファイルハッシュを記録し陳腐化検出でも監視するコードのパス
+# （分析スクリプトが共通して import する処理。canonical_grid は Spatial CV のブロック分割を
+# 決め、評価指標に直接影響する）。リポジトリルート基準の `/` 区切りで書く
+CODE_WATCH_PATHS: tuple[str, ...] = (
+    "src/common",
+    "src/analysis/urban_params/canonical_grid.py",
+)
+
 
 def save_summary(summary: dict[str, Any], summary_path: Path) -> None:
     """サマリー辞書をJSONファイルとして保存する。
@@ -101,6 +109,34 @@ def compute_file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def compute_code_sha256(content: bytes) -> str:
+    """コードの内容のSHA-256ハッシュを、改行を LF にそろえてから計算する。
+
+    `core.autocrlf=true` の Windows では作業ツリーが CRLF、git に保存される内容と
+    他の環境の clone は LF になる。生のバイトのままではマシン間でハッシュが一致しないため、
+    CRLF を LF に置き換えてから計算する（git が取り込み時に行う変換と同じ向き）。
+
+    Args:
+        content: ファイルの内容（バイト列）。
+
+    Returns:
+        SHA-256ハッシュの16進文字列。
+    """
+    return hashlib.sha256(content.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def script_module_to_path(module_name: str) -> str:
+    """生成スクリプトのモジュール名をリポジトリ相対のファイルパスに変換する。
+
+    Args:
+        module_name: `provenance.script` の値（例: `src.analysis.analysis_rq3_limited`）。
+
+    Returns:
+        ファイルパス（例: `src/analysis/analysis_rq3_limited.py`）。
+    """
+    return module_name.replace(".", "/") + ".py"
+
+
 def _run_git(args: list[str], repo_root: Path) -> str | None:
     """git コマンドを実行して標準出力を返す。失敗時は `None` を返す。
 
@@ -117,6 +153,8 @@ def _run_git(args: list[str], repo_root: Path) -> str | None:
             cwd=repo_root,
             capture_output=True,
             text=True,
+            # git はパスを UTF-8 で出力するため、実行環境の既定の文字コードに依存させない
+            encoding="utf-8",
             timeout=_GIT_TIMEOUT_SEC,
             check=True,
         )
@@ -150,6 +188,39 @@ def get_git_state(repo_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         logger.warning("git の状態を取得できなかったため、来歴のコミット情報を空にします。")
         return {"commit": None, "dirty": None}
     return {"commit": commit, "dirty": status != ""}
+
+
+def describe_code_files(
+    watch_paths: Iterable[str], repo_root: Path = PROJECT_ROOT
+) -> dict[str, Any] | None:
+    """監視するコードのパス配下にある git 追跡ファイルのハッシュの一覧を作る。
+
+    記録したコミットがローカルから消えても生成時のコードと比べられるよう、ファイルごとの
+    ハッシュを来歴に残す。陳腐化検出は `HEAD` の木と比べるため、列挙の範囲を git の追跡
+    ファイルにそろえる（未追跡のコードがある状態は `git.dirty` が真になり、別途検出される）。
+    作業ツリーから削除された追跡ファイルは、生成に使われていないため一覧に含めない。
+    git を利用できない環境では例外にせず `None` を返す（`get_git_state` と同じ理由）。
+
+    Args:
+        watch_paths: 監視するパス（リポジトリルート基準の `/` 区切り）。
+        repo_root: gitリポジトリのルート。
+
+    Returns:
+        `watch_paths`（ハッシュを取った範囲）と `files`（`path`・`sha256` を持つ辞書の
+        パス順のリスト）を持つ辞書。git の実行に失敗した場合は `None`。
+    """
+    paths = list(watch_paths)
+    listed = _run_git(["ls-files", "-z", "--", *paths], repo_root)
+    if listed is None:
+        logger.warning("git の追跡ファイルを取得できなかったため、来歴のコード情報を空にします。")
+        return None
+    files = []
+    for relative_path in sorted(item for item in listed.split("\0") if item):
+        file_path = repo_root / relative_path
+        if not file_path.is_file():
+            continue
+        files.append({"path": relative_path, "sha256": compute_code_sha256(file_path.read_bytes())})
+    return {"watch_paths": paths, "files": files}
 
 
 def get_package_versions(packages: Iterable[str] = DEFAULT_PROVENANCE_PACKAGES) -> dict[str, Any]:
@@ -218,8 +289,9 @@ def build_provenance(
             現在時刻（UTC）を使う。
 
     Returns:
-        `script`・`executed_at`・`python_version`・`platform`・`git`・`packages`・`inputs`
-        を持つ辞書。
+        `script`・`executed_at`・`python_version`・`platform`・`git`・`code`・`packages`・
+        `inputs` を持つ辞書。`code` は生成スクリプトと `CODE_WATCH_PATHS` 配下の追跡
+        ファイルのハッシュ（`describe_code_files` の戻り値）。
 
     Raises:
         ValueError: `executed_at` がタイムゾーンを持たない場合。
@@ -237,6 +309,7 @@ def build_provenance(
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
         "git": get_git_state(repo_root),
+        "code": describe_code_files([script_module_to_path(script), *CODE_WATCH_PATHS], repo_root),
         "packages": get_package_versions(packages),
         "inputs": describe_input_files(input_paths, repo_root),
     }

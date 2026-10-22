@@ -231,6 +231,7 @@ PROVENANCE_KEYS = {
     "python_version",
     "platform",
     "git",
+    "code",
     "packages",
     "inputs",
 }

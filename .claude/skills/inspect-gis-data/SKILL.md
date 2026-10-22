@@ -78,6 +78,8 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QG
    [reference.md](reference.md) の「スクリーンショットの保存先・命名規則」に従って
    `images/gis_data/{カテゴリ}/` に保存する（構図要件・保存機構・対象範囲は
    [qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照）
+   ヘッドレス実行は QGIS 本体とは別プロセスで、上記 2〜4 で読み込んだレイヤや `set_layer_crs` の設定は引き継がれないため、
+   ランナー内でレイヤの読み込みと CRS の設定をやり直す（EPSG:5897 のデータの扱いは同ガイドラインの「図の生成手段」の「注意点」を参照）
 6. データ確認は一時的な検証にあたるため、**`save_project` は明示指示がない限り呼ばない**
    （[qgis_operation_guidelines.md の「検証時のプロジェクト衛生」](../../../docs/02_methods/qgis_operation_guidelines.md#検証時のプロジェクト衛生場面別のsave方針)）。
    確認用に追加したレイヤをプロジェクトに残さない場合は `remove_layer` で片付ける。

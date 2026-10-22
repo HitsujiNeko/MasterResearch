@@ -40,6 +40,8 @@ GitHub への書き込みの本文は、[../shared/github-project-api.md](../sha
 
 ### Step 1: 報告 Issue の特定
 
+`main` 以外のブランチでは、上記「main 以外のブランチでは書き込まない」に従い、本ステップと Step 2 を行わない。
+
 **Bash ツールで実行する**（PowerShell のリダイレクトは出力の文字コードを変え、JSON を壊すおそれがあるため）:
 
 ```bash

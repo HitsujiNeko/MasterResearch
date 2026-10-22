@@ -9,7 +9,7 @@ QGIS 非依存の :mod:`src.visualization.figure_layout` に委譲し、本モ�
 再描画が起きないため速く、MCP の応答打ち切りで QGIS が固まることもない）。QGIS 同梱の
 Python でランナースクリプトを実行し、その中で次の順に初期化してから本モジュールを使う::
 
-    # 実行例: & "C:\\OSGeo4W\\bin\\python-qgis-ltr.bat" ランナー.py
+    # 実行例: & "C:\\OSGeo4W\\bin\\python-qgis-ltr.bat" <runner>.py <repo_root>
     QgsApplication.setPrefixPath(os.environ["QGIS_PREFIX_PATH"], True)
     app = QgsApplication([], False)
     app.initQgis()

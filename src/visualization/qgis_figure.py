@@ -1,9 +1,27 @@
 """PyQGIS を用いた ROI 固定の印刷レイアウト図（スクリーンショット）生成。
 
-**QGIS 内実行専用**。QGIS-MCP の ``execute_code`` などから、リポジトリルートを
-``sys.path`` に加えたうえで import して使う。レイアウトの寸法計算は QGIS 非依存の
-:mod:`src.visualization.figure_layout` に委譲し、本モジュールは PyQGIS による
-レイアウト構築・PNG 出力に集中する。
+**PyQGIS 環境専用**（conda 環境の Python には ``qgis.core`` が無く import できない）。
+リポジトリルートを ``sys.path`` に加えたうえで import して使う。レイアウトの寸法計算は
+QGIS 非依存の :mod:`src.visualization.figure_layout` に委譲し、本モジュールは PyQGIS
+によるレイアウト構築・PNG 出力に集中する。
+
+呼び出し経路はヘッドレス PyQGIS を既定とする（QGIS 本体を起動せず、キャンバスの
+再描画が起きないため速く、MCP の応答打ち切りで QGIS が固まることもない）。QGIS 同梱の
+Python でランナースクリプトを実行し、その中で次の順に初期化してから本モジュールを使う::
+
+    # 実行例: & "C:\\OSGeo4W\\bin\\python-qgis-ltr.bat" ランナー.py
+    QgsApplication.setPrefixPath(os.environ["QGIS_PREFIX_PATH"], True)
+    app = QgsApplication([], False)
+    app.initQgis()
+    try:
+        ...  # レイヤを QgsProject.instance() に追加し build_gis_figure を呼ぶ
+    finally:
+        app.exitQgis()
+
+QGIS-MCP の ``execute_code`` から呼ぶこともできるが、重い描画は MCP の応答が
+打ち切られて QGIS 本体が応答しなくなるため、起動中のプロジェクトを直接使う必要が
+ある場合に限る。手順・環境変数・注意点は
+``docs/02_methods/qgis_operation_guidelines.md`` の「図の生成手段」を参照。
 
 想定する使い方（呼び出し側の責務）:
 

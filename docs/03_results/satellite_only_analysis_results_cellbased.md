@@ -40,7 +40,7 @@ RQ3 では Full / Limited / Satellite Only の3シナリオを比較する。本
 
 接頭辞は `dataset_satellite_only_20230707_032305_hanoi_30m`、配置は `data/output/satellite_only_cellbased/20230707_032305/` である。**7章（主採用の観測）は接頭辞 `dataset_satellite_only_20220906_032358_hanoi_30m`、配置は `data/output/satellite_only_cellbased/20220906_032358/` である。**
 
-測量GIS範囲と全域の比較（新世代の指標から作り直したデータセットによる）は `data/output/satellite_only_cellbased/20230707_032305_area_comparison/` に置き、[survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは本ドキュメントの数値と世代が異なるため、直接比較しない（3.1節）。
+測量GIS範囲と全域の比較（新世代の指標から作り直したデータセットによる）は `data/output/satellite_only_cellbased/20230707_032305_area_comparison/` に置き、[survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは1〜6章の数値（旧世代の指標）と世代が異なるため、1〜6章とは直接比較しない（3.1節）。一方、7章（主採用の観測）の比較相手には、この新世代の全域ランを使う（7.5節）。
 
 **4.5節（ブロック境界の実測）だけは上記ファイルに含まれない。** フィルタ後全数を対象とした一時的な診断であり、算出方法を同節に記す（再測定にはデータセットの再生成が要る）。
 

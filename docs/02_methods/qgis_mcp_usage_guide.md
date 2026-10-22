@@ -1,6 +1,6 @@
 # QGIS MCP 活用ガイド
 
-**最終更新**: 2026-08-04
+**最終更新**: 2026-10-22
 **関連ドキュメント**: [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [qgis_operation_guidelines.md](qgis_operation_guidelines.md), [data_management_guide.md](data_management_guide.md)
 **前提知識**: QGIS MCPのセットアップ完了（[qgis_mcp_setup.md](../setup/qgis_mcp_setup.md)）、QGISの基本操作
 
@@ -46,7 +46,7 @@ Claude Codeは`add_vector_layer`でレイヤーを読み込み、`get_layer_feat
 「GBA建物レイヤーに qgis/styles/building_coverage.qml を適用して」
 ```
 
-`apply_style_qml`でベクター・ラスターどちらにも適用できる。新規にスタイルを作る場合、ベクターの単純な分類（categorized/graduated）は`set_layer_style`で十分だが、**ラスターの疑似カラー（LST・NDVI等）は`set_layer_style`では対応できないため`execute_code`でPyQGISを直接操作する**（[qgis_operation_guidelines.md](qgis_operation_guidelines.md)の注意事項を必ず参照）。
+`apply_style_qml`でベクター・ラスターどちらにも適用できる。新規にスタイルを作る場合、ベクターの単純な分類（categorized/graduated）は`set_layer_style`で十分だが、**ラスターの疑似カラー（LST・NDVI等）は`set_layer_style`では対応できないためPyQGISを直接操作する**（[qgis_operation_guidelines.md の「ラスター疑似カラースタイル作成時の注意」](qgis_operation_guidelines.md#ラスター疑似カラースタイル作成時の注意重要)を必ず参照）。起動中のプロジェクトのレイヤにスタイルを当てて`.qml`を作る場合は`execute_code`で行い、そのスタイルで図を作る場合はヘッドレス実行で行う（[図の生成手段](qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）。
 
 ## ユースケース4: Map Theme切り替え
 
@@ -56,7 +56,7 @@ Claude Codeは`add_vector_layer`でレイヤーを読み込み、`get_layer_feat
 「hanoi.qgz で Limited のMap Themeに切り替えて」
 ```
 
-`apply_map_theme`で切り替える。テーマ自体の再定義・追加は、対象レイヤーグループの可視性を`execute_code`（`QgsLayerTreeGroup.setItemVisibilityChecked`）で設定してから`add_map_theme`を呼ぶ（同名テーマは上書き更新される）。
+`apply_map_theme`で切り替える。テーマ自体の再定義・追加は、対象レイヤーグループの可視性を`execute_code`（`QgsLayerTreeGroup.setItemVisibilityChecked`）で設定してから`add_map_theme`を呼ぶ（同名テーマは上書き更新される）。起動中のプロジェクトの構成を変える操作であり、`execute_code`を使う場面に当たる。
 
 ## ユースケース5: Processing実行
 
@@ -74,7 +74,8 @@ QGIS Processingアルゴリズムを対話的に実行したい場合。
 
 - 簡易確認: `get_canvas_screenshot`（現在のキャンバス描画を高速に取得、再レンダリングなし）
 - 高品質レンダリング: `render_map`
-- 印刷レイアウト出力: `qgis/templates/standard_a4_map.qpt`をベースにしたレイアウトを`export_layout`でPDF/画像として書き出す
+- 印刷レイアウト出力: `qgis/templates/standard_a4_map.qpt`をベースにしたレイアウトを`export_layout`でPDF/画像として書き出す（対話的な確認・Git 管理外の出力用）
+- コミット用の図（PNG）の生成: QGIS-MCP ではなく、ヘッドレス PyQGIS で`src/visualization/qgis_figure.py`を呼ぶのを既定とする（`render_map(path=...)`はタイトル・スケールバー・凡例を付けられないため、Git 管理外の画像に限る）。`execute_code`で図を描くと MCP の応答が打ち切られ、QGIS 本体が応答しなくなることがある。手順は[qgis_operation_guidelines.md の「図の生成手段」](qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)を参照
 
 `set_layer_visibility()`で表示/非表示を切り替えた直後の状態は`render_map`に反映される。上流由来の制約は[qgis_operation_guidelines.md の「QGIS-MCP の既知の制約と回避策」](qgis_operation_guidelines.md#qgis-mcp-の既知の制約と回避策)を正本とする。
 
@@ -102,7 +103,7 @@ QGIS側のCRS解決が効かない事例が実測されているためである�
 
 **`is_geographic: false`を「投影座標系である」と読んではいけない。** 上記の事例では当該レイヤーの`mapUnits()`が`6`（Degrees）を返しており、「単位は度と分かっているのに地理座標系と判定されない」という自己矛盾した状態になっている。`is_geographic`や`authid`を根拠にCRSずれを判断すると誤検知する。
 
-どうしてもQGIS内で確認したい場合は、`authid`ではなく`execute_code`でWKTと地図単位を直接確認する。
+どうしてもQGIS内で確認したい場合は、`authid`ではなく`execute_code`でWKTと地図単位を直接確認する（起動中のレイヤの状態を読むだけの軽い呼び出しであり、`execute_code`を使ってよい場面に当たる）。
 
 ```python
 import json

@@ -540,7 +540,7 @@ ROI に対する有効画素の割合で比べた。
 主採用の観測での再実行（30m・Satellite Only と Limited の採用構成）は実施済みであり、結果は
 [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章・
 [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章にある。
-比較用の観測（8.5）での分析は未実施である。`032305` で実行済みの既存の分析結果は、
+比較用の観測（8.5）のうち `2024-11-30` での分析は未実施である。`032305` で実行済みの既存の分析結果は、
 旧採用（比較用の観測の1つ）に基づく結果として有効である。ただし `032305` の結果は衛星指標の作り方で2世代に分かれ
 （[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）、世代をまたいだ数値は直接比べない。
 新しい主採用は現行の手順（新世代: ROI でクリップ済み・MNDWI あり）で実行するため、比較に使えるのは新世代のラン

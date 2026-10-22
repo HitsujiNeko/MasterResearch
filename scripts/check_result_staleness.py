@@ -1091,6 +1091,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"走査先のディレクトリがありません: {results_root}", file=sys.stderr)
         return EXIT_FAILURE
     git = GitRepository(project_root)
+    # ブランチの確認より先に行い、git 自体を使えない場合を detached HEAD と取り違えない
+    head_commit = git.head_commit()
+    if head_commit is None:
+        print("git の HEAD を取得できないため、コードの差分を判定できません。", file=sys.stderr)
+        return EXIT_FAILURE
     if args.report_output:
         branch = git.current_branch()
         if branch != REPORT_BRANCH:
@@ -1111,10 +1116,6 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as exc:
             print(f"報告 Issue を読めませんでした: {exc}", file=sys.stderr)
             return EXIT_FAILURE
-    head_commit = git.head_commit()
-    if head_commit is None:
-        print("git の HEAD を取得できないため、コードの差分を判定できません。", file=sys.stderr)
-        return EXIT_FAILURE
 
     hash_cache: dict[Path, str] = {}
     extra_watch_paths = tuple(args.extra_watch_path)

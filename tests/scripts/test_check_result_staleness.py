@@ -1017,8 +1017,8 @@ def test_main_report_mode_refuses_outside_main(
 ) -> None:
     """main 以外では、報告 Issue を渡しても判定・書き出しをせずに終了コード1を返す。"""
     if checkout == "branch":
-        _git(repo, "checkout", "-q", "-b", "351/work")
-        expected = "351/work"
+        _git(repo, "checkout", "-q", "-b", "feature/work")
+        expected = "feature/work"
     else:
         _git(repo, "checkout", "-q", "--detach")
         expected = "detached HEAD"
@@ -1039,7 +1039,7 @@ def test_main_report_mode_refuses_new_issue_outside_main(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """報告 Issue が無い（新規起票の）場合も、main 以外では本文を書き出さない。"""
-    _git(repo, "checkout", "-q", "-b", "351/work")
+    _git(repo, "checkout", "-q", "-b", "feature/work")
     monkeypatch.setattr(target, "PROJECT_ROOT", repo)
     _forbid_scan(monkeypatch)
     assert target.main(["--report-output", "out/report.md"]) == target.EXIT_FAILURE
@@ -1050,7 +1050,7 @@ def test_main_without_report_output_runs_outside_main(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`--report-output` なしの判定だけの実行は、main 以外のブランチでも動く。"""
-    _git(repo, "checkout", "-q", "-b", "351/work")
+    _git(repo, "checkout", "-q", "-b", "feature/work")
     _write_result(repo, "a_results.json", {"sample_size": 1})
     monkeypatch.setattr(target, "PROJECT_ROOT", repo)
     assert target.main(["--output-json", "out/staleness.json"]) == target.EXIT_REPORT_WRITTEN
@@ -1064,3 +1064,16 @@ def test_current_branch(repo: Path) -> None:
     assert git.current_branch() == "main"
     _git(repo, "checkout", "-q", "--detach")
     assert git.current_branch() is None
+
+
+def test_main_report_mode_outside_git_reports_head_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """git 自体を使えない場合は、ブランチの問題（detached HEAD）と取り違えずに止める。"""
+    (tmp_path / "data" / "output").mkdir(parents=True)
+    monkeypatch.setattr(target, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+    assert target.main(["--report-output", "out/report.md"]) == target.EXIT_FAILURE
+    err = capsys.readouterr().err
+    assert "HEAD を取得できない" in err
+    assert "detached HEAD" not in err

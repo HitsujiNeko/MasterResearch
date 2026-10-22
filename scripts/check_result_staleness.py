@@ -21,10 +21,11 @@
 （ファイルの変更・追加・削除をすべて差分とする）。記録コミットが不要なため、squash merge で
 消えた作業ブランチ上で生成した結果や、新しい clone でも判定できる。
 
-ハッシュの記録が無い範囲（`provenance.code` を持たない旧形式の結果、および生成後に増えた
-既定の監視パス・`--extra-watch-path`）は、`git diff --name-only {記録コミット} HEAD --
-{監視パス}` の木の比較で判定する（祖先関係を問わないため、作業ブランチ上のコミットでも
-ローカルに残っていれば判定できる）。
+ハッシュの記録が無い範囲（`provenance.code` を持たない旧形式の結果、および記録した範囲
+（`provenance.code.watch_paths`）の配下に無い監視パス。生成後に増えた既定の監視パスや、
+記録範囲外の `--extra-watch-path` が該当する）は、`git diff --name-only {記録コミット}
+HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わないため、作業ブランチ上の
+コミットでもローカルに残っていれば判定できる）。
 
 既知の限界:
 
@@ -33,7 +34,7 @@
   squash merge で作業ブランチを消す運用では、作業ブランチ上で生成した結果の記録コミットは
   どのブランチからもたどれず、reflog が期限切れになった後の gc で消える。新しい clone でも
   最初から無い。この理由の結果は「コードが変わった」ではなく「生成時のコードを確かめられ
-  ない」と読む。コードのハッシュを持つ結果では、既定の監視パスを増やさない限り起きない
+  ない」と読む。コードのハッシュを持つ結果では、記録範囲の外を監視しない限り起きない
 - 生成スクリプトが import するモジュールのうち、監視するのは `DEFAULT_WATCH_PATHS`
   （`src/common/` と Spatial CV のブロック分割）だけで、それ以外の補助モジュールの変更は
   「コード変更」に含めない。必要なら `--extra-watch-path` で監視パスを追加する
@@ -337,10 +338,13 @@ class GitRepository:
             # 形式: "{オブジェクトID} {種別} {サイズ}\n{内容}\n"（無ければ "... missing\n"）
             header_end = output.find(b"\n", position)
             header = output[position:header_end].split() if header_end >= 0 else []
-            if len(header) != 3 or header[0].decode("ascii") != oid:
+            # 想定外の形式（読めなかったオブジェクト・壊れた出力）は例外にせず失敗として返す
+            if len(header) != 3 or header[0] != oid.encode("ascii") or not header[2].isdigit():
                 return False
             content_start = header_end + 1
             content_end = content_start + int(header[2])
+            if content_end > len(output):
+                return False
             self._blob_hash_cache[oid] = compute_code_sha256(output[content_start:content_end])
             position = content_end + 1
         return True
@@ -531,8 +535,8 @@ def compare_code_hashes(
 ) -> list[str] | None:
     """コードのハッシュの記録と `HEAD` を比べ、差分のあるファイルを返す。
 
-    ハッシュの記録がある範囲は `HEAD` の木の内容のハッシュと比べ（変更・追加・削除を
-    差分とする）、記録が無い範囲だけ記録コミットとの木の比較に回す。
+    記録範囲の配下にある監視パスは `HEAD` の木の内容のハッシュと比べ（変更・追加・削除を
+    差分とする）、記録範囲の配下に無い監視パスだけ記録コミットとの木の比較に回す。
 
     Args:
         result: 判定結果（理由の追加先）。
@@ -544,8 +548,10 @@ def compare_code_hashes(
     Returns:
         差分のあったファイル（ソート済み）。`HEAD` の内容を取得できない場合は None。
     """
-    hashed = tuple(path for path in watch_paths if path in record.watch_paths)
-    unhashed = tuple(path for path in watch_paths if path not in record.watch_paths)
+    # 記録範囲の配下にあるパス（例: 記録済みの `src/common` に対する `src/common/x.py`）も
+    # ハッシュで判定できる。記録範囲より広いパスは記録が無いファイルを含みうるため木の比較に回す
+    hashed = tuple(path for path in watch_paths if is_under_paths(path, record.watch_paths))
+    unhashed = tuple(path for path in watch_paths if path not in hashed)
     changed: set[str] = set()
     if hashed:
         head_hashes = git.head_code_hashes(hashed)

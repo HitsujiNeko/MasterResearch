@@ -463,6 +463,73 @@ def test_head_code_hashes_are_cached(repo: Path, monkeypatch: pytest.MonkeyPatch
     assert len(calls) == 1
 
 
+def test_extra_watch_path_inside_recorded_range_uses_hash(repo: Path) -> None:
+    """記録範囲の配下を追加で監視しても、記録コミット無しでハッシュにより判定できる。"""
+    provenance = _hashed_provenance(repo, "0" * 40)
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    extra = ("src/common/util.py",)
+    assert _check(repo, path, extra_watch_paths=extra).status == target.STATUS_UP_TO_DATE
+
+    (repo / "src" / "common" / "util.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _commit_all(repo, "change")
+    result = _check(repo, path, extra_watch_paths=extra)
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.changed_files == ["src/common/util.py"]
+    assert "ハッシュの記録が無い" not in "".join(result.reasons[target.STATUS_STALE_CODE])
+
+
+def test_extra_watch_path_wider_than_recorded_range_uses_tree(repo: Path) -> None:
+    """記録範囲より広いパスは記録が無いファイルを含みうるため、木の比較に回す。"""
+    path = _write_result(repo, "a_results.json", {"provenance": _hashed_provenance(repo, "0" * 40)})
+    result = _check(repo, path, extra_watch_paths=("src/analysis/",))
+    assert result.status == target.STATUS_STALE_CODE
+    reason = result.reasons[target.STATUS_STALE_CODE][0]
+    assert "ハッシュの記録が無い監視パスがあり（src/analysis）" in reason
+
+
+def test_stale_code_when_head_hashes_unavailable(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HEAD のコードのハッシュを取得できない場合は要再実行とし、理由を残す。"""
+    git = target.GitRepository(repo)
+    monkeypatch.setattr(git, "head_code_hashes", lambda paths: None)
+    path = _write_result(repo, "a_results.json", {"provenance": _hashed_provenance(repo, "0" * 40)})
+    result = target.check_result_file(path, repo, repo, git, {})
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.reasons[target.STATUS_STALE_CODE] == ["HEAD のコードのハッシュを取得できない"]
+    assert result.changed_files == []
+
+
+def test_head_code_hashes_returns_none_for_missing_object(repo: Path) -> None:
+    """git に無いオブジェクト（cat-file の missing 応答）は失敗として扱う。"""
+    git = target.GitRepository(repo)
+    assert git._hash_blobs(["0" * 40]) is False
+    assert git._blob_hash_cache == {}
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout"),
+    [
+        (128, b""),
+        (0, b"OID blob x\nVALUE = 1\n\n"),
+        (0, b"OID blob 100\nVALUE = 1\n"),
+        (0, b"\xff\xfe blob 3\nabc\n"),
+        (0, b""),
+    ],
+    ids=["exit_error", "size_not_digit", "truncated", "undecodable_id", "empty"],
+)
+def test_hash_blobs_rejects_broken_output(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, returncode: int, stdout: bytes
+) -> None:
+    """cat-file が異常終了・想定外の形式の出力を返した場合は、例外にせず失敗として返す。"""
+    oid = "a" * 40
+    completed = subprocess.CompletedProcess(
+        args=[], returncode=returncode, stdout=stdout.replace(b"OID", oid.encode("ascii"))
+    )
+    monkeypatch.setattr(target.subprocess, "run", lambda *args, **kwargs: completed)
+    assert target.GitRepository(repo)._hash_blobs([oid]) is False
+
+
 def test_stale_code_when_script_not_recorded(repo: Path) -> None:
     """生成スクリプトが記録されていない場合は、既定の監視パスだけを監視し理由を残す。"""
     commit = _git(repo, "rev-parse", "HEAD")

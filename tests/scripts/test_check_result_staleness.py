@@ -1015,14 +1015,16 @@ def test_main_report_mode_refuses_outside_main(
     capsys: pytest.CaptureFixture[str],
     checkout: str,
 ) -> None:
-    """main 以外では、報告 Issue を渡しても判定・書き出しをせずに終了コード1を返す。"""
+    """main 以外では、報告 Issue の読み込みより前に、判定・書き出しをせず終了コード1を返す。"""
     if checkout == "branch":
         _git(repo, "checkout", "-q", "-b", "feature/work")
         expected = "feature/work"
     else:
         _git(repo, "checkout", "-q", "--detach")
         expected = "detached HEAD"
-    issue_path = _issue_json(tmp_path, target.format_state_marker({}), [])
+    # 読めない報告 Issue を渡し、ブランチの拒否が読み込みより先に起きることを確かめる
+    issue_path = tmp_path / "issue.json"
+    issue_path.write_text("", encoding="utf-8")
     monkeypatch.setattr(target, "PROJECT_ROOT", repo)
     _forbid_scan(monkeypatch)
     exit_code = target.main(

@@ -32,8 +32,9 @@ QGIS-MCP の ``execute_code`` から呼ぶこともできるが、重い描画�
 3. :func:`build_gis_figure` を呼び、タイトル・スケールバー・凡例つき PNG を出力する。
 
 保存機構の注意: ``get_canvas_screenshot`` は画像をインライン返却するのみでファイル
-保存しない。コミット用 PNG は本モジュール（印刷レイアウト export）か
-``render_map(path=...)`` で生成する。
+保存しない。コミット用 PNG は本モジュール（印刷レイアウト export）で生成する。
+``render_map(path=...)`` はタイトル・スケールバー・凡例を付けられないため、
+Git 管理外の画像（ゼミ資料など）に限る。
 """
 
 from __future__ import annotations

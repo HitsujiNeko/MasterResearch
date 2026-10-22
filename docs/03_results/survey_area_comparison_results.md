@@ -1,6 +1,6 @@
 # ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（Satellite Only・Limited）
 
-**最終更新**: 2026-10-20  
+**最終更新**: 2026-10-22  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節, [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: Satellite Only・Limited の処理条件（両結果ドキュメントの3節）、Spatial CV のブロック定義  
 **対象RQ**: RQ2（解析範囲による関係の変化）・RQ3（データ制約下での有効性評価）
@@ -24,6 +24,8 @@
 ## 1. 位置づけ
 
 Full シナリオ（測量GISを追加）は測量GISのある範囲でしか成立しない。一方、既存の Satellite Only・Limited の結果は ROI 全域で得たものであり、そのまま Full と並べると「データの違い」と「範囲の違い」が混ざる。本ドキュメントは、**Satellite Only・Limited を測量GIS範囲に絞って回し直し、同じデータセットから回した全域の結果と比べる**ことで、範囲の違いだけによる差を切り分ける。ここで得た測量GIS範囲の結果は、Full シナリオと比較するときの基準になる。
+
+**本ドキュメントの全ランは旧採用の観測 `2023-07-07T03:23:05Z`（032305）に基づく。** 主採用の観測は `2022-09-06T03:23:58Z`（032358）に変わったが（[observation_selection.md](../02_methods/observation_selection.md) 8章）、測量GIS範囲での比較は 032358 ではまだ回していない。032358 の全域の結果（[limited_analysis_results.md](limited_analysis_results.md) 8章・[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章）と本ドキュメントの数値は観測が異なるため、直接比べない。**Full シナリオを主採用の観測で評価する場合、本ドキュメントの数値はその基準にならない**（6章）。
 
 **本ドキュメントの「測量GIS範囲」の結果は、ハノイ都心部に絞った分析結果である。** 山地・農地・郊外を含む ROI 全域の結果とは、対象とする地域の性格が異なる（4節）。
 
@@ -231,7 +233,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 ### 5.5 限界
 
-- **ハノイROI・30m・単一観測（032305）の結果である。** 測量GIS範囲は約100 km² のハノイ都心部1か所であり、他の範囲・都市への一般化はしない
+- **ハノイROI・30m・単一観測（旧採用の 032305）の結果である。** 測量GIS範囲は約100 km² のハノイ都心部1か所であり、他の範囲・都市への一般化はしない。主採用の観測（032358）では全域の R² が大きく変わっており（[limited_analysis_results.md](limited_analysis_results.md) 8.5節）、測量GIS範囲の結果も観測によって変わりうる
 - **抽出密度の差が Spatial CV に与える影響は未評価である。** 抽出率は全域で約3%、測量GIS範囲で約90%と異なる（3.4節）。測量GIS範囲では隣接セルがほぼすべてサンプルに入るため、ブロック境界をはさんだ近傍セルが学習側に入る割合も全域より高く、Spatial CV でも境界での情報の漏れが強まりうる。全域でも、別 fold の隣接セルを持つ境界セルは約4%あるが、それが R² をどれだけ押し上げているかは未評価である（[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 4.5節）。測量GIS範囲での割合も測っていない
 - **測量GIS範囲の Spatial CV は24ブロックに依存する。** 判定基準は満たしたが、fold 間のばらつきが大きい（3.5節）
 - **全域と測量GIS範囲は母集団の性格が異なる。** 測量GIS範囲は全域の部分集合だが、土地被覆・標高・人口の分布が大きく異なり（4.4節）、抽出率も異なる（3.4節）。両範囲の差を「範囲の広さ」だけの効果とは読まない
@@ -240,6 +242,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 ## 6. 今後の方向性
 
-- **Full シナリオとの比較**: 測量GIS範囲の結果（本ドキュメントの `survey` ラン）を基準に、測量GIS由来の建物・道路を加えた Full シナリオを同じ範囲・同じ条件で評価する
+- **主採用の観測での回し直し**: 本ドキュメントの比較（Satellite Only・Limited のラン12・13相当、全域と測量GIS範囲）を主採用の観測 032358 で回し直す。Full シナリオを主採用の観測で評価する場合、その基準となる測量GIS範囲の結果も同じ観測にそろえる必要があるため、Full シナリオとの比較より前に行う
+- **Full シナリオとの比較**: 測量GIS範囲の結果（Full と同じ観測の `survey` ラン）を基準に、測量GIS由来の建物・道路を加えた Full シナリオを同じ範囲・同じ条件で評価する
 - **他スケールへの展開**: 90m・300m では境界セルの超過が大きく（3.2節）、ブロック数もさらに減るため、境界セルの扱いとブロック長を改めて検討する
 - **Spatial CV の頑健性**: 測量GIS範囲の fold 間のばらつきが結果に与える影響を、ブロックの割り当てを変えた繰り返し等で確認する

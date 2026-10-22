@@ -68,19 +68,19 @@ from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
 from src.common.summary import build_provenance, save_summary  # noqa: E402
 
-# 分析対象は30m・単一観測日（2023-07-07 03:23:05Z）に限定する
+# 分析対象は30m・単一観測日（2022-09-06 03:23:58Z）に限定する
 # （Limitedと同じ制約。他日時・他スケールの拡張は別途行う）。
 DEFAULT_DATASET_PATH = (
     PROJECT_ROOT
     / "data"
     / "output"
     / "datasets"
-    / "dataset_satellite_only_20230707_032305_hanoi_30m.gpkg"
+    / "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
 )
 # 旧経路（data/output/satellite_only/）とは集計単位・格子が異なる別物のため、
 # 出力先ディレクトリを分ける。
 DEFAULT_OUTPUT_DIR = (
-    PROJECT_ROOT / "data" / "output" / "satellite_only_cellbased" / "20230707_032305"
+    PROJECT_ROOT / "data" / "output" / "satellite_only_cellbased" / "20220906_032358"
 )
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 TARGET_COLUMN = "LST"

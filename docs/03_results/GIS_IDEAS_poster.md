@@ -1,6 +1,6 @@
 # GIS-IDEAS ポスター原稿（Limited シナリオ・日英対訳）
 
-**最終更新**: 2026-09-03  
+**最終更新**: 2026-10-22  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd), [fig3_limited_workflow.mmd](fig3_limited_workflow.mmd), [observation_selection.md](../02_methods/observation_selection.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: RQ3（データ制約下での有効性評価）の位置づけ、Limited シナリオの分析条件、Spatial CV の読み方
 
@@ -15,6 +15,8 @@
 **数値の丸めをそろえる。** R² と重要度は小数第 3 位、RMSE（°C）と VIF は第 2 位、割合は出所の桁数のままとする。第 2 位までにすると変数セット比較の差（`both` 0.760 と `spectral` 0.747）が潰れるためである。
 
 **数値の出所を各パネルに明記する。** 断りのない数値はすべて [limited_analysis_results.md](limited_analysis_results.md) の**ラン1（主結果）**に由来し、節番号を併記する。同ドキュメントおよび `data/output/limited/20230707_032305/` の CSV / JSON に無い数値は書かない。
+
+**本原稿は提出済みであり、旧採用の観測に基づく。** 本文の数値は観測 `2023-07-07T03:23:05Z` の旧世代のラン1（提出時の主結果）によるもので、提出時の記録として変えない。その後、主採用の観測を `2022-09-06T03:23:58Z` に変えた（[observation_selection.md](../02_methods/observation_selection.md) 8章）ため、**ラン1は現在の主結果ではない**。現在の主結果は [limited_analysis_results.md](limited_analysis_results.md) 8章にある。各パネルの「（主結果）」「ラン1」の表記と節番号は提出時のものとして読む。
 
 ### 0.1 テンプレートの実測値
 

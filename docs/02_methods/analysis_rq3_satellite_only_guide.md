@@ -1,6 +1,6 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-09-30  
+**最終更新**: 2026-10-22  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
@@ -226,7 +226,7 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 
 ```powershell
 python -m src.analysis.analysis_rq3_satellite_only `
-  --dataset-path data/output/datasets/dataset_satellite_only_20230707_032305_hanoi_30m.gpkg `
+  --dataset-path data/output/datasets/dataset_satellite_only_20220906_032358_hanoi_30m.gpkg `
   --lst-valid-ratio-threshold 0.5 `
   --sample-size 100000 `
   --cv-splits 5 `
@@ -234,7 +234,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
   --rf-trees 300
 ```
 
-引数を省略すると、既定値（30m・`20230707_032305`観測・block-size-m=2700等）で実行されます。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章参照）。
+引数を省略すると、既定値（30m・主採用の`20220906_032358`観測・block-size-m=2700等）で実行されます。旧採用の`20230707_032305`観測など別の観測で実行する場合は、`--dataset-path` と `--output-dir` を同じ観測にそろえて指定してください（片方だけ変えると、別観測の結果が既定の出力先に混在します）。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章参照）。
 
 ---
 

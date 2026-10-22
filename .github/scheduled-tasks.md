@@ -52,7 +52,7 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 
 ### 2.3 weekly-result-staleness-check
 
-判定の分類と終了コードは [check_result_staleness.py](../scripts/check_result_staleness.py) の冒頭の説明、報告 Issue の特定と書き込みの分岐は [check-result-staleness スキル](../.claude/skills/check-result-staleness/SKILL.md)を正本とする。既存の週次2件（9:00）と重ならないよう 9:30 に置く（毎月1日が月曜の日は `monthly-paper-scout` と同じ時刻になる）。
+判定の分類と終了コードは [check_result_staleness.py](../scripts/check_result_staleness.py) の冒頭の説明、報告 Issue の特定と書き込みの分岐は [check-result-staleness スキル](../.claude/skills/check-result-staleness/SKILL.md)を正本とする。下記プロンプトの冒頭で `main` 以外なら見送るのに加え、スキル（`main` 以外では書き込まない）とスクリプト（報告モードを `main` 以外では拒否する）も同じ条件で書き込みを止める。既存の週次2件（9:00）と重ならないよう 9:30 に置く（毎月1日が月曜の日は `monthly-paper-scout` と同じ時刻になる）。
 
 ```text
 リポジトリ {リポジトリのルート} で分析結果の陳腐化検出を**自動実行**として実行する（担当者不在のため、ユーザーへの確認は行わない）。

@@ -72,7 +72,8 @@ def repo(tmp_path: Path) -> Path:
     )
     (root / "data" / "output" / "datasets").mkdir(parents=True)
     (root / INPUT_REL).write_bytes(b"dataset-v1")
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    # 報告モードは main でのみ動くため、利用者の init.defaultBranch に依らず main にそろえる
+    subprocess.run(["git", "init", "-q", "--initial-branch", "main"], cwd=root, check=True)
     _commit_all(root, "initial")
     return root
 
@@ -913,6 +914,15 @@ def test_main_report_mode_with_previous_issue(
     assert text.rstrip().endswith(target.COMMENT_FOOTER)
 
 
+def _forbid_scan(monkeypatch: pytest.MonkeyPatch, reason: str) -> None:
+    """結果ファイルの走査に進んだら、reason を添えてテストを失敗させる。"""
+
+    def must_not_scan(_root: Path) -> list[Path]:
+        pytest.fail(reason)
+
+    monkeypatch.setattr(target, "find_result_files", must_not_scan)
+
+
 def test_main_report_mode_stops_before_checking_when_issue_unreadable(
     repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -920,11 +930,7 @@ def test_main_report_mode_stops_before_checking_when_issue_unreadable(
     empty = tmp_path / "issue.json"
     empty.write_text("", encoding="utf-8")
     monkeypatch.setattr(target, "PROJECT_ROOT", repo)
-
-    def must_not_scan(_root: Path) -> list[Path]:
-        pytest.fail("報告 Issue を読めないまま判定に進んではいけない")
-
-    monkeypatch.setattr(target, "find_result_files", must_not_scan)
+    _forbid_scan(monkeypatch, "報告 Issue を読めないまま判定に進んではいけない")
     exit_code = target.main(
         ["--report-output", "out/report.md", "--previous-issue-json", str(empty)]
     )
@@ -992,3 +998,104 @@ def test_main_report_mode_fails_without_marker(
     assert exit_code == target.EXIT_FAILURE
     assert not (repo / "out" / "report.md").exists()
     assert "マーカー" in capsys.readouterr().err
+
+
+# --- 報告モードのブランチ制限 ---
+
+# main 以外のブランチで判定に進んだときの失敗理由
+_OFF_MAIN_SCAN_REASON = "main 以外のブランチで報告モードの判定に進んではいけない"
+
+# スキルの報告モードの呼び出しと同じく、3 つの出力先をすべて指定する
+_ALL_OUTPUT_ARGS = [
+    "--output-json",
+    "out/staleness.json",
+    "--output-md",
+    "out/staleness.md",
+    "--report-output",
+    "out/report.md",
+]
+
+
+@pytest.mark.parametrize("checkout", ["branch", "detached"])
+def test_main_report_mode_refuses_outside_main(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    checkout: str,
+) -> None:
+    """main 以外では、報告 Issue の読み込みより前に、判定・書き出しをせず終了コード1を返す。"""
+    if checkout == "branch":
+        _git(repo, "checkout", "-q", "-b", "feature/work")
+        expected = "feature/work"
+    else:
+        _git(repo, "checkout", "-q", "--detach")
+        expected = "detached HEAD"
+    # 読めない報告 Issue を渡し、ブランチの拒否が読み込みより先に起きることを確かめる
+    issue_path = tmp_path / "issue.json"
+    issue_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    _forbid_scan(monkeypatch, _OFF_MAIN_SCAN_REASON)
+    exit_code = target.main([*_ALL_OUTPUT_ARGS, "--previous-issue-json", str(issue_path)])
+    assert exit_code == target.EXIT_FAILURE
+    assert not (repo / "out").exists()
+    err = capsys.readouterr().err
+    assert f"現在: {expected}" in err
+    assert "--report-output を外して" in err
+
+
+def test_main_report_mode_refuses_new_issue_outside_main(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """報告 Issue が無い（新規起票の）場合も、main 以外では本文を書き出さない。"""
+    _git(repo, "checkout", "-q", "-b", "feature/work")
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    _forbid_scan(monkeypatch, _OFF_MAIN_SCAN_REASON)
+    assert target.main(_ALL_OUTPUT_ARGS) == target.EXIT_FAILURE
+    assert not (repo / "out").exists()
+
+
+def test_main_without_report_output_runs_outside_main(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--report-output` なしの判定だけの実行は、main 以外のブランチでも動く。"""
+    _git(repo, "checkout", "-q", "-b", "feature/work")
+    _write_result(repo, "a_results.json", {"sample_size": 1})
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    assert target.main(["--output-json", "out/staleness.json"]) == target.EXIT_REPORT_WRITTEN
+    report = json.loads((repo / "out" / "staleness.json").read_text(encoding="utf-8"))
+    assert [entry["status"] for entry in report["results"]] == [target.STATUS_NO_PROVENANCE]
+
+
+def test_current_branch(repo: Path) -> None:
+    """ブランチ名を返し、detached HEAD では None を返す。"""
+    git = target.GitRepository(repo)
+    assert git.current_branch() == "main"
+    _git(repo, "checkout", "-q", "--detach")
+    assert git.current_branch() is None
+
+
+def test_current_branch_returns_none_on_git_failure(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`git branch --show-current` が失敗した（非ゼロ終了の）場合は None を返す。"""
+    git = target.GitRepository(repo)
+
+    def failing_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(["git", *args], 1, stdout="main\n", stderr="error")
+
+    monkeypatch.setattr(git, "_run", failing_run)
+    assert git.current_branch() is None
+
+
+def test_main_report_mode_outside_git_reports_head_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """git 自体を使えない場合は、ブランチの問題（detached HEAD）と取り違えずに止める。"""
+    (tmp_path / "data" / "output").mkdir(parents=True)
+    monkeypatch.setattr(target, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+    assert target.main(["--report-output", "out/report.md"]) == target.EXIT_FAILURE
+    err = capsys.readouterr().err
+    assert "HEAD を取得できない" in err
+    assert "detached HEAD" not in err

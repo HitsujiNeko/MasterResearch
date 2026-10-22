@@ -54,6 +54,11 @@ HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わ�
 
 報告モード（`--report-output` を指定した場合）:
 
+- チェックアウト中のブランチが `main` の場合だけ動く。作業ブランチ（worktree を含む）や
+  detached HEAD では、報告 Issue の読み込み・判定より前に終了コード 1 で止める。作業ブランチの
+  判定（git 管理外の入力が無いための「入力欠落」など）が報告 Issue の前回状態に書き込まれると、
+  次回の `main` での実行で偽の「解消」「分類変化」が報告されるため。`--report-output` を
+  付けない判定だけの実行は、どのブランチでも動く
 - `--previous-issue-json` なし: 新規起票用の Issue 本文を書き出す
 - `--previous-issue-json` あり: 報告 Issue（`gh issue view {番号} --json body,comments` の
   保存ファイル）の本文とコメントに埋め込んだ不可視マーカー
@@ -64,8 +69,9 @@ HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わ�
 終了コード:
 
 - 0: 判定を出力した（報告モードでは、新規起票の本文または差分コメントを書き出した）
-- 1: 判定できない（git の `HEAD` を取得できない・走査先が無い）、または報告 Issue の
-  保存ファイルを読めない（空・不正な JSON・マーカーが無い）。報告モードでは何も書き出さない
+- 1: 判定できない（git の `HEAD` を取得できない・走査先が無い）、報告 Issue の
+  保存ファイルを読めない（空・不正な JSON・マーカーが無い）、または報告モードを `main` 以外の
+  ブランチで実行した。報告モードでは何も書き出さない
 - 3: 報告モードで書き込む内容が無い（問題なしで報告 Issue も無い・前回から差分なし）
 - 4: 報告モードで前回の問題がすべて解消した（解消一覧を書き出した。スキルは追記後に close する）
 
@@ -148,6 +154,9 @@ DEFAULT_WATCH_PATHS: tuple[str, ...] = CODE_WATCH_PATHS
 
 # git コマンドの待ち時間の上限（秒）
 _GIT_TIMEOUT_SECONDS = 30
+
+# 報告モードを許すブランチ（報告 Issue のマーカーは main での判定結果を正本とする）
+REPORT_BRANCH = "main"
 
 
 @dataclass
@@ -232,6 +241,13 @@ class GitRepository:
             )
         except (OSError, subprocess.SubprocessError):
             return None
+
+    def current_branch(self) -> str | None:
+        """チェックアウト中のブランチ名を返す（detached HEAD・取得失敗なら None）。"""
+        completed = self._run(["branch", "--show-current"])
+        if completed is None or completed.returncode != 0:
+            return None
+        return completed.stdout.strip() or None
 
     def head_commit(self) -> str | None:
         """現在の `HEAD` のコミットハッシュを返す（取得できなければ None）。"""
@@ -1074,6 +1090,24 @@ def main(argv: list[str] | None = None) -> int:
     if not results_root.is_dir():
         print(f"走査先のディレクトリがありません: {results_root}", file=sys.stderr)
         return EXIT_FAILURE
+    git = GitRepository(project_root)
+    # ブランチの確認より先に行い、git 自体を使えない場合を detached HEAD と取り違えない
+    head_commit = git.head_commit()
+    if head_commit is None:
+        print("git の HEAD を取得できないため、コードの差分を判定できません。", file=sys.stderr)
+        return EXIT_FAILURE
+    if args.report_output:
+        branch = git.current_branch()
+        if branch != REPORT_BRANCH:
+            # 作業ブランチの判定（入力欠落など）を報告 Issue の正本に書かせないよう、
+            # 報告 Issue の読み込み・判定より前に止める
+            print(
+                f"報告モードは {REPORT_BRANCH} でのみ実行できます"
+                f"（現在: {branch or 'detached HEAD'}）。"
+                "判定だけを行う場合は --report-output を外してください。",
+                file=sys.stderr,
+            )
+            return EXIT_FAILURE
     previous: dict[str, str] | None = None
     if args.previous_issue_json:
         try:
@@ -1082,11 +1116,6 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as exc:
             print(f"報告 Issue を読めませんでした: {exc}", file=sys.stderr)
             return EXIT_FAILURE
-    git = GitRepository(project_root)
-    head_commit = git.head_commit()
-    if head_commit is None:
-        print("git の HEAD を取得できないため、コードの差分を判定できません。", file=sys.stderr)
-        return EXIT_FAILURE
 
     hash_cache: dict[Path, str] = {}
     extra_watch_paths = tuple(args.extra_watch_path)

@@ -1117,7 +1117,7 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 | Linear Regression | ランダム分割 | 0.7660 | 1.2613 | 0.9583 | 0.478 |
 | Random Forest | ランダム分割 | 0.8569 | 0.9863 | 0.7337 | 0.374 |
 | Linear Regression | Spatial CV（mean） | 0.7652（sd 0.0183） | 1.2699 | 0.9616 | 0.481 |
-| Random Forest | Spatial CV（mean） | **0.8392**（sd 0.0068） | 1.0518 | 0.7841 | 0.399 |
+| Random Forest | Spatial CV（mean） | **0.8392**（sd 0.0068） | 1.0518 | 0.7841 | 0.398 |
 
 - 非空ブロック数（10万件サンプル後）は 506 である
 - **Spatial CV の値は「未知の場所への汎化性能」ではなく、同一ROI内・空間的に近い場所への内挿性能として読む。** ブロックサイズが空間自己相関の到達距離より小さいという制約（3.9節）は本章にもそのまま当てはまる。本観測でのブロックサイズ感度の測定は未実施である
@@ -1144,7 +1144,7 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 
 **比較相手の妥当性**: ラン13の `results.json` は、未コミット変更がある状態（`provenance.git.dirty` が真）で生成されており、その後にコードも変わったため、陳腐化チェックでは「要再実行（コード変更）」と判定される。ただし、クリーンなコミットで生成した全域ラン（`data/output/limited/20230707_032305_area_comparison/` の `..._both_bh_mean_wi_none_results.json`・[survey_area_comparison_results.md](survey_area_comparison_results.md)）とは、ランダム分割・Spatial CV の R²・RMSE・MAE、母数のファネル、SHAP 平均絶対値がすべて一致する。数値は現行のコードで再現できているため、比較相手として使う。
 
-**比べる量と比べない量**: 観測が違うと LST の分布が違うため、LST の絶対値と RMSE・MAE（°C）は比べない（[observation_selection.md](../02_methods/observation_selection.md) 8.5節）。R²、RMSE を各観測の LST の標準偏差で割った値、変数重要度の順位を比べる。
+**比べる量と比べない量**: 観測が違うと LST の分布が違うため、LST の絶対値と RMSE・MAE（°C）は比べない（[observation_selection.md](../02_methods/observation_selection.md) 8.5節）。R²、RMSE を各観測の LST の標準偏差で割った値、変数重要度の順位を比べる。**SHAP 平均絶対値は LST と同じ単位（°C）を持つため、値の大きさを比べるときは各観測の LST の標準偏差で割る。**
 
 | 指標 | 032358（本章） | 032305（ラン13） | 差 |
 |---|---|---|---|
@@ -1152,16 +1152,16 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 | Linear R²（Spatial CV） | 0.7652 | 0.6439 | **+0.1213** |
 | RF R²（ランダム分割） | 0.8569 | 0.7995 | +0.0574 |
 | Linear R²（ランダム分割） | 0.7660 | 0.6536 | +0.1124 |
-| RF の RMSE ÷ LST の標準偏差（Spatial CV） | 0.399 | 0.495 | −0.096 |
+| RF の RMSE ÷ LST の標準偏差（Spatial CV） | 0.398 | 0.495 | −0.097 |
 | Linear の RMSE ÷ LST の標準偏差（Spatial CV） | 0.481 | 0.595 | −0.113 |
 | SHAP 上位4位 | `NDBI`・`LULC_BUILT_COV`・`POP_DEN_WORLDPOP2020`・`ELEV_MEAN` | 同じ順位 | 順位は不変 |
-| SHAP `NDBI` | 1.025 | 0.738 | +0.287 |
+| SHAP `NDBI` ÷ LST の標準偏差 | 0.388 | 0.295 | +0.093 |
 | Permutation 上位2位 | `NDBI`・`ELEV_MEAN` | 同じ順位 | 順位は不変 |
 
 **差の読み方**（物差しは2.1節「標本変動の実測」。母集団自体が異なるため、そこで測った変動は下限として扱う）:
 
 - **R² の差（+0.06〜+0.12）は、標本変動（0.003程度）をはるかに超える。** RF と線形の差（Spatial CV）は 0.1092 → 0.0740 に縮み、線形モデルの改善のほうが大きい
-- **SHAP 上位4位の順位は変わらない。** 第5・6位（`NDVI`・`NTL_MEAN`）も同じだが、第5・6位の入れ替わりは標本変動の範囲として扱う（2.1節）ため、一致していることにも重みを置かない。`NDBI` の SHAP は +0.287 と、SHAP の変動幅（0.1程度）を超えて大きくなった
+- **SHAP 上位4位の順位は変わらない。** 第5・6位（`NDVI`・`NTL_MEAN`）も同じだが、第5・6位の入れ替わりは標本変動の範囲として扱う（2.1節）ため、一致していることにも重みを置かない。`NDBI` の SHAP を各観測の LST の標準偏差で割った値は +0.093 と、SHAP の変動幅（2.1節の 0.1程度をラン1 の母集団の標準偏差 2.50°C で割って 0.04程度）を超えて大きくなった
 - **Permutation の第3〜5位（`LULC_BUILT_COV`・`NDVI`・`POP_DEN_WORLDPOP2020`）は順位が入れ替わった。** 032305 では3変数の値が 0.130〜0.145 に、032358 では 0.068〜0.090 に固まっており、差が小さいため順位として読まない
 - 032305 で SHAP 第7位だった `LULC_WATER_COV` は 0.082 → 0.023（第9位）に下がった。第7位以下は値が小さく、変動の物差しを測っていないため、この差を解釈しない
 

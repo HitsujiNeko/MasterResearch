@@ -77,9 +77,9 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QG
    （手順は [qgis_operation_guidelines.md の「図の生成手段」](../../../docs/02_methods/qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）タイトル・スケールバー・凡例つきの PNG を生成し、
    [reference.md](reference.md) の「スクリーンショットの保存先・命名規則」に従って
    `images/gis_data/{カテゴリ}/` に保存する（構図要件・保存機構・対象範囲は
-   [qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照）
+   [qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照）。
    ヘッドレス実行は QGIS 本体とは別プロセスで、上記 2〜4 で読み込んだレイヤや `set_layer_crs` の設定は引き継がれないため、
-   ランナー内でレイヤの読み込みと CRS の設定をやり直す（EPSG:5897 のデータの扱いは同ガイドラインの「図の生成手段」の「注意点」を参照）
+   ランナー内でレイヤを読み込み直す（4 で `set_layer_crs` を使った場合は CRS の設定もやり直す。EPSG:5897 のデータの扱いは同ガイドラインの「図の生成手段」の「注意点」を参照）
 6. データ確認は一時的な検証にあたるため、**`save_project` は明示指示がない限り呼ばない**
    （[qgis_operation_guidelines.md の「検証時のプロジェクト衛生」](../../../docs/02_methods/qgis_operation_guidelines.md#検証時のプロジェクト衛生場面別のsave方針)）。
    確認用に追加したレイヤをプロジェクトに残さない場合は `remove_layer` で片付ける。
@@ -109,6 +109,6 @@ QGIS MCP で対象レイヤを読み込み、ROI と重ねて表示する。**QG
 ## 注意事項
 
 - メタデータ抽出は Step 1 の CLI に一本化する。スキル内に抽出ロジックを再実装しない
-- QGIS のパス指定は絶対パス（相対パスは未保存プロジェクトで読み込み失敗する）
+- QGIS-MCP でのパス指定は絶対パス（相対パスは未保存プロジェクトで読み込み失敗する）。ヘッドレス PyQGIS のランナーには研究データの絶対パスを書かず、引数や設定から受け取る
 - `remove_layer` は元に戻せない。確認後のレイヤ整理はユーザーに確認してから行う
 - 所見の最終的な学術的判断（分析採否・手法選択）は研究者の責任範囲とする

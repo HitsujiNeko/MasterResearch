@@ -123,13 +123,13 @@ qgis/
 | 図の生成（1 枚でも複数枚でも）・スタイルを当てた PNG の書き出し | **ヘッドレス PyQGIS**（既定） | キャンバスの再描画とレイヤツリーの更新が起きないため速く、ユーザーの QGIS 本体を巻き込まない |
 | 起動中のプロジェクトの構成を変える（Map Theme のレコード編集、レイヤグループの可視性設定など）、起動中のプロジェクトのレイヤにスタイルを当てて`.qml`を作る | `execute_code` | 対象が「いま開いているプロジェクト」やそのレイヤそのものであり、ヘッドレスでは触れない |
 | 起動中のレイヤの状態を軽く確かめる（CRS の WKT・地図単位、件数・範囲など） | `execute_code`（専用ツールで足りるならそちら） | 1 回の呼び出しが数秒で終わる読み取りに限る |
-| 目視確認のための即時表示、Git 管理外の画像（ゼミ資料など） | `get_canvas_screenshot` / `render_map` | この 2 つのうちファイルに保存できるのは`render_map(path=...)`のみ。タイトル・スケールバー・凡例を付けられず構図要件を満たせないため、コミット用 PNG には使わない（[保存機構](#取得方法構図)を参照） |
+| 目視確認のための即時表示、Git 管理外の画像（ゼミ資料など） | `get_canvas_screenshot` / `render_map` | コミット用 PNG には使わない（[保存機構](#取得方法構図)を参照） |
 
-**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる（2026-08-15 の事象で観察した値。クライアント・サーバーの設定値かは未確認）。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（起動・終了を含むかは記録がなく未確認。所要時間の記録は本節を正本とする。このとき作った図は[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md)に掲載されているが、同ドキュメントに所要時間の記載はない）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
+**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる（2026-08-15 の事象で観察した値。クライアント・サーバーの設定値かは未確認）。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（起動・終了を含むかは記録がなく未確認。所要時間の記録は本節を正本とする）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
 
 ### 実行手順
 
-QGIS 同梱の Python（OSGeo4W の`python-qgis-ltr.bat`）でランナースクリプトを実行する。conda 環境`masterresearch`の Python には`qgis.core`が無いため使えない。
+QGIS 同梱の Python（OSGeo4W の`python-qgis-ltr.bat`）でランナースクリプトを実行する。conda 環境`masterresearch`の Python には`qgis.core`が無いため使えない。OSGeo4W には LTR 版（3.44）と最新版（4.0）が併存するが、`qgis/styles/*.qml`は LTR 版で作っているため、同じ LTR 版の Python を使う。
 
 ```powershell
 # OSGeo4W のインストール先が既定（C:\OSGeo4W）の場合。<runner> はランナーのパス、
@@ -163,12 +163,15 @@ try:
     project = QgsProject.instance()
     roi = QgsVectorLayer(str(roi_path), "ROI", "ogr")
     dem = QgsRasterLayer(str(raster_path), "FABDEM")
+    # パスの誤りなどで無効なレイヤを渡すと、原因の分かりにくい失敗になるため先に止める
+    if not (roi.isValid() and dem.isValid()):
+        raise ValueError(f"レイヤを読み込めない: roi={roi_path}, raster={raster_path}")
     project.addMapLayers([roi, dem])
     dem.loadNamedStyle(str(REPO_ROOT / "qgis/styles/dem_elevation.qml"))
     qf.style_roi_outline(roi)  # 省略すると ROI の塗りがデータを覆う
     qf.set_raster_itemized_legend(dem)
     result = qf.build_gis_figure(
-        "FABDEM", "ROI", "FABDEM 標高 2023 － Hanoi ROI", str(out_png), legend_kind=fl.LEGEND_ITEMS
+        "FABDEM", "ROI", "FABDEM v1.2 標高 － Hanoi ROI", str(out_png), legend_kind=fl.LEGEND_ITEMS
     )
     print(result)  # 例: {'ok': True, 'path': '...'}
 finally:
@@ -176,7 +179,7 @@ finally:
 ```
 
 - `roi_path` / `raster_path` / `out_png`もリポジトリルートと同様に引数や設定から受け取り、研究データの絶対パスをランナーに書かない（[CodingRule.md](CodingRule.md) 7章）
-- タイトルの書式は[取得方法・構図](#取得方法構図)に従う（例の`2023`は FABDEM V1-2 の公開年）
+- タイトルの書式は[取得方法・構図](#取得方法構図)に従う（例は既存の`images/gis_data/dem/dem_fabdem_hanoi.png`と同じタイトルで、書式の`{年}`を省いている。FABDEM の原データの観測期間は 2010〜2015 年にまたがり、年が一つに定まらないため）
 - 複数枚を作る場合は、`initQgis()`から`exitQgis()`までの 1 回の起動の中でループする。起動と終了には数秒かかるため、1 枚ごとに起動し直さない
 - 2026-10-22 の実測: ハノイ ROI と FABDEM の項目凡例つきの図 1 枚が、描画・書き出し 1.2〜2.2 秒、起動・終了込みで約 6.4 秒だった
 
@@ -191,7 +194,7 @@ finally:
 
 - **proj.db の警告**: 実行時に`proj.db contains DATABASE.LAYOUT.VERSION.MINOR = 2 whereas a number >= 4 is expected`という警告が大量に出る。OSGeo4W 同梱の proj.db が古いためで、EPSG:4326 のデータを描く限り図は正しく出力される（2026-10-22 に確認）。ただし**EPSG:5897 のラスタは EPSG:4326 への再投影に失敗し、描画されない**ため、EPSG:5897 のデータ（測量 GIS や、正準グリッドへラスタ化したデータなど）は事前に EPSG:4326 へ再投影してから渡す（事例は[limited_analysis_results.md](../03_results/limited_analysis_results.md)の図の生成。EPSG:5897 のベクタで同じことが起きるかは未確認）。proj.db の状態は`scripts/check_external_deps.py`で確認できる
 - **`The PNG driver does not support update access`**: 書き出し時に出るが、PNG 自体は出力される（同上）
-- **凡例の言語**: ヘッドレスでは QGIS の日本語ロケールが読まれず、自動生成される凡例の文字列だけが英語になる（ラスタのバンド凡例が`バンド 1 (グレー)`ではなく`Band 1 (Gray)`になる）。`build_gis_figure`の凡例タイトル（`凡例`）、レイヤ名、呼び出し側が渡すラベルは渡したとおりに出るため、ベクタ主題図の体裁は変わらない
+- **凡例の言語**: ヘッドレスでは QGIS の日本語ロケールが読まれず、自動生成される凡例の文字列だけが英語になる（ラスタのバンド凡例が`バンド 1 (グレー)`ではなく`Band 1 (Gray)`になる）。`build_gis_figure`の凡例タイトル（`凡例`）、レイヤ名、呼び出し側が渡すラベルは渡したとおりに出るため、ベクタ主題図の体裁は変わらない。ラスタ図のバンド凡例が英語になることは許容する（ユーザー判断）
 - **プロジェクトを汚さない**: ヘッドレスの`QgsProject.instance()`はランナー内だけの空のプロジェクトであり、`hanoi.qgz`は読み込まない限り変わらない。`qgis/projects/*.qgz`を`read()`で読み込んで使う場合も、`write()`を呼ばない
 
 ## execute_code / execute_processing の値取得

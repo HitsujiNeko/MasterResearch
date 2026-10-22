@@ -7,21 +7,11 @@ QGIS 非依存の :mod:`src.visualization.figure_layout` に委譲し、本モ�
 
 呼び出し経路はヘッドレス PyQGIS を既定とする（QGIS 本体を起動せず、キャンバスの
 再描画が起きないため速く、MCP の応答打ち切りで QGIS が固まることもない）。QGIS 同梱の
-Python でランナースクリプトを実行し、その中で次の順に初期化してから本モジュールを使う::
-
-    # 実行例: & "C:\\OSGeo4W\\bin\\python-qgis-ltr.bat" <runner>.py <repo_root>
-    QgsApplication.setPrefixPath(os.environ["QGIS_PREFIX_PATH"], True)
-    app = QgsApplication([], False)
-    app.initQgis()
-    try:
-        ...  # レイヤを QgsProject.instance() に追加し build_gis_figure を呼ぶ
-    finally:
-        app.exitQgis()
-
-QGIS-MCP の ``execute_code`` から呼ぶこともできるが、重い描画は MCP の応答が
-打ち切られて QGIS 本体が応答しなくなるため、起動中のプロジェクトを直接使う必要が
-ある場合に限る。手順・環境変数・注意点は
-``docs/02_methods/qgis_operation_guidelines.md`` の「図の生成手段」を参照。
+Python でランナースクリプトを実行し、その中で ``QgsApplication`` を初期化してから
+本モジュールを使う。QGIS-MCP の ``execute_code`` から呼ぶこともできるが、重い描画は
+MCP の応答が打ち切られて QGIS 本体が応答しなくなるため、起動中のプロジェクトを直接
+使う必要がある場合に限る。初期化の手順（ランナーの骨格）・環境変数・注意点は
+``docs/02_methods/qgis_operation_guidelines.md`` の「図の生成手段」を正本とする。
 
 想定する使い方（呼び出し側の責務）:
 
@@ -32,9 +22,8 @@ QGIS-MCP の ``execute_code`` から呼ぶこともできるが、重い描画�
 3. :func:`build_gis_figure` を呼び、タイトル・スケールバー・凡例つき PNG を出力する。
 
 保存機構の注意: ``get_canvas_screenshot`` は画像をインライン返却するのみでファイル
-保存しない。コミット用 PNG は本モジュール（印刷レイアウト export）で生成する。
-``render_map(path=...)`` はタイトル・スケールバー・凡例を付けられないため、
-Git 管理外の画像（ゼミ資料など）に限る。
+保存しない。コミット用 PNG は本モジュール（印刷レイアウト export）で生成し、
+``render_map(path=...)`` は使わない（理由は ``qgis_operation_guidelines.md`` の「保存機構」）。
 """
 
 from __future__ import annotations

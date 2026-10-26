@@ -45,6 +45,7 @@ from src.analysis.analysis_rq3_satellite_only import (
     resolve_output_stem,
     resolve_required_mask_columns,
 )
+from src.analysis.build_common_evaluation_set import draw_evaluation_cells
 from src.analysis.urban_params.canonical_grid import make_cell_id
 from src.common.analysis_dataset import (
     ANALYSIS_AREA_ROI,
@@ -54,6 +55,7 @@ from src.common.analysis_dataset import (
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
 )
 from src.common.analysis_runs import build_observation_label
+from src.common.evaluation_cells import save_evaluation_set
 from src.common.run_parameters import build_run_parameters_from_args
 
 
@@ -709,3 +711,140 @@ class TestLoadScenarioDataset:
 
         with pytest.raises(ValueError, match="mask_survey"):
             load_scenario_dataset(Path("dummy.gpkg"), ANALYSIS_AREA_SURVEY)
+
+
+def _save_common_evaluation_set(
+    tmp_path: Path, cell_ids: np.ndarray, sample_size: int = 0, block_size_m: int = 2_700
+) -> Path:
+    """合成データの cell_id から評価セル CSV とメタデータを作り、CSV のパスを返す。
+
+    メタデータの設定は、`--sample-size` 以外は分析スクリプトの既定値に揃える。
+    """
+    cells, _ = draw_evaluation_cells(
+        cell_ids,
+        sample_size=sample_size,
+        random_state=42,
+        block_size_m=block_size_m,
+        scale=30,
+        cv_splits=5,
+    )
+    cells_path = tmp_path / "common" / "evaluation_cells_seed42.csv"
+    save_evaluation_set(
+        cells,
+        cells_path,
+        {
+            "block_size_m": block_size_m,
+            "cv_splits": 5,
+            "scale_m": 30,
+            "random_state": 42,
+            "sample_size": sample_size,
+            "lst_valid_ratio_threshold": 0.5,
+            "analysis_area": ANALYSIS_AREA_ROI,
+            "common_size": len(cell_ids),
+        },
+    )
+    return cells_path
+
+
+class TestEvaluationCellsArguments:
+    """--evaluation-cells の引数解釈（出力先の既定）のテスト。"""
+
+    def test_default_output_dir_is_separated(self) -> None:
+        """評価セル指定時の既定の出力先は、通常ランと別のディレクトリになる。"""
+        args = parse_arguments(["--evaluation-cells", "cells.csv"])
+
+        assert args.output_dir == DEFAULT_OUTPUT_DIR.with_name(
+            f"{DEFAULT_OUTPUT_DIR.name}_common_evaluation"
+        )
+
+    def test_explicit_output_dir_is_kept(self, tmp_path: Path) -> None:
+        """--output-dir を明示した場合はそのまま使う。"""
+        args = parse_arguments(["--evaluation-cells", "cells.csv", "--output-dir", str(tmp_path)])
+
+        assert args.output_dir == tmp_path
+
+    def test_default_run_keeps_default_output_dir(self) -> None:
+        """評価セルを指定しない場合の出力先は従来どおり。"""
+        args = parse_arguments([])
+
+        assert args.output_dir == DEFAULT_OUTPUT_DIR
+        assert args.evaluation_cells is None
+
+
+class TestMainEvaluationCells:
+    """main() の --evaluation-cells の結線（標本・fold の固定、記録、停止条件）のテスト。"""
+
+    _install_loader = TestMainAnalysisArea._install_loader
+    _set_argv = TestMainAnalysisArea._set_argv
+
+    def test_uses_cells_in_csv_order_and_fixed_folds(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """標本は CSV の行順、Spatial CV は CSV の fold で行い、評価セルと来歴を記録する。"""
+        dataframe = _spread_dataframe(n=200)
+        cells_path = _save_common_evaluation_set(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(monkeypatch, tmp_path, "--evaluation-cells", str(cells_path))
+
+        main()
+
+        cells = pd.read_csv(cells_path)
+        stem = "dataset_satellite_only_dummy_hanoi_30m_evaluation_cells_seed42"
+        sample = pd.read_csv(output_dir / f"{stem}_sample_0.csv")
+        assert list(sample["cell_id"]) == list(cells["cell_id"])
+        folds = pd.read_csv(output_dir / f"{stem}_spatial_cv_folds.csv")
+        assert list(folds["test_size"]) == list(cells["fold"].value_counts().sort_index())
+        result = json.loads((output_dir / f"{stem}_results.json").read_text(encoding="utf-8"))
+        record = result["evaluation_cells"]
+        assert record["population_size"] == 200
+        assert record["common_size"] == 200
+        assert record["path"].endswith("evaluation_cells_seed42.csv")
+        input_paths = [entry["path"] for entry in result["provenance"]["inputs"]]
+        assert any(path.endswith("evaluation_cells_seed42.csv") for path in input_paths)
+        assert any(path.endswith("evaluation_cells_seed42_results.json") for path in input_paths)
+
+    def test_default_run_records_null_evaluation_cells(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """評価セルを指定しないランでは evaluation_cells を null とし、来歴の入力は GPKG のみ。"""
+        self._install_loader(monkeypatch, _spread_dataframe(n=200))
+        output_dir = self._set_argv(monkeypatch, tmp_path)
+
+        main()
+
+        result = json.loads(next(output_dir.glob("*_results.json")).read_text(encoding="utf-8"))
+        assert result["evaluation_cells"] is None
+        assert len(result["provenance"]["inputs"]) == 1
+
+    def test_mismatched_block_size_stops_before_loading(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """--block-size-m がメタデータと違えば、データセットを読む前に停止する。"""
+        dataframe = _spread_dataframe(n=200)
+        cells_path = _save_common_evaluation_set(tmp_path, dataframe["cell_id"].to_numpy())
+
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("設定が食い違ったままデータセットを読んではならない")
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset", _fail_if_called
+        )
+        self._set_argv(
+            monkeypatch, tmp_path, "--evaluation-cells", str(cells_path), "--block-size-m", "900"
+        )
+
+        with pytest.raises(ValueError, match="block_size_m"):
+            main()
+
+    def test_cell_outside_population_stops(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """評価セルが自シナリオの有効母集団に無ければ、モデル学習前に停止する。"""
+        dataframe = _spread_dataframe(n=200)
+        cells_path = _save_common_evaluation_set(tmp_path, dataframe["cell_id"].to_numpy())
+        dataframe.loc[0, "NDVI"] = np.nan
+        self._install_loader(monkeypatch, dataframe)
+        self._set_argv(monkeypatch, tmp_path, "--evaluation-cells", str(cells_path))
+
+        with pytest.raises(ValueError, match="有効母集団にありません"):
+            main()

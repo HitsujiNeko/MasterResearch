@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -15,10 +16,16 @@ from src.common.evaluation_cells import (
     FOLD_COLUMN,
     METADATA_CELLS_KEY,
     build_evaluation_cells,
+    build_evaluation_record,
     build_fold_labels,
     compute_evaluation_cells_digest,
+    evaluation_input_paths,
     folds_from_labels,
     load_evaluation_set,
+    load_evaluation_set_for_run,
+    resolve_evaluation_folds,
+    resolve_evaluation_output_dir,
+    resolve_evaluation_output_stem,
     resolve_metadata_path,
     save_evaluation_set,
     select_evaluation_rows,
@@ -26,7 +33,15 @@ from src.common.evaluation_cells import (
 )
 from src.common.spatial_cv import split_by_spatial_blocks
 
-SETTINGS = {"block_size_m": 2_700, "cv_splits": 3, "scale_m": 30}
+SETTINGS = {
+    "block_size_m": 2_700,
+    "cv_splits": 3,
+    "scale_m": 30,
+    "random_state": 42,
+    "sample_size": 12,
+    "lst_valid_ratio_threshold": 0.5,
+    "analysis_area": "roi",
+}
 
 
 def _cells(n: int = 12) -> pd.DataFrame:
@@ -180,7 +195,7 @@ class TestSaveAndLoadEvaluationSet:
             load_evaluation_set(cells_path)
 
     def test_save_requires_setting_keys(self, tmp_path: Path) -> None:
-        """設定キー（ブロックサイズ・分割数・解像度）の無いメタデータは保存しない。"""
+        """設定キー（ブロックサイズ・分割数等）が欠けたメタデータは保存しない。"""
         with pytest.raises(ValueError, match="cv_splits"):
             save_evaluation_set(
                 _cells(), tmp_path / "cells.csv", {"block_size_m": 2_700, "scale_m": 30}
@@ -213,20 +228,146 @@ class TestValidateRunSettings:
 
     def test_accepts_matching_settings(self) -> None:
         """すべて一致すれば何もしない。"""
-        validate_run_settings(SETTINGS, block_size_m=2_700, cv_splits=3, scale_m=30)
+        validate_run_settings(SETTINGS, **SETTINGS)
 
     @pytest.mark.parametrize(
-        ("block_size_m", "cv_splits", "scale_m", "key"),
-        [(3_000, 3, 30, "block_size_m"), (2_700, 5, 30, "cv_splits"), (2_700, 3, 90, "scale_m")],
+        ("key", "value"),
+        [
+            ("block_size_m", 3_000),
+            ("cv_splits", 5),
+            ("scale_m", 90),
+            ("random_state", 43),
+            ("sample_size", 0),
+            ("lst_valid_ratio_threshold", 0.6),
+            ("analysis_area", "survey"),
+        ],
     )
-    def test_raises_on_any_mismatch(
-        self, block_size_m: int, cv_splits: int, scale_m: int, key: str
-    ) -> None:
+    def test_raises_on_any_mismatch(self, key: str, value: object) -> None:
         """どれか1つでも食い違えば、その項目名を示して停止する。"""
         with pytest.raises(ValueError, match=key):
-            validate_run_settings(
-                SETTINGS, block_size_m=block_size_m, cv_splits=cv_splits, scale_m=scale_m
+            validate_run_settings(SETTINGS, **{**SETTINGS, key: value})
+
+
+class TestLoadEvaluationSetForRun:
+    """load_evaluation_set_for_run のテスト（分析スクリプトの引数からの読込）。"""
+
+    @staticmethod
+    def _args(cells_path: Path | None, **overrides: object) -> argparse.Namespace:
+        """分析スクリプトと同じ名前の引数を持つ Namespace を作る。"""
+        values = {
+            "evaluation_cells": cells_path,
+            "block_size_m": 2_700,
+            "cv_splits": 3,
+            "scale": 30,
+            "random_state": 42,
+            "sample_size": 12,
+            "lst_valid_ratio_threshold": 0.5,
+            "analysis_area": "roi",
+        }
+        return argparse.Namespace(**{**values, **overrides})
+
+    def test_returns_none_without_evaluation_cells(self) -> None:
+        """--evaluation-cells 未指定なら何も読まない。"""
+        assert load_evaluation_set_for_run(self._args(None)) is None
+
+    def test_loads_and_validates(self, tmp_path: Path) -> None:
+        """指定があれば読み込み、引数が一致すれば EvaluationSet を返す。"""
+        cells_path = tmp_path / "evaluation_cells_seed42.csv"
+        save_evaluation_set(_cells(), cells_path, dict(SETTINGS))
+
+        evaluation_set = load_evaluation_set_for_run(self._args(cells_path))
+
+        assert evaluation_set is not None
+        assert evaluation_input_paths(evaluation_set) == [
+            evaluation_set.cells_path,
+            evaluation_set.metadata_path,
+        ]
+
+    def test_stops_when_block_size_differs(self, tmp_path: Path) -> None:
+        """--block-size-m がメタデータと違えば停止する。"""
+        cells_path = tmp_path / "evaluation_cells_seed42.csv"
+        save_evaluation_set(_cells(), cells_path, dict(SETTINGS))
+
+        with pytest.raises(ValueError, match="block_size_m"):
+            load_evaluation_set_for_run(self._args(cells_path, block_size_m=3_000))
+
+    def test_input_paths_are_empty_without_evaluation_set(self) -> None:
+        """評価セルを使わないランでは、来歴に入力を加えない。"""
+        assert evaluation_input_paths(None) == []
+
+
+class TestEvaluationOutputNames:
+    """評価セルを使うランの出力先・出力名のテスト（既存ランを上書きしない）。"""
+
+    def test_output_dir_gets_suffix(self) -> None:
+        """出力先は通常ランのディレクトリ名に接尾辞を付けた兄弟ディレクトリになる。"""
+        path = resolve_evaluation_output_dir(Path("data/output/limited/20220906_032358"))
+
+        assert path == Path("data/output/limited/20220906_032358_common_evaluation")
+
+    def test_output_stem_gets_cells_name(self) -> None:
+        """出力名には評価セル CSV の名前を付ける。"""
+        cells_path = Path("a/evaluation_cells_seed42.csv")
+        stem = resolve_evaluation_output_stem("dataset_x_30m", cells_path)
+
+        assert stem == "dataset_x_30m_evaluation_cells_seed42"
+
+
+class TestResolveEvaluationFolds:
+    """resolve_evaluation_folds のテスト（評価セルの fold 列からの分割）。"""
+
+    def test_returns_folds_from_labels(self) -> None:
+        """ブロック ID が一致すれば、fold 列どおりの分割を返す。"""
+        cells = _cells()
+
+        folds = resolve_evaluation_folds(cells, cells[BLOCK_ID_COLUMN].to_numpy(), 3)
+
+        for fold_number, (_, test_idx) in enumerate(folds, start=1):
+            np.testing.assert_array_equal(
+                test_idx, np.flatnonzero(cells[FOLD_COLUMN].to_numpy() == fold_number)
             )
+
+    def test_stops_when_block_ids_differ(self) -> None:
+        """標本に割り当て直したブロック ID が評価セルと違えば停止する。"""
+        cells = _cells()
+        block_ids = cells[BLOCK_ID_COLUMN].to_numpy() + 1
+
+        with pytest.raises(ValueError, match="block_id"):
+            resolve_evaluation_folds(cells, block_ids, 3)
+
+    def test_stops_when_split_count_differs(self) -> None:
+        """fold の種類が分割数と違えば停止する。"""
+        cells = _cells()
+
+        with pytest.raises(ValueError, match="分割数"):
+            resolve_evaluation_folds(cells, cells[BLOCK_ID_COLUMN].to_numpy(), 5)
+
+    def test_stops_when_a_fold_has_one_test_row(self) -> None:
+        """テスト行が1行の fold があれば停止する。"""
+        cells = build_evaluation_cells(
+            np.array([1, 2, 3, 4]), np.array([0, 0, 0, 1]), np.array([1, 1, 1, 2])
+        )
+
+        with pytest.raises(ValueError, match="2行以上"):
+            resolve_evaluation_folds(cells, cells[BLOCK_ID_COLUMN].to_numpy(), 2)
+
+
+class TestBuildEvaluationRecord:
+    """build_evaluation_record のテスト（results.json への記録）。"""
+
+    def test_records_both_population_sizes_and_digest(self, tmp_path: Path) -> None:
+        """自シナリオの母数・共通集合の母数・ダイジェストを並べて記録する。"""
+        cells_path = tmp_path / "evaluation_cells_seed42.csv"
+        save_evaluation_set(_cells(), cells_path, {**SETTINGS, "common_size": 1_000})
+        evaluation_set = load_evaluation_set(cells_path)
+
+        record = build_evaluation_record(evaluation_set, population_size=1_234)
+
+        assert record["population_size"] == 1_234
+        assert record["common_size"] == 1_000
+        assert record["digest"] == evaluation_set.digest
+        assert record["row_count"] == 12
+        json.dumps(record, allow_nan=False)
 
 
 class TestSelectEvaluationRows:

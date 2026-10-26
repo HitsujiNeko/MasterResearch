@@ -92,9 +92,11 @@ from src.analysis.analysis_rq3_limited import (
     resolve_spectral_columns,
     summarize_vegetation_shap,
 )
+from src.analysis.analysis_rq3_satellite_only import main as satellite_only_main
 from src.analysis.analysis_rq3_satellite_only import (
     parse_arguments as parse_satellite_only_arguments,
 )
+from src.analysis.build_common_evaluation_set import draw_evaluation_cells
 from src.analysis.urban_params.canonical_grid import make_cell_id
 from src.common.analysis_dataset import (
     ANALYSIS_AREA_ROI,
@@ -105,6 +107,7 @@ from src.common.analysis_dataset import (
     LST_VALID_RATIO_COLUMN,
 )
 from src.common.analysis_runs import build_observation_label
+from src.common.evaluation_cells import save_evaluation_set
 from src.common.regression_models import fit_linear_regression
 from src.common.run_parameters import build_run_parameters_from_args
 
@@ -2978,3 +2981,162 @@ class TestLoadScenarioDataset:
 
         with pytest.raises(ValueError, match="POP_DEN_LANDSCAN2023"):
             load_scenario_dataset(Path("dummy.gpkg"), ["landscan2023"])
+
+
+class TestMainEvaluationCells:
+    """main() の --evaluation-cells の結線（標本・fold の固定、記録、2シナリオの対応）のテスト。"""
+
+    _install_loader = TestMainAnalysisArea._install_loader
+    _set_argv = TestMainAnalysisArea._set_argv
+    # SHAP図の生成時間を抑えるため、特徴量の少ない構成・小規模設定で回す。
+    _LIGHT_RUN_ARGS = (
+        "--sample-size",
+        "0",
+        "--rf-trees",
+        "5",
+        "--shap-sample-size",
+        "10",
+        "--shap-background-size",
+        "10",
+        "--variable-set",
+        "spectral",
+    )
+
+    @staticmethod
+    def _dataframe(n: int = 200) -> pd.DataFrame:
+        """Spatial CV が組める配置の合成データ（全行が有効母集団に入る）。"""
+        dataframe = _quality_dataframe(n=n)
+        dataframe["cell_id"] = make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30)
+        return dataframe
+
+    @staticmethod
+    def _save_cells(tmp_path: Path, cell_ids: np.ndarray) -> Path:
+        """評価セル CSV とメタデータを作り、CSV のパスを返す（設定は既定値・全件抽出）。"""
+        cells, _ = draw_evaluation_cells(
+            cell_ids, sample_size=0, random_state=42, block_size_m=2_700, scale=30, cv_splits=5
+        )
+        cells_path = tmp_path / "common" / "evaluation_cells_seed42.csv"
+        save_evaluation_set(
+            cells,
+            cells_path,
+            {
+                "block_size_m": 2_700,
+                "cv_splits": 5,
+                "scale_m": 30,
+                "random_state": 42,
+                "sample_size": 0,
+                "lst_valid_ratio_threshold": 0.5,
+                "analysis_area": ANALYSIS_AREA_ROI,
+                "common_size": len(cell_ids),
+            },
+        )
+        return cells_path
+
+    def test_uses_cells_in_csv_order_and_records_them(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """標本は CSV の行順、fold は CSV のとおりで、評価セルと来歴を記録する。"""
+        dataframe = self._dataframe()
+        cells_path = self._save_cells(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(
+            monkeypatch, tmp_path, *self._LIGHT_RUN_ARGS, "--evaluation-cells", str(cells_path)
+        )
+
+        main()
+
+        cells = pd.read_csv(cells_path)
+        result_path = next(output_dir.glob("*_results.json"))
+        assert result_path.name.endswith("_evaluation_cells_seed42_results.json")
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        sample = pd.read_csv(next(output_dir.glob("*_sample_0.csv")))
+        assert list(sample["cell_id"]) == list(cells["cell_id"])
+        folds = pd.read_csv(next(output_dir.glob("*_spatial_cv_folds.csv")))
+        assert list(folds["test_size"]) == list(cells["fold"].value_counts().sort_index())
+        assert result["evaluation_cells"]["population_size"] == 200
+        input_paths = [entry["path"] for entry in result["provenance"]["inputs"]]
+        assert any(path.endswith("evaluation_cells_seed42_results.json") for path in input_paths)
+
+    def test_diagnose_only_records_evaluation_cells(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """診断のみの実行でも、評価セルの標本と記録・来歴が残る。"""
+        dataframe = self._dataframe()
+        cells_path = self._save_cells(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(
+            monkeypatch,
+            tmp_path,
+            "--diagnose-only",
+            "--sample-size",
+            "0",
+            "--evaluation-cells",
+            str(cells_path),
+        )
+
+        main()
+
+        diagnostics = json.loads(
+            next(output_dir.glob("*_diagnostics.json")).read_text(encoding="utf-8")
+        )
+        assert diagnostics["evaluation_cells"]["row_count"] == 200
+        assert len(diagnostics["provenance"]["inputs"]) == 3
+
+    def test_both_scenarios_share_train_and_test_rows(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """同じ評価セルを使えば、Satellite Only と Limited の標本・fold・ランダム分割が一致する。
+
+        対応のある差を取る前提（同じセル・同じ train/test）を、2つのスクリプトを
+        実際に通して確かめる。
+        """
+        dataframe = self._dataframe()
+        cells_path = self._save_cells(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset",
+            lambda dataset_path, columns=None: dataframe[
+                [column for column in columns or [] if column in dataframe.columns]
+            ].copy(),
+        )
+        limited_dir = self._set_argv(
+            monkeypatch, tmp_path, *self._LIGHT_RUN_ARGS, "--evaluation-cells", str(cells_path)
+        )
+        main()
+        satellite_dir = tmp_path / "satellite_output"
+        dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        dataset_path.write_bytes(DUMMY_DATASET_BYTES)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_satellite_only.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(satellite_dir),
+                *self._LIGHT_RUN_ARGS[:8],
+                "--evaluation-cells",
+                str(cells_path),
+            ],
+        )
+        satellite_only_main()
+
+        limited_result = json.loads(next(limited_dir.glob("*_results.json")).read_text("utf-8"))
+        satellite_result = json.loads(next(satellite_dir.glob("*_results.json")).read_text("utf-8"))
+        limited_folds = pd.read_csv(next(limited_dir.glob("*_spatial_cv_folds.csv")))
+        satellite_folds = pd.read_csv(next(satellite_dir.glob("*_spatial_cv_folds.csv")))
+        pd.testing.assert_frame_equal(
+            limited_folds[["fold", "train_size", "test_size"]],
+            satellite_folds[["fold", "train_size", "test_size"]],
+        )
+        # 標本の行順と乱数シードが同じなら、ランダム分割の train/test も同じ行になる。
+        limited_sample = pd.read_csv(next(limited_dir.glob("*_sample_0.csv")))
+        satellite_sample = pd.read_csv(next(satellite_dir.glob("*_sample_0.csv")))
+        assert list(limited_sample["cell_id"]) == list(satellite_sample["cell_id"])
+        for key in ("sample_size", "train_size", "test_size"):
+            assert limited_result[key] == satellite_result[key]
+        assert (
+            limited_result["evaluation_cells"]["digest"]
+            == satellite_result["evaluation_cells"]["digest"]
+        )

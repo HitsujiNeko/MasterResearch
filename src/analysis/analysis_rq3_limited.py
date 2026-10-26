@@ -72,6 +72,15 @@ from src.common.analysis_runs import (  # noqa: E402
     run_spatial_cv_models,
     validate_scale_matches_dataset,
 )
+from src.common.evaluation_cells import (  # noqa: E402
+    build_evaluation_record,
+    evaluation_input_paths,
+    load_evaluation_set_for_run,
+    resolve_evaluation_folds,
+    resolve_evaluation_output_dir,
+    resolve_evaluation_output_stem,
+    select_evaluation_rows,
+)
 from src.common.model_metrics import (  # noqa: E402
     CORRELATION_METHODS,
     compute_correlation_matrix,
@@ -284,7 +293,13 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--dataset-path", type=Path, default=DEFAULT_DATASET_PATH, help="入力GeoPackageのパス"
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="出力先ディレクトリ"
+        "--output-dir",
+        type=Path,
+        default=None,
+        help=(
+            "出力先ディレクトリ。未指定なら DEFAULT_OUTPUT_DIR（--evaluation-cells 指定時は"
+            "その名前に _common_evaluation を付けた別ディレクトリ）"
+        ),
     )
     parser.add_argument(
         "--scale", type=int, default=DEFAULT_SCALE_M, help="正準グリッドの解像度（m）"
@@ -387,7 +402,23 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             "終了する（多重共線性の診断を、RF学習を待たずに行うための入口）。"
         ),
     )
+    parser.add_argument(
+        "--evaluation-cells",
+        type=Path,
+        default=None,
+        help=(
+            "シナリオ間で共通の評価セル CSV（build_common_evaluation_set.py の出力）。"
+            "指定すると標本抽出と GroupKFold の代わりに、CSV の cell_id を CSV の行順で選び、"
+            "CSV の fold 列で Spatial CV を行う。対になるメタデータと引数が一致しなければ停止する。"
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.output_dir is None:
+        args.output_dir = (
+            DEFAULT_OUTPUT_DIR
+            if args.evaluation_cells is None
+            else resolve_evaluation_output_dir(DEFAULT_OUTPUT_DIR)
+        )
 
     sources = args.population_source
     duplicated = sorted({source for source in sources if sources.count(source) > 1})
@@ -1104,6 +1135,7 @@ def build_filtered_sample(
     required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
     block_size_m: int = DEFAULT_BLOCK_SIZE_M,
     scale: int = DEFAULT_SCALE_M,
+    evaluation_cells: pd.DataFrame | None = None,
 ) -> FilteredSampleResult:
     """建物高さの補完→品質列フィルタ→サンプリング→フィルタ脱落診断の順に適用する。
 
@@ -1152,6 +1184,10 @@ def build_filtered_sample(
         block_size_m: フィルタ脱落診断用ブロックの一辺の長さ（m）。既定は
             `DEFAULT_BLOCK_SIZE_M`。
         scale: 正準グリッドの解像度（m/セル）。既定は `DEFAULT_SCALE_M`。
+        evaluation_cells: シナリオ間で共通の評価セル（`EvaluationSet.cells`）。
+            渡した場合は `sample_dataset` で抽出せず、有効母集団から評価セルの
+            cell_id を評価セルの行順で選ぶ（`select_evaluation_rows`。1件でも
+            有効母集団に無ければ停止する）。`None`（既定）なら従来どおり抽出する。
     Returns:
         `FilteredSampleResult`。
     """
@@ -1174,7 +1210,10 @@ def build_filtered_sample(
     population_size = len(filtered)
     population_filled_cell_count = int(filtered[BUILDING_HEIGHT_FILLED_COLUMN].sum())
 
-    sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    if evaluation_cells is None:
+        sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    else:
+        sampled = select_evaluation_rows(filtered, evaluation_cells)
     sample_filled_cell_count = int(sampled[BUILDING_HEIGHT_FILLED_COLUMN].sum())
 
     filter_dropout = summarize_filter_dropout(
@@ -1478,23 +1517,30 @@ def save_correlation_outputs(
     return outputs
 
 
-def build_dataset_provenance(dataset_path: Path) -> dict[str, object]:
+def build_dataset_provenance(
+    dataset_path: Path, extra_input_paths: Sequence[Path] = ()
+) -> dict[str, object]:
     """データセットGeoPackageを入力とする来歴メタデータを組み立てる。
 
     results.json と `--diagnose-only` の診断JSONの両方へ、同じ内容の来歴を付与する
-    ために使う。入力はデータセットGeoPackageのみとする（本スクリプトが読むファイルは
-    これだけである）。大容量のGeoPackageではハッシュ計算に数秒かかるため、進捗を
-    ログに残す。
+    ために使う。入力はデータセットGeoPackageと、評価セルを使う場合はその CSV・
+    メタデータ JSON とする（本スクリプトが読むファイルはこれだけである。評価セルを
+    作り直したときに陳腐化として検出されるようにする）。大容量のGeoPackageでは
+    ハッシュ計算に数秒かかるため、進捗をログに残す。
 
     Args:
         dataset_path: 分析用データセットGeoPackageのパス。
+        extra_input_paths: データセット以外の入力ファイル（`evaluation_input_paths`
+            の戻り値）。既定は空。
     Returns:
         `src.common.summary.build_provenance` が返す来歴の辞書。
     Raises:
         FileNotFoundError: データセットが存在しない場合。
     """
     print("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
-    return build_provenance("src.analysis.analysis_rq3_limited", input_paths=[dataset_path])
+    return build_provenance(
+        "src.analysis.analysis_rq3_limited", input_paths=[dataset_path, *extra_input_paths]
+    )
 
 
 def main() -> None:
@@ -1526,6 +1572,10 @@ def main() -> None:
         args.analysis_area,
     )
     observation_label = build_observation_label(output_stem)
+    # 評価セルを使う場合は、重い読込より前に引数とメタデータの一致を確かめる。
+    evaluation_set = load_evaluation_set_for_run(args)
+    if evaluation_set is not None:
+        output_stem = resolve_evaluation_output_stem(output_stem, evaluation_set.cells_path)
 
     required_mask_columns = resolve_required_mask_columns(
         args.population_source, args.analysis_area, args.require_valid_gis_mask
@@ -1541,6 +1591,7 @@ def main() -> None:
         required_mask_columns=required_mask_columns,
         block_size_m=args.block_size_m,
         scale=args.scale,
+        evaluation_cells=None if evaluation_set is None else evaluation_set.cells,
     )
     sampled = filtered_sample_result.sampled
     if sampled.empty:
@@ -1612,6 +1663,13 @@ def main() -> None:
         # 結果JSONと診断JSONの両方に残す（run_conditions は両方へ展開される）。
         "analysis_area": args.analysis_area,
         "required_mask_columns": list(required_mask_columns),
+        # 評価セルを使ったランかどうかと、その評価セル・母数（使わない場合は null）。
+        # 標本の出所に関わるため、診断JSONにも残す。
+        "evaluation_cells": (
+            None
+            if evaluation_set is None
+            else build_evaluation_record(evaluation_set, filtered_sample_result.population_size)
+        ),
     }
     if building_height_pc1 is not None:
         # 主成分の向き・寄与率は結果の解釈に直結するため、診断のみの実行でも
@@ -1636,7 +1694,9 @@ def main() -> None:
         }
         # 診断JSONも相関行列・VIF・フィルタ脱落の数値の出典になるため、来歴を付与する
         # （実行パラメータの run_parameters はモデル学習の条件のため付与しない）。
-        diagnostics["provenance"] = build_dataset_provenance(args.dataset_path)
+        diagnostics["provenance"] = build_dataset_provenance(
+            args.dataset_path, evaluation_input_paths(evaluation_set)
+        )
         diagnostics_path = args.output_dir / f"{output_stem}_diagnostics.json"
         save_summary(diagnostics, diagnostics_path)
         print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
@@ -1649,11 +1709,16 @@ def main() -> None:
     # block_size_m/cv_splitsの設定検証を、高コストなモデル学習（run_random_split_models
     # 等）より前に行う。split_by_spatial_blocksの戻り値は後段のrun_spatial_cv_modelsで
     # 再計算するが、fold分割自体はインデックス操作のみで軽量なため、ここでの重複呼び出し
-    # コストは無視できる。
+    # コストは無視できる。評価セルを使う場合は GroupKFold を行わず、評価セルの fold 列
+    # から分割を作って同じ検証（fold数・テスト行数）を行う。
     block_ids, block_info = assign_canonical_blocks(
         sampled["cell_id"].to_numpy(), args.block_size_m, args.scale
     )
-    split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
+    if evaluation_set is None:
+        fixed_folds = None
+        split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
+    else:
+        fixed_folds = resolve_evaluation_folds(evaluation_set.cells, block_ids, args.cv_splits)
 
     random_split = run_random_split_models(
         sampled, model_feature_columns, TARGET_COLUMN, args.random_state, args.rf_trees
@@ -1667,6 +1732,7 @@ def main() -> None:
         args.cv_splits,
         args.random_state,
         args.rf_trees,
+        folds=fixed_folds,
     )
     spatial_cv_summary["block_definition"] = {
         "block_size_m": args.block_size_m,
@@ -1804,7 +1870,9 @@ def main() -> None:
     }
 
     # どのコード・環境・入力から生成したかを追跡できるよう、保存直前に来歴を付与する。
-    result["provenance"] = build_dataset_provenance(args.dataset_path)
+    result["provenance"] = build_dataset_provenance(
+        args.dataset_path, evaluation_input_paths(evaluation_set)
+    )
 
     result_path = args.output_dir / f"{output_stem}_results.json"
     save_summary(result, result_path)

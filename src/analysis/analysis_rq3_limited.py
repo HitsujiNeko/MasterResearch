@@ -688,6 +688,39 @@ def resolve_filter_dropout_column_groups(filter_columns: Sequence[str]) -> dict[
     }
 
 
+def resolve_required_mask_columns(
+    population_sources: Sequence[str],
+    analysis_area: str = ANALYSIS_AREA_ROI,
+    require_valid_gis_mask: bool = False,
+) -> tuple[str, ...]:
+    """`== 1` を要求する品質列名を、人口ソース・分析対象範囲・感度分析の指定から組み立てる。
+
+    有効母集団の定義の一部であり、`main()` と、シナリオ間で共通の評価セル集合を
+    作る処理の両方がこの関数を呼ぶ（条件を呼び出し側で書き直さないため）。
+    人口・夜間光は非NULL要求ではなく有効域品質列で判定する
+    （`resolve_filter_columns` / `resolve_auxiliary_mask_columns` のdocstring参照）。
+
+    Args:
+        population_sources: `--population-source` の値。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
+        require_valid_gis_mask: `--require-valid-gis-mask` の値。`True` なら
+            `VALID_GIS_MASK_COLUMN` を末尾に加える（感度分析）。
+    Returns:
+        品質列名のタプル（既定の品質列・分析対象範囲・人口/夜間光・GISマスクの順）。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合、または `population_sources` が
+            不正な場合（`resolve_auxiliary_mask_columns` 参照）。
+    """
+    required_mask_columns = (
+        *DEFAULT_REQUIRED_MASK_COLUMNS,
+        *resolve_analysis_area_mask_columns(analysis_area),
+        *resolve_auxiliary_mask_columns(population_sources),
+    )
+    if require_valid_gis_mask:
+        required_mask_columns = (*required_mask_columns, VALID_GIS_MASK_COLUMN)
+    return required_mask_columns
+
+
 def drop_constant_features(
     dataframe: pd.DataFrame, feature_columns: Sequence[str]
 ) -> tuple[list[str], list[str]]:
@@ -900,6 +933,137 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
     return filled, int(fillable_mask.sum())
 
 
+def load_scenario_dataset(
+    dataset_path: Path,
+    population_sources: Sequence[str],
+    analysis_area: str = ANALYSIS_AREA_ROI,
+) -> pd.DataFrame:
+    """Limited の分析に使う列だけを読み込み、フィルタに必要な列の有無を検査する。
+
+    相関行列は全候補列を対象とするため、モデルへ投入しない候補列も読み込む。
+    分析対象範囲の品質列は、フィルタ条件（`resolve_required_mask_columns`）だけで
+    なく読込列にも加える。読込列に無いと列が読まれず、
+    `require_analysis_area_columns` が常に停止する。
+
+    Args:
+        dataset_path: 分析用データセットGeoPackageのパス。
+        population_sources: `--population-source` の値。複数の人口ソースの有効
+            母集団を1回の読込から求める場合は、それらをまとめて渡す。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
+    Returns:
+        読み込んだデータフレーム（建物高さ補完前・フィルタ前の全行）。
+    Raises:
+        ValueError: `analysis_area`・`population_sources` が不正な場合、分析対象範囲の
+            品質列が無い場合、またはフィルタに必要な列がデータセットに無い場合。
+    """
+    filter_columns = resolve_filter_columns()
+    auxiliary_mask_columns = resolve_auxiliary_mask_columns(population_sources)
+    analysis_area_mask_columns = resolve_analysis_area_mask_columns(analysis_area)
+    # 人口・夜間光の実測値列。品質列（auxiliary_mask_columns）が「揃っているか」を
+    # 判定するのに対し、モデルへの投入に使うのはこちらの実測値列である。
+    # `filter_columns` から人口・夜間光を除いた分、以下の欠損列チェックだけでは
+    # 実測値列自体の欠落を検出できなくなるため、個別に持つ
+    # （`resolve_filter_columns` のdocstring参照）。
+    auxiliary_value_columns = [
+        *resolve_population_columns(population_sources),
+        *NIGHTLIGHT_FEATURE_COLUMNS,
+    ]
+
+    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける
+    # （dict.fromkeys で順序を保ったまま重複を除く）。
+    required_columns = [
+        "cell_id",
+        "lon",
+        "lat",
+        *dict.fromkeys([*filter_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
+        TARGET_COLUMN,
+        IN_ANALYSIS_AREA_COLUMN,
+        LST_VALID_RATIO_COLUMN,
+        VALID_GIS_MASK_COLUMN,
+        *auxiliary_mask_columns,
+        *analysis_area_mask_columns,
+    ]
+    dataframe = load_analysis_dataset(dataset_path, columns=required_columns)
+    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
+    require_analysis_area_columns(dataframe, analysis_area, dataset_path)
+    # フィルタ列・有効域品質列・人口/夜間光の実測値列はいずれも投入列の上位集合で
+    # あり、変数セットに依らず全て必要になる。
+    missing_columns = [
+        column
+        for column in (*filter_columns, *auxiliary_mask_columns, *auxiliary_value_columns)
+        if column not in dataframe.columns
+    ]
+    if missing_columns:
+        raise ValueError(
+            f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"
+            f"（{dataset_path}）。--variable-set・--water-index の選択に関わらず、"
+            "構成間で母数を揃えるため分光指数（MNDWI を含む4列）・土地被覆の両方を"
+            "要求します。--population-source の指定と、データセットの生成時に結合した"
+            "テーブルを確認してください（MNDWI が無い場合は、MNDWI を含む衛星指標から"
+            "idx テーブルとデータセットを再生成する必要があります）。"
+        )
+    return dataframe
+
+
+@dataclass(frozen=True)
+class ValidPopulationResult:
+    """build_valid_population の戻り値。
+
+    有効母集団に加え、フィルタ脱落診断が対象とする補完後の全行（`filled`）も
+    返す。補完を2回走らせずに `build_filtered_sample` が両方を使えるようにする
+    ためである。
+
+    Attributes:
+        population: 有効母集団（建物高さ0補完の後に品質列フィルタを適用した行。
+            行の並びは入力のまま）。補完セルの印 `BUILDING_HEIGHT_FILLED_COLUMN`
+            （内部用の列）を持つ。
+        filled: 建物高さ0補完の後・品質列フィルタの前の全行。
+        dataset_filled_cell_count: `filled` での建物高さ補完セル数。
+    """
+
+    population: pd.DataFrame
+    filled: pd.DataFrame
+    dataset_filled_cell_count: int
+
+
+def build_valid_population(
+    dataframe: pd.DataFrame,
+    filter_columns: Sequence[str],
+    lst_valid_ratio_threshold: float,
+    required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
+) -> ValidPopulationResult:
+    """建物高さの補完→品質列フィルタの順に適用し、サンプリング前の有効母集団を求める。
+
+    `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
+    必要がある（先に非NULL要求で欠損域を除外すると、補完すべきだった行まで
+    落ちてしまうため）。この順序依存を本関数に閉じ込め、`build_filtered_sample`
+    と、シナリオ間で共通の評価セル集合を作る処理の両方から呼ぶ
+    （有効母集団の定義を呼び出し側で書き直さないため）。
+
+    Args:
+        dataframe: `load_scenario_dataset` の戻り値（未加工。補完前でよい）。
+        filter_columns: 非NULLを要求する列名（`resolve_filter_columns` の戻り値）。
+        lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
+        required_mask_columns: `== 1` を要求する品質列名
+            （`resolve_required_mask_columns` の戻り値）。
+    Returns:
+        `ValidPopulationResult`。
+    """
+    filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
+    population = filter_valid_rows(
+        filled,
+        feature_columns=list(filter_columns),
+        target_column=TARGET_COLUMN,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
+    )
+    return ValidPopulationResult(
+        population=population,
+        filled=filled,
+        dataset_filled_cell_count=dataset_filled_cell_count,
+    )
+
+
 @dataclass(frozen=True)
 class FilteredSampleResult:
     """build_filtered_sample の戻り値。
@@ -943,10 +1107,9 @@ def build_filtered_sample(
 ) -> FilteredSampleResult:
     """建物高さの補完→品質列フィルタ→サンプリング→フィルタ脱落診断の順に適用する。
 
-    `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
-    必要がある（先に非NULL要求で欠損域を除外すると、補完すべきだった行まで
-    落ちてしまうため）。この順序依存を呼び出し側（`main()`）に持たせず本関数に
-    閉じ込めることで、呼び出し順を誤って補完が空振りする回帰を構造的に防ぐ。
+    補完とフィルタの順序依存は `build_valid_population` に閉じ込めてあり、本関数は
+    その戻り値（有効母集団と補完後の全行）を使う。呼び出し側（`main()`）に順序を
+    持たせないことで、呼び出し順を誤って補完が空振りする回帰を構造的に防ぐ。
 
     **Spatial CV用のブロック割り当てとは別物**として、フィルタ脱落診断
     （`summarize_filter_dropout`）用のブロックIDを本関数の内側で計算する。
@@ -992,7 +1155,15 @@ def build_filtered_sample(
     Returns:
         `FilteredSampleResult`。
     """
-    filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
+    valid_population = build_valid_population(
+        dataframe,
+        filter_columns=filter_columns,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
+    )
+    filled = valid_population.filled
+    filtered = valid_population.population
+    dataset_filled_cell_count = valid_population.dataset_filled_cell_count
 
     # フィルタ脱落診断用のブロックID。filledの全行（品質列フィルタ適用前）を
     # 対象にデコードし、summarize_filter_dropoutへ位置対応の配列として渡す。
@@ -1000,13 +1171,6 @@ def build_filtered_sample(
         filled["cell_id"].to_numpy(), block_size_m, scale
     )
 
-    filtered = filter_valid_rows(
-        filled,
-        feature_columns=list(filter_columns),
-        target_column=TARGET_COLUMN,
-        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
-        required_mask_columns=required_mask_columns,
-    )
     population_size = len(filtered)
     population_filled_cell_count = int(filtered[BUILDING_HEIGHT_FILLED_COLUMN].sum())
 
@@ -1363,65 +1527,10 @@ def main() -> None:
     )
     observation_label = build_observation_label(output_stem)
 
-    # 人口・夜間光は非NULL要求ではなく有効域品質列で判定する
-    # （`resolve_filter_columns` / `resolve_auxiliary_mask_columns` のdocstring参照）。
-    auxiliary_mask_columns = resolve_auxiliary_mask_columns(args.population_source)
-    # 分析対象範囲の品質列は、フィルタ条件（required_mask_columns）だけでなく
-    # 読込列（required_columns）にも加える。読込列に無いと列が読まれず、
-    # require_analysis_area_columns が常に停止する。
-    analysis_area_mask_columns = resolve_analysis_area_mask_columns(args.analysis_area)
-    required_mask_columns = (
-        *DEFAULT_REQUIRED_MASK_COLUMNS,
-        *analysis_area_mask_columns,
-        *auxiliary_mask_columns,
+    required_mask_columns = resolve_required_mask_columns(
+        args.population_source, args.analysis_area, args.require_valid_gis_mask
     )
-    if args.require_valid_gis_mask:
-        required_mask_columns = (*required_mask_columns, VALID_GIS_MASK_COLUMN)
-
-    # 人口・夜間光の実測値列。品質列（auxiliary_mask_columns）が「揃っているか」を
-    # 判定するのに対し、モデルへの投入に使うのはこちらの実測値列である。
-    # `filter_columns` から人口・夜間光を除いた分、以下の欠損列チェックだけでは
-    # 実測値列自体の欠落を検出できなくなるため、個別に持つ
-    # （`resolve_filter_columns` のdocstring参照）。
-    auxiliary_value_columns = [
-        *resolve_population_columns(args.population_source),
-        *NIGHTLIGHT_FEATURE_COLUMNS,
-    ]
-
-    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
-    # 相関行列は全候補列を対象とするため、モデルへ投入しない候補列も読み込む
-    # （dict.fromkeys で順序を保ったまま重複を除く）。
-    required_columns = [
-        "cell_id",
-        "lon",
-        "lat",
-        *dict.fromkeys([*filter_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
-        TARGET_COLUMN,
-        IN_ANALYSIS_AREA_COLUMN,
-        LST_VALID_RATIO_COLUMN,
-        VALID_GIS_MASK_COLUMN,
-        *auxiliary_mask_columns,
-        *analysis_area_mask_columns,
-    ]
-    dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
-    require_analysis_area_columns(dataframe, args.analysis_area, args.dataset_path)
-    # フィルタ列・有効域品質列・人口/夜間光の実測値列はいずれも投入列の上位集合で
-    # あり、変数セットに依らず全て必要になる。
-    missing_columns = [
-        column
-        for column in (*filter_columns, *auxiliary_mask_columns, *auxiliary_value_columns)
-        if column not in dataframe.columns
-    ]
-    if missing_columns:
-        raise ValueError(
-            f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"
-            f"（{args.dataset_path}）。--variable-set・--water-index の選択に関わらず、"
-            "構成間で母数を揃えるため分光指数（MNDWI を含む4列）・土地被覆の両方を"
-            "要求します。--population-source の指定と、データセットの生成時に結合した"
-            "テーブルを確認してください（MNDWI が無い場合は、MNDWI を含む衛星指標から"
-            "idx テーブルとデータセットを再生成する必要があります）。"
-        )
+    dataframe = load_scenario_dataset(args.dataset_path, args.population_source, args.analysis_area)
 
     filtered_sample_result = build_filtered_sample(
         dataframe,

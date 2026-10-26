@@ -174,6 +174,85 @@ def resolve_output_stem(dataset_path: Path, analysis_area: str = ANALYSIS_AREA_R
     return f"{dataset_path.stem}_{area_part}"
 
 
+def resolve_required_mask_columns(analysis_area: str = ANALYSIS_AREA_ROI) -> tuple[str, ...]:
+    """`== 1` を要求する品質列名を、分析対象範囲に応じて組み立てる。
+
+    有効母集団の定義の一部であり、`main()` と、シナリオ間で共通の評価セル集合を
+    作る処理の両方がこの関数を呼ぶ（条件を呼び出し側で書き直さないため）。
+
+    Args:
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
+    Returns:
+        `DEFAULT_REQUIRED_MASK_COLUMNS` に分析対象範囲の品質列を加えたタプル。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
+    """
+    return (*DEFAULT_REQUIRED_MASK_COLUMNS, *resolve_analysis_area_mask_columns(analysis_area))
+
+
+def load_scenario_dataset(
+    dataset_path: Path, analysis_area: str = ANALYSIS_AREA_ROI
+) -> pd.DataFrame:
+    """Satellite Only の分析に使う列だけを読み込み、分析対象範囲の品質列を検査する。
+
+    分析対象範囲の品質列は、フィルタ条件（`resolve_required_mask_columns`）だけで
+    なく読込列にも加える。読込列に無いと列が読まれず、
+    `require_analysis_area_columns` が常に停止する。
+
+    Args:
+        dataset_path: 分析用データセットGeoPackageのパス。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
+    Returns:
+        読み込んだデータフレーム（フィルタ前の全行）。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合、または分析対象範囲の品質列が
+            データセットに無い場合。
+    """
+    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
+    required_columns = [
+        "cell_id",
+        "lon",
+        "lat",
+        *FEATURE_COLUMNS,
+        TARGET_COLUMN,
+        IN_ANALYSIS_AREA_COLUMN,
+        LST_VALID_RATIO_COLUMN,
+        *resolve_analysis_area_mask_columns(analysis_area),
+    ]
+    dataframe = load_analysis_dataset(dataset_path, columns=required_columns)
+    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
+    require_analysis_area_columns(dataframe, analysis_area, dataset_path)
+    return dataframe
+
+
+def build_valid_population(
+    dataframe: pd.DataFrame,
+    lst_valid_ratio_threshold: float,
+    required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
+) -> pd.DataFrame:
+    """品質列フィルタを適用し、サンプリング前の有効母集団を求める。
+
+    有効母集団の定義（分光指数と LST が非NULL・品質列が1・`LST_VALID_RATIO` が
+    下限以上）を1か所に置き、`build_filtered_sample` と、シナリオ間で共通の
+    評価セル集合を作る処理の両方から呼ぶ。
+
+    Args:
+        dataframe: `load_scenario_dataset` の戻り値。
+        lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
+        required_mask_columns: `== 1` を要求する品質列名
+            （`resolve_required_mask_columns` の戻り値）。
+    Returns:
+        有効母集団のデータフレーム（行の並びは入力のまま）。
+    """
+    return filter_valid_rows(
+        dataframe,
+        feature_columns=FEATURE_COLUMNS,
+        target_column=TARGET_COLUMN,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
+    )
+
+
 @dataclass(frozen=True)
 class FilteredSampleResult:
     """build_filtered_sample の戻り値。
@@ -240,10 +319,8 @@ def build_filtered_sample(
         dataframe["cell_id"].to_numpy(), block_size_m, scale
     )
 
-    filtered = filter_valid_rows(
+    filtered = build_valid_population(
         dataframe,
-        feature_columns=FEATURE_COLUMNS,
-        target_column=TARGET_COLUMN,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
         required_mask_columns=required_mask_columns,
     )
@@ -281,26 +358,8 @@ def main() -> None:
     output_stem = resolve_output_stem(args.dataset_path, args.analysis_area)
     observation_label = build_observation_label(output_stem)
 
-    # 分析対象範囲の品質列は、フィルタ条件（required_mask_columns）だけでなく
-    # 読込列（required_columns）にも加える。読込列に無いと列が読まれず、
-    # require_analysis_area_columns が常に停止する。
-    analysis_area_mask_columns = resolve_analysis_area_mask_columns(args.analysis_area)
-    required_mask_columns = (*DEFAULT_REQUIRED_MASK_COLUMNS, *analysis_area_mask_columns)
-
-    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
-    required_columns = [
-        "cell_id",
-        "lon",
-        "lat",
-        *FEATURE_COLUMNS,
-        TARGET_COLUMN,
-        IN_ANALYSIS_AREA_COLUMN,
-        LST_VALID_RATIO_COLUMN,
-        *analysis_area_mask_columns,
-    ]
-    dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
-    require_analysis_area_columns(dataframe, args.analysis_area, args.dataset_path)
+    required_mask_columns = resolve_required_mask_columns(args.analysis_area)
+    dataframe = load_scenario_dataset(args.dataset_path, args.analysis_area)
     filtered_sample_result = build_filtered_sample(
         dataframe,
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,

@@ -38,9 +38,12 @@ from src.analysis.analysis_rq3_satellite_only import (
     DEFAULT_SCALE_M,
     FEATURE_COLUMNS,
     build_filtered_sample,
+    build_valid_population,
+    load_scenario_dataset,
     main,
     parse_arguments,
     resolve_output_stem,
+    resolve_required_mask_columns,
 )
 from src.analysis.urban_params.canonical_grid import make_cell_id
 from src.common.analysis_dataset import (
@@ -600,3 +603,109 @@ class TestMainAnalysisArea:
         assert result["analysis_area"] == ANALYSIS_AREA_ROI
         assert result["required_mask_columns"] == [IN_ANALYSIS_AREA_COLUMN]
         assert result["sample_size"] == 200
+
+
+class TestResolveRequiredMaskColumns:
+    """resolve_required_mask_columns のテスト（有効母集団の品質列の組み立て）。"""
+
+    def test_roi_requires_only_default_mask_columns(self) -> None:
+        """ROI 全域では既定の品質列（IN_ANALYSIS_AREA）だけを要求する。"""
+        assert resolve_required_mask_columns(ANALYSIS_AREA_ROI) == DEFAULT_REQUIRED_MASK_COLUMNS
+
+    def test_survey_appends_survey_flag_after_default(self) -> None:
+        """測量GIS範囲では、既定の品質列の後ろに測量GISフラグを加える。"""
+        assert resolve_required_mask_columns(ANALYSIS_AREA_SURVEY) == (
+            *DEFAULT_REQUIRED_MASK_COLUMNS,
+            IN_ANALYSIS_AREA_SURVEY_COLUMN,
+        )
+
+
+class TestBuildValidPopulation:
+    """build_valid_population のテスト（サンプリング前の有効母集団）。
+
+    `build_filtered_sample` と、共通評価セル集合の生成の両方がこの関数を呼ぶため、
+    両者の母集団が一致することを固定する。
+    """
+
+    def test_excludes_rows_failing_any_condition(self) -> None:
+        """分光指数のNULL・LSTのNULL・品質列0・LST有効率の下限割れをそれぞれ除外する。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[0, "NDWI"] = np.nan
+        dataframe.loc[1, "LST"] = np.nan
+        dataframe.loc[2, IN_ANALYSIS_AREA_COLUMN] = 0
+        dataframe.loc[3, "LST_VALID_RATIO"] = 0.4
+
+        population = build_valid_population(dataframe, lst_valid_ratio_threshold=0.5)
+
+        assert list(population["cell_id"]) == [4, 5, 6, 7, 8, 9]
+
+    def test_matches_rows_used_by_build_filtered_sample(self) -> None:
+        """全件抽出（sample_size=0）の build_filtered_sample と同じ行を同じ順で返す。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[[1, 4], "NDVI"] = np.nan
+
+        population = build_valid_population(dataframe, lst_valid_ratio_threshold=0.5)
+        sampled = build_filtered_sample(
+            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+        ).sampled
+
+        assert list(population["cell_id"]) == list(sampled["cell_id"])
+
+    def test_required_mask_columns_narrow_population(self) -> None:
+        """渡した品質列（測量GISフラグ）で母集団が絞られる。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1] * 4 + [0] * 6
+
+        population = build_valid_population(
+            dataframe,
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=resolve_required_mask_columns(ANALYSIS_AREA_SURVEY),
+        )
+
+        assert list(population["cell_id"]) == [0, 1, 2, 3]
+
+
+class TestLoadScenarioDataset:
+    """load_scenario_dataset のテスト（読込列と分析対象範囲の品質列の検査）。
+
+    読込関数は「指定された列のうち存在する列だけを返す」偽物へ差し替える
+    （`TestMainAnalysisArea` と同じ方針）。
+    """
+
+    def _install_loader(
+        self, monkeypatch: pytest.MonkeyPatch, dataframe: pd.DataFrame
+    ) -> dict[str, list[str]]:
+        """列選択を模した読込関数へ差し替え、要求された列を控える。"""
+        captured: dict[str, list[str]] = {}
+
+        def fake_loader(dataset_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+            captured["columns"] = list(columns or [])
+            available = [column for column in captured["columns"] if column in dataframe.columns]
+            return dataframe[available].copy()
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset", fake_loader
+        )
+        return captured
+
+    def test_reads_columns_needed_for_valid_population(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """有効母集団の判定と分析に使う列を要求し、測量GISフラグはROIでは読まない。"""
+        dataframe = _quality_dataframe(n=5)
+        dataframe["lon"] = 0.0
+        dataframe["lat"] = 0.0
+        captured = self._install_loader(monkeypatch, dataframe)
+
+        loaded = load_scenario_dataset(Path("dummy.gpkg"), ANALYSIS_AREA_ROI)
+
+        assert {"cell_id", *FEATURE_COLUMNS, "LST", "LST_VALID_RATIO"}.issubset(loaded.columns)
+        assert IN_ANALYSIS_AREA_COLUMN in captured["columns"]
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN not in captured["columns"]
+
+    def test_survey_without_flag_column_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """測量GIS範囲を指定し、データセットにフラグ列が無ければ停止する。"""
+        self._install_loader(monkeypatch, _quality_dataframe(n=5))
+
+        with pytest.raises(ValueError, match="mask_survey"):
+            load_scenario_dataset(Path("dummy.gpkg"), ANALYSIS_AREA_SURVEY)

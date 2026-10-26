@@ -109,6 +109,30 @@ def resolve_default_output_dir(dataset_path: Path) -> Path:
     return DEFAULT_OUTPUT_ROOT / label.replace("-", "").replace(":", "").replace(" ", "_")
 
 
+def resolve_cells_path(output_dir: Path, random_state: int) -> Path:
+    """評価セル CSV の保存先を求める。
+
+    比較・反復のスクリプトも同じ規則で既定の入力パスを求めるため、関数にしておく。
+
+    Args:
+        output_dir: 出力先ディレクトリ。
+        random_state: 標本抽出の乱数シード。
+    Returns:
+        `{output_dir}/evaluation_cells_seed{random_state}.csv`。
+    """
+    return output_dir / f"evaluation_cells_seed{random_state}.csv"
+
+
+def resolve_default_cells_path() -> Path:
+    """既定の引数で生成したときの評価セル CSV のパスを求める。
+
+    Returns:
+        `parse_arguments([])` の出力先・乱数シードによる `resolve_cells_path` の値。
+    """
+    defaults = parse_arguments([])
+    return resolve_cells_path(defaults.output_dir, defaults.random_state)
+
+
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """コマンドライン引数を解析する。
 
@@ -626,7 +650,7 @@ def main(argv: list[str] | None = None) -> None:
         "src.analysis.build_common_evaluation_set",
         input_paths=[args.satellite_only_dataset, args.limited_dataset],
     )
-    cells_path = args.output_dir / f"evaluation_cells_seed{args.random_state}.csv"
+    cells_path = resolve_cells_path(args.output_dir, args.random_state)
     saved = save_evaluation_set(cells, cells_path, metadata)
     print(
         json.dumps(

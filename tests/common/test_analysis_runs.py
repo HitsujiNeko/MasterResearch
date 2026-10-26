@@ -17,8 +17,10 @@ from src.common.analysis_runs import (
     build_observation_label,
     run_random_split_models,
     run_spatial_cv_models,
+    validate_fold_test_sizes,
     validate_scale_matches_dataset,
 )
+from src.common.spatial_cv import split_by_spatial_blocks
 
 FEATURE_COLUMNS = ["FEATURE_A", "FEATURE_B"]
 TARGET_COLUMN = "TARGET_VALUE"
@@ -194,3 +196,68 @@ class TestRunSpatialCvModels:
                 random_state=42,
                 rf_trees=5,
             )
+
+    def test_given_folds_reproduce_group_kfold_result(self) -> None:
+        """GroupKFold と同じ分割を folds で渡すと、fold 別指標が完全に一致する。"""
+        sampled = _linear_sample_dataframe(n=60)
+        block_ids = np.repeat(np.arange(6), 10)
+        folds = split_by_spatial_blocks(block_ids, n_splits=3)
+        arguments = (sampled, FEATURE_COLUMNS, TARGET_COLUMN, block_ids, 3, 42, 5)
+
+        _, expected = run_spatial_cv_models(*arguments)
+        _, actual = run_spatial_cv_models(*arguments, folds=folds)
+
+        pd.testing.assert_frame_equal(actual, expected)
+
+    def test_given_folds_are_used_instead_of_block_ids(self) -> None:
+        """folds を渡すと block_ids からは分割せず、渡した分割の行数で評価する。"""
+        sampled = _linear_sample_dataframe(n=60)
+        # block_ids は1ブロックだけ（GroupKFold では分割できない）でも、folds が優先される
+        block_ids = np.zeros(60, dtype=np.int64)
+        folds = [(np.arange(10, 60), np.arange(0, 10)), (np.arange(0, 10), np.arange(10, 60))]
+
+        summary, fold_metrics_df = run_spatial_cv_models(
+            sampled,
+            FEATURE_COLUMNS,
+            TARGET_COLUMN,
+            block_ids,
+            cv_splits=2,
+            random_state=42,
+            rf_trees=5,
+            folds=folds,
+        )
+
+        assert list(fold_metrics_df["test_size"]) == [10, 50]
+        assert summary["cv_splits"] == 2
+
+    def test_raises_when_given_folds_do_not_match_cv_splits(self) -> None:
+        """渡した fold の数が cv_splits と違えば、学習前に停止する。"""
+        sampled = _linear_sample_dataframe(n=60)
+        folds = [(np.arange(10, 60), np.arange(0, 10)), (np.arange(0, 10), np.arange(10, 60))]
+
+        with pytest.raises(ValueError, match="一致しません"):
+            run_spatial_cv_models(
+                sampled,
+                FEATURE_COLUMNS,
+                TARGET_COLUMN,
+                np.zeros(60, dtype=np.int64),
+                cv_splits=3,
+                random_state=42,
+                rf_trees=5,
+                folds=folds,
+            )
+
+
+class TestValidateFoldTestSizes:
+    """validate_fold_test_sizes のテスト（学習前のテスト行数の検査）。"""
+
+    def test_accepts_folds_with_two_or_more_test_rows(self) -> None:
+        """全 fold のテスト行が2行以上なら何もしない。"""
+        validate_fold_test_sizes([(np.array([2, 3]), np.array([0, 1]))])
+
+    def test_reports_the_failing_fold_number(self) -> None:
+        """テスト行が2行未満の fold があれば、その fold 番号を示して停止する。"""
+        folds = [(np.array([2, 3]), np.array([0, 1])), (np.array([0, 1, 2]), np.array([3]))]
+
+        with pytest.raises(ValueError, match="fold 2: 1行"):
+            validate_fold_test_sizes(folds)

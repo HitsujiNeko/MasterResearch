@@ -361,10 +361,29 @@ class _RecordingCollection:
         raise AssertionError("merge は使わない")
 
 
+@pytest.mark.parametrize(
+    ("target_observation_datetimes", "expected_date_filters"),
+    [
+        (
+            {"2022-09-06T03:23:58"},
+            (("date", "2022-09-06", "2022-09-07"),),
+        ),
+        (
+            {"2024-11-30T03:23:30", "2024-08-10T03:23:09", "2022-09-06T03:23:58"},
+            (
+                ("date", "2022-09-06", "2022-09-07"),
+                ("date", "2024-08-10", "2024-08-11"),
+                ("date", "2024-11-30", "2024-12-01"),
+            ),
+        ),
+    ],
+)
 def test_filter_collection_by_target_dates_filters_once_without_merge(
     monkeypatch: pytest.MonkeyPatch,
+    target_observation_datetimes: set[str],
+    expected_date_filters: tuple[tuple[str, str, str], ...],
 ) -> None:
-    """複数日の指定でも merge せず、日付範囲の OR で1回だけ filter する。"""
+    """1日でも複数日でも merge せず、日付範囲の OR で1回だけ filter する。"""
     monkeypatch.setattr(
         search.ee.Filter, "date", staticmethod(lambda start, end: ("date", start, end))
     )
@@ -373,20 +392,11 @@ def test_filter_collection_by_target_dates_filters_once_without_merge(
 
     filtered = search.filter_collection_by_target_dates(
         collection,  # type: ignore[arg-type]
-        {"2024-11-30T03:23:30", "2024-08-10T03:23:09", "2022-09-06T03:23:58"},
+        target_observation_datetimes,
     )
 
     assert filtered is collection
-    assert collection.filters == [
-        (
-            "or",
-            (
-                ("date", "2022-09-06", "2022-09-07"),
-                ("date", "2024-08-10", "2024-08-11"),
-                ("date", "2024-11-30", "2024-12-01"),
-            ),
-        )
-    ]
+    assert collection.filters == [("or", expected_date_filters)]
 
 
 def test_build_failure_summary_lines_raises_on_unlisted_sensor() -> None:

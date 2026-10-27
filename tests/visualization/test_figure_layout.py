@@ -177,6 +177,68 @@ def test_present_class_values_rounds_floats() -> None:
     assert present_class_values(values, nodata=None) == [10, 20]
 
 
+# Esri LULC 相当: 0=No Data、10=Clouds（取得スクリプトの FILLED_VALUES = (0, 10)）
+ESRI_LIKE_VALUES = np.array([[0, 1, 2], [5, 7, 10], [10, 11, 0]])
+
+
+def test_present_class_values_excludes_multiple_filled_values() -> None:
+    """filled_values に渡した複数の無効値をすべて除外する。"""
+    assert present_class_values(ESRI_LIKE_VALUES, filled_values=(0, 10)) == [1, 2, 5, 7, 11]
+
+
+def test_present_class_values_excludes_single_element_filled_values() -> None:
+    """要素 1 つの filled_values はその値だけを除外する。"""
+    assert present_class_values(ESRI_LIKE_VALUES, filled_values=(10,)) == [0, 1, 2, 5, 7, 11]
+
+
+def test_present_class_values_accepts_scalar_filled_values() -> None:
+    """スカラーの filled_values は要素 1 つの集合と同じに扱う。"""
+    assert present_class_values(ESRI_LIKE_VALUES, filled_values=10) == present_class_values(
+        ESRI_LIKE_VALUES, filled_values=(10,)
+    )
+
+
+@pytest.mark.parametrize("filled_values", [None, (), []])
+def test_present_class_values_without_filled_values_matches_default(filled_values) -> None:
+    """filled_values が None・空なら、渡さない場合（従来の挙動）と同じ結果になる。"""
+    expected = present_class_values(ESRI_LIKE_VALUES, nodata=0)
+    assert expected == [1, 2, 5, 7, 10, 11]
+    assert present_class_values(ESRI_LIKE_VALUES, nodata=0, filled_values=filled_values) == (
+        expected
+    )
+
+
+def test_present_class_values_combines_nodata_and_filled_values() -> None:
+    """nodata と filled_values は和集合として除外される（重複していてもよい）。"""
+    assert present_class_values(ESRI_LIKE_VALUES, nodata=0, filled_values=(10,)) == [
+        1,
+        2,
+        5,
+        7,
+        11,
+    ]
+    assert present_class_values(ESRI_LIKE_VALUES, nodata=0, filled_values=(0, 10)) == [
+        1,
+        2,
+        5,
+        7,
+        11,
+    ]
+
+
+def test_present_class_values_ignores_absent_filled_values() -> None:
+    """データに現れない値を filled_values に含めても結果は変わらない。"""
+    assert present_class_values(ESRI_LIKE_VALUES, filled_values=(250, 255)) == (
+        present_class_values(ESRI_LIKE_VALUES)
+    )
+
+
+def test_present_class_values_compares_filled_values_before_rounding() -> None:
+    """filled_values は nodata と同じく丸め前の値で比較する（丸め後に一致しても除外しない）。"""
+    values = np.array([9.6, 10.0, 20.0])
+    assert present_class_values(values, filled_values=(10,)) == [10, 20]
+
+
 def test_shorten_label_removes_english_parenthetical() -> None:
     """半角スペース＋半角括弧以降を除き、日本語の全角括弧は残す。"""
     assert shorten_label("10 天水農地 (Rainfed cropland)") == "10 天水農地"

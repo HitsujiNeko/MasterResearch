@@ -198,6 +198,22 @@ def test_present_class_values_accepts_scalar_filled_values() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "filled_values",
+    [[0, 10], {0, 10}, frozenset({0, 10}), np.array([0, 10]), (v for v in (0, 10))],
+    ids=["list", "set", "frozenset", "ndarray", "generator"],
+)
+def test_present_class_values_accepts_any_iterable_filled_values(filled_values) -> None:
+    """filled_values は tuple 以外のイテラブル（list・set・ndarray・ジェネレータ）も受け付ける。"""
+    assert present_class_values(ESRI_LIKE_VALUES, filled_values=filled_values) == [1, 2, 5, 7, 11]
+
+
+def test_present_class_values_excludes_filled_values_from_uint8() -> None:
+    """実データ（Esri LULC は uint8）と同じ型の配列でも filled_values が一致判定される。"""
+    values = ESRI_LIKE_VALUES.astype(np.uint8)
+    assert present_class_values(values, filled_values=(0, 10)) == [1, 2, 5, 7, 11]
+
+
 @pytest.mark.parametrize("filled_values", [None, (), []])
 def test_present_class_values_without_filled_values_matches_default(filled_values) -> None:
     """filled_values が None・空なら、渡さない場合（従来の挙動）と同じ結果になる。"""

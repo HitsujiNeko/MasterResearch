@@ -33,7 +33,7 @@ MCP の応答が打ち切られて QGIS 本体が応答しなくなるため、�
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable
 
 from osgeo import gdal
 from qgis.core import (
@@ -143,7 +143,7 @@ def style_roi_outline(
 def filter_paletted_to_present(
     layer: str | QgsRasterLayer,
     nodata: float | None = None,
-    filled_values: float | Sequence[float] | None = (),
+    filled_values: float | Iterable[float] | None = (),
     project: QgsProject | None = None,
 ) -> int:
     """カテゴリ値ラスタを、データに実在するクラスだけの凡例に作り直す。
@@ -156,15 +156,18 @@ def filter_paletted_to_present(
 
     データセット固有の無効値（例: Esri LULC の Clouds(10)）は、実在すれば凡例に残る。
     凡例をサマリー JSON のクラス分布（無効値を除いた有効画素）に揃えたいときは、
-    取得スクリプトの ``FILLED_VALUES`` を ``filled_values`` に渡す。除外したクラスは
-    レンダラからも外れるため、その画素は地図上でも描画されない（透明になる）。
+    取得スクリプトの ``FILLED_VALUES`` を ``filled_values`` に渡す。サマリーは ROI 内、
+    凡例はラスタ全体で判定するが、取得スクリプトは ROI 外を NoData で埋めるため、
+    クラスの顔ぶれは実用上一致する。除外したクラスはレンダラからも外れるため、
+    その画素は地図上でも描画されない（透明になる）。
 
     Args:
         layer: レイヤ名、または ``QgsRasterLayer``（``QgsPalettedRasterRenderer`` を
             持つこと）。
         nodata: 無効値（単一値）。指定すると凡例から除外する。省略時はバンドの
             NoData 値を使う。
-        filled_values: 追加で凡例から除外する無効値の集合。省略時は追加の除外なし。
+        filled_values: 追加で凡例から除外する無効値の集合（tuple・set 等のイテラブル
+            または単一値）。省略時は追加の除外なし。
         project: レイヤ名で指定するときの対象プロジェクト。省略時は現在のプロジェクト。
 
     Returns:

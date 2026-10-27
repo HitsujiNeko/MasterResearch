@@ -11,7 +11,7 @@ PyQGIS に依存せず、レイアウトの寸法・位置（mm）だけを算�
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
@@ -172,7 +172,7 @@ def layout_geometry(
 def present_class_values(
     values: Sequence[float] | np.ndarray,
     nodata: float | None = None,
-    filled_values: float | Sequence[float] | None = (),
+    filled_values: float | Iterable[float] | None = (),
 ) -> list[int]:
     """ラスタ値の配列から、実在するクラス値（整数）を昇順で返す。
 
@@ -187,12 +187,18 @@ def present_class_values(
         values: ラスタ画素値の配列（``numpy`` 配列や任意の数値イテラブル）。
         nodata: 除外する無効値（単一値）。``None`` なら除外しない。
         filled_values: 追加で除外する無効値の集合（取得スクリプトの ``FILLED_VALUES``
-            をそのまま渡せる）。単一値も受け付ける。``None``・空なら追加の除外なし。
+            をそのまま渡せる）。tuple・list・set などの任意のイテラブルと単一値を
+            受け付ける。``None``・空なら追加の除外なし。
 
     Returns:
         実在クラス値（整数）の昇順リスト。
     """
-    excluded = set() if filled_values is None else {float(v) for v in np.atleast_1d(filled_values)}
+    if filled_values is None:
+        excluded: set[float] = set()
+    elif isinstance(filled_values, Iterable):  # tuple・list・set・ndarray・ジェネレータ等
+        excluded = {float(v) for v in filled_values}
+    else:  # 単一値
+        excluded = {float(filled_values)}
     unique = np.unique(np.asarray(values))
     result: list[int] = []
     for value in unique:

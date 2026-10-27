@@ -1,6 +1,6 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-10-22
+**最終更新**: 2026-10-27
 **関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
@@ -178,6 +178,7 @@ finally:
     app.exitQgis()
 ```
 
+- レイヤを受け取る`qgis_figure`の公開関数は、いずれも`build_gis_figure`と同じ「レイヤ名 + `project`」で呼べる（例: `qf.style_roi_outline("ROI", project=project)`）。`style_roi_outline` / `filter_paletted_to_present` / `set_raster_itemized_legend`は、上記の骨格のようにレイヤオブジェクトを渡してもよい
 - `roi_path` / `raster_path` / `out_png`もリポジトリルートと同様に引数や設定から受け取り、研究データの絶対パスをランナーに書かない（[CodingRule.md](CodingRule.md) 7章）
 - タイトルの書式は[取得方法・構図](#取得方法構図)に従う（例は既存の`images/gis_data/dem/dem_fabdem_hanoi.png`と同じタイトルで、書式の`{年}`を省いている。FABDEM の原データの観測期間は 2010〜2015 年にまたがり、年が一つに定まらないため）
 - 複数枚を作る場合は、`initQgis()`から`exitQgis()`までの 1 回の起動の中でループする。起動と終了には数秒かかるため、1 枚ごとに起動し直さない
@@ -347,6 +348,8 @@ Esri LULC（`io-lulc-annual-v02`）では、STACコレクションの`item_asset
 - **タイトル**（データセット＋ROI）と**スケールバー**（地図フレーム左下隅・枠内）は常時付与する。タイトルは `{データセット} {データ種別} {年} － {ROI}` の書式に統一する（例: `GLC_FCS30D 土地被覆 2022 － Hanoi ROI`）。`build_gis_figure` は `title_text` をそのまま使うため、**書式の統一はヘルパー側では担保されない**
 - **凡例**はデータ型で分岐する:
   - カテゴリ値ラスタ（LULC 等）・連続値ラスタ（DEM 等）: **必須**（前者は実在クラスに絞り、後者は項目表示にすると判読しやすい）
+    - 実在クラスへの絞り込み（`filter_paletted_to_present`）は、既定ではラスタの NoData 値だけを除き、データセット固有の無効値（例: Esri LULC の Clouds(10)）は実在すれば凡例に残す。残すとサマリー JSON のクラス分布（無効値を除いた有効画素）とクラス数が食い違うため、図ごとにどちらかを選ぶ
+    - 残す場合は、結果ドキュメントに無効値クラスの意味と画素数を明記する（事例は[gis_data_lulc.md](../01_planning/gis_data/gis_data_lulc.md)の Esri LULC のカバレッジ）。除く場合は、取得スクリプトの`FILLED_VALUES`を`filled_values`に渡す。除いたクラスの画素は地図上でも描画されない
   - 単一シンボル（POI・道路・建物フットプリント等）: 不要（タイトルのみ）
 - ROI 基準でズームし、カバレッジ・CRS 整合・分布/外れ値が判読できる構図とする
 - 大規模レイヤは既存のクラッシュ対策（ROI 基準ズーム）に従う

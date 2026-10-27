@@ -167,39 +167,55 @@ def get_raw_landsat_collections(
     return collection_toa, collection_sr_raw
 
 
+def build_target_date_ranges(target_observation_datetimes: set[str]) -> list[tuple[str, str]]:
+    """観測日時集合から、対象日ごとの日付範囲（開始日, 翌日）を作る。
+
+    同じ日付の観測日時は1つの範囲にまとめ、開始日の昇順に並べる。
+    終了日は GEE の `filterDate` と同じく範囲に含まない（翌日の0時）。
+
+    Args:
+        target_observation_datetimes (set[str]): 対象観測日時集合
+            （`YYYY-MM-DDTHH:MM:SS` 形式。先頭10文字を日付として用いる）。
+
+    Returns:
+        list[tuple[str, str]]: `(開始日, 翌日)` の ISO 形式日付の組のリスト。
+    """
+    target_dates = sorted(
+        {observation_datetime[:10] for observation_datetime in target_observation_datetimes}
+    )
+    return [
+        (date_text, (dt.date.fromisoformat(date_text) + dt.timedelta(days=1)).isoformat())
+        for date_text in target_dates
+    ]
+
+
 def filter_collection_by_target_dates(
     collection: ee.ImageCollection,
     target_observation_datetimes: set[str] | None,
 ) -> ee.ImageCollection:
     """指定観測日時の日付だけに ImageCollection を絞り込む。
 
+    対象日ごとの日付範囲を `ee.Filter.Or` でまとめ、元のコレクションに1回だけ
+    `filter` をかける。日付ごとに絞り込んだコレクションを `merge` すると、
+    GEE が `system:index` に結合元の番号（`1_`・`2_`、3日以上では `1_1_` のような
+    入れ子）を付け、結果CSVの `scene_index` が通常の探索結果と一致しなくなるため。
+
     Args:
         collection (ee.ImageCollection): 絞り込み対象コレクション。
         target_observation_datetimes (set[str] | None): 対象観測日時集合。
 
     Returns:
-        ee.ImageCollection: 対象日付の画像だけを含むコレクション。
+        ee.ImageCollection: 対象日付の画像だけを含むコレクション
+            （`system:index` は元のコレクションのまま）。
     """
     if not target_observation_datetimes:
         return collection
 
-    target_dates = sorted(
-        {observation_datetime[:10] for observation_datetime in target_observation_datetimes}
-    )
-
-    def _filter_by_date(date_text: str) -> ee.ImageCollection:
-        """指定日付（1日分）に絞り込んだコレクションを返す。"""
-        start_date = dt.date.fromisoformat(date_text)
-        end_date = (start_date + dt.timedelta(days=1)).isoformat()
-        return collection.filterDate(date_text, end_date)
-
-    # target_dates は非空（早期returnで空集合を除外済み）であるため、
-    # 先頭要素で初期化してから残りをmergeする。
-    filtered_collection = _filter_by_date(target_dates[0])
-    for date_text in target_dates[1:]:
-        filtered_collection = filtered_collection.merge(_filter_by_date(date_text))
-
-    return filtered_collection
+    date_filters = [
+        ee.Filter.date(start_date, end_date)
+        for start_date, end_date in build_target_date_ranges(target_observation_datetimes)
+    ]
+    return collection.filter(ee.Filter.Or(*date_filters))
 
 
 def calculate_scene_coverage_ratio(image: ee.Image, roi: ee.Geometry) -> float:

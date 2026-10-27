@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-10-20  
+**最終更新**: 2026-10-27  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -465,6 +465,49 @@ RQ3 は、現在次の順で進める。
 
 この最小仕様は既に実施済みであり、現在は複数観測日での比較結果を保持している。  
 今後はこの基準線に対して `Limited` / `Full` の改善幅を評価する。
+
+### 5.3.3 共通評価セル集合（シナリオ間比較の標本統制）
+
+シナリオごとに有効条件（フィルタ）が違うため、各スクリプトを既定のまま実行すると母数が数万セル食い違い、10万件の標本は事実上別物になる（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 2.1節）。そのままでは、シナリオ間の差に「変数の違いの効果」と「母集団の違いの効果」が混ざる。そこで、**全シナリオに共通する評価セルと fold 割り当てを1つに固定し、同じセル・同じ分割で評価する**。
+
+**定義**: 次の4構成の有効母集団の積（共通部分）を評価用の母集団とする。有効条件は各分析スクリプトの関数（`build_valid_population`）をそのまま呼んで求め、条件を書き直さない。
+
+| 構成 | 有効条件 |
+|---|---|
+| Satellite Only | `IN_ANALYSIS_AREA == 1`・`NDVI`/`NDBI`/`NDWI`/`LST` が非NULL・`LST_VALID_RATIO >= 0.5` |
+| Limited × 人口ソース（WorldPop2020・LandScan2020・LandScan2023 の3構成） | 建物高さ列の0補完の後に、フィルタ列（分光指数・土地被覆・建物・道路・標高・夜間光・選んだ人口版）と `LST` が非NULL、`IN_ANALYSIS_AREA`・`VALID_POP_{人口版}_MASK`・`VALID_NTL_MASK` が 1、`LST_VALID_RATIO >= 0.5` |
+
+**生成手順**（`src/analysis/build_common_evaluation_set.py`）:
+
+1. 2つのデータセット（Satellite Only と Limited は別ファイル）を読み、4構成の有効母集団を `cell_id` で突き合わせて積を取る
+2. 共通集合の全セルで、2ファイル間の `LST`・`NDVI`・`NDBI` の値の一致を検査する（`numpy.isclose` の既定の許容誤差。1件でも不一致なら停止する）
+3. 共通集合を `cell_id` 順に並べてから標本を抽出し（既定 10万件・乱数シード42）、各スクリプトと同じブロック（既定 2,700m）・GroupKFold（既定5分割）で fold を割り当てる
+4. 評価セル CSV（`cell_id`・`block_id`・`fold`。行順が標本の順序）と、メタデータ JSON（`{CSV 名}_results.json`）を保存する。メタデータには各構成の母数・共通集合の母数・値の一致検査・**脱落セルの性格**（その構成にはあるが共通集合から外れたセルの件数・LST・`NDVI`・`BUILD_COV`・`LULC_WATER_COV`・ブロック単位の集中度）・来歴を記録する
+
+```bash
+python -m src.analysis.build_common_evaluation_set
+python -m src.analysis.analysis_rq3_satellite_only --evaluation-cells data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv
+python -m src.analysis.analysis_rq3_limited --evaluation-cells data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv
+python -m src.analysis.compare_common_evaluation --evaluation-cells data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv
+python -m src.analysis.repeat_common_evaluation --evaluation-cells data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv
+```
+
+**分析スクリプトでの使い方（`--evaluation-cells`）**:
+
+- 標本抽出の代わりに CSV の `cell_id` を CSV の行順で選び、Spatial CV は CSV の `fold` 列で分割する。ランダム分割も同じ行・同じ順序・同じシードになるため、シナリオ間で train/test が一致する
+- CSV のセルが自シナリオの有効母集団に1件でも無ければ停止する。メタデータの設定7項目（ブロックサイズ・分割数・解像度・乱数シード・標本サイズ・LST 有効率の下限・分析対象範囲）が実行の引数と違う場合も停止する。CSV の内容（3列を int64 に揃えた値・行順込み）の SHA-256 がメタデータと違う場合も停止する
+- 出力は既定の出力先の隣の `{既定のディレクトリ名}_common_evaluation/` に出し、出力名の末尾に CSV 名を付ける（既定のランを上書きしない）。来歴の入力には、データセットに加えて評価セル CSV とメタデータ JSON を記録する
+- 指定しない場合の挙動（母数・標本・fold）は変わらない
+
+**比較と区間**（`src/common/cv_paired_comparison.py`）:
+
+- 差は fold ごとの対応のある差（比較側 − 基準側。シナリオ比較では Limited − Satellite Only）とする。ランダム分割はテスト集合が1つで区間を作れないため、差の点推定だけを出す
+- fold どうしは学習データを共有していて独立ではないため、素朴な t 区間は狭く出すぎる。**補正 t 区間（corrected resampled t）を主とし**、素朴な t 区間は参考として併記する。差の平均の分散を `(1/J + ρ)·s²`、自由度を `J − 1` とする。J は差の個数（単発は分割数の5、反復は分割数 × シード数）、ρ は全分割の「テスト行数 ÷ 学習行数」の平均、s² は J 個の差の標本分散（不偏分散）である。単発は Nadeau & Bengio (2003)、反復は Bouckaert & Frank (2004) の補正による。**式は R パッケージ correctR の実装と突き合わせて確認した。原典との突き合わせは未確認である**
+- 反復（`repeat_common_evaluation.py`）は、共通集合からシードを変えて標本を抽出し直し、両シナリオの Spatial CV だけを回す（シードは標本抽出と RF の乱数の両方に使う）。シードごとに標本自体が入れ替わるため、反復の区間には分割の違いだけでなく標本の違いも含まれる。同じデータの分割し直しを想定する Bouckaert & Frank の設定とは異なる。シードごとの途中結果を保存し、中断しても続きから再開できる
+
+**構成の追加**: Esri 版・Full・測量GIS範囲は未対応である（032358 の Esri 版データセットが未生成・Full のスクリプトが無いため）。構成を加える場合は、その構成の有効母集団を求める関数を同じ形で用意し、積に加えて評価セルを作り直す（評価セルが変わるため、既存の比較はすべて再実行になる）。
+
+結果は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6節を正本とする。
 
 ---
 

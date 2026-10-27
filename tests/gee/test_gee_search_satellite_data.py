@@ -1,13 +1,15 @@
 """gee_search_satellite_data.py（観測選定指標の実効ROIカバー率）のテスト。
 
-GEEへの接続を伴わない純粋関数（実効ROIカバー率の算出・再ランキング）のみを
-対象とし、`ee` 関連のシーン探索処理はテスト対象外とする。
+GEEへの接続を伴わない純粋関数（実効ROIカバー率の算出・再ランキング・
+観測日時指定の日付範囲）のみを対象とし、`ee` 関連のシーン探索処理はテスト対象外とする。
+例外として、観測日時指定の絞り込みは `ee.Filter` を差し替えて組み立て方のみを確かめる。
 """
 
 from __future__ import annotations
 
 import math
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -299,6 +301,102 @@ def test_build_failure_summary_lines_reports_counts_per_sensor() -> None:
         "Landsat9: 対象 5 件 / 成功 4 件 / 失敗 1 件",
         "  失敗: index=3, scene_index=LC09_127045_20230101, error=boom",
     ]
+
+
+def test_build_target_date_ranges_groups_same_date_and_sorts() -> None:
+    """同じ日付の観測日時は1範囲にまとめ、開始日の昇順に（翌日を終了日として）並べる。"""
+    ranges = search.build_target_date_ranges(
+        {"2024-11-30T03:23:30", "2024-08-10T03:23:09", "2024-08-10T03:23:33"}
+    )
+
+    assert ranges == [("2024-08-10", "2024-08-11"), ("2024-11-30", "2024-12-01")]
+
+
+def test_build_target_date_ranges_crosses_month_and_year_end() -> None:
+    """月末・年末・閏日の翌日を正しく求める。"""
+    ranges = search.build_target_date_ranges(
+        {"2024-12-31T03:23:09", "2024-02-28T03:23:09", "2024-02-29T03:23:09"}
+    )
+
+    assert ranges == [
+        ("2024-02-28", "2024-02-29"),
+        ("2024-02-29", "2024-03-01"),
+        ("2024-12-31", "2025-01-01"),
+    ]
+
+
+def test_build_target_date_ranges_handles_empty() -> None:
+    """観測日時が0件なら空のリストを返す。"""
+    assert search.build_target_date_ranges(set()) == []
+
+
+@pytest.mark.parametrize("target_observation_datetimes", [None, set()])
+def test_filter_collection_by_target_dates_returns_collection_when_unspecified(
+    target_observation_datetimes: set[str] | None,
+) -> None:
+    """日時指定なしでは元のコレクションをそのまま返す（既存の探索結果の scene_index は不変）。"""
+    collection = object()
+
+    filtered = search.filter_collection_by_target_dates(
+        collection,  # type: ignore[arg-type]
+        target_observation_datetimes,
+    )
+
+    assert filtered is collection
+
+
+class _RecordingCollection:
+    """`filter` の呼び出しを記録し、`merge` を呼ぶと失敗する ImageCollection の代役。"""
+
+    def __init__(self) -> None:
+        self.filters: list[Any] = []
+
+    def filter(self, ee_filter: Any) -> _RecordingCollection:
+        """渡されたフィルタを記録して自身を返す。"""
+        self.filters.append(ee_filter)
+        return self
+
+    def merge(self, other: Any) -> None:
+        """merge は system:index に接頭辞を付けるため、呼ばれたらテストを失敗させる。"""
+        raise AssertionError("merge は使わない")
+
+
+@pytest.mark.parametrize(
+    ("target_observation_datetimes", "expected_date_filters"),
+    [
+        (
+            {"2022-09-06T03:23:58"},
+            (("date", "2022-09-06", "2022-09-07"),),
+        ),
+        (
+            {"2024-11-30T03:23:30", "2024-08-10T03:23:09", "2022-09-06T03:23:58"},
+            (
+                ("date", "2022-09-06", "2022-09-07"),
+                ("date", "2024-08-10", "2024-08-11"),
+                ("date", "2024-11-30", "2024-12-01"),
+            ),
+        ),
+    ],
+)
+def test_filter_collection_by_target_dates_filters_once_without_merge(
+    monkeypatch: pytest.MonkeyPatch,
+    target_observation_datetimes: set[str],
+    expected_date_filters: tuple[tuple[str, str, str], ...],
+) -> None:
+    """1日でも複数日でも merge せず、日付範囲の OR で1回だけ filter する。"""
+    monkeypatch.setattr(
+        search.ee.Filter, "date", staticmethod(lambda start, end: ("date", start, end))
+    )
+    monkeypatch.setattr(search.ee.Filter, "Or", staticmethod(lambda *filters: ("or", filters)))
+    collection = _RecordingCollection()
+
+    filtered = search.filter_collection_by_target_dates(
+        collection,  # type: ignore[arg-type]
+        target_observation_datetimes,
+    )
+
+    assert filtered is collection
+    assert collection.filters == [("or", expected_date_filters)]
 
 
 def test_build_failure_summary_lines_raises_on_unlisted_sensor() -> None:

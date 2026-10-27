@@ -38,10 +38,14 @@ from src.analysis.analysis_rq3_satellite_only import (
     DEFAULT_SCALE_M,
     FEATURE_COLUMNS,
     build_filtered_sample,
+    build_valid_population,
+    load_scenario_dataset,
     main,
     parse_arguments,
     resolve_output_stem,
+    resolve_required_mask_columns,
 )
+from src.analysis.build_common_evaluation_set import draw_evaluation_cells
 from src.analysis.urban_params.canonical_grid import make_cell_id
 from src.common.analysis_dataset import (
     ANALYSIS_AREA_ROI,
@@ -51,6 +55,7 @@ from src.common.analysis_dataset import (
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
 )
 from src.common.analysis_runs import build_observation_label
+from src.common.evaluation_cells import save_evaluation_set
 from src.common.run_parameters import build_run_parameters_from_args
 
 
@@ -600,3 +605,246 @@ class TestMainAnalysisArea:
         assert result["analysis_area"] == ANALYSIS_AREA_ROI
         assert result["required_mask_columns"] == [IN_ANALYSIS_AREA_COLUMN]
         assert result["sample_size"] == 200
+
+
+class TestResolveRequiredMaskColumns:
+    """resolve_required_mask_columns のテスト（有効母集団の品質列の組み立て）。"""
+
+    def test_roi_requires_only_default_mask_columns(self) -> None:
+        """ROI 全域では既定の品質列（IN_ANALYSIS_AREA）だけを要求する。"""
+        assert resolve_required_mask_columns(ANALYSIS_AREA_ROI) == DEFAULT_REQUIRED_MASK_COLUMNS
+
+    def test_survey_appends_survey_flag_after_default(self) -> None:
+        """測量GIS範囲では、既定の品質列の後ろに測量GISフラグを加える。"""
+        assert resolve_required_mask_columns(ANALYSIS_AREA_SURVEY) == (
+            *DEFAULT_REQUIRED_MASK_COLUMNS,
+            IN_ANALYSIS_AREA_SURVEY_COLUMN,
+        )
+
+
+class TestBuildValidPopulation:
+    """build_valid_population のテスト（サンプリング前の有効母集団）。
+
+    `build_filtered_sample` と、共通評価セル集合の生成の両方がこの関数を呼ぶため、
+    両者の母集団が一致することを固定する。
+    """
+
+    def test_excludes_rows_failing_any_condition(self) -> None:
+        """分光指数のNULL・LSTのNULL・品質列0・LST有効率の下限割れをそれぞれ除外する。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[0, "NDWI"] = np.nan
+        dataframe.loc[1, "LST"] = np.nan
+        dataframe.loc[2, IN_ANALYSIS_AREA_COLUMN] = 0
+        dataframe.loc[3, "LST_VALID_RATIO"] = 0.4
+
+        population = build_valid_population(dataframe, lst_valid_ratio_threshold=0.5)
+
+        assert list(population["cell_id"]) == [4, 5, 6, 7, 8, 9]
+
+    def test_matches_rows_used_by_build_filtered_sample(self) -> None:
+        """全件抽出（sample_size=0）の build_filtered_sample と同じ行を同じ順で返す。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[[1, 4], "NDVI"] = np.nan
+
+        population = build_valid_population(dataframe, lst_valid_ratio_threshold=0.5)
+        sampled = build_filtered_sample(
+            dataframe, lst_valid_ratio_threshold=0.5, sample_size=0, random_state=42
+        ).sampled
+
+        assert list(population["cell_id"]) == list(sampled["cell_id"])
+
+    def test_required_mask_columns_narrow_population(self) -> None:
+        """渡した品質列（測量GISフラグ）で母集団が絞られる。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = [1] * 4 + [0] * 6
+
+        population = build_valid_population(
+            dataframe,
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=resolve_required_mask_columns(ANALYSIS_AREA_SURVEY),
+        )
+
+        assert list(population["cell_id"]) == [0, 1, 2, 3]
+
+
+class TestLoadScenarioDataset:
+    """load_scenario_dataset のテスト（読込列と分析対象範囲の品質列の検査）。
+
+    読込関数は「指定された列のうち存在する列だけを返す」偽物へ差し替える
+    （`TestMainAnalysisArea` と同じ方針）。
+    """
+
+    def _install_loader(
+        self, monkeypatch: pytest.MonkeyPatch, dataframe: pd.DataFrame
+    ) -> dict[str, list[str]]:
+        """列選択を模した読込関数へ差し替え、要求された列を控える。"""
+        captured: dict[str, list[str]] = {}
+
+        def fake_loader(dataset_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+            captured["columns"] = list(columns or [])
+            available = [column for column in captured["columns"] if column in dataframe.columns]
+            return dataframe[available].copy()
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset", fake_loader
+        )
+        return captured
+
+    def test_reads_columns_needed_for_valid_population(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """有効母集団の判定と分析に使う列を要求し、測量GISフラグはROIでは読まない。"""
+        dataframe = _quality_dataframe(n=5)
+        dataframe["lon"] = 0.0
+        dataframe["lat"] = 0.0
+        captured = self._install_loader(monkeypatch, dataframe)
+
+        loaded = load_scenario_dataset(Path("dummy.gpkg"), ANALYSIS_AREA_ROI)
+
+        assert {"cell_id", *FEATURE_COLUMNS, "LST", "LST_VALID_RATIO"}.issubset(loaded.columns)
+        assert IN_ANALYSIS_AREA_COLUMN in captured["columns"]
+        assert IN_ANALYSIS_AREA_SURVEY_COLUMN not in captured["columns"]
+
+    def test_survey_without_flag_column_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """測量GIS範囲を指定し、データセットにフラグ列が無ければ停止する。"""
+        self._install_loader(monkeypatch, _quality_dataframe(n=5))
+
+        with pytest.raises(ValueError, match="mask_survey"):
+            load_scenario_dataset(Path("dummy.gpkg"), ANALYSIS_AREA_SURVEY)
+
+
+def _save_common_evaluation_set(
+    tmp_path: Path, cell_ids: np.ndarray, sample_size: int = 0, block_size_m: int = 2_700
+) -> Path:
+    """合成データの cell_id から評価セル CSV とメタデータを作り、CSV のパスを返す。
+
+    メタデータの設定は、`--sample-size` 以外は分析スクリプトの既定値に揃える。
+    """
+    cells, _ = draw_evaluation_cells(
+        cell_ids,
+        sample_size=sample_size,
+        random_state=42,
+        block_size_m=block_size_m,
+        scale=30,
+        cv_splits=5,
+    )
+    cells_path = tmp_path / "common" / "evaluation_cells_seed42.csv"
+    save_evaluation_set(
+        cells,
+        cells_path,
+        {
+            "block_size_m": block_size_m,
+            "cv_splits": 5,
+            "scale_m": 30,
+            "random_state": 42,
+            "sample_size": sample_size,
+            "lst_valid_ratio_threshold": 0.5,
+            "analysis_area": ANALYSIS_AREA_ROI,
+            "common_size": len(cell_ids),
+        },
+    )
+    return cells_path
+
+
+class TestEvaluationCellsArguments:
+    """--evaluation-cells の引数解釈（出力先の既定）のテスト。"""
+
+    def test_default_output_dir_is_separated(self) -> None:
+        """評価セル指定時の既定の出力先は、通常ランと別のディレクトリになる。"""
+        args = parse_arguments(["--evaluation-cells", "cells.csv"])
+
+        assert args.output_dir == DEFAULT_OUTPUT_DIR.with_name(
+            f"{DEFAULT_OUTPUT_DIR.name}_common_evaluation"
+        )
+
+    def test_explicit_output_dir_is_kept(self, tmp_path: Path) -> None:
+        """--output-dir を明示した場合はそのまま使う。"""
+        args = parse_arguments(["--evaluation-cells", "cells.csv", "--output-dir", str(tmp_path)])
+
+        assert args.output_dir == tmp_path
+
+    def test_default_run_keeps_default_output_dir(self) -> None:
+        """評価セルを指定しない場合の出力先は従来どおり。"""
+        args = parse_arguments([])
+
+        assert args.output_dir == DEFAULT_OUTPUT_DIR
+        assert args.evaluation_cells is None
+
+
+class TestMainEvaluationCells:
+    """main() の --evaluation-cells の結線（標本・fold の固定、記録、停止条件）のテスト。"""
+
+    _install_loader = TestMainAnalysisArea._install_loader
+    _set_argv = TestMainAnalysisArea._set_argv
+
+    def test_uses_cells_in_csv_order_and_fixed_folds(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """標本は CSV の行順、Spatial CV は CSV の fold で行い、評価セルと来歴を記録する。"""
+        dataframe = _spread_dataframe(n=200)
+        cells_path = _save_common_evaluation_set(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(monkeypatch, tmp_path, "--evaluation-cells", str(cells_path))
+
+        main()
+
+        cells = pd.read_csv(cells_path)
+        stem = "dataset_satellite_only_dummy_hanoi_30m_evaluation_cells_seed42"
+        sample = pd.read_csv(output_dir / f"{stem}_sample_0.csv")
+        assert list(sample["cell_id"]) == list(cells["cell_id"])
+        folds = pd.read_csv(output_dir / f"{stem}_spatial_cv_folds.csv")
+        assert list(folds["test_size"]) == list(cells["fold"].value_counts().sort_index())
+        result = json.loads((output_dir / f"{stem}_results.json").read_text(encoding="utf-8"))
+        record = result["evaluation_cells"]
+        assert record["population_size"] == 200
+        assert record["common_size"] == 200
+        assert record["path"].endswith("evaluation_cells_seed42.csv")
+        input_paths = [entry["path"] for entry in result["provenance"]["inputs"]]
+        assert any(path.endswith("evaluation_cells_seed42.csv") for path in input_paths)
+        assert any(path.endswith("evaluation_cells_seed42_results.json") for path in input_paths)
+
+    def test_default_run_records_null_evaluation_cells(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """評価セルを指定しないランでは evaluation_cells を null とし、来歴の入力は GPKG のみ。"""
+        self._install_loader(monkeypatch, _spread_dataframe(n=200))
+        output_dir = self._set_argv(monkeypatch, tmp_path)
+
+        main()
+
+        result = json.loads(next(output_dir.glob("*_results.json")).read_text(encoding="utf-8"))
+        assert result["evaluation_cells"] is None
+        assert len(result["provenance"]["inputs"]) == 1
+
+    def test_mismatched_block_size_stops_before_loading(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """--block-size-m がメタデータと違えば、データセットを読む前に停止する。"""
+        dataframe = _spread_dataframe(n=200)
+        cells_path = _save_common_evaluation_set(tmp_path, dataframe["cell_id"].to_numpy())
+
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("設定が食い違ったままデータセットを読んではならない")
+
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset", _fail_if_called
+        )
+        self._set_argv(
+            monkeypatch, tmp_path, "--evaluation-cells", str(cells_path), "--block-size-m", "900"
+        )
+
+        with pytest.raises(ValueError, match="block_size_m"):
+            main()
+
+    def test_cell_outside_population_stops(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """評価セルが自シナリオの有効母集団に無ければ、モデル学習前に停止する。"""
+        dataframe = _spread_dataframe(n=200)
+        cells_path = _save_common_evaluation_set(tmp_path, dataframe["cell_id"].to_numpy())
+        dataframe.loc[0, "NDVI"] = np.nan
+        self._install_loader(monkeypatch, dataframe)
+        self._set_argv(monkeypatch, tmp_path, "--evaluation-cells", str(cells_path))
+
+        with pytest.raises(ValueError, match="有効母集団にありません"):
+            main()

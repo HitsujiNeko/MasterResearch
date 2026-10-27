@@ -1,6 +1,6 @@
 # Satellite Only 分析結果（cell_id結合経路）
 
-**最終更新**: 2026-10-22  
+**最終更新**: 2026-10-27  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -17,7 +17,7 @@
 | [satellite_only_analysis_results.md](satellite_only_analysis_results.md)（旧ピクセル経路・3観測日） | 集計単位（Landsatピクセル 対 正準グリッドのセル）・格子・観測日数・Spatial CV の定義。格子が一致しないため、セル単位の対応づけによる差分評価もできない（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md)（同一経路・観測032329） | 観測。処理条件は同一だが母数が異なり、そこから抽出される10万件も別物である |
 
-[Limited](limited_analysis_results.md) とは観測・格子・経路・ブロック定義が一致する。ただし説明変数の集合が異なり母数も揃っていないため、**シナリオ間の比較は参考の位置づけにとどまる**。参考比較の数値は Limited 側を正本とする（032358 は8.6節、032305 は6.7節。本ドキュメントに重複させない）。
+[Limited](limited_analysis_results.md) とは観測・格子・経路・ブロック定義が一致する。**主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した**（Limited 側8.6節）。ただし分光指数の扱いがシナリオ間で揃っていないため、差は公開GISの追加の効果だけを表すものではない。032305 の比較は母数も揃っていない参考比較にとどまる（Limited 側6.7節）。シナリオ間比較の数値は Limited 側を正本とし、本ドキュメントに重複させない。
 
 ---
 
@@ -270,7 +270,7 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 
 ## 6. 今後の研究の方向性
 
-- **Limited / Full との改善幅の評価**: 観測・格子・ブロック定義が揃ったことで、参考比較を同一観測どうしで行えるようになった（[limited_analysis_results.md](limited_analysis_results.md) 6.7節）。ただし説明変数の集合が異なり母数も揃っていないため、**Satellite Only をベースラインとした正式な改善幅の評価は別途扱う**。共通するセルに限定した評価の設計が要る
+- **Limited / Full との改善幅の評価**: 主採用の観測 032358 では、Limited との比較を両シナリオに共通する評価セルと fold で行った（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）。分光指数の扱いをシナリオ間で揃えた比較（下の「分光指数間の共線性の解消」と関わる）と、Full との比較は残っている。Full を加えるときは同じ共通評価セルの仕組みを使う（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
 - **Spatial CV の設計見直し**: 5.4節の2つの限界のうち、ブロックサイズの見直しの優先度が高い。シナリオ横断の方法論として扱う
 - **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。Limited では水指数の構成を同一セル上で比較し NDWI を除外する構成を採用したが（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、本シナリオでは構成比較は未実施である。本シナリオは説明変数が分光指数のみであり、NDWI を除外すると説明変数が2つになるため、Limited の結論をそのまま適用してよいかを含めて判断する
 - **LSTプロダクトの算出仕様の確認**: Level-2 地表面温度プロダクトの放射率推定が同一シーンの植生指数を用いる場合、`NDVI` と `LST` の間に間接的な代数的依存が生じうる（[limited_analysis_results.md](limited_analysis_results.md) 3.9節）。**本シナリオは説明変数が分光指数のみであるため、この依存の影響を最も強く受ける。** 確認を要する
@@ -287,7 +287,7 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 - **出力先**: `data/output/satellite_only_cellbased/20220906_032358/`（接頭辞 `dataset_satellite_only_20220906_032358_hanoi_30m`）。数値の正本は1.1節と同じ種別のファイルである
 - **データセット**: 現行の手順（新世代: ROI でクリップ済み・MNDWI 列あり）で作った指標テーブルから生成した。MNDWI 列はデータセットに含まれるが、説明変数・フィルタ列には使わない（3.2節と同じ）
 - **処理条件**: 3.2〜3.4節と同じである（`IN_ANALYSIS_AREA == 1`・`LST_VALID_RATIO >= 0.5`・10万件・乱数シード42・RF 300本・ブロック 2,700m・5分割）。3.4節の注記と異なり、本章のランでは乱数シード・木の本数を含む実行パラメータが `results.json` の `run_parameters` に記録されている
-- **来歴**: `results.json` の `provenance.git.dirty` は `false` であり、陳腐化チェック（`scripts/check_result_staleness.py`）で「最新」と判定される
+- **来歴**: `results.json` の `provenance.git.dirty` は `false` である。生成後に共通評価セルの機能（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）を加えて共通モジュールと分析スクリプトを変えたため、陳腐化チェック（`scripts/check_result_staleness.py`）では「要再実行（コード変更）」と判定される。ただし、引数を指定しない場合の挙動は変えておらず、再実行はしていない。既定の引数での再実行（出力先だけを一時ディレクトリに変えたもの）で、標本の `cell_id` と Spatial CV の fold 別指標・ランダム分割の指標が本章の結果と完全に一致することを確かめた
 
 生成コマンド（データセットは `.gitignore` 対象・再生成可能。指標・LST テーブルの生成は Limited 側 8.1節と共通）:
 

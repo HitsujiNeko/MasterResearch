@@ -1,1 +1,6 @@
 *.sh text eol=lf
+
+# 共通評価セルとその評価結果は、別の分析の来歴の入力としてバイト列のハッシュを記録する。
+# 改行変換（autocrlf）で取り出し環境ごとにハッシュが変わらないよう、変換しない。
+data/output/common_evaluation/** -text
+data/output/*/*_common_evaluation/** -text

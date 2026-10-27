@@ -136,6 +136,27 @@ def test_up_to_date_when_inputs_and_code_unchanged(repo: Path) -> None:
     assert result.changed_files == []
 
 
+def test_judges_non_model_results_by_provenance_only(repo: Path) -> None:
+    """モデル学習の結果以外の構造（評価セルのメタデータ・比較・反復の結果）も来歴だけで判定する。
+
+    共通評価セルのメタデータ・対応のある差・反復結果は `_results.json` で終わる名前に
+    して走査対象にしている。モデル学習の結果に特有のキー（`random_split` 等）を持たなくても
+    誤判定しないことを確かめる。
+    """
+    commit = _git(repo, "rev-parse", "HEAD")
+    content = {
+        "common_size": 3,
+        "evaluation_cells": {"file_name": "evaluation_cells_seed42.csv", "digest": "abc"},
+        "dropout": {"satellite_only": {"dropped_count": 1, "dropped": {"lst_mean_c": None}}},
+        "seeds": [42, 43],
+        "repeated_kfold": {"metrics": {"rf_r2": {"corrected": None}}},
+        "provenance": _provenance(commit, inputs=[_input_entry()]),
+    }
+    path = _write_result(repo, "evaluation_cells_seed42_results.json", content)
+
+    assert _check(repo, path).status == target.STATUS_UP_TO_DATE
+
+
 @pytest.mark.parametrize(
     "content",
     [{"sample_size": 10}, {"provenance": "text"}, "{not json", ["list"]],

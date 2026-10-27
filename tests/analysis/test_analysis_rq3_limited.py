@@ -76,8 +76,10 @@ from src.analysis.analysis_rq3_limited import (
     add_vegetation_water_pc1,
     build_candidate_correlation_frame,
     build_filtered_sample,
+    build_valid_population,
     drop_constant_features,
     fill_missing_building_heights,
+    load_scenario_dataset,
     main,
     parse_arguments,
     resolve_auxiliary_mask_columns,
@@ -86,21 +88,26 @@ from src.analysis.analysis_rq3_limited import (
     resolve_filter_columns,
     resolve_filter_dropout_column_groups,
     resolve_output_stem,
+    resolve_required_mask_columns,
     resolve_spectral_columns,
     summarize_vegetation_shap,
 )
+from src.analysis.analysis_rq3_satellite_only import main as satellite_only_main
 from src.analysis.analysis_rq3_satellite_only import (
     parse_arguments as parse_satellite_only_arguments,
 )
+from src.analysis.build_common_evaluation_set import draw_evaluation_cells
 from src.analysis.urban_params.canonical_grid import make_cell_id
 from src.common.analysis_dataset import (
     ANALYSIS_AREA_ROI,
     ANALYSIS_AREA_SURVEY,
+    DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_COLUMN,
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
     LST_VALID_RATIO_COLUMN,
 )
 from src.common.analysis_runs import build_observation_label
+from src.common.evaluation_cells import save_evaluation_set
 from src.common.regression_models import fit_linear_regression
 from src.common.run_parameters import build_run_parameters_from_args
 
@@ -2814,3 +2821,322 @@ class TestMainAnalysisArea:
         assert result["analysis_area"] == ANALYSIS_AREA_SURVEY
         assert IN_ANALYSIS_AREA_SURVEY_COLUMN in result["required_mask_columns"]
         assert result["sample_size"] == 150
+
+
+class TestResolveRequiredMaskColumns:
+    """resolve_required_mask_columns のテスト（有効母集団の品質列の組み立て）。
+
+    main() と共通評価セル集合の生成が同じ品質列を使うよう、並び順も含めて固定する
+    （results.json の `required_mask_columns` に並びのまま記録されるため）。
+    """
+
+    def test_default_order_is_area_then_population_then_nightlight(self) -> None:
+        """既定の品質列・人口・夜間光の順に並び、GISマスクは含めない。"""
+        assert resolve_required_mask_columns(DEFAULT_POPULATION_SOURCES) == (
+            *DEFAULT_REQUIRED_MASK_COLUMNS,
+            POPULATION_SOURCE_MASK_COLUMNS["worldpop2020"],
+            VALID_NTL_MASK_COLUMN,
+        )
+
+    def test_survey_area_flag_comes_before_auxiliary_masks(self) -> None:
+        """測量GIS範囲のフラグは、人口・夜間光の品質列より前に入る。"""
+        assert resolve_required_mask_columns(["landscan2020"], ANALYSIS_AREA_SURVEY) == (
+            *DEFAULT_REQUIRED_MASK_COLUMNS,
+            IN_ANALYSIS_AREA_SURVEY_COLUMN,
+            POPULATION_SOURCE_MASK_COLUMNS["landscan2020"],
+            VALID_NTL_MASK_COLUMN,
+        )
+
+    def test_valid_gis_mask_is_appended_last(self) -> None:
+        """感度分析の GIS マスクは末尾に加える。"""
+        columns = resolve_required_mask_columns(
+            DEFAULT_POPULATION_SOURCES, require_valid_gis_mask=True
+        )
+
+        assert columns[-1] == VALID_GIS_MASK_COLUMN
+
+    def test_population_none_requires_only_nightlight_mask(self) -> None:
+        """人口を投入しない構成では、人口の品質列を要求しない。"""
+        assert resolve_required_mask_columns([POPULATION_SOURCE_NONE]) == (
+            *DEFAULT_REQUIRED_MASK_COLUMNS,
+            VALID_NTL_MASK_COLUMN,
+        )
+
+
+class TestBuildValidPopulation:
+    """build_valid_population のテスト（建物高さ補完→品質列フィルタの有効母集団）。
+
+    `build_filtered_sample` と、共通評価セル集合の生成の両方がこの関数を呼ぶため、
+    両者の母集団が一致することと、補完がフィルタより前に効くことを固定する。
+    """
+
+    def test_fills_building_heights_before_filtering(self) -> None:
+        """建物が無いセルの高さNULLは0で補完されて残り、真の欠落は除外される。"""
+        dataframe = _quality_dataframe(n=6)
+        # 行0: 建物が無い（被覆率・密度とも0）ため高さを0で補完して残す
+        dataframe.loc[0, [BUILD_COVERAGE_COLUMN, BUILD_DENSITY_COLUMN]] = 0.0
+        dataframe.loc[0, BUILDING_HEIGHT_COLUMNS] = np.nan
+        # 行1: 建物はあるが高さが無い（真の欠落）ため除外する
+        dataframe.loc[1, BUILDING_HEIGHT_COLUMNS] = np.nan
+
+        result = build_valid_population(
+            dataframe,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=resolve_required_mask_columns(DEFAULT_POPULATION_SOURCES),
+        )
+
+        assert list(result.population["cell_id"]) == [0, 2, 3, 4, 5]
+        assert result.population.loc[0, BUILDING_HEIGHT_MEAN_COLUMN] == 0.0
+        assert result.dataset_filled_cell_count == 1
+        # 補完後・フィルタ前の全行も返す（フィルタ脱落診断が使う）
+        assert len(result.filled) == len(dataframe)
+
+    def test_population_mask_selects_population_source(self) -> None:
+        """人口ソースの品質列を切り替えると、その品質列で母集団が変わる。"""
+        dataframe = _quality_dataframe(n=6)
+        dataframe.loc[0, POPULATION_SOURCE_MASK_COLUMNS["landscan2020"]] = 0
+
+        worldpop = build_valid_population(
+            dataframe,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=resolve_required_mask_columns(["worldpop2020"]),
+        )
+        landscan = build_valid_population(
+            dataframe,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=resolve_required_mask_columns(["landscan2020"]),
+        )
+
+        assert len(worldpop.population) == 6
+        assert list(landscan.population["cell_id"]) == [1, 2, 3, 4, 5]
+
+    def test_matches_population_used_by_build_filtered_sample(self) -> None:
+        """全件抽出（sample_size=0）の build_filtered_sample と同じ行を同じ順で返す。"""
+        dataframe = _quality_dataframe(n=10)
+        dataframe.loc[[2, 7], "LULC_TREE_COV"] = np.nan
+        required_mask_columns = resolve_required_mask_columns(DEFAULT_POPULATION_SOURCES)
+
+        result = build_valid_population(
+            dataframe,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            required_mask_columns=required_mask_columns,
+        )
+        filtered_sample = build_filtered_sample(
+            dataframe,
+            filter_columns=DEFAULT_FILTER_COLUMNS,
+            lst_valid_ratio_threshold=0.5,
+            sample_size=0,
+            random_state=42,
+            required_mask_columns=required_mask_columns,
+        )
+
+        assert list(result.population["cell_id"]) == list(filtered_sample.sampled["cell_id"])
+        assert len(result.population) == filtered_sample.population_size
+
+
+class TestLoadScenarioDataset:
+    """load_scenario_dataset のテスト（読込列とフィルタに必要な列の検査）。
+
+    読込関数は「指定された列のうち存在する列だけを返す」偽物へ差し替える。
+    """
+
+    def _install_loader(
+        self, monkeypatch: pytest.MonkeyPatch, dataframe: pd.DataFrame
+    ) -> dict[str, list[str]]:
+        """列選択を模した読込関数へ差し替え、要求された列を控える。"""
+        captured: dict[str, list[str]] = {}
+
+        def fake_loader(dataset_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+            captured["columns"] = list(columns or [])
+            available = [column for column in captured["columns"] if column in dataframe.columns]
+            return dataframe[available].copy()
+
+        monkeypatch.setattr("src.analysis.analysis_rq3_limited.load_analysis_dataset", fake_loader)
+        return captured
+
+    def test_reads_masks_of_every_given_population_source(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """複数の人口ソースを渡すと、それぞれの品質列と実測値列を1回の読込で読む。"""
+        captured = self._install_loader(monkeypatch, _quality_dataframe(n=5))
+        sources = ["worldpop2020", "landscan2020", "landscan2023"]
+
+        loaded = load_scenario_dataset(Path("dummy.gpkg"), sources)
+
+        for source in sources:
+            assert POPULATION_SOURCE_MASK_COLUMNS[source] in captured["columns"]
+            assert POPULATION_SOURCE_MASK_COLUMNS[source] in loaded.columns
+        assert VALID_GIS_MASK_COLUMN in captured["columns"]
+
+    def test_raises_when_population_value_column_is_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """選んだ人口ソースの実測値列がデータセットに無ければ停止する。"""
+        dataframe = _quality_dataframe(n=5).drop(columns=["POP_DEN_LANDSCAN2023"])
+        self._install_loader(monkeypatch, dataframe)
+
+        with pytest.raises(ValueError, match="POP_DEN_LANDSCAN2023"):
+            load_scenario_dataset(Path("dummy.gpkg"), ["landscan2023"])
+
+
+class TestMainEvaluationCells:
+    """main() の --evaluation-cells の結線（標本・fold の固定、記録、2シナリオの対応）のテスト。"""
+
+    _install_loader = TestMainAnalysisArea._install_loader
+    _set_argv = TestMainAnalysisArea._set_argv
+    # SHAP図の生成時間を抑えるため、特徴量の少ない構成・小規模設定で回す。
+    _LIGHT_RUN_ARGS = (
+        "--sample-size",
+        "0",
+        "--rf-trees",
+        "5",
+        "--shap-sample-size",
+        "10",
+        "--shap-background-size",
+        "10",
+        "--variable-set",
+        "spectral",
+    )
+
+    @staticmethod
+    def _dataframe(n: int = 200) -> pd.DataFrame:
+        """Spatial CV が組める配置の合成データ（全行が有効母集団に入る）。"""
+        dataframe = _quality_dataframe(n=n)
+        dataframe["cell_id"] = make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30)
+        return dataframe
+
+    @staticmethod
+    def _save_cells(tmp_path: Path, cell_ids: np.ndarray) -> Path:
+        """評価セル CSV とメタデータを作り、CSV のパスを返す（設定は既定値・全件抽出）。"""
+        cells, _ = draw_evaluation_cells(
+            cell_ids, sample_size=0, random_state=42, block_size_m=2_700, scale=30, cv_splits=5
+        )
+        cells_path = tmp_path / "common" / "evaluation_cells_seed42.csv"
+        save_evaluation_set(
+            cells,
+            cells_path,
+            {
+                "block_size_m": 2_700,
+                "cv_splits": 5,
+                "scale_m": 30,
+                "random_state": 42,
+                "sample_size": 0,
+                "lst_valid_ratio_threshold": 0.5,
+                "analysis_area": ANALYSIS_AREA_ROI,
+                "common_size": len(cell_ids),
+            },
+        )
+        return cells_path
+
+    def test_uses_cells_in_csv_order_and_records_them(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """標本は CSV の行順、fold は CSV のとおりで、評価セルと来歴を記録する。"""
+        dataframe = self._dataframe()
+        cells_path = self._save_cells(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(
+            monkeypatch, tmp_path, *self._LIGHT_RUN_ARGS, "--evaluation-cells", str(cells_path)
+        )
+
+        main()
+
+        cells = pd.read_csv(cells_path)
+        result_path = next(output_dir.glob("*_results.json"))
+        assert result_path.name.endswith("_evaluation_cells_seed42_results.json")
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        sample = pd.read_csv(next(output_dir.glob("*_sample_0.csv")))
+        assert list(sample["cell_id"]) == list(cells["cell_id"])
+        folds = pd.read_csv(next(output_dir.glob("*_spatial_cv_folds.csv")))
+        assert list(folds["test_size"]) == list(cells["fold"].value_counts().sort_index())
+        assert result["evaluation_cells"]["population_size"] == 200
+        input_paths = [entry["path"] for entry in result["provenance"]["inputs"]]
+        assert any(path.endswith("evaluation_cells_seed42_results.json") for path in input_paths)
+
+    def test_diagnose_only_records_evaluation_cells(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """診断のみの実行でも、評価セルの標本と記録・来歴が残る。"""
+        dataframe = self._dataframe()
+        cells_path = self._save_cells(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        output_dir = self._set_argv(
+            monkeypatch,
+            tmp_path,
+            "--diagnose-only",
+            "--sample-size",
+            "0",
+            "--evaluation-cells",
+            str(cells_path),
+        )
+
+        main()
+
+        diagnostics = json.loads(
+            next(output_dir.glob("*_diagnostics.json")).read_text(encoding="utf-8")
+        )
+        assert diagnostics["evaluation_cells"]["row_count"] == 200
+        assert len(diagnostics["provenance"]["inputs"]) == 3
+
+    def test_both_scenarios_share_train_and_test_rows(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """同じ評価セルを使えば、Satellite Only と Limited の標本・fold・ランダム分割が一致する。
+
+        対応のある差を取る前提（同じセル・同じ train/test）を、2つのスクリプトを
+        実際に通して確かめる。
+        """
+        dataframe = self._dataframe()
+        cells_path = self._save_cells(tmp_path, dataframe["cell_id"].to_numpy())
+        self._install_loader(monkeypatch, dataframe)
+        monkeypatch.setattr(
+            "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset",
+            lambda dataset_path, columns=None: dataframe[
+                [column for column in columns or [] if column in dataframe.columns]
+            ].copy(),
+        )
+        limited_dir = self._set_argv(
+            monkeypatch, tmp_path, *self._LIGHT_RUN_ARGS, "--evaluation-cells", str(cells_path)
+        )
+        main()
+        satellite_dir = tmp_path / "satellite_output"
+        dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        dataset_path.write_bytes(DUMMY_DATASET_BYTES)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "analysis_rq3_satellite_only.py",
+                "--dataset-path",
+                str(dataset_path),
+                "--output-dir",
+                str(satellite_dir),
+                *self._LIGHT_RUN_ARGS[:8],
+                "--evaluation-cells",
+                str(cells_path),
+            ],
+        )
+        satellite_only_main()
+
+        limited_result = json.loads(next(limited_dir.glob("*_results.json")).read_text("utf-8"))
+        satellite_result = json.loads(next(satellite_dir.glob("*_results.json")).read_text("utf-8"))
+        limited_folds = pd.read_csv(next(limited_dir.glob("*_spatial_cv_folds.csv")))
+        satellite_folds = pd.read_csv(next(satellite_dir.glob("*_spatial_cv_folds.csv")))
+        pd.testing.assert_frame_equal(
+            limited_folds[["fold", "train_size", "test_size"]],
+            satellite_folds[["fold", "train_size", "test_size"]],
+        )
+        # 標本の行順と乱数シードが同じなら、ランダム分割の train/test も同じ行になる。
+        limited_sample = pd.read_csv(next(limited_dir.glob("*_sample_0.csv")))
+        satellite_sample = pd.read_csv(next(satellite_dir.glob("*_sample_0.csv")))
+        assert list(limited_sample["cell_id"]) == list(satellite_sample["cell_id"])
+        for key in ("sample_size", "train_size", "test_size"):
+            assert limited_result[key] == satellite_result[key]
+        assert (
+            limited_result["evaluation_cells"]["digest"]
+            == satellite_result["evaluation_cells"]["digest"]
+        )

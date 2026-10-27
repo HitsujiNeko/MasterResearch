@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-10-22  
+**最終更新**: 2026-10-27  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -65,7 +65,7 @@ docs/
 
 | ファイル名 | 概要 | 主要な内容 | 実装ファイル |
 |-----------|------|-----------|------------|
-| [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計 | `src/` 全スクリプト |
+| [analysis_workflow.md](02_methods/analysis_workflow.md) | 分析ワークフロー仕様書 | 前処理→都市構造パラメータ算出→モデル構築→評価の全工程定義、RQ別分析設計（シナリオ間比較に使う共通評価セル集合の定義・補正 t 区間を含む） | `src/` 全スクリプト |
 | [analysis_rq3_satellite_only_guide.md](02_methods/analysis_rq3_satellite_only_guide.md) | RQ3衛星のみ分析コード解説 | 初心者向けに処理フロー、評価指標、Spatial CV、SHAPの読み方を整理 | `src/analysis/analysis_rq3_satellite_only.py` |
 | [calc_urban_params_guide.md](02_methods/calc_urban_params_guide.md) | `urban_params` パッケージ 設計ガイド（ハブ・索引） | 本ガイドの位置づけ・正本の境界、用語と空間整合ルール、スコープ定義、更新ルール。**5〜11章は `calc_urban_params/` 配下の3ファイルへ分割済み**であり、節ごとの収録先は本ファイルの索引を参照 | `src/analysis/urban_params/`, `src/analysis/build_dataset.py` |
 | [calc_urban_params_io_spec.md](02_methods/calc_urban_params/calc_urban_params_io_spec.md) | `urban_params` 入出力仕様 | 入力仕様（必須入力・パラメータセット別入力・衛星指標/LSTラスタ）、出力仕様（パラメータテーブル、品質管理列、GIS由来パラメータ、分析用データセット、新旧差異） | `src/analysis/urban_params/params/`, `src/analysis/build_dataset.py` |
@@ -94,7 +94,7 @@ docs/
 | [fig4_limited_workflow_poster.mmd](03_results/fig4_limited_workflow_poster.mmd) | ポスター用Mermaid図 | Limited 分析フローを横流し6ステップへ簡約した図。ポスターで図中の文字が読める粒度にしたもので、処理条件を追える詳細版は fig3_limited_workflow.mmd が正本 | `docs/03_results/`, `src/analysis/` |
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | Satellite Only 分析結果（旧経路・ピクセル単位） | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | （2026-04-21時点のスクリプトによる記録。`analysis_rq3_satellite_only.py` はcell_id結合経路へ書き換え済みのため再現不可） |
 | [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | Satellite Only 分析結果（cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 分光指数3変数のベースライン。主結果は主採用の観測による7章（母数・モデル性能・変数重要度と、旧採用の観測との相対量の比較）。1〜6章は旧採用の観測による記録で、フィルタ脱落の診断（母数のファネル・脱落の空間的な集中）、物理的に等間隔なブロックによるSpatial CV、SHAP、ブロック境界の残差リークの実測を含む。Limited と同一観測・同一格子であり、シナリオ間比較は `limited_analysis_results.md` 8.6節・6.7節が正本 | `src/analysis/analysis_rq3_satellite_only.py` |
-| [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 主結果は主採用の観測で採用構成を実行した8章（母数・モデル性能・変数重要度、旧採用の観測との相対量の比較、Satellite Only との参考比較）。2〜7章は旧採用の観測による記録で、単一観測15ランの台帳（1ラン=1行）と標本統制の可否、衛星指標の再生成（MNDWI 追加・ROI クリップ）によるデータセットの世代の区別、ラン間で共通の処理条件（フィルタ脱落と欠損値処理の診断・水域被覆の偏り・分析実行前のモデル前提の精査）、モデル性能・変数重要度・多重共線性をランを横断して整理。変数セット軸（spectral/coverage/both）・建物高さ構成軸（both/mean/max/pc1）・水指数構成軸（ndwi/none/pc1/mndwi）・人口ソース軸・土地被覆ソース軸の比較と採用構成の根拠（事前基準からの逸脱の経緯・先行研究との位置づけを含む）を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
+| [limited_analysis_results.md](03_results/limited_analysis_results.md) | Limited シナリオ分析結果（cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 主結果は主採用の観測で採用構成を実行した8章（母数・モデル性能・変数重要度、旧採用の観測との相対量の比較、共通評価セルでの Satellite Only との比較〔fold ごとの対応のある差・補正 t 区間・20シードの反復〕）。2〜7章は旧採用の観測による記録で、単一観測15ランの台帳（1ラン=1行）と標本統制の可否、衛星指標の再生成（MNDWI 追加・ROI クリップ）によるデータセットの世代の区別、ラン間で共通の処理条件（フィルタ脱落と欠損値処理の診断・水域被覆の偏り・分析実行前のモデル前提の精査）、モデル性能・変数重要度・多重共線性をランを横断して整理。変数セット軸（spectral/coverage/both）・建物高さ構成軸（both/mean/max/pc1）・水指数構成軸（ndwi/none/pc1/mndwi）・人口ソース軸・土地被覆ソース軸の比較と採用構成の根拠（事前基準からの逸脱の経緯・先行研究との位置づけを含む）を含む。フル表は貼らず CSV/JSON を数値の正本とする | `src/analysis/analysis_rq3_limited.py` |
 | [survey_area_comparison_results.md](03_results/survey_area_comparison_results.md) | ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（Satellite Only・Limited） | mask_survey を結合したデータセットで Satellite Only と Limited（採用構成・水指数 ndwi）を全域・測量GIS範囲の両方で回し直した比較。全域ランによる既存結果の再現確認、境界セルの扱い、測量GIS範囲での Spatial CV のブロック判定、LST 分布・モデル性能（RMSE 主体の比較）・変数の寄与・ほぼ一定になる変数の解釈保留、都市構造変数の上乗せ効果。旧採用の観測20230707_032305による結果であり、Full シナリオを主採用の観測で評価する場合の基準にするには主採用の観測での回し直しが要る | `src/analysis/analysis_rq3_satellite_only.py`, `src/analysis/analysis_rq3_limited.py`, `data/output/*/20230707_032305_area_comparison/` |
 
 ### 📦 04_archive - アーカイブ（旧結果・先行研究・文献管理）

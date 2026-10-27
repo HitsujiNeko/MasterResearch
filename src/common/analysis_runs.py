@@ -151,6 +151,30 @@ def run_random_split_models(
     )
 
 
+def validate_fold_test_sizes(folds: list[tuple[np.ndarray, np.ndarray]]) -> None:
+    """各foldのテスト行数が2行以上あることを検査する。
+
+    `GroupKFold` はブロック単位で分割するため、fold当たりの行数を保証しない。
+    テスト行が1件だと `r2_score` が例外を出さずNaNを返し（sklearnの既知の仕様）、
+    `results.json` へ不定値が気づかれずに混入するため、学習の前に検出して停止する。
+    保存済みのfold割り当てを使う場合も、同じ条件で検査する。
+
+    Args:
+        folds: (train_idx, test_idx) のタプルのリスト（fold順）。
+    Returns:
+        None
+    Raises:
+        ValueError: いずれかのfoldのテスト行数が2未満の場合。
+    """
+    for fold_index, (_, test_idx) in enumerate(folds, start=1):
+        if len(test_idx) < 2:
+            raise ValueError(
+                f"Spatial CVの各テストfoldには2行以上必要です"
+                f"（fold {fold_index}: {len(test_idx)}行）。block_size_mを小さくする、"
+                "またはcv_splitsを減らしてブロック当たりの行数を確保してください。"
+            )
+
+
 def run_spatial_cv_models(
     sampled: pd.DataFrame,
     feature_columns: list[str],
@@ -159,6 +183,7 @@ def run_spatial_cv_models(
     cv_splits: int,
     random_state: int,
     rf_trees: int,
+    folds: list[tuple[np.ndarray, np.ndarray]] | None = None,
 ) -> tuple[dict[str, object], pd.DataFrame]:
     """空間ブロックCVで線形回帰・RFを学習・評価する。
 
@@ -167,32 +192,35 @@ def run_spatial_cv_models(
         feature_columns: 説明変数の列名リスト（シナリオごとに異なる）。
         target_column: 目的変数の列名（通常 `"LST"`）。
         block_ids: `assign_canonical_blocks` の戻り値（サンプルごとのblock_id）。
+            `folds` を渡した場合は分割に使わない。
         cv_splits: 分割数。
         random_state: 乱数シード。
         rf_trees: RFの決定木本数。
+        folds: 保存済みのfold割り当て（`sampled` の行位置による (train_idx, test_idx)
+            のリスト。`src.common.evaluation_cells.folds_from_labels` の戻り値）。
+            シナリオ間で同じ train/test を使うために渡す。`None`（既定）なら
+            従来どおり `block_ids` から GroupKFold で分割する。
     Returns:
         集計結果と、fold別の評価指標データフレームのタプル。
     Raises:
-        ValueError: いずれかのfoldのテスト行数が2未満の場合。`GroupKFold`
-            はブロック単位で分割するため、fold当たりの行数を保証しない。
-            テスト行が1件だと `r2_score` が例外を出さずNaNを返し
-            （sklearnの既知の仕様）、`results.json` へ不定値が気づかれずに
-            混入するため、ここで明示的に検出して停止する。
+        ValueError: いずれかのfoldのテスト行数が2未満の場合
+            （`validate_fold_test_sizes` 参照）、または `folds` の数が
+            `cv_splits` と一致しない場合。
     """
     x = sampled[feature_columns]
     y = sampled[target_column]
-    folds = split_by_spatial_blocks(block_ids, n_splits=cv_splits)
+    if folds is None:
+        folds = split_by_spatial_blocks(block_ids, n_splits=cv_splits)
+    elif len(folds) != cv_splits:
+        raise ValueError(
+            f"渡されたfoldの数（{len(folds)}）がcv_splits（{cv_splits}）と一致しません。"
+        )
+    validate_fold_test_sizes(folds)
 
     fold_rows: list[dict[str, float | int]] = []
     linear_metrics: list[dict[str, float]] = []
     rf_metrics: list[dict[str, float]] = []
     for fold_index, (train_idx, test_idx) in enumerate(folds, start=1):
-        if len(test_idx) < 2:
-            raise ValueError(
-                f"Spatial CVの各テストfoldには2行以上必要です"
-                f"（fold {fold_index}: {len(test_idx)}行）。block_size_mを小さくする、"
-                "またはcv_splitsを減らしてブロック当たりの行数を確保してください。"
-            )
         x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 

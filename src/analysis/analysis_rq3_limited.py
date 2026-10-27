@@ -72,6 +72,15 @@ from src.common.analysis_runs import (  # noqa: E402
     run_spatial_cv_models,
     validate_scale_matches_dataset,
 )
+from src.common.evaluation_cells import (  # noqa: E402
+    build_evaluation_record,
+    evaluation_input_paths,
+    load_evaluation_set_for_run,
+    resolve_evaluation_folds,
+    resolve_evaluation_output_dir,
+    resolve_evaluation_output_stem,
+    select_evaluation_rows,
+)
 from src.common.model_metrics import (  # noqa: E402
     CORRELATION_METHODS,
     compute_correlation_matrix,
@@ -284,7 +293,13 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--dataset-path", type=Path, default=DEFAULT_DATASET_PATH, help="入力GeoPackageのパス"
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="出力先ディレクトリ"
+        "--output-dir",
+        type=Path,
+        default=None,
+        help=(
+            "出力先ディレクトリ。未指定なら DEFAULT_OUTPUT_DIR（--evaluation-cells 指定時は"
+            "その名前に _common_evaluation を付けた別ディレクトリ）"
+        ),
     )
     parser.add_argument(
         "--scale", type=int, default=DEFAULT_SCALE_M, help="正準グリッドの解像度（m）"
@@ -387,7 +402,23 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             "終了する（多重共線性の診断を、RF学習を待たずに行うための入口）。"
         ),
     )
+    parser.add_argument(
+        "--evaluation-cells",
+        type=Path,
+        default=None,
+        help=(
+            "シナリオ間で共通の評価セル CSV（build_common_evaluation_set.py の出力）。"
+            "指定すると標本抽出と GroupKFold の代わりに、CSV の cell_id を CSV の行順で選び、"
+            "CSV の fold 列で Spatial CV を行う。対になるメタデータと引数が一致しなければ停止する。"
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.output_dir is None:
+        args.output_dir = (
+            DEFAULT_OUTPUT_DIR
+            if args.evaluation_cells is None
+            else resolve_evaluation_output_dir(DEFAULT_OUTPUT_DIR)
+        )
 
     sources = args.population_source
     duplicated = sorted({source for source in sources if sources.count(source) > 1})
@@ -688,6 +719,39 @@ def resolve_filter_dropout_column_groups(filter_columns: Sequence[str]) -> dict[
     }
 
 
+def resolve_required_mask_columns(
+    population_sources: Sequence[str],
+    analysis_area: str = ANALYSIS_AREA_ROI,
+    require_valid_gis_mask: bool = False,
+) -> tuple[str, ...]:
+    """`== 1` を要求する品質列名を、人口ソース・分析対象範囲・感度分析の指定から組み立てる。
+
+    有効母集団の定義の一部であり、`main()` と、シナリオ間で共通の評価セル集合を
+    作る処理の両方がこの関数を呼ぶ（条件を呼び出し側で書き直さないため）。
+    人口・夜間光は非NULL要求ではなく有効域品質列で判定する
+    （`resolve_filter_columns` / `resolve_auxiliary_mask_columns` のdocstring参照）。
+
+    Args:
+        population_sources: `--population-source` の値。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
+        require_valid_gis_mask: `--require-valid-gis-mask` の値。`True` なら
+            `VALID_GIS_MASK_COLUMN` を末尾に加える（感度分析）。
+    Returns:
+        品質列名のタプル（既定の品質列・分析対象範囲・人口/夜間光・GISマスクの順）。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合、または `population_sources` が
+            不正な場合（`resolve_auxiliary_mask_columns` 参照）。
+    """
+    required_mask_columns = (
+        *DEFAULT_REQUIRED_MASK_COLUMNS,
+        *resolve_analysis_area_mask_columns(analysis_area),
+        *resolve_auxiliary_mask_columns(population_sources),
+    )
+    if require_valid_gis_mask:
+        required_mask_columns = (*required_mask_columns, VALID_GIS_MASK_COLUMN)
+    return required_mask_columns
+
+
 def drop_constant_features(
     dataframe: pd.DataFrame, feature_columns: Sequence[str]
 ) -> tuple[list[str], list[str]]:
@@ -900,6 +964,137 @@ def fill_missing_building_heights(dataframe: pd.DataFrame) -> tuple[pd.DataFrame
     return filled, int(fillable_mask.sum())
 
 
+def load_scenario_dataset(
+    dataset_path: Path,
+    population_sources: Sequence[str],
+    analysis_area: str = ANALYSIS_AREA_ROI,
+) -> pd.DataFrame:
+    """Limited の分析に使う列だけを読み込み、フィルタに必要な列の有無を検査する。
+
+    相関行列は全候補列を対象とするため、モデルへ投入しない候補列も読み込む。
+    分析対象範囲の品質列は、フィルタ条件（`resolve_required_mask_columns`）だけで
+    なく読込列にも加える。読込列に無いと列が読まれず、
+    `require_analysis_area_columns` が常に停止する。
+
+    Args:
+        dataset_path: 分析用データセットGeoPackageのパス。
+        population_sources: `--population-source` の値。複数の人口ソースの有効
+            母集団を1回の読込から求める場合は、それらをまとめて渡す。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
+    Returns:
+        読み込んだデータフレーム（建物高さ補完前・フィルタ前の全行）。
+    Raises:
+        ValueError: `analysis_area`・`population_sources` が不正な場合、分析対象範囲の
+            品質列が無い場合、またはフィルタに必要な列がデータセットに無い場合。
+    """
+    filter_columns = resolve_filter_columns()
+    auxiliary_mask_columns = resolve_auxiliary_mask_columns(population_sources)
+    analysis_area_mask_columns = resolve_analysis_area_mask_columns(analysis_area)
+    # 人口・夜間光の実測値列。品質列（auxiliary_mask_columns）が「揃っているか」を
+    # 判定するのに対し、モデルへの投入に使うのはこちらの実測値列である。
+    # `filter_columns` から人口・夜間光を除いた分、以下の欠損列チェックだけでは
+    # 実測値列自体の欠落を検出できなくなるため、個別に持つ
+    # （`resolve_filter_columns` のdocstring参照）。
+    auxiliary_value_columns = [
+        *resolve_population_columns(population_sources),
+        *NIGHTLIGHT_FEATURE_COLUMNS,
+    ]
+
+    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける
+    # （dict.fromkeys で順序を保ったまま重複を除く）。
+    required_columns = [
+        "cell_id",
+        "lon",
+        "lat",
+        *dict.fromkeys([*filter_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
+        TARGET_COLUMN,
+        IN_ANALYSIS_AREA_COLUMN,
+        LST_VALID_RATIO_COLUMN,
+        VALID_GIS_MASK_COLUMN,
+        *auxiliary_mask_columns,
+        *analysis_area_mask_columns,
+    ]
+    dataframe = load_analysis_dataset(dataset_path, columns=required_columns)
+    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
+    require_analysis_area_columns(dataframe, analysis_area, dataset_path)
+    # フィルタ列・有効域品質列・人口/夜間光の実測値列はいずれも投入列の上位集合で
+    # あり、変数セットに依らず全て必要になる。
+    missing_columns = [
+        column
+        for column in (*filter_columns, *auxiliary_mask_columns, *auxiliary_value_columns)
+        if column not in dataframe.columns
+    ]
+    if missing_columns:
+        raise ValueError(
+            f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"
+            f"（{dataset_path}）。--variable-set・--water-index の選択に関わらず、"
+            "構成間で母数を揃えるため分光指数（MNDWI を含む4列）・土地被覆の両方を"
+            "要求します。--population-source の指定と、データセットの生成時に結合した"
+            "テーブルを確認してください（MNDWI が無い場合は、MNDWI を含む衛星指標から"
+            "idx テーブルとデータセットを再生成する必要があります）。"
+        )
+    return dataframe
+
+
+@dataclass(frozen=True)
+class ValidPopulationResult:
+    """build_valid_population の戻り値。
+
+    有効母集団に加え、フィルタ脱落診断が対象とする補完後の全行（`filled`）も
+    返す。補完を2回走らせずに `build_filtered_sample` が両方を使えるようにする
+    ためである。
+
+    Attributes:
+        population: 有効母集団（建物高さ0補完の後に品質列フィルタを適用した行。
+            行の並びは入力のまま）。補完セルの印 `BUILDING_HEIGHT_FILLED_COLUMN`
+            （内部用の列）を持つ。
+        filled: 建物高さ0補完の後・品質列フィルタの前の全行。
+        dataset_filled_cell_count: `filled` での建物高さ補完セル数。
+    """
+
+    population: pd.DataFrame
+    filled: pd.DataFrame
+    dataset_filled_cell_count: int
+
+
+def build_valid_population(
+    dataframe: pd.DataFrame,
+    filter_columns: Sequence[str],
+    lst_valid_ratio_threshold: float,
+    required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
+) -> ValidPopulationResult:
+    """建物高さの補完→品質列フィルタの順に適用し、サンプリング前の有効母集団を求める。
+
+    `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
+    必要がある（先に非NULL要求で欠損域を除外すると、補完すべきだった行まで
+    落ちてしまうため）。この順序依存を本関数に閉じ込め、`build_filtered_sample`
+    と、シナリオ間で共通の評価セル集合を作る処理の両方から呼ぶ
+    （有効母集団の定義を呼び出し側で書き直さないため）。
+
+    Args:
+        dataframe: `load_scenario_dataset` の戻り値（未加工。補完前でよい）。
+        filter_columns: 非NULLを要求する列名（`resolve_filter_columns` の戻り値）。
+        lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
+        required_mask_columns: `== 1` を要求する品質列名
+            （`resolve_required_mask_columns` の戻り値）。
+    Returns:
+        `ValidPopulationResult`。
+    """
+    filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
+    population = filter_valid_rows(
+        filled,
+        feature_columns=list(filter_columns),
+        target_column=TARGET_COLUMN,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
+    )
+    return ValidPopulationResult(
+        population=population,
+        filled=filled,
+        dataset_filled_cell_count=dataset_filled_cell_count,
+    )
+
+
 @dataclass(frozen=True)
 class FilteredSampleResult:
     """build_filtered_sample の戻り値。
@@ -940,13 +1135,13 @@ def build_filtered_sample(
     required_mask_columns: tuple[str, ...] = DEFAULT_REQUIRED_MASK_COLUMNS,
     block_size_m: int = DEFAULT_BLOCK_SIZE_M,
     scale: int = DEFAULT_SCALE_M,
+    evaluation_cells: pd.DataFrame | None = None,
 ) -> FilteredSampleResult:
     """建物高さの補完→品質列フィルタ→サンプリング→フィルタ脱落診断の順に適用する。
 
-    `fill_missing_building_heights` は `filter_valid_rows` より前に適用する
-    必要がある（先に非NULL要求で欠損域を除外すると、補完すべきだった行まで
-    落ちてしまうため）。この順序依存を呼び出し側（`main()`）に持たせず本関数に
-    閉じ込めることで、呼び出し順を誤って補完が空振りする回帰を構造的に防ぐ。
+    補完とフィルタの順序依存は `build_valid_population` に閉じ込めてあり、本関数は
+    その戻り値（有効母集団と補完後の全行）を使う。呼び出し側（`main()`）に順序を
+    持たせないことで、呼び出し順を誤って補完が空振りする回帰を構造的に防ぐ。
 
     **Spatial CV用のブロック割り当てとは別物**として、フィルタ脱落診断
     （`summarize_filter_dropout`）用のブロックIDを本関数の内側で計算する。
@@ -989,10 +1184,22 @@ def build_filtered_sample(
         block_size_m: フィルタ脱落診断用ブロックの一辺の長さ（m）。既定は
             `DEFAULT_BLOCK_SIZE_M`。
         scale: 正準グリッドの解像度（m/セル）。既定は `DEFAULT_SCALE_M`。
+        evaluation_cells: シナリオ間で共通の評価セル（`EvaluationSet.cells`）。
+            渡した場合は `sample_dataset` で抽出せず、有効母集団から評価セルの
+            cell_id を評価セルの行順で選ぶ（`select_evaluation_rows`。1件でも
+            有効母集団に無ければ停止する）。`None`（既定）なら従来どおり抽出する。
     Returns:
         `FilteredSampleResult`。
     """
-    filled, dataset_filled_cell_count = fill_missing_building_heights(dataframe)
+    valid_population = build_valid_population(
+        dataframe,
+        filter_columns=filter_columns,
+        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
+        required_mask_columns=required_mask_columns,
+    )
+    filled = valid_population.filled
+    filtered = valid_population.population
+    dataset_filled_cell_count = valid_population.dataset_filled_cell_count
 
     # フィルタ脱落診断用のブロックID。filledの全行（品質列フィルタ適用前）を
     # 対象にデコードし、summarize_filter_dropoutへ位置対応の配列として渡す。
@@ -1000,17 +1207,13 @@ def build_filtered_sample(
         filled["cell_id"].to_numpy(), block_size_m, scale
     )
 
-    filtered = filter_valid_rows(
-        filled,
-        feature_columns=list(filter_columns),
-        target_column=TARGET_COLUMN,
-        lst_valid_ratio_threshold=lst_valid_ratio_threshold,
-        required_mask_columns=required_mask_columns,
-    )
     population_size = len(filtered)
     population_filled_cell_count = int(filtered[BUILDING_HEIGHT_FILLED_COLUMN].sum())
 
-    sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    if evaluation_cells is None:
+        sampled = sample_dataset(filtered, sample_size=sample_size, random_state=random_state)
+    else:
+        sampled = select_evaluation_rows(filtered, evaluation_cells)
     sample_filled_cell_count = int(sampled[BUILDING_HEIGHT_FILLED_COLUMN].sum())
 
     filter_dropout = summarize_filter_dropout(
@@ -1314,23 +1517,30 @@ def save_correlation_outputs(
     return outputs
 
 
-def build_dataset_provenance(dataset_path: Path) -> dict[str, object]:
+def build_dataset_provenance(
+    dataset_path: Path, extra_input_paths: Sequence[Path] = ()
+) -> dict[str, object]:
     """データセットGeoPackageを入力とする来歴メタデータを組み立てる。
 
     results.json と `--diagnose-only` の診断JSONの両方へ、同じ内容の来歴を付与する
-    ために使う。入力はデータセットGeoPackageのみとする（本スクリプトが読むファイルは
-    これだけである）。大容量のGeoPackageではハッシュ計算に数秒かかるため、進捗を
-    ログに残す。
+    ために使う。入力はデータセットGeoPackageと、評価セルを使う場合はその CSV・
+    メタデータ JSON とする（本スクリプトが読むファイルはこれだけである。評価セルを
+    作り直したときに陳腐化として検出されるようにする）。大容量のGeoPackageでは
+    ハッシュ計算に数秒かかるため、進捗をログに残す。
 
     Args:
         dataset_path: 分析用データセットGeoPackageのパス。
+        extra_input_paths: データセット以外の入力ファイル（`evaluation_input_paths`
+            の戻り値）。既定は空。
     Returns:
         `src.common.summary.build_provenance` が返す来歴の辞書。
     Raises:
         FileNotFoundError: データセットが存在しない場合。
     """
     print("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
-    return build_provenance("src.analysis.analysis_rq3_limited", input_paths=[dataset_path])
+    return build_provenance(
+        "src.analysis.analysis_rq3_limited", input_paths=[dataset_path, *extra_input_paths]
+    )
 
 
 def main() -> None:
@@ -1362,66 +1572,15 @@ def main() -> None:
         args.analysis_area,
     )
     observation_label = build_observation_label(output_stem)
+    # 評価セルを使う場合は、重い読込より前に引数とメタデータの一致を確かめる。
+    evaluation_set = load_evaluation_set_for_run(args)
+    if evaluation_set is not None:
+        output_stem = resolve_evaluation_output_stem(output_stem, evaluation_set.cells_path)
 
-    # 人口・夜間光は非NULL要求ではなく有効域品質列で判定する
-    # （`resolve_filter_columns` / `resolve_auxiliary_mask_columns` のdocstring参照）。
-    auxiliary_mask_columns = resolve_auxiliary_mask_columns(args.population_source)
-    # 分析対象範囲の品質列は、フィルタ条件（required_mask_columns）だけでなく
-    # 読込列（required_columns）にも加える。読込列に無いと列が読まれず、
-    # require_analysis_area_columns が常に停止する。
-    analysis_area_mask_columns = resolve_analysis_area_mask_columns(args.analysis_area)
-    required_mask_columns = (
-        *DEFAULT_REQUIRED_MASK_COLUMNS,
-        *analysis_area_mask_columns,
-        *auxiliary_mask_columns,
+    required_mask_columns = resolve_required_mask_columns(
+        args.population_source, args.analysis_area, args.require_valid_gis_mask
     )
-    if args.require_valid_gis_mask:
-        required_mask_columns = (*required_mask_columns, VALID_GIS_MASK_COLUMN)
-
-    # 人口・夜間光の実測値列。品質列（auxiliary_mask_columns）が「揃っているか」を
-    # 判定するのに対し、モデルへの投入に使うのはこちらの実測値列である。
-    # `filter_columns` から人口・夜間光を除いた分、以下の欠損列チェックだけでは
-    # 実測値列自体の欠落を検出できなくなるため、個別に持つ
-    # （`resolve_filter_columns` のdocstring参照）。
-    auxiliary_value_columns = [
-        *resolve_population_columns(args.population_source),
-        *NIGHTLIGHT_FEATURE_COLUMNS,
-    ]
-
-    # 実際に使う列だけを読み込み、他シナリオ用の品質列等の読込コストを避ける。
-    # 相関行列は全候補列を対象とするため、モデルへ投入しない候補列も読み込む
-    # （dict.fromkeys で順序を保ったまま重複を除く）。
-    required_columns = [
-        "cell_id",
-        "lon",
-        "lat",
-        *dict.fromkeys([*filter_columns, *ALL_CANDIDATE_FEATURE_COLUMNS]),
-        TARGET_COLUMN,
-        IN_ANALYSIS_AREA_COLUMN,
-        LST_VALID_RATIO_COLUMN,
-        VALID_GIS_MASK_COLUMN,
-        *auxiliary_mask_columns,
-        *analysis_area_mask_columns,
-    ]
-    dataframe = load_analysis_dataset(args.dataset_path, columns=required_columns)
-    # 存在しない列は読込時に黙って読み飛ばされるため、読込後に検査する。
-    require_analysis_area_columns(dataframe, args.analysis_area, args.dataset_path)
-    # フィルタ列・有効域品質列・人口/夜間光の実測値列はいずれも投入列の上位集合で
-    # あり、変数セットに依らず全て必要になる。
-    missing_columns = [
-        column
-        for column in (*filter_columns, *auxiliary_mask_columns, *auxiliary_value_columns)
-        if column not in dataframe.columns
-    ]
-    if missing_columns:
-        raise ValueError(
-            f"フィルタに必要な列がデータセットに存在しません: {missing_columns}"
-            f"（{args.dataset_path}）。--variable-set・--water-index の選択に関わらず、"
-            "構成間で母数を揃えるため分光指数（MNDWI を含む4列）・土地被覆の両方を"
-            "要求します。--population-source の指定と、データセットの生成時に結合した"
-            "テーブルを確認してください（MNDWI が無い場合は、MNDWI を含む衛星指標から"
-            "idx テーブルとデータセットを再生成する必要があります）。"
-        )
+    dataframe = load_scenario_dataset(args.dataset_path, args.population_source, args.analysis_area)
 
     filtered_sample_result = build_filtered_sample(
         dataframe,
@@ -1432,6 +1591,7 @@ def main() -> None:
         required_mask_columns=required_mask_columns,
         block_size_m=args.block_size_m,
         scale=args.scale,
+        evaluation_cells=None if evaluation_set is None else evaluation_set.cells,
     )
     sampled = filtered_sample_result.sampled
     if sampled.empty:
@@ -1503,6 +1663,13 @@ def main() -> None:
         # 結果JSONと診断JSONの両方に残す（run_conditions は両方へ展開される）。
         "analysis_area": args.analysis_area,
         "required_mask_columns": list(required_mask_columns),
+        # 評価セルを使ったランかどうかと、その評価セル・母数（使わない場合は null）。
+        # 標本の出所に関わるため、診断JSONにも残す。
+        "evaluation_cells": (
+            None
+            if evaluation_set is None
+            else build_evaluation_record(evaluation_set, filtered_sample_result.population_size)
+        ),
     }
     if building_height_pc1 is not None:
         # 主成分の向き・寄与率は結果の解釈に直結するため、診断のみの実行でも
@@ -1527,7 +1694,9 @@ def main() -> None:
         }
         # 診断JSONも相関行列・VIF・フィルタ脱落の数値の出典になるため、来歴を付与する
         # （実行パラメータの run_parameters はモデル学習の条件のため付与しない）。
-        diagnostics["provenance"] = build_dataset_provenance(args.dataset_path)
+        diagnostics["provenance"] = build_dataset_provenance(
+            args.dataset_path, evaluation_input_paths(evaluation_set)
+        )
         diagnostics_path = args.output_dir / f"{output_stem}_diagnostics.json"
         save_summary(diagnostics, diagnostics_path)
         print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
@@ -1540,11 +1709,16 @@ def main() -> None:
     # block_size_m/cv_splitsの設定検証を、高コストなモデル学習（run_random_split_models
     # 等）より前に行う。split_by_spatial_blocksの戻り値は後段のrun_spatial_cv_modelsで
     # 再計算するが、fold分割自体はインデックス操作のみで軽量なため、ここでの重複呼び出し
-    # コストは無視できる。
+    # コストは無視できる。評価セルを使う場合は GroupKFold を行わず、評価セルの fold 列
+    # から分割を作って同じ検証（fold数・テスト行数）を行う。
     block_ids, block_info = assign_canonical_blocks(
         sampled["cell_id"].to_numpy(), args.block_size_m, args.scale
     )
-    split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
+    if evaluation_set is None:
+        fixed_folds = None
+        split_by_spatial_blocks(block_ids, n_splits=args.cv_splits)
+    else:
+        fixed_folds = resolve_evaluation_folds(evaluation_set.cells, block_ids, args.cv_splits)
 
     random_split = run_random_split_models(
         sampled, model_feature_columns, TARGET_COLUMN, args.random_state, args.rf_trees
@@ -1558,6 +1732,7 @@ def main() -> None:
         args.cv_splits,
         args.random_state,
         args.rf_trees,
+        folds=fixed_folds,
     )
     spatial_cv_summary["block_definition"] = {
         "block_size_m": args.block_size_m,
@@ -1695,7 +1870,9 @@ def main() -> None:
     }
 
     # どのコード・環境・入力から生成したかを追跡できるよう、保存直前に来歴を付与する。
-    result["provenance"] = build_dataset_provenance(args.dataset_path)
+    result["provenance"] = build_dataset_provenance(
+        args.dataset_path, evaluation_input_paths(evaluation_set)
+    )
 
     result_path = args.output_dir / f"{output_stem}_results.json"
     save_summary(result, result_path)

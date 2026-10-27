@@ -1,0 +1,1169 @@
+{
+  "description": "共通集合から複数シードで標本を抽出し直し、Satellite Only と Limited のSpatial CV を同じ標本・同じ fold で反復した結果。",
+  "difference_direction": "Limited − Satellite Only",
+  "evaluation_cells": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",
+  "common_size": 3422216,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61
+  ],
+  "cv_splits": 5,
+  "sample_size": 100000,
+  "rf_trees": 300,
+  "limited_configuration": {
+    "variable_set": "both",
+    "building_height_mode": "mean",
+    "water_index_mode": "none",
+    "population_sources": [
+      "worldpop2020"
+    ]
+  },
+  "satellite_only_features": [
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "seed_records": [
+    {
+      "seed": 42,
+      "digest": "aa9ad8a222e8c564a19df96133894fa13ea12796d8085a267c99de210d1f5170",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 19999,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 849.8092319999996
+    },
+    {
+      "seed": 43,
+      "digest": "32a1194338b9f2f83244b9770ee9a29612bb1d6423f5542745c91520be267ce9",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20002,
+          "2": 20001,
+          "3": 20000,
+          "4": 19999,
+          "5": 19998
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 814.539854600007
+    },
+    {
+      "seed": 44,
+      "digest": "fd18d6a4e0b416e8429349dbb351c58e3b10ecd4b0041c16af59e96d70c86b1f",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 500,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 19999,
+          "3": 20001,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 782.9923734000186
+    },
+    {
+      "seed": 45,
+      "digest": "345403ee7d73ef2949f4dec25c2f6f371866849739c790c499b82e74bd583bf3",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 785.267391100002
+    },
+    {
+      "seed": 46,
+      "digest": "dfdef5eabb4f5ed2932148bad7555580f170154274e55efa5ba51394d7f2d09a",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 29526.442371499987
+    },
+    {
+      "seed": 47,
+      "digest": "935313cbc50573d4f8e2f494fb36945513c94343997982db163029a908982bca",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20001,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 838.3024179000058
+    },
+    {
+      "seed": 48,
+      "digest": "29b51c3e53ea34bf2df5002721f38c57f4b339aa544c0a00c0f769a8f3a03d43",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 796.6422254999925
+    },
+    {
+      "seed": 49,
+      "digest": "b67dac21b1827e6cf9c938cf0ab49caf67258ea29d69952f227694218c791196",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20001,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 772.2318192000093
+    },
+    {
+      "seed": 50,
+      "digest": "42dd07b3a525ad54b32333daeb0d3699a6df2755549e4e31a1be27d6eb8ea48b",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20001,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 792.9926987000217
+    },
+    {
+      "seed": 51,
+      "digest": "cd494db9af6123698c9960ab35e503f9db789c4cf0593b0df351cef3500a7928",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20001,
+          "3": 19999,
+          "4": 19999,
+          "5": 20001
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 789.6368520999968
+    },
+    {
+      "seed": 52,
+      "digest": "16fc8460125515daf88eb917d78f5d590e7381f08973b63cd283c82cf7ef7dfd",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20001,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 798.2487415999931
+    },
+    {
+      "seed": 53,
+      "digest": "6df9ba4c292e5c97f0eda445324a161818d6217ef4813cc57d8ea027314397bf",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 500,
+        "fold_sizes": {
+          "1": 20002,
+          "2": 20000,
+          "3": 19999,
+          "4": 19998,
+          "5": 20001
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 781.2143045999983
+    },
+    {
+      "seed": 54,
+      "digest": "a9a8b448a5804849579eb803f9b1be9d843ddc252727af55a574126bc281105a",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20001,
+          "3": 20000,
+          "4": 19999,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 773.4512226999796
+    },
+    {
+      "seed": 55,
+      "digest": "3c18117ef20dfe14886fd065edc2d7e976bef09c750d230ed9f17bec85d43beb",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 19999,
+          "3": 20001,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 806.8047525000002
+    },
+    {
+      "seed": 56,
+      "digest": "220f8df674b6df67d6c7d9ef4bf4ce019f4f30af6822cb8adff03da38091b6d6",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20002,
+          "3": 20000,
+          "4": 19999,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 794.6531903999858
+    },
+    {
+      "seed": 57,
+      "digest": "8ae517501fe07c27daa08fc8b3a54f049aec12d1ac153fd6959ca32d14331a00",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 500,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 19999,
+          "3": 19999,
+          "4": 20001,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 825.1548419000173
+    },
+    {
+      "seed": 58,
+      "digest": "0a2a946dc57315394218290894de0381e48b2d4f58d1356dc003d9f1fce3f5a2",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 774.2820363999926
+    },
+    {
+      "seed": 59,
+      "digest": "363177e515ee603ad9e7f371eea5410ca29ff1d96f26dd4e4b6c83879d055ead",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 799.8357175000128
+    },
+    {
+      "seed": 60,
+      "digest": "a721dba91f0f2a302279722cc10bf4581f55f955818f0ab685a9bf4c0478d5eb",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20002,
+          "2": 20000,
+          "3": 20000,
+          "4": 19999,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 793.5853793000279
+    },
+    {
+      "seed": 61,
+      "digest": "2695871e1cb908cd11b7cd4f215f53d1ce3c1a78f146cf4201036e665c3f0fc1",
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 790.1549482999835
+    }
+  ],
+  "seed_variation": {
+    "satellite_only": {
+      "linear_r2": {
+        "mean": 0.6899051815271378,
+        "sd": 0.0027787156156280123,
+        "min": 0.683042585849762,
+        "max": 0.6937120437622071
+      },
+      "linear_rmse": {
+        "mean": 1.4649512502197186,
+        "sd": 0.005655655031822897,
+        "min": 1.454803357852225,
+        "max": 1.4750059530627735
+      },
+      "linear_mae": {
+        "mean": 1.1010728943347934,
+        "sd": 0.003163407717801579,
+        "min": 1.09636070728302,
+        "max": 1.10676429271698
+      },
+      "rf_r2": {
+        "mean": 0.7514064345843801,
+        "sd": 0.001947251496371776,
+        "min": 0.7479818805723292,
+        "max": 0.7557145100446041
+      },
+      "rf_rmse": {
+        "mean": 1.311329178514357,
+        "sd": 0.005401873437837012,
+        "min": 1.2986013000002425,
+        "max": 1.3196983899845232
+      },
+      "rf_mae": {
+        "mean": 0.9914888703581924,
+        "sd": 0.0028128921780989137,
+        "min": 0.9857710317122399,
+        "max": 0.9961535298348231
+      }
+    },
+    "limited": {
+      "linear_r2": {
+        "mean": 0.7637718164920807,
+        "sd": 0.0028572824429722956,
+        "min": 0.75829017162323,
+        "max": 0.770050048828125
+      },
+      "linear_rmse": {
+        "mean": 1.2777462600522524,
+        "sd": 0.007689052719876172,
+        "min": 1.2590135626196595,
+        "max": 1.2920926162896085
+      },
+      "linear_mae": {
+        "mean": 0.9645330488681794,
+        "sd": 0.0032082216819136608,
+        "min": 0.9579421639442444,
+        "max": 0.971398389339447
+      },
+      "rf_r2": {
+        "mean": 0.8375050085396923,
+        "sd": 0.002389893801798426,
+        "min": 0.8327010353927469,
+        "max": 0.8431602622898602
+      },
+      "rf_rmse": {
+        "mean": 1.059743089283572,
+        "sd": 0.007120891057601624,
+        "min": 1.0404120749045216,
+        "max": 1.0735958434886754
+      },
+      "rf_mae": {
+        "mean": 0.7881229790848757,
+        "sd": 0.0033035244002462753,
+        "min": 0.7797482293027647,
+        "max": 0.79290867023889
+      }
+    }
+  },
+  "seed_differences": {
+    "linear_r2": {
+      "mean": 0.07386663496494292,
+      "sd": 0.0016461046243678485,
+      "p2.5": 0.07145760208368301,
+      "p97.5": 0.07630785822868347
+    },
+    "linear_rmse": {
+      "mean": -0.18720499016746633,
+      "sd": 0.004105443114383525,
+      "p2.5": -0.19534785628312454,
+      "p97.5": -0.18182498548408335
+    },
+    "linear_mae": {
+      "mean": -0.13653984546661377,
+      "sd": 0.0024632493685615505,
+      "p2.5": -0.140624078810215,
+      "p97.5": -0.13245032370090484
+    },
+    "rf_r2": {
+      "mean": 0.08609857395531215,
+      "sd": 0.0015342498453217012,
+      "p2.5": 0.08338245209525713,
+      "p97.5": 0.08815203934734678
+    },
+    "rf_rmse": {
+      "mean": -0.25158608923078496,
+      "sd": 0.0049318393916141234,
+      "p2.5": -0.2583991013711813,
+      "p97.5": -0.24343788425711863
+    },
+    "rf_mae": {
+      "mean": -0.2033658912733168,
+      "sd": 0.003405378725124896,
+      "p2.5": -0.20886819811578708,
+      "p97.5": -0.19815231918474874
+    }
+  },
+  "repeated_kfold": {
+    "test_train_ratio": 0.2500000001250003,
+    "metrics": {
+      "linear_r2": {
+        "n_splits": 100,
+        "mean_difference": 0.07386663496494293,
+        "sd_difference": 0.015869135838865303,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.0015869135838865304,
+          "lower": 0.07071785413109252,
+          "upper": 0.07701541579879334
+        },
+        "corrected": {
+          "standard_error": 0.008091703332568005,
+          "lower": 0.057810940045253195,
+          "upper": 0.08992232988463267
+        }
+      },
+      "linear_rmse": {
+        "n_splits": 100,
+        "mean_difference": -0.18720499016746633,
+        "sd_difference": 0.04281460764220912,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.004281460764220912,
+          "lower": -0.19570033719338562,
+          "upper": -0.17870964314154705
+        },
+        "corrected": {
+          "standard_error": 0.021831251988692214,
+          "lower": -0.2305229304377841,
+          "upper": -0.14388704989714857
+        }
+      },
+      "linear_mae": {
+        "n_splits": 100,
+        "mean_difference": -0.13653984546661377,
+        "sd_difference": 0.025544182185666762,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.002554418218566676,
+          "lower": -0.14160836539733496,
+          "upper": -0.13147132553589258
+        },
+        "corrected": {
+          "standard_error": 0.013025028345479426,
+          "lower": -0.16238432750460763,
+          "upper": -0.11069536342861991
+        }
+      },
+      "rf_r2": {
+        "n_splits": 100,
+        "mean_difference": 0.08609857395531215,
+        "sd_difference": 0.007019639779919378,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.0007019639779919378,
+          "lower": 0.08470572513077751,
+          "upper": 0.08749142277984678
+        },
+        "corrected": {
+          "standard_error": 0.003579328022480524,
+          "lower": 0.07899641061781801,
+          "upper": 0.09320073729280628
+        }
+      },
+      "rf_rmse": {
+        "n_splits": 100,
+        "mean_difference": -0.2515860892307849,
+        "sd_difference": 0.020749054224443668,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.002074905422444367,
+          "lower": -0.2557031517429376,
+          "upper": -0.24746902671863222
+        },
+        "corrected": {
+          "standard_error": 0.010579983240446579,
+          "lower": -0.2725790713239792,
+          "upper": -0.23059310713759062
+        }
+      },
+      "rf_mae": {
+        "n_splits": 100,
+        "mean_difference": -0.2033658912733168,
+        "sd_difference": 0.014667016528728628,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.001466701652872863,
+          "lower": -0.20627614555586696,
+          "upper": -0.20045563699076666
+        },
+        "corrected": {
+          "standard_error": 0.007478740350415297,
+          "lower": -0.21820533465312417,
+          "upper": -0.18852644789350945
+        }
+      }
+    },
+    "note": "J = 分割数 × シード数 の fold ごとの差から求めた補正 t 区間（Bouckaert & Frank 2004 の反復 k-fold の補正）。シードごとに標本自体を抽出し直しているため、区間には分割の違いだけでなく標本の違いも含まれ、同じデータの分割し直しを想定する原典とは異なる。"
+  },
+  "outputs": {
+    "folds_csv": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_folds.csv",
+    "differences_csv": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_differences.csv",
+    "seed_intermediate_dir": "data/output/common_evaluation/20220906_032358/repeat_evaluation_cells_seed42"
+  },
+  "notes": [
+    "シードは標本抽出と RF の random_state の両方に使う。",
+    "反復では Spatial CV だけを回し、SHAP・ランダム分割・置換重要度は省く。"
+  ],
+  "provenance": {
+    "script": "src.analysis.repeat_common_evaluation",
+    "executed_at": "2026-10-27T03:05:39.679212+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "66284d917864d16f594716ba4efaded024c1fad9",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/repeat_common_evaluation.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/repeat_common_evaluation.py",
+          "sha256": "c05cf6d3c555df0b6e9d6a122d2ba1f3fdce43e252a3e1cb29da6adf8526aabc"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.0.7",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_satellite_only_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",
+        "sha256": "194b6f5d208599152ffdb92f5925b2dc532aac9640371e0ff4ec9237db7b025d"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42_results.json",
+        "sha256": "5b014be43066ceafc7e268e4008689486b6c971e63a3d04b4990614520b6c1bc"
+      }
+    ]
+  }
+}

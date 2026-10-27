@@ -11,7 +11,7 @@ PyQGIS に依存せず、レイアウトの寸法・位置（mm）だけを算�
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
@@ -170,20 +170,35 @@ def layout_geometry(
 
 
 def present_class_values(
-    values: Sequence[float] | np.ndarray, nodata: float | None = None
+    values: Sequence[float] | np.ndarray,
+    nodata: float | None = None,
+    filled_values: float | Iterable[float] | None = (),
 ) -> list[int]:
     """ラスタ値の配列から、実在するクラス値（整数）を昇順で返す。
 
     カテゴリ値ラスタの凡例を「実際にデータへ現れるクラス」だけに絞るために使う。
-    ``nodata`` と ``NaN`` は除外する。
+    ``nodata``・``filled_values`` と ``NaN`` は除外する。
+
+    ``filled_values`` は、データセット固有の無効値（例: Esri LULC の Clouds(10)）を
+    凡例から外したいときに渡す。実在する無効値を凡例に残すか外すかは図ごとの判断の
+    ため、除外は強制せず、渡さなければ従来どおり ``nodata`` と ``NaN`` だけを除く。
 
     Args:
         values: ラスタ画素値の配列（``numpy`` 配列や任意の数値イテラブル）。
-        nodata: 除外する無効値。``None`` なら除外しない。
+        nodata: 除外する無効値（単一値）。``None`` なら除外しない。
+        filled_values: 追加で除外する無効値の集合（取得スクリプトの ``FILLED_VALUES``
+            をそのまま渡せる）。tuple・list・set などの任意のイテラブルと単一値を
+            受け付ける。``None``・空なら追加の除外なし。
 
     Returns:
         実在クラス値（整数）の昇順リスト。
     """
+    if filled_values is None:
+        excluded: set[float] = set()
+    elif isinstance(filled_values, Iterable):  # tuple・list・set・ndarray・ジェネレータ等
+        excluded = {float(v) for v in filled_values}
+    else:  # 単一値
+        excluded = {float(filled_values)}
     unique = np.unique(np.asarray(values))
     result: list[int] = []
     for value in unique:
@@ -191,6 +206,8 @@ def present_class_values(
         if np.isnan(fvalue):
             continue
         if nodata is not None and value == nodata:
+            continue
+        if fvalue in excluded:  # nodata と同じく丸め前の値で比較する
             continue
         result.append(int(round(fvalue)))
     return result

@@ -21,12 +21,19 @@ MCP の応答が打ち切られて QGIS 本体が応答しなくなるため、�
    - 連続値ラスタは :func:`set_raster_itemized_legend` で凡例を項目表示にできる。
 3. :func:`build_gis_figure` を呼び、タイトル・スケールバー・凡例つき PNG を出力する。
 
+レイヤを受け取る公開関数は、いずれも「レイヤ名 + ``project``」で呼べる
+（:func:`build_gis_figure` と同じ形）。:func:`style_roi_outline`・
+:func:`filter_paletted_to_present`・:func:`set_raster_itemized_legend` は、従来どおり
+レイヤオブジェクトも受け付ける。
+
 保存機構の注意: ``get_canvas_screenshot`` は画像をインライン返却するのみでファイル
 保存しない。コミット用 PNG は本モジュール（印刷レイアウト export）で生成し、
 ``render_map(path=...)`` は使わない（理由は ``qgis_operation_guidelines.md`` の「保存機構」）。
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
 
 from osgeo import gdal
 from qgis.core import (
@@ -70,6 +77,18 @@ def _require_layer(project: QgsProject, name: str) -> QgsMapLayer:
     return layers[0]
 
 
+def _resolve_layer(layer: str | QgsMapLayer, project: QgsProject | None) -> QgsMapLayer:
+    """レイヤ名ならプロジェクトから取得し、レイヤオブジェクトならそのまま返す。
+
+    公開関数を :func:`build_gis_figure` と同じ「レイヤ名 + ``project``」で呼べるように
+    しつつ、従来のオブジェクト渡しも受け付けるための共通処理。オブジェクトを渡した
+    場合、``project`` は使わない。
+    """
+    if isinstance(layer, str):
+        return _require_layer(_project(project), layer)
+    return layer
+
+
 def _set_legend_font(
     legend: QgsLayoutItemLegend, style_enum, point_size: int, bold: bool = False
 ) -> None:
@@ -97,17 +116,36 @@ def _set_legend_font(
 
 
 def style_roi_outline(
-    roi_layer: QgsVectorLayer, color: str = "255,0,0,255", width: str = "0.6"
+    roi_layer: str | QgsVectorLayer,
+    color: str = "255,0,0,255",
+    width: str = "0.6",
+    project: QgsProject | None = None,
 ) -> None:
-    """ROI レイヤを塗りつぶしなし・指定色の外枠だけで表示する。"""
+    """ROI レイヤを塗りつぶしなし・指定色の外枠だけで表示する。
+
+    Args:
+        roi_layer: ROI のレイヤ名、または ``QgsVectorLayer``。
+        color: 外枠の色（``"R,G,B,A"``）。
+        width: 外枠の太さ(mm)。
+        project: レイヤ名で指定するときの対象プロジェクト。省略時は現在のプロジェクト。
+
+    Raises:
+        ValueError: レイヤ名で指定したレイヤが見つからないとき。
+    """
+    layer = _resolve_layer(roi_layer, project)
     symbol = QgsFillSymbol.createSimple(
         {"color": "0,0,0,0", "outline_color": color, "outline_width": width}
     )
-    roi_layer.renderer().setSymbol(symbol)
-    roi_layer.triggerRepaint()
+    layer.renderer().setSymbol(symbol)
+    layer.triggerRepaint()
 
 
-def filter_paletted_to_present(layer: QgsRasterLayer, nodata: float | None = None) -> int:
+def filter_paletted_to_present(
+    layer: str | QgsRasterLayer,
+    nodata: float | None = None,
+    filled_values: float | Sequence[float] | None = (),
+    project: QgsProject | None = None,
+) -> int:
     """カテゴリ値ラスタを、データに実在するクラスだけの凡例に作り直す。
 
     全クラス（未使用クラス含む）を凡例に出すと巨大化するため、``gdal`` で実際の
@@ -116,16 +154,27 @@ def filter_paletted_to_present(layer: QgsRasterLayer, nodata: float | None = Non
     実在クラスはラスタ全体の画素から判定する（ROI でクリップしない）。本研究のラスタは
     概ね ROI 範囲に収まっているため、凡例と地図の内容は実用上一致する。
 
+    データセット固有の無効値（例: Esri LULC の Clouds(10)）は、実在すれば凡例に残る。
+    凡例をサマリー JSON のクラス分布（無効値を除いた有効画素）に揃えたいときは、
+    取得スクリプトの ``FILLED_VALUES`` を ``filled_values`` に渡す。除外したクラスは
+    レンダラからも外れるため、その画素は地図上でも描画されない（透明になる）。
+
     Args:
-        layer: ``QgsRasterLayer``（``QgsPalettedRasterRenderer`` を持つこと）。
-        nodata: 無効値。指定すると凡例から除外する。
+        layer: レイヤ名、または ``QgsRasterLayer``（``QgsPalettedRasterRenderer`` を
+            持つこと）。
+        nodata: 無効値（単一値）。指定すると凡例から除外する。省略時はバンドの
+            NoData 値を使う。
+        filled_values: 追加で凡例から除外する無効値の集合。省略時は追加の除外なし。
+        project: レイヤ名で指定するときの対象プロジェクト。省略時は現在のプロジェクト。
 
     Returns:
         残したクラス数。
 
     Raises:
-        ValueError: ラスタソースを開けないとき。
+        ValueError: レイヤ名で指定したレイヤが見つからないとき、またはラスタソースを
+            開けないとき。
     """
+    layer = _resolve_layer(layer, project)
     dataset = gdal.Open(layer.source())
     if dataset is None:
         raise ValueError(f"ラスタを開けません: {layer.source()!r}")
@@ -133,7 +182,7 @@ def filter_paletted_to_present(layer: QgsRasterLayer, nodata: float | None = Non
         band = dataset.GetRasterBand(1)
         if nodata is None:
             nodata = band.GetNoDataValue()
-        present = set(fl.present_class_values(band.ReadAsArray(), nodata))
+        present = set(fl.present_class_values(band.ReadAsArray(), nodata, filled_values))
     finally:
         dataset = None  # gdal データセットを明示的に解放する
 
@@ -148,13 +197,23 @@ def filter_paletted_to_present(layer: QgsRasterLayer, nodata: float | None = Non
     return len(kept)
 
 
-def set_raster_itemized_legend(layer: QgsRasterLayer) -> None:
+def set_raster_itemized_legend(
+    layer: str | QgsRasterLayer, project: QgsProject | None = None
+) -> None:
     """連続値疑似カラーラスタの凡例を、連続グラデーションから項目表示に切り替える。
 
     地図は INTERPOLATED のまま滑らかに描画しつつ、凡例だけ ``.qml`` 定義済みの
     値（例: 標高 0/20/50/150/1269m）を個別ラベルで示す。連続グラデーション凡例では
     min/max しか読めず値域が判読しにくいため。
+
+    Args:
+        layer: レイヤ名、または ``QgsRasterLayer``（疑似カラーのレンダラを持つこと）。
+        project: レイヤ名で指定するときの対象プロジェクト。省略時は現在のプロジェクト。
+
+    Raises:
+        ValueError: レイヤ名で指定したレイヤが見つからないとき。
     """
+    layer = _resolve_layer(layer, project)
     shader = layer.renderer().shader().rasterShaderFunction()
     settings = QgsColorRampLegendNodeSettings()
     settings.setUseContinuousLegend(False)

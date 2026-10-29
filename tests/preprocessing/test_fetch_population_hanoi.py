@@ -384,6 +384,43 @@ class TestClipAndWrite:
         assert density_stats is not None
         assert density_stats["min"] <= mean_density <= density_stats["max"]
 
+    def test_does_not_inherit_tiled_layout_from_source(self, tmp_path: Path) -> None:
+        """tiled のソースを小さい範囲で切り出しても、ソースのタイル設定を引き継がない。
+
+        ソースの profile を引き継ぐと、出力寸法より大きい 256x256 のタイルのまま
+        書き出される（rasterio のバージョンによっては書き込み自体が失敗する）。
+        """
+        source_path = tmp_path / "tiled_source.tif"
+        pixel_size_deg = 1.0 / 120.0
+        with rasterio.open(
+            source_path,
+            "w",
+            driver="GTiff",
+            height=512,
+            width=512,
+            count=1,
+            dtype="float32",
+            crs=CRS.from_epsg(4326),
+            transform=from_origin(105.0, 21.1, pixel_size_deg, pixel_size_deg),
+            nodata=target.OUTPUT_NODATA,
+            tiled=True,
+            blockxsize=256,
+            blockysize=256,
+        ) as destination:
+            destination.write(np.ones((512, 512), dtype=np.float32), 1)
+        # 小さい --bbox を模して、ブロックサイズより十分小さい範囲を切り出す
+        area_gdf = gpd.GeoDataFrame(geometry=[box(105.0, 21.05, 105.02, 21.1)], crs="EPSG:4326")
+
+        _, pixel_stats = target.clip_and_write(source_path, area_gdf, tmp_path / "out.tif")
+
+        with rasterio.open(tmp_path / "out.tif") as raster:
+            assert raster.width < 256
+            for block_height, block_width in raster.block_shapes:
+                assert block_width <= raster.width
+                assert block_height <= raster.height
+            assert raster.read(1).max() == pytest.approx(1.0)
+        assert pixel_stats["total_population"] > 0
+
     def test_rejects_projected_source_crs(self, tmp_path: Path) -> None:
         """投影座標系のラスタは、度前提の測地計算が破綻するため弾く。"""
         source_path = tmp_path / "projected.tif"

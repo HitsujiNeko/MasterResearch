@@ -26,6 +26,10 @@ Satellite Only と Limited（人口3版）を「同じセル・同じ fold」の
 
 既定値（LST 有効率の下限・標本サイズ・乱数シード・ブロックサイズ・分割数・解像度）は
 両分析スクリプトの `parse_arguments([])` から読む（既定値を二重に持たないため）。
+
+分析対象範囲（`--analysis-area`）は両分析スクリプトと同じ識別子を受け取り、4構成の
+有効母集団すべてに同じ範囲の品質列を課す。`roi` 以外の範囲では、既定の出力先の
+末尾に `_area_{範囲}` を付け、ROI 全域の評価セルを上書きしない。
 """
 
 from __future__ import annotations
@@ -42,7 +46,12 @@ import pandas as pd
 from src.analysis import analysis_rq3_limited as limited
 from src.analysis import analysis_rq3_satellite_only as satellite_only
 from src.analysis.urban_params.canonical_grid import assign_canonical_blocks
-from src.common.analysis_dataset import ANALYSIS_AREA_ROI, sample_dataset
+from src.common.analysis_dataset import (
+    ANALYSIS_AREA_ROI,
+    ANALYSIS_AREAS,
+    analysis_area_output_part,
+    sample_dataset,
+)
 from src.common.analysis_runs import build_observation_label, validate_scale_matches_dataset
 from src.common.config import PROJECT_ROOT
 from src.common.evaluation_cells import (
@@ -93,20 +102,24 @@ def build_configuration_names() -> list[str]:
     ]
 
 
-def resolve_default_output_dir(dataset_path: Path) -> Path:
-    """データセット名に含まれる観測日時から、既定の出力先を求める。
+def resolve_default_output_dir(dataset_path: Path, analysis_area: str = ANALYSIS_AREA_ROI) -> Path:
+    """データセット名に含まれる観測日時と分析対象範囲から、既定の出力先を求める。
 
     Args:
         dataset_path: Satellite Only のデータセットパス。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。既定は `roi`。
     Returns:
         `data/output/common_evaluation/{日付}_{時刻}`。日時が読めない場合は
-        データセット名をそのまま使う。
+        データセット名をそのまま使う。範囲が `roi` 以外なら末尾に `_area_{範囲}`
+        を付ける（`analysis_area_output_part` の規則）。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
     """
     stem = dataset_path.stem
     label = build_observation_label(stem)
-    if label == stem:
-        return DEFAULT_OUTPUT_ROOT / stem
-    return DEFAULT_OUTPUT_ROOT / label.replace("-", "").replace(":", "").replace(" ", "_")
+    name = stem if label == stem else label.replace("-", "").replace(":", "").replace(" ", "_")
+    area_part = analysis_area_output_part(analysis_area)
+    return DEFAULT_OUTPUT_ROOT / (f"{name}_{area_part}" if area_part else name)
 
 
 def resolve_cells_path(output_dir: Path, random_state: int) -> Path:
@@ -193,9 +206,20 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         default=_SATELLITE_ONLY_DEFAULTS.scale,
         help="正準グリッドの解像度（m）",
     )
+    parser.add_argument(
+        "--analysis-area",
+        choices=ANALYSIS_AREAS,
+        default=ANALYSIS_AREA_ROI,
+        help=(
+            "分析対象範囲（両分析スクリプトの --analysis-area と同じ）。survey には"
+            "mask_survey テーブルを結合した両データセットが必要。"
+        ),
+    )
     args = parser.parse_args(argv)
     if args.output_dir is None:
-        args.output_dir = resolve_default_output_dir(args.satellite_only_dataset)
+        args.output_dir = resolve_default_output_dir(
+            args.satellite_only_dataset, args.analysis_area
+        )
     return args
 
 
@@ -223,6 +247,7 @@ def build_configuration_populations(
     satellite_only_dataframe: pd.DataFrame,
     limited_dataframe: pd.DataFrame,
     lst_valid_ratio_threshold: float,
+    analysis_area: str = ANALYSIS_AREA_ROI,
 ) -> dict[str, pd.DataFrame]:
     """4構成それぞれの有効母集団を、各分析スクリプトの関数で求める。
 
@@ -234,6 +259,8 @@ def build_configuration_populations(
         satellite_only_dataframe: `satellite_only.load_scenario_dataset` の戻り値。
         limited_dataframe: `limited.load_scenario_dataset`（人口3版を指定）の戻り値。
         lst_valid_ratio_threshold: `LST_VALID_RATIO` の下限。
+        analysis_area: 分析対象範囲（`ANALYSIS_AREAS` のいずれか）。全構成に同じ範囲を
+            課す。既定は `roi`。
     Returns:
         構成名をキー、有効母集団（`cell_id`・`CONSISTENCY_COLUMNS`・
         `DROPOUT_MEAN_COLUMNS` の列）を値とする辞書。並びは
@@ -245,7 +272,7 @@ def build_configuration_populations(
     satellite_population = satellite_only.build_valid_population(
         satellite_only_dataframe,
         lst_valid_ratio_threshold=lst_valid_ratio_threshold,
-        required_mask_columns=satellite_only.resolve_required_mask_columns(ANALYSIS_AREA_ROI),
+        required_mask_columns=satellite_only.resolve_required_mask_columns(analysis_area),
     )
     populations[SATELLITE_ONLY_CONFIGURATION] = attach_limited_land_cover(
         satellite_population[[CELL_ID_COLUMN, *CONSISTENCY_COLUMNS]], limited_dataframe
@@ -258,7 +285,7 @@ def build_configuration_populations(
             limited_dataframe,
             filter_columns=filter_columns,
             lst_valid_ratio_threshold=lst_valid_ratio_threshold,
-            required_mask_columns=limited.resolve_required_mask_columns([source]),
+            required_mask_columns=limited.resolve_required_mask_columns([source], analysis_area),
         )
         # 補完後の全行（filled）は使わないため、母集団の必要な列だけを残す。
         populations[f"limited_{source}"] = result.population[value_columns].reset_index(drop=True)
@@ -539,7 +566,7 @@ def build_metadata(
             "そこから抽出した標本と fold 割り当て。"
         ),
         "observation": build_observation_label(args.satellite_only_dataset.stem),
-        "analysis_area": ANALYSIS_AREA_ROI,
+        "analysis_area": args.analysis_area,
         "datasets": {
             "satellite_only": to_project_relative_string(args.satellite_only_dataset),
             "limited": to_project_relative_string(args.limited_dataset),
@@ -548,14 +575,16 @@ def build_metadata(
         "configurations": {
             SATELLITE_ONLY_CONFIGURATION: {
                 "required_mask_columns": list(
-                    satellite_only.resolve_required_mask_columns(ANALYSIS_AREA_ROI)
+                    satellite_only.resolve_required_mask_columns(args.analysis_area)
                 ),
                 "non_null_columns": [*satellite_only.FEATURE_COLUMNS, satellite_only.TARGET_COLUMN],
                 "population_size": int(len(satellite_population)),
             },
             **{
                 f"limited_{source}": {
-                    "required_mask_columns": list(limited.resolve_required_mask_columns([source])),
+                    "required_mask_columns": list(
+                        limited.resolve_required_mask_columns([source], args.analysis_area)
+                    ),
                     "non_null_columns": [*limited.resolve_filter_columns(), limited.TARGET_COLUMN],
                     "building_height_zero_fill": True,
                     "population_size": int(len(populations[f"limited_{source}"])),
@@ -607,15 +636,19 @@ def main(argv: list[str] | None = None) -> None:
 
     print(f"Satellite Only のデータセットを読み込みます: {args.satellite_only_dataset}")
     satellite_dataframe = satellite_only.load_scenario_dataset(
-        args.satellite_only_dataset, ANALYSIS_AREA_ROI
+        args.satellite_only_dataset, args.analysis_area
     )
     print(f"Limited のデータセットを読み込みます: {args.limited_dataset}")
     limited_dataframe = limited.load_scenario_dataset(
-        args.limited_dataset, list(LIMITED_POPULATION_SOURCES), ANALYSIS_AREA_ROI
+        args.limited_dataset, list(LIMITED_POPULATION_SOURCES), args.analysis_area
     )
 
+    print(f"分析対象範囲: {args.analysis_area}")
     populations = build_configuration_populations(
-        satellite_dataframe, limited_dataframe, args.lst_valid_ratio_threshold
+        satellite_dataframe,
+        limited_dataframe,
+        args.lst_valid_ratio_threshold,
+        args.analysis_area,
     )
     del satellite_dataframe, limited_dataframe
     for name, population in populations.items():

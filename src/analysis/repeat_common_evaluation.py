@@ -44,7 +44,6 @@ from src.analysis.build_common_evaluation_set import (
     intersect_cell_ids,
     resolve_default_cells_path,
 )
-from src.common.analysis_dataset import ANALYSIS_AREA_ROI
 from src.common.analysis_runs import run_spatial_cv_models, validate_fold_test_sizes
 from src.common.config import PROJECT_ROOT
 from src.common.cv_paired_comparison import (
@@ -317,18 +316,18 @@ def build_populations(evaluation_set: EvaluationSet) -> tuple[np.ndarray, dict[s
     Returns:
         （共通集合の cell_id, `satellite_only`・`limited` をキーとする有効母集団）のタプル。
     Raises:
-        ValueError: 分析対象範囲が ROI 以外の場合、または求め直した共通集合の母数が
+        ValueError: 分析対象範囲が対応外の場合、または求め直した共通集合の母数が
             メタデータの記録と一致しない場合。
     """
     metadata = evaluation_set.metadata
-    if metadata["analysis_area"] != ANALYSIS_AREA_ROI:
-        raise ValueError(f"ROI 全域以外の評価セルには対応していません: {metadata['analysis_area']}")
+    # 評価セルを作ったときと同じ範囲で、読込・有効母集団を作り直す。
+    analysis_area = metadata["analysis_area"]
     satellite_path = PROJECT_ROOT / metadata["datasets"]["satellite_only"]
     limited_path = PROJECT_ROOT / metadata["datasets"]["limited"]
     threshold = metadata["lst_valid_ratio_threshold"]
 
     print(f"Satellite Only のデータセットを読み込みます: {satellite_path}")
-    satellite_dataframe = satellite_only.load_scenario_dataset(satellite_path, ANALYSIS_AREA_ROI)
+    satellite_dataframe = satellite_only.load_scenario_dataset(satellite_path, analysis_area)
     print(f"Limited のデータセットを読み込みます: {limited_path}")
     limited_dataframe = limited.load_scenario_dataset(
         limited_path,
@@ -337,10 +336,12 @@ def build_populations(evaluation_set: EvaluationSet) -> tuple[np.ndarray, dict[s
             for source in metadata["configurations"]
             if source.startswith("limited_")
         ],
-        ANALYSIS_AREA_ROI,
+        analysis_area,
     )
     common_cell_ids = intersect_cell_ids(
-        build_configuration_populations(satellite_dataframe, limited_dataframe, threshold)
+        build_configuration_populations(
+            satellite_dataframe, limited_dataframe, threshold, analysis_area
+        )
     )
     if len(common_cell_ids) != metadata["common_size"]:
         raise ValueError(
@@ -351,14 +352,14 @@ def build_populations(evaluation_set: EvaluationSet) -> tuple[np.ndarray, dict[s
         "satellite_only": satellite_only.build_valid_population(
             satellite_dataframe,
             lst_valid_ratio_threshold=threshold,
-            required_mask_columns=satellite_only.resolve_required_mask_columns(ANALYSIS_AREA_ROI),
+            required_mask_columns=satellite_only.resolve_required_mask_columns(analysis_area),
         ),
         "limited": limited.build_valid_population(
             limited_dataframe,
             filter_columns=limited.resolve_filter_columns(),
             lst_valid_ratio_threshold=threshold,
             required_mask_columns=limited.resolve_required_mask_columns(
-                _LIMITED_DEFAULTS.population_source
+                _LIMITED_DEFAULTS.population_source, analysis_area
             ),
         ).population,
     }
@@ -461,6 +462,7 @@ def main(argv: list[str] | None = None) -> None:
         ),
         "difference_direction": "Limited − Satellite Only",
         "evaluation_cells": to_project_relative_string(cells_path),
+        "analysis_area": metadata["analysis_area"],
         "common_size": int(len(common_cell_ids)),
         "seeds": seeds,
         "cv_splits": metadata["cv_splits"],

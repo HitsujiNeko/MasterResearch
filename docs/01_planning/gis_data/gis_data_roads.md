@@ -1,6 +1,6 @@
 # 道路データの調査・評価
 
-**最終更新**: 2026-06-24  
+**最終更新**: 2026-10-29  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -173,7 +173,7 @@ ogr2ogr -f GPKG output.gpkg input.osm.pbf lines \
 | 3 | 道路データの探索的分析 | ✅ 完了 | highway タグ分布・z_order・other_tags の入力率を集計（Section 3 参照） |
 | 4 | ROAD_DEN（道路延長密度）算出ロジックの実装 | ✅ 完了 | `src/analysis/urban_params/params/roads.py` に実装（コミット `da0384a`）。車道タグのホワイトリスト方式 + z_order < 0 除外 |
 | 5 | ROAD_DEN のスモークテスト | ✅ 完了 | `tests/analysis/urban_params/test_roads.py` に GIS 契約テストを追加済み |
-| 6 | 他都市（Ho Chi Minh City 等）への道路データ取得・適用 | 未着手 | RQ2 のスケール比較時に対象都市を拡大する際に実施 |
+| 6 | 他都市（Ho Chi Minh City 等）への道路データ取得・適用 | 対象外 | 対象をハノイ1都市に限ると決定したため実施しない。他都市への拡張は本研究の範囲外（[research_guide.md](../research_guide.md) §4.2 第四） |
 
 ---
 

@@ -414,8 +414,8 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 
 **2軸を掛け合わせる際の留意点**:
 
-- **対象シナリオ**: `Full` は全域では成立しないため、分析対象範囲の軸で比べるのは `Satellite Only` と `Limited` である。`Full` は都心部でのみ評価する
-- **都心部 × 90m・300m**: 境界にかかる部分被覆セルの面積超過が 90m で約1.8%、300m で約8% に広がり、30m と同じ扱い（境界セルをそのまま使う）でよいかの再検討が要る（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.2節）。あわせてセル数が大きく減り（300m で約1,200 セル。[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）、Spatial CV のブロック数は 30m の時点ですでに 24 個にとどまる（同 3.5節）。このため都心部の 90m・300m は、ブロック判定を満たすかを確認してから評価する
+- **対象シナリオ**: `Full` は全域では成立しないため、分析対象範囲の軸で比べるのは `Satellite Only` と `Limited` である。説明変数は各シナリオの変数セットをそのまま用いる。`Full` は都心部でのみ評価する
+- **都心部 × 90m・300m**: 境界にかかる部分被覆セルの面積超過が 90m で約1.8%、300m で約8% に広がり、30m と同じ扱い（境界セルをそのまま使う）でよいかの再検討が要る（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.2節）。あわせてセル数が大きく減り（300m で約1,200 セル。[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）、Spatial CV のブロック数は 30m の時点ですでに 24 個にとどまる（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.5節）。このため都心部の 90m・300m は、ブロック判定を満たすかを確認してから評価する
 
 #### 今後の課題: 近傍リング型変数による比較（未実装の設計案）
 

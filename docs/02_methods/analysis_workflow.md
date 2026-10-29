@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-10-27  
+**最終更新**: 2026-10-29  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -8,7 +8,7 @@
 
 ## 概要
 
-本ドキュメントは、「ベトナム主要都市を対象とした地表面温度と都市構造の関係性評価」における  
+本ドキュメントは、「ベトナム・ハノイを対象とした地表面温度と都市構造の関係性評価」における  
 **データ前処理 → 都市構造パラメータ算出 → モデル構築 → 評価・可視化** の全工程を定義する。
 
 実装を始める前に各工程の入出力・手法選定の根拠を明確にし、  
@@ -81,7 +81,7 @@
                                  ▼                         ▼                         ▼
                                [RQ1]                   [RQ2]                     [RQ3]
                             支配的変数               空間スケール                データ制約下
-                           MLR + RF/GBDT              近傍変数比較               OSM vs 測量
+                           MLR + RF/GBDT              解像度・範囲比較           OSM vs 測量
                            + SHAP値                                               比較評価
 ```
 
@@ -243,18 +243,19 @@ LSTの空間解像度（30m）を基準としつつ、**30m / 90m / 300m の3ス
 | **出力形式** | パラメータセットごと・スケールごとの GeoPackage（`cell_id` キーの属性テーブル）。列構成は [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章 |
 
 > **スケールは列名のサフィックスではなくディレクトリ階層で表現する**（旧実装の `NDVI_30` のような `_<scale>` サフィックスは廃止した）。  
-> 3スケールの選択は、Step 3.3 の近傍リング設計とは別の軸である（下記）。
+> 3スケールの比較は RQ2 の第1軸（空間集計単位）であり、Step 3.3 の近傍リング設計（今後の課題）とは別のものである（5.2節）。
 
-### 3.3 近傍変数の設計（RQ2対応）
+### 3.3 近傍変数の設計（今後の課題）
 
 Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2019.md)）の近傍リング設計を参考に、  
-各パラメータを**複数の空間スケール**で算出し、空間スケール依存性を評価する。
+各パラメータを当該セルの周囲のリング範囲でも算出する設計案である。
 
-> **本節は未実装の設計案である（採否・詳細は未確定）。** 以下の `_0` / `_30_60` 等のリング型
+> **本節は今後の課題として残す未実装の設計案であり、本研究の RQ2 では扱わない**（RQ2 の比較軸はグリッド解像度と
+> 分析対象範囲。5.2節・[research_guide.md](../01_planning/research_guide.md) §4.2 第三）。以下の `_0` / `_30_60` 等のリング型
 > サフィックスは現行の出力仕様ではない。実装済みの出力はスケール別ディレクトリに分けた
 > パラメータテーブル（列名にスケールを含まない）であり、正本は
 > [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章である。
-> 5章の分析ケース（5.2）に現れるリング型の列名も同様に設計案として読むこと。
+> 5.2節の「今後の課題」に現れるリング型の列名も同様に設計案として読むこと。
 
 | スケール名 | 範囲 | 変数名サフィックス | 例（建物被覆率） |
 |----------|------|-----------------|---------------|
@@ -264,7 +265,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | 近傍効果3 | 90–120m リング | `_90_120` | `BUILD_COV_90_120` |
 
 > **根拠**: S5では30m解像度において「近傍効果 > 即時効果（相関0.956）」が示されており、  
-> 近傍変数の導入はRQ2（空間スケールの影響評価）の中核をなす。
+> 近傍変数は空間スケールの影響を評価する有力な設計である。本研究では RQ2 の比較軸を絞ったため、今後の課題とした。
 
 **実装方針**:
 
@@ -279,7 +280,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | `src/analysis/urban_params/canonical_grid.py` | 全シナリオ共通の正準グリッド生成（`cell_id` 採番） | 解析範囲レイヤ（ROI） | `data/output/grid/grid_<city_id>.gpkg`（`grid_30m` / `grid_90m` / `grid_300m`） |
 | `src/analysis/urban_params/`（`python -m`） | GIS由来・衛星由来・LST由来パラメータのグリッド集計。**パラメータセット単位**に出力する | 公開 GIS または `整備データ/merge/merge_*.gpkg` + 衛星指標ラスタ + LSTラスタ + 正準グリッド | `data/output/params/<city_id>/<scale>m/<テーブル名>.gpkg`（`cell_id` キーの属性テーブル） |
 | `src/analysis/build_dataset.py` | 指定テーブル群（LST の `lst_*` を含む）の `cell_id` 結合と品質管理列の導出 | パラメータテーブル + 正準グリッド | `data/output/datasets/dataset_<name>_<city_id>_<scale>m.gpkg` |
-| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装**（3.3 の設計案に対応） | パラメータテーブルまたは結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
+| `src/analysis/calc_neighborhood_vars.py` | 近傍変数（30/60/90/120m）の算出。**未実装・今後の課題**（3.3 の設計案に対応） | パラメータテーブルまたは結合済みデータセット（`cell_id` キー） | 未定（`cell_id` キーのテーブルとする） |
 
 ---
 
@@ -398,15 +399,23 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 - MLR標準化係数とRF/SHAP重要度の一致・不一致
 - 非線形効果の存在有無（MLRとRFの性能差で推定）
 
-### 5.2 RQ2: 空間スケールの影響評価
+### 5.2 RQ2: 集計単位・分析対象範囲の影響評価
 
-**目的**: 都市構造パラメータとLSTの関係が空間集計スケールによってどう変化するか評価する。
+**目的**: 都市構造パラメータとLSTの関係性（説明力と変数の寄与順位）が、空間集計単位（グリッド解像度）と分析対象範囲によってどう変化するか評価する。
 
-> **本節の分析設計は未実装の設計案である。** 以下の `_0` / `_30_60` 等のリング型サフィックスは
-> Step 3.3 の近傍リング設計に対応するものであり、**4.1 の実装済み列とは別**である。
-> 現行の実装は 30 / 90 / 300m のグリッド解像度によるスケール比較であり、リング型変数は算出していない。
+**分析設計**（2軸）:
 
-**分析設計**:
+| 軸 | 比較する水準 | 備考 |
+|----|------------|------|
+| 空間集計単位 | 30m / 90m / 300m のグリッド解像度（3.2節） | 説明変数・LST ともセル単位で集計する（LST はセル平均） |
+| 分析対象範囲 | ROI 全域／都心部（測量GIS範囲） | 指定方法は実装スケジュール表下の注記「分析対象範囲の指定」。都心部は `Full` を他シナリオと同じ範囲で比べる前提にもなる（5.3節） |
+
+**評価指標**: 各条件の RMSE・R²（Spatial CV）と、変数の寄与順位（SHAP）の変化。範囲間の比較では RMSE を主、R² を従とする（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 5.1節）。
+
+#### 今後の課題: 近傍リング型変数による比較（未実装の設計案）
+
+> **以下は本研究の RQ2 では扱わない今後の課題である。** `_0` / `_30_60` 等のリング型サフィックスは
+> Step 3.3 の近傍リング設計に対応するものであり、**4.1 の実装済み列とは別**である。リング型変数は算出していない。
 
 | 比較ケース | 説明変数 | 期待する検証 |
 |----------|---------|------------|
@@ -415,7 +424,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 | ケース3（+60-90mリング） | 上記 + `*_60_90` | 近傍2の効果 |
 | ケース4（全スケール） | 全 `*` 変数 | 最大スケールの効果 |
 
-**評価指標**: 各ケースのR², RMSE, 変数重要度の変化
+評価指標は各ケースのR², RMSE, 変数重要度の変化とする。
 
 > **根拠**: S5[Osborne 2019]では「近傍リング(annuli)変数の重要度 > 即時効果、相関0.956」を示した。
 
@@ -431,6 +440,8 @@ LST分布をどの程度説明できるかを評価する。
 | Full（フルデータ） | 衛星指標 + 公開GIS + 測量GIS | 理想的な研究環境 |
 | Limited（制約あり） | 衛星指標 + 公開GIS（OSM道路、GlobalBuildingAtlas建物、FABDEM標高 ほか） | 測量データ入手困難な都市 |
 | Satellite Only | 衛星指標のみ | 最も制約された状況 |
+
+> `Full` は測量GISの有効域でしか成立しないため、3シナリオの比較はこの範囲（都心部）に揃えて行う。ROI 全域では `Satellite Only` と `Limited` を比較する（5.2節の分析対象範囲の軸）。
 
 **公開GISデータ取得**:
 
@@ -530,7 +541,7 @@ python -m src.analysis.repeat_common_evaluation --evaluation-cells data/output/c
 | SHAP Summary Plot | 変数重要度の寄与方向可視化 | RQ1 |
 | Feature Importance棒グラフ | RFの変数重要度ランキング | RQ1 |
 | 散布図（LST vs 各パラメータ） | 個別の関係性確認 | RQ1 |
-| スケール別R²比較グラフ | 近傍スケールの効果比較 | RQ2 |
+| 解像度・対象範囲別の性能比較グラフ | グリッド解像度・分析対象範囲による RMSE・R² と寄与順位の変化 | RQ2 |
 | シナリオ別性能比較 | データ制約の影響可視化 | RQ3 |
 
 ### 6.3 可視化スクリプト設計
@@ -551,7 +562,7 @@ python -m src.analysis.repeat_common_evaluation --evaluation-cells data/output/c
 | **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・1観測日。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲。分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 2** | 公開 GIS 候補の取得・QA | `extract_geofabrik_roads_hanoi.py`, `fetch_microsoft_buildings_hanoi.py`, Google / OSM 建物取得スクリプト | 🔴 高 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
-| **Phase 3** | 近傍変数算出 | `calc_neighborhood_vars.py` | 🟡 中 |
+| **Phase 3** | 近傍変数算出（今後の課題。本研究の RQ2 では扱わない） | `calc_neighborhood_vars.py` | ⚪ 今後の課題 |
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
 | **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など（分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 5** | `Full` シナリオ比較（RQ3） | `analysis_rq3_full.py` など | 🟡 中 |
@@ -566,7 +577,7 @@ python -m src.analysis.repeat_common_evaluation --evaluation-cells data/output/c
 
 | 事項 | 現状 | 検討方向 |
 |------|------|---------|
-| 対象都市のROI確定 | ハノイROIは確認済み | 複数都市への拡張可否を検討 |
+| 対象都市のROI確定 | ハノイROIは確認済み。対象はハノイ1都市に限ると決定済み（2026-10-25） | 他都市への拡張は本研究の範囲外とする（[research_guide.md](../01_planning/research_guide.md) §4.2 第四） |
 | LSTの日付選定 | 3観測日は確定済み | 追加観測日の拡張条件を整理する |
 | 公開建物データ | GlobalBuildingAtlas を `Limited` の主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM を主候補 | 道路種別と欠測率の QA を続ける |

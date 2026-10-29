@@ -72,7 +72,7 @@ from src.common.config import (
     WGS84_CRS,
 )
 from src.common.env_file import DEFAULT_ENV_FILE_PATH, resolve_secret
-from src.common.http_fetch import fetch_bytes_with_retry
+from src.common.http_fetch import fetch_bytes_with_retry, is_allowed_https_url
 from src.common.paths import prepare_output_path, to_project_relative_string
 from src.common.raster_area import (
     DEFAULT_RASTER_NODATA,
@@ -511,8 +511,7 @@ def is_safe_download_url(url: str) -> bool:
     Returns:
         スキームが https で、かつ許可したホストであれば True。
     """
-    parsed = urllib.parse.urlparse(url)
-    return parsed.scheme == "https" and parsed.hostname in ALLOWED_DOWNLOAD_HOSTS
+    return is_allowed_https_url(url, ALLOWED_DOWNLOAD_HOSTS)
 
 
 def parse_listing_size(raw_size: Any, file_name: str) -> int | None:

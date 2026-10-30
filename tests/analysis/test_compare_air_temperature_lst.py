@@ -190,6 +190,24 @@ class TestSelectNearestIsdValue:
         assert value is not None
         assert value.temperature_c == 32
 
+    def test_offset_at_limit_is_kept(self) -> None:
+        """通過時刻との差が許容幅ちょうど（90分）なら採る。"""
+        pass_time = datetime(2022, 9, 6, 1, 30, tzinfo=timezone.utc)
+        table = self._table(["2022-09-06T03:00:00"], [31.6])
+        value = target.select_nearest_isd_value(table, pass_time)
+        assert value is not None
+        assert value.offset_minutes == pytest.approx(90.0)
+
+    def test_offset_beyond_limit_is_none(self) -> None:
+        """03:00 が欠けて 06:00 しか無いなど、許容幅を超える観測は欠測にする。"""
+        table = self._table(["2022-09-06T00:00:00", "2022-09-06T06:00:00"], [27.0, 35.2])
+        assert target.select_nearest_isd_value(table, PASS_TIME) is None
+
+    def test_custom_limit(self) -> None:
+        """許容幅を引数で狭めると、6分ずれの観測も欠測になる。"""
+        table = self._table(["2022-09-06T03:30:00"], [33.0])
+        assert target.select_nearest_isd_value(table, PASS_TIME, max_offset_minutes=5) is None
+
     def test_empty_table_is_none(self) -> None:
         """有効な観測が無ければ None。"""
         assert target.select_nearest_isd_value(self._table([], []), PASS_TIME) is None

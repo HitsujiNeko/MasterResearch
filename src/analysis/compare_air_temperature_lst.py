@@ -96,6 +96,10 @@ KELVIN_TO_CELSIUS_OFFSET = 273.15
 ISD_MISSING_TEMPERATURE = "+9999"
 ISD_REJECTED_QUALITY_CODES = frozenset({"2", "3", "6", "7"})
 
+# 通過時刻との差の許容幅（分）。3時間ごとの SYNOP で通過時刻に近い観測が欠けた場合に、
+# 数時間離れた値が警告なしに表へ入るのを防ぐ
+ISD_MAX_OFFSET_MINUTES = 90.0
+
 ROI_SITE_ID = "ROI"
 
 
@@ -160,7 +164,9 @@ def load_isd_temperatures(csv_path: Path) -> pd.DataFrame:
     return table.dropna(subset=["temperature_c"]).reset_index(drop=True)
 
 
-def select_nearest_isd_value(table: pd.DataFrame, pass_time: datetime) -> NearestIsdValue | None:
+def select_nearest_isd_value(
+    table: pd.DataFrame, pass_time: datetime, max_offset_minutes: float = ISD_MAX_OFFSET_MINUTES
+) -> NearestIsdValue | None:
     """通過時刻に最も近い観測の気温を選ぶ。
 
     時刻差が同じ観測が前後にある場合は、通過前の観測を採る（通過時刻までの状態を表すため）。
@@ -168,9 +174,10 @@ def select_nearest_isd_value(table: pd.DataFrame, pass_time: datetime) -> Neares
     Args:
         table: `load_isd_temperatures` の戻り値。
         pass_time: 衛星の通過時刻（UTC のタイムゾーンつき）。
+        max_offset_minutes: 通過時刻との差の許容幅（分。この値ちょうどは採る）。
 
     Returns:
-        最も近い観測。有効な観測が無い場合は None。
+        最も近い観測。有効な観測が無い場合、または最も近い観測でも許容幅を超える場合は None。
     """
     if table.empty:
         return None
@@ -180,6 +187,12 @@ def select_nearest_isd_value(table: pd.DataFrame, pass_time: datetime) -> Neares
         range(len(table)), key=lambda index: (abs(offsets.iloc[index]), offsets.iloc[index])
     )
     best = order[0]
+    if abs(offsets.iloc[best]) > max_offset_minutes:
+        logger.warning(
+            f"通過時刻に最も近い ISD の観測でも {offsets.iloc[best]:+.0f} 分離れており、"
+            f"許容幅（±{max_offset_minutes:.0f} 分）を超えるため欠測とします"
+        )
+        return None
     row = table.iloc[best]
     return NearestIsdValue(
         temperature_c=float(row["temperature_c"]),
@@ -641,6 +654,7 @@ def run(
             "lst_std": "母標準偏差（ddof=0）",
             "isd_stations": [asdict(station) for station in HANOI_ISD_STATIONS],
             "isd_rejected_quality_codes": sorted(ISD_REJECTED_QUALITY_CODES),
+            "isd_max_offset_minutes": ISD_MAX_OFFSET_MINUTES,
             "era5_land_collection": ERA5_LAND_COLLECTION,
             "era5_land_band": ERA5_LAND_BAND,
             "era5_land_scale_m": ERA5_LAND_SCALE_METERS,

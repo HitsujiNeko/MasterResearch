@@ -65,7 +65,9 @@ class IsdStation:
     longitude: float
 
 
-# isd-history.csv（2026-10-29 取得）の値を転記した。座標は小数第3位までしか記録されていない
+# isd-history.csv（2026-10-29 取得）の値を転記した（小数第3位まで）。毎時値の CSV の座標は
+# NOIBAI INTL が 21.221192, 105.807178（転記値との差は約30m）、HA DONG が 20.9666666, 105.7666666
+# （1分単位の丸めで、測器の位置の不確かさは約 ±900m）である
 HANOI_ISD_STATIONS: tuple[IsdStation, ...] = (
     IsdStation(station_id="48820099999", name="NOIBAI INTL", latitude=21.221, longitude=105.807),
     IsdStation(station_id="48825099999", name="HA DONG", latitude=20.967, longitude=105.767),
@@ -135,7 +137,7 @@ def validate_isd_csv(content: bytes) -> None:
         content: 取得した本文。
 
     Raises:
-        ValueError: 本文が空、またはヘッダーに `DATE`・`TMP` が無い場合。
+        ValueError: 本文が空、ヘッダーに `DATE`・`TMP` が無い、またはデータ行が無い場合。
     """
     text = content.decode("utf-8-sig").strip()
     if not text:
@@ -148,6 +150,10 @@ def validate_isd_csv(content: bytes) -> None:
         raise ValueError(
             f"ISD の CSV ではありません（不足列: {missing}）: 先頭行={text.splitlines()[0][:200]}"
         )
+    # ヘッダーのみの CSV を保存すると、既定では取得し直さないため欠測のまま残り続ける
+    data_lines = [line for line in text.splitlines()[1:] if line.strip()]
+    if not data_lines:
+        raise ValueError("取得した CSV にデータ行がありません（ヘッダーのみ）")
 
 
 def fetch_station_day(

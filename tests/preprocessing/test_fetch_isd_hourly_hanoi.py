@@ -71,6 +71,11 @@ class TestValidateIsdCsv:
         with pytest.raises(ValueError, match="空"):
             target.validate_isd_csv(b"  \n")
 
+    def test_header_only_raises(self) -> None:
+        """ヘッダーのみ（データ行が0件）の本文は例外。"""
+        with pytest.raises(ValueError, match="データ行"):
+            target.validate_isd_csv(b'"STATION","DATE","REPORT_TYPE","TMP"\n\n')
+
     def test_missing_tmp_column_raises(self) -> None:
         """`TMP` 列が無ければ例外（エラーメッセージなど CSV でない本文）。"""
         with pytest.raises(ValueError, match="TMP"):

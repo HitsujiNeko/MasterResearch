@@ -101,7 +101,7 @@ class TestAggregateCountsToReferenceGrid:
     def test_matches_full_index_grid_aggregation(self) -> None:
         """ソース全画素の添字グリッドを作って集計した場合と完全に一致する（出力を変えない）。
 
-        ソースが基準グリッドの北西へはみ出し、nodata も混ざる配置で、合計値まで
+        ソースが基準グリッドの北・西・東へはみ出し、nodata も混ざる配置で、合計値まで
         ビット単位で比べる（足し込む順序が変わると浮動小数点の合計がずれうるため）。
         """
         fine_transform = from_origin(

@@ -388,7 +388,7 @@ class TestClipAndWrite:
         """tiled のソースを小さい範囲で切り出しても、ソースのタイル設定を引き継がない。
 
         ソースの profile を引き継ぐと、出力寸法より大きい 256x256 のタイルのまま
-        書き出される（rasterio 1.4.3 では例外にならず、タイル設定だけが残る）。
+        書き出される（確認時点の rasterio 1.4.3 では例外にならず、タイル設定だけが残る）。
         """
         source_path = tmp_path / "tiled_source.tif"
         pixel_size_deg = 1.0 / 120.0

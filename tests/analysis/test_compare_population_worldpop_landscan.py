@@ -142,8 +142,9 @@ class TestAggregateCountsToReferenceGrid:
 
         np.testing.assert_array_equal(aggregated, expected_counts)
         np.testing.assert_array_equal(contributing, expected_pixels)
-        # はみ出し分を除いても一部の画素は集計されている（比較が空振りしていない）
-        assert 0 < contributing.sum() < fine_counts.size
+        # 一部の画素は集計され（比較が空振りしていない）、nodata でない画素のうち
+        # 基準グリッドの外にある分は除かれている（範囲外の除外が効いている）
+        assert 0 < contributing.sum() < int((fine_counts != target.NODATA).sum())
 
     def test_rejects_rotated_transform(self) -> None:
         """回転・スキューのあるグリッドは行列インデックス計算が破綻するため弾く。"""

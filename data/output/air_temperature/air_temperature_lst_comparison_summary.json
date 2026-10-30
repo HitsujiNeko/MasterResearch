@@ -1,11 +1,11 @@
 {
   "provenance": {
     "script": "src.analysis.compare_air_temperature_lst",
-    "executed_at": "2026-10-30T14:36:29.221903+00:00",
+    "executed_at": "2026-10-30T14:46:04.995689+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "1aed91af68432335c97cacb76268498b480702f9",
+      "commit": "9a2666dad8df6f5beb70816fdec75d30090ddf2f",
       "dirty": false
     },
     "code": {
@@ -17,7 +17,7 @@
       "files": [
         {
           "path": "src/analysis/compare_air_temperature_lst.py",
-          "sha256": "9a1c9523d9ce4deecdf422422d0c9c3ee9e7e452cff40edc41701b82fb0617c3"
+          "sha256": "c4d41511497282f619f8e07c5da9186c897a0cbec7370195e1c5ce5618b32cdc"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",

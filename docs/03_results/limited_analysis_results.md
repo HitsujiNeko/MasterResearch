@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-10-27  
+**最終更新**: 2026-10-30  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -1068,7 +1068,7 @@ Satellite Only が同じ観測 032305 へ移行したため、参考比較を同
 
 ## 7. 今後の研究の方向性
 
-- **シナリオ間比較の標本統制（032358 は実施済み）**: 主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した（8.6節）。残る課題は次のとおりである。(1) 分光指数の扱いがシナリオ間で揃っておらず、差を公開GISの追加による効果だけとして読めない（8.6.5節。「Satellite Only の水指数の扱い」と合わせて扱う）。(2) 032305 では共通評価セルでの比較をしていない（6.7節は参考比較のまま）。(3) Esri 版・Full・測量GIS範囲は共通集合に含めていない（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
+- **シナリオ間比較の標本統制（032358 は実施済み）**: 主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した（8.6節）。残る課題は次のとおりである。(1) 分光指数の扱いがシナリオ間で揃っておらず、差を公開GISの追加による効果だけとして読めない（8.6.5節。「Satellite Only の水指数の扱い」と合わせて扱う）。(2) 032305 では共通評価セルでの比較をしていない（6.7節は参考比較のまま）。(3) Esri 版・Full は共通集合に含めていない（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）。測量GIS範囲は全域の共通集合には含めず、範囲別の評価セルで比較した（[survey_area_comparison_results.md](survey_area_comparison_results.md) 7.6節）
 - **主採用の観測・採用構成での他の比較軸の測り直し**: 分光指数の共線性は `--water-index none` の採用で解消したが（6.5節）、変数セット・建物高さ・人口・土地被覆ソースの各軸（ラン2〜11）は旧世代のデータセットと `ndwi` 構成による結果のままであり、水指数の構成比較（ラン12〜15）も旧採用の観測による。主採用の観測（8章）で実行したのは採用構成（ラン13 相当）だけである。採用構成を前提に各軸の結論（特に変数セット軸の「分光指数が被覆率型を上回る」・4.3節）が変わらないかを、主採用の観測で測り直す。Esri 版データセットの再生成も含む
 - **主採用の観測で R² が上がった要因の切り分け**: 8.5節のとおり、旧採用の観測と比べて R² は標本変動をはるかに超えて上がったが、母集団（カバレッジ）の違いと観測条件（気象・都心と郊外の LST 差）の違いを分離していない。2観測に共通するセルへ限定した評価で切り分ける
 - **比較用の乾季の観測での実行**: [observation_selection.md](../02_methods/observation_selection.md) 8.5節の比較用の観測 `2024-11-30T03:23:36` は未実行である（指標の再エクスポートが先に要る）

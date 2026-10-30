@@ -1,0 +1,285 @@
+{
+  "provenance": {
+    "script": "src.analysis.compare_air_temperature_lst",
+    "executed_at": "2026-10-30T00:04:32.110669+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "96a79677e55d74915ef27caa41a8fd6e7eb1c340",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/compare_air_temperature_lst.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/compare_air_temperature_lst.py",
+          "sha256": "17ce04386d00acb75c0efe77b6eca402e8b4559103d4a74ff716a2d7ec7bd91b"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.0.7",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+        "sha256": "e2fbdaa4d2577113a36d4f24a2b9a73d293eefe1fc674b04bc4ac43a991572a5"
+      },
+      {
+        "path": "data/satellite/lst/2022/LST_Landsat8_20220906_032358Z.tif",
+        "sha256": "ed7b484ac3504625c9b3e5fdb592dfae12f874c7f9eeefafe91ad0031142fccd"
+      },
+      {
+        "path": "data/input/air_temperature/isd/48820099999_20220906.csv",
+        "sha256": "14b139de1a0ad2921a81fb1637a4b03be13aeacc2a78b4af3d0b3ec4d943e7de"
+      },
+      {
+        "path": "data/input/air_temperature/isd/48825099999_20220906.csv",
+        "sha256": "c2712635b38b1e88e5edad64c596d0db2b67065d25f06487225cb88f329a91c1"
+      },
+      {
+        "path": "data/satellite/lst/2023/LST_Landsat8_20230707_032305Z.tif",
+        "sha256": "42218abbca6adbbd24714e23212490f5ed82243d9f90084b793c2f2acb1ac71b"
+      },
+      {
+        "path": "data/input/air_temperature/isd/48820099999_20230707.csv",
+        "sha256": "42caa7d36aae3d37a7cf6800f4b0724029286476546e0b23eca08914f10dad4f"
+      },
+      {
+        "path": "data/input/air_temperature/isd/48825099999_20230707.csv",
+        "sha256": "085fb09375ec785019fa8d1ecfe45f5d4068408f8ba8bf605037e71e53c7c469"
+      },
+      {
+        "path": "data/satellite/lst/2023/LST_Landsat8_20241130_032336Z.tif",
+        "sha256": "1b2e087d7a147a1316d23a82984f8f05c833042f6ca686d199a2d52102d9fc56"
+      },
+      {
+        "path": "data/input/air_temperature/isd/48820099999_20241130.csv",
+        "sha256": "801d5cdc9d8e486a4be21b5db7f6bd229d559eefcc4de14bc9e6027b13fa9749"
+      },
+      {
+        "path": "data/input/air_temperature/isd/48825099999_20241130.csv",
+        "sha256": "37def7a6e86c8fcfaafaa363dfdd411b32ec2ad8a3252c353a9b85351cd04afc"
+      }
+    ]
+  },
+  "parameters": {
+    "observations_utc": [
+      "2022-09-06T03:23:58",
+      "2023-07-07T03:23:05",
+      "2024-11-30T03:23:36"
+    ],
+    "lst_paths": {
+      "2022-09-06T03:23:58": "data/satellite/lst/2022/LST_Landsat8_20220906_032358Z.tif",
+      "2023-07-07T03:23:05": "data/satellite/lst/2023/LST_Landsat8_20230707_032305Z.tif",
+      "2024-11-30T03:23:36": "data/satellite/lst/2023/LST_Landsat8_20241130_032336Z.tif"
+    },
+    "lst_window_size": 3,
+    "lst_std": "母標準偏差（ddof=0）",
+    "isd_stations": [
+      {
+        "station_id": "48820099999",
+        "name": "NOIBAI INTL",
+        "latitude": 21.221,
+        "longitude": 105.807
+      },
+      {
+        "station_id": "48825099999",
+        "name": "HA DONG",
+        "latitude": 20.967,
+        "longitude": 105.767
+      }
+    ],
+    "isd_rejected_quality_codes": [
+      "2",
+      "3",
+      "6",
+      "7"
+    ],
+    "era5_land_collection": "ECMWF/ERA5_LAND/HOURLY",
+    "era5_land_band": "temperature_2m",
+    "era5_land_scale_m": 11132,
+    "era5_land_interpolation": "通過時刻をはさむ2つの正時の値を線形内挿"
+  },
+  "era5_land_raw_values": {
+    "2022-09-06T03:23:58": {
+      "hour_before_utc": "2022-09-06T03:00:00+00:00",
+      "hour_after_utc": "2022-09-06T04:00:00+00:00",
+      "values_before_k": {
+        "ROI": 304.45810556732624,
+        "48820099999": 304.7535400390625,
+        "48825099999": 304.6324462890625
+      },
+      "values_after_k": {
+        "ROI": 305.5052270450309,
+        "48820099999": 305.8761444091797,
+        "48825099999": 305.7179412841797
+      }
+    },
+    "2023-07-07T03:23:05": {
+      "hour_before_utc": "2023-07-07T03:00:00+00:00",
+      "hour_after_utc": "2023-07-07T04:00:00+00:00",
+      "values_before_k": {
+        "ROI": 306.5887674775772,
+        "48820099999": 306.62554931640625,
+        "48825099999": 306.69976806640625
+      },
+      "values_after_k": {
+        "ROI": 307.61897273724685,
+        "48820099999": 307.71397399902344,
+        "48825099999": 307.78233337402344
+      }
+    },
+    "2024-11-30T03:23:36": {
+      "hour_before_utc": "2024-11-30T03:00:00+00:00",
+      "hour_after_utc": "2024-11-30T04:00:00+00:00",
+      "values_before_k": {
+        "ROI": 294.626103702655,
+        "48820099999": 294.68064880371094,
+        "48825099999": 294.87400817871094
+      },
+      "values_after_k": {
+        "ROI": 295.84394985031696,
+        "48820099999": 295.98313903808594,
+        "48825099999": 296.13938903808594
+      }
+    }
+  },
+  "output_csv": "data/output/air_temperature/air_temperature_lst_comparison.csv",
+  "notes": [
+    "気温と LST は別の物理量であり、本表は観測条件の記述に用いる（LST の妥当性検証ではない）",
+    "ERA5-Land は約9km格子であり、都市内の気温差は表せない"
+  ]
+}

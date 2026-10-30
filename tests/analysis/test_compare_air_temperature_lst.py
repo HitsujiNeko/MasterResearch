@@ -146,6 +146,18 @@ class TestLoadIsdTemperatures:
         assert str(table["observed_at"].dt.tz) == "UTC"
         assert table["observed_at"].iloc[1] == pd.Timestamp("2022-09-06T04:00:00Z")
 
+    def test_drops_rows_without_date(self, tmp_path: Path) -> None:
+        """時刻が空の行は、許容幅の判定をすり抜けないよう除く。"""
+        path = _write_isd_csv(
+            tmp_path / "isd.csv",
+            [("", "FM-15", "+0330,1"), ("2022-09-06T03:30:00", "FM-15", "+0320,1")],
+        )
+        table = target.load_isd_temperatures(path)
+        assert len(table) == 1
+        value = target.select_nearest_isd_value(table, PASS_TIME)
+        assert value is not None
+        assert value.temperature_c == pytest.approx(32.0)
+
 
 class TestSelectNearestIsdValue:
     """通過時刻に最も近い観測の選択。"""

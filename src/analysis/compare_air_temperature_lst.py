@@ -88,7 +88,7 @@ LOCAL_UTC_OFFSET = timedelta(hours=7)
 
 ERA5_LAND_COLLECTION = "ECMWF/ERA5_LAND/HOURLY"
 ERA5_LAND_BAND = "temperature_2m"
-# ERA5-Land のネイティブ解像度（0.1度 ≒ 11,132m）
+# GEE 上の ERA5-Land の格子（0.1度 ≒ 11,132m）。モデル本来の格子は約9km
 ERA5_LAND_SCALE_METERS = 11132
 KELVIN_TO_CELSIUS_OFFSET = 273.15
 
@@ -149,7 +149,7 @@ def load_isd_temperatures(csv_path: Path) -> pd.DataFrame:
 
     Returns:
         `observed_at`（UTC のタイムゾーンつき）・`report_type`・`temperature_c` 列の表。
-        欠測・除外した値の行は含まない。
+        気温が欠測・除外の行と、時刻が欠けた行は含まない。
     """
     raw = pd.read_csv(csv_path, dtype=str, usecols=["DATE", "REPORT_TYPE", "TMP"])
     temperatures = raw["TMP"].map(parse_isd_temperature)
@@ -161,7 +161,8 @@ def load_isd_temperatures(csv_path: Path) -> pd.DataFrame:
             "temperature_c": temperatures,
         }
     )
-    return table.dropna(subset=["temperature_c"]).reset_index(drop=True)
+    # 時刻が欠けた行は時刻差が NaN になり、許容幅の判定をすり抜けるため気温の欠測と同様に除く
+    return table.dropna(subset=["observed_at", "temperature_c"]).reset_index(drop=True)
 
 
 def select_nearest_isd_value(

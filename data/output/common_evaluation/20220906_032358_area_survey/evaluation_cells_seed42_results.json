@@ -1,0 +1,481 @@
+{
+  "description": "Satellite Only と Limited（人口3版）の有効母集団の積を評価用の母集団とし、そこから抽出した標本と fold 割り当て。",
+  "observation": "2022-09-06 03:23:58",
+  "analysis_area": "survey",
+  "datasets": {
+    "satellite_only": "data/output/datasets/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg",
+    "limited": "data/output/datasets/dataset_limited_masksurvey_20220906_032358_hanoi_30m.gpkg"
+  },
+  "lst_valid_ratio_threshold": 0.5,
+  "configurations": {
+    "satellite_only": {
+      "required_mask_columns": [
+        "IN_ANALYSIS_AREA",
+        "IN_ANALYSIS_AREA_SURVEY"
+      ],
+      "non_null_columns": [
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LST"
+      ],
+      "population_size": 111278
+    },
+    "limited_worldpop2020": {
+      "required_mask_columns": [
+        "IN_ANALYSIS_AREA",
+        "IN_ANALYSIS_AREA_SURVEY",
+        "VALID_POP_WORLDPOP2020_MASK",
+        "VALID_NTL_MASK"
+      ],
+      "non_null_columns": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "BUILD_H_MAX",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "MNDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV",
+        "LULC_BARE_COV",
+        "LST"
+      ],
+      "building_height_zero_fill": true,
+      "population_size": 110376
+    },
+    "limited_landscan2020": {
+      "required_mask_columns": [
+        "IN_ANALYSIS_AREA",
+        "IN_ANALYSIS_AREA_SURVEY",
+        "VALID_POP_LANDSCAN2020_MASK",
+        "VALID_NTL_MASK"
+      ],
+      "non_null_columns": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "BUILD_H_MAX",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "MNDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV",
+        "LULC_BARE_COV",
+        "LST"
+      ],
+      "building_height_zero_fill": true,
+      "population_size": 111278
+    },
+    "limited_landscan2023": {
+      "required_mask_columns": [
+        "IN_ANALYSIS_AREA",
+        "IN_ANALYSIS_AREA_SURVEY",
+        "VALID_POP_LANDSCAN2023_MASK",
+        "VALID_NTL_MASK"
+      ],
+      "non_null_columns": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "BUILD_H_MAX",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "MNDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV",
+        "LULC_BARE_COV",
+        "LST"
+      ],
+      "building_height_zero_fill": true,
+      "population_size": 111278
+    }
+  },
+  "common_size": 110376,
+  "value_consistency": {
+    "compared_rows": 110376,
+    "columns": [
+      "LST",
+      "NDVI",
+      "NDBI"
+    ],
+    "mismatch_counts": {
+      "LST": 0,
+      "NDVI": 0,
+      "NDBI": 0
+    },
+    "max_abs_difference": {
+      "LST": 0.0,
+      "NDVI": 0.0,
+      "NDBI": 0.0
+    },
+    "tolerance": "numpy.isclose の既定（rtol=1e-05, atol=1e-08）"
+  },
+  "sample_size": 100000,
+  "random_state": 42,
+  "block_size_m": 2700,
+  "cv_splits": 5,
+  "scale_m": 30,
+  "sample": {
+    "row_count": 100000,
+    "n_blocks": 24,
+    "fold_sizes": {
+      "1": 19645,
+      "2": 19732,
+      "3": 21196,
+      "4": 19756,
+      "5": 19671
+    }
+  },
+  "dropout": {
+    "common": {
+      "count": 110376,
+      "lst_mean_c": 34.94913864135742,
+      "lst_sd_c": 3.574843168258667,
+      "means": {
+        "NDVI": 0.32779785990715027,
+        "BUILD_COV": 0.24246416985988617,
+        "LULC_WATER_COV": 0.13696204125881195
+      },
+      "missing_counts": {
+        "NDVI": 0,
+        "BUILD_COV": 0,
+        "LULC_WATER_COV": 0
+      },
+      "water_cover_classes": {
+        "none": 92855,
+        "slight": 788,
+        "partial": 1669,
+        "dominant": 1409,
+        "water": 13655,
+        "missing": 0
+      }
+    },
+    "satellite_only": {
+      "population_size": 111278,
+      "dropped_count": 902,
+      "dropped_ratio": 0.008105825050773738,
+      "dropped": {
+        "count": 902,
+        "lst_mean_c": 30.010848999023438,
+        "lst_sd_c": 2.7372078895568848,
+        "means": {
+          "NDVI": 0.12546463310718536,
+          "BUILD_COV": 0.02328159660100937,
+          "LULC_WATER_COV": 0.2938236594200134
+        },
+        "missing_counts": {
+          "NDVI": 0,
+          "BUILD_COV": 0,
+          "LULC_WATER_COV": 0
+        },
+        "water_cover_classes": {
+          "none": 330,
+          "slight": 76,
+          "partial": 218,
+          "dominant": 278,
+          "water": 0,
+          "missing": 0
+        }
+      },
+      "block_concentration": {
+        "n_blocks": 24,
+        "blocks_with_dropout": 17,
+        "blocks_over_50pct": 0
+      }
+    },
+    "limited_worldpop2020": {
+      "population_size": 110376,
+      "dropped_count": 0,
+      "dropped_ratio": 0.0,
+      "dropped": {
+        "count": 0,
+        "lst_mean_c": null,
+        "lst_sd_c": null,
+        "means": {
+          "NDVI": null,
+          "BUILD_COV": null,
+          "LULC_WATER_COV": null
+        },
+        "missing_counts": {
+          "NDVI": 0,
+          "BUILD_COV": 0,
+          "LULC_WATER_COV": 0
+        },
+        "water_cover_classes": {
+          "none": 0,
+          "slight": 0,
+          "partial": 0,
+          "dominant": 0,
+          "water": 0,
+          "missing": 0
+        }
+      },
+      "block_concentration": {
+        "n_blocks": 24,
+        "blocks_with_dropout": 0,
+        "blocks_over_50pct": 0
+      }
+    },
+    "limited_landscan2020": {
+      "population_size": 111278,
+      "dropped_count": 902,
+      "dropped_ratio": 0.008105825050773738,
+      "dropped": {
+        "count": 902,
+        "lst_mean_c": 30.010848999023438,
+        "lst_sd_c": 2.7372078895568848,
+        "means": {
+          "NDVI": 0.12546463310718536,
+          "BUILD_COV": 0.02328159660100937,
+          "LULC_WATER_COV": 0.2938236594200134
+        },
+        "missing_counts": {
+          "NDVI": 0,
+          "BUILD_COV": 0,
+          "LULC_WATER_COV": 0
+        },
+        "water_cover_classes": {
+          "none": 330,
+          "slight": 76,
+          "partial": 218,
+          "dominant": 278,
+          "water": 0,
+          "missing": 0
+        }
+      },
+      "block_concentration": {
+        "n_blocks": 24,
+        "blocks_with_dropout": 17,
+        "blocks_over_50pct": 0
+      }
+    },
+    "limited_landscan2023": {
+      "population_size": 111278,
+      "dropped_count": 902,
+      "dropped_ratio": 0.008105825050773738,
+      "dropped": {
+        "count": 902,
+        "lst_mean_c": 30.010848999023438,
+        "lst_sd_c": 2.7372078895568848,
+        "means": {
+          "NDVI": 0.12546463310718536,
+          "BUILD_COV": 0.02328159660100937,
+          "LULC_WATER_COV": 0.2938236594200134
+        },
+        "missing_counts": {
+          "NDVI": 0,
+          "BUILD_COV": 0,
+          "LULC_WATER_COV": 0
+        },
+        "water_cover_classes": {
+          "none": 330,
+          "slight": 76,
+          "partial": 218,
+          "dominant": 278,
+          "water": 0,
+          "missing": 0
+        }
+      },
+      "block_concentration": {
+        "n_blocks": 24,
+        "blocks_with_dropout": 17,
+        "blocks_over_50pct": 0
+      }
+    }
+  },
+  "notes": [
+    "dropout の各構成は、その構成の有効母集団に含まれるが共通集合から外れたセルの集計。common は共通集合自体（Satellite Only のデータセットの LST・NDVI）の集計。",
+    "Satellite Only の BUILD_COV・LULC_WATER_COV は Limited のデータセットから cell_id で引いた値で、引けないセルは missing_counts に数える。",
+    "block_concentration の脱落率は、構成の有効母集団に対するブロック単位の割合。",
+    "LST の単位は °C。"
+  ],
+  "provenance": {
+    "script": "src.analysis.build_common_evaluation_set",
+    "executed_at": "2026-10-29T14:21:51.576059+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "ef5f7a395f890c149939a6f0ac49e649ce1157f6",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/build_common_evaluation_set.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/build_common_evaluation_set.py",
+          "sha256": "d629813b634d430955e88824378d7e0489925f6f05a2e7a524725fe5829d0631"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.0.7",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "6a39415271bd956e8aa9dce7da9005f570015b119614fb01ba2b78be9cfc27bd"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_masksurvey_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "239c40f60cfd9295335e0ae756d3cdb194bdfd7932fcedb48ce7c9360d9a9492"
+      }
+    ]
+  },
+  "evaluation_cells": {
+    "file_name": "evaluation_cells_seed42.csv",
+    "row_count": 100000,
+    "digest": "589b2e3d40e230698a3b31957eaf5fef37e789cfb106077f384799faa0c6f346",
+    "digest_note": "cell_id・block_id・fold の3列を int64 に揃えた値から行順込みで求めたSHA-256。ファイルのバイト列のハッシュではない（改行変換の影響を受けない）。"
+  }
+}

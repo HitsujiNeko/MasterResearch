@@ -78,13 +78,14 @@ def compute_density_array(
     valid_mask = count_array != nodata
     density_array = np.full(count_array.shape, nodata, dtype=np.float32)
     # 有効画素だけを割り、nodata 画素は初期値のまま残す。全画素ぶんの商の一時配列を作らない。
-    # 割り算のループは入力の型で決まる（面積が float64 のため float64 で割る）ので、
-    # 結果は「float64 で割ってから float32 へ丸める」と一致する
+    # 割り算は入力の型によらず float64 で行い、float32 の出力へ丸めて書き込む
+    # （「float64 で割ってから float32 へ丸める」と同じ結果になる）
     np.divide(
         count_array,
         cell_area_km2,
         out=density_array,
         where=valid_mask,
+        dtype=np.float64,
         casting="same_kind",
     )
     return density_array

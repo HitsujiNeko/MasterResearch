@@ -169,10 +169,16 @@ def aggregate_counts_to_reference_grid(
     # 合計値）は、ソース形状の添字グリッドをマスクで抜き出した場合と変わらない
     row_positions, column_positions = np.nonzero(valid_mask)
     target_index = (reference_rows[row_positions], reference_columns[column_positions])
+    # 位置配列は添字を作った時点で不要になる。値を取り出す前に解放しないと、有効画素が
+    # 多いときに位置配列・添字・値が同時に載り、ピークメモリが減らない。値は位置配列を
+    # 使い回さず、マスクから（同じ C 順で）取り出す
+    del row_positions, column_positions
+    source_values = source_counts[valid_mask].astype(np.float64)
+    del valid_mask
 
     aggregated_counts = np.zeros(reference_shape, dtype=np.float64)
     contributing_pixels = np.zeros(reference_shape, dtype=np.int64)
-    np.add.at(aggregated_counts, target_index, source_counts[valid_mask].astype(np.float64))
+    np.add.at(aggregated_counts, target_index, source_values)
     np.add.at(contributing_pixels, target_index, 1)
     return aggregated_counts, contributing_pixels
 

@@ -290,7 +290,7 @@ def test_radiance_band_names_match_fetch_script_output_names() -> None:
     逆方向（GEE・HDF側のバンド改名）は取得スクリプトの ``source_name`` が受け止めて
     そちらが落ちるため、分析側が誤警告を出す経路にはならない。
     """
-    from src.preprocessing.fetch_black_marble_hanoi import (
+    from src.preprocessing.black_marble.product import (
         PRIMARY_BAND_NAME as BLACK_MARBLE_PRIMARY_BAND,
     )
     from src.preprocessing.fetch_viirs_dnb_hanoi import (

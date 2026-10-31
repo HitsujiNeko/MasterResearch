@@ -1,6 +1,6 @@
 # 夜間光データの調査・評価
 
-**最終更新**: 2026-08-30  
+**最終更新**: 2026-10-30  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義
 
@@ -118,6 +118,8 @@ Hanoi ROIでの実データ取得結果は5章に記載する。説明変数と�
 
 取得スクリプト: `src/preprocessing/fetch_viirs_dnb_hanoi.py`（VIIRS DNB）/ `src/preprocessing/fetch_black_marble_hanoi.py`（Black Marble）
 比較スクリプト: `src/analysis/compare_nighttime_lights_viirs_blackmarble.py`
+
+Black Marble の取得スクリプトはコマンドライン引数の解釈（既定値・ログ設定を含む）と実行の振り分けだけを持ち、処理の本体は `src/preprocessing/black_marble/` に責務ごとのモジュールとして置いている（製品定義 `product`・認証 `auth`・タイル格子 `tile_grid`・ファイル一覧 `listing`・タイル取得 `download`・HDF5 変換 `conversion`・サマリー `report`・処理全体 `pipeline`）。実行方法（`python -m src.preprocessing.fetch_black_marble_hanoi`）は変わらない。
 
 **QGISスタイル**: `qgis/styles/nighttime_lights_radiance.qml`（両データセット共有。「同じ色＝同じ放射輝度」で直接比較できるよう、9区分の分類を共通化している）
 

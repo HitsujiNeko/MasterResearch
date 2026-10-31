@@ -431,6 +431,44 @@ def test_fetch_json_with_retry_rate_limit_backoff(monkeypatch: pytest.MonkeyPatc
     assert sleep_calls == [60, 120, 240]
 
 
+class TestIsAllowedHttpsUrl:
+    """is_allowed_https_url のテスト。
+
+    認証ヘッダーを付けて開く URL の判定。初回 URL とリダイレクト先の双方の
+    判定がこの関数に集約されているため、許可・拒否の境界をここで固定する。
+    """
+
+    ALLOWED_HOSTS = frozenset({"allowed.example"})
+
+    def test_accepts_https_url_on_allowed_host(self) -> None:
+        """https かつ許可ホストの URL は許可する。"""
+        assert http_fetch.is_allowed_https_url("https://allowed.example/x", self.ALLOWED_HOSTS)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://allowed.example/x",
+            "https://evil.invalid/x",
+            "https://allowed.example.evil.invalid/x",
+            "https://evil.invalid/allowed.example",
+            "file:///etc/passwd",
+            "allowed.example/x",
+            "",
+        ],
+    )
+    def test_rejects_other_scheme_or_host(self, url: str) -> None:
+        """http への降格・許可外ホスト・ホストを持たない URL は拒否する。
+
+        ホスト名の前方一致（`allowed.example.evil.invalid`）やパス中の一致も
+        許可しないことを確かめる。
+        """
+        assert not http_fetch.is_allowed_https_url(url, self.ALLOWED_HOSTS)
+
+    def test_rejects_everything_when_no_host_is_allowed(self) -> None:
+        """許可ホストが空なら、https であっても拒否する。"""
+        assert not http_fetch.is_allowed_https_url("https://allowed.example/x", frozenset())
+
+
 class TestRestrictedRedirectHandler:
     """RestrictedRedirectHandler のテスト。
 

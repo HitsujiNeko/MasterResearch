@@ -27,6 +27,23 @@ logger = logging.getLogger(__name__)
 PERMANENT_HTTP_STATUS_CODES = (400, 401, 403, 404, 405, 410)
 
 
+def is_allowed_https_url(url: str, allowed_hosts: frozenset[str]) -> bool:
+    """URL が https で、かつ許可したホストを指すかを判定する。
+
+    認証ヘッダーを付けて開く URL（初回 URL・リダイレクト先）の検証に使う。
+    同一ホストでも http であればトークンが平文で流れるため、スキームも求める。
+
+    Args:
+        url: 判定する URL。
+        allowed_hosts: 許可するホスト名の集合。
+
+    Returns:
+        スキームが https で、かつホストが `allowed_hosts` に含まれれば True。
+    """
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme == "https" and parsed.hostname in allowed_hosts
+
+
 class RestrictedRedirectHandler(urllib.request.HTTPRedirectHandler):
     """リダイレクト先を https の許可ホストだけに限るハンドラ。
 
@@ -75,8 +92,8 @@ class RestrictedRedirectHandler(urllib.request.HTTPRedirectHandler):
             ValueError: リダイレクト先が https でない、または許可していない
                 ホストの場合。
         """
-        parsed = urllib.parse.urlparse(newurl)
-        if parsed.scheme != "https" or parsed.hostname not in self.allowed_hosts:
+        if not is_allowed_https_url(newurl, self.allowed_hosts):
+            parsed = urllib.parse.urlparse(newurl)
             raise ValueError(
                 "許可していないホストへのリダイレクトを検出しました: "
                 f"{parsed.scheme}://{parsed.hostname}。"

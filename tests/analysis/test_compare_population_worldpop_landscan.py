@@ -98,6 +98,54 @@ class TestAggregateCountsToReferenceGrid:
         assert aggregated.sum() == 0.0
         assert contributing.sum() == 0
 
+    def test_matches_full_index_grid_aggregation(self) -> None:
+        """ソース全画素の添字グリッドを作って集計した場合と完全に一致する（出力を変えない）。
+
+        ソースが基準グリッドの北・西・東へはみ出し、nodata も混ざる配置で、合計値まで
+        ビット単位で比べる（足し込む順序が変わると浮動小数点の合計がずれうるため）。
+        """
+        fine_transform = from_origin(
+            105.0 - 3 * FINE_PIXEL_DEG, 21.0 + 7 * FINE_PIXEL_DEG, FINE_PIXEL_DEG, FINE_PIXEL_DEG
+        )
+        coarse_transform = from_origin(105.0, 21.0, COARSE_PIXEL_DEG, COARSE_PIXEL_DEG)
+        rng = np.random.default_rng(seed=7)
+        fine_counts = rng.uniform(0.0, 100.0, size=(37, 41)).astype(np.float32)
+        fine_counts[rng.random((37, 41)) < 0.1] = target.NODATA
+        reference_shape = (3, 3)
+
+        aggregated, contributing = target.aggregate_counts_to_reference_grid(
+            fine_counts, fine_transform, coarse_transform, reference_shape
+        )
+
+        # 比較用の参照実装: ソース全画素ぶんの行・列番号グリッドを作って集計する
+        row_indices = np.floor(
+            (fine_transform.f + fine_transform.e * (np.arange(37) + 0.5) - coarse_transform.f)
+            / coarse_transform.e
+        ).astype(np.int64)
+        column_indices = np.floor(
+            (fine_transform.c + fine_transform.a * (np.arange(41) + 0.5) - coarse_transform.c)
+            / coarse_transform.a
+        ).astype(np.int64)
+        row_grid, column_grid = np.meshgrid(row_indices, column_indices, indexing="ij")
+        valid_mask = (
+            (fine_counts != target.NODATA)
+            & (row_grid >= 0)
+            & (row_grid < reference_shape[0])
+            & (column_grid >= 0)
+            & (column_grid < reference_shape[1])
+        )
+        expected_counts = np.zeros(reference_shape, dtype=np.float64)
+        expected_pixels = np.zeros(reference_shape, dtype=np.int64)
+        index = (row_grid[valid_mask], column_grid[valid_mask])
+        np.add.at(expected_counts, index, fine_counts[valid_mask].astype(np.float64))
+        np.add.at(expected_pixels, index, 1)
+
+        np.testing.assert_array_equal(aggregated, expected_counts)
+        np.testing.assert_array_equal(contributing, expected_pixels)
+        # 一部の画素は集計され（比較が空振りしていない）、nodata でない画素のうち
+        # 基準グリッドの外にある分は除かれている（範囲外の除外が効いている）
+        assert 0 < contributing.sum() < int((fine_counts != target.NODATA).sum())
+
     def test_rejects_rotated_transform(self) -> None:
         """回転・スキューのあるグリッドは行列インデックス計算が破綻するため弾く。"""
         rotated = Affine(FINE_PIXEL_DEG, 0.0001, 105.0, 0.0001, -FINE_PIXEL_DEG, 21.0)

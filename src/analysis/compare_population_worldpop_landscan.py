@@ -159,23 +159,27 @@ def aggregate_counts_to_reference_grid(
         (center_longitudes - reference_transform.c) / reference_transform.a
     ).astype(np.int64)
 
-    row_grid, column_grid = np.meshgrid(reference_rows, reference_columns, indexing="ij")
-    valid_mask = (
-        (source_counts != nodata)
-        & (row_grid >= 0)
-        & (row_grid < reference_height)
-        & (column_grid >= 0)
-        & (column_grid < reference_width)
-    )
+    # 範囲判定は行・列それぞれの 1 次元配列をブロードキャストして行い、ソース形状の
+    # 添字配列（int64 を 2 本）を作らない
+    rows_in_range = (reference_rows >= 0) & (reference_rows < reference_height)
+    columns_in_range = (reference_columns >= 0) & (reference_columns < reference_width)
+    valid_mask = (source_counts != nodata) & rows_in_range[:, None] & columns_in_range[None, :]
+
+    # 有効画素の (行, 列) 位置は C 順で取り出されるため、足し込む順序（＝浮動小数点の
+    # 合計値）は、ソース形状の添字グリッドをマスクで抜き出した場合と変わらない
+    row_positions, column_positions = np.nonzero(valid_mask)
+    target_index = (reference_rows[row_positions], reference_columns[column_positions])
+    # 位置配列は添字を作った時点で不要になる。値を取り出す前に解放しないと、有効画素が
+    # 多いときに位置配列・添字・値が同時に載り、ピークメモリが減らない。値は位置配列を
+    # 使い回さず、マスクから（同じ C 順で）取り出す
+    del row_positions, column_positions
+    source_values = source_counts[valid_mask].astype(np.float64)
+    del valid_mask
 
     aggregated_counts = np.zeros(reference_shape, dtype=np.float64)
     contributing_pixels = np.zeros(reference_shape, dtype=np.int64)
-    np.add.at(
-        aggregated_counts,
-        (row_grid[valid_mask], column_grid[valid_mask]),
-        source_counts[valid_mask].astype(np.float64),
-    )
-    np.add.at(contributing_pixels, (row_grid[valid_mask], column_grid[valid_mask]), 1)
+    np.add.at(aggregated_counts, target_index, source_values)
+    np.add.at(contributing_pixels, target_index, 1)
     return aggregated_counts, contributing_pixels
 
 

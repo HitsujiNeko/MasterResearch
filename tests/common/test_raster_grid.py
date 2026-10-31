@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 from affine import Affine
@@ -107,3 +109,40 @@ class TestComputeDensityArray:
         density = compute_density_array(count_array, np.array([[0.5]]), NODATA)
 
         assert density.dtype == np.float32
+
+    def test_does_not_divide_nodata_pixels(self) -> None:
+        """nodata 画素では割り算を行わず、有効画素だけを計算する。
+
+        nodata 画素しかない行のセル面積を 0 にすると、nodata 画素まで割っていれば
+        0 除算の RuntimeWarning が出る。出ないことで、有効画素だけを計算したと分かる。
+        なお `where=False` の要素を計算しないことは numpy の文書では明言されておらず
+        （保証されるのは out の値が保たれることまで）、numpy 1.26 で確認した挙動である。
+        """
+        count_array = np.array([[NODATA, NODATA], [3.0, NODATA]], dtype=np.float32)
+        cell_area_km2 = np.array([[0.0], [1.5]])
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            density = compute_density_array(count_array, cell_area_km2, NODATA)
+
+        assert density[0, 0] == NODATA
+        assert density[0, 1] == NODATA
+        assert density[1, 0] == pytest.approx(2.0)
+        assert density[1, 1] == NODATA
+
+    @pytest.mark.parametrize("count_dtype", [np.float32, np.float64])
+    def test_matches_float64_division_rounded_to_float32(self, count_dtype: type) -> None:
+        """float64 で割ってから float32 へ丸めた値とビット単位で一致する（出力を変えない）。"""
+        rng = np.random.default_rng(0)
+        count_array = rng.uniform(0.0, 5000.0, size=(40, 30)).astype(count_dtype)
+        count_array[rng.random((40, 30)) < 0.2] = NODATA
+        cell_area_km2 = rng.uniform(0.5, 1.0, size=(40, 1))
+
+        density = compute_density_array(count_array, cell_area_km2, NODATA)
+
+        valid_mask = count_array != NODATA
+        expected = np.full(count_array.shape, NODATA, dtype=np.float32)
+        expected[valid_mask] = (
+            count_array.astype(np.float64) / np.broadcast_to(cell_area_km2, count_array.shape)
+        )[valid_mask].astype(np.float32)
+        np.testing.assert_array_equal(density, expected)

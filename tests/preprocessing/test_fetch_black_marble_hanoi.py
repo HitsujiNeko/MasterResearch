@@ -46,7 +46,7 @@ def run_main_with_fake_run(
 
     target.main()
 
-    # 本物の run が受け付けない引数名なら TypeError になる
+    # 本物の run と引数名が合わない、または必須引数が足りなければ TypeError になる
     inspect.signature(pipeline.run).bind(**received)
     return received
 
@@ -141,5 +141,5 @@ def test_main_inspect_calls_run_inspection_only(
         "roi_path": target.DEFAULT_HANOI_ROI_PATH,
         "bbox": None,
     }
-    # 本物の run_inspection が受け付けない引数名なら TypeError になる
+    # 本物の run_inspection と引数名が合わない、または必須引数が足りなければ TypeError になる
     inspect.signature(pipeline.run_inspection).bind(**received)

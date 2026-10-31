@@ -1,6 +1,6 @@
 # 水域データ（近接距離・面積率）の調査・評価
 
-**最終更新**: 2026-08-06  
+**最終更新**: 2026-10-31  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義（NDWIとの違い）
 
@@ -24,8 +24,8 @@ Hanoi ROIでの実データは未取得である。採否は [urban_structure_pa
 | 項目 | JRC Global Surface Water (GSW) | OSM 水域データ（`natural=water`/`waterway`） | HydroLAKES / HydroRIVERS | ESA WorldCover 水域クラス | OSM Water Layer（東大版ラスタ） |
 |---|---|---|---|---|---|
 | データ形式 | ラスタ（複数の主題図レイヤ） | ベクタ（ポリゴン/ライン） | ベクタ（ポリゴン/ライン） | ラスタ（土地被覆の1クラス） | ラスタ（OSMから生成） |
-| 空間解像度 | **30m**（本研究グリッドと一致） | ベクタ（解像度の概念なし） | ベクタ（湖沼は10ha以上のみ収録） | 10m | 約90m（3 arc-sec） |
-| データ時期 | 1984〜2024年（月次履歴あり） | 継続的にコミュニティ編集 | 基準年は2016年前後（HydroLAKES v1.0時点） | 2020・2021年の2時点 | OSMの抽出時点（更新は不定期） |
+| 空間解像度 | **約30m**（EPSG:4326。本研究の30mグリッドとは格子が異なる） | ベクタ（解像度の概念なし） | ベクタ（湖沼は10ha以上のみ収録） | 10m | 約90m（3 arc-sec） |
+| データ時期 | GEE の v1.4 は1984〜2021年（月次履歴は1984年3月〜2021年12月）。2022年以降は未収録（3.1節） | 継続的にコミュニティ編集 | 基準年は2016年前後（HydroLAKES v1.0時点） | 2020・2021年の2時点 | OSMの抽出時点（更新は不定期） |
 | 恒常水域/季節水域の区別 | ✅ occurrence/seasonality/recurrenceレイヤで区別可能 | △ タグでは区別されない | △ 湖沼データのみ、季節変動は非対応 | ❌ 区別なし（Permanent water bodiesクラスのみ） | ❌ 区別なし |
 | ベトナム/ハノイ カバレッジ | ✅ 全球データセット | ✅ Geofabrik Vietnam extractで取得可（道路と同じ経路） | △ 10ha未満の小規模な池・湖は収録対象外 | ✅ 全球データセット | ✅ 全球データセット |
 | ライセンス | 無償公開（Copernicus Programme規則） | ODbL 1.0 | CC BY 4.0 | CC BY 4.0 | 要確認（OSM由来のため実質ODbL相当） |
@@ -38,9 +38,10 @@ Hanoi ROIでの実データは未取得である。採否は [urban_structure_pa
 ### 3.1 JRC Global Surface Water (GSW)
 
 - **提供機関**: European Commission Joint Research Centre (JRC)
-- **データソース**: Landsat時系列（1984〜2024年）を解析し、水域の出現頻度・季節性・変遷を定量化
+- **データソース**: Landsat時系列を解析し、水域の出現頻度・季節性・変遷を定量化
+- **版と収録期間（2026-10-31 に GEE で確認）**: GEE で使える最新版は **v1.4**（`JRC/GSW1_4/*`）で、`JRC/GSW1_5` は存在しない。年次の水域分類（`YearlyHistory`）は **1984〜2021年**（38枚）、月次の水域履歴（`MonthlyHistory`）は **1984年3月〜2021年12月**（454枚）。**主採用観測の年（2022年）は含まれない**ため、観測年に最も近い2021年を使う。JRC のデータポータルで2022年以降を含む後続版が配布されているかは**未確認**
 - **主題図レイヤ**: Occurrence（出現頻度）、Recurrence（再現性）、Seasonality（季節性）、Transitions（変遷分類）、Maximum Water Extent（最大水域範囲）等
-- **解像度**: 30m（**本研究の解析グリッドとネイティブ解像度が一致**）
+- **解像度**: 約30m（EPSG:4326・0.00026949度。GLC_FCS30D と同じ画素サイズ）。本研究の解析グリッド（投影座標系の30m正準グリッド）とは格子が一致しないため、セルへの集約が必要
 - **利点**: 40年分のLandsatアーカイブに基づくため、恒常水域と季節水域（雨季の一時的な冠水域等）を区別できる。ベトナムのモンスーン気候下では、季節的に冠水する水田・低地と恒常的な湖沼を区別できる点が重要。
 - **配布形式**: GEEカタログ（`JRC/GSW1_4/GlobalSurfaceWater`等）、Microsoft Planetary Computer、JRCデータポータル直接ダウンロード
 

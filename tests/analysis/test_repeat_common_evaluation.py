@@ -17,6 +17,7 @@ import pytest
 from src.analysis import build_common_evaluation_set
 from src.analysis import repeat_common_evaluation as repeat
 from src.analysis.repeat_common_evaluation import (
+    REPEAT_WATCH_PATHS,
     load_completed_seed,
     main,
     prepare_limited_sample,
@@ -218,6 +219,12 @@ class TestMain:
         assert result["repeated_kfold"]["metrics"]["rf_r2"]["degrees_of_freedom"] == 9
         assert set(result["seed_variation"]) == {"satellite_only", "limited"}
         assert len(result["provenance"]["inputs"]) == 4
+        # 両分析スクリプトと、共通集合の求め方・抽出を持つ評価セル生成スクリプトも監視する
+        code = result["provenance"]["code"]
+        assert set(REPEAT_WATCH_PATHS) <= set(code["watch_paths"])
+        assert "src/analysis/build_common_evaluation_set.py" in {
+            entry["path"] for entry in code["files"]
+        }
         differences = pd.read_csv(
             cells_path.with_name("repeated_comparison_evaluation_cells_seed42_differences.csv")
         )

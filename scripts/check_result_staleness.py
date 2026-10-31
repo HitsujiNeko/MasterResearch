@@ -10,8 +10,9 @@
    （入力の記録にパスが無い場合を含む）
 3. 要再実行・入力変更（`stale_input`）: 入力ファイルの SHA-256 が記録値と一致しない
    （記録値が無い場合を含む）
-4. 要再実行・コード変更（`stale_code`）: 生成時と現在の `HEAD` の間で、生成スクリプト
-   または既定の監視パス（`src/common/` 等）のコードに差分がある。`git.dirty` が真の場合や、
+4. 要再実行・コード変更（`stale_code`）: 生成時と現在の `HEAD` の間で、生成スクリプト・
+   既定の監視パス（`src/common/` 等）・来歴に記録された監視パス（`provenance.code.watch_paths`）
+   のコードに差分がある。`git.dirty` が真の場合や、
    差分を判定する手がかり（コードのハッシュ・記録コミット）が無い場合も、生成時のコードを
    確かめられないためここに含める
 5. 最新（`up_to_date`）: 上記のいずれにも当たらない
@@ -36,8 +37,10 @@ HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わ�
   最初から無い。この理由の結果は「コードが変わった」ではなく「生成時のコードを確かめられ
   ない」と読む。コードのハッシュを持つ結果では、記録範囲の外を監視しない限り起きない
 - 生成スクリプトが import するモジュールのうち、監視するのは `DEFAULT_WATCH_PATHS`
-  （`src/common/` と Spatial CV のブロック分割）だけで、それ以外の補助モジュールの変更は
-  「コード変更」に含めない。必要なら `--extra-watch-path` で監視パスを追加する
+  （`src/common/` と Spatial CV のブロック分割）と、生成時に来歴へ記録した監視パス
+  （生成スクリプトが `build_provenance` の `extra_watch_paths` で加えたもの）だけで、
+  それ以外の補助モジュールの変更は「コード変更」に含めない。必要なら `--extra-watch-path`
+  で監視パスを追加する
 - 来歴のコードのハッシュ（`provenance.code`）の形式が不正な場合は、ハッシュの記録が無い
   ものとして木の比較で判定する
 - 来歴に入力の記録（`inputs`）が無い・空のリストの場合は、入力を照合できないが理由は
@@ -526,20 +529,28 @@ def describe_commit_problem(commit: str | None, git: GitRepository) -> str | Non
 
 
 def resolve_watch_paths(
-    result: StalenessResult, script: object, extra_watch_paths: tuple[str, ...]
+    result: StalenessResult,
+    script: object,
+    extra_watch_paths: tuple[str, ...],
+    recorded_watch_paths: Iterable[str] = (),
 ) -> list[str]:
-    """生成スクリプト・既定の監視パス・追加の監視パスを並べる（重複は除く）。
+    """生成スクリプト・既定・記録・追加の監視パスを並べる（重複は除く）。
 
-    生成スクリプトが記録されていない場合は理由を追加し、既定と追加の監視パスだけを返す。
+    来歴に記録された監視パスも加えるのは、生成スクリプトが既定の範囲の外に依存する
+    コード（`build_provenance` の `extra_watch_paths`）を記録している場合に、その変更も
+    検出するためである。記録された監視パスはハッシュの記録範囲そのものなので、既定の
+    範囲しか記録していない結果の判定は変わらない。
+    生成スクリプトが記録されていない場合は理由を追加し、生成スクリプト以外の監視パスを返す。
 
     Args:
         result: 判定結果（理由の追加先）。
         script: `provenance.script` の値。
-        extra_watch_paths: 既定に加えて監視するパス。
+        extra_watch_paths: 既定に加えて監視するパス（`--extra-watch-path`）。
+        recorded_watch_paths: 来歴に記録された監視パス（`CodeRecord.watch_paths`）。
     Returns:
         正規化した監視パスの一覧。
     """
-    paths = list(DEFAULT_WATCH_PATHS) + list(extra_watch_paths)
+    paths = list(DEFAULT_WATCH_PATHS) + sorted(recorded_watch_paths) + list(extra_watch_paths)
     if isinstance(script, str) and script:
         paths.insert(0, script_module_to_path(script))
     else:
@@ -637,7 +648,12 @@ def check_code(
         result.add_reason(STATUS_STALE_CODE, commit_problem)
         return
 
-    watch_paths = resolve_watch_paths(result, provenance.get("script"), extra_watch_paths)
+    watch_paths = resolve_watch_paths(
+        result,
+        provenance.get("script"),
+        extra_watch_paths,
+        record.watch_paths if record is not None else (),
+    )
     if record is not None:
         changed = compare_code_hashes(result, record, commit, commit_problem, watch_paths, git)
     else:

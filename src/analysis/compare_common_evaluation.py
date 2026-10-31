@@ -26,7 +26,10 @@ import pandas as pd
 
 from src.analysis import analysis_rq3_limited as limited
 from src.analysis import analysis_rq3_satellite_only as satellite_only
-from src.analysis.build_common_evaluation_set import resolve_default_cells_path
+from src.analysis.build_common_evaluation_set import (
+    ANALYSIS_SCRIPT_WATCH_PATHS,
+    resolve_default_cells_path,
+)
 from src.common.config import PROJECT_ROOT
 from src.common.cv_paired_comparison import (
     compute_fold_differences,
@@ -285,6 +288,7 @@ def main(argv: list[str] | None = None) -> None:
             limited_folds_path,
             cells_path,
         ],
+        extra_watch_paths=ANALYSIS_SCRIPT_WATCH_PATHS,
     )
     save_summary(comparison, output_path)
     printable = {key: value for key, value in comparison.items() if key != "provenance"}

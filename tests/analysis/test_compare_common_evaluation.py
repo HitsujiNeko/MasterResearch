@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.analysis.build_common_evaluation_set import ANALYSIS_SCRIPT_WATCH_PATHS
 from src.analysis.compare_common_evaluation import (
     main,
     resolve_default_result_paths,
@@ -103,6 +104,10 @@ class TestMain:
         folds = pd.read_csv(tmp_path / "scenario_comparison_evaluation_cells_seed42_folds.csv")
         np.testing.assert_allclose(folds["rf_r2"], 0.05)
         assert len(comparison["provenance"]["inputs"]) == 5
+        # 有効母集団の定義を持つ両分析スクリプトも来歴で監視する
+        assert set(ANALYSIS_SCRIPT_WATCH_PATHS) <= set(
+            comparison["provenance"]["code"]["watch_paths"]
+        )
 
     def test_stops_when_evaluation_cells_differ(self, tmp_path: Path) -> None:
         """評価セルのダイジェストが違えば停止する。"""

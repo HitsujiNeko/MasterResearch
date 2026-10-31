@@ -39,6 +39,7 @@ import pandas as pd
 from src.analysis import analysis_rq3_limited as limited
 from src.analysis import analysis_rq3_satellite_only as satellite_only
 from src.analysis.build_common_evaluation_set import (
+    ANALYSIS_SCRIPT_WATCH_PATHS,
     build_configuration_populations,
     draw_evaluation_cells,
     intersect_cell_ids,
@@ -70,6 +71,13 @@ DEFAULT_N_SEEDS = 20
 # シード間の差の分布で示すパーセンタイル。
 DIFFERENCE_PERCENTILES = (2.5, 97.5)
 _LIMITED_DEFAULTS = limited.parse_arguments([])
+# 来歴で生成スクリプトと既定の監視パスに加えて監視するコード。両分析スクリプトに加え、
+# 共通集合の求め方（`build_configuration_populations`）と抽出（`draw_evaluation_cells`）を
+# そのまま呼び、結果に直接効くため評価セル生成スクリプトも監視する。
+REPEAT_WATCH_PATHS = (
+    *ANALYSIS_SCRIPT_WATCH_PATHS,
+    "src/analysis/build_common_evaluation_set.py",
+)
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -506,6 +514,7 @@ def main(argv: list[str] | None = None) -> None:
             cells_path,
             evaluation_set.metadata_path,
         ],
+        extra_watch_paths=REPEAT_WATCH_PATHS,
     )
     result_path = cells_path.with_name(f"repeated_comparison_{stem}_results.json")
     save_summary(result, result_path)

@@ -8,8 +8,13 @@
   素朴版は参考として併記する（fold どうしは学習データを共有し独立ではないため）
 - **ランダム分割**: 差の点推定のみ。テスト集合が1つで fold が無く、区間を作れない
 
-比べる前に、両者が同じ評価セル（内容ダイジェスト）・同じ乱数シードで評価された
-ことと、fold ごとの学習行数・テスト行数が一致することを確かめる。
+比べる前に、両者が同じ評価セル（内容ダイジェスト）・同じ乱数シード・同じ決定木本数で
+評価されたことと、fold ごとの学習行数・テスト行数が一致することを確かめる。
+
+出力 JSON の名前は `_results.json` で終わらせる（`--output-path` もこの形に限る）。
+差の CSV は末尾を `_folds.csv` に替えた名前で隣に置くため、他の名前を許すと CSV と
+JSON が同じパスになって CSV が上書きされる。また陳腐化チェックの走査対象も
+`*_results.json` だけである。
 
 既定の入力は、既定の引数で生成した評価セルを使った両スクリプトの出力
 （各スクリプトの出力名の規則から求める）である。
@@ -45,6 +50,9 @@ from src.common.summary import build_provenance, save_summary
 RANDOM_SPLIT_MODELS = ("linear_regression", "random_forest")
 RANDOM_SPLIT_METRICS = ("r2", "rmse", "mae")
 DIFFERENCE_DIRECTION = "Limited − Satellite Only"
+# 出力 JSON の名前の末尾と、差の CSV の名前の末尾（JSON の名前の末尾を置き換える）。
+RESULTS_SUFFIX = "_results.json"
+FOLDS_SUFFIX = "_folds.csv"
 
 
 def resolve_default_result_paths(cells_path: Path) -> tuple[Path, Path]:
@@ -106,7 +114,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "出力 JSON（既定は評価セルと同じディレクトリの"
+            "出力 JSON（名前は _results.json で終わること。既定は評価セルと同じディレクトリの"
             "scenario_comparison_{CSV の stem}_results.json）"
         ),
     )
@@ -119,9 +127,29 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         args.limited_results = default_limited
     if args.output_path is None:
         args.output_path = args.evaluation_cells.with_name(
-            f"scenario_comparison_{args.evaluation_cells.stem}_results.json"
+            f"scenario_comparison_{args.evaluation_cells.stem}{RESULTS_SUFFIX}"
+        )
+    elif not args.output_path.name.endswith(RESULTS_SUFFIX):
+        parser.error(
+            f"--output-path の名前は「{RESULTS_SUFFIX}」で終わらせてください"
+            f"（差の CSV が結果 JSON で上書きされないようにするため）: {args.output_path}"
         )
     return args
+
+
+def resolve_folds_path(output_path: Path) -> Path:
+    """出力 JSON のパスから、fold ごとの差の CSV のパスを求める。
+
+    Args:
+        output_path: 出力 JSON のパス（名前は `RESULTS_SUFFIX` で終わる）。
+    Returns:
+        名前の末尾の `RESULTS_SUFFIX` を `FOLDS_SUFFIX` に替えた、同じディレクトリのパス。
+    Raises:
+        ValueError: 名前が `RESULTS_SUFFIX` で終わらない場合（CSV と JSON が同じパスになるため）。
+    """
+    if not output_path.name.endswith(RESULTS_SUFFIX):
+        raise ValueError(f"出力 JSON の名前が「{RESULTS_SUFFIX}」で終わっていません: {output_path}")
+    return output_path.with_name(output_path.name.removesuffix(RESULTS_SUFFIX) + FOLDS_SUFFIX)
 
 
 def resolve_recorded_path(recorded: str) -> Path:
@@ -161,7 +189,10 @@ def load_result(result_path: Path) -> dict[str, Any]:
 def validate_same_evaluation(
     satellite_result: dict[str, Any], limited_result: dict[str, Any]
 ) -> None:
-    """2つの結果が同じ評価セル・同じ乱数シードで評価されたことを確かめる。
+    """2つの結果が同じ評価セル・同じ乱数シード・同じ決定木本数で評価されたことを確かめる。
+
+    決定木本数が違うと、差に「変数の違い」だけでなく「モデルの大きさの違い」が混ざるため、
+    対応のある差として比べない。
 
     Args:
         satellite_result: Satellite Only の results.json。
@@ -169,8 +200,8 @@ def validate_same_evaluation(
     Returns:
         None
     Raises:
-        ValueError: 評価セルの内容ダイジェスト・乱数シード・ランダム分割の行数の
-            いずれかが一致しない場合。
+        ValueError: 評価セルの内容ダイジェスト・乱数シード・決定木本数・ランダム分割の
+            行数のいずれかが一致しない場合。
     """
     checks = {
         "evaluation_cells.digest": (
@@ -180,6 +211,10 @@ def validate_same_evaluation(
         "run_parameters.random_state": (
             satellite_result["run_parameters"]["random_state"],
             limited_result["run_parameters"]["random_state"],
+        ),
+        "run_parameters.rf_trees": (
+            satellite_result["run_parameters"]["rf_trees"],
+            limited_result["run_parameters"]["rf_trees"],
         ),
         "train_size": (satellite_result["train_size"], limited_result["train_size"]),
         "test_size": (satellite_result["test_size"], limited_result["test_size"]),
@@ -243,7 +278,7 @@ def main(argv: list[str] | None = None) -> None:
         pd.read_csv(satellite_folds_path), pd.read_csv(limited_folds_path)
     )
     output_path = args.output_path.resolve()
-    folds_path = output_path.with_name(output_path.name.replace("_results.json", "_folds.csv"))
+    folds_path = resolve_folds_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     differences.to_csv(folds_path, index=False)
 

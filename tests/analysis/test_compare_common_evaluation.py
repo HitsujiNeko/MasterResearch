@@ -17,14 +17,21 @@ import pytest
 from src.analysis.build_common_evaluation_set import ANALYSIS_SCRIPT_WATCH_PATHS
 from src.analysis.compare_common_evaluation import (
     main,
+    parse_arguments,
     resolve_default_result_paths,
+    resolve_folds_path,
     validate_same_evaluation,
 )
 from src.common.cv_paired_comparison import FOLD_METRIC_COLUMNS
 
 
 def _write_result(
-    tmp_path: Path, name: str, offset: float, digest: str = "abc", random_state: int = 42
+    tmp_path: Path,
+    name: str,
+    offset: float,
+    digest: str = "abc",
+    random_state: int = 42,
+    rf_trees: int = 300,
 ) -> Path:
     """fold 別指標 CSV と results.json を書き、results.json のパスを返す。"""
     folds = pd.DataFrame({"fold": [1, 2, 3], "train_size": [70, 60, 70], "test_size": [30, 40, 30]})
@@ -40,7 +47,7 @@ def _write_result(
         "features": ["A"],
         "train_size": 80,
         "test_size": 20,
-        "run_parameters": {"random_state": random_state},
+        "run_parameters": {"random_state": random_state, "rf_trees": rf_trees},
         "evaluation_cells": {"digest": digest, "path": str(cells_path)},
         "random_split": {
             "linear_regression": {"metrics": metrics},
@@ -80,6 +87,36 @@ class TestDefaultPaths:
         assert limited.name.endswith("_both_bh_mean_wi_none_evaluation_cells_seed42_results.json")
 
 
+class TestOutputNames:
+    """出力名の検査のテスト（差の CSV を結果 JSON で上書きしない）。"""
+
+    def test_rejects_output_path_not_ending_with_results_json(self, tmp_path: Path) -> None:
+        """`_results.json` で終わらない --output-path は、引数の解釈の時点で止める。"""
+        with pytest.raises(SystemExit):
+            parse_arguments(
+                ["--evaluation-cells", "cells.csv", "--output-path", str(tmp_path / "out.json")]
+            )
+
+    def test_accepts_output_path_ending_with_results_json(self, tmp_path: Path) -> None:
+        """`_results.json` で終わる --output-path はそのまま使う。"""
+        output = tmp_path / "custom_results.json"
+
+        args = parse_arguments(["--evaluation-cells", "cells.csv", "--output-path", str(output)])
+
+        assert args.output_path == output
+
+    def test_folds_path_differs_from_output_path(self, tmp_path: Path) -> None:
+        """差の CSV は末尾だけを替えた別のパスになる（名前の途中の文字列は替えない）。"""
+        output = tmp_path / "a_results.json_copy_results.json"
+
+        assert resolve_folds_path(output) == tmp_path / "a_results.json_copy_folds.csv"
+
+    def test_folds_path_rejects_other_names(self, tmp_path: Path) -> None:
+        """`_results.json` で終わらない名前では、CSV と JSON が重なるため止める。"""
+        with pytest.raises(ValueError, match="_results.json"):
+            resolve_folds_path(tmp_path / "out.json")
+
+
 class TestMain:
     """main() のテスト。"""
 
@@ -108,6 +145,19 @@ class TestMain:
         assert set(ANALYSIS_SCRIPT_WATCH_PATHS) <= set(
             comparison["provenance"]["code"]["watch_paths"]
         )
+
+    def test_custom_output_path_keeps_csv_and_json_apart(self, tmp_path: Path) -> None:
+        """--output-path を指定しても、差の CSV と結果 JSON を別々のファイルに残す。"""
+        satellite = _write_result(tmp_path, "satellite_only", 0.0)
+        limited = _write_result(tmp_path, "limited", 0.05)
+        output = tmp_path / "out" / "custom_results.json"
+
+        main([*_argv(tmp_path, satellite, limited), "--output-path", str(output)])
+
+        comparison = json.loads(output.read_text(encoding="utf-8"))
+        folds_csv = tmp_path / "out" / "custom_folds.csv"
+        assert comparison["spatial_cv"]["fold_differences_csv"].endswith("custom_folds.csv")
+        np.testing.assert_allclose(pd.read_csv(folds_csv)["rf_r2"], 0.05)
 
     def test_stops_when_evaluation_cells_differ(self, tmp_path: Path) -> None:
         """評価セルのダイジェストが違えば停止する。"""
@@ -142,4 +192,16 @@ class TestValidateSameEvaluation:
         )
 
         with pytest.raises(ValueError, match="random_state"):
+            validate_same_evaluation(satellite, limited)
+
+    def test_rejects_different_rf_trees(self, tmp_path: Path) -> None:
+        """決定木本数が違えば（モデルの大きさの違いが差に混ざる）停止する。"""
+        satellite = json.loads(
+            _write_result(tmp_path, "satellite_only", 0.0).read_text(encoding="utf-8")
+        )
+        limited = json.loads(
+            _write_result(tmp_path, "limited", 0.0, rf_trees=100).read_text(encoding="utf-8")
+        )
+
+        with pytest.raises(ValueError, match="rf_trees"):
             validate_same_evaluation(satellite, limited)

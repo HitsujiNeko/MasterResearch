@@ -21,12 +21,16 @@ Limited のスクリプトの既定値（採用構成）を使う。
 保存済みの評価セル（主シードの1本）と同じシードの標本は、内容ダイジェストが一致する
 ことを確かめる（共通集合の求め直しと抽出が保存時と同じであることの検査）。
 シードごとの途中結果を保存し、中断しても続きから再開できる（完了印のある
-シードは、標本のダイジェストが一致すれば計算し直さない）。
+シードは、標本のダイジェストと実行条件（`build_run_conditions`）がどちらも一致すれば
+計算し直さない）。実行条件には木の本数・分割数・Limited の構成と投入列・Satellite Only
+の投入列・結果に効くコードのダイジェスト・両データセットの SHA-256 を含め、条件の記録が
+無い途中結果は再利用しない。
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from collections.abc import Mapping, Sequence
@@ -62,8 +66,16 @@ from src.common.evaluation_cells import (
     select_evaluation_rows,
 )
 from src.common.paths import to_project_relative_string
-from src.common.summary import build_provenance, save_summary
+from src.common.summary import (
+    CODE_WATCH_PATHS,
+    build_provenance,
+    compute_file_sha256,
+    describe_code_files,
+    save_summary,
+    script_module_to_path,
+)
 
+SCRIPT_MODULE = "src.analysis.repeat_common_evaluation"
 SCENARIOS = ("satellite_only", "limited")
 SEED_COLUMN = "seed"
 DEFAULT_FIRST_SEED = 42
@@ -78,6 +90,8 @@ REPEAT_WATCH_PATHS = (
     *ANALYSIS_SCRIPT_WATCH_PATHS,
     "src/analysis/build_common_evaluation_set.py",
 )
+# シードごとの完了印に記録する実行条件のキー。再開時にすべて一致したときだけ途中結果を使う。
+RUN_CONDITIONS_KEY = "run_conditions"
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -188,13 +202,103 @@ def seed_paths(output_dir: Path, seed: int) -> dict[str, Path]:
     }
 
 
-def load_completed_seed(output_dir: Path, seed: int, digest: str) -> dict[str, Any] | None:
-    """完了済みのシードの途中結果を読む（標本のダイジェストが一致する場合のみ）。
+def build_limited_configuration() -> dict[str, Any]:
+    """Limited の採用構成（スクリプトの既定値）を、結果・実行条件に記録する形で返す。
+
+    Returns:
+        変数セット・建物高さ構成・水指数構成・人口ソースの辞書。
+    """
+    return {
+        "variable_set": _LIMITED_DEFAULTS.variable_set,
+        "building_height_mode": _LIMITED_DEFAULTS.building_height,
+        "water_index_mode": _LIMITED_DEFAULTS.water_index,
+        "population_sources": list(_LIMITED_DEFAULTS.population_source),
+    }
+
+
+def compute_code_digest() -> str | None:
+    """途中結果の再利用判定に使う、結果に効くコードの内容ダイジェストを求める。
+
+    来歴と同じ範囲（本スクリプト・既定の監視パス・`REPEAT_WATCH_PATHS`）の git 追跡
+    ファイルのハッシュ一覧（`describe_code_files`。改行は LF にそろえる）から求める。
+    コードが変わった後に、変わる前の途中結果を使い回さないためである。
+
+    Returns:
+        SHA-256 の16進文字列。git を利用できない場合は `None`。
+    """
+    code = describe_code_files(
+        [script_module_to_path(SCRIPT_MODULE), *CODE_WATCH_PATHS, *REPEAT_WATCH_PATHS]
+    )
+    if code is None:
+        return None
+    files = json.dumps(code["files"], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(files.encode("utf-8")).hexdigest()
+
+
+def compute_dataset_hashes(metadata: Mapping[str, Any]) -> dict[str, str]:
+    """評価セルのメタデータに記録された両データセットの SHA-256 を求める。
+
+    データセットを作り直すと、セルの集合と fold が同じままでも値が変わりうる。標本の
+    ダイジェストでは検出できないため、データセットの中身も実行条件で照合する。
+
+    Args:
+        metadata: 評価セルのメタデータ（`datasets` にシナリオ名 → パスを持つ）。
+    Returns:
+        `satellite_only`・`limited` をキーとする SHA-256 の辞書。
+    Raises:
+        FileNotFoundError: データセットが無い場合。
+    """
+    return {
+        scenario: compute_file_sha256(PROJECT_ROOT / metadata["datasets"][scenario])
+        for scenario in SCENARIOS
+    }
+
+
+def build_run_conditions(
+    rf_trees: int,
+    cv_splits: int,
+    limited_feature_columns: Sequence[str],
+    code_digest: str | None,
+    dataset_hashes: Mapping[str, str],
+) -> dict[str, Any]:
+    """シードの途中結果を再利用してよいかを判定するための実行条件を組み立てる。
+
+    標本の中身（セル・ブロック・fold）は標本のダイジェストで照合するため、ここには
+    標本に表れない学習の条件と入力の中身を入れる。
+
+    Args:
+        rf_trees: RF の決定木本数。
+        cv_splits: 分割数。
+        limited_feature_columns: Limited の投入候補の列。
+        code_digest: `compute_code_digest` の戻り値。
+        dataset_hashes: `compute_dataset_hashes` の戻り値。
+    Returns:
+        実行条件の辞書（JSON に保存できる値のみ）。
+    """
+    return {
+        "rf_trees": int(rf_trees),
+        "cv_splits": int(cv_splits),
+        "limited_configuration": build_limited_configuration(),
+        "limited_feature_columns": list(limited_feature_columns),
+        "satellite_only_features": list(satellite_only.FEATURE_COLUMNS),
+        "code_digest": code_digest,
+        "dataset_sha256": dict(dataset_hashes),
+    }
+
+
+def load_completed_seed(
+    output_dir: Path, seed: int, digest: str, run_conditions: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """完了済みのシードの途中結果を読む（標本のダイジェストと実行条件が一致する場合のみ）。
+
+    実行条件の記録が無い途中結果（条件を記録する前の形式）と、コードのダイジェストを
+    求められなかった場合は、一致を確かめられないため再利用しない。
 
     Args:
         output_dir: 途中結果の保存先。
         seed: シード。
         digest: 今回作り直した標本の内容ダイジェスト。
+        run_conditions: 今回の実行条件（`build_run_conditions`）。
     Returns:
         完了済みなら途中結果（summary と2つの fold 別指標）、未完了・不一致なら `None`。
     """
@@ -204,6 +308,24 @@ def load_completed_seed(output_dir: Path, seed: int, digest: str) -> dict[str, A
     summary = json.loads(paths["summary"].read_text(encoding="utf-8"))
     if summary.get("digest") != digest:
         print(f"  seed {seed}: 途中結果の標本が作り直した標本と一致しないため、計算し直します。")
+        return None
+    recorded = summary.get(RUN_CONDITIONS_KEY)
+    if not isinstance(recorded, dict):
+        print(f"  seed {seed}: 途中結果に実行条件の記録が無いため、計算し直します。")
+        return None
+    if run_conditions.get("code_digest") is None:
+        print(f"  seed {seed}: コードのダイジェストを求められないため、計算し直します。")
+        return None
+    mismatched = sorted(
+        key
+        for key in recorded.keys() | run_conditions.keys()
+        if recorded.get(key) != run_conditions.get(key)
+    )
+    if mismatched:
+        print(
+            f"  seed {seed}: 途中結果の実行条件が今回と違うため、計算し直します"
+            f"（違うキー: {', '.join(mismatched)}）。"
+        )
         return None
     return {
         "summary": summary,
@@ -390,6 +512,14 @@ def main(argv: list[str] | None = None) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     seeds = resolve_seeds(args.first_seed, args.n_seeds)
     limited_feature_columns = resolve_limited_feature_columns()
+    print("途中結果の再利用判定のため、コードと両データセットのハッシュを求めます。")
+    run_conditions = build_run_conditions(
+        args.rf_trees,
+        metadata["cv_splits"],
+        limited_feature_columns,
+        compute_code_digest(),
+        compute_dataset_hashes(metadata),
+    )
 
     common_cell_ids, populations = build_populations(evaluation_set)
     print(f"共通集合: {len(common_cell_ids):,} セル。シード: {seeds[0]}〜{seeds[-1]}")
@@ -414,7 +544,7 @@ def main(argv: list[str] | None = None) -> None:
                 f"（{cells_path}）。共通集合の定義か抽出の手順が保存時と変わっています。"
             )
 
-        completed = load_completed_seed(output_dir, seed, digest)
+        completed = load_completed_seed(output_dir, seed, digest, run_conditions)
         if completed is None:
             outcome = run_seed(
                 seed,
@@ -430,6 +560,7 @@ def main(argv: list[str] | None = None) -> None:
             summary = {
                 SEED_COLUMN: seed,
                 "digest": digest,
+                RUN_CONDITIONS_KEY: run_conditions,
                 "sample": sample_summary,
                 "limited_features": outcome["limited_features"],
                 "limited_dropped_constant_features": outcome["limited_dropped_constant_features"],
@@ -476,12 +607,7 @@ def main(argv: list[str] | None = None) -> None:
         "cv_splits": metadata["cv_splits"],
         "sample_size": metadata["sample_size"],
         "rf_trees": args.rf_trees,
-        "limited_configuration": {
-            "variable_set": _LIMITED_DEFAULTS.variable_set,
-            "building_height_mode": _LIMITED_DEFAULTS.building_height,
-            "water_index_mode": _LIMITED_DEFAULTS.water_index,
-            "population_sources": list(_LIMITED_DEFAULTS.population_source),
-        },
+        "limited_configuration": build_limited_configuration(),
         "satellite_only_features": list(satellite_only.FEATURE_COLUMNS),
         "seed_records": seed_records,
         "seed_variation": summarize_seed_variation(fold_table),
@@ -507,7 +633,7 @@ def main(argv: list[str] | None = None) -> None:
     }
     print("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
     result["provenance"] = build_provenance(
-        "src.analysis.repeat_common_evaluation",
+        SCRIPT_MODULE,
         input_paths=[
             PROJECT_ROOT / metadata["datasets"]["satellite_only"],
             PROJECT_ROOT / metadata["datasets"]["limited"],

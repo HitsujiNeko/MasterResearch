@@ -18,6 +18,9 @@ from src.analysis import build_common_evaluation_set
 from src.analysis import repeat_common_evaluation as repeat
 from src.analysis.repeat_common_evaluation import (
     REPEAT_WATCH_PATHS,
+    RUN_CONDITIONS_KEY,
+    build_run_conditions,
+    compute_code_digest,
     load_completed_seed,
     main,
     prepare_limited_sample,
@@ -182,19 +185,73 @@ class TestSummaries:
 class TestResume:
     """load_completed_seed のテスト（中断からの再開）。"""
 
-    def test_returns_none_when_files_are_missing(self, tmp_path: Path) -> None:
-        """完了印が無いシードは未完了とみなす。"""
-        assert load_completed_seed(tmp_path, 42, "abc") is None
+    _CONDITIONS = build_run_conditions(
+        5, 5, ["NDVI", "NDBI"], "code-v1", {"satellite_only": "s1", "limited": "l1"}
+    )
 
-    def test_reuses_only_when_digest_matches(self, tmp_path: Path) -> None:
-        """標本のダイジェストが一致するときだけ途中結果を再利用する。"""
-        paths = seed_paths(tmp_path, 42)
+    @staticmethod
+    def _write_seed(output_dir: Path, summary: dict[str, object]) -> None:
+        """シード42の完了済みの途中結果（fold 別指標2つと完了印）を書き出す。"""
+        paths = seed_paths(output_dir, 42)
         _fold_frame(0.0).to_csv(paths["satellite_only"], index=False)
         _fold_frame(0.1).to_csv(paths["limited"], index=False)
-        paths["summary"].write_text(json.dumps({"seed": 42, "digest": "abc"}), encoding="utf-8")
+        paths["summary"].write_text(json.dumps(summary), encoding="utf-8")
 
-        assert load_completed_seed(tmp_path, 42, "abc") is not None
-        assert load_completed_seed(tmp_path, 42, "other") is None
+    def test_returns_none_when_files_are_missing(self, tmp_path: Path) -> None:
+        """完了印が無いシードは未完了とみなす。"""
+        assert load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS) is None
+
+    def test_reuses_only_when_digest_and_conditions_match(self, tmp_path: Path) -> None:
+        """標本のダイジェストと実行条件がどちらも一致するときだけ途中結果を再利用する。"""
+        self._write_seed(
+            tmp_path, {"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: self._CONDITIONS}
+        )
+
+        assert load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS) is not None
+        assert load_completed_seed(tmp_path, 42, "other", self._CONDITIONS) is None
+
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [
+            ("rf_trees", 300),
+            ("cv_splits", 3),
+            ("limited_configuration", {"variable_set": "spectral"}),
+            ("limited_feature_columns", ["NDVI"]),
+            ("satellite_only_features", ["NDVI"]),
+            ("code_digest", "code-v2"),
+            ("dataset_sha256", {"satellite_only": "s1", "limited": "l2"}),
+        ],
+    )
+    def test_does_not_reuse_when_a_condition_differs(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str], key: str, value: object
+    ) -> None:
+        """木の本数・構成・投入列・コード・データセットのどれかが違えば、違うキーを示して計算し直す。"""
+        self._write_seed(
+            tmp_path, {"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: self._CONDITIONS}
+        )
+
+        assert load_completed_seed(tmp_path, 42, "abc", {**self._CONDITIONS, key: value}) is None
+        assert key in capsys.readouterr().out
+
+    def test_does_not_reuse_without_recorded_conditions(self, tmp_path: Path) -> None:
+        """実行条件の記録が無い（条件を記録する前の形式の）途中結果は再利用しない。"""
+        self._write_seed(tmp_path, {"seed": 42, "digest": "abc"})
+
+        assert load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS) is None
+
+    def test_does_not_reuse_when_code_digest_is_unavailable(self, tmp_path: Path) -> None:
+        """コードのダイジェストを求められない場合は、一致を確かめられないため再利用しない。"""
+        conditions = {**self._CONDITIONS, "code_digest": None}
+        self._write_seed(tmp_path, {"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: conditions})
+
+        assert load_completed_seed(tmp_path, 42, "abc", conditions) is None
+
+    def test_code_digest_is_stable_in_repository(self) -> None:
+        """コードを変えなければ、コードのダイジェストは同じ値になる。"""
+        digest = compute_code_digest()
+
+        assert digest is not None
+        assert compute_code_digest() == digest
 
 
 class TestMain:
@@ -230,11 +287,59 @@ class TestMain:
         )
         assert sorted(differences["seed"].unique()) == [42, 43]
 
+        summary = json.loads(
+            seed_paths(cells_path.parent / "repeat_evaluation_cells_seed42", 42)[
+                "summary"
+            ].read_text(encoding="utf-8")
+        )
+        assert summary[RUN_CONDITIONS_KEY]["rf_trees"] == 5
+
         def _fail_if_called(*args: object, **kwargs: object) -> None:
             raise AssertionError("完了済みのシードを計算し直してはならない")
 
         monkeypatch.setattr(repeat, "run_seed", _fail_if_called)
         main(argv)
+
+    @pytest.mark.parametrize("change", ["rf_trees", "code", "dataset"])
+    def test_recomputes_seeds_when_run_conditions_change(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, change: str
+    ) -> None:
+        """木の本数・コード・データセットが変わった再実行では、全シードを計算し直す。
+
+        データセットは読込を合成データへ差し替えているため、ファイルの中身だけを変えても
+        標本（セル・fold）は変わらない。標本のダイジェストでは検出できない変更の例になる。
+        """
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        argv = ["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"]
+        main(argv)
+        extra_argv = ["--rf-trees", "6"] if change == "rf_trees" else []
+        if change == "code":
+            monkeypatch.setattr(repeat, "compute_code_digest", lambda: "changed-code")
+        if change == "dataset":
+            (tmp_path / "dataset_limited_20220906_032358_hanoi_30m.gpkg").write_bytes(b"rebuilt")
+        computed: list[int] = []
+        original = repeat.run_seed
+
+        def _recording(seed: int, *args: object, **kwargs: object) -> dict[str, object]:
+            computed.append(seed)
+            return original(seed, *args, **kwargs)
+
+        monkeypatch.setattr(repeat, "run_seed", _recording)
+
+        main([*argv, *extra_argv])
+
+        assert computed == [42, 43]
+        result = json.loads(
+            cells_path.with_name(
+                "repeated_comparison_evaluation_cells_seed42_results.json"
+            ).read_text(encoding="utf-8")
+        )
+        expected_trees = 6 if extra_argv else 5
+        assert result["rf_trees"] == expected_trees
+        assert all(
+            record[RUN_CONDITIONS_KEY]["rf_trees"] == expected_trees
+            for record in result["seed_records"]
+        )
 
     def test_stops_when_primary_seed_sample_differs(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

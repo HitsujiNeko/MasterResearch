@@ -58,9 +58,14 @@ def _install_loaders(
 def _build_cells(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, analysis_area: str = "roi"
 ) -> Path:
-    """合成データで評価セル（シード42・200件）を作り、CSV のパスを返す。
+    """合成データで評価セル（シード42・200件）を作る。
 
-    `analysis_area` が `survey` のときは、末尾20セルを測量GIS範囲外とする。
+    Args:
+        monkeypatch: データセット読込関数の差し替えに使う pytest のフィクスチャ。
+        tmp_path: 合成データと評価セルの保存先。
+        analysis_area: 分析対象範囲。`survey` のときは末尾20セルを測量GIS範囲外とする。
+    Returns:
+        生成した評価セル CSV のパス。
     """
     satellite = _satellite_only_dataframe()
     limited_df = _limited_dataframe(satellite)

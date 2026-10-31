@@ -35,7 +35,11 @@ from src.analysis.build_common_evaluation_set import (
     validate_same_observation,
 )
 from src.analysis.urban_params.canonical_grid import make_cell_id
-from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN, LST_VALID_RATIO_COLUMN
+from src.common.analysis_dataset import (
+    IN_ANALYSIS_AREA_COLUMN,
+    IN_ANALYSIS_AREA_SURVEY_COLUMN,
+    LST_VALID_RATIO_COLUMN,
+)
 from src.common.evaluation_cells import (
     BLOCK_ID_COLUMN,
     CELL_ID_COLUMN,
@@ -111,7 +115,20 @@ class TestDefaults:
         assert args.satellite_only_dataset == satellite_only.DEFAULT_DATASET_PATH
         assert args.limited_dataset == limited.DEFAULT_DATASET_PATH
         assert args.block_size_m == satellite_only.DEFAULT_BLOCK_SIZE_M
+        assert args.analysis_area == "roi"
         assert args.output_dir.name == "20220906_032358"
+
+    def test_survey_area_gets_its_own_default_output_dir(self) -> None:
+        """survey を指定すると、既定の出力先の末尾に範囲が付く（ROI の出力を上書きしない）。"""
+        args = parse_arguments(["--analysis-area", "survey"])
+
+        assert args.analysis_area == "survey"
+        assert args.output_dir.name == "20220906_032358_area_survey"
+
+    def test_rejects_unknown_analysis_area(self) -> None:
+        """対応外の範囲は引数の解析で止める。"""
+        with pytest.raises(SystemExit):
+            parse_arguments(["--analysis-area", "city"])
 
     def test_configuration_names(self) -> None:
         """構成は Satellite Only と Limited の人口3版の4つ。"""
@@ -131,6 +148,13 @@ class TestPaths:
         path = resolve_default_output_dir(Path("dataset_satellite_only_20220906_032358_x_30m.gpkg"))
 
         assert path.parts[-2:] == ("common_evaluation", "20220906_032358")
+
+    def test_default_output_dir_appends_area_except_roi(self) -> None:
+        """範囲が roi なら従来どおり、survey なら `_area_survey` を付ける。"""
+        dataset = Path("dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg")
+
+        assert resolve_default_output_dir(dataset, "roi").name == "20220906_032358"
+        assert resolve_default_output_dir(dataset, "survey").name == "20220906_032358_area_survey"
 
     def test_rejects_different_observations(self) -> None:
         """2つのデータセットの観測日時が違えば停止する。"""
@@ -173,6 +197,23 @@ class TestBuildConfigurationPopulations:
             CELL_IDS[2] not in cell_sets[name] for name in cell_sets if name.startswith("limited")
         )
         assert CELL_IDS[2] in cell_sets["satellite_only"]
+
+    def test_survey_area_applies_to_every_configuration(self) -> None:
+        """survey では測量GIS範囲外のセルが全構成から外れ、roi ではその列を見ない。"""
+        satellite = _satellite_only_dataframe()
+        limited_dataframe = _limited_dataframe(satellite)
+        satellite[IN_ANALYSIS_AREA_SURVEY_COLUMN] = 1
+        limited_dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = 1
+        satellite.loc[3, IN_ANALYSIS_AREA_SURVEY_COLUMN] = 0
+        limited_dataframe.loc[3, IN_ANALYSIS_AREA_SURVEY_COLUMN] = 0
+
+        survey = build_configuration_populations(satellite, limited_dataframe, 0.5, "survey")
+        roi = build_configuration_populations(satellite, limited_dataframe, 0.5)
+
+        for name in build_configuration_names():
+            assert CELL_IDS[3] not in set(survey[name][CELL_ID_COLUMN]), name
+            assert len(survey[name]) == N_CELLS - 1, name
+            assert len(roi[name]) == N_CELLS, name
 
     def test_satellite_only_gets_land_cover_from_limited(self) -> None:
         """Satellite Only の母集団にも Limited の建物被覆・水域被覆が付く。"""
@@ -385,7 +426,45 @@ class TestMain:
         assert metadata["provenance"]["inputs"][0]["path"].endswith(
             "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
         )
+        assert metadata["analysis_area"] == "roi"
+        assert all(
+            IN_ANALYSIS_AREA_SURVEY_COLUMN not in configuration["required_mask_columns"]
+            for configuration in metadata["configurations"].values()
+        )
         json.dumps(metadata, allow_nan=False)
+
+    def test_survey_area_is_recorded_in_metadata(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """survey では測量GIS範囲内のセルだけを抽出し、範囲と品質列をメタデータに残す。"""
+        satellite = _satellite_only_dataframe()
+        limited_df = _limited_dataframe(satellite)
+        outside = np.arange(N_CELLS) >= 250  # 測量GIS範囲外の50セル
+        satellite[IN_ANALYSIS_AREA_SURVEY_COLUMN] = np.where(outside, 0, 1)
+        limited_df[IN_ANALYSIS_AREA_SURVEY_COLUMN] = np.where(outside, 0, 1)
+        self._install_loaders(monkeypatch, satellite, limited_df)
+
+        main(self._argv(tmp_path, "--analysis-area", "survey"))
+
+        evaluation_set = load_evaluation_set(tmp_path / "out" / "evaluation_cells_seed42.csv")
+        metadata = evaluation_set.metadata
+        assert metadata["analysis_area"] == "survey"
+        assert metadata["common_size"] == 250
+        assert not set(evaluation_set.cells[CELL_ID_COLUMN]) & set(CELL_IDS[outside])
+        for name, configuration in metadata["configurations"].items():
+            assert IN_ANALYSIS_AREA_SURVEY_COLUMN in configuration["required_mask_columns"], name
+            assert configuration["population_size"] == 250, name
+
+    def test_survey_area_requires_survey_mask_column(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """mask_survey を結合していないデータセットで survey を指定すると停止する。"""
+        satellite = _satellite_only_dataframe()
+        self._install_loaders(monkeypatch, satellite, _limited_dataframe(satellite))
+
+        with pytest.raises(ValueError, match=IN_ANALYSIS_AREA_SURVEY_COLUMN):
+            main(self._argv(tmp_path, "--analysis-area", "survey"))
+        assert not (tmp_path / "out").exists()
 
     def test_stops_when_values_differ_between_datasets(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

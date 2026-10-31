@@ -26,7 +26,9 @@ from src.analysis.repeat_common_evaluation import (
     summarize_seed_differences,
     summarize_seed_variation,
 )
+from src.common.analysis_dataset import IN_ANALYSIS_AREA_SURVEY_COLUMN
 from src.common.cv_paired_comparison import FOLD_METRIC_COLUMNS
+from src.common.evaluation_cells import resolve_metadata_path
 from tests.analysis.test_build_common_evaluation_set import (
     _limited_dataframe,
     _satellite_only_dataframe,
@@ -53,10 +55,24 @@ def _install_loaders(
     )
 
 
-def _build_cells(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """合成データで評価セル（シード42・200件）を作り、CSV のパスを返す。"""
+def _build_cells(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, analysis_area: str = "roi"
+) -> Path:
+    """合成データで評価セル（シード42・200件）を作る。
+
+    Args:
+        monkeypatch: データセット読込関数の差し替えに使う pytest のフィクスチャ。
+        tmp_path: 合成データと評価セルの保存先。
+        analysis_area: 分析対象範囲。`survey` のときは末尾20セルを測量GIS範囲外とする。
+    Returns:
+        生成した評価セル CSV のパス。
+    """
     satellite = _satellite_only_dataframe()
     limited_df = _limited_dataframe(satellite)
+    if analysis_area == "survey":
+        survey_mask = np.where(np.arange(len(satellite)) >= len(satellite) - 20, 0, 1)
+        satellite[IN_ANALYSIS_AREA_SURVEY_COLUMN] = survey_mask
+        limited_df[IN_ANALYSIS_AREA_SURVEY_COLUMN] = survey_mask
     _install_loaders(monkeypatch, satellite, limited_df)
     satellite_path = tmp_path / "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
     limited_path = tmp_path / "dataset_limited_20220906_032358_hanoi_30m.gpkg"
@@ -72,6 +88,8 @@ def _build_cells(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
             str(tmp_path / "common"),
             "--sample-size",
             "200",
+            "--analysis-area",
+            analysis_area,
         ]
     )
     return tmp_path / "common" / "evaluation_cells_seed42.csv"
@@ -195,6 +213,7 @@ class TestMain:
         )
         result = json.loads(result_path.read_text(encoding="utf-8"))
         assert result["seeds"] == [42, 43]
+        assert result["analysis_area"] == "roi"
         assert result["repeated_kfold"]["metrics"]["rf_r2"]["n_splits"] == 10
         assert result["repeated_kfold"]["metrics"]["rf_r2"]["degrees_of_freedom"] == 9
         assert set(result["seed_variation"]) == {"satellite_only", "limited"}
@@ -224,4 +243,33 @@ class TestMain:
         monkeypatch.setattr(repeat, "draw_evaluation_cells", _shifted)
 
         with pytest.raises(ValueError, match="一致しません"):
+            main(["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"])
+
+    def test_runs_seeds_on_survey_area_cells(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """測量GIS範囲の評価セルでも、記録された範囲で母集団を作り直して反復できる。"""
+        cells_path = _build_cells(monkeypatch, tmp_path, analysis_area="survey")
+
+        main(["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"])
+
+        result = json.loads(
+            cells_path.with_name(
+                "repeated_comparison_evaluation_cells_seed42_results.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert result["seeds"] == [42, 43]
+        assert result["analysis_area"] == "survey"
+
+    def test_stops_on_unknown_analysis_area(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """メタデータの範囲が対応外なら、データセットを読む前に停止する。"""
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        metadata_path = resolve_metadata_path(cells_path)
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["analysis_area"] = "city"
+        metadata_path.write_text(json.dumps(metadata, ensure_ascii=False), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="未対応の分析対象範囲"):
             main(["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"])

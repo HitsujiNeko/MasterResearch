@@ -1,0 +1,402 @@
+{
+  "scenario": "Satellite Only",
+  "dataset_path": "data/output/datasets/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg",
+  "sample_path": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_sample_100000.csv",
+  "sample_size": 100000,
+  "train_size": 80000,
+  "test_size": 20000,
+  "features": [
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "lst_valid_ratio_threshold": 0.5,
+  "analysis_area": "survey",
+  "required_mask_columns": [
+    "IN_ANALYSIS_AREA",
+    "IN_ANALYSIS_AREA_SURVEY"
+  ],
+  "run_parameters": {
+    "random_state": 42,
+    "rf_trees": 300,
+    "requested_sample_size": 100000,
+    "scale_m": 30,
+    "requested_shap_sample_size": 2000,
+    "requested_shap_background_size": 500,
+    "random_split_test_fraction": 0.2,
+    "rf_min_samples_leaf": 5,
+    "permutation_n_repeats": 10
+  },
+  "filter_dropout": {
+    "stages": {
+      "dataset_row_count": 3739454,
+      "mask_passed": 111448,
+      "target_available": 111303,
+      "feature_complete": 111278,
+      "sampled": 100000
+    },
+    "base_stage": "target_available",
+    "dropped_count": 25,
+    "dropped_ratio": 0.00022461209491208683,
+    "columns": {
+      "NDVI": {
+        "null_count": 25,
+        "exclusive_null_count": 0,
+        "target_mean": 27.91863441467285
+      },
+      "NDBI": {
+        "null_count": 25,
+        "exclusive_null_count": 0,
+        "target_mean": 27.91863441467285
+      },
+      "NDWI": {
+        "null_count": 25,
+        "exclusive_null_count": 0,
+        "target_mean": 27.91863441467285
+      }
+    },
+    "column_groups": {
+      "spectral_indices": {
+        "null_count": 25,
+        "exclusive_null_count": 25,
+        "target_mean": 27.91863441467285
+      }
+    },
+    "dropped_summary": {
+      "NDVI": {
+        "dropped": {
+          "mean": null,
+          "non_null_count": 0
+        },
+        "final": {
+          "mean": 0.32615774869918823,
+          "non_null_count": 111278
+        }
+      },
+      "NDBI": {
+        "dropped": {
+          "mean": null,
+          "non_null_count": 0
+        },
+        "final": {
+          "mean": -0.09497714787721634,
+          "non_null_count": 111278
+        }
+      },
+      "NDWI": {
+        "dropped": {
+          "mean": null,
+          "non_null_count": 0
+        },
+        "final": {
+          "mean": -0.3309280574321747,
+          "non_null_count": 111278
+        }
+      }
+    },
+    "missing_summary_columns": [],
+    "target_distribution": {
+      "before": {
+        "count": 111303,
+        "mean": 34.907535552978516,
+        "std": 3.597322702407837,
+        "min": 26.20997428894043,
+        "p1": 26.681252822875976,
+        "p25": 32.298404693603516,
+        "p50": 35.980464935302734,
+        "p75": 37.71969413757324,
+        "p99": 40.19063652038574,
+        "max": 42.70772171020508
+      },
+      "after": {
+        "count": 111278,
+        "mean": 34.90911102294922,
+        "std": 3.5961997509002686,
+        "min": 26.20997428894043,
+        "p1": 26.6812158203125,
+        "p25": 32.30071449279785,
+        "p50": 35.98142051696777,
+        "p75": 37.720075607299805,
+        "p99": 40.190670509338375,
+        "max": 42.70772171020508
+      }
+    },
+    "spatial_blocks": {
+      "n_blocks": 24,
+      "block_size_m": 2700,
+      "dropped_ratio": {
+        "median": 0.0,
+        "p90": 0.0,
+        "p99": 0.0024116762716111183,
+        "max": 0.003132047105988467
+      },
+      "blocks_over_50pct": 0
+    },
+    "note": "target_available（基準段階）はmask_passedを通過し、かつLSTが非NULL、かつLST_VALID_RATIO>=0.5の行。mask_passedはrequired_mask_columns（['IN_ANALYSIS_AREA', 'IN_ANALYSIS_AREA_SURVEY']）依存であり、Limited/Fullシナリオでは--require-valid-gis-maskの有無で中身が変わる。target_distributionの「前」はtarget_available、「後」はfeature_complete（sampledではない）の分布。columns.null_countは重複計上であり、列ごとの和はdropped_countを上回りうる。spatial_blocks.n_blocksは基準段階の母集団に対する非空ブロック数であり、spatial_cv.block_definition.n_blocks（分析サンプルに対する値）とは一致しない。columns.exclusive_null_countは、同時にNULL/非NULLになる列の対では両方とも0になる（要因としての大きさはcolumn_groups側で読むこと）。"
+  },
+  "evaluation_cells": {
+    "path": "data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv",
+    "metadata_path": "data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42_results.json",
+    "digest": "589b2e3d40e230698a3b31957eaf5fef37e789cfb106077f384799faa0c6f346",
+    "row_count": 100000,
+    "population_size": 111278,
+    "common_size": 110376,
+    "note": "標本と Spatial CV の fold は評価セル CSV から固定した（抽出・GroupKFold は行っていない）。population_size は本シナリオの有効母集団、common_size は評価セルを抽出した全構成の共通集合の母数。"
+  },
+  "random_split": {
+    "linear_regression": {
+      "metrics": {
+        "r2": 0.8148351907730103,
+        "rmse": 1.5358284213973656,
+        "mae": 1.2272502183914185
+      },
+      "standardized_coefficients": {
+        "NDVI": -0.5721982717514038,
+        "NDBI": 0.7780836820602417,
+        "NDWI": -0.7784931063652039
+      }
+    },
+    "random_forest": {
+      "metrics": {
+        "r2": 0.8627404370810531,
+        "rmse": 1.3223144419444537,
+        "mae": 1.0096376808009746
+      },
+      "feature_importance": {
+        "NDVI": 0.17283476933981032,
+        "NDBI": 0.7898196624274276,
+        "NDWI": 0.03734556823276202
+      },
+      "permutation_importance": {
+        "NDVI": 0.19385709383152946,
+        "NDBI": 1.4544526479135602,
+        "NDWI": 0.093448308704257
+      }
+    }
+  },
+  "spatial_cv": {
+    "cv_splits": 5,
+    "linear_regression": {
+      "r2_mean": 0.7110487818717957,
+      "r2_std": 0.12267506108750695,
+      "rmse_mean": 1.595562890181712,
+      "rmse_std": 0.160433617546274,
+      "mae_mean": 1.2808841943740845,
+      "mae_std": 0.14342213567852552
+    },
+    "random_forest": {
+      "r2_mean": 0.7710316284334094,
+      "r2_std": 0.11401757343687935,
+      "rmse_mean": 1.386932034787646,
+      "rmse_std": 0.10162167197795623,
+      "mae_mean": 1.0796468493366618,
+      "mae_std": 0.0844089824904992
+    },
+    "block_definition": {
+      "block_size_m": 2700,
+      "n_blocks": 24
+    },
+    "outputs": {
+      "fold_metrics_csv": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_spatial_cv_folds.csv",
+      "spatial_cv_png": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_spatial_cv.png"
+    }
+  },
+  "vif": {
+    "NDVI": 22.635482621888286,
+    "NDBI": 1.3223702888652606,
+    "NDWI": 22.944581964590007
+  },
+  "vif_non_finite_features": [],
+  "shap": {
+    "sample_size": 2000,
+    "background_size": 500,
+    "mean_abs_shap": {
+      "NDBI": 2.626685036565327,
+      "NDVI": 0.5450704837220262,
+      "NDWI": 0.25457995229403957
+    },
+    "outputs": {
+      "shap_importance_csv": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_shap_importance.csv",
+      "shap_summary_png": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_shap_summary.png",
+      "shap_bar_png": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_shap_bar.png",
+      "shap_dependence_png": {
+        "NDVI": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_shap_dependence_NDVI.png",
+        "NDBI": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_shap_dependence_NDBI.png",
+        "NDWI": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_shap_dependence_NDWI.png"
+      }
+    }
+  },
+  "outputs": {
+    "feature_importance_csv": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_feature_importance.csv",
+    "model_comparison_png": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_model_comparison.png",
+    "feature_importance_png": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_evaluation_cells_seed42_feature_importance.png"
+  },
+  "provenance": {
+    "script": "src.analysis.analysis_rq3_satellite_only",
+    "executed_at": "2026-10-29T14:30:40.465081+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "ef5f7a395f890c149939a6f0ac49e649ce1157f6",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/analysis_rq3_satellite_only.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/analysis_rq3_satellite_only.py",
+          "sha256": "cb7089805138e28872fd07bc467b7d3ac5431861a791b169bc84949cdceba07f"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.0.7",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "6a39415271bd956e8aa9dce7da9005f570015b119614fb01ba2b78be9cfc27bd"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv",
+        "sha256": "858abfac80f6f94d5f36ff0c73eb119e6099df24b456630e9a639fa5bf5f5f7c"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42_results.json",
+        "sha256": "0239dc6d6159f321deb50977b324a307a573d14e8154a5eeba797bba59d1f6c2"
+      }
+    ]
+  }
+}

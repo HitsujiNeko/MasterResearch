@@ -1,0 +1,35 @@
+{
+  "seed": 43,
+  "digest": "32ab7b27264dcb8ec830f01ca394b6126f854d95b572ba3deebd69e22a36e726",
+  "sample": {
+    "row_count": 100000,
+    "n_blocks": 24,
+    "fold_sizes": {
+      "1": 19645,
+      "2": 19776,
+      "3": 21166,
+      "4": 19656,
+      "5": 19757
+    }
+  },
+  "limited_features": [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "POP_DEN_WORLDPOP2020",
+    "NTL_MEAN",
+    "NDVI",
+    "NDBI",
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV"
+  ],
+  "limited_dropped_constant_features": [
+    "LULC_BARE_COV"
+  ],
+  "elapsed_seconds": 772.2696466999987
+}

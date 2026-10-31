@@ -1,6 +1,6 @@
 # 観測（シーン）選定基準とROIカバー率
 
-**最終更新**: 2026-10-22
+**最終更新**: 2026-10-30
 **関連ドキュメント**: [calc_urban_params_guide.md](calc_urban_params_guide.md), [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md), [gee_calc_LST.md](gee_calc_LST.md), [CodingRule.md](CodingRule.md), [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)
 **前提知識**: ROIと有効カバレッジの違い（本ファイル冒頭の[用語]参照）、Landsat 8 / 9シーン探索の基本フロー（[gee_search_satellite_data.py](../../src/gee/gee_search_satellite_data.py)）
 
@@ -551,6 +551,7 @@ ROI に対する有効画素の割合で比べた。
 | 都市構造パラメータ | 要 | `python -m src.analysis.urban_params`（ラスタ → GeoPackage。`data/output/params/hanoi/30m/` に `lst_20220906_032358.gpkg`・`idx_20220906_032358.gpkg` を新たに作る） | 実施済み（30mのみ） |
 | データセット構築 | 要 | Satellite Only・Limited の gpkg（`dataset_*_20220906_032358_hanoi_30m.gpkg`） | 実施済み |
 | 分析 | 要 | [analysis_rq3_limited.py](../../src/analysis/analysis_rq3_limited.py)・[analysis_rq3_satellite_only.py](../../src/analysis/analysis_rq3_satellite_only.py)（既定の入力パスと出力先は `20220906_032358` に切り替え済み） | 実施済み（Limited は採用構成のみ） |
+| 測量GIS範囲での比較 | 要 | `mask_survey` を結合したデータセットで、Satellite Only と Limited の採用構成を全域・測量GIS範囲で実行し、測量GIS範囲では共通評価セルで比較する | 実施済み（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章。Limited は採用構成のみ） |
 | 比較用の観測 | `2024-11-30` を新たに実行 | `2024-11-30T03:23:36`。在庫の指標 GeoTIFF に MNDWI が無いため、先に指標を再エクスポートする（8.4）。`2023-07-07` は `032305` で実行済みの新世代のランを使える（旧世代のランは比較に使わない） | 未実施 |
 
 主結果を新しい観測に差し替える際に追従の要否を判断した文書と、その判断は次の通りである（いずれも旧採用の観測を前提に書かれていた）。
@@ -560,15 +561,16 @@ ROI に対する有効画素の割合で比べた。
 | [limited_analysis_results.md](../03_results/limited_analysis_results.md)・[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) | 主採用の結果の章を新設 | 主結果の正本。既存の記録は比較用の観測（旧採用）の結果として残す |
 | [analysis_rq3_satellite_only_guide.md](analysis_rq3_satellite_only_guide.md) | 更新 | 実行例と既定値の記述が旧採用の観測を指していた |
 | [GIS_IDEAS_poster.md](../03_results/GIS_IDEAS_poster.md) | 注記のみ | 提出済みの原稿であり、本文の数値は提出時の記録として変えない |
-| [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) | 注記し、回し直しを課題に加える | 下記 |
+| [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) | 主採用の結果の章を新設 | 下記 |
 | [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md) | 変更しない | 旧ピクセル経路・`032329` の記録であり、旧観測に基づく旨の注記は既にある |
 | [qgis_operation_guidelines.md](qgis_operation_guidelines.md) | 変更しない | `LST_20230707_032305Z` はレイヤー名の付け方の例示にすぎない |
 | [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md) | 変更しない | 該当箇所は実在のファイルで測った過去の検証記録であり、観測を差し替える対象ではない |
 
-**測量GIS範囲での比較は、主採用の観測で回し直す必要がある**（研究者の確認を経た判断）。
-[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) の測量GIS範囲の結果は、Full シナリオと比べるときの基準である。
-Full シナリオを主採用の観測で評価する場合、基準も同じ観測にそろえる必要がある。また主採用の観測では全域の R² が旧採用より大きく変わっており
-（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.5節）、測量GIS範囲の結果も変わりうる。回し直しは Full シナリオとの比較より前に、別タスクで行う。
+**測量GIS範囲での比較は、主採用の観測で回し直した**（研究者の確認を経た判断。結果は
+[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章）。
+測量GIS範囲の結果は Full シナリオと比べるときの基準であり、Full シナリオを主採用の観測で評価する場合、基準も同じ観測にそろえる必要があったためである。
+同ドキュメントの 032305 の結果（2〜5章）は旧採用に基づく記録として残し、Full シナリオの基準には7章の結果を使う。
+主採用の観測では、公開GISを加えたモデルの RF の誤差が都心部で下がらないなど、032305 と向きが異なる点がある（同ドキュメント7.7節）。
 
 **比較可能性の限界**: 新しい主結果と既存の結果は観測（日時・LST の分布）が違うため、LST の絶対値や誤差（°C）は直接比べられない。
 比べられるのは、変数の重要度の順位や、LST の標準偏差で割った誤差などの相対的な量にとどまる（8.5）。

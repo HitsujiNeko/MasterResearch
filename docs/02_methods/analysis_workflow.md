@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-10-29  
+**最終更新**: 2026-10-31  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -520,7 +520,7 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 **分析スクリプトでの使い方（`--evaluation-cells`）**:
 
 - 標本抽出の代わりに CSV の `cell_id` を CSV の行順で選び、Spatial CV は CSV の `fold` 列で分割する。ランダム分割も同じ行・同じ順序・同じシードになるため、シナリオ間で train/test が一致する
-- CSV のセルが自シナリオの有効母集団に1件でも無ければ停止する。メタデータの設定7項目（ブロックサイズ・分割数・解像度・乱数シード・標本サイズ・LST 有効率の下限・分析対象範囲）が実行の引数と違う場合も停止する。CSV の内容（3列を int64 に揃えた値・行順込み）の SHA-256 がメタデータと違う場合も停止する
+- CSV のセルが自シナリオの有効母集団に1件でも無ければ停止する。メタデータの設定7項目（ブロックサイズ・分割数・解像度・乱数シード・標本サイズ・LST 有効率の下限・分析対象範囲）が実行の引数と違う場合も停止する。CSV の内容（3列を int64 に揃えた値・行順込み）の SHA-256 がメタデータと違う場合も停止する。`--dataset-path` のファイル名から読める観測日時がメタデータの `observation` と違う場合（読み取れない場合を含む）も停止する（`cell_id` は観測をまたいで共通のため、別の観測のデータセットでも有効母集団の照合だけでは止まらない）
 - 出力は既定の出力先の隣の `{既定のディレクトリ名}_common_evaluation/` に出し、出力名の末尾に CSV 名を付ける（既定のランを上書きしない）。来歴の入力には、データセットに加えて評価セル CSV とメタデータ JSON を記録する
 - 指定しない場合の挙動（母数・標本・fold）は変わらない
 

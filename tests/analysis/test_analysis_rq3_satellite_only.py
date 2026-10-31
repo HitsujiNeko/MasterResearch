@@ -55,7 +55,7 @@ from src.common.analysis_dataset import (
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
 )
 from src.common.analysis_runs import build_observation_label
-from src.common.evaluation_cells import save_evaluation_set
+from src.common.evaluation_cells import METADATA_OBSERVATION_KEY, save_evaluation_set
 from src.common.run_parameters import build_run_parameters_from_args
 
 
@@ -518,9 +518,15 @@ class TestMainAnalysisArea:
         )
         return captured
 
-    def _set_argv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> Path:
+    def _set_argv(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        *extra_args: str,
+        dataset_name: str = "dataset_satellite_only_dummy_hanoi_30m.gpkg",
+    ) -> Path:
         """main() のCLI引数を設定し、出力先ディレクトリを返す。"""
-        dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        dataset_path = tmp_path / dataset_name
         dataset_path.write_bytes(DUMMY_DATASET_BYTES)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
@@ -713,6 +719,12 @@ class TestLoadScenarioDataset:
             load_scenario_dataset(Path("dummy.gpkg"), ANALYSIS_AREA_SURVEY)
 
 
+# 評価セルを使うテストの観測日時と、その観測から作ったデータセットの名前
+# （分析スクリプトはファイル名から読める観測日時を評価セルのメタデータと照合する）。
+EVALUATION_OBSERVATION = "2022-09-06 03:23:58"
+EVALUATION_DATASET_NAME = "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
+
+
 def _save_common_evaluation_set(
     tmp_path: Path, cell_ids: np.ndarray, sample_size: int = 0, block_size_m: int = 2_700
 ) -> Path:
@@ -741,6 +753,7 @@ def _save_common_evaluation_set(
             "lst_valid_ratio_threshold": 0.5,
             "analysis_area": ANALYSIS_AREA_ROI,
             "common_size": len(cell_ids),
+            METADATA_OBSERVATION_KEY: EVALUATION_OBSERVATION,
         },
     )
     return cells_path
@@ -775,7 +788,12 @@ class TestMainEvaluationCells:
     """main() の --evaluation-cells の結線（標本・fold の固定、記録、停止条件）のテスト。"""
 
     _install_loader = TestMainAnalysisArea._install_loader
-    _set_argv = TestMainAnalysisArea._set_argv
+
+    def _set_argv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> Path:
+        """評価セルと同じ観測の名前のデータセットで CLI 引数を設定し、出力先を返す。"""
+        return TestMainAnalysisArea._set_argv(
+            self, monkeypatch, tmp_path, *extra_args, dataset_name=EVALUATION_DATASET_NAME
+        )
 
     def test_uses_cells_in_csv_order_and_fixed_folds(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -789,7 +807,7 @@ class TestMainEvaluationCells:
         main()
 
         cells = pd.read_csv(cells_path)
-        stem = "dataset_satellite_only_dummy_hanoi_30m_evaluation_cells_seed42"
+        stem = "dataset_satellite_only_20220906_032358_hanoi_30m_evaluation_cells_seed42"
         sample = pd.read_csv(output_dir / f"{stem}_sample_0.csv")
         assert list(sample["cell_id"]) == list(cells["cell_id"])
         folds = pd.read_csv(output_dir / f"{stem}_spatial_cv_folds.csv")

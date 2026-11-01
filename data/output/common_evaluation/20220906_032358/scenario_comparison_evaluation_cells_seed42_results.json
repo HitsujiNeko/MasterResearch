@@ -202,23 +202,33 @@
   },
   "provenance": {
     "script": "src.analysis.compare_common_evaluation",
-    "executed_at": "2026-10-26T15:00:30.950488+00:00",
+    "executed_at": "2026-10-31T12:00:35.018017+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "66284d917864d16f594716ba4efaded024c1fad9",
+      "commit": "3570348b419184572792d28aebbcb2db41363784",
       "dirty": false
     },
     "code": {
       "watch_paths": [
         "src/analysis/compare_common_evaluation.py",
         "src/common",
-        "src/analysis/urban_params/canonical_grid.py"
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/analysis_rq3_satellite_only.py",
+        "src/analysis/analysis_rq3_limited.py"
       ],
       "files": [
         {
+          "path": "src/analysis/analysis_rq3_limited.py",
+          "sha256": "4a98008d3e0ec363eff44012217930ea1c8c4cea7aade5d1fb95438080080370"
+        },
+        {
+          "path": "src/analysis/analysis_rq3_satellite_only.py",
+          "sha256": "cb7089805138e28872fd07bc467b7d3ac5431861a791b169bc84949cdceba07f"
+        },
+        {
           "path": "src/analysis/compare_common_evaluation.py",
-          "sha256": "38b8f9d51dd55ea5adcf28d6eb0167f7920194ffcb194d644fb08c8658a1b91a"
+          "sha256": "e3be383c431efe95480fb90337ae075a5ca2f9582822bdccc7710dd8f772c28e"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",
@@ -258,7 +268,7 @@
         },
         {
           "path": "src/common/evaluation_cells.py",
-          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
         },
         {
           "path": "src/common/gdal_tools.py",
@@ -282,7 +292,7 @@
         },
         {
           "path": "src/common/http_fetch.py",
-          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
         },
         {
           "path": "src/common/lulc_classes.py",
@@ -310,7 +320,7 @@
         },
         {
           "path": "src/common/raster_grid.py",
-          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
         },
         {
           "path": "src/common/raster_stats.py",
@@ -338,7 +348,7 @@
         },
         {
           "path": "src/common/summary.py",
-          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+          "sha256": "136882fd24d78ba6f51ba33f115ba50ff613c35383a10cb0a4e29326a1fff5c5"
         }
       ]
     },
@@ -356,11 +366,11 @@
     "inputs": [
       {
         "path": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation/dataset_satellite_only_20220906_032358_hanoi_30m_evaluation_cells_seed42_results.json",
-        "sha256": "b1a9417cd9a33212f47d3d54808eba65140daee75b92fab32128406064cce14f"
+        "sha256": "d3d8add288a1f15ee8b3969a9952493399139c97218fa8fd6967cf9ad52e279a"
       },
       {
         "path": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
-        "sha256": "7423d876f4ec793be573fa54a2653ddd7c0f3089888e47f09f2f3d9559825783"
+        "sha256": "dfca5a792c7371aa4ba5ad29f4eafe2603992b4baa64c9163affa94588432b06"
       },
       {
         "path": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation/dataset_satellite_only_20220906_032358_hanoi_30m_evaluation_cells_seed42_spatial_cv_folds.csv",

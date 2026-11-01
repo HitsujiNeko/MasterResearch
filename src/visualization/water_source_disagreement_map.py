@@ -42,7 +42,8 @@ DEFAULT_LABEL = "hanoi_20220906"
 DEFAULT_MASK_PATH = (
     PROJECT_ROOT / "data" / "gis" / "water" / "comparison" / f"water_masks_{DEFAULT_LABEL}.tif"
 )
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+# GIS 図の置き場所（Git 追跡）。取得データの図は images/gis_data/{カテゴリ}/ に置く慣行に合わせる
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "images" / "gis_data" / "water"
 
 # マスク GeoTIFF の値（compare_water_sources と同じ）
 MASK_WATER = 1

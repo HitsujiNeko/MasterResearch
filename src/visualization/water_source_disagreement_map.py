@@ -4,7 +4,8 @@
 （30m 正準グリッド・EPSG:5897。値は 0: 非水域、1: 水域、255: 無効）である。
 
 - 全域図: 主要な水域判定のうち何種類が「水域」としたかをセルごとに色分けする。
-  いずれかの判定が無効なセルは灰色にする（有効域を ROI 全体と同一視しないため）。
+  いずれかの判定が無効なセルと、分析対象範囲の外（ROI の BBox の余白）は灰色にする
+  （有効域を ROI 全体と同一視しないため）。
 - 拡大図: 代表地点（都心の湖沼・紅河の砂州・郊外の養殖池や水田）ごとに、GLC と他データの
   ペアを「両方水域・GLC のみ・相手のみ・両方非水域・無効」の 5 区分で示す。
 
@@ -304,7 +305,8 @@ def plot_overview(
         Patch(facecolor=colors[count], label=f"{count} 種類が水域")
         for count in range(1, level_count + 1)
     ]
-    legend_items.append(Patch(facecolor="#c8c8c8", label="いずれかが無効"))
+    # 灰色には「いずれかの判定が無効なセル」と「分析対象範囲の外」の両方が入る
+    legend_items.append(Patch(facecolor="#c8c8c8", label="対象外・いずれかが無効"))
     axes.legend(handles=legend_items, loc="lower right", fontsize=8, framealpha=0.9)
     axes.set_title(
         "水域と判定したデータの数（30m セル）\n対象: "

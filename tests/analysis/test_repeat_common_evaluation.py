@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -247,7 +248,12 @@ class TestResume:
         assert load_completed_seed(tmp_path, 42, "abc", conditions) is None
 
     def test_code_digest_is_stable_in_repository(self) -> None:
-        """コードを変えなければ、コードのダイジェストは同じ値になる。"""
+        """コードを変えなければ、コードのダイジェストは同じ値になる。
+
+        git が無い環境では `None` を返す契約のため、実リポジトリを使う本テストは飛ばす。
+        """
+        if shutil.which("git") is None:
+            pytest.skip("git が利用できない環境")
         digest = compute_code_digest()
 
         assert digest is not None

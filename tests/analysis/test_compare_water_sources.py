@@ -332,6 +332,18 @@ class TestGridAndAggregation:
             assert source.crs.to_epsg() == 5897
 
 
+class TestWatchPaths:
+    """来歴の追加監視パスのテスト。"""
+
+    def test_watch_paths_exist(self) -> None:
+        """追加監視パスはすべて実在するファイルを指す（打ち間違いで監視が空振りしない）。"""
+        from src.common.config import PROJECT_ROOT
+
+        missing = [path for path in target.WATCH_PATHS if not (PROJECT_ROOT / path).is_file()]
+
+        assert missing == []
+
+
 class TestIo:
     """入出力のテスト。"""
 

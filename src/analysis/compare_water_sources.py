@@ -65,6 +65,20 @@ from src.common.summary import build_provenance, save_summary
 from src.preprocessing.fetch_jrc_gsw_hanoi import BAND_DEFINITIONS as JRC_BAND_DEFINITIONS
 
 SCRIPT_NAME = "src.analysis.compare_water_sources"
+# 来歴で生成スクリプトと既定の監視パス（`src/common/` 等）に加えて監視するコード。
+# 集約（`LULC_WATER_COV` と同じ関数・グリッドの作り方）、一致度の指標、JRC のバンド定義は
+# いずれも `src/common/` の外にあり、変わると比較結果が変わるため陳腐化として検出する。
+WATCH_PATHS: tuple[str, ...] = (
+    "src/analysis/mask_agreement.py",
+    "src/analysis/compare_lulc_esri_glc.py",
+    "src/analysis/urban_params/params/raster.py",
+    "src/analysis/urban_params/params/lulc.py",
+    "src/analysis/urban_params/tables.py",
+    "src/analysis/urban_params/grid.py",
+    "src/analysis/urban_params/io.py",
+    "src/analysis/urban_params/config.py",
+    "src/preprocessing/fetch_jrc_gsw_hanoi.py",
+)
 
 DEFAULT_DATASET_PATH = (
     PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20220906_032358_hanoi_30m.gpkg"
@@ -962,7 +976,9 @@ def run(
         ],
         "outputs": {key: to_project_relative_string(path) for key, path in output_paths.items()},
         "provenance": build_provenance(
-            SCRIPT_NAME, [dataset_path, glc_path, esri_path, jrc_path, roi_path]
+            SCRIPT_NAME,
+            [dataset_path, glc_path, esri_path, jrc_path, roi_path],
+            extra_watch_paths=WATCH_PATHS,
         ),
     }
     save_summary(summary, output_paths["summary"])

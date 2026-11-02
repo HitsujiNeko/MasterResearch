@@ -1,0 +1,264 @@
+"""修士論文の md から docx を生成する（1 コマンドビルド）。
+
+``thesis/chapters/`` 配下の md を相対パスの昇順で結合し、pandoc と pandoc-crossref で
+``thesis/build/thesis.docx`` を生成する。書式は ``thesis/templates/reference.docx``、
+題目・目次・図表番号の設定は ``thesis/metadata.yaml`` に従う。
+
+``--pdf`` を付けると、Word（COM）で docx を開いて目次と相互参照を更新し、docx を上書き
+保存したうえで PDF も書き出す（目視確認用。Windows かつ Word がある環境のみ）。pandoc が
+出力する目次は Word のフィールドであり、Word で更新するまでページ番号が入らないため。
+
+使い方:
+    python scripts/build_thesis.py
+    python scripts/build_thesis.py --pdf
+    python scripts/build_thesis.py --output path/to/out.docx
+
+pandoc・pandoc-crossref は PATH 上か、実行中の Python と同じ conda 環境
+（``Library/bin`` 等）から探す。
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+THESIS_DIR = REPO_ROOT / "thesis"
+CHAPTERS_DIR = THESIS_DIR / "chapters"
+METADATA_FILE = THESIS_DIR / "metadata.yaml"
+REFERENCE_DOCX = THESIS_DIR / "templates" / "reference.docx"
+DEFAULT_OUTPUT = THESIS_DIR / "build" / "thesis.docx"
+
+# 目次に載せる見出しの深さ（章・節・項）
+TOC_DEPTH = 3
+
+# 終了コード
+EXIT_OK = 0
+EXIT_ERROR = 2
+
+# Word COM で目次・フィールドを更新し、docx を保存して PDF を書き出す PowerShell スクリプト。
+# パスは引用符の扱いを避けるため環境変数で渡す。17 は wdExportFormatPDF
+WORD_EXPORT_SCRIPT = r"""
+$ErrorActionPreference = 'Stop'
+$word = New-Object -ComObject Word.Application
+$word.Visible = $false
+$word.DisplayAlerts = 0
+try {
+    $doc = $word.Documents.Open($env:THESIS_DOCX, $false, $false)
+    try {
+        $doc.Fields.Update() | Out-Null
+        foreach ($toc in $doc.TablesOfContents) { $toc.Update() }
+        $doc.Save()
+        $doc.ExportAsFixedFormat($env:THESIS_PDF, 17)
+    } finally {
+        $doc.Close($false)
+    }
+} finally {
+    $word.Quit()
+}
+"""
+
+
+def collect_chapter_files(chapters_dir: Path) -> list[Path]:
+    """章・節の md ファイルを結合順（相対パスの昇順）で返す。
+
+    Args:
+        chapters_dir: 章ディレクトリを並べた親ディレクトリ。
+
+    Returns:
+        md ファイルのパスの一覧。
+
+    Raises:
+        FileNotFoundError: ディレクトリが無い、または md が 1 つも無い場合。
+    """
+    if not chapters_dir.is_dir():
+        raise FileNotFoundError(f"章のディレクトリがありません: {chapters_dir}")
+    files = sorted(
+        (path for path in chapters_dir.rglob("*.md") if path.is_file()),
+        key=lambda path: path.relative_to(chapters_dir).parts,
+    )
+    if not files:
+        raise FileNotFoundError(f"md ファイルがありません: {chapters_dir}")
+    return files
+
+
+def find_executable(name: str, explicit: str | None = None) -> str:
+    """実行ファイルのパスを探す。
+
+    明示指定があればそれを、無ければ PATH を、それでも無ければ実行中の Python と同じ
+    conda 環境の ``Library/bin``（Windows）・``bin`` を探す。conda 環境の Python を
+    フルパスで呼ぶと、PATH に環境の bin が入らないため。
+
+    Args:
+        name: 実行ファイル名（拡張子なし）。
+        explicit: 利用者が指定したパス（指定時は存在確認のみ）。
+
+    Returns:
+        実行ファイルのパス。
+
+    Raises:
+        FileNotFoundError: 見つからない場合。
+    """
+    if explicit:
+        found = shutil.which(explicit)
+        if found is None:
+            raise FileNotFoundError(f"{name} が見つかりません: {explicit}")
+        return found
+    found = shutil.which(name)
+    if found:
+        return found
+    prefix = Path(sys.prefix)
+    for directory in (prefix / "Library" / "bin", prefix / "bin", prefix / "Scripts"):
+        found = shutil.which(name, path=str(directory))
+        if found:
+            return found
+    raise FileNotFoundError(
+        f"{name} が見つかりません。conda 環境 masterresearch に environment.yml の依存を"
+        "入れてください（conda env update -f environment.yml）"
+    )
+
+
+def build_pandoc_command(
+    pandoc: str,
+    crossref: str,
+    inputs: Sequence[Path],
+    output: Path,
+    metadata_file: Path,
+    reference_docx: Path,
+    resource_paths: Sequence[Path],
+) -> list[str]:
+    """md → docx の pandoc コマンドを組み立てる。
+
+    Args:
+        pandoc: pandoc のパス。
+        crossref: pandoc-crossref のパス（フィルタとして渡す）。
+        inputs: 結合する md（この順に結合される）。
+        output: 出力する docx。
+        metadata_file: 題目・目次・crossref 設定の YAML。
+        reference_docx: 書式の雛形。
+        resource_paths: 図のパスを解決する基準ディレクトリ（先頭から順に探す）。
+
+    Returns:
+        subprocess に渡す引数リスト。
+    """
+    return [
+        pandoc,
+        *(str(path) for path in inputs),
+        "--from=markdown",
+        "--to=docx",
+        f"--filter={crossref}",
+        f"--metadata-file={metadata_file}",
+        f"--reference-doc={reference_docx}",
+        "--toc",
+        f"--toc-depth={TOC_DEPTH}",
+        f"--resource-path={os.pathsep.join(str(path) for path in resource_paths)}",
+        f"--output={output}",
+    ]
+
+
+def build_docx(
+    chapters_dir: Path,
+    output: Path,
+    *,
+    pandoc: str,
+    crossref: str,
+    metadata_file: Path = METADATA_FILE,
+    reference_docx: Path = REFERENCE_DOCX,
+    resource_paths: Sequence[Path] = (THESIS_DIR, REPO_ROOT),
+) -> str:
+    """章・節の md を結合して docx を生成する。
+
+    図のパスは ``thesis/`` からの相対（``figures/...``）か、リポジトリルートからの相対
+    （``images/...``）で書ける（``resource_paths`` の既定値）。
+
+    Returns:
+        pandoc・pandoc-crossref の標準エラー（警告。無ければ空文字列）。
+
+    Raises:
+        FileNotFoundError: 入力が無い場合。
+        subprocess.CalledProcessError: pandoc が異常終了した場合（標準エラーを含む）。
+    """
+    for path in (metadata_file, reference_docx):
+        if not path.is_file():
+            raise FileNotFoundError(f"ファイルがありません: {path}")
+    inputs = collect_chapter_files(chapters_dir)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    command = build_pandoc_command(
+        pandoc, crossref, inputs, output, metadata_file, reference_docx, resource_paths
+    )
+    result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
+    return result.stderr
+
+
+def export_pdf_with_word(docx: Path, pdf: Path) -> None:
+    """Word（COM）で docx の目次・フィールドを更新して保存し、PDF を書き出す。
+
+    Raises:
+        RuntimeError: Windows 以外で呼ばれた場合。
+        subprocess.CalledProcessError: Word の操作に失敗した場合。
+    """
+    if sys.platform != "win32":
+        raise RuntimeError("--pdf は Windows（Word がある環境）でのみ使えます")
+    env = {**os.environ, "THESIS_DOCX": str(docx.resolve()), "THESIS_PDF": str(pdf.resolve())}
+    subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", WORD_EXPORT_SCRIPT],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """コマンドライン引数を解析する。"""
+    parser = argparse.ArgumentParser(description="修士論文の md から docx を生成する")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help="出力する docx（既定: thesis/build/thesis.docx）",
+    )
+    parser.add_argument(
+        "--pdf",
+        action="store_true",
+        help="Word で目次を更新して docx を保存し、同名の PDF も書き出す（Windows のみ）",
+    )
+    parser.add_argument("--pandoc", default=None, help="pandoc の実行ファイル")
+    parser.add_argument("--pandoc-crossref", default=None, help="pandoc-crossref の実行ファイル")
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """論文をビルドする。終了コードを返す（0: 成功、2: 失敗）。"""
+    args = parse_args(argv)
+    try:
+        pandoc = find_executable("pandoc", args.pandoc)
+        crossref = find_executable("pandoc-crossref", args.pandoc_crossref)
+        warnings = build_docx(CHAPTERS_DIR, args.output, pandoc=pandoc, crossref=crossref)
+        if warnings:
+            # 参照先の無い図表ラベル等の警告。docx は生成されているため失敗にはしない
+            print(warnings, file=sys.stderr)
+        print(f"docx を生成しました: {args.output}")
+        if args.pdf:
+            pdf = args.output.with_suffix(".pdf")
+            export_pdf_with_word(args.output, pdf)
+            print(f"目次を更新し、PDF を書き出しました: {pdf}")
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(f"エラー: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+    except subprocess.CalledProcessError as exc:
+        message = f"エラー: {exc.cmd[0]} が失敗しました（終了コード {exc.returncode}）"
+        print(message, file=sys.stderr)
+        if exc.stderr:
+            print(exc.stderr, file=sys.stderr)
+        return EXIT_ERROR
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())

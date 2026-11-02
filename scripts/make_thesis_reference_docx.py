@@ -32,6 +32,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPO_ROOT / "thesis" / "templates" / "reference.docx"
 
+# pandoc から既定の雛形を取り出す処理の上限秒数（応答しない場合に打ち切るため）
+PANDOC_TIMEOUT_SECONDS = 120
+
 # zip エントリの固定日時（決定的な出力のため。zip 形式が表せる最古の日時）
 ZIP_DATE_TIME = (1980, 1, 1, 0, 0, 0)
 
@@ -162,6 +165,7 @@ CAPTION_PPR = (
     '<w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto" /><w:jc w:val="center" />'
 )
 CAPTION_RPR = _fonts(FONT_GOTHIC, FONT_GOTHIC) + _size(SIZE_BODY)
+# 表紙の段落は中央揃え。OOXML の要素順（spacing → jc）に合わせ、間隔の後ろに連結する
 COVER_PPR = '<w:jc w:val="center" />'
 
 # 置き換えるスタイル（styleId → w:style 要素）。既定に無いものは末尾に追加する
@@ -192,21 +196,21 @@ STYLES: dict[str, str] = {
         "Title",
         "Title",
         next_style="BodyText",
-        ppr=COVER_PPR + '<w:spacing w:before="2400" w:after="600" />',
+        ppr='<w:spacing w:before="2400" w:after="600" />' + COVER_PPR,
         rpr=_size(SIZE_COVER_TITLE),
     ),
     "Subtitle": _paragraph_style(
         "Subtitle",
         "Subtitle",
         next_style="BodyText",
-        ppr=COVER_PPR + '<w:spacing w:before="0" w:after="1200" />',
+        ppr='<w:spacing w:before="0" w:after="1200" />' + COVER_PPR,
         rpr=_size(SIZE_COVER_OTHER),
     ),
     "Author": _paragraph_style(
         "Author",
         "Author",
         next_style="BodyText",
-        ppr=COVER_PPR + '<w:spacing w:before="0" w:after="240" />',
+        ppr='<w:spacing w:before="0" w:after="240" />' + COVER_PPR,
         rpr=_size(SIZE_COVER_OTHER),
         custom=True,
     ),
@@ -214,7 +218,7 @@ STYLES: dict[str, str] = {
         "Date",
         "Date",
         next_style="BodyText",
-        ppr=COVER_PPR + '<w:spacing w:before="0" w:after="240" />',
+        ppr='<w:spacing w:before="0" w:after="240" />' + COVER_PPR,
         rpr=_size(SIZE_COVER_OTHER),
     ),
     # 目次見出し（「目次」）: 表紙の後で改ページし、目次自体には載せない
@@ -306,6 +310,7 @@ def load_default_reference(pandoc: str) -> bytes:
 
     Raises:
         subprocess.CalledProcessError: pandoc が異常終了した場合。
+        subprocess.TimeoutExpired: pandoc が上限秒数内に終わらない場合。
         FileNotFoundError: pandoc が見つからない場合。
     """
     # 「-o -」は Windows で標準出力ではなく「-」という名前のファイルになるため、
@@ -316,6 +321,7 @@ def load_default_reference(pandoc: str) -> bytes:
             [pandoc, "-o", str(path), "--print-default-data-file", "reference.docx"],
             check=True,
             capture_output=True,
+            timeout=PANDOC_TIMEOUT_SECONDS,
         )
         return path.read_bytes()
 
@@ -458,7 +464,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         default_bytes = load_default_reference(args.pandoc or find_pandoc())
-    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+    except (
+        FileNotFoundError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+    ) as exc:
         print(f"pandoc から既定の reference.docx を取得できません: {exc}", file=sys.stderr)
         return 2
     try:

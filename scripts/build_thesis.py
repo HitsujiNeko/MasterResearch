@@ -40,6 +40,9 @@ TOC_DEPTH = 3
 # Word（COM）の操作の上限秒数。Word がダイアログで止まった場合にビルドを打ち切るため
 WORD_TIMEOUT_SECONDS = 300
 
+# pandoc（pandoc-crossref フィルタを含む）の実行の上限秒数。応答しない場合に打ち切るため
+PANDOC_TIMEOUT_SECONDS = 300
+
 # 終了コード
 EXIT_OK = 0
 EXIT_ERROR = 2
@@ -185,6 +188,7 @@ def build_docx(
     Raises:
         FileNotFoundError: 入力が無い場合。
         subprocess.CalledProcessError: pandoc が異常終了した場合（標準エラーを含む）。
+        subprocess.TimeoutExpired: pandoc の実行が上限秒数を超えた場合。
     """
     for path in (metadata_file, reference_docx):
         if not path.is_file():
@@ -194,7 +198,14 @@ def build_docx(
     command = build_pandoc_command(
         pandoc, crossref, inputs, output, metadata_file, reference_docx, resource_paths
     )
-    result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=PANDOC_TIMEOUT_SECONDS,
+    )
     return result.stderr
 
 
@@ -264,8 +275,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"エラー: {exc}", file=sys.stderr)
         return EXIT_ERROR
-    except subprocess.TimeoutExpired:
-        message = f"エラー: Word の操作が {WORD_TIMEOUT_SECONDS} 秒を超えたため打ち切りました"
+    except subprocess.TimeoutExpired as exc:
+        if exc.cmd[0] != "powershell":
+            message = f"エラー: {exc.cmd[0]} が {exc.timeout:g} 秒を超えたため打ち切りました"
+            print(message, file=sys.stderr)
+            return EXIT_ERROR
+        message = f"エラー: Word の操作が {exc.timeout:g} 秒を超えたため打ち切りました"
         print(message, file=sys.stderr)
         hint = (
             "見えない状態の Word が残って docx を開いたままの場合がある。タスクマネージャーで"

@@ -155,6 +155,31 @@ class TestBuildParts:
             assert {info.create_system for info in archive.infolist()} == {0}
 
 
+# OOXML（ECMA-376）の CT_PPrBase における段落書式の子要素の順序（本スクリプトが使う要素のみ）
+PPR_ORDER = (
+    "keepNext",
+    "keepLines",
+    "pageBreakBefore",
+    "widowControl",
+    "spacing",
+    "ind",
+    "jc",
+    "outlineLvl",
+)
+
+
+@pytest.mark.parametrize("style_id", sorted(target.STYLES))
+def test_paragraph_properties_follow_schema_order(style_id: str) -> None:
+    """各スタイルの w:pPr の子要素が OOXML の順序どおりに並ぶ（処理系による無視を防ぐ）。"""
+    match = re.search(r"<w:pPr>(.*?)</w:pPr>", target.STYLES[style_id], re.S)
+    if match is None:
+        return
+    names = re.findall(r"<w:(\w+)", match.group(1))
+    assert set(names) <= set(PPR_ORDER), f"順序表に無い要素: {set(names) - set(PPR_ORDER)}"
+    positions = [PPR_ORDER.index(name) for name in names]
+    assert positions == sorted(positions), f"{style_id}: {names}"
+
+
 class TestCommittedTemplate:
     """追跡している reference.docx が卒業論文の書式値を満たすことのテスト。"""
 

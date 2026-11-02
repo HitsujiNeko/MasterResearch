@@ -233,6 +233,24 @@ class TestMain:
         assert target.main(["--output", output, "--strict"]) == target.EXIT_ERROR
         assert "--strict" in capsys.readouterr().err
 
+    def test_returns_2_when_pandoc_times_out(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """pandoc の打ち切りでは Word 用の案内を出さない。"""
+
+        def hanging_pandoc(*args: object, **kwargs: object) -> str:
+            raise subprocess.TimeoutExpired(["pandoc"], target.PANDOC_TIMEOUT_SECONDS)
+
+        monkeypatch.setattr(target, "find_executable", lambda name, explicit=None: name)
+        monkeypatch.setattr(target, "build_docx", hanging_pandoc)
+        assert target.main(["--output", str(tmp_path / "x.docx")]) == target.EXIT_ERROR
+        err = capsys.readouterr().err
+        assert "pandoc が" in err
+        assert "WINWORD.EXE" not in err
+
     def test_returns_2_when_word_times_out(
         self,
         tmp_path: Path,

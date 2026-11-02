@@ -232,6 +232,70 @@ class TestSelectSingleImage:
             target.select_single_image(target.YEARLY_ASSET_ID, {"year": 2021})
 
 
+class _ExprImage:
+    """ee.Image を模し、適用された演算を式の文字列として記録する。"""
+
+    def __init__(self, expr: str, parts: list[str] | None = None) -> None:
+        self.expr = expr
+        self.parts = parts or []
+        self.band_names: list[str] | None = None
+
+    def select(self, name: str) -> _ExprImage:
+        """バンド選択を記録する。"""
+        return _ExprImage(f"{self.expr}.select({name})")
+
+    def unmask(self, value: int) -> _ExprImage:
+        """マスクの穴埋めを記録する。"""
+        return _ExprImage(f"{self.expr}.unmask({value})")
+
+    def updateMask(self, mask: _ExprImage) -> _ExprImage:  # noqa: N802  # GEE API 名に合わせる
+        """マスクの適用を記録する。"""
+        return _ExprImage(f"{self.expr}.updateMask({mask.expr})")
+
+    def gt(self, value: int) -> _ExprImage:
+        """比較を記録する。"""
+        return _ExprImage(f"{self.expr}.gt({value})")
+
+    def And(self, other: _ExprImage) -> _ExprImage:  # noqa: N802  # GEE API 名に合わせる
+        """論理積を記録する。"""
+        return _ExprImage(f"{self.expr}.And({other.expr})")
+
+    def rename(self, names: list[str]) -> _ExprImage:
+        """バンド名の付け替えを記録する。"""
+        self.band_names = names
+        return self
+
+    @staticmethod
+    def cat(images: list[_ExprImage]) -> _ExprImage:
+        """結合する各バンドの式を記録する。"""
+        return _ExprImage("cat", [image.expr for image in images])
+
+
+class TestBuildJrcImage:
+    """build_jrc_image のテスト（無効値の意味を揃える演算の順序を確かめる）。"""
+
+    def test_masks_and_fill_values_per_band(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Occurrence は 0、年次は 1 で穴埋めし、観測なしと値 0 だけをマスクする。"""
+        monkeypatch.setattr(target.ee, "Image", _ExprImage)
+        monkeypatch.setattr(
+            target,
+            "select_single_image",
+            lambda asset_id, conditions: _ExprImage(f"{asset_id}{sorted(conditions.items())}"),
+        )
+
+        image = target.build_jrc_image(2021, 2021, 9)
+
+        has_obs = f"{target.METADATA_ASSET_ID}.select(valid_obs).gt(0)"
+        yearly = f"{target.YEARLY_ASSET_ID}[('year', 2021)].select(waterClass).unmask(1)"
+        monthly = f"{target.MONTHLY_ASSET_ID}[('month', 9), ('year', 2021)].select(water)"
+        assert image.parts == [
+            f"{target.GLOBAL_ASSET_ID}.select(occurrence).unmask(0).updateMask({has_obs})",
+            f"{yearly}.updateMask({yearly}.gt(0).And({has_obs}))",
+            f"{monthly}.updateMask({monthly}.gt(0).And({has_obs}))",
+        ]
+        assert image.band_names == [band.name for band in target.BAND_DEFINITIONS]
+
+
 class TestCheckBandProjections:
     """check_band_projections のテスト。"""
 

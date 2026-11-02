@@ -197,8 +197,11 @@ def _install_fake_ee(monkeypatch: pytest.MonkeyPatch, matched_count: int) -> lis
     applied: list[tuple[str, Any]] = []
 
     class _FakeFilter:
+        """ee.Filter を模し、条件を (プロパティ名, 値) のタプルで返す。"""
+
         @staticmethod
         def eq(property_name: str, value: Any) -> tuple[str, Any]:
+            """等価条件をタプルとして返す。"""
             return (property_name, value)
 
     monkeypatch.setattr(

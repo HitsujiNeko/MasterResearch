@@ -19,7 +19,11 @@ from pyproj import CRS
 from rasterio.transform import from_origin
 
 from src.analysis import compare_water_sources as target
-from src.analysis.urban_params.canonical_grid import build_canonical_grid, make_cell_id
+from src.analysis.urban_params.canonical_grid import (
+    CanonicalGridSpec,
+    build_canonical_grid,
+    make_cell_id,
+)
 from src.common.geo_metadata import BBox
 from src.common.lulc_classes import (
     COMMON_BUILT,
@@ -34,7 +38,12 @@ BASE_ROW = 77_500
 BASE_COL = 19_500
 
 
-def _layer(key: str, water: list[bool], valid: list[bool], fraction=None) -> target.WaterLayer:
+def _layer(
+    key: str,
+    water: list[bool],
+    valid: list[bool],
+    fraction: list[float] | None = None,
+) -> target.WaterLayer:
     """テスト用の水域判定を作る。"""
     return target.WaterLayer(
         key=key,
@@ -242,7 +251,7 @@ class TestComparisons:
         assert result["max_abs_diff"] == 0.0
 
 
-def _two_by_two_spec():
+def _two_by_two_spec() -> CanonicalGridSpec:
     """2x2 セル（row 77,500〜77,501・col 19,500〜19,501）の正準グリッドを作る。"""
     bbox = BBox(
         minx=BASE_COL * 30.0,

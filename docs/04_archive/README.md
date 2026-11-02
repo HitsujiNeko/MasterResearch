@@ -20,7 +20,8 @@
 ├── satellite_only_analysis_results_cellbased_20230707_032329.md  # Satellite Only 旧結果（観測032329）
 │
 ├── 01_metadata/
-│   └── papers_database.csv             # 全論文の基本情報（CSV）
+│   ├── papers_database.csv             # 全論文の基本情報（CSV）
+│   └── papers_bibliography.csv         # 論文の引用用書誌（全著者・巻・号・ページ。原典照合済み）
 │
 ├── 02_structured_summaries/            # 構造化要約（S1〜S18）
 │   ├── S1_Ermida_2020.md

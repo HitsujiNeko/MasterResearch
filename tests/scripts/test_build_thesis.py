@@ -159,6 +159,8 @@ def test_build_pandoc_command_wires_all_inputs(tmp_path: Path) -> None:
         tmp_path / "meta.yaml",
         tmp_path / "ref.docx",
         [tmp_path / "r1", tmp_path / "r2"],
+        [tmp_path / "gen.bib", tmp_path / "extra.bib"],
+        tmp_path / "style.csl",
     )
     assert command[0] == "pandoc"
     assert command[1:3] == [str(path) for path in inputs]
@@ -168,10 +170,31 @@ def test_build_pandoc_command_wires_all_inputs(tmp_path: Path) -> None:
     assert "--toc" in command
     assert f"--toc-depth={target.TOC_DEPTH}" in command
     assert f"--resource-path={tmp_path / 'r1'}{os.pathsep}{tmp_path / 'r2'}" in command
+    assert f"--bibliography={tmp_path / 'gen.bib'}" in command
+    assert f"--bibliography={tmp_path / 'extra.bib'}" in command
+    assert f"--csl={tmp_path / 'style.csl'}" in command
     assert command[-1] == f"--output={tmp_path / 'out.docx'}"
 
 
-def test_build_docx_requires_metadata_and_reference(tmp_path: Path) -> None:
+def test_build_pandoc_command_runs_crossref_before_citeproc(tmp_path: Path) -> None:
+    """pandoc-crossref を citeproc より先に適用する（@fig: を引用と誤認させないため）。"""
+    command = target.build_pandoc_command(
+        "pandoc",
+        "crossref",
+        [tmp_path / "a.md"],
+        tmp_path / "out.docx",
+        tmp_path / "meta.yaml",
+        tmp_path / "ref.docx",
+        [tmp_path],
+        [tmp_path / "gen.bib"],
+        tmp_path / "style.csl",
+    )
+    assert command.index("--filter=crossref") < command.index("--citeproc")
+
+
+@pytest.mark.parametrize("missing", ["metadata_file", "csl_file", "extra_bibliography"])
+def test_build_docx_requires_input_files(tmp_path: Path, missing: str) -> None:
+    """metadata・CSL・手書きの .bib のいずれかが無ければ pandoc を呼ぶ前に失敗する。"""
     _touch(tmp_path / "chapters" / "01" / "00.md", "# 第1章")
     with pytest.raises(FileNotFoundError, match="ファイルがありません"):
         target.build_docx(
@@ -179,8 +202,37 @@ def test_build_docx_requires_metadata_and_reference(tmp_path: Path) -> None:
             tmp_path / "out.docx",
             pandoc="pandoc",
             crossref="crossref",
-            metadata_file=tmp_path / "none.yaml",
+            **{missing: tmp_path / "none"},
         )
+
+
+class TestExtraBibliography:
+    """手書きの .bib の引用キーの検査のテスト。"""
+
+    def test_keys_skip_comments_and_non_entries(self) -> None:
+        """@comment・@string と、% でコメントアウトした行のエントリは引用キーに数えない。"""
+        text = (
+            "% @book{commented_out,\n"
+            "@string{ja = {Japanese}}\n"
+            "@comment{note, x}\n"
+            "@book{masuda2011,\n  title = {本},\n}\n"
+            "  @Online{ usgs_landsat , url = {x}}\n"
+        )
+        assert target.bibliography_keys(text) == ["masuda2011", "usgs_landsat"]
+
+    def test_accepts_repository_extra_bibliography(self) -> None:
+        """リポジトリの手書きの .bib は S 番号のキー・重複キーを含まない。"""
+        text = target.EXTRA_BIBLIOGRAPHY.read_text(encoding="utf-8")
+        target.check_extra_bibliography(text, "@article{S1,\n}\n")
+
+    def test_rejects_reserved_and_duplicate_keys(self) -> None:
+        """S 番号の形のキーと、手書き分の中での重複キーを報告する。"""
+        extra = "@book{S99,\n}\n@book{dup,\n}\n@book{dup,\n}\n"
+        with pytest.raises(target.make_thesis_bib.BibliographyError) as info:
+            target.check_extra_bibliography(extra, "@article{S1,\n}\n")
+        problems = info.value.problems
+        assert any(problem.startswith("S99:") for problem in problems)
+        assert "dup: 手書きの .bib で引用キーが重複しています" in problems
 
 
 def test_export_pdf_rejects_non_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -232,6 +284,24 @@ class TestMain:
         assert target.main(["--output", output]) == target.EXIT_OK
         assert target.main(["--output", output, "--strict"]) == target.EXIT_ERROR
         assert "--strict" in capsys.readouterr().err
+
+    def test_returns_2_and_lists_bibliography_problems(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """文献 DB と引用用書誌の不整合は、問題の一覧を表示して終了コード 2 を返す。"""
+
+        def inconsistent_build(*args: object, **kwargs: object) -> str:
+            raise target.make_thesis_bib.BibliographyError(["S19: 引用用書誌に行がありません"])
+
+        monkeypatch.setattr(target, "find_executable", lambda name, explicit=None: name)
+        monkeypatch.setattr(target, "build_docx", inconsistent_build)
+        assert target.main(["--output", str(tmp_path / "x.docx")]) == target.EXIT_ERROR
+        err = capsys.readouterr().err
+        assert ".bib を用意できません" in err
+        assert "S19: 引用用書誌に行がありません" in err
 
     def test_returns_2_when_pandoc_times_out(
         self,
@@ -329,3 +399,58 @@ class TestBuildWithPandoc:
             chapters, tmp_path / "out.docx", pandoc=pandoc, crossref=crossref
         )
         assert "fig:missing" in warnings
+
+    def test_renders_citations_in_thesis_style(self, tmp_path: Path) -> None:
+        """本文の引用は上付きの「1)」、参考文献リストは卒業論文の形式で出力される。
+
+        引用順に番号が振られ、複数の引用は「2)3)」と並び、再掲は同じ番号になる。
+        図の参照（@fig:）は citeproc に引用と誤認されない。
+        """
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _write_png(tmp_path / "figures" / "a.png")
+        _touch(
+            chapters / "01_intro" / "00_chapter.md",
+            "# 第1章　はじめに\n\n"
+            "SMW 法を用いた[@S1]．既往研究に従う[@S12; @S13]．再掲する[@S1]．@fig:a を見る．\n\n"
+            "![図の題目](figures/a.png){#fig:a}\n",
+        )
+        _touch(
+            chapters / "90_back" / "02_references.md",
+            "# 参考文献\n\n::: {#refs}\n:::\n",
+        )
+        output = tmp_path / "out.docx"
+        warnings = target.build_docx(
+            chapters, output, pandoc=pandoc, crossref=crossref, resource_paths=(tmp_path,)
+        )
+        assert warnings == ""
+        assert (tmp_path / target.GENERATED_BIBLIOGRAPHY_NAME).is_file()
+        document = _document_xml(output)
+        texts = _paragraph_texts(document)
+        assert "SMW 法を用いた1)．既往研究に従う2)3)．再掲する1)．図-1 を見る．" in texts
+        superscripts = re.findall(
+            r'<w:vertAlign w:val="superscript" />.*?<w:t[^>]*>([^<]*)</w:t>', document
+        )
+        assert superscripts[:3] == ["1)", "2)3)", "1)"]
+        assert (
+            "1) Ermida, S. L., Soares, P., Mantas, V., Göttsche, F.-M. and Trigo, I. F.："
+            "Google Earth Engine Open-Source Code for Land Surface Temperature Estimation"
+            " from the Landsat Series，Remote Sensing，Vol.12，No.9，p.1471，2020．"
+        ) in texts
+        assert any(
+            text.startswith("3) Zuur, A. F., Ieno, E. N. and Elphick, C. S.：")
+            and text.endswith("Methods in Ecology and Evolution，Vol.1，No.1，pp.3-14，2010．")
+            for text in texts
+        )
+        # 題名は DOI へのハイパーリンクにしない（metadata.yaml の link-bibliography）
+        assert "<w:hyperlink" not in document
+
+    def test_reports_unknown_citation_as_warning(self, tmp_path: Path) -> None:
+        """文献 DB にも手書きの .bib にも無い引用キーは警告になる（--strict で失敗にできる）。"""
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _touch(chapters / "01_intro" / "00_chapter.md", "# 第1章\n\n引用する[@no_such_key]．\n")
+        warnings = target.build_docx(
+            chapters, tmp_path / "out.docx", pandoc=pandoc, crossref=crossref
+        )
+        assert "no_such_key" in warnings

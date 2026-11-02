@@ -1,0 +1,25 @@
+% 文献データベース（docs/04_archive/01_metadata/papers_database.csv）に登録しない文献の書誌。
+% 教科書・報告書・データの出典・Web サイト等を手書きで追記する。査読論文は文献 DB に登録し
+% （/add-paper）、引用用書誌（papers_bibliography.csv）に書誌を足して S 番号で引用する。
+%
+% 書き方は docs/02_methods/thesis_writing_guide.md の「引用と参考文献」を参照する。要点:
+% - 引用キーは英小文字・数字・_ で内容が分かる名前にする（例: usgs_landsat_c2）。
+%   S 番号の形（S1 等）は文献 DB の論文用のため使わない（ビルドが失敗する）
+% - 書誌は原典（書籍の奥付・報告書の表紙・Web ページ）で確かめてから書く
+% - 漢字の氏名・機関名は {{益田晴恵}} のように二重の波括弧で囲む
+%   （姓・名に分けると名の後ろに「.」が付くため）
+% - Web ページ・データの出典は @online とし、url と urldate（参照日 YYYY-MM-DD）を書く
+%
+% 例（コメントのため読み込まれない）:
+% @book{masuda2011,
+%   author = {{益田晴恵}},
+%   title = {都市の水資源と地下水の未来},
+%   publisher = {京都大学学術出版会},
+%   year = {2011},
+% }
+% @online{usgs_landsat_c2,
+%   author = {{U.S. Geological Survey}},
+%   title = {Landsat Collection 2 Level-2 Science Products},
+%   url = {https://www.usgs.gov/...},
+%   urldate = {2026-11-03},
+% }

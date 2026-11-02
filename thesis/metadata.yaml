@@ -8,6 +8,11 @@ date: "[TBD:提出年月日]"
 lang: ja-JP
 toc-title: "目次"
 
+# --- 引用（citeproc） ---
+# 参考文献リストの題名を DOI・URL へのハイパーリンクにしない（卒業論文に合わせ、印刷物で
+# 題名が青字・下線にならないようにする）。書式は thesis/templates/thesis-ja.csl。
+link-bibliography: false
+
 # --- pandoc-crossref ---
 # 図・表の番号は文書通し（章ごとにしない）。卒業論文の「図-1　題目」「表-1　題目」に合わせ、
 # 番号の接頭辞と題目の区切り（全角スペース）を指定する。本文中の参照も「図-1」とする。

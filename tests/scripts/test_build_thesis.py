@@ -218,6 +218,36 @@ class TestMain:
         assert "終了コード 64" in err
         assert "YAML parse exception" in err
 
+    def test_strict_fails_on_warnings(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """--strict では図の欠落・未定義の参照等の警告を失敗にする（無指定では成功）。"""
+        warning = "[WARNING] Could not fetch resource figures/none.png"
+        monkeypatch.setattr(target, "find_executable", lambda name, explicit=None: name)
+        monkeypatch.setattr(target, "build_docx", lambda *args, **kwargs: warning)
+        output = str(tmp_path / "x.docx")
+        assert target.main(["--output", output]) == target.EXIT_OK
+        assert target.main(["--output", output, "--strict"]) == target.EXIT_ERROR
+        assert "--strict" in capsys.readouterr().err
+
+    def test_returns_2_when_word_times_out(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def hanging_word(docx: Path, pdf: Path) -> None:
+            raise subprocess.TimeoutExpired(["powershell"], target.WORD_TIMEOUT_SECONDS)
+
+        monkeypatch.setattr(target, "find_executable", lambda name, explicit=None: name)
+        monkeypatch.setattr(target, "build_docx", lambda *args, **kwargs: "")
+        monkeypatch.setattr(target, "export_pdf_with_word", hanging_word)
+        assert target.main(["--output", str(tmp_path / "x.docx"), "--pdf"]) == target.EXIT_ERROR
+        assert "打ち切りました" in capsys.readouterr().err
+
 
 @requires_pandoc
 class TestBuildWithPandoc:

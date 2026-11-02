@@ -76,17 +76,17 @@ conda env update -n masterresearch -f environment.yml
 python scripts/build_thesis.py
 ```
 
-`thesis/build/thesis.docx` が生成される。目次は Word のフィールドとして出力されるため、Word で開いて更新するまでページ番号が入らない。目次を更新した docx と PDF を得るには `--pdf` を付ける（Windows かつ Word がある環境のみ）。
+`python` は conda 環境 `masterresearch` の Python を使う（環境の外の Python では pandoc を探せない場合がある）。`thesis/build/thesis.docx` が生成される。目次は Word のフィールドとして出力されるため、Word で開いて更新するまでページ番号が入らない。目次を更新した docx と PDF を得るには `--pdf` を付ける（Windows かつ Word がある環境のみ）。
 
 ```bash
 python scripts/build_thesis.py --pdf
 ```
 
-参照先の無い図表ラベルなど pandoc・pandoc-crossref の警告は標準エラーに表示される。docx は生成されるが、本文に `??` が残るため必ず解消する。
+図のファイルが見つからない（図が説明文に置き換わる）、参照先の無いラベルがある（本文に `¿fig:ラベル?` のように残る）といった pandoc・pandoc-crossref の警告は標準エラーに表示され、docx は生成される。警告は必ず解消する。`--strict` を付けると、警告があればビルドを失敗にする（提出前の確認に使う）。
 
 ### 3.3 書式（reference.docx）
 
-書式は卒業論文に合わせ、`scripts/make_thesis_reference_docx.py` が pandoc 既定の雛形に値を適用して `thesis/templates/reference.docx` を生成する。書式を変えるときは**スクリプトの定数を直して再生成し、生成物もコミットする**（雛形を Word で直接編集しない）。
+書式は卒業論文に合わせ、`scripts/make_thesis_reference_docx.py` が pandoc 既定の雛形に値を適用して `thesis/templates/reference.docx` を生成する。書式を変えるときは**スクリプトの定数を直して再生成し、生成物もコミットする**（雛形を Word で直接編集しない）。生成物とスクリプトの一致や実際の docx 生成を確かめるテストは pandoc を要するため、CI（pandoc なし）では skip され、conda 環境でのローカル実行でのみ検証される。
 
 | 項目 | 値 |
 |---|---|
@@ -128,7 +128,7 @@ python scripts/build_thesis.py --pdf
 | Limited | 公開データ構成 | 衛星由来データ＋公開 GIS データ |
 | Full | 測量データ構成 | 衛星由来データ＋公開 GIS データ＋測量 GIS データ |
 
-定義の正本は [research_guide.md](../01_planning/research_guide.md) のシナリオ表とする。
+シナリオの定義の正本は [CLAUDE.md](../../CLAUDE.md) の最小用語集、各シナリオが成立する範囲は [research_guide.md](../01_planning/research_guide.md) のシナリオ表を参照する。
 
 ---
 
@@ -195,8 +195,10 @@ $$ \mathrm{LST} = \beta_0 + \beta_1 \mathrm{NDVI} $$ {#eq:model}
 残っている印は次のコマンドで一覧できる。**提出前に 0 件にする**。
 
 ```bash
-grep -rn -e "\[要出典\]" -e "\[TBD:" thesis/
+grep -rn -e "\[要出典\]" -e "\[TBD:" thesis/chapters/ thesis/metadata.yaml
 ```
+
+未定義の参照（`¿…?`）は md ではなく生成された docx に現れるため、`--strict` 付きのビルドで確認する。
 
 ---
 

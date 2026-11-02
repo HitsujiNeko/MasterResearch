@@ -12,8 +12,9 @@ pandoc 既定の reference.docx（``pandoc --print-default-data-file reference.d
     python scripts/make_thesis_reference_docx.py
     python scripts/make_thesis_reference_docx.py --pandoc path/to/pandoc --output out.docx
 
-出力はバイト単位で決定的になるよう、zip の各エントリの日時を固定する
-（再生成しても内容が同じなら git の差分が出ない）。
+出力はバイト単位で決定的になるよう、zip の各エントリの日時と作成 OS を固定する
+（再生成しても内容が同じなら git の差分が出ない）。ただし zlib の版が違うと圧縮結果が
+変わりうる。
 """
 
 from __future__ import annotations
@@ -430,6 +431,8 @@ def write_docx(parts: dict[str, bytes], output: Path) -> None:
         for name, content in parts.items():
             info = zipfile.ZipInfo(name, date_time=ZIP_DATE_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
+            # 作成 OS の既定値は実行環境で変わる（Windows 0、その他 3）ため固定する
+            info.create_system = 0
             archive.writestr(info, content)
 
 
@@ -458,11 +461,24 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         print(f"pandoc から既定の reference.docx を取得できません: {exc}", file=sys.stderr)
         return 2
-    parts = build_reference_parts(read_docx_parts(default_bytes))
+    try:
+        parts = build_reference_parts(read_docx_parts(default_bytes))
+    except (ValueError, KeyError, zipfile.BadZipFile) as exc:
+        # pandoc の版が変わり既定の雛形の構造が想定と違う場合
+        print(f"既定の reference.docx の構造が想定と異なります: {exc}", file=sys.stderr)
+        return 2
     write_docx(parts, args.output)
     print(f"生成しました: {args.output}")
     return 0
 
 
+def _configure_utf8_output() -> None:
+    """標準出力・標準エラーを UTF-8 にする（Windows で cp932 になり文字化けするのを防ぐ）。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 if __name__ == "__main__":
+    _configure_utf8_output()
     sys.exit(main())

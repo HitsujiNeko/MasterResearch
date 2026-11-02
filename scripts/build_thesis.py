@@ -37,6 +37,9 @@ DEFAULT_OUTPUT = THESIS_DIR / "build" / "thesis.docx"
 # 目次に載せる見出しの深さ（章・節・項）
 TOC_DEPTH = 3
 
+# Word（COM）の操作の上限秒数。Word がダイアログで止まった場合にビルドを打ち切るため
+WORD_TIMEOUT_SECONDS = 300
+
 # 終了コード
 EXIT_OK = 0
 EXIT_ERROR = 2
@@ -118,8 +121,8 @@ def find_executable(name: str, explicit: str | None = None) -> str:
         if found:
             return found
     raise FileNotFoundError(
-        f"{name} が見つかりません。conda 環境 masterresearch に environment.yml の依存を"
-        "入れてください（conda env update -f environment.yml）"
+        f"{name} が見つかりません。conda 環境 masterresearch の Python で実行するか、"
+        "環境に依存を入れてください（conda env update -n masterresearch -f environment.yml）"
     )
 
 
@@ -201,6 +204,7 @@ def export_pdf_with_word(docx: Path, pdf: Path) -> None:
     Raises:
         RuntimeError: Windows 以外で呼ばれた場合。
         subprocess.CalledProcessError: Word の操作に失敗した場合。
+        subprocess.TimeoutExpired: Word の操作が上限秒数を超えた場合（ダイアログ待ち等）。
     """
     if sys.platform != "win32":
         raise RuntimeError("--pdf は Windows（Word がある環境）でのみ使えます")
@@ -211,6 +215,7 @@ def export_pdf_with_word(docx: Path, pdf: Path) -> None:
         capture_output=True,
         text=True,
         env=env,
+        timeout=WORD_TIMEOUT_SECONDS,
     )
 
 
@@ -228,6 +233,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Word で目次を更新して docx を保存し、同名の PDF も書き出す（Windows のみ）",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="pandoc・pandoc-crossref が警告（図の欠落・未定義の参照等）を出したら失敗にする",
+    )
     parser.add_argument("--pandoc", default=None, help="pandoc の実行ファイル")
     parser.add_argument("--pandoc-crossref", default=None, help="pandoc-crossref の実行ファイル")
     return parser.parse_args(argv)
@@ -241,8 +251,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         crossref = find_executable("pandoc-crossref", args.pandoc_crossref)
         warnings = build_docx(CHAPTERS_DIR, args.output, pandoc=pandoc, crossref=crossref)
         if warnings:
-            # 参照先の無い図表ラベル等の警告。docx は生成されているため失敗にはしない
+            # 図の欠落・参照先の無いラベル等の警告。docx は生成されている
             print(warnings, file=sys.stderr)
+            if args.strict:
+                print("エラー: 警告があるため失敗とします（--strict）", file=sys.stderr)
+                return EXIT_ERROR
         print(f"docx を生成しました: {args.output}")
         if args.pdf:
             pdf = args.output.with_suffix(".pdf")
@@ -250,6 +263,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"目次を更新し、PDF を書き出しました: {pdf}")
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"エラー: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+    except subprocess.TimeoutExpired:
+        message = f"エラー: Word の操作が {WORD_TIMEOUT_SECONDS} 秒を超えたため打ち切りました"
+        print(message, file=sys.stderr)
+        print("docx・PDF を開いている Word を閉じてから再実行してください", file=sys.stderr)
         return EXIT_ERROR
     except subprocess.CalledProcessError as exc:
         message = f"エラー: {exc.cmd[0]} が失敗しました（終了コード {exc.returncode}）"
@@ -260,5 +278,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     return EXIT_OK
 
 
+def _configure_utf8_output() -> None:
+    """標準出力・標準エラーを UTF-8 にする（Windows で cp932 になり文字化けするのを防ぐ）。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 if __name__ == "__main__":
+    _configure_utf8_output()
     sys.exit(main())

@@ -129,6 +129,9 @@ class TestBuildParts:
         target.write_docx(parts, second)
         assert first.read_bytes() == second.read_bytes()
         assert target.read_docx_parts(first.read_bytes()) == parts
+        # 作成 OS を固定し、Windows 以外で再生成してもバイト列が変わらないようにする
+        with zipfile.ZipFile(first) as archive:
+            assert {info.create_system for info in archive.infolist()} == {0}
 
 
 class TestCommittedTemplate:
@@ -203,6 +206,18 @@ def test_committed_template_matches_regenerated(tmp_path: Path) -> None:
         "生成結果が追跡中の雛形と異なる。生成スクリプトの定数を変えたら再生成してコミットする。"
         "pandoc の版が environment.yml の固定と違う場合も既定の雛形が変わり不一致になる"
     )
+
+
+def test_main_returns_2_when_default_template_is_unexpected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """既定の雛形の構造が想定と違う（styles.xml が無い等）場合は 2 を返し、書き出さない。"""
+    target.write_docx({"word/document.xml": b"<w:body />"}, tmp_path / "broken.docx")
+    broken = (tmp_path / "broken.docx").read_bytes()
+    monkeypatch.setattr(target, "load_default_reference", lambda pandoc: broken)
+    output = tmp_path / "reference.docx"
+    assert target.main(["--pandoc", "pandoc", "--output", str(output)]) == 2
+    assert not output.exists()
 
 
 def test_main_returns_2_when_pandoc_missing(tmp_path: Path) -> None:

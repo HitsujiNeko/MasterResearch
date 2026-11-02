@@ -1,6 +1,6 @@
 # コーディング・ドキュメント記法規約（研究プロジェクト用）
 
-**最終更新**: 2026-10-03  
+**最終更新**: 2026-11-02  
 **関連ドキュメント**:  
 
 - AI指示書 → [CLAUDE.md](../../CLAUDE.md)
@@ -208,7 +208,7 @@ PR作成時・`main` へのpush時にも自動実行される（[setup.md 12章]
 
 ## 14. ドキュメント記法ルール（Markdown）
 
-`markdownlint`（VS Code 拡張 + pre-commit フック）による自動チェックを導入している。ルール設定は `.markdownlint.json` に定義されている。
+`markdownlint`（VS Code 拡張 + pre-commit フック）による自動チェックを導入している。ルール設定は `.markdownlint.json` に定義されている（修士論文の節ファイルは h1 で始まらないため、`thesis/.markdownlint.jsonc` で MD041 のみを外している）。
 
 ### コードフェンスの言語指定（MD040）
 

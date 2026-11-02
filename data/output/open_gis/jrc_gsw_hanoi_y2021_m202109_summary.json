@@ -1,0 +1,354 @@
+{
+  "dataset": "JRC Global Surface Water",
+  "dataset_version": "v1.4",
+  "gee_asset_ids": {
+    "occurrence": "JRC/GSW1_4/GlobalSurfaceWater",
+    "valid_obs": "JRC/GSW1_4/Metadata",
+    "yearly": "JRC/GSW1_4/YearlyHistory",
+    "monthly": "JRC/GSW1_4/MonthlyHistory"
+  },
+  "source": "https://developers.google.com/earth-engine/datasets/catalog/JRC_GSW1_4_GlobalSurfaceWater",
+  "license": "無償公開（Copernicus Programme の規則に基づく）",
+  "license_note": "出典表記は「Source: EC JRC/Google」とする。",
+  "retrieved_at": "2026-11-02T04:40:18.894273+00:00",
+  "coverage_period": {
+    "yearly": "1984-2021",
+    "monthly": "1984-03〜2021-12",
+    "checked_at": "2026-10-31"
+  },
+  "target_date": "2022-09-06",
+  "selected_periods": {
+    "occurrence": "1984-03〜2021-12（全期間）",
+    "yearly_year": 2021,
+    "yearly_note": "観測年（2022年）は収録外のため、最も近い 2021 年を使った（1 年の時間差がある）。",
+    "monthly_year": 2021,
+    "monthly_month": 9,
+    "monthly_note": "季節を合わせるため観測日と同じ暦月を選んだ。観測年（2022年）は収録外のため、最も近い 2021 年を使った（1 年の時間差がある）。"
+  },
+  "native_projection": {
+    "occurrence": {
+      "crs": "EPSG:4326",
+      "transform": [
+        0.00026949458523585647,
+        0,
+        -180.00001488697754,
+        0,
+        -0.00026949458523585647,
+        84.00011474509029
+      ]
+    },
+    "yearly_water_class": {
+      "crs": "EPSG:4326",
+      "transform": [
+        0.00026949458523585647,
+        0,
+        -180.00001488697754,
+        0,
+        -0.00026949458523585647,
+        78.00008729939917
+      ]
+    },
+    "monthly_water": {
+      "crs": "EPSG:4326",
+      "transform": [
+        0.00026949458523585647,
+        0,
+        -180.00001488697754,
+        0,
+        -0.00026949458523585647,
+        78.00008729939917
+      ]
+    }
+  },
+  "resampling_note": "ネイティブの crs / crs_transform を指定してバンドごとに取得しており、リサンプリングは行っていない。資産ごとに格子の原点は異なるが、差は画素の整数倍で画素の境界は一致する（取得時に検査している）。",
+  "roi_path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+  "is_trial_run": false,
+  "area_bbox": [
+    105.28812456270636,
+    20.564469161724375,
+    106.02005052860555,
+    21.385222290909635
+  ],
+  "covers_requested_area": true,
+  "crs": "EPSG:4326",
+  "nodata": 255,
+  "raster_profile": {
+    "crs": "EPSG:4326",
+    "dtype": "uint8",
+    "band_count": 3,
+    "width": 2717,
+    "height": 3047,
+    "resolution": [
+      0.00026949458523585647,
+      0.00026949458523585647
+    ],
+    "bounds": {
+      "minx": 105.28803102204105,
+      "miny": 20.5643233155925,
+      "maxx": 106.02024781012688,
+      "maxy": 21.385473316806156
+    },
+    "nodata": 255.0
+  },
+  "bands": {
+    "1": {
+      "name": "occurrence",
+      "description": "1984-03〜2021-12 の水域出現頻度（%、0〜100）。一度も水域にならなかった画素は 0、有効な観測が無い画素は無効値",
+      "class_labels": {}
+    },
+    "2": {
+      "name": "yearly_water_class",
+      "description": "年次の水域分類（YearlyHistory の waterClass）。観測なし（0）は無効値",
+      "class_labels": {
+        "1": "非水域",
+        "2": "季節水域",
+        "3": "恒常水域"
+      }
+    },
+    "3": {
+      "name": "monthly_water",
+      "description": "月次の水域履歴（MonthlyHistory の water）。観測なし（0）は無効値",
+      "class_labels": {
+        "1": "非水域",
+        "2": "水域"
+      }
+    }
+  },
+  "band_stats": {
+    "occurrence": {
+      "area_pixels": 4015081,
+      "valid_pixels": 4015081,
+      "valid_pixel_ratio": 1.0,
+      "ever_water_pixels": 884457,
+      "pixels_at_or_above_threshold": {
+        "25": 247668,
+        "50": 157426,
+        "75": 99367,
+        "90": 51249
+      }
+    },
+    "yearly_water_class": {
+      "total_pixels": 8278699,
+      "roi_pixels": 4015081,
+      "outside_roi_pixels": 4263618,
+      "filled_pixels": 36748,
+      "filled_value_counts": {
+        "255": 36748
+      },
+      "valid_pixels": 3978333,
+      "valid_pixel_ratio": 0.9908475071860319,
+      "classes": [
+        {
+          "value": 1,
+          "label": "非水域",
+          "pixel_count": 3520710,
+          "ratio": 0.8849711675719454
+        },
+        {
+          "value": 2,
+          "label": "季節水域",
+          "pixel_count": 348936,
+          "ratio": 0.08770909825798896
+        },
+        {
+          "value": 3,
+          "label": "恒常水域",
+          "pixel_count": 108687,
+          "ratio": 0.027319734170065703
+        }
+      ],
+      "unknown_class_values": []
+    },
+    "monthly_water": {
+      "total_pixels": 8278699,
+      "roi_pixels": 4015081,
+      "outside_roi_pixels": 4263618,
+      "filled_pixels": 297352,
+      "filled_value_counts": {
+        "255": 297352
+      },
+      "valid_pixels": 3717729,
+      "valid_pixel_ratio": 0.9259412201148619,
+      "classes": [
+        {
+          "value": 1,
+          "label": "非水域",
+          "pixel_count": 3505090,
+          "ratio": 0.9428040612965604
+        },
+        {
+          "value": 2,
+          "label": "水域",
+          "pixel_count": 212639,
+          "ratio": 0.057195938703439655
+        }
+      ],
+      "unknown_class_values": []
+    }
+  },
+  "coverage_note": "ROI ポリゴンでクリップしているため出力は BBOX 矩形となり、ROI 外の余白は無効値（255）で埋まる。有効画素率の分母は対象範囲内の画素数であり、ROI 全体ではない。月次・年次の無効画素は「その期間に有効な観測が無かった」画素であり、非水域ではない。",
+  "outputs": {
+    "geotiff": "data/gis/water/jrc_gsw/jrc_gsw_hanoi_y2021_m202109.tif",
+    "summary": "data/output/open_gis/jrc_gsw_hanoi_y2021_m202109_summary.json"
+  },
+  "provenance": {
+    "script": "src.preprocessing.fetch_jrc_gsw_hanoi",
+    "executed_at": "2026-11-02T04:40:53.515831+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "6caffec2d4493c176c38700dd30cdef360799fd8",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/preprocessing/fetch_jrc_gsw_hanoi.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "136882fd24d78ba6f51ba33f115ba50ff613c35383a10cb0a4e29326a1fff5c5"
+        },
+        {
+          "path": "src/preprocessing/fetch_jrc_gsw_hanoi.py",
+          "sha256": "89871ed43cd3e5f4f7837c9b21bcbdc8f797cdad801bf30021f018a6ea2baee3"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.0.7",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+        "sha256": "e2fbdaa4d2577113a36d4f24a2b9a73d293eefe1fc674b04bc4ac43a991572a5"
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-10-31  
+**最終更新**: 2026-11-02  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -48,6 +48,7 @@ MasterResearch/
     ├── lulc/
     ├── population/
     ├── nighttime_lights/
+    ├── water/
     ├── survey/
     ├── maps/
     └── raw/
@@ -99,7 +100,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 | データの性質 | 配置先 | 例 |
 |---|---|---|
 | 衛星画像から**自前で処理した**空間データ | `data/satellite/` | Landsat 8 の LST GeoTIFF, NDVI, NDWI |
-| **完成品として配布されている**衛星由来ラスタ | `data/gis/{category}/` | 夜間光（VIIRS DNB, VNP46A4）, 人口密度（WorldPop） |
+| **完成品として配布されている**衛星由来ラスタ | `data/gis/{category}/` | 夜間光（VIIRS DNB, VNP46A4）, 人口密度（WorldPop）, 水域（JRC Global Surface Water） |
 | GIS 空間データ（由来を問わない） | `data/gis/{category}/` | 建物 GPKG, 道路, DEM, ROI, 地図 |
 | 未加工のソースデータ | `data/gis/raw/` | geofabrik PBF |
 | 軽量な設定・テキスト | `data/input/` | 設定 CSV, テキスト |

@@ -275,6 +275,7 @@ def build_provenance(
     packages: Iterable[str] = DEFAULT_PROVENANCE_PACKAGES,
     repo_root: Path = PROJECT_ROOT,
     executed_at: datetime | None = None,
+    extra_watch_paths: Iterable[str] = (),
 ) -> dict[str, Any]:
     """結果JSONへ付与する来歴メタデータを組み立てる。
 
@@ -288,11 +289,15 @@ def build_provenance(
         repo_root: gitリポジトリのルート（入力パスの相対化の基準も兼ねる）。
         executed_at: 実行日時（タイムゾーン付き）。`None` の場合は来歴を生成した
             現在時刻（UTC）を使う。
+        extra_watch_paths: 生成スクリプトと `CODE_WATCH_PATHS` に加えて監視するコードの
+            パス（リポジトリルート基準の `/` 区切り）。結果が `src/common/` の外にある
+            別のスクリプトの定義に依存する場合に渡す。陳腐化チェックは記録された
+            `code.watch_paths` をすべて監視するため、ここに渡したパスの変更も検出される。
 
     Returns:
         `script`・`executed_at`・`python_version`・`platform`・`git`・`code`・`packages`・
-        `inputs` を持つ辞書。`code` は生成スクリプトと `CODE_WATCH_PATHS` 配下の追跡
-        ファイルのハッシュ（`describe_code_files` の戻り値）。
+        `inputs` を持つ辞書。`code` は生成スクリプト・`CODE_WATCH_PATHS`・
+        `extra_watch_paths` 配下の追跡ファイルのハッシュ（`describe_code_files` の戻り値）。
 
     Raises:
         ValueError: `executed_at` がタイムゾーンを持たない場合。
@@ -304,13 +309,17 @@ def build_provenance(
         raise ValueError("executed_at にはタイムゾーン付きの日時を指定してください。")
     else:
         timestamp = executed_at.astimezone(timezone.utc)
+    # 重複は除く（記録する `code.watch_paths` を読みやすく保つため）
+    watch_paths = list(
+        dict.fromkeys([script_module_to_path(script), *CODE_WATCH_PATHS, *extra_watch_paths])
+    )
     return {
         "script": script,
         "executed_at": timestamp.isoformat(),
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
         "git": get_git_state(repo_root),
-        "code": describe_code_files([script_module_to_path(script), *CODE_WATCH_PATHS], repo_root),
+        "code": describe_code_files(watch_paths, repo_root),
         "packages": get_package_versions(packages),
         "inputs": describe_input_files(input_paths, repo_root),
     }

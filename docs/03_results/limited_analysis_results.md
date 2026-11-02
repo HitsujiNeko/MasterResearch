@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-10-30  
+**最終更新**: 2026-11-01  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -1209,6 +1209,8 @@ Satellite Only も同じ観測 032358 で実行した（[satellite_only_analysis
 | 20シードの反復 | `data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_results.json`・`_folds.csv`・`_differences.csv`（シードごとの途中結果は `repeat_evaluation_cells_seed42/`） |
 
 いずれも `provenance.git.dirty` は `false` で記録されている。生成コマンドは [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節のとおりである（引数はすべて既定値）。20シードの反復は1シードあたり約13分（2シナリオの Spatial CV）かかった。
+
+**2026-11-01 に、評価セルと比較・反復の検証・来歴を強化した後のコードで、上の表の4項目（全工程ランは2シナリオ分で、結果 JSON は計5件）をすべて再生成した。**数値は再生成前と一致した。評価セル・両シナリオの全工程ラン（標本・fold 別指標・特徴量重要度・SHAP 重要度・相関）・単発の比較・反復のシードごとの fold 別指標は完全一致である。反復の集計値（差の平均・sd・区間・パーセンタイル）だけは最大 4.2e-16 ずれた。途中で中断したため13シードを途中結果の CSV から読み直しており、CSV の読み込みの丸め（最下位ビット）が残ったためである。本節の表の値（小数第3〜4位）には影響しない。SHAP の summary 図・dependence 図は描画の乱数（点の順序・ジッター）によりバイト単位では一致しないが、SHAP 値は一致している。
 
 **共通評価セルの全工程ランは、8.3節の主結果とは別の標本による。** Limited 単独の性能は8.3節を主結果とし、本節の数値はシナリオ間の比較にだけ使う。
 

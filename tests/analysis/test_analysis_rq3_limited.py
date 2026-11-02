@@ -107,7 +107,7 @@ from src.common.analysis_dataset import (
     LST_VALID_RATIO_COLUMN,
 )
 from src.common.analysis_runs import build_observation_label
-from src.common.evaluation_cells import save_evaluation_set
+from src.common.evaluation_cells import METADATA_OBSERVATION_KEY, save_evaluation_set
 from src.common.regression_models import fit_linear_regression
 from src.common.run_parameters import build_run_parameters_from_args
 
@@ -1604,7 +1604,9 @@ PROVENANCE_KEYS = {
 }
 
 
-def _write_dummy_dataset(tmp_path: Path) -> Path:
+def _write_dummy_dataset(
+    tmp_path: Path, dataset_name: str = "dataset_limited_dummy_hanoi_30m.gpkg"
+) -> Path:
     """main() に渡すダミーのデータセットファイルを書き出してパスを返す。
 
     データ読込（load_analysis_dataset）は合成データへ差し替えるが、来歴
@@ -1613,10 +1615,11 @@ def _write_dummy_dataset(tmp_path: Path) -> Path:
 
     Args:
         tmp_path: pytest の一時ディレクトリ。
+        dataset_name: ファイル名（既定は観測日時を含まない名前）。
     Returns:
         ダミーのデータセットGeoPackageのパス（ファイル名は30mの命名規則に従う）。
     """
-    dataset_path = tmp_path / "dataset_limited_dummy_hanoi_30m.gpkg"
+    dataset_path = tmp_path / dataset_name
     dataset_path.write_bytes(DUMMY_DATASET_BYTES)
     return dataset_path
 
@@ -2712,9 +2715,15 @@ class TestMainAnalysisArea:
         monkeypatch.setattr("src.analysis.analysis_rq3_limited.load_analysis_dataset", fake_loader)
         return captured
 
-    def _set_argv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> Path:
+    def _set_argv(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        *extra_args: str,
+        dataset_name: str = "dataset_limited_dummy_hanoi_30m.gpkg",
+    ) -> Path:
         """main() のCLI引数を設定し、出力先ディレクトリを返す。"""
-        dataset_path = _write_dummy_dataset(tmp_path)
+        dataset_path = _write_dummy_dataset(tmp_path, dataset_name)
         output_dir = tmp_path / "output"
         monkeypatch.setattr(
             sys,
@@ -2987,7 +2996,10 @@ class TestMainEvaluationCells:
     """main() の --evaluation-cells の結線（標本・fold の固定、記録、2シナリオの対応）のテスト。"""
 
     _install_loader = TestMainAnalysisArea._install_loader
-    _set_argv = TestMainAnalysisArea._set_argv
+    # 評価セルを使うテストの観測日時と、その観測から作ったデータセットの名前
+    # （分析スクリプトはファイル名から読める観測日時を評価セルのメタデータと照合する）。
+    _OBSERVATION = "2022-09-06 03:23:58"
+    _DATASET_NAME = "dataset_limited_20220906_032358_hanoi_30m.gpkg"
     # SHAP図の生成時間を抑えるため、特徴量の少ない構成・小規模設定で回す。
     _LIGHT_RUN_ARGS = (
         "--sample-size",
@@ -3002,6 +3014,12 @@ class TestMainEvaluationCells:
         "spectral",
     )
 
+    def _set_argv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> Path:
+        """評価セルと同じ観測の名前のデータセットで CLI 引数を設定し、出力先を返す。"""
+        return TestMainAnalysisArea._set_argv(
+            self, monkeypatch, tmp_path, *extra_args, dataset_name=self._DATASET_NAME
+        )
+
     @staticmethod
     def _dataframe(n: int = 200) -> pd.DataFrame:
         """Spatial CV が組める配置の合成データ（全行が有効母集団に入る）。"""
@@ -3009,8 +3027,8 @@ class TestMainEvaluationCells:
         dataframe["cell_id"] = make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30)
         return dataframe
 
-    @staticmethod
-    def _save_cells(tmp_path: Path, cell_ids: np.ndarray) -> Path:
+    @classmethod
+    def _save_cells(cls, tmp_path: Path, cell_ids: np.ndarray) -> Path:
         """評価セル CSV とメタデータを作り、CSV のパスを返す（設定は既定値・全件抽出）。"""
         cells, _ = draw_evaluation_cells(
             cell_ids, sample_size=0, random_state=42, block_size_m=2_700, scale=30, cv_splits=5
@@ -3028,6 +3046,7 @@ class TestMainEvaluationCells:
                 "lst_valid_ratio_threshold": 0.5,
                 "analysis_area": ANALYSIS_AREA_ROI,
                 "common_size": len(cell_ids),
+                METADATA_OBSERVATION_KEY: cls._OBSERVATION,
             },
         )
         return cells_path
@@ -3104,7 +3123,7 @@ class TestMainEvaluationCells:
         )
         main()
         satellite_dir = tmp_path / "satellite_output"
-        dataset_path = tmp_path / "dataset_satellite_only_dummy_hanoi_30m.gpkg"
+        dataset_path = tmp_path / "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
         dataset_path.write_bytes(DUMMY_DATASET_BYTES)
         monkeypatch.setattr(
             sys,

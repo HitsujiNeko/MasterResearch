@@ -15,6 +15,7 @@ from src.common.evaluation_cells import (
     CELL_ID_COLUMN,
     FOLD_COLUMN,
     METADATA_CELLS_KEY,
+    METADATA_OBSERVATION_KEY,
     build_evaluation_cells,
     build_evaluation_record,
     build_fold_labels,
@@ -29,6 +30,7 @@ from src.common.evaluation_cells import (
     resolve_metadata_path,
     save_evaluation_set,
     select_evaluation_rows,
+    validate_dataset_observation,
     validate_run_settings,
 )
 from src.common.spatial_cv import split_by_spatial_blocks
@@ -42,6 +44,10 @@ SETTINGS = {
     "lst_valid_ratio_threshold": 0.5,
     "analysis_area": "roi",
 }
+# 評価セルを作った観測の日時ラベルと、その観測から作ったデータセットの名前。
+OBSERVATION = "2022-09-06 03:23:58"
+DATASET_PATH = Path("data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg")
+SETTINGS_WITH_OBSERVATION = {**SETTINGS, METADATA_OBSERVATION_KEY: OBSERVATION}
 
 
 def _cells(n: int = 12) -> pd.DataFrame:
@@ -248,6 +254,41 @@ class TestValidateRunSettings:
             validate_run_settings(SETTINGS, **{**SETTINGS, key: value})
 
 
+class TestValidateDatasetObservation:
+    """validate_dataset_observation のテスト（データセットの観測とメタデータの照合）。"""
+
+    def test_accepts_dataset_of_same_observation(self) -> None:
+        """ファイル名から読める観測日時がメタデータと一致すれば何もしない。"""
+        validate_dataset_observation({METADATA_OBSERVATION_KEY: OBSERVATION}, DATASET_PATH)
+
+    def test_accepts_other_dataset_name_of_same_observation(self) -> None:
+        """置き場所・接頭辞が違っても、同じ観測のデータセットなら止めない。"""
+        validate_dataset_observation(
+            {METADATA_OBSERVATION_KEY: OBSERVATION},
+            Path("elsewhere/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg"),
+        )
+
+    def test_raises_on_dataset_of_other_observation(self) -> None:
+        """別の観測のデータセットなら、両方の観測日時を示して停止する。"""
+        with pytest.raises(ValueError, match="2023-07-07 03:23:29"):
+            validate_dataset_observation(
+                {METADATA_OBSERVATION_KEY: OBSERVATION},
+                Path("dataset_limited_20230707_032329_hanoi_30m.gpkg"),
+            )
+
+    def test_raises_when_dataset_name_has_no_observation(self) -> None:
+        """ファイル名から観測日時を読めなければ、一致を確かめられないため停止する。"""
+        with pytest.raises(ValueError, match="読み取れません"):
+            validate_dataset_observation(
+                {METADATA_OBSERVATION_KEY: OBSERVATION}, Path("dataset_limited_hanoi_30m.gpkg")
+            )
+
+    def test_raises_when_metadata_has_no_observation(self) -> None:
+        """メタデータに観測日時が無ければ停止する。"""
+        with pytest.raises(ValueError, match=METADATA_OBSERVATION_KEY):
+            validate_dataset_observation(dict(SETTINGS), DATASET_PATH)
+
+
 class TestLoadEvaluationSetForRun:
     """load_evaluation_set_for_run のテスト（分析スクリプトの引数からの読込）。"""
 
@@ -256,6 +297,7 @@ class TestLoadEvaluationSetForRun:
         """分析スクリプトと同じ名前の引数を持つ Namespace を作る。"""
         values = {
             "evaluation_cells": cells_path,
+            "dataset_path": DATASET_PATH,
             "block_size_m": 2_700,
             "cv_splits": 3,
             "scale": 30,
@@ -273,7 +315,7 @@ class TestLoadEvaluationSetForRun:
     def test_loads_and_validates(self, tmp_path: Path) -> None:
         """指定があれば読み込み、引数が一致すれば EvaluationSet を返す。"""
         cells_path = tmp_path / "evaluation_cells_seed42.csv"
-        save_evaluation_set(_cells(), cells_path, dict(SETTINGS))
+        save_evaluation_set(_cells(), cells_path, dict(SETTINGS_WITH_OBSERVATION))
 
         evaluation_set = load_evaluation_set_for_run(self._args(cells_path))
 
@@ -286,10 +328,19 @@ class TestLoadEvaluationSetForRun:
     def test_stops_when_block_size_differs(self, tmp_path: Path) -> None:
         """--block-size-m がメタデータと違えば停止する。"""
         cells_path = tmp_path / "evaluation_cells_seed42.csv"
-        save_evaluation_set(_cells(), cells_path, dict(SETTINGS))
+        save_evaluation_set(_cells(), cells_path, dict(SETTINGS_WITH_OBSERVATION))
 
         with pytest.raises(ValueError, match="block_size_m"):
             load_evaluation_set_for_run(self._args(cells_path, block_size_m=3_000))
+
+    def test_stops_when_dataset_is_of_other_observation(self, tmp_path: Path) -> None:
+        """--dataset-path が別の観測のデータセットなら、設定が一致していても停止する。"""
+        cells_path = tmp_path / "evaluation_cells_seed42.csv"
+        save_evaluation_set(_cells(), cells_path, dict(SETTINGS_WITH_OBSERVATION))
+        other = Path("data/output/datasets/dataset_limited_20230707_032329_hanoi_30m.gpkg")
+
+        with pytest.raises(ValueError, match="観測日時"):
+            load_evaluation_set_for_run(self._args(cells_path, dataset_path=other))
 
     def test_input_paths_are_empty_without_evaluation_set(self) -> None:
         """評価セルを使わないランでは、来歴に入力を加えない。"""

@@ -308,6 +308,50 @@ def test_build_provenance_records_code_of_script_and_watch_paths(
     assert provenance["code"] == {"watch_paths": calls[0], "files": []}
 
 
+def test_build_provenance_records_extra_watch_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """追加の監視パスは既定の監視パスの後ろに加え、重複は除いて記録する。"""
+    calls: list[list[str]] = []
+
+    def fake_describe_code_files(watch_paths: list[str], repo_root: Path) -> dict[str, object]:
+        calls.append(list(watch_paths))
+        return {"watch_paths": list(watch_paths), "files": []}
+
+    monkeypatch.setattr(summary_module, "describe_code_files", fake_describe_code_files)
+
+    provenance = build_provenance(
+        "src.analysis.example",
+        packages=[],
+        repo_root=tmp_path,
+        extra_watch_paths=["src/analysis/dependency.py", "src/analysis/example.py"],
+    )
+
+    assert calls == [["src/analysis/example.py", *CODE_WATCH_PATHS, "src/analysis/dependency.py"]]
+    assert provenance["code"]["watch_paths"] == calls[0]
+
+
+def test_build_provenance_hashes_files_of_extra_watch_paths(tmp_path: Path) -> None:
+    """追加の監視パスのファイルも、git の追跡ファイルとしてハッシュが記録される。"""
+    _require_git()
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src" / "analysis").mkdir(parents=True)
+    (tmp_path / "src" / "analysis" / "example.py").write_bytes(b"a = 1\n")
+    (tmp_path / "src" / "analysis" / "dependency.py").write_bytes(b"b = 1\n")
+    (tmp_path / "src" / "analysis" / "unrelated.py").write_bytes(b"c = 1\n")
+    _commit_all(tmp_path)
+
+    provenance = build_provenance(
+        "src.analysis.example",
+        packages=[],
+        repo_root=tmp_path,
+        extra_watch_paths=["src/analysis/dependency.py"],
+    )
+
+    recorded = [entry["path"] for entry in provenance["code"]["files"]]
+    assert recorded == ["src/analysis/dependency.py", "src/analysis/example.py"]
+
+
 def test_build_provenance_rejects_naive_datetime(tmp_path: Path) -> None:
     """タイムゾーン無しの日時は ValueError になる。"""
     with pytest.raises(ValueError, match="タイムゾーン"):

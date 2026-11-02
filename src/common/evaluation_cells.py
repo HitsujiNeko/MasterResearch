@@ -10,6 +10,8 @@ CSV に固定し、各分析スクリプトはそれを読み込んで標本と 
   評価セルを作ったときの実行設定（ブロックサイズ・分割数・解像度・乱数シード・
   標本サイズ・LST 有効率の下限・分析対象範囲）と、CSV の内容ダイジェストを持つ。
   分析スクリプト側の引数がこれと食い違う場合は停止する（`validate_run_settings`）。
+  評価セルを作った観測の日時も持ち、分析スクリプトのデータセットの観測と違う場合も
+  停止する（`validate_dataset_observation`）。
   ファイル名を `_results.json` で終わらせるのは、陳腐化チェック
   （`scripts/check_result_staleness.py`）の走査対象にするためである
 
@@ -41,7 +43,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.common.analysis_runs import validate_fold_test_sizes
+from src.common.analysis_runs import build_observation_label, validate_fold_test_sizes
 from src.common.paths import to_project_relative_string
 from src.common.summary import save_summary
 
@@ -63,6 +65,10 @@ METADATA_SETTING_KEYS = (
 )
 # メタデータ JSON の中で、評価セル CSV の情報を持つキー。
 METADATA_CELLS_KEY = "evaluation_cells"
+# メタデータ JSON の中で、評価セルを作った観測の日時ラベル（`build_observation_label`
+# の形式。例: "2022-09-06 03:23:58"）を持つキー。分析スクリプトのデータセットの
+# 観測と突き合わせる（`validate_dataset_observation`）。
+METADATA_OBSERVATION_KEY = "observation"
 # 評価セルを使うランの既定の出力先は、通常ランのディレクトリ名にこの接尾辞を付けた
 # 別ディレクトリとし、既存ランの出力を上書きしない。
 EVALUATION_OUTPUT_DIR_SUFFIX = "_common_evaluation"
@@ -347,12 +353,52 @@ def validate_run_settings(
         )
 
 
+def validate_dataset_observation(metadata: dict[str, Any], dataset_path: Path) -> None:
+    """分析スクリプトのデータセットが、評価セルを作った観測のものであることを検査する。
+
+    `cell_id` は正準グリッドの番号で観測をまたいで共通のため、別の観測のデータセットでも
+    評価セルが有効母集団に含まれれば `select_evaluation_rows` では止まらない。そこで、
+    データセットのファイル名から読める観測日時（`build_observation_label`）を
+    メタデータの観測日時と照合する。データセットのパスそのものではなく観測を照合するのは、
+    同じ観測のデータセットを作り直して置き場所を変えた場合には止めないためである。
+
+    Args:
+        metadata: `EvaluationSet.metadata`。
+        dataset_path: 分析スクリプトの `--dataset-path`。
+    Returns:
+        None
+    Raises:
+        ValueError: メタデータに観測日時が無い場合、ファイル名から観測日時を読めない場合
+            （一致を確かめられないため）、または両者が一致しない場合。
+    """
+    recorded = metadata.get(METADATA_OBSERVATION_KEY)
+    if recorded is None:
+        raise ValueError(
+            f"評価セルのメタデータに観測日時（{METADATA_OBSERVATION_KEY}）がありません。"
+            "データセットが評価セルと同じ観測か確かめられないため停止します。"
+            "評価セルを作り直してください。"
+        )
+    label = build_observation_label(dataset_path.stem)
+    if label == dataset_path.stem:
+        raise ValueError(
+            f"データセットのファイル名から観測日時を読み取れません: {dataset_path.name}。"
+            "評価セルと同じ観測か確かめられないため停止します"
+            "（ファイル名に `{8桁の日付}_{6桁の時刻}` が必要です）。"
+        )
+    if label != recorded:
+        raise ValueError(
+            f"データセットの観測日時（{label}）が評価セルの観測日時（{recorded}）と"
+            f"一致しません: {dataset_path.name}。評価セルを作った観測のデータセットを"
+            "指定してください。"
+        )
+
+
 def load_evaluation_set_for_run(args: argparse.Namespace) -> EvaluationSet | None:
     """分析スクリプトの引数から評価セルを読み込み、引数との一致を検査する。
 
     Satellite Only・Limited の両スクリプトが同じ名前の引数
-    （`--evaluation-cells`・`--block-size-m`・`--cv-splits`・`--scale`・
-    `--random-state`・`--sample-size`・`--lst-valid-ratio-threshold`・
+    （`--evaluation-cells`・`--dataset-path`・`--block-size-m`・`--cv-splits`・
+    `--scale`・`--random-state`・`--sample-size`・`--lst-valid-ratio-threshold`・
     `--analysis-area`）を持つことを前提に、読込と検査をここにまとめる。
 
     Args:
@@ -361,7 +407,8 @@ def load_evaluation_set_for_run(args: argparse.Namespace) -> EvaluationSet | Non
         `--evaluation-cells` 未指定なら `None`、指定ありなら `EvaluationSet`。
     Raises:
         FileNotFoundError: 評価セル CSV またはメタデータ JSON が無い場合。
-        ValueError: 評価セルが不正な場合、または引数がメタデータと一致しない場合。
+        ValueError: 評価セルが不正な場合、引数がメタデータと一致しない場合、または
+            データセットの観測が評価セルの観測と一致しない場合。
     """
     if args.evaluation_cells is None:
         return None
@@ -376,6 +423,7 @@ def load_evaluation_set_for_run(args: argparse.Namespace) -> EvaluationSet | Non
         lst_valid_ratio_threshold=args.lst_valid_ratio_threshold,
         analysis_area=args.analysis_area,
     )
+    validate_dataset_observation(evaluation_set.metadata, args.dataset_path)
     return evaluation_set
 
 

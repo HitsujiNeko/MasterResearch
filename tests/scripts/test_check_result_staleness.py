@@ -399,6 +399,38 @@ def test_code_hash_ignores_unwatched_and_uncommitted_changes(repo: Path) -> None
     assert _check(repo, path).status == target.STATUS_UP_TO_DATE
 
 
+def test_recorded_extra_watch_path_is_watched(repo: Path) -> None:
+    """来歴に記録された追加の監視パスは、`--extra-watch-path` なしでも監視する。
+
+    生成スクリプトが `build_provenance` の `extra_watch_paths` で既定の範囲の外の
+    依存コードを記録した場合に、その変更を「要再実行（コード変更）」と判定するため。
+    """
+    provenance = _provenance("0" * 40, inputs=[_input_entry()])
+    provenance["code"] = _code_record(repo, extra_paths=("src/analysis/other.py",))
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+    assert _check(repo, path).status == target.STATUS_UP_TO_DATE
+
+    (repo / "src" / "analysis" / "other.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _commit_all(repo, "change other")
+
+    result = _check(repo, path)
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.changed_files == ["src/analysis/other.py"]
+
+
+def test_deleted_recorded_extra_watch_path_is_stale(repo: Path) -> None:
+    """記録された追加の監視パスのファイルが削除されていれば、差分として検出する。"""
+    provenance = _provenance("0" * 40, inputs=[_input_entry()])
+    provenance["code"] = _code_record(repo, extra_paths=("src/analysis/other.py",))
+    (repo / "src" / "analysis" / "other.py").unlink()
+    _commit_all(repo, "delete other")
+    path = _write_result(repo, "a_results.json", {"provenance": provenance})
+
+    result = _check(repo, path)
+    assert result.status == target.STATUS_STALE_CODE
+    assert result.changed_files == ["src/analysis/other.py"]
+
+
 def test_code_hash_ignores_crlf_in_working_tree(repo: Path) -> None:
     """生成時の作業ツリーが CRLF でも、HEAD の内容（LF）と同じコードなら最新と判定する。"""
     (repo / "src" / "common" / "util.py").write_bytes(b"VALUE = 1\r\n")

@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-10-22  
+**最終更新**: 2026-10-31  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -215,7 +215,7 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `executed_at` | 来歴を生成した時刻（UTC・ISO 8601）。呼び出し側が指定しない場合は保存直前の時刻となり、実行開始時刻ではない |
 | `python_version` / `platform` | Python のバージョンと OS |
 | `git.commit` / `git.dirty` | コミットハッシュと、コード（`src/` 配下。未追跡ファイルを含む）の未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。結果ファイル等のコード以外の変更は判定に含めない。git を利用できない環境では両方 `null` |
-| `code` | 生成時のコードのファイルハッシュ。`watch_paths`（ハッシュを取った範囲: 生成スクリプトと既定の監視パス `src.common.summary.CODE_WATCH_PATHS`）と、その配下の git 追跡ファイルごとの `path`・`sha256` のリスト（`files`）。ハッシュは改行を LF にそろえた内容から計算する（`core.autocrlf` で作業ツリーが CRLF になる Windows と、LF の clone とで一致させるため）。記録コミットがローカルから消えても、陳腐化検出が生成時のコードと現在の `HEAD` を比べられるようにする。git を利用できない環境では `null` |
+| `code` | 生成時のコードのファイルハッシュ。`watch_paths`（ハッシュを取った範囲: 生成スクリプト・既定の監視パス `src.common.summary.CODE_WATCH_PATHS`・スクリプトごとの追加の監視パス（`build_provenance` の `extra_watch_paths`。結果が `src/common/` の外の別スクリプトの定義に依存する場合に渡す。陳腐化チェックは記録された `watch_paths` をすべて監視する））と、その配下の git 追跡ファイルごとの `path`・`sha256` のリスト（`files`）。ハッシュは改行を LF にそろえた内容から計算する（`core.autocrlf` で作業ツリーが CRLF になる Windows と、LF の clone とで一致させるため）。記録コミットがローカルから消えても、陳腐化検出が生成時のコードと現在の `HEAD` を比べられるようにする。git を利用できない環境では `null` |
 | `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。未インストールは `null` |
 | `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト。プロジェクトルート外のパスは絶対パスのまま記録されるため、入力はプロジェクト内（`data/` 配下）に配置して実行する |
 
@@ -229,7 +229,15 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `src.analysis.diagnose_nodata_dropout` | `*_nodata_dropout_summary.json` |
 | `src.analysis.analysis_rq3_satellite_only` | `*_results.json` |
 | `src.analysis.analysis_rq3_limited` | `*_results.json`、`--diagnose-only` の `*_diagnostics.json` |
+| `src.analysis.build_common_evaluation_set` | 評価セルのメタデータ `evaluation_cells_seed{シード}_results.json` |
+| `src.analysis.compare_common_evaluation` | `scenario_comparison_*_results.json` |
+| `src.analysis.repeat_common_evaluation` | `repeated_comparison_*_results.json` |
 
+- **追加の監視パス**: 共通評価セルの生成（`src.analysis.build_common_evaluation_set`）・比較
+  （`src.analysis.compare_common_evaluation`）・反復（`src.analysis.repeat_common_evaluation`）は、
+  有効母集団の定義を持つ両分析スクリプト（`analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py`）を追加で監視する
+  （フィルタを広げても既存の評価セルは新しい母集団に含まれ、分析時の停止条件では検出できないため）。
+  反復は、共通集合の求め方と標本の抽出をそのまま呼ぶ `build_common_evaluation_set.py` も監視する
 - **記録する入力の範囲**: どのファイルを渡すかは各スクリプトが決める（`build_provenance` は渡されたパスをそのままハッシュする）。
   欠測脱落診断では、データセット・ROI・参照ラスタを渡し、ROI の Shapefile は主ファイル（`.shp`）に加えて
   実在する付随ファイル（`.shx`・`.dbf`・`.prj`・`.cpg`）も渡す（座標系の再定義では `.prj` だけが変わるため）。

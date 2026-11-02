@@ -85,6 +85,15 @@ WATER_COVER_CLASSES = (
 # ブロック単位の集中度で「脱落率が高い」とみなす閾値（結果ドキュメントと同じ50%）。
 BLOCK_DROPOUT_RATIO_THRESHOLD = 0.5
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "data" / "output" / "common_evaluation"
+# 来歴で生成スクリプトと既定の監視パス（`src/common/` 等）に加えて監視するコード。
+# 有効母集団の定義（`build_valid_population`・`resolve_required_mask_columns`）と Limited の
+# 採用構成の既定値を持つ両分析スクリプトであり、評価セル・比較・反復の結果はいずれも
+# これらに依存する。フィルタを広げても既存の評価セルは新しい母集団に含まれ、分析時の
+# 停止条件では検出できないため、来歴の監視で陳腐化として検出する。
+ANALYSIS_SCRIPT_WATCH_PATHS = (
+    "src/analysis/analysis_rq3_satellite_only.py",
+    "src/analysis/analysis_rq3_limited.py",
+)
 # 既定値は両分析スクリプトの引数の既定値から読む。
 _SATELLITE_ONLY_DEFAULTS = satellite_only.parse_arguments([])
 _LIMITED_DEFAULTS = limited.parse_arguments([])
@@ -682,6 +691,7 @@ def main(argv: list[str] | None = None) -> None:
     metadata["provenance"] = build_provenance(
         "src.analysis.build_common_evaluation_set",
         input_paths=[args.satellite_only_dataset, args.limited_dataset],
+        extra_watch_paths=ANALYSIS_SCRIPT_WATCH_PATHS,
     )
     cells_path = resolve_cells_path(args.output_dir, args.random_state)
     saved = save_evaluation_set(cells, cells_path, metadata)

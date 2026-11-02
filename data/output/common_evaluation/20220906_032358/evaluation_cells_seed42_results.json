@@ -306,23 +306,33 @@
   ],
   "provenance": {
     "script": "src.analysis.build_common_evaluation_set",
-    "executed_at": "2026-10-26T14:39:40.547268+00:00",
+    "executed_at": "2026-10-31T11:33:25.400544+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "66284d917864d16f594716ba4efaded024c1fad9",
+      "commit": "3570348b419184572792d28aebbcb2db41363784",
       "dirty": false
     },
     "code": {
       "watch_paths": [
         "src/analysis/build_common_evaluation_set.py",
         "src/common",
-        "src/analysis/urban_params/canonical_grid.py"
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/analysis_rq3_satellite_only.py",
+        "src/analysis/analysis_rq3_limited.py"
       ],
       "files": [
         {
+          "path": "src/analysis/analysis_rq3_limited.py",
+          "sha256": "4a98008d3e0ec363eff44012217930ea1c8c4cea7aade5d1fb95438080080370"
+        },
+        {
+          "path": "src/analysis/analysis_rq3_satellite_only.py",
+          "sha256": "cb7089805138e28872fd07bc467b7d3ac5431861a791b169bc84949cdceba07f"
+        },
+        {
           "path": "src/analysis/build_common_evaluation_set.py",
-          "sha256": "0f8ea88aea4379339cac2dd3bc95c119c252b0331a28de85bc2897cc66e1d80f"
+          "sha256": "435114b02912388af2df2bd55559312c340e364cf15336f35293feab50f82723"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",
@@ -362,7 +372,7 @@
         },
         {
           "path": "src/common/evaluation_cells.py",
-          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
         },
         {
           "path": "src/common/gdal_tools.py",
@@ -386,7 +396,7 @@
         },
         {
           "path": "src/common/http_fetch.py",
-          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
         },
         {
           "path": "src/common/lulc_classes.py",
@@ -414,7 +424,7 @@
         },
         {
           "path": "src/common/raster_grid.py",
-          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
         },
         {
           "path": "src/common/raster_stats.py",
@@ -442,7 +452,7 @@
         },
         {
           "path": "src/common/summary.py",
-          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+          "sha256": "136882fd24d78ba6f51ba33f115ba50ff613c35383a10cb0a4e29326a1fff5c5"
         }
       ]
     },

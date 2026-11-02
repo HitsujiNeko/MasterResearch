@@ -232,11 +232,11 @@
   },
   "provenance": {
     "script": "src.analysis.analysis_rq3_satellite_only",
-    "executed_at": "2026-10-26T14:49:56.500918+00:00",
+    "executed_at": "2026-10-31T11:42:17.656679+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "66284d917864d16f594716ba4efaded024c1fad9",
+      "commit": "3570348b419184572792d28aebbcb2db41363784",
       "dirty": false
     },
     "code": {
@@ -288,7 +288,7 @@
         },
         {
           "path": "src/common/evaluation_cells.py",
-          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
         },
         {
           "path": "src/common/gdal_tools.py",
@@ -312,7 +312,7 @@
         },
         {
           "path": "src/common/http_fetch.py",
-          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
         },
         {
           "path": "src/common/lulc_classes.py",
@@ -340,7 +340,7 @@
         },
         {
           "path": "src/common/raster_grid.py",
-          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
         },
         {
           "path": "src/common/raster_stats.py",
@@ -368,7 +368,7 @@
         },
         {
           "path": "src/common/summary.py",
-          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+          "sha256": "136882fd24d78ba6f51ba33f115ba50ff613c35383a10cb0a4e29326a1fff5c5"
         }
       ]
     },
@@ -394,7 +394,7 @@
       },
       {
         "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42_results.json",
-        "sha256": "5b014be43066ceafc7e268e4008689486b6c971e63a3d04b4990614520b6c1bc"
+        "sha256": "b95ceabb7149eb243e8f2ee5097dda1e4444983ea8d05f2ae16f9e43f0fece34"
       }
     ]
   }

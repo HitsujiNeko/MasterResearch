@@ -18,6 +18,7 @@ import pytest
 from src.analysis import analysis_rq3_limited as limited
 from src.analysis import analysis_rq3_satellite_only as satellite_only
 from src.analysis.build_common_evaluation_set import (
+    ANALYSIS_SCRIPT_WATCH_PATHS,
     BLOCK_DROPOUT_RATIO_THRESHOLD,
     SATELLITE_ONLY_CONFIGURATION,
     build_configuration_names,
@@ -40,6 +41,7 @@ from src.common.analysis_dataset import (
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
     LST_VALID_RATIO_COLUMN,
 )
+from src.common.config import PROJECT_ROOT
 from src.common.evaluation_cells import (
     BLOCK_ID_COLUMN,
     CELL_ID_COLUMN,
@@ -426,6 +428,10 @@ class TestMain:
         assert metadata["provenance"]["inputs"][0]["path"].endswith(
             "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
         )
+        # 有効母集団の定義を持つ両分析スクリプトも来歴で監視し、ハッシュを記録する
+        code = metadata["provenance"]["code"]
+        assert set(ANALYSIS_SCRIPT_WATCH_PATHS) <= set(code["watch_paths"])
+        assert set(ANALYSIS_SCRIPT_WATCH_PATHS) <= {entry["path"] for entry in code["files"]}
         assert metadata["analysis_area"] == "roi"
         assert all(
             IN_ANALYSIS_AREA_SURVEY_COLUMN not in configuration["required_mask_columns"]
@@ -478,3 +484,16 @@ class TestMain:
         with pytest.raises(ValueError, match="一致しません"):
             main(self._argv(tmp_path))
         assert not (tmp_path / "out").exists()
+
+
+def test_analysis_script_watch_paths_point_to_both_analysis_scripts() -> None:
+    """来歴で監視する両分析スクリプトのパスは、実在するモジュールのファイルを指す。
+
+    ファイル名の変更に追従し忘れると、監視が空振りして陳腐化を検出できなくなるため。
+    """
+    expected = {
+        Path(module.__file__).resolve().relative_to(PROJECT_ROOT).as_posix()
+        for module in (satellite_only, limited)
+    }
+
+    assert set(ANALYSIS_SCRIPT_WATCH_PATHS) == expected

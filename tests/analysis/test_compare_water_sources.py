@@ -212,20 +212,22 @@ class TestComparisons:
         assert counts[("b_only", COMMON_BUILT)] == 1
         assert counts[("both", COMMON_WATER)] == 1
 
-    def test_disagreement_breakdown_skips_self_reference(self) -> None:
-        """参照データが比較の当事者である組み合わせは出力しない。"""
+    def test_disagreement_breakdown_skips_only_water_side_party(self) -> None:
+        """水域と判定した側の当事者の参照だけを除き、非水域側の当事者の参照は数える。"""
         layers = {
-            "glc": _layer("glc", [True, False], [True, True]),
-            "esri": _layer("esri", [False, True], [True, True]),
+            "glc": _layer("glc", [True, False, True], [True, True, True]),
+            "esri": _layer("esri", [False, True, True], [True, True, True]),
         }
         dominant = {
-            "glc": np.array([COMMON_WATER, COMMON_CROPLAND]),
-            "esri": np.array([COMMON_CROPLAND, COMMON_WATER]),
+            "glc": np.array([COMMON_WATER, COMMON_CROPLAND, COMMON_WATER]),
+            "esri": np.array([COMMON_BUILT, COMMON_WATER, COMMON_WATER]),
         }
 
         rows = target.build_disagreement_breakdown(layers, [("glc", "esri")], dominant)
+        found = {(row["direction"], row["reference"], row["dominant_class"]) for row in rows}
 
-        assert rows == []
+        # GLC だけ水域 → 非水域側の Esri が何としたか（市街地）は残る
+        assert found == {("a_only", "esri", COMMON_BUILT), ("b_only", "glc", COMMON_CROPLAND)}
 
     def test_verify_against_dataset(self) -> None:
         """一致・NaN の不一致・最大差を数える。"""

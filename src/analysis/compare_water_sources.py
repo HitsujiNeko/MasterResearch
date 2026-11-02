@@ -678,8 +678,11 @@ def build_disagreement_breakdown(
 ) -> list[dict[str, Any]]:
     """食い違うセル（片方だけが水域）が、GLC・Esri のどの土地被覆クラスに当たるかを数える。
 
-    参照データが比較の当事者（A か B）である組み合わせは数えない。たとえば「B = Esri が
-    水域」のセルを Esri の優占クラスで数えると、ほぼ全件が水域になるだけで情報が無いため。
+    **水域と判定した側の当事者**を参照データにする組み合わせは数えない。たとえば「B = Esri
+    だけが水域」のセルを Esri の優占クラスで数えると、ほぼ全件が水域になるだけで情報が無い。
+    一方、非水域と判定した側の当事者（同じ例では GLC）の優占クラスは「その当事者が何と
+    分類したか」を示す情報なので数える。両方が水域のセル（`both`）では、どちらの当事者も
+    水域側のため、当事者の参照はどちらも数えない。
 
     Args:
         layers: 識別子 → 水域判定。
@@ -693,14 +696,15 @@ def build_disagreement_breakdown(
     for key_a, key_b in pairs:
         layer_a, layer_b = layers[key_a], layers[key_b]
         valid = layer_a.valid & layer_b.valid
+        # 向き → (対象セル, 水域と判定した側の当事者)
         directions = {
-            "a_only": valid & layer_a.water & ~layer_b.water,
-            "b_only": valid & ~layer_a.water & layer_b.water,
-            "both": valid & layer_a.water & layer_b.water,
+            "a_only": (valid & layer_a.water & ~layer_b.water, {key_a}),
+            "b_only": (valid & ~layer_a.water & layer_b.water, {key_b}),
+            "both": (valid & layer_a.water & layer_b.water, {key_a, key_b}),
         }
-        for direction, selected in directions.items():
+        for direction, (selected, water_side) in directions.items():
             for reference, classes in dominant.items():
-                if reference in (key_a, key_b):
+                if reference in water_side:
                     continue
                 values, counts = np.unique(classes[selected], return_counts=True)
                 for class_id, count in zip(values.tolist(), counts.tolist()):

@@ -2,8 +2,9 @@
 
 CI から `python -m src.doc_checks.run_all` で呼び出す。
 機械的チェック（カタログ差分・リンク切れ・メタ情報・表記揺れ・書誌整合）は
-1件でも違反があれば終了コード1を返す。鮮度チェックは警告のみで、
-終了コードには影響しない（更新日の乖離は違反ではなく注意情報のため）。
+1件でも違反があれば終了コード1を返す。鮮度チェックと論文の追従チェックは
+警告のみで、終了コードには影響しない（更新日の乖離や論文の追従待ちは
+違反ではなく注意情報のため）。
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from src.doc_checks.catalog_diff import check_catalog_diff
 from src.doc_checks.freshness import check_freshness
 from src.doc_checks.metadata_presence import check_metadata_presence
 from src.doc_checks.terminology import check_terminology
+from src.doc_checks.thesis_source_tracking import check_thesis_source_tracking, format_finding
 
 
 def main(project_root: Path = PROJECT_ROOT) -> int:
@@ -75,6 +77,12 @@ def main(project_root: Path = PROJECT_ROOT) -> int:
                 f"  - {w.file}: 最終更新記載={w.metadata_date} "
                 f"最終コミット={w.last_commit_date} 乖離={w.days_diff}日"
             )
+
+    tracking_findings = check_thesis_source_tracking(project_root)
+    if tracking_findings:
+        print("[WARN] 論文の追従（fail対象外・依拠する正本の更新により要見直し）:")
+        for finding in tracking_findings:
+            print(f"  - {format_finding(finding)}")
 
     if not has_failure:
         print("[OK] 機械的チェックはすべて通過しました。")

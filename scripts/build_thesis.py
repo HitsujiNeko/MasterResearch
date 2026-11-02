@@ -267,7 +267,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except subprocess.TimeoutExpired:
         message = f"エラー: Word の操作が {WORD_TIMEOUT_SECONDS} 秒を超えたため打ち切りました"
         print(message, file=sys.stderr)
-        print("docx・PDF を開いている Word を閉じてから再実行してください", file=sys.stderr)
+        hint = (
+            "見えない状態の Word が残って docx を開いたままの場合がある。タスクマネージャーで"
+            "WINWORD.EXE を終了してから再実行してください"
+        )
+        print(hint, file=sys.stderr)
         return EXIT_ERROR
     except subprocess.CalledProcessError as exc:
         message = f"エラー: {exc.cmd[0]} が失敗しました（終了コード {exc.returncode}）"

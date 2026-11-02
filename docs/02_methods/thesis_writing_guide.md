@@ -1,7 +1,7 @@
 # 修士論文 執筆規約
 
-**最終更新**: 2026-11-02
-**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [task-workflow.md](../../.github/task-workflow.md), [CodingRule.md](CodingRule.md)
+**最終更新**: 2026-11-02  
+**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [task-workflow.md](../../.github/task-workflow.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: Markdown の基本記法、コマンドラインでの Python 実行
 
 ---

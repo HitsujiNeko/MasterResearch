@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -36,7 +37,27 @@ target = _load_target()
 
 
 PANDOC = target.find_pandoc()
-requires_pandoc = pytest.mark.skipif(shutil.which(PANDOC) is None, reason="pandoc が必要")
+
+
+def _pinned_pandoc_version() -> str | None:
+    """environment.yml で固定した pandoc の版を返す（見つからなければ None）。"""
+    text = (REPO_ROOT / "environment.yml").read_text(encoding="utf-8")
+    match = re.search(r"^\s*-\s*pandoc=([0-9.]+)\s*$", text, re.M)
+    return match.group(1) if match else None
+
+
+def _has_pinned_pandoc() -> bool:
+    """固定した版の pandoc が使えるか（版が違うと既定の雛形が変わり一致比較が成り立たない）。"""
+    if shutil.which(PANDOC) is None:
+        return False
+    result = subprocess.run([PANDOC, "--version"], capture_output=True, text=True, check=False)
+    first_line = result.stdout.splitlines()[0] if result.stdout else ""
+    return first_line == f"pandoc {_pinned_pandoc_version()}"
+
+
+requires_pandoc = pytest.mark.skipif(
+    not _has_pinned_pandoc(), reason="environment.yml で固定した版の pandoc が必要"
+)
 
 
 def _read_part(path: Path, name: str) -> str:

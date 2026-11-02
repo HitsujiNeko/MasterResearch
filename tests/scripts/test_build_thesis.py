@@ -301,3 +301,13 @@ class TestBuildWithPandoc:
         # 図題は図（drawing）の後、表題は表（w:tbl）の前に置かれる
         assert document.index("<w:drawing>") < document.index("図の題目")
         assert document.index("表の題目") < document.index("<w:tbl>")
+
+    def test_reports_undefined_reference_as_warning(self, tmp_path: Path) -> None:
+        """未定義の参照が警告として返る（--strict が失敗にできる前提の確認）。"""
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _touch(chapters / "01_intro" / "00_chapter.md", "# 第1章\n\n@fig:missing を参照する．\n")
+        warnings = target.build_docx(
+            chapters, tmp_path / "out.docx", pandoc=pandoc, crossref=crossref
+        )
+        assert "fig:missing" in warnings

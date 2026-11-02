@@ -1,0 +1,943 @@
+{
+  "comparison": "GLC_FCS30D・Esri 10m LULC・JRC GSW・MNDWI の水域の一致度",
+  "settings": {
+    "grid": {
+      "analysis_crs": "EPSG:5897",
+      "resolution_m": 30.0,
+      "cell_area_m2": 900.0,
+      "target_cells": "IN_ANALYSIS_AREA == 1",
+      "aggregation": "aggregate_class_fractions_to_grid()（Resampling.average）。LULC_WATER_COV と同じ集約方式"
+    },
+    "min_valid_ratio": 0.5,
+    "water_fraction_threshold": 0.5,
+    "occurrence_thresholds": [
+      25,
+      50,
+      75,
+      90
+    ],
+    "primary_occurrence_threshold": 50,
+    "mndwi_thresholds": [
+      -0.2,
+      -0.15,
+      -0.1,
+      -0.05,
+      0.0,
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "primary_mndwi_threshold": 0.0,
+    "mndwi_threshold_rationale": "MNDWI ≥ 0 は Xu (2006) が示した標準的な水域の閾値。観測日の画像に合わせた閾値として大津の方法の値も併記する。",
+    "otsu_threshold": -0.04983476223424077,
+    "otsu_bins": 256
+  },
+  "target_cells": 3736107,
+  "layers": {
+    "glc": {
+      "label": "GLC_FCS30D 2022",
+      "definition": "クラス 210 の面積率 ≥ 0.5",
+      "valid_cells": 3729518,
+      "valid_ratio": 0.9982363995463728,
+      "water_cells": 201788,
+      "water_area_km2": 181.6092,
+      "water_ratio_in_valid": 0.054105651186024575
+    },
+    "esri": {
+      "label": "Esri 10m LULC 2022",
+      "definition": "クラス 1 Water の面積率 ≥ 0.5",
+      "valid_cells": 3729387,
+      "valid_ratio": 0.9982013363107641,
+      "water_cells": 356984,
+      "water_area_km2": 321.2856,
+      "water_ratio_in_valid": 0.09572189745928754
+    },
+    "jrc_occ25": {
+      "label": "JRC Occurrence ≥ 25%",
+      "definition": "1984-2021 の出現頻度 ≥ 25% の画素の面積率 ≥ 0.5",
+      "valid_cells": 3729249,
+      "valid_ratio": 0.9981643994671459,
+      "water_cells": 226942,
+      "water_area_km2": 204.2478,
+      "water_ratio_in_valid": 0.06085461174622558
+    },
+    "jrc_occ50": {
+      "label": "JRC Occurrence ≥ 50%",
+      "definition": "1984-2021 の出現頻度 ≥ 50% の画素の面積率 ≥ 0.5",
+      "valid_cells": 3729249,
+      "valid_ratio": 0.9981643994671459,
+      "water_cells": 145371,
+      "water_area_km2": 130.8339,
+      "water_ratio_in_valid": 0.03898130696019494
+    },
+    "jrc_occ75": {
+      "label": "JRC Occurrence ≥ 75%",
+      "definition": "1984-2021 の出現頻度 ≥ 75% の画素の面積率 ≥ 0.5",
+      "valid_cells": 3729249,
+      "valid_ratio": 0.9981643994671459,
+      "water_cells": 92082,
+      "water_area_km2": 82.8738,
+      "water_ratio_in_valid": 0.024691834736698996
+    },
+    "jrc_occ90": {
+      "label": "JRC Occurrence ≥ 90%",
+      "definition": "1984-2021 の出現頻度 ≥ 90% の画素の面積率 ≥ 0.5",
+      "valid_cells": 3729249,
+      "valid_ratio": 0.9981643994671459,
+      "water_cells": 47555,
+      "water_area_km2": 42.7995,
+      "water_ratio_in_valid": 0.01275189723185553
+    },
+    "jrc_yearly_sp": {
+      "label": "JRC 年次 2021（季節＋恒常）",
+      "definition": "2021 年の季節水域・恒常水域の面積率 ≥ 0.5",
+      "valid_cells": 3701214,
+      "valid_ratio": 0.990660599388615,
+      "water_cells": 420103,
+      "water_area_km2": 378.0927,
+      "water_ratio_in_valid": 0.11350410973264448
+    },
+    "jrc_yearly_p": {
+      "label": "JRC 年次 2021（恒常のみ）",
+      "definition": "2021 年の恒常水域の面積率 ≥ 0.5",
+      "valid_cells": 3701214,
+      "valid_ratio": 0.990660599388615,
+      "water_cells": 100573,
+      "water_area_km2": 90.5157,
+      "water_ratio_in_valid": 0.027172976218073314
+    },
+    "jrc_monthly": {
+      "label": "JRC 月次 2021-09",
+      "definition": "2021 年 9 月の水域の面積率 ≥ 0.5",
+      "valid_cells": 3456292,
+      "valid_ratio": 0.925105196398283,
+      "water_cells": 193182,
+      "water_area_km2": 173.8638,
+      "water_ratio_in_valid": 0.05589284701639792
+    },
+    "mndwi_-0.20": {
+      "label": "MNDWI ≥ -0.20（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ -0.20",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 587290,
+      "water_area_km2": 528.561,
+      "water_ratio_in_valid": 0.1680368594397665
+    },
+    "mndwi_-0.15": {
+      "label": "MNDWI ≥ -0.15（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ -0.15",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 518053,
+      "water_area_km2": 466.2477,
+      "water_ratio_in_valid": 0.14822659868778518
+    },
+    "mndwi_-0.10": {
+      "label": "MNDWI ≥ -0.10（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ -0.10",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 466622,
+      "water_area_km2": 419.9598,
+      "water_ratio_in_valid": 0.133511034455725
+    },
+    "mndwi_-0.05": {
+      "label": "MNDWI ≥ -0.05（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ -0.05",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 424005,
+      "water_area_km2": 381.6045,
+      "water_ratio_in_valid": 0.12131735358469954
+    },
+    "mndwi_+0.00": {
+      "label": "MNDWI ≥ +0.00（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.00",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 387102,
+      "water_area_km2": 348.3918,
+      "water_ratio_in_valid": 0.1107585764492031
+    },
+    "mndwi_+0.05": {
+      "label": "MNDWI ≥ +0.05（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.05",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 353265,
+      "water_area_km2": 317.9385,
+      "water_ratio_in_valid": 0.10107705077557784
+    },
+    "mndwi_+0.10": {
+      "label": "MNDWI ≥ +0.10（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.10",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 321477,
+      "water_area_km2": 289.3293,
+      "water_ratio_in_valid": 0.0919817900221659
+    },
+    "mndwi_+0.15": {
+      "label": "MNDWI ≥ +0.15（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.15",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 290481,
+      "water_area_km2": 261.4329,
+      "water_ratio_in_valid": 0.0831131382569477
+    },
+    "mndwi_+0.20": {
+      "label": "MNDWI ≥ +0.20（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.20",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 258092,
+      "water_area_km2": 232.2828,
+      "water_ratio_in_valid": 0.07384591790517157
+    },
+    "mndwi_+0.25": {
+      "label": "MNDWI ≥ +0.25（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.25",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 223127,
+      "water_area_km2": 200.8143,
+      "water_ratio_in_valid": 0.06384164609684616
+    },
+    "mndwi_+0.30": {
+      "label": "MNDWI ≥ +0.30（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ +0.30",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 189858,
+      "water_area_km2": 170.8722,
+      "water_ratio_in_valid": 0.054322637980410336
+    },
+    "mndwi_otsu": {
+      "label": "MNDWI ≥ 大津の閾値 -0.050（2022-09-06）",
+      "definition": "観測日のセル MNDWI ≥ -0.0498（大津の方法、256 ビン）",
+      "valid_cells": 3495007,
+      "valid_ratio": 0.935467586982921,
+      "water_cells": 423877,
+      "water_area_km2": 381.4893,
+      "water_ratio_in_valid": 0.12128072990983996
+    }
+  },
+  "pairwise_main": [
+    {
+      "comparison_set": "main",
+      "a": "glc",
+      "b": "esri",
+      "valid_cells": 3727994,
+      "a_cells": 201465,
+      "b_cells": 356441,
+      "both_cells": 158403,
+      "a_only_cells": 43062,
+      "b_only_cells": 198038,
+      "neither_cells": 3328491,
+      "iou": 0.3965001514381619,
+      "agreement_given_a": 0.7862556771647681,
+      "agreement_given_b": 0.44440173829609947,
+      "b_to_a_cell_ratio": 1.7692452783361874,
+      "overall_agreement": 0.9353271491316778,
+      "cohens_kappa": 0.5357936168157736,
+      "a_area_km2": 181.3185,
+      "b_area_km2": 320.7969
+    },
+    {
+      "comparison_set": "main",
+      "a": "glc",
+      "b": "jrc_occ50",
+      "valid_cells": 3727543,
+      "a_cells": 201375,
+      "b_cells": 144837,
+      "both_cells": 113815,
+      "a_only_cells": 87560,
+      "b_only_cells": 31022,
+      "neither_cells": 3495146,
+      "iou": 0.4897438435091675,
+      "agreement_given_a": 0.5651893234016139,
+      "agreement_given_b": 0.7858143982545897,
+      "b_to_a_cell_ratio": 0.7192402234636871,
+      "overall_agreement": 0.9681876238583969,
+      "cohens_kappa": 0.6412723892446595,
+      "a_area_km2": 181.2375,
+      "b_area_km2": 130.3533
+    },
+    {
+      "comparison_set": "main",
+      "a": "glc",
+      "b": "jrc_yearly_sp",
+      "valid_cells": 3699529,
+      "a_cells": 200955,
+      "b_cells": 419545,
+      "both_cells": 174741,
+      "a_only_cells": 26214,
+      "b_only_cells": 244804,
+      "neither_cells": 3253770,
+      "iou": 0.39200778896219707,
+      "agreement_given_a": 0.869552884974248,
+      "agreement_given_b": 0.4165012096437808,
+      "b_to_a_cell_ratio": 2.0877559652658557,
+      "overall_agreement": 0.9267425664185901,
+      "cohens_kappa": 0.5285999142549079,
+      "a_area_km2": 180.8595,
+      "b_area_km2": 377.5905
+    },
+    {
+      "comparison_set": "main",
+      "a": "glc",
+      "b": "jrc_yearly_p",
+      "valid_cells": 3699529,
+      "a_cells": 200955,
+      "b_cells": 100135,
+      "both_cells": 89214,
+      "a_only_cells": 111741,
+      "b_only_cells": 10921,
+      "neither_cells": 3487653,
+      "iou": 0.4210670392116143,
+      "agreement_given_a": 0.4439501380906173,
+      "agreement_given_b": 0.8909372347331103,
+      "b_to_a_cell_ratio": 0.49829563832698864,
+      "overall_agreement": 0.9668438874245884,
+      "cohens_kappa": 0.5773358664694018,
+      "a_area_km2": 180.8595,
+      "b_area_km2": 90.1215
+    },
+    {
+      "comparison_set": "main",
+      "a": "glc",
+      "b": "jrc_monthly",
+      "valid_cells": 3454652,
+      "a_cells": 184810,
+      "b_cells": 192694,
+      "both_cells": 131675,
+      "a_only_cells": 53135,
+      "b_only_cells": 61019,
+      "neither_cells": 3208823,
+      "iou": 0.5356365603732676,
+      "agreement_given_a": 0.7124885017044532,
+      "agreement_given_b": 0.683337312007639,
+      "b_to_a_cell_ratio": 1.042660029219198,
+      "overall_agreement": 0.9669564401855817,
+      "cohens_kappa": 0.6801399125183761,
+      "a_area_km2": 166.329,
+      "b_area_km2": 173.4246
+    },
+    {
+      "comparison_set": "main",
+      "a": "glc",
+      "b": "mndwi_+0.00",
+      "valid_cells": 3489453,
+      "a_cells": 188747,
+      "b_cells": 385142,
+      "both_cells": 172923,
+      "a_only_cells": 15824,
+      "b_only_cells": 212219,
+      "neither_cells": 3088487,
+      "iou": 0.43126599262780385,
+      "agreement_given_a": 0.9161629059004911,
+      "agreement_given_b": 0.44898504966999186,
+      "b_to_a_cell_ratio": 2.0405198493221084,
+      "overall_agreement": 0.934647923327811,
+      "cohens_kappa": 0.5715279840082784,
+      "a_area_km2": 169.8723,
+      "b_area_km2": 346.6278
+    },
+    {
+      "comparison_set": "main",
+      "a": "esri",
+      "b": "jrc_occ50",
+      "valid_cells": 3727860,
+      "a_cells": 356481,
+      "b_cells": 144944,
+      "both_cells": 131722,
+      "a_only_cells": 224759,
+      "b_only_cells": 13222,
+      "neither_cells": 3358157,
+      "iou": 0.35629140147632016,
+      "agreement_given_a": 0.36950636920340774,
+      "agreement_given_b": 0.908778562755271,
+      "b_to_a_cell_ratio": 0.40659670501373146,
+      "overall_agreement": 0.9361614974811285,
+      "cohens_kappa": 0.49761678113655905,
+      "a_area_km2": 320.8329,
+      "b_area_km2": 130.4496
+    },
+    {
+      "comparison_set": "main",
+      "a": "esri",
+      "b": "jrc_yearly_sp",
+      "valid_cells": 3699842,
+      "a_cells": 353019,
+      "b_cells": 419664,
+      "both_cells": 197490,
+      "a_only_cells": 155529,
+      "b_only_cells": 222174,
+      "neither_cells": 3124649,
+      "iou": 0.34334562485982967,
+      "agreement_given_a": 0.5594316453222065,
+      "agreement_given_b": 0.4705907583209425,
+      "b_to_a_cell_ratio": 1.1887858727150664,
+      "overall_agreement": 0.8979137487492709,
+      "cohens_kappa": 0.45465834320651444,
+      "a_area_km2": 317.7171,
+      "b_area_km2": 377.6976
+    },
+    {
+      "comparison_set": "main",
+      "a": "esri",
+      "b": "jrc_yearly_p",
+      "valid_cells": 3699842,
+      "a_cells": 353019,
+      "b_cells": 100241,
+      "both_cells": 98693,
+      "a_only_cells": 254326,
+      "b_only_cells": 1548,
+      "neither_cells": 3345275,
+      "iou": 0.27834795680365065,
+      "agreement_given_a": 0.2795685218076081,
+      "agreement_given_b": 0.9845572171067727,
+      "b_to_a_cell_ratio": 0.2839535549078095,
+      "overall_agreement": 0.9308419116275776,
+      "cohens_kappa": 0.4106065942506416,
+      "a_area_km2": 317.7171,
+      "b_area_km2": 90.2169
+    },
+    {
+      "comparison_set": "main",
+      "a": "esri",
+      "b": "jrc_monthly",
+      "valid_cells": 3454961,
+      "a_cells": 324754,
+      "b_cells": 192783,
+      "both_cells": 148137,
+      "a_only_cells": 176617,
+      "b_only_cells": 44646,
+      "neither_cells": 3085561,
+      "iou": 0.4010205739036275,
+      "agreement_given_a": 0.4561514253866003,
+      "agreement_given_b": 0.7684131899596957,
+      "b_to_a_cell_ratio": 0.5936277921134151,
+      "overall_agreement": 0.9359578878024962,
+      "cohens_kappa": 0.5402758791969393,
+      "a_area_km2": 292.2786,
+      "b_area_km2": 173.5047
+    },
+    {
+      "comparison_set": "main",
+      "a": "esri",
+      "b": "mndwi_+0.00",
+      "valid_cells": 3489336,
+      "a_cells": 321827,
+      "b_cells": 385170,
+      "both_cells": 218034,
+      "a_only_cells": 103793,
+      "b_only_cells": 167136,
+      "neither_cells": 3000373,
+      "iou": 0.4459110403036631,
+      "agreement_given_a": 0.6774882157183828,
+      "agreement_given_b": 0.5660721239971961,
+      "b_to_a_cell_ratio": 1.1968231378970688,
+      "overall_agreement": 0.922355141493969,
+      "cohens_kappa": 0.5739757176640029,
+      "a_area_km2": 289.6443,
+      "b_area_km2": 346.653
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_occ50",
+      "b": "jrc_yearly_sp",
+      "valid_cells": 3701214,
+      "a_cells": 145371,
+      "b_cells": 420103,
+      "both_cells": 135856,
+      "a_only_cells": 9515,
+      "b_only_cells": 284247,
+      "neither_cells": 3271596,
+      "iou": 0.3162251116107798,
+      "agreement_given_a": 0.9345467803069388,
+      "agreement_given_b": 0.32338735976653343,
+      "b_to_a_cell_ratio": 2.8898679929284383,
+      "overall_agreement": 0.9206309065079727,
+      "cohens_kappa": 0.44830690845585797,
+      "a_area_km2": 130.8339,
+      "b_area_km2": 378.0927
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_occ50",
+      "b": "jrc_yearly_p",
+      "valid_cells": 3701214,
+      "a_cells": 145371,
+      "b_cells": 100573,
+      "both_cells": 97780,
+      "a_only_cells": 47591,
+      "b_only_cells": 2793,
+      "neither_cells": 3553050,
+      "iou": 0.6599443859507033,
+      "agreement_given_a": 0.6726238383171333,
+      "agreement_given_b": 0.9722291271017072,
+      "b_to_a_cell_ratio": 0.6918367487325533,
+      "overall_agreement": 0.9863871691828681,
+      "cohens_kappa": 0.7883413617455531,
+      "a_area_km2": 130.8339,
+      "b_area_km2": 90.5157
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_occ50",
+      "b": "jrc_monthly",
+      "valid_cells": 3456292,
+      "a_cells": 136047,
+      "b_cells": 193182,
+      "both_cells": 120160,
+      "a_only_cells": 15887,
+      "b_only_cells": 73022,
+      "neither_cells": 3247223,
+      "iou": 0.5747384834671807,
+      "agreement_given_a": 0.8832241798790124,
+      "agreement_given_b": 0.6220041204667102,
+      "b_to_a_cell_ratio": 1.4199651590994289,
+      "overall_agreement": 0.9742761896274967,
+      "cohens_kappa": 0.7168691563060335,
+      "a_area_km2": 122.4423,
+      "b_area_km2": 173.8638
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_occ50",
+      "b": "mndwi_+0.00",
+      "valid_cells": 3489200,
+      "a_cells": 141373,
+      "b_cells": 385264,
+      "both_cells": 127757,
+      "a_only_cells": 13616,
+      "b_only_cells": 257507,
+      "neither_cells": 3090320,
+      "iou": 0.32028931006819095,
+      "agreement_given_a": 0.9036874084867691,
+      "agreement_given_b": 0.33160897462519207,
+      "b_to_a_cell_ratio": 2.7251596839566252,
+      "overall_agreement": 0.9222965149604494,
+      "cohens_kappa": 0.45273810141986087,
+      "a_area_km2": 127.2357,
+      "b_area_km2": 346.7376
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_yearly_sp",
+      "b": "jrc_yearly_p",
+      "valid_cells": 3701214,
+      "a_cells": 420103,
+      "b_cells": 100573,
+      "both_cells": 100573,
+      "a_only_cells": 319530,
+      "b_only_cells": 0,
+      "neither_cells": 3281111,
+      "iou": 0.23940081360999566,
+      "agreement_given_a": 0.23940081360999566,
+      "agreement_given_b": 1.0,
+      "b_to_a_cell_ratio": 0.23940081360999566,
+      "overall_agreement": 0.9136688664854289,
+      "cohens_kappa": 0.35817386071342194,
+      "a_area_km2": 378.0927,
+      "b_area_km2": 90.5157
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_yearly_sp",
+      "b": "jrc_monthly",
+      "valid_cells": 3431367,
+      "a_cells": 387577,
+      "b_cells": 193180,
+      "both_cells": 192954,
+      "a_only_cells": 194623,
+      "b_only_cells": 226,
+      "neither_cells": 3043564,
+      "iou": 0.4975567491741941,
+      "agreement_given_a": 0.4978468794587914,
+      "agreement_given_b": 0.9988301066362978,
+      "b_to_a_cell_ratio": 0.4984299893956556,
+      "overall_agreement": 0.9432153424568109,
+      "cohens_kappa": 0.6372318583920183,
+      "a_area_km2": 348.8193,
+      "b_area_km2": 173.862
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_yearly_sp",
+      "b": "mndwi_+0.00",
+      "valid_cells": 3465099,
+      "a_cells": 368944,
+      "b_cells": 380747,
+      "both_cells": 253320,
+      "a_only_cells": 115624,
+      "b_only_cells": 127427,
+      "neither_cells": 2968728,
+      "iou": 0.5103440773131388,
+      "agreement_given_a": 0.6866082657530682,
+      "agreement_given_b": 0.6653236926357923,
+      "b_to_a_cell_ratio": 1.0319913049134828,
+      "overall_agreement": 0.929857415329259,
+      "cohens_kappa": 0.6364839439304573,
+      "a_area_km2": 332.0496,
+      "b_area_km2": 342.6723
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_yearly_p",
+      "b": "jrc_monthly",
+      "valid_cells": 3431367,
+      "a_cells": 95567,
+      "b_cells": 193180,
+      "both_cells": 95092,
+      "a_only_cells": 475,
+      "b_only_cells": 98088,
+      "neither_cells": 3237712,
+      "iou": 0.49103818646562186,
+      "agreement_given_a": 0.9950296650517438,
+      "agreement_given_b": 0.4922455740759913,
+      "b_to_a_cell_ratio": 2.021409063798173,
+      "overall_agreement": 0.9712758792632791,
+      "cohens_kappa": 0.6454396012401088,
+      "a_area_km2": 86.0103,
+      "b_area_km2": 173.862
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_yearly_p",
+      "b": "mndwi_+0.00",
+      "valid_cells": 3465099,
+      "a_cells": 99953,
+      "b_cells": 380747,
+      "both_cells": 98200,
+      "a_only_cells": 1753,
+      "b_only_cells": 282547,
+      "neither_cells": 3082599,
+      "iou": 0.25673202614379087,
+      "agreement_given_a": 0.9824617570258021,
+      "agreement_given_b": 0.2579140479110801,
+      "b_to_a_cell_ratio": 3.809260352365612,
+      "overall_agreement": 0.9179532821428767,
+      "cohens_kappa": 0.3802511586425701,
+      "a_area_km2": 89.9577,
+      "b_area_km2": 342.6723
+    },
+    {
+      "comparison_set": "main",
+      "a": "jrc_monthly",
+      "b": "mndwi_+0.00",
+      "valid_cells": 3230995,
+      "a_cells": 183164,
+      "b_cells": 348775,
+      "both_cells": 169878,
+      "a_only_cells": 13286,
+      "b_only_cells": 178897,
+      "neither_cells": 2868934,
+      "iou": 0.46919717948080575,
+      "agreement_given_a": 0.9274639121224695,
+      "agreement_given_b": 0.4870704608988603,
+      "b_to_a_cell_ratio": 1.904167849577428,
+      "overall_agreement": 0.9405189423072459,
+      "cohens_kappa": 0.6096976015268865,
+      "a_area_km2": 164.8476,
+      "b_area_km2": 313.8975
+    }
+  ],
+  "fraction_comparison": [
+    {
+      "a": "glc",
+      "b": "esri",
+      "cells": 3727994,
+      "pearson_r": 0.6229574637353901,
+      "mean_abs_diff": 0.06474720638298931,
+      "mean_diff_b_minus_a": 0.04123864427169387
+    },
+    {
+      "a": "glc",
+      "b": "jrc_occ50",
+      "cells": 3727543,
+      "pearson_r": 0.7051309947099218,
+      "mean_abs_diff": 0.03245478369281879,
+      "mean_diff_b_minus_a": -0.01584122388663974
+    },
+    {
+      "a": "glc",
+      "b": "jrc_monthly",
+      "cells": 3454652,
+      "pearson_r": 0.7476288645579042,
+      "mean_abs_diff": 0.0335812533019137,
+      "mean_diff_b_minus_a": 0.00269257092284026
+    },
+    {
+      "a": "esri",
+      "b": "jrc_occ50",
+      "cells": 3727860,
+      "pearson_r": 0.593773604444578,
+      "mean_abs_diff": 0.06418486620958673,
+      "mean_diff_b_minus_a": -0.05708572528806485
+    },
+    {
+      "a": "esri",
+      "b": "jrc_monthly",
+      "cells": 3454961,
+      "pearson_r": 0.6175892947203406,
+      "mean_abs_diff": 0.06440719868655159,
+      "mean_diff_b_minus_a": -0.03750456099396819
+    },
+    {
+      "a": "jrc_occ50",
+      "b": "jrc_monthly",
+      "cells": 3456292,
+      "pearson_r": 0.7676648358938297,
+      "mean_abs_diff": 0.026922912117162093,
+      "mean_diff_b_minus_a": 0.01765526356355597
+    }
+  ],
+  "dataset_consistency_check": {
+    "compared_cells": 3735527,
+    "nan_mismatch_cells": 0,
+    "max_abs_diff": 0.0,
+    "close_ratio": 1.0,
+    "note": "1.0 に近ければ LULC_WATER_COV と同じ集約方式で比べていることが確かめられる。"
+  },
+  "notes": [
+    "どのデータも真値ではないため、精度ではなく一致度として扱う。",
+    "MNDWI は LST と同じ観測画像から算出しており、独立な参照ではない。",
+    "JRC は 2022 年を収録しないため、年次・月次は 2021 年（月次は同じ 9 月）を使った。",
+    "比較対象は両者とも有効なセルに限る。有効セル数はペアごとに異なる。"
+  ],
+  "outputs": {
+    "results": "data/output/open_gis/water_sources_agreement_hanoi_20220906_results.json",
+    "pairwise": "data/output/open_gis/water_sources_agreement_hanoi_20220906_pairwise.csv",
+    "threshold_sensitivity": "data/output/open_gis/water_sources_agreement_hanoi_20220906_threshold_sensitivity.csv",
+    "confusion": "data/output/open_gis/water_sources_agreement_hanoi_20220906_confusion.csv",
+    "mask_raster": "data/gis/water/comparison/water_masks_hanoi_20220906.tif"
+  },
+  "provenance": {
+    "script": "src.analysis.compare_water_sources",
+    "executed_at": "2026-11-02T06:10:37.479794+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "54f7d020fe71470f729eb8c766cbcdcecb102da8",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/compare_water_sources.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/mask_agreement.py",
+        "src/analysis/compare_lulc_esri_glc.py",
+        "src/analysis/urban_params/params/raster.py",
+        "src/analysis/urban_params/params/lulc.py",
+        "src/analysis/urban_params/tables.py",
+        "src/analysis/urban_params/grid.py",
+        "src/analysis/urban_params/io.py",
+        "src/analysis/urban_params/config.py",
+        "src/preprocessing/fetch_jrc_gsw_hanoi.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/compare_lulc_esri_glc.py",
+          "sha256": "51c6abddea93d6f73b2f84fee8459da27f9aad4a30c18c1995b7c231c35b650f"
+        },
+        {
+          "path": "src/analysis/compare_water_sources.py",
+          "sha256": "e695dd7eede178d39ce88cc23f2a98a3d88456a6d952b51cdd8bcacf167e6835"
+        },
+        {
+          "path": "src/analysis/mask_agreement.py",
+          "sha256": "17aecba01baaae45d06d8b9bc46e76f400f2610d3346c43df44557814a8740dd"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/analysis/urban_params/config.py",
+          "sha256": "26ac0bcb2d67a790a337ed8e31053753d94ed89dbebe8f327fdf0a8142c9279c"
+        },
+        {
+          "path": "src/analysis/urban_params/grid.py",
+          "sha256": "adebe4d55314e3c5036e4969f849f94a8e528a581f1c77ef2a41638a936ad6e2"
+        },
+        {
+          "path": "src/analysis/urban_params/io.py",
+          "sha256": "9d7e6fa31bb6c14e58c0bd6fdb76623d5f06d822ff93a89b1fb84c53304859a6"
+        },
+        {
+          "path": "src/analysis/urban_params/params/lulc.py",
+          "sha256": "83d307cfd26cb03d8d70c782a545c293d7a54d3cf92aee12a7a4f9a9f8b08e7d"
+        },
+        {
+          "path": "src/analysis/urban_params/params/raster.py",
+          "sha256": "8d98030b96f8cef4e30459d355c5630b653dba9c1d8e5ce62b9b1f34f466f54d"
+        },
+        {
+          "path": "src/analysis/urban_params/tables.py",
+          "sha256": "8fdfd3af4374f911ccdc5d094750ceb4b72faf3f563043f63831f56cde62f38b"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "136882fd24d78ba6f51ba33f115ba50ff613c35383a10cb0a4e29326a1fff5c5"
+        },
+        {
+          "path": "src/preprocessing/fetch_jrc_gsw_hanoi.py",
+          "sha256": "89871ed43cd3e5f4f7837c9b21bcbdc8f797cdad801bf30021f018a6ea2baee3"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.0.7",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+      },
+      {
+        "path": "data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif",
+        "sha256": "e555e18e61561300b1fe1a920ee1cb12143eee5b31c5447b0dfd9dbf5cbdeb6f"
+      },
+      {
+        "path": "data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif",
+        "sha256": "e71a4af5b605a3b7b17be79f49be1b544d7e0e2232abdcd44a04a231b973bda4"
+      },
+      {
+        "path": "data/gis/water/jrc_gsw/jrc_gsw_hanoi_y2021_m202109.tif",
+        "sha256": "05494ab7b238bef21fc3ef3315bd81bd882a5c79a9e6edd9b9e8a889d61bb8a3"
+      },
+      {
+        "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+        "sha256": "e2fbdaa4d2577113a36d4f24a2b9a73d293eefe1fc674b04bc4ac43a991572a5"
+      }
+    ]
+  }
+}

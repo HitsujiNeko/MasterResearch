@@ -344,6 +344,18 @@ class TestWatchPaths:
         assert missing == []
 
 
+class TestOutputPaths:
+    """build_output_paths のテスト。"""
+
+    def test_results_json_is_scanned_by_staleness_check(self, tmp_path: Path) -> None:
+        """結果 JSON の名前が陳腐化チェックの走査パターン（`*_results.json`）に合う。"""
+        paths = target.build_output_paths(tmp_path / "out", tmp_path / "mask", "hanoi_20220906")
+
+        assert paths["results"].name == "water_sources_agreement_hanoi_20220906_results.json"
+        assert paths["results"].match("*_results.json")
+        assert paths["mask_raster"].parent == (tmp_path / "mask").resolve()
+
+
 class TestIo:
     """入出力のテスト。"""
 

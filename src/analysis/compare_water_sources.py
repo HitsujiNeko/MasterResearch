@@ -833,6 +833,33 @@ def describe_layer(layer: WaterLayer, cell_area_m2: float) -> dict[str, Any]:
     }
 
 
+def build_output_paths(output_dir: Path, mask_dir: Path, label: str) -> dict[str, Path]:
+    """出力の種類ごとの保存先を決め、親ディレクトリを作る。
+
+    結果 JSON の名前は `*_results.json` とする。分析結果の陳腐化チェック
+    （`scripts/check_result_staleness.py`）はこの名前のファイルだけを走査するため、
+    別の名前にすると来歴があっても監視されない。
+
+    Args:
+        output_dir: 結果 JSON・CSV の出力先。
+        mask_dir: 水域マスク GeoTIFF の出力先。
+        label: 出力ファイル名の識別子。
+
+    Returns:
+        出力の種類 → パス。
+    """
+    stem = f"water_sources_agreement_{label}"
+    return {
+        "results": prepare_output_path(output_dir / f"{stem}_results.json"),
+        "pairwise": prepare_output_path(output_dir / f"{stem}_pairwise.csv"),
+        "threshold_sensitivity": prepare_output_path(
+            output_dir / f"{stem}_threshold_sensitivity.csv"
+        ),
+        "confusion": prepare_output_path(output_dir / f"{stem}_confusion.csv"),
+        "mask_raster": prepare_output_path(mask_dir / f"water_masks_{label}.tif"),
+    }
+
+
 def run(
     dataset_path: Path,
     glc_path: Path,
@@ -863,16 +890,7 @@ def run(
         if not input_path.exists():
             raise FileNotFoundError(f"入力ラスタが見つかりません: {input_path}")
 
-    stem = f"water_sources_agreement_{label}"
-    output_paths = {
-        "summary": prepare_output_path(output_dir / f"{stem}_summary.json"),
-        "pairwise": prepare_output_path(output_dir / f"{stem}_pairwise.csv"),
-        "threshold_sensitivity": prepare_output_path(
-            output_dir / f"{stem}_threshold_sensitivity.csv"
-        ),
-        "confusion": prepare_output_path(output_dir / f"{stem}_confusion.csv"),
-        "mask_raster": prepare_output_path(mask_dir / f"water_masks_{label}.tif"),
-    }
+    output_paths = build_output_paths(output_dir, mask_dir, label)
 
     cells = load_dataset_cells(dataset_path)
     logger.info("対象セル（IN_ANALYSIS_AREA == 1）: %d", len(cells))
@@ -981,7 +999,7 @@ def run(
             extra_watch_paths=WATCH_PATHS,
         ),
     }
-    save_summary(summary, output_paths["summary"])
+    save_summary(summary, output_paths["results"])
     log_results(pairwise_rows, dataset_check, otsu)
     return output_paths
 

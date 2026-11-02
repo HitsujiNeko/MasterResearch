@@ -53,6 +53,9 @@ data/satellite/
 # PDFは原則追跡しない（文献はメタデータで管理）
 *.pdf
 
+# 修士論文のビルド生成物（thesis/ の md から scripts/build_thesis.py で再生成できる）
+thesis/build/
+
 # QGISプロジェクトファイル（qgis/projects/ 配下はローカルのみ、qgis/styles・qgis/templates は追跡）
 *.qgz
 qgis/projects/

@@ -721,11 +721,11 @@
   },
   "provenance": {
     "script": "src.analysis.compare_water_sources",
-    "executed_at": "2026-11-02T06:10:37.479794+00:00",
+    "executed_at": "2026-11-02T07:04:06.061093+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "54f7d020fe71470f729eb8c766cbcdcecb102da8",
+      "commit": "f8f6803a4fc26a08fa6bbbecd84ef00312624683",
       "dirty": false
     },
     "code": {
@@ -750,7 +750,7 @@
         },
         {
           "path": "src/analysis/compare_water_sources.py",
-          "sha256": "e695dd7eede178d39ce88cc23f2a98a3d88456a6d952b51cdd8bcacf167e6835"
+          "sha256": "fb3882e8f94d4bb00bc920cf8b0552fb654c776b4e20a16cbbd1426223667b7d"
         },
         {
           "path": "src/analysis/mask_agreement.py",

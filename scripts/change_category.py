@@ -83,6 +83,7 @@ RULES: tuple[tuple[str, str, str], ...] = (
     ("S", "docs/02_methods/CodingRule.md", "運用文書"),
     ("S", "docs/02_methods/skill_operation_rules.md", "運用文書"),
     ("S", "docs/02_methods/claude_workflow_regression_tests.md", "運用文書"),
+    ("S", "docs/02_methods/thesis_writing_guide.md", "運用文書"),
     ("S", "docs/02_methods/qgis_*", "運用文書"),
     ("S", "docs/README.md", "文書カタログ"),
     ("S", "docs/setup*", "環境構築文書"),
@@ -91,6 +92,8 @@ RULES: tuple[tuple[str, str, str], ...] = (
     ("S", "src/doc_checks/*", "文書整合性チェック"),
     ("S", "src/literature/*", "文献管理"),
     ("S", "scripts/*", "補助スクリプト"),
+    # 修士論文の原稿・書式の雛形。原稿の変更に区分 D の手順を当てる扱いは task-workflow.md
+    ("S", "thesis/*", "修士論文（原稿・書式の雛形）"),
     ("S", "tests/*", "テストのみの変更"),
     ("S", ".pre-commit-config.yaml", "ツール設定"),
     ("S", ".markdownlint*", "ツール設定"),

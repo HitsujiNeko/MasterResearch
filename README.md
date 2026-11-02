@@ -54,7 +54,8 @@ flowchart LR
 | `src/` | データ取得・前処理・分析の Python / GEE（Google Earth Engine：Google の衛星データ解析基盤）実装コード |
 | `data/` | GIS（地理情報システム）・衛星データ（**Git 管理外**。下の「補足 > 研究データの扱い」を参照） |
 | `QGIS/` | QGIS プロジェクト・可視化まわりのファイル |
-| `scripts/` | 実行環境の設定・変更区分の判定などの運用補助スクリプト |
+| `thesis/` | 修士論文の原稿（Markdown が正本。`scripts/build_thesis.py` で Word を生成する）。書き方は [thesis_writing_guide.md](docs/02_methods/thesis_writing_guide.md) |
+| `scripts/` | 実行環境の設定・変更区分の判定・論文のビルドなどの運用補助スクリプト |
 | `tests/` | `src/`・`scripts/`・`.claude/hooks/` に対する pytest テストコード |
 
 より詳しい研究の背景・目的・手法は [research_guide.md](docs/01_planning/research_guide.md) を参照してください。

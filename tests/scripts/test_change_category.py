@@ -101,6 +101,9 @@ class TestRules:
             (".markdownlint-cli2.jsonc", "S"),
             (".claude/skills/self-review/SKILL.md", "S"),
             ("tests/analysis/test_x.py", "S"),
+            ("thesis/chapters/01_introduction/01_background.md", "S"),
+            ("thesis/templates/reference.docx", "S"),
+            ("docs/02_methods/thesis_writing_guide.md", "S"),
         ],
     )
     def test_representative_paths(self, path: str, expected: str) -> None:

@@ -32,4 +32,11 @@ dependencies:
   - ruff=0.16.0
   - pre-commit
   - pytest
+  # 修士論文（thesis/）の md → docx 生成に使う。pandoc-crossref はビルド時の pandoc と
+  # 実行時の pandoc の版が違うと「非サポート」の警告を出すため、両者を組で固定する。
+  # conda-forge の 0.3.26 は依存指定が pandoc <3.10 だが、実体は pandoc 3.13 でビルド
+  # されており版が合わない。0.3.24 は pandoc 3.9.0.2 でビルドされている
+  # （pandoc-crossref --version で確認できる）
+  - pandoc=3.9.0.2
+  - pandoc-crossref=0.3.24
   - pip

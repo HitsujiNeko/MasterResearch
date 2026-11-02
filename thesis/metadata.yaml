@@ -1,0 +1,24 @@
+# 修士論文の全体メタデータと pandoc-crossref の設定。
+# scripts/build_thesis.py が pandoc の --metadata-file に渡す。
+title: "ベトナム・ハノイを対象とした地表面温度と都市構造の関係性評価に関する研究"
+subtitle: "修士論文"
+author:
+  - "空間情報学研究室　堂脇 拓海"
+date: "[TBD:提出年月日]"
+lang: ja-JP
+toc-title: "目次"
+
+# --- pandoc-crossref ---
+# 図・表の番号は文書通し（章ごとにしない）。卒業論文の「図-1　題目」「表-1　題目」に合わせ、
+# 番号の接頭辞と題目の区切り（全角スペース）を指定する。本文中の参照も「図-1」とする。
+figureTitle: "図"
+tableTitle: "表"
+figPrefix: "図"
+tblPrefix: "表"
+eqnPrefix: "式"
+titleDelim: "　"
+figureTemplate: "$$figureTitle$$-$$i$$$$titleDelim$$$$t$$"
+tableTemplate: "$$tableTitle$$-$$i$$$$titleDelim$$$$t$$"
+figPrefixTemplate: "$$p$$-$$i$$"
+tblPrefixTemplate: "$$p$$-$$i$$"
+eqnPrefixTemplate: "$$p$$($$i$$)"

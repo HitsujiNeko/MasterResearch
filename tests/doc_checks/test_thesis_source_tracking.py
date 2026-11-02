@@ -5,6 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from src.doc_checks.thesis_source_tracking import (
     KIND_MALFORMED,
     KIND_MISSING,
@@ -255,6 +257,14 @@ def test_parse_reads_state() -> None:
 
     assert parsed.state == "初稿"
     assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def test_git_failure_raises_runtime_error(tmp_path: Path) -> None:
+    """git リポジトリでない場所では「正本が見つからない」ではなく例外にする。"""
+    _write(tmp_path, _SECTION, _section(["docs/a.md @ 0123456789"]))
+
+    with pytest.raises(RuntimeError, match="正本のハッシュを取得できませんでした"):
+        check_thesis_source_tracking(project_root=tmp_path)
 
 
 def test_no_thesis_directory(tmp_path: Path) -> None:

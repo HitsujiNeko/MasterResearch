@@ -190,18 +190,28 @@ def resolve_object_hashes(
         revision: 比較の基準とするリビジョン。
     Returns:
         入力どおりのパス → 完全なハッシュ。リビジョンに存在しないパスは含まない。
+    Raises:
+        RuntimeError: git が無い・リポジトリ外・リビジョンが無いなどで git の実行に失敗した場合
+            （「正本が見つからない」と区別できなくなるため、空の結果にせず例外にする）。
     """
     requested = {path: path.rstrip("/") for path in paths}
     lookup_paths = sorted({path for path in requested.values() if path})
     if not lookup_paths:
         return {}
     # -z で出力するとパスが引用符でエスケープされない（日本語のパスに対応するため）
-    result = subprocess.run(
-        ["git", "ls-tree", "-z", "--full-tree", revision, "--", *lookup_paths],
-        cwd=project_root,
-        capture_output=True,
-        check=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "ls-tree", "-z", "--full-tree", revision, "--", *lookup_paths],
+            cwd=project_root,
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        stderr = getattr(error, "stderr", None)
+        detail = stderr.decode("utf-8", errors="replace").strip() if stderr else str(error)
+        raise RuntimeError(
+            f"正本のハッシュを取得できませんでした（{project_root} の {revision}）: {detail}"
+        ) from error
     found: dict[str, str] = {}
     for record in result.stdout.decode("utf-8").split("\0"):
         if not record:

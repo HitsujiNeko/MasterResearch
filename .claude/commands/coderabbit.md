@@ -1,26 +1,50 @@
 ---
-description: CodeRabbit 自動レビューの確認・分類・対応・返信サイクルを実行する
+description: CodeRabbit レビューの起動状態の確認（区分 R は承認を得て手動起動）・分類・対応・返信サイクルを実行する
 argument-hint: "{PR番号}"
 ---
 
 # CodeRabbit レビュー対応: PR #$ARGUMENTS
 
-PR 作成後、CodeRabbit が自動でレビューコメントを付ける（`.coderabbit.yaml` の `auto_review.enabled: true`）。
+CodeRabbit はスター10未満の公開リポジトリを自動レビューせず、PR 作成時には「Trigger review」チェックボックスつきのスキップ通知だけを残す（`.coderabbit.yaml` の `auto_review.enabled: true` は、スター10以上で自動レビューが再開する場合に備えて残している）。そのため本コマンドは、**区分 R の PR** で未起動であれば手動起動してから、レビューへの対応に進む。対象の区分・再レビューの扱いは [task-workflow.md](../../.github/task-workflow.md) の「5. タスク完了 ④」を正本とする。
 
 > CodeRabbit のレビューは補助的なものであり、指摘への対応要否はユーザーが判断する。
 
-## Step 1: レビュー到着の確認
+## Step 1: 起動状態の確認と手動起動
 
 ```bash
-# CodeRabbit のレビュー到着確認
+# CodeRabbit のレビュー（指摘の本体）
 gh pr view $ARGUMENTS --json reviews --jq '.reviews[] | select(.author.login == "coderabbitai")'
+
+# 通常コメント（スキップ通知・起動の投稿・CodeRabbit の応答）
+gh pr view $ARGUMENTS --json comments --jq '.comments[] | {author: .author.login, createdAt, body: .body[0:300]}'
+
+# 変更区分（PR 本文の「変更区分」欄）
+gh pr view $ARGUMENTS --json body --jq '.body'
 
 # 個別のレビューコメント取得
 gh api repos/{owner}/{repo}/pulls/$ARGUMENTS/comments
 ```
 
-- レビュー未到着の場合はユーザーに状況を報告し、到着まで待機する
-- 指摘なしで承認された場合はその旨を報告して終了する
+取得結果から起動状態を判定する。
+
+| 状態 | 判定の目安 | 対応 |
+|---|---|---|
+| 到着済み | `coderabbitai` のレビューがある | Step 2 へ |
+| 未起動 | `coderabbitai` のコメントがスキップ通知（`fewer than 10 stars` の文、または `skip review by coderabbit.ai` の目印を含む）だけで、`@coderabbitai review` の投稿がない | 下記の手動起動 |
+| 起動済み・未到着 | `@coderabbitai review` の投稿（またはチェックボックスの操作）はあるが、レビューがまだない | 下記の待機 |
+
+- **手動起動**（未起動の場合）:
+  - **区分 R**: 投稿の前に「PR #{PR番号} に `@coderabbitai review` を投稿してよいか」をユーザーに確認し、承認された場合のみ投稿する。外部への書き込みのため、承認は投稿 1 回ごとに取る
+
+    ```bash
+    gh pr comment $ARGUMENTS --body "@coderabbitai review"
+    ```
+
+  - **区分 S・D**: 起動しない旨を報告して終了する。ユーザーが起動を求めた場合に限り、区分 R と同じく承認を得て投稿する
+  - 「変更区分」欄を一意に読み取れない場合は推測で補わず、ユーザーに確認する
+- **待機**: レビューの到着には数分かかる。投稿後（または起動済み・未到着の場合）は状況をユーザーに報告し、到着後に上記の確認を再実行する（短い間隔で確認を繰り返さない）
+- **レート制限・エラー**: CodeRabbit がレート制限やエラーを通知した場合は、内容（待機時間など）をユーザーに報告し、再起動するかどうかの判断を仰ぐ。自動で再投稿しない
+- 指摘なしでレビューが完了した場合はその旨を報告して終了する
 
 ## Step 2: 指摘の分類・提示
 
@@ -39,6 +63,7 @@ gh api repos/{owner}/{repo}/pulls/$ARGUMENTS/comments
 
 - **原則 1指摘1コミット**。同一パターンの指摘が複数箇所に出た場合はまとめて1コミットで対応可
 - コミットメッセージ: `fix: {対応内容の要約} (#{Issue番号})`
+- 対応の push 後に再レビューは起動しない（起動ごとにレート制限を消費するため。対応内容は squash merge 前の PR レビューで確認する）。ユーザーが求めた場合に限り、Step 1 と同じく承認を得て `@coderabbitai review` を投稿する
 
 ## Step 4: コメントへの返信
 

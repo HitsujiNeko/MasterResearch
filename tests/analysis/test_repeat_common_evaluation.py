@@ -211,6 +211,28 @@ class TestResume:
         assert load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS) is not None
         assert load_completed_seed(tmp_path, 42, "other", self._CONDITIONS) is None
 
+    def test_reused_fold_metrics_match_written_values_exactly(self, tmp_path: Path) -> None:
+        """再利用した fold 別指標は、書き出した値とビット単位で一致する。
+
+        既定の浮動小数パーサでは最下位ビットがずれる値が混ざる乱数（200個中69個で確認）を
+        使い、往復精度で読んでいることを確かめる。
+        """
+        values = np.random.default_rng(0).random((40, len(FOLD_METRIC_COLUMNS)))
+        written = pd.DataFrame(values, columns=list(FOLD_METRIC_COLUMNS))
+        paths = seed_paths(tmp_path, 42)
+        written.to_csv(paths["satellite_only"], index=False)
+        written.to_csv(paths["limited"], index=False)
+        paths["summary"].write_text(
+            json.dumps({"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: self._CONDITIONS}),
+            encoding="utf-8",
+        )
+
+        completed = load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS)
+
+        assert completed is not None
+        for scenario in ("satellite_only", "limited"):
+            assert np.array_equal(completed[scenario].to_numpy(), values)
+
     @pytest.mark.parametrize(
         ("key", "value"),
         [
@@ -305,6 +327,34 @@ class TestMain:
 
         monkeypatch.setattr(repeat, "run_seed", _fail_if_called)
         main(argv)
+
+    def test_resumed_run_reproduces_results_exactly(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """途中結果を再利用した再実行でも、集計値と fold 別指標が計算し直した場合と完全一致する。"""
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        argv = ["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"]
+        result_path = cells_path.with_name(
+            "repeated_comparison_evaluation_cells_seed42_results.json"
+        )
+        folds_path = cells_path.with_name("repeated_comparison_evaluation_cells_seed42_folds.csv")
+        aggregated_keys = ("seed_variation", "seed_differences", "repeated_kfold")
+
+        main(argv)
+        computed = json.loads(result_path.read_text(encoding="utf-8"))
+        computed_folds = folds_path.read_text(encoding="utf-8")
+
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("完了済みのシードを計算し直してはならない")
+
+        monkeypatch.setattr(repeat, "run_seed", _fail_if_called)
+        main(argv)
+        resumed = json.loads(result_path.read_text(encoding="utf-8"))
+
+        assert {key: resumed[key] for key in aggregated_keys} == {
+            key: computed[key] for key in aggregated_keys
+        }
+        assert folds_path.read_text(encoding="utf-8") == computed_folds
 
     @pytest.mark.parametrize("change", ["rf_trees", "code", "dataset"])
     def test_recomputes_seeds_when_run_conditions_change(

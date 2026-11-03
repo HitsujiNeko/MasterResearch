@@ -327,10 +327,12 @@ def load_completed_seed(
             f"（違うキー: {', '.join(mismatched)}）。"
         )
         return None
+    # 既定の浮動小数パーサは最下位ビットを復元しないことがある。中断の有無で集計値が
+    # 変わらないよう、書き出した値と完全に一致する往復精度で読む。
     return {
         "summary": summary,
-        "satellite_only": pd.read_csv(paths["satellite_only"]),
-        "limited": pd.read_csv(paths["limited"]),
+        "satellite_only": pd.read_csv(paths["satellite_only"], float_precision="round_trip"),
+        "limited": pd.read_csv(paths["limited"], float_precision="round_trip"),
     }
 
 

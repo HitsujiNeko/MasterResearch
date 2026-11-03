@@ -28,10 +28,12 @@ description: "論文の構造化要約を文献データベースに登録する
 | 入力 | 対応 |
 |---|---|
 | 論文PDF | Read でPDFを読み、`docs/04_archive/templates/structured_summary_template.md` に沿って要約を自分で作成する |
-| 書誌情報のみ（タイトル・著者・DOI等） | 入手可能な情報のみでテンプレートを埋め、未確認項目は「未確認」と明記する |
+| 書誌情報のみ（タイトル・著者・DOI等） | ユーザーに原典 PDF の提供を求める。入手できない場合は登録を保留する（下記） |
 | 構造化要約の下書き（claude.ai 等で作成済み） | 下書きとして参考にしつつ、原典 PDF（あれば）と突き合わせて要約を作成し直す。PDF がない場合は書誌情報のみの対応に準じる |
 
 必須項目（著者・年・タイトル）が欠けている場合は推測せず、ユーザーに確認する。
+
+原典 PDF は引用用書誌（Step 3.5）の照合に必須である。PDF を入手できない場合は Step 2 以降に進まず登録を保留し、その旨をユーザーに報告する（文献 DB だけに行を足すと引用用書誌の行が欠け、論文のビルドとテスト（CI を含む）が失敗するため）。
 
 ### Step 1.5: 書誌照合（Crossref）
 
@@ -98,25 +100,25 @@ curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
 
 `docs/04_archive/01_metadata/papers_bibliography.csv` の末尾に、Step 3 と同じ S 番号で1行追加する。修士論文の参考文献（`scripts/make_thesis_bib.py` が生成する .bib）の生成元であり、論文で引用するかどうかにかかわらず、文献 DB に登録した全論文に行が必要になる（行が無い・ずれていると論文のビルドとテスト（CI を含む）が失敗する）。
 
-値は Step 1.5 で取得した Crossref の生 JSON と原典 PDF の**両方**で照合して書く。構造化要約（Step 2 で作成したものを含む）は書誌の根拠にしない。
+値は Step 1.5 で取得した Crossref の生 JSON と原典 PDF の**両方**で照合して書く（DOI が無い・Crossref から取得できなかった場合は PDF のみ）。構造化要約（Step 2 で作成したものを含む）は書誌の根拠にしない。
 
 | 列 | 書き方 | Crossref の対応フィールド |
 |---|---|---|
 | ID | Step 2 で採番した S 番号 | — |
-| 文献種別 | 雑誌論文は `article`、会議録は `inproceedings`（生成スクリプトはこの2つのみ受け付ける） | `type`（`journal-article` / `proceedings-article`） |
-| 著者 | 全著者を原典の順に `姓, 名 and 姓, 名` 形式で並べる（`et al.` で省略しない）。名はミドルネーム・頭文字を含めて PDF の表記どおりに書き、発音区別符号（č・ö 等）を残す。姓だけの著者は1語のまま書く | `author[].family` / `author[].given` |
-| 題名 | 原典 PDF の表記（大文字小文字・記号を含む）のまま。Crossref の題名に含まれる HTML タグ（`<i>` 等）は除く | `title` |
-| 誌名 | 正式名称（略称にしない） | `container-title` |
+| 文献種別 | 雑誌論文は `article`、会議録は `inproceedings`（生成スクリプトはこの2つのみ受け付ける）。書籍の章・プレプリント・報告書等それ以外の種別は、登録前にユーザーに扱いを確認する | `type`（`journal-article` / `proceedings-article`） |
+| 著者 | 全著者を原典の順に `姓, 名 and 姓, 名` 形式で並べる（`et al.` で省略しない）。名はミドルネーム・頭文字を含めて PDF の表記どおりに書き、発音区別符号（č・ö 等）を残す。姓だけの著者は1語のまま書く。姓・名の区別は PDF で判断し、Crossref の分割と異なる場合（ベトナム人著者名等）・団体名の著者・和文（漢字）の著者はユーザーに確認する | `author[].family` / `author[].given` |
+| 題名 | 原典 PDF の表記（大文字小文字・記号を含む）のまま。副題も含める。Crossref の題名に含まれる HTML タグ（`<i>` 等）・エンティティ（`&amp;` 等）は除く | `title` / `subtitle` |
+| 誌名 | 正式名称（略称にしない）。Step 3 の `掲載誌` と同じ名称にする | `container-title` |
 | 年 | 4桁。Step 1.5 と同じ `issued` 基準 | `issued` |
 | 巻・号 | 無ければ空欄。合併号は `3-4` | `volume` / `issue` |
-| ページ | 範囲は `80-90`（半角ハイフン）、論文番号の雑誌（MDPI 等）は論文番号（`1471`） | `page` / `article-number` |
-| DOI | Step 1.5 で採用した正規化済み DOI（`papers_database.csv` の `DOI_URL` と同じ値）。無ければ空欄 | `DOI` |
-| 照合元 | Crossref と PDF の両方で照合したら `Crossref; PDF`、DOI が無く PDF のみで照合したら `PDF` | — |
+| ページ | 範囲は `80-90`（半角ハイフン）、論文番号の雑誌（MDPI 等）は論文番号（`1471`）。無ければ空欄 | `page` / `article-number` |
+| DOI | Step 1.5 で採用した DOI（`papers_database.csv` の `DOI_URL` と同じ DOI）を `10.xxxx/...` の形で書く（`https://doi.org/` は付けない）。無ければ空欄 | `DOI` |
+| 照合元 | Crossref と PDF の両方で照合したら `Crossref; PDF`、PDF のみで照合したら `PDF` | — |
 | 照合日 | 照合した日（YYYY-MM-DD） | — |
 
-- 年・題名・誌名・DOI は Step 3 で追記した `papers_database.csv` の行と一致させる（生成スクリプトが大文字小文字・記号・空白の差を除いて照合する）
+- 年・題名・誌名・DOI は Step 3 で追記した `papers_database.csv` の行と一致させる（生成スクリプトは、年を完全一致、題名・誌名を大文字小文字・記号・空白の差を除いて、DOI を大文字小文字を除いて照合する）
 - Crossref と PDF で値が異なる場合（題名の大文字小文字・著者名の綴り・ページ等）は、対応表（列｜Crossref｜PDF）で提示し、採用する値をユーザーに確認する
-- 原典 PDF が手元に無い場合は推測で埋めず、ユーザーに PDF の提供を求める。提供されない場合は Crossref のみで書いて照合元を `Crossref` とし、PDF 未照合であることを完了報告に明記する。DOI も PDF も無い場合は行を書かずにユーザーに確認する
+- DOI があるのに Step 1.5 で Crossref から取得できなかった場合は、PDF のみで書いて照合元を `PDF` とし、Crossref 未照合であることを完了報告に明記する
 - カンマを含む値（著者は常に含む）は二重引用符で囲む。値に `"` を含む場合は `""` と重ねる
 - エンコーディングはUTF-8（BOMなし）を維持する
 
@@ -143,7 +145,8 @@ curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
   - 掲載誌: papers_database.csv・要約ファイルの2層で一致
   - DOI: papers_database.csv の `DOI_URL`・要約ファイルの `DOI/URL` 欄・papers_bibliography.csv の `DOI` が、Step 1.5 で採用した値と一致
   - 年・題名・誌名: papers_database.csv と papers_bibliography.csv で一致（下記のテストで機械的に確認する）
-- 引用用書誌の確認: `PYTHONPATH="$PWD" python -m pytest tests/scripts/test_make_thesis_bib.py` を実行し、全件通ることを確認する。失敗した場合は出力された ID・列を `papers_bibliography.csv`（または `papers_database.csv`）で直してから再実行する
+- 引用用書誌のうちテストで検査されない列（全著者・巻・号・ページ）は、記載値と Crossref・PDF の値を並べた表で提示し、一致を確認する
+- 引用用書誌の確認: `PYTHONPATH="$PWD" python -m pytest tests/scripts/test_make_thesis_bib.py` を実行し（`python` は conda 環境 masterresearch のもの）、全件通ることを確認する。失敗した場合は出力された ID・列を `papers_bibliography.csv`（または `papers_database.csv`）で直してから再実行する
 - コミットメッセージ: `docs: 先行研究S{番号}（{著者} {年}）を追加 (#{Issue番号})`
 
 ## 注意事項

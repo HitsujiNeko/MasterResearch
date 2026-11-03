@@ -311,6 +311,25 @@ def test_dot_slash_path_is_resolved(tmp_path: Path) -> None:
     assert check_thesis_source_tracking(project_root=tmp_path) == []
 
 
+@pytest.mark.parametrize("bad_path", [":(exclude)docs", "C:/x.md", "../outside.md", "/abs.md"])
+def test_unusual_path_is_missing_without_stopping_others(tmp_path: Path, bad_path: str) -> None:
+    """特殊記法・絶対パス・リポジトリ外のパスは「正本が見つからない」とし、他の節の検査は続ける。"""
+    old_blob = _setup_repo_with_source(tmp_path)
+    other = "thesis/chapters/01_introduction/02_positioning.md"
+    _write(tmp_path, _SECTION, _section([f"{bad_path} @ 0123456789"]))
+    _write(tmp_path, other, _section([f"docs/a.md @ {old_blob[:10]}"]))
+    _commit_all(tmp_path)
+    _write(tmp_path, "docs/a.md", "# A\n\n改訂版\n")
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [(finding.section_file, finding.kind) for finding in findings] == [
+        (_SECTION, KIND_MISSING),
+        (other, KIND_UPDATED),
+    ]
+
+
 def test_parse_entry_without_indent() -> None:
     """字下げの無い `- パス @ ハッシュ` も正本として読む。"""
     text = "<!--\n状態: 執筆中\n依拠する正本:\n- docs/a.md @ 0123456789\n-->\n"
@@ -482,6 +501,37 @@ def test_stamp_reports_malformed_and_empty(tmp_path: Path) -> None:
     assert not empty_result.is_ok
 
 
+def test_stamp_keeps_comment_end_on_same_line(tmp_path: Path) -> None:
+    """行末で `-->` が閉じる行を stamp しても `-->` を残し、本文がコメントに入らない。"""
+    blob = _setup_repo_with_source(tmp_path)
+    original = "<!--\n状態: 執筆中\n依拠する正本:\n  - docs/a.md -->\n\n本文\n"
+    _write(tmp_path, _SECTION, original)
+
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert result.is_ok
+    text = (tmp_path / _SECTION).read_text(encoding="utf-8")
+    assert text == original.replace("  - docs/a.md -->", f"  - docs/a.md @ {blob[:10]} -->")
+    _commit_all(tmp_path)
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_stamp_partial_success(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """一部の正本が見つからない場合も、見つかった正本は記録し、その件数を表示する。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md", "docs/moved.md"]))
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    text = (tmp_path / _SECTION).read_text(encoding="utf-8")
+    assert f"  - docs/a.md @ {blob[:10]}\n" in text
+    assert "  - docs/moved.md\n" in text
+    output = capsys.readouterr().out
+    assert "正本が HEAD に見つからない: docs/moved.md" in output
+    assert "上記以外の 1 件はハッシュを記録しました" in output
+
+
 def test_stamp_missing_file_raises(tmp_path: Path) -> None:
     """節ファイルが無い場合は日本語のメッセージで例外にする。"""
     _setup_repo_with_source(tmp_path)
@@ -553,3 +603,15 @@ def test_main_stamp_missing_file_returns_one(
 
     assert exit_code == 1
     assert "[NG] 節ファイルが見つかりません" in capsys.readouterr().out
+
+
+def test_main_stamp_git_failure_returns_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--stamp で git の実行に失敗した場合は、例外ではなく [NG] で終了コード1を返す。"""
+    _write(tmp_path, _SECTION, _section(["docs/a.md"]))
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    assert "[NG] 正本のハッシュを取得できませんでした" in capsys.readouterr().out

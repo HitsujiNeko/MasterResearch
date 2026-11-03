@@ -55,6 +55,7 @@ _STATE_PATTERN = re.compile(r"^状態\s*[:：]\s*(?P<state>\S+)\s*$")
 _SOURCES_KEY_PATTERN = re.compile(r"^依拠する正本\s*[:：]\s*(?P<rest>.*)$")
 _ENTRY_PATTERN = re.compile(r"^\s*-\s+(?P<path>\S+)(?:\s+@\s+(?P<hash>[0-9a-fA-F]{7,40}))?\s*$")
 _ENTRY_LINE_PATTERN = re.compile(r"^\s*-\s")
+_DRIVE_LETTER_PATTERN = re.compile(r"^[A-Za-z]:")
 _PLACEHOLDER_PATTERN = re.compile(r"^\s*-\s+（.*）\s*$")
 
 
@@ -91,11 +92,11 @@ class TrackingFinding:
 class _ParsedSection:
     """1つの節ファイルを解析した結果。"""
 
+    section_file: str
     references: list[SourceReference]
     malformed: list[TrackingFinding]
     state: str | None = None
     placeholder_line: int | None = None
-    section_file: str = ""
 
 
 def collect_section_files(project_root: Path = PROJECT_ROOT) -> list[Path]:
@@ -139,7 +140,7 @@ def parse_section_sources(text: str, section_file: str) -> _ParsedSection:
     first_line = lines[0].lstrip(_BOM) if lines else ""
     # 1行で閉じたコメント（`<!-- ... -->`）は「依拠する正本」の欄を持たない
     if not first_line.startswith("<!--") or _COMMENT_END in first_line:
-        return _ParsedSection(references, malformed, section_file=section_file)
+        return _ParsedSection(section_file, references, malformed)
 
     in_sources = False
     for index, raw_line in enumerate(lines[1:], start=2):
@@ -160,28 +161,27 @@ def parse_section_sources(text: str, section_file: str) -> _ParsedSection:
             if sources_match.group("rest").strip():
                 # 「依拠する正本: docs/a.md」のような1行書きは書式に合わない
                 malformed.append(_malformed(section_file, index, line))
-        elif not in_sources:
-            pass
-        elif not _ENTRY_LINE_PATTERN.match(line):
-            # `- ` で始まらない行が来たら「依拠する正本」の欄は終わり
-            in_sources = False
-        elif _PLACEHOLDER_PATTERN.match(line):
-            placeholder_line = index
-        elif (match := _ENTRY_PATTERN.match(line)) is None:
-            malformed.append(_malformed(section_file, index, line))
-        else:
-            recorded_hash = match.group("hash")
-            references.append(
-                SourceReference(
-                    section_file=section_file,
-                    line=index,
-                    path=match.group("path"),
-                    recorded_hash=recorded_hash.lower() if recorded_hash else None,
+        elif in_sources:
+            if not _ENTRY_LINE_PATTERN.match(line):
+                # `- ` で始まらない行が来たら「依拠する正本」の欄は終わり
+                in_sources = False
+            elif _PLACEHOLDER_PATTERN.match(line):
+                placeholder_line = index
+            elif (match := _ENTRY_PATTERN.match(line)) is None:
+                malformed.append(_malformed(section_file, index, line))
+            else:
+                recorded_hash = match.group("hash")
+                references.append(
+                    SourceReference(
+                        section_file=section_file,
+                        line=index,
+                        path=match.group("path"),
+                        recorded_hash=recorded_hash.lower() if recorded_hash else None,
+                    )
                 )
-            )
         if is_last_line:
             break
-    return _ParsedSection(references, malformed, state, placeholder_line, section_file)
+    return _ParsedSection(section_file, references, malformed, state, placeholder_line)
 
 
 def _malformed(section_file: str, line_number: int, line: str) -> TrackingFinding:
@@ -227,10 +227,21 @@ def resolve_object_hashes(
     lookup_paths = sorted({path for path in requested.values() if path})
     if not lookup_paths:
         return {}
-    # -z で出力するとパスが引用符でエスケープされない（日本語のパスに対応するため）
+    # -z で出力するとパスが引用符でエスケープされない（日本語のパスに対応するため）。
+    # --literal-pathspecs で `:(exclude)` などの特殊記法を解釈させず、
+    # 1件の記述ミスで全節の検査が止まらないようにする
     try:
         result = subprocess.run(
-            ["git", "ls-tree", "-z", "--full-tree", revision, "--", *lookup_paths],
+            [
+                "git",
+                "--literal-pathspecs",
+                "ls-tree",
+                "-z",
+                "--full-tree",
+                revision,
+                "--",
+                *lookup_paths,
+            ],
             cwd=project_root,
             capture_output=True,
             check=True,
@@ -258,10 +269,15 @@ def _normalize_source_path(path: str) -> str:
     Args:
         path: 節ファイルに記録されたパス。
     Returns:
-        正規化したパス。リポジトリの外を指す・空になる場合は空文字列（照合しない）。
+        正規化したパス。リポジトリの外を指す・絶対パス（ドライブレター付きを含む）・
+        空になる場合は空文字列（照合せず「正本が見つからない」として扱う）。
     """
     normalized = posixpath.normpath(path.replace("\\", "/"))
-    if normalized in (".", "") or normalized.startswith(("../", "/")) or normalized == "..":
+    if (
+        normalized in (".", "..", "")
+        or normalized.startswith(("../", "/"))
+        or _DRIVE_LETTER_PATTERN.match(normalized)
+    ):
         return ""
     return normalized
 
@@ -397,16 +413,36 @@ def stamp_section_sources(
         if current_hash is None:
             not_found.append(ref.path)
             continue
-        original = lines[ref.line - 1]
-        body = original.rstrip("\r\n")
-        newline = original[len(body) :]
-        indent = body[: len(body) - len(body.lstrip())]
-        lines[ref.line - 1] = f"{indent}- {ref.path} @ {current_hash[:SHORT_HASH_LENGTH]}{newline}"
+        lines[ref.line - 1] = _stamp_line(lines[ref.line - 1], ref.path, current_hash)
         stamped += 1
     new_text = "".join(lines)
     if new_text != raw_text:
         target.write_bytes(new_text.encode("utf-8"))
     return StampResult(stamped=stamped, not_found=not_found, malformed=parsed.malformed)
+
+
+def _stamp_line(original: str, path: str, current_hash: str) -> str:
+    """正本の1行を `- {パス} @ {ハッシュ}` に書き換える。
+
+    字下げ・行末の改行・行末で閉じるコメント（`-->` 以降）はそのまま残す。
+
+    Args:
+        original: 改行を含む元の行。
+        path: 記録された正本のパス（書かれていたとおりに残す）。
+        current_hash: 正本の現在の完全なハッシュ。
+    Returns:
+        書き換えた行（改行を含む）。
+    """
+    # 改行の判定は splitlines と揃える（行番号の数え方を解析側と一致させるため）
+    split_lines = original.splitlines()
+    content = split_lines[0] if split_lines else ""
+    newline = original[len(content) :]
+    entry, comment_end, rest = content.partition(_COMMENT_END)
+    indent = entry[: len(entry) - len(entry.lstrip())]
+    stamped = f"{indent}- {path} @ {current_hash[:SHORT_HASH_LENGTH]}"
+    if comment_end:
+        stamped += f" {comment_end}{rest}"
+    return stamped + newline
 
 
 def format_finding(finding: TrackingFinding) -> str:
@@ -436,7 +472,7 @@ def _stamp_and_report(section_file: Path, project_root: Path) -> bool:
     label = section_file.as_posix()
     try:
         result = stamp_section_sources(section_file, project_root)
-    except FileNotFoundError as error:
+    except (FileNotFoundError, RuntimeError) as error:
         print(f"[NG] {error}")
         return False
     for path in result.not_found:
@@ -445,6 +481,8 @@ def _stamp_and_report(section_file: Path, project_root: Path) -> bool:
         print(f"[NG] {label}:{finding.line}: 書式不正のため記録しなかった: {finding.source_path}")
     if result.stamped == 0 and not result.not_found and not result.malformed:
         print(f"[NG] {label}: 記録する正本がありません（「依拠する正本」にパスを書いてください）")
+    if result.stamped > 0 and not result.is_ok:
+        print(f"  （{label}: 上記以外の {result.stamped} 件はハッシュを記録しました）")
     if result.is_ok:
         print(f"[OK] {label}: 正本のハッシュを記録しました（{result.stamped} 件）")
     return result.is_ok

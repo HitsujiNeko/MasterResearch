@@ -248,6 +248,16 @@ def _render_shap_outputs(output_dir: Path, random_state: int) -> dict[str, bytes
     return {path.name: path.read_bytes() for path in sorted(output_dir.iterdir())}
 
 
+def _set_global_numpy_random_state(seed: int) -> None:
+    """グローバルな `np.random` の状態を、シードから作った状態に置き換える。
+
+    `np.random.seed()` を使うと、shap の「グローバルな乱数がシード済み」という
+    判定がプロセスの終わりまで残り、後で実行される他のテストに FutureWarning を
+    出させうる。`set_state()` はこの判定を変えないため、テストではこちらを使う。
+    """
+    np.random.set_state(np.random.RandomState(seed).get_state())
+
+
 class TestShapPlotReproducibility:
     """summary図・dependence図の描画の乱数を固定することのテスト。"""
 
@@ -285,7 +295,7 @@ class TestShapPlotReproducibility:
 
     def test_does_not_change_global_numpy_random_state(self, project_root: Path) -> None:
         """compute_shap_outputsの前後で、グローバルなnp.randomの状態が変わらない。"""
-        np.random.seed(12345)
+        _set_global_numpy_random_state(12345)
         expected_next_values = np.random.RandomState(12345).random_sample(5)
 
         _render_shap_outputs(project_root / "out", random_state=7)
@@ -300,10 +310,16 @@ class TestShapPlotReproducibility:
         shap は `rng` を渡されない `summary_plot` で、`np.random.seed()` 済みの
         グローバルな乱数を使うと FutureWarning を出す。summary図に `rng` を
         渡していれば、呼び出し側（他の処理）がシードしていても警告は出ない。
+        この条件を作るため、ここでは意図的に `np.random.seed()` を呼ぶ。
         """
         np.random.seed(0)
         with warnings.catch_warnings():
-            warnings.simplefilter("error", FutureWarning)
+            # 他のライブラリの将来の非推奨警告で落ちないよう、shapの警告だけをエラーにする。
+            warnings.filterwarnings(
+                "error",
+                message="The NumPy global RNG was seeded",
+                category=FutureWarning,
+            )
             _render_shap_outputs(project_root / "out", random_state=7)
 
 
@@ -312,10 +328,10 @@ class TestFixedGlobalNumpyRandomState:
 
     def test_fixes_state_inside_block(self) -> None:
         """ブロック内の乱数列はシードだけで決まる。"""
-        np.random.seed(1)
+        _set_global_numpy_random_state(1)
         with _fixed_global_numpy_random_state(99):
             first = np.random.random_sample(3)
-        np.random.seed(2)
+        _set_global_numpy_random_state(2)
         with _fixed_global_numpy_random_state(99):
             second = np.random.random_sample(3)
 
@@ -323,7 +339,7 @@ class TestFixedGlobalNumpyRandomState:
 
     def test_restores_state_after_exception(self) -> None:
         """ブロック内で例外が起きても、抜けた後はブロックに入る前の状態に戻る。"""
-        np.random.seed(3)
+        _set_global_numpy_random_state(3)
         expected_next_values = np.random.RandomState(3).random_sample(4)
 
         with pytest.raises(RuntimeError):

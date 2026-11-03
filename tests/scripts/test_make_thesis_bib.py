@@ -277,7 +277,7 @@ def test_write_bibtex_writes_file(tmp_path):
     database = tmp_path / "db.csv"
     bibliography = tmp_path / "bib.csv"
     _write_csv(database, [_db_row()])
-    bibliography.write_text("﻿", encoding="utf-8")
+    bibliography.write_text("\ufeff", encoding="utf-8")
     with bibliography.open("a", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(_bib_row()))
         writer.writeheader()

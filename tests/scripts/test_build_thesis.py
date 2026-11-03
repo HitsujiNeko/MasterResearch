@@ -222,7 +222,7 @@ class TestExtraBibliography:
 
     def test_keys_handle_bom_and_parenthesized_entries(self) -> None:
         """先頭の BOM の直後のエントリと「@book(key, …)」形式のエントリも拾う。"""
-        text = "﻿@book{first,\n}\n@book(second,\n  title = {x})\n"
+        text = "\ufeff@book{first,\n}\n@book(second,\n  title = {x})\n"
         assert target.bibliography_keys(text) == ["first", "second"]
 
     def test_accepts_repository_extra_bibliography(self) -> None:

@@ -174,7 +174,7 @@ def bibliography_keys(text: str) -> list[str]:
     """
     return [
         key
-        for entry_type, key in BIB_ENTRY_PATTERN.findall(text.removeprefix("﻿"))
+        for entry_type, key in BIB_ENTRY_PATTERN.findall(text.removeprefix("\ufeff"))
         if entry_type.lower() not in BIB_NON_ENTRY_TYPES
     ]
 

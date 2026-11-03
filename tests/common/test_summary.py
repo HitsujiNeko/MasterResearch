@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import shutil
@@ -22,6 +23,7 @@ from src.common.summary import (
     compute_file_sha256,
     describe_code_files,
     describe_input_files,
+    find_watch_paths_without_files,
     get_git_state,
     get_package_versions,
     get_python_version,
@@ -360,6 +362,84 @@ def test_build_provenance_hashes_files_of_extra_watch_paths(tmp_path: Path) -> N
 
     recorded = [entry["path"] for entry in provenance["code"]["files"]]
     assert recorded == ["src/analysis/dependency.py", "src/analysis/example.py"]
+
+
+def test_find_watch_paths_without_files_matches_files_and_directories() -> None:
+    """ファイルそのもの・ディレクトリ配下のどちらかに該当すればよく、名前の前方一致では該当しない。"""
+    files = [
+        {"path": "src/analysis/example.py", "sha256": "x"},
+        {"path": "src/lib/a.py", "sha256": "y"},
+    ]
+
+    missing = find_watch_paths_without_files(
+        ["src/analysis/example.py", "src/lib", "src/lib/", "src/li", "src/analysis/typo.py"], files
+    )
+
+    assert missing == ["src/li", "src/analysis/typo.py"]
+
+
+def test_build_provenance_warns_on_extra_watch_path_without_tracked_files(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """追跡ファイルが無い追加の監視パスだけを警告し、来歴の生成は続ける。"""
+    _require_git()
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src" / "analysis").mkdir(parents=True)
+    (tmp_path / "src" / "analysis" / "example.py").write_bytes(b"a = 1\n")
+    (tmp_path / "src" / "analysis" / "dependency.py").write_bytes(b"b = 1\n")
+    _commit_all(tmp_path)
+    # 作業ツリーにあっても未追跡のファイルは、陳腐化検出で監視されないため該当しない
+    (tmp_path / "src" / "analysis" / "untracked.py").write_bytes(b"c = 1\n")
+
+    with caplog.at_level(logging.WARNING, logger=summary_module.__name__):
+        provenance = build_provenance(
+            "src.analysis.example",
+            packages=[],
+            repo_root=tmp_path,
+            extra_watch_paths=[
+                "src/analysis/dependency.py",
+                "src/analysis/typo.py",
+                "src/analysis/untracked.py",
+            ],
+        )
+
+    warnings = [record.getMessage() for record in caplog.records]
+    assert len(warnings) == 1
+    assert "src/analysis/typo.py" in warnings[0]
+    assert "src/analysis/untracked.py" in warnings[0]
+    assert "dependency.py" not in warnings[0]
+    assert "src/analysis/typo.py" in provenance["code"]["watch_paths"]
+
+
+def test_build_provenance_does_not_warn_when_extra_watch_paths_are_tracked(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """追加の監視パスがすべて追跡ファイルに該当すれば警告しない。"""
+    _require_git()
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src" / "lib").mkdir(parents=True)
+    (tmp_path / "src" / "lib" / "a.py").write_bytes(b"a = 1\n")
+    _commit_all(tmp_path)
+
+    with caplog.at_level(logging.WARNING, logger=summary_module.__name__):
+        build_provenance("x", packages=[], repo_root=tmp_path, extra_watch_paths=["src/lib"])
+
+    assert caplog.records == []
+
+
+def test_build_provenance_skips_watch_path_check_when_git_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """git を利用できない場合は追跡ファイルを確かめられないため、監視パスの警告は出さない。"""
+    monkeypatch.setattr(summary_module, "_run_git", lambda args, repo_root: None)
+
+    with caplog.at_level(logging.WARNING, logger=summary_module.__name__):
+        provenance = build_provenance(
+            "x", packages=[], repo_root=tmp_path, extra_watch_paths=["src/analysis/typo.py"]
+        )
+
+    assert provenance["code"] is None
+    assert all("追加の監視パス" not in record.getMessage() for record in caplog.records)
 
 
 def test_build_provenance_rejects_naive_datetime(tmp_path: Path) -> None:

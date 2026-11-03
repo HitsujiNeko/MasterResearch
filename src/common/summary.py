@@ -224,6 +224,28 @@ def describe_code_files(
     return {"watch_paths": paths, "files": files}
 
 
+def find_watch_paths_without_files(
+    watch_paths: Iterable[str], files: Iterable[dict[str, str]]
+) -> list[str]:
+    """監視するパスのうち、ハッシュの一覧に該当するファイルが1件も無いものを求める。
+
+    パスはファイルそのもの、またはディレクトリ（配下のファイルが該当）として照合する。
+
+    Args:
+        watch_paths: 監視するパス（リポジトリルート基準の `/` 区切り）。
+        files: `describe_code_files` の戻り値の `files`。
+    Returns:
+        該当するファイルが無いパスのリスト（入力順を保持する）。
+    """
+    tracked = [entry["path"] for entry in files]
+    missing = []
+    for watch_path in watch_paths:
+        prefix = watch_path.rstrip("/") + "/"
+        if not any(path == watch_path or path.startswith(prefix) for path in tracked):
+            missing.append(watch_path)
+    return missing
+
+
 def get_python_version() -> str:
     """実行中の Python のバージョンを、来歴に記録する表記で返す。
 
@@ -302,6 +324,8 @@ def build_provenance(
             パス（リポジトリルート基準の `/` 区切り）。結果が `src/common/` の外にある
             別のスクリプトの定義に依存する場合に渡す。陳腐化チェックは記録された
             `code.watch_paths` をすべて監視するため、ここに渡したパスの変更も検出される。
+            git の追跡ファイルが1件も無いパス（打ち間違い等）は、変更を検出できないため
+            警告する（来歴の取得で結果の保存を止めないよう、例外にはしない）。
 
     Returns:
         `script`・`executed_at`・`python_version`・`platform`・`git`・`code`・`packages`・
@@ -318,17 +342,26 @@ def build_provenance(
         raise ValueError("executed_at にはタイムゾーン付きの日時を指定してください。")
     else:
         timestamp = executed_at.astimezone(timezone.utc)
+    extra_paths = list(extra_watch_paths)
     # 重複は除く（記録する `code.watch_paths` を読みやすく保つため）
     watch_paths = list(
-        dict.fromkeys([script_module_to_path(script), *CODE_WATCH_PATHS, *extra_watch_paths])
+        dict.fromkeys([script_module_to_path(script), *CODE_WATCH_PATHS, *extra_paths])
     )
+    code = describe_code_files(watch_paths, repo_root)
+    if code is not None:
+        missing = find_watch_paths_without_files(extra_paths, code["files"])
+        if missing:
+            logger.warning(
+                "追加の監視パスに git の追跡ファイルが無いため、変更を検出できません: %s",
+                ", ".join(missing),
+            )
     return {
         "script": script,
         "executed_at": timestamp.isoformat(),
         "python_version": get_python_version(),
         "platform": platform.platform(),
         "git": get_git_state(repo_root),
-        "code": describe_code_files(watch_paths, repo_root),
+        "code": code,
         "packages": get_package_versions(packages),
         "inputs": describe_input_files(input_paths, repo_root),
     }

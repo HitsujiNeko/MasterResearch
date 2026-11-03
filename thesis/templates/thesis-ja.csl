@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  修士論文の引用・参考文献の書式（卒業論文に準拠した番号順の書式）。
+  scripts/build_thesis.py が pandoc の citeproc に渡す。書き方は
+  docs/02_methods/thesis_writing_guide.md の「引用と参考文献」を参照する。
+
+  本文中: 上付きの「1)」。複数は範囲にまとめず「10)11)」と並べる。
+  リスト: 引用順の番号付きで、項目の区切りは全角の「：」「，」、末尾は「．」。
+    雑誌論文: 1) 著者：題名，誌名，Vol.12，No.9，pp.80-90，2020．
+              （論文番号の雑誌はページ欄に論文番号を入れ「p.1471」と表示する。
+              pandoc の BibTeX 読み込みに論文番号の欄が無いため）
+    書籍:     2) 著者：題名，出版社，2011．
+    報告書等: 3) 著者：題名，発行機関，種類，番号，2021．（種類は BibTeX の type）
+    Web 等:   4) 著者：題名，URL（参照 2025/2/25）．
+  著者は全員を「姓, 名の頭文字」で並べ、最後の 1 人の前に「and」を置く。
+  漢字の氏名は BibTeX 側で {{益田晴恵}} のように二重の波括弧で囲んで書く
+  （姓・名に分けると名の後ろに「.」が付くため）。和文の著者が複数いる場合は
+  {{益田晴恵，根本達也，新谷毅}} と 1 つにまとめる（and で区切ると欧文の区切りになるため）。
+  本文中は番号だけを出力するため、ページ指定（[@S1, p. 5]）は出力されない。
+-->
+<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="never" default-locale="en-US">
+  <info>
+    <title>修士論文（卒業論文準拠・番号順）</title>
+    <id>thesis-ja-numeric</id>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+  </info>
+  <!--
+    言語を指定しない locale は、論文の言語（metadata.yaml の lang: ja-JP）にかかわらず適用される。
+    ja-JP の既定の語（「と」・en dash）は英語の文献と合わないため、ここで固定する。
+  -->
+  <locale>
+    <terms>
+      <term name="and">and</term>
+      <term name="page" form="short">
+        <single>p.</single>
+        <multiple>pp.</multiple>
+      </term>
+      <!-- ページ範囲の区切りを卒業論文どおり半角ハイフンにする（既定は en dash） -->
+      <term name="page-range-delimiter">-</term>
+    </terms>
+  </locale>
+  <macro name="author">
+    <names variable="author">
+      <name and="text" delimiter=", " delimiter-precedes-last="never" initialize-with=". " name-as-sort-order="all" sort-separator=", "/>
+      <substitute>
+        <names variable="editor"/>
+        <text variable="publisher"/>
+      </substitute>
+    </names>
+  </macro>
+  <macro name="accessed">
+    <date variable="accessed" prefix="（参照 " suffix="）">
+      <date-part name="year" suffix="/"/>
+      <date-part name="month" form="numeric" suffix="/"/>
+      <date-part name="day"/>
+    </date>
+  </macro>
+  <macro name="source">
+    <choose>
+      <if type="article-journal article-magazine article-newspaper" match="any">
+        <group delimiter="，">
+          <text variable="container-title"/>
+          <text variable="volume" prefix="Vol."/>
+          <text variable="issue" prefix="No."/>
+          <group>
+            <label variable="page" form="short"/>
+            <text variable="page"/>
+          </group>
+        </group>
+      </if>
+      <else-if type="chapter paper-conference" match="any">
+        <group delimiter="，">
+          <text variable="container-title"/>
+          <text variable="publisher"/>
+          <group>
+            <label variable="page" form="short"/>
+            <text variable="page"/>
+          </group>
+        </group>
+      </else-if>
+      <else-if type="report thesis" match="any">
+        <group delimiter="，">
+          <text variable="publisher"/>
+          <text variable="genre"/>
+          <text variable="number"/>
+        </group>
+      </else-if>
+      <else-if type="webpage dataset software post-weblog" match="any">
+        <group>
+          <text variable="URL"/>
+          <text macro="accessed"/>
+        </group>
+      </else-if>
+      <else>
+        <group delimiter="，">
+          <text variable="publisher"/>
+          <group>
+            <text variable="URL"/>
+            <text macro="accessed"/>
+          </group>
+        </group>
+      </else>
+    </choose>
+  </macro>
+  <citation>
+    <sort>
+      <key variable="citation-number"/>
+    </sort>
+    <layout vertical-align="sup" delimiter="">
+      <text variable="citation-number" suffix=")"/>
+    </layout>
+  </citation>
+  <bibliography>
+    <layout suffix="．">
+      <text variable="citation-number" suffix=") "/>
+      <group delimiter="，">
+        <group delimiter="：">
+          <text macro="author"/>
+          <text variable="title"/>
+        </group>
+        <text macro="source"/>
+        <date variable="issued">
+          <date-part name="year"/>
+        </date>
+      </group>
+    </layout>
+  </bibliography>
+</style>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -88,3 +89,53 @@ def test_freshness_warning_does_not_affect_exit_code(
 
     assert exit_code == 0
     assert "[WARN]" not in capsys.readouterr().out
+
+
+def _git(args: list[str], cwd: Path) -> None:
+    """git を実行する。"""
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+def test_thesis_tracking_git_failure_is_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """論文の追従チェックが git の失敗で検査できなくても、警告にとどめ終了コード0のまま。"""
+    # 親ディレクトリの git リポジトリや GIT_DIR を git に探させない（git 失敗の前提を固定）
+    monkeypatch.delenv("GIT_DIR", raising=False)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+    _build_valid_project(tmp_path)
+    _write(
+        tmp_path / "thesis" / "chapters" / "01_intro" / "01_background.md",
+        "<!--\n状態: 執筆中\n依拠する正本:\n  - docs/README.md @ 0123456789\n-->\n",
+    )
+
+    exit_code = main(project_root=tmp_path)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "[WARN] 論文の追従（fail対象外）: 検査できませんでした" in output
+    assert "[OK] 機械的チェックはすべて通過しました。" in output
+
+
+def test_thesis_tracking_warning_does_not_affect_exit_code(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """論文の追従の警告（依拠する正本の更新）は表示するが、終了コード0のまま。"""
+    _build_valid_project(tmp_path)
+    _write(
+        tmp_path / "thesis" / "chapters" / "01_intro" / "01_background.md",
+        "<!--\n状態: 執筆中\n依拠する正本:\n  - docs/README.md @ 0123456789\n-->\n",
+    )
+    _git(["init", "-q"], tmp_path)
+    _git(["config", "user.email", "test@example.com"], tmp_path)
+    _git(["config", "user.name", "Test"], tmp_path)
+    _git(["config", "commit.gpgsign", "false"], tmp_path)
+    _git(["add", "-A"], tmp_path)
+    _git(["commit", "-q", "-m", "test commit"], tmp_path)
+
+    exit_code = main(project_root=tmp_path)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "[WARN] 論文の追従" in output
+    assert "thesis/chapters/01_intro/01_background.md:4 [正本が更新された] docs/README.md" in output

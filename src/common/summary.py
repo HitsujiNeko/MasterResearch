@@ -16,7 +16,7 @@ import logging
 import platform
 import subprocess
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
@@ -224,6 +224,37 @@ def describe_code_files(
     return {"watch_paths": paths, "files": files}
 
 
+def find_watch_paths_without_files(
+    watch_paths: Iterable[str], files: Iterable[dict[str, str]]
+) -> list[str]:
+    """監視するパスのうち、ハッシュの一覧に該当するファイルが1件も無いものを求める。
+
+    パスはファイルそのもの、またはディレクトリ（配下のファイルが該当）として照合する。
+
+    Args:
+        watch_paths: 監視するパス（リポジトリルート基準の `/` 区切り）。
+        files: `describe_code_files` の戻り値の `files`。
+    Returns:
+        該当するファイルが無いパスのリスト（入力順を保持する）。
+    """
+    tracked = [entry["path"] for entry in files]
+    missing = []
+    for watch_path in watch_paths:
+        prefix = watch_path.rstrip("/") + "/"
+        if not any(path == watch_path or path.startswith(prefix) for path in tracked):
+            missing.append(watch_path)
+    return missing
+
+
+def get_python_version() -> str:
+    """実行中の Python のバージョンを、来歴に記録する表記で返す。
+
+    Returns:
+        バージョン文字列（例: `3.11.9`）。
+    """
+    return sys.version.split()[0]
+
+
 def get_package_versions(packages: Iterable[str] = DEFAULT_PROVENANCE_PACKAGES) -> dict[str, Any]:
     """指定したライブラリのインストール済みバージョンを取得する。
 
@@ -244,7 +275,9 @@ def get_package_versions(packages: Iterable[str] = DEFAULT_PROVENANCE_PACKAGES) 
 
 
 def describe_input_files(
-    input_paths: Iterable[Path], project_root: Path = PROJECT_ROOT
+    input_paths: Iterable[Path],
+    project_root: Path = PROJECT_ROOT,
+    known_sha256: Mapping[Path, str] | None = None,
 ) -> list[dict[str, str]]:
     """入力ファイルのパスとSHA-256ハッシュの一覧を作る。
 
@@ -253,20 +286,27 @@ def describe_input_files(
     Args:
         input_paths: 入力ファイルのパスの並び。
         project_root: 相対化の基準ディレクトリ。
+        known_sha256: 計算済みのハッシュ（パス → SHA-256）。キーと同じ `Path` の入力は
+            計算し直さずにこの値を使う（大容量の入力を読み込んだ時点で求めたハッシュを
+            記録し、二重に計算しないため）。キーに無い入力は従来どおり計算する。
 
     Returns:
         `path` と `sha256` を持つ辞書のリスト（入力順を保持する）。
 
     Raises:
-        FileNotFoundError: 入力ファイルが存在しない場合。
+        FileNotFoundError: 入力ファイルが存在しない場合（計算済みのハッシュがある場合も含む）。
     """
-    return [
-        {
-            "path": to_project_relative_string(path, project_root),
-            "sha256": compute_file_sha256(path),
-        }
-        for path in input_paths
-    ]
+    known = known_sha256 or {}
+    records = []
+    for path in input_paths:
+        if path in known:
+            if not path.is_file():
+                raise FileNotFoundError(f"ハッシュを記録する入力ファイルが見つかりません: {path}")
+            sha256 = known[path]
+        else:
+            sha256 = compute_file_sha256(path)
+        records.append({"path": to_project_relative_string(path, project_root), "sha256": sha256})
+    return records
 
 
 def build_provenance(
@@ -276,6 +316,7 @@ def build_provenance(
     repo_root: Path = PROJECT_ROOT,
     executed_at: datetime | None = None,
     extra_watch_paths: Iterable[str] = (),
+    known_sha256: Mapping[Path, str] | None = None,
 ) -> dict[str, Any]:
     """結果JSONへ付与する来歴メタデータを組み立てる。
 
@@ -293,6 +334,9 @@ def build_provenance(
             パス（リポジトリルート基準の `/` 区切り）。結果が `src/common/` の外にある
             別のスクリプトの定義に依存する場合に渡す。陳腐化チェックは記録された
             `code.watch_paths` をすべて監視するため、ここに渡したパスの変更も検出される。
+            git の追跡ファイルが1件も無いパス（打ち間違い等）は、変更を検出できないため
+            警告する（来歴の取得で結果の保存を止めないよう、例外にはしない）。
+        known_sha256: 入力ファイルの計算済みのハッシュ（`describe_input_files` に渡す）。
 
     Returns:
         `script`・`executed_at`・`python_version`・`platform`・`git`・`code`・`packages`・
@@ -309,17 +353,26 @@ def build_provenance(
         raise ValueError("executed_at にはタイムゾーン付きの日時を指定してください。")
     else:
         timestamp = executed_at.astimezone(timezone.utc)
+    extra_paths = list(extra_watch_paths)
     # 重複は除く（記録する `code.watch_paths` を読みやすく保つため）
     watch_paths = list(
-        dict.fromkeys([script_module_to_path(script), *CODE_WATCH_PATHS, *extra_watch_paths])
+        dict.fromkeys([script_module_to_path(script), *CODE_WATCH_PATHS, *extra_paths])
     )
+    code = describe_code_files(watch_paths, repo_root)
+    if code is not None:
+        missing = find_watch_paths_without_files(extra_paths, code["files"])
+        if missing:
+            logger.warning(
+                "追加の監視パスに git の追跡ファイルが無いため、変更を検出できません: %s",
+                ", ".join(missing),
+            )
     return {
         "script": script,
         "executed_at": timestamp.isoformat(),
-        "python_version": sys.version.split()[0],
+        "python_version": get_python_version(),
         "platform": platform.platform(),
         "git": get_git_state(repo_root),
-        "code": describe_code_files(watch_paths, repo_root),
+        "code": code,
         "packages": get_package_versions(packages),
-        "inputs": describe_input_files(input_paths, repo_root),
+        "inputs": describe_input_files(input_paths, repo_root, known_sha256),
     }

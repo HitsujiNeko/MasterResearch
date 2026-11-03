@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -21,8 +23,10 @@ from src.common.summary import (
     compute_file_sha256,
     describe_code_files,
     describe_input_files,
+    find_watch_paths_without_files,
     get_git_state,
     get_package_versions,
+    get_python_version,
     save_summary,
     script_module_to_path,
 )
@@ -134,6 +138,14 @@ def test_get_package_versions_marks_missing_package_as_none() -> None:
 
     assert isinstance(versions["pytest"], str)
     assert versions["no-such-package-for-provenance-test"] is None
+
+
+def test_get_python_version_matches_running_interpreter(tmp_path: Path) -> None:
+    """Python のバージョンは実行中のインタプリタの版で、来歴の記録と同じ表記になる。"""
+    version = get_python_version()
+
+    assert version.split(".")[:2] == [str(sys.version_info.major), str(sys.version_info.minor)]
+    assert build_provenance("x", packages=[], repo_root=tmp_path)["python_version"] == version
 
 
 @pytest.mark.parametrize(("status", "expected_dirty"), [("", False), (" M src/a.py", True)])
@@ -254,6 +266,60 @@ def test_describe_input_files_uses_project_relative_path(tmp_path: Path) -> None
     assert described == [{"path": "data/input.csv", "sha256": hashlib.sha256(content).hexdigest()}]
 
 
+def test_describe_input_files_uses_known_sha256_only_for_matching_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """計算済みのハッシュがある入力は計算し直さず、無い入力だけを計算する。"""
+    known_path = tmp_path / "large.gpkg"
+    other_path = tmp_path / "small.json"
+    known_path.write_bytes(b"large")
+    other_path.write_bytes(b"small")
+    hashed: list[Path] = []
+    original = summary_module.compute_file_sha256
+
+    def _counting(path: Path) -> str:
+        hashed.append(path)
+        return original(path)
+
+    monkeypatch.setattr(summary_module, "compute_file_sha256", _counting)
+
+    described = describe_input_files(
+        [known_path, other_path], project_root=tmp_path, known_sha256={known_path: "precomputed"}
+    )
+
+    assert described == [
+        {"path": "large.gpkg", "sha256": "precomputed"},
+        {"path": "small.json", "sha256": hashlib.sha256(b"small").hexdigest()},
+    ]
+    assert hashed == [other_path]
+
+
+def test_describe_input_files_raises_for_missing_file_even_if_hash_is_known(
+    tmp_path: Path,
+) -> None:
+    """計算済みのハッシュがあっても、入力ファイルが無ければ FileNotFoundError にする。"""
+    missing = tmp_path / "missing.gpkg"
+
+    with pytest.raises(FileNotFoundError):
+        describe_input_files([missing], project_root=tmp_path, known_sha256={missing: "abc"})
+
+
+def test_build_provenance_passes_known_sha256_to_inputs(tmp_path: Path) -> None:
+    """来歴の入力には、渡した計算済みのハッシュがそのまま記録される。"""
+    target = tmp_path / "input.gpkg"
+    target.write_bytes(b"data")
+
+    provenance = build_provenance(
+        "x",
+        input_paths=[target],
+        packages=[],
+        repo_root=tmp_path,
+        known_sha256={target: "precomputed"},
+    )
+
+    assert provenance["inputs"] == [{"path": "input.gpkg", "sha256": "precomputed"}]
+
+
 def test_build_provenance_schema_and_json_serializable(tmp_path: Path) -> None:
     """来歴は所定のキーを持ち、save_summary でそのまま保存できる。"""
     target = tmp_path / "input.csv"
@@ -350,6 +416,84 @@ def test_build_provenance_hashes_files_of_extra_watch_paths(tmp_path: Path) -> N
 
     recorded = [entry["path"] for entry in provenance["code"]["files"]]
     assert recorded == ["src/analysis/dependency.py", "src/analysis/example.py"]
+
+
+def test_find_watch_paths_without_files_matches_files_and_directories() -> None:
+    """ファイルそのもの・ディレクトリ配下のどちらかに該当すればよく、名前の前方一致では該当しない。"""
+    files = [
+        {"path": "src/analysis/example.py", "sha256": "x"},
+        {"path": "src/lib/a.py", "sha256": "y"},
+    ]
+
+    missing = find_watch_paths_without_files(
+        ["src/analysis/example.py", "src/lib", "src/lib/", "src/li", "src/analysis/typo.py"], files
+    )
+
+    assert missing == ["src/li", "src/analysis/typo.py"]
+
+
+def test_build_provenance_warns_on_extra_watch_path_without_tracked_files(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """追跡ファイルが無い追加の監視パスだけを警告し、来歴の生成は続ける。"""
+    _require_git()
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src" / "analysis").mkdir(parents=True)
+    (tmp_path / "src" / "analysis" / "example.py").write_bytes(b"a = 1\n")
+    (tmp_path / "src" / "analysis" / "dependency.py").write_bytes(b"b = 1\n")
+    _commit_all(tmp_path)
+    # 作業ツリーにあっても未追跡のファイルは、陳腐化検出で監視されないため該当しない
+    (tmp_path / "src" / "analysis" / "untracked.py").write_bytes(b"c = 1\n")
+
+    with caplog.at_level(logging.WARNING, logger=summary_module.__name__):
+        provenance = build_provenance(
+            "src.analysis.example",
+            packages=[],
+            repo_root=tmp_path,
+            extra_watch_paths=[
+                "src/analysis/dependency.py",
+                "src/analysis/typo.py",
+                "src/analysis/untracked.py",
+            ],
+        )
+
+    warnings = [record.getMessage() for record in caplog.records]
+    assert len(warnings) == 1
+    assert "src/analysis/typo.py" in warnings[0]
+    assert "src/analysis/untracked.py" in warnings[0]
+    assert "dependency.py" not in warnings[0]
+    assert "src/analysis/typo.py" in provenance["code"]["watch_paths"]
+
+
+def test_build_provenance_does_not_warn_when_extra_watch_paths_are_tracked(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """追加の監視パスがすべて追跡ファイルに該当すれば警告しない。"""
+    _require_git()
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src" / "lib").mkdir(parents=True)
+    (tmp_path / "src" / "lib" / "a.py").write_bytes(b"a = 1\n")
+    _commit_all(tmp_path)
+
+    with caplog.at_level(logging.WARNING, logger=summary_module.__name__):
+        build_provenance("x", packages=[], repo_root=tmp_path, extra_watch_paths=["src/lib"])
+
+    assert caplog.records == []
+
+
+def test_build_provenance_skips_watch_path_check_when_git_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """git を利用できない場合は追跡ファイルを確かめられないため、監視パスの警告は出さない。"""
+    monkeypatch.setattr(summary_module, "_run_git", lambda args, repo_root: None)
+
+    with caplog.at_level(logging.WARNING, logger=summary_module.__name__):
+        provenance = build_provenance(
+            "x", packages=[], repo_root=tmp_path, extra_watch_paths=["src/analysis/typo.py"]
+        )
+
+    assert provenance["code"] is None
+    assert all("追加の監視パス" not in record.getMessage() for record in caplog.records)
 
 
 def test_build_provenance_rejects_naive_datetime(tmp_path: Path) -> None:

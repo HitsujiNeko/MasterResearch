@@ -31,6 +31,7 @@ from src.analysis.repeat_common_evaluation import (
     summarize_seed_differences,
     summarize_seed_variation,
 )
+from src.common import summary as summary_module
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_SURVEY_COLUMN
 from src.common.cv_paired_comparison import FOLD_METRIC_COLUMNS
 from src.common.evaluation_cells import resolve_metadata_path
@@ -211,6 +212,28 @@ class TestResume:
         assert load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS) is not None
         assert load_completed_seed(tmp_path, 42, "other", self._CONDITIONS) is None
 
+    def test_reused_fold_metrics_match_written_values_exactly(self, tmp_path: Path) -> None:
+        """再利用した fold 別指標は、書き出した値とビット単位で一致する。
+
+        既定の浮動小数パーサでは最下位ビットがずれる値が混ざる乱数（200個中69個で確認）を
+        使い、往復精度で読んでいることを確かめる。
+        """
+        values = np.random.default_rng(0).random((40, len(FOLD_METRIC_COLUMNS)))
+        written = pd.DataFrame(values, columns=list(FOLD_METRIC_COLUMNS))
+        paths = seed_paths(tmp_path, 42)
+        written.to_csv(paths["satellite_only"], index=False)
+        written.to_csv(paths["limited"], index=False)
+        paths["summary"].write_text(
+            json.dumps({"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: self._CONDITIONS}),
+            encoding="utf-8",
+        )
+
+        completed = load_completed_seed(tmp_path, 42, "abc", self._CONDITIONS)
+
+        assert completed is not None
+        for scenario in ("satellite_only", "limited"):
+            assert np.array_equal(completed[scenario].to_numpy(), values)
+
     @pytest.mark.parametrize(
         ("key", "value"),
         [
@@ -221,12 +244,14 @@ class TestResume:
             ("satellite_only_features", ["NDVI"]),
             ("code_digest", "code-v2"),
             ("dataset_sha256", {"satellite_only": "s1", "limited": "l2"}),
+            ("python_version", "3.0.0"),
+            ("packages", {"scikit-learn": "0.1"}),
         ],
     )
     def test_does_not_reuse_when_a_condition_differs(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str], key: str, value: object
     ) -> None:
-        """木の本数・構成・投入列・コード・データセットのどれかが違えば、違うキーを示して計算し直す。"""
+        """木の本数・構成・投入列・コード・データセット・バージョンのどれかが違えば、違うキーを示して計算し直す。"""
         self._write_seed(
             tmp_path, {"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: self._CONDITIONS}
         )
@@ -299,6 +324,11 @@ class TestMain:
             ].read_text(encoding="utf-8")
         )
         assert summary[RUN_CONDITIONS_KEY]["rf_trees"] == 5
+        # 実行条件のバージョンは、最終結果の来歴と同じ範囲・同じ表記で記録する
+        assert summary[RUN_CONDITIONS_KEY]["packages"] == result["provenance"]["packages"]
+        assert (
+            summary[RUN_CONDITIONS_KEY]["python_version"] == result["provenance"]["python_version"]
+        )
 
         def _fail_if_called(*args: object, **kwargs: object) -> None:
             raise AssertionError("完了済みのシードを計算し直してはならない")
@@ -306,11 +336,76 @@ class TestMain:
         monkeypatch.setattr(repeat, "run_seed", _fail_if_called)
         main(argv)
 
-    @pytest.mark.parametrize("change", ["rf_trees", "code", "dataset"])
+    def test_hashes_each_dataset_only_once(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """両データセットの SHA-256 は開始時の1回だけ求め、来歴にも同じ値を記録する。"""
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        hashed: list[str] = []
+        original = summary_module.compute_file_sha256
+
+        def _counting(path: Path) -> str:
+            hashed.append(path.name)
+            return original(path)
+
+        # 反復スクリプトは関数を直接 import しているため、両方の参照を差し替える
+        monkeypatch.setattr(repeat, "compute_file_sha256", _counting)
+        monkeypatch.setattr(summary_module, "compute_file_sha256", _counting)
+
+        main(["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"])
+
+        for dataset in (
+            "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg",
+            "dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        ):
+            assert hashed.count(dataset) == 1
+        result = json.loads(
+            cells_path.with_name(
+                "repeated_comparison_evaluation_cells_seed42_results.json"
+            ).read_text(encoding="utf-8")
+        )
+        inputs = result["provenance"]["inputs"]
+        recorded = result["seed_records"][0][RUN_CONDITIONS_KEY]["dataset_sha256"]
+        assert [entry["sha256"] for entry in inputs[:2]] == [
+            recorded["satellite_only"],
+            recorded["limited"],
+        ]
+        # 評価セルとメタデータのハッシュは従来どおり計算して記録する
+        assert len(inputs) == 4
+
+    def test_resumed_run_reproduces_results_exactly(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """途中結果を再利用した再実行でも、集計値と fold 別指標が計算し直した場合と完全一致する。"""
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        argv = ["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"]
+        result_path = cells_path.with_name(
+            "repeated_comparison_evaluation_cells_seed42_results.json"
+        )
+        folds_path = cells_path.with_name("repeated_comparison_evaluation_cells_seed42_folds.csv")
+        aggregated_keys = ("seed_variation", "seed_differences", "repeated_kfold")
+
+        main(argv)
+        computed = json.loads(result_path.read_text(encoding="utf-8"))
+        computed_folds = folds_path.read_text(encoding="utf-8")
+
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("完了済みのシードを計算し直してはならない")
+
+        monkeypatch.setattr(repeat, "run_seed", _fail_if_called)
+        main(argv)
+        resumed = json.loads(result_path.read_text(encoding="utf-8"))
+
+        assert {key: resumed[key] for key in aggregated_keys} == {
+            key: computed[key] for key in aggregated_keys
+        }
+        assert folds_path.read_text(encoding="utf-8") == computed_folds
+
+    @pytest.mark.parametrize("change", ["rf_trees", "code", "dataset", "packages"])
     def test_recomputes_seeds_when_run_conditions_change(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, change: str
     ) -> None:
-        """木の本数・コード・データセットが変わった再実行では、全シードを計算し直す。
+        """木の本数・コード・データセット・ライブラリのバージョンが変わった再実行では、全シードを計算し直す。
 
         データセットは読込を合成データへ差し替えているため、ファイルの中身だけを変えても
         標本（セル・fold）は変わらない。標本のダイジェストでは検出できない変更の例になる。
@@ -323,6 +418,14 @@ class TestMain:
             monkeypatch.setattr(repeat, "compute_code_digest", lambda: "changed-code")
         if change == "dataset":
             (tmp_path / "dataset_limited_20220906_032358_hanoi_30m.gpkg").write_bytes(b"rebuilt")
+        if change == "packages":
+            # 環境を更新した後の再開を模す（scikit-learn の版だけが変わる）
+            current = repeat.get_package_versions()
+            monkeypatch.setattr(
+                repeat,
+                "get_package_versions",
+                lambda: {**current, "scikit-learn": "0.0.1"},
+            )
         computed: list[int] = []
         original = repeat.run_seed
 

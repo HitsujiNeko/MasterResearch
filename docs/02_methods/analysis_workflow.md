@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-10-31  
+**最終更新**: 2026-11-03  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -528,7 +528,7 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 
 - 差は fold ごとの対応のある差（比較側 − 基準側。シナリオ比較では Limited − Satellite Only）とする。比較スクリプト（`compare_common_evaluation.py`）は、両者の評価セルの内容ダイジェスト・乱数シード・決定木本数・ランダム分割の行数、または fold ごとの学習行数・テスト行数が一致しない場合は停止する。`--output-path` の名前は `_results.json` で終わる必要がある（差の CSV は末尾を `_folds.csv` に替えた名前で隣に置くため）。ランダム分割はテスト集合が1つで区間を作れないため、差の点推定だけを出す
 - fold どうしは学習データを共有していて独立ではないため、素朴な t 区間は狭く出すぎる。**補正 t 区間（corrected resampled t）を主とし**、素朴な t 区間は参考として併記する。差の平均の分散を `(1/J + ρ)·s²`、自由度を `J − 1` とする。J は差の個数（単発は分割数の5、反復は分割数 × シード数）、ρ は全分割の「テスト行数 ÷ 学習行数」の平均、s² は J 個の差の標本分散（不偏分散）である。単発は Nadeau & Bengio (2003)、反復は Bouckaert & Frank (2004) の補正による。**式は R パッケージ correctR の `resampled_ttest`・`repkfold_ttest` の実装と突き合わせて確認した。単発の k-fold 用の `kfold_ttest` との突き合わせと、原典との突き合わせは未確認である**
-- 反復（`repeat_common_evaluation.py`）は、共通集合からシードを変えて標本を抽出し直し、両シナリオの Spatial CV だけを回す（シードは標本抽出と RF の乱数の両方に使う）。シードごとに標本自体が入れ替わるため、反復の区間には分割の違いだけでなく標本の違いも含まれる。同じデータの分割し直しを想定する Bouckaert & Frank の設定とは異なる。シードごとの途中結果を保存し、中断しても続きから再開できる。途中結果を再利用するのは、標本の内容ダイジェストと実行条件（木の本数・分割数・Limited の構成と投入列・Satellite Only の投入列・結果に効くコードのダイジェスト・両データセットの SHA-256）がどちらも一致する場合だけで、どれかが違えば違うキーを表示してそのシードを計算し直す。実行条件の記録が無い途中結果は再利用しない
+- 反復（`repeat_common_evaluation.py`）は、共通集合からシードを変えて標本を抽出し直し、両シナリオの Spatial CV だけを回す（シードは標本抽出と RF の乱数の両方に使う）。シードごとに標本自体が入れ替わるため、反復の区間には分割の違いだけでなく標本の違いも含まれる。同じデータの分割し直しを想定する Bouckaert & Frank の設定とは異なる。シードごとの途中結果を保存し、中断しても続きから再開できる。途中結果を再利用するのは、標本の内容ダイジェストと実行条件（木の本数・分割数・Limited の構成と投入列・Satellite Only の投入列・来歴と同じ範囲（`src/common/` 全体を含む）のコードのダイジェスト・両データセットの SHA-256・Python と主要ライブラリのバージョン）がどちらも一致する場合だけで、どれかが違えば違うキーを表示してそのシードを計算し直す。実行条件の記録が無い途中結果は再利用しない
 
 **構成の追加**: Esri 版・Full は未対応である（032358 の Esri 版データセットが未生成・Full のスクリプトが無いため）。測量GIS範囲は構成ではなく分析対象範囲として指定する（上記）。構成を加える場合は、その構成の有効母集団を求める関数を同じ形で用意し、積に加えて評価セルを作り直す（評価セルが変わるため、既存の比較はすべて再実行になる）。
 

@@ -23,8 +23,8 @@ Limited のスクリプトの既定値（採用構成）を使う。
 シードごとの途中結果を保存し、中断しても続きから再開できる（完了印のある
 シードは、標本のダイジェストと実行条件（`build_run_conditions`）がどちらも一致すれば
 計算し直さない）。実行条件には木の本数・分割数・Limited の構成と投入列・Satellite Only
-の投入列・結果に効くコードのダイジェスト・両データセットの SHA-256 を含め、条件の記録が
-無い途中結果は再利用しない。
+の投入列・来歴と同じ範囲（`src/common/` 全体を含む）のコードのダイジェスト・両データセットの
+SHA-256・Python と主要ライブラリのバージョンを含め、条件の記録が無い途中結果は再利用しない。
 """
 
 from __future__ import annotations
@@ -71,6 +71,8 @@ from src.common.summary import (
     build_provenance,
     compute_file_sha256,
     describe_code_files,
+    get_package_versions,
+    get_python_version,
     save_summary,
     script_module_to_path,
 )
@@ -217,11 +219,13 @@ def build_limited_configuration() -> dict[str, Any]:
 
 
 def compute_code_digest() -> str | None:
-    """途中結果の再利用判定に使う、結果に効くコードの内容ダイジェストを求める。
+    """途中結果の再利用判定に使う、来歴と同じ範囲のコードの内容ダイジェストを求める。
 
-    来歴と同じ範囲（本スクリプト・既定の監視パス・`REPEAT_WATCH_PATHS`）の git 追跡
-    ファイルのハッシュ一覧（`describe_code_files`。改行は LF にそろえる）から求める。
-    コードが変わった後に、変わる前の途中結果を使い回さないためである。
+    来歴と同じ範囲（本スクリプト・既定の監視パス（`src/common/` 全体を含む）・
+    `REPEAT_WATCH_PATHS`）の git 追跡ファイルのハッシュ一覧（`describe_code_files`。改行は
+    LF にそろえる）から求める。範囲には結果に効かないコードも含むため、それらを変えた
+    場合も途中結果は計算し直しになる。コードが変わった後に、変わる前の途中結果を使い
+    回さないためである。
 
     Returns:
         SHA-256 の16進文字列。git を利用できない場合は `None`。
@@ -235,11 +239,24 @@ def compute_code_digest() -> str | None:
     return hashlib.sha256(files.encode("utf-8")).hexdigest()
 
 
+def resolve_dataset_paths(metadata: Mapping[str, Any]) -> dict[str, Path]:
+    """評価セルのメタデータに記録された両データセットのパスを求める。
+
+    Args:
+        metadata: 評価セルのメタデータ（`datasets` にシナリオ名 → プロジェクト相対パスを持つ）。
+    Returns:
+        `satellite_only`・`limited` をキーとする絶対パスの辞書。
+    """
+    return {scenario: PROJECT_ROOT / metadata["datasets"][scenario] for scenario in SCENARIOS}
+
+
 def compute_dataset_hashes(metadata: Mapping[str, Any]) -> dict[str, str]:
     """評価セルのメタデータに記録された両データセットの SHA-256 を求める。
 
     データセットを作り直すと、セルの集合と fold が同じままでも値が変わりうる。標本の
     ダイジェストでは検出できないため、データセットの中身も実行条件で照合する。
+    求めた値は来歴の入力のハッシュにもそのまま使う（約1GB のデータセットを二重に
+    読まないため。データセットを読み込む直前の中身を表す）。
 
     Args:
         metadata: 評価セルのメタデータ（`datasets` にシナリオ名 → パスを持つ）。
@@ -249,8 +266,8 @@ def compute_dataset_hashes(metadata: Mapping[str, Any]) -> dict[str, str]:
         FileNotFoundError: データセットが無い場合。
     """
     return {
-        scenario: compute_file_sha256(PROJECT_ROOT / metadata["datasets"][scenario])
-        for scenario in SCENARIOS
+        scenario: compute_file_sha256(path)
+        for scenario, path in resolve_dataset_paths(metadata).items()
     }
 
 
@@ -264,7 +281,10 @@ def build_run_conditions(
     """シードの途中結果を再利用してよいかを判定するための実行条件を組み立てる。
 
     標本の中身（セル・ブロック・fold）は標本のダイジェストで照合するため、ここには
-    標本に表れない学習の条件と入力の中身を入れる。
+    標本に表れない学習の条件と入力の中身を入れる。Python と主要ライブラリのバージョンは
+    来歴（`provenance.python_version`・`provenance.packages`）と同じ範囲で記録する。環境を
+    更新した後に再開すると、最終結果の来歴には現在のバージョンしか残らず、旧バージョンで
+    計算したシードの混在を見分けられないためである。
 
     Args:
         rf_trees: RF の決定木本数。
@@ -283,6 +303,8 @@ def build_run_conditions(
         "satellite_only_features": list(satellite_only.FEATURE_COLUMNS),
         "code_digest": code_digest,
         "dataset_sha256": dict(dataset_hashes),
+        "python_version": get_python_version(),
+        "packages": get_package_versions(),
     }
 
 
@@ -327,10 +349,12 @@ def load_completed_seed(
             f"（違うキー: {', '.join(mismatched)}）。"
         )
         return None
+    # 既定の浮動小数パーサは最下位ビットを復元しないことがある。中断の有無で集計値が
+    # 変わらないよう、書き出した値と完全に一致する往復精度で読む。
     return {
         "summary": summary,
-        "satellite_only": pd.read_csv(paths["satellite_only"]),
-        "limited": pd.read_csv(paths["limited"]),
+        "satellite_only": pd.read_csv(paths["satellite_only"], float_precision="round_trip"),
+        "limited": pd.read_csv(paths["limited"], float_precision="round_trip"),
     }
 
 
@@ -452,8 +476,9 @@ def build_populations(evaluation_set: EvaluationSet) -> tuple[np.ndarray, dict[s
     metadata = evaluation_set.metadata
     # 評価セルを作ったときと同じ範囲で、読込・有効母集団を作り直す。
     analysis_area = metadata["analysis_area"]
-    satellite_path = PROJECT_ROOT / metadata["datasets"]["satellite_only"]
-    limited_path = PROJECT_ROOT / metadata["datasets"]["limited"]
+    dataset_paths = resolve_dataset_paths(metadata)
+    satellite_path = dataset_paths["satellite_only"]
+    limited_path = dataset_paths["limited"]
     threshold = metadata["lst_valid_ratio_threshold"]
 
     print(f"Satellite Only のデータセットを読み込みます: {satellite_path}")
@@ -513,12 +538,14 @@ def main(argv: list[str] | None = None) -> None:
     seeds = resolve_seeds(args.first_seed, args.n_seeds)
     limited_feature_columns = resolve_limited_feature_columns()
     print("途中結果の再利用判定のため、コードと両データセットのハッシュを求めます。")
+    dataset_paths = resolve_dataset_paths(metadata)
+    dataset_hashes = compute_dataset_hashes(metadata)
     run_conditions = build_run_conditions(
         args.rf_trees,
         metadata["cv_splits"],
         limited_feature_columns,
         compute_code_digest(),
-        compute_dataset_hashes(metadata),
+        dataset_hashes,
     )
 
     common_cell_ids, populations = build_populations(evaluation_set)
@@ -635,12 +662,14 @@ def main(argv: list[str] | None = None) -> None:
     result["provenance"] = build_provenance(
         SCRIPT_MODULE,
         input_paths=[
-            PROJECT_ROOT / metadata["datasets"]["satellite_only"],
-            PROJECT_ROOT / metadata["datasets"]["limited"],
+            dataset_paths["satellite_only"],
+            dataset_paths["limited"],
             cells_path,
             evaluation_set.metadata_path,
         ],
         extra_watch_paths=REPEAT_WATCH_PATHS,
+        # 開始時に求めた両データセットのハッシュを使い、計算し直さない
+        known_sha256={dataset_paths[scenario]: dataset_hashes[scenario] for scenario in SCENARIOS},
     )
     result_path = cells_path.with_name(f"repeated_comparison_{stem}_results.json")
     save_summary(result, result_path)

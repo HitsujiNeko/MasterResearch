@@ -59,7 +59,7 @@ Claude Code は PDF を `Read` で直接読み取れる。したがって「PDF 
 1. **探索（`/paper-scout`）**: `papers_database.csv` の起点論文から OpenAlex で前方・後方引用をたどり、RQ キーワードでスコアリングした候補リストを得る。採否・精読・登録は研究者が判断する。
 2. **精読**: 入手した PDF を `04_pdfs/` に置くか直接 Claude Code に渡し、`Read` で全文を読む。要約の作成は Claude Code が [structured_summary_template.md](templates/structured_summary_template.md) に沿って行う。
 3. **登録（`/add-paper`）**: S番号採番の前に Crossref で書誌を機械照合し、転記誤りを防ぐ。要約ファイル作成・`papers_database.csv` 追記・`previous_studies_report.md`（先行研究一覧）・README 更新・コミット案提示までを一体実行する（詳細は `/add-paper` スキルが正本）。
-4. **引用用書誌の追記（論文で引用する場合）**: `/add-paper` は引用用書誌を扱わないため、修士論文で引用する論文は `papers_bibliography.csv` に S 番号で 1 行を手で足す。全著者・題名・誌名・年・巻・号・ページ・DOI を Crossref と原典 PDF の両方で照合して書き、照合元・照合日を残す（構造化要約は書誌の根拠にしない）。`papers_database.csv` と行の過不足・年・題名・誌名・DOI がずれていると、論文のビルドとテストが失敗する。書き方は [thesis_writing_guide.md](../02_methods/thesis_writing_guide.md) の「引用と参考文献」を参照する。
+4. **引用用書誌の追記（登録した論文はすべて）**: `/add-paper` は引用用書誌を扱わないため、`papers_database.csv` に登録した論文は、論文で引用するかどうかにかかわらず `papers_bibliography.csv` にも S 番号で 1 行を手で足す。全著者・題名・誌名・年・巻・号・ページ・DOI を Crossref と原典 PDF の両方で照合して書き（DOI の無い文献は PDF のみ）、照合元・照合日を残す（構造化要約は書誌の根拠にしない）。`papers_database.csv` と行の過不足・年・題名・誌名・DOI がずれていると、論文のビルドとテスト（CI を含む）が失敗する。書き方は [thesis_writing_guide.md](../02_methods/thesis_writing_guide.md) の「引用と参考文献」を参照する。
 
 ### claude.ai の位置づけ
 

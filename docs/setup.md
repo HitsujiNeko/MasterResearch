@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-10-08  
+**最終更新**: 2026-11-03  
 **関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
@@ -362,5 +362,6 @@ pytest tests/
 
 ## 14. 補足
 
-- [`requirements.txt`](../requirements.txt) は参照用の最小一覧であり、環境構築の正本ではない
+- [`requirements.txt`](../requirements.txt) は CI（[12章](#12-cigithub-actions)）とクラウドセッション（[13章](#13-リモートセッションclaude-code-on-the-web)）が pip で依存を導入するための一覧であり、ローカル環境構築の正本ではない
+- 依存を追加するときは `environment.yml` と `requirements.txt` の両方を更新する。手順は [CodingRule.md 10.2](02_methods/CodingRule.md#102-依存を追加するときの手順) を参照する
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

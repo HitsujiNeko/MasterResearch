@@ -515,6 +515,7 @@ def main() -> None:
         output_dir=args.output_dir,
         output_stem=output_stem,
         observation_label=observation_label,
+        random_state=args.random_state,
     )
 
     result = {

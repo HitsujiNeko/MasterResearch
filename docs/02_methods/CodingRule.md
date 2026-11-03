@@ -145,7 +145,7 @@ def calculate_mean(values: list[float]) -> float:
 ### 10.2 依存を追加するときの手順
 
 1. 追加前に `conda install -n masterresearch -c conda-forge --dry-run {パッケージ}` を実行し、既存パッケージの版が変わらないことを確認する。確認結果は計画書（計画書を作らないタスクでは PR 本文の「備考」）に記録する。既存パッケージの版が変わる場合は、追加する前にユーザーに相談する
-2. `src/`・`tests/` が import する実行時の依存は、`environment.yml` と `requirements.txt` の**両方**に追加する。CI の test ジョブは `requirements.txt` で環境を作るため、`environment.yml` だけに追加すると CI のテストが import で失敗する（依存を導入しない CI ジョブで動かすコードは、10.1 の条件 4 に当たる）。lint・文書ビルドなどの開発ツール（ruff・pytest・pandoc 等）は `environment.yml` のみに追加し、CI で必要なものは `ci.yml` 側で導入する
+2. `src/`・`tests/` が import する実行時の依存は、`environment.yml` と `requirements.txt` の**両方**に追加する。CI の test ジョブは `requirements.txt` で環境を作るため、`environment.yml` だけに追加すると CI のテストが import で失敗する（依存を導入しない CI ジョブで動かすコードは、10.1 の条件 4 に当たる）。pip で導入できない依存（GDAL の `osgeo`、QGIS の `qgis` 等）は `requirements.txt` に加えず、それを import するモジュールは CI のテスト対象に含めない（テストを書く場合は CI で import しない形にする）。lint・文書ビルドなどの開発ツール（ruff・pytest・pandoc 等）は `environment.yml` のみに追加し、CI で必要なものは `ci.yml` 側で導入する
 3. 版の指定は次の方針に揃える
    - `environment.yml`: 再現性のため、原則として `geopandas=1.0` のように minor 版まで固定する。ツール間の連携のため patch 版まで固定する場合は、理由をコメントで残す
    - `requirements.txt`: 原則として版を指定しない。次の場合に限り下限・上限を指定し、理由をコメントで残す

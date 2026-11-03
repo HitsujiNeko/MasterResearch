@@ -32,6 +32,8 @@ import numpy as np
 import pandas as pd
 import skgstat
 
+from src.common.spatial_points import validate_points
+
 # Matheron 推定量。経験セミバリオグラムの推定量を変えると値の意味が変わるため固定する
 ESTIMATOR = "matheron"
 
@@ -96,29 +98,14 @@ def compute_empirical_variogram(
         scikit-gstat の ``Variogram``。理論モデルは未当てはめ
         （当てはめは ``fit_variogram_model`` で行う）。
     Raises:
-        ValueError: 座標と値の長さが合わない場合、値に NaN・無限大が含まれる
-            場合、点が2点未満の場合（ペアを作れないため）。座標が重複する
-            点がある場合（最大ラグ以内のペアを持つ疎行列は値0の要素を
-            保持しない場合があり、距離0のペアが数えられるか保証できないため）。
+        ValueError: ``spatial_points.validate_points`` の検証に通らない場合
+            （形状の不一致・NaN・無限大・座標の重複）。点が2点未満の場合
+            （ペアを作れないため）。
     """
-    coords = np.asarray(coords, dtype=float)
-    values = np.asarray(values, dtype=float)
+    coords, values = validate_points(coords, values)
     lag_edges = np.asarray(lag_edges, dtype=float)
-    if coords.ndim != 2 or coords.shape[1] != 2 or coords.shape[0] != values.shape[0]:
-        raise ValueError(
-            f"coords は (n, 2)、values は (n,) で n が一致する必要があります"
-            f"（coords={coords.shape}, values={values.shape}）。"
-        )
     if values.shape[0] < 2:
         raise ValueError("セミバリオグラムの算出には2点以上が必要です。")
-    if not np.all(np.isfinite(values)) or not np.all(np.isfinite(coords)):
-        raise ValueError("coords・values に NaN または無限大が含まれています。")
-    n_unique = np.unique(coords, axis=0).shape[0]
-    if n_unique != coords.shape[0]:
-        raise ValueError(
-            f"coords に重複する座標があります（{coords.shape[0] - n_unique}点）。"
-            "距離0のペアの扱いを保証できないため、重複を除いてから渡してください。"
-        )
 
     metric_space = skgstat.MetricSpace(coords, max_dist=float(lag_edges.max()))
     return skgstat.Variogram(

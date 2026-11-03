@@ -239,11 +239,24 @@ def compute_code_digest() -> str | None:
     return hashlib.sha256(files.encode("utf-8")).hexdigest()
 
 
+def resolve_dataset_paths(metadata: Mapping[str, Any]) -> dict[str, Path]:
+    """評価セルのメタデータに記録された両データセットのパスを求める。
+
+    Args:
+        metadata: 評価セルのメタデータ（`datasets` にシナリオ名 → プロジェクト相対パスを持つ）。
+    Returns:
+        `satellite_only`・`limited` をキーとする絶対パスの辞書。
+    """
+    return {scenario: PROJECT_ROOT / metadata["datasets"][scenario] for scenario in SCENARIOS}
+
+
 def compute_dataset_hashes(metadata: Mapping[str, Any]) -> dict[str, str]:
     """評価セルのメタデータに記録された両データセットの SHA-256 を求める。
 
     データセットを作り直すと、セルの集合と fold が同じままでも値が変わりうる。標本の
     ダイジェストでは検出できないため、データセットの中身も実行条件で照合する。
+    求めた値は来歴の入力のハッシュにもそのまま使う（約1GB のデータセットを二重に
+    読まないため。データセットを読み込む直前の中身を表す）。
 
     Args:
         metadata: 評価セルのメタデータ（`datasets` にシナリオ名 → パスを持つ）。
@@ -253,8 +266,8 @@ def compute_dataset_hashes(metadata: Mapping[str, Any]) -> dict[str, str]:
         FileNotFoundError: データセットが無い場合。
     """
     return {
-        scenario: compute_file_sha256(PROJECT_ROOT / metadata["datasets"][scenario])
-        for scenario in SCENARIOS
+        scenario: compute_file_sha256(path)
+        for scenario, path in resolve_dataset_paths(metadata).items()
     }
 
 
@@ -463,8 +476,9 @@ def build_populations(evaluation_set: EvaluationSet) -> tuple[np.ndarray, dict[s
     metadata = evaluation_set.metadata
     # 評価セルを作ったときと同じ範囲で、読込・有効母集団を作り直す。
     analysis_area = metadata["analysis_area"]
-    satellite_path = PROJECT_ROOT / metadata["datasets"]["satellite_only"]
-    limited_path = PROJECT_ROOT / metadata["datasets"]["limited"]
+    dataset_paths = resolve_dataset_paths(metadata)
+    satellite_path = dataset_paths["satellite_only"]
+    limited_path = dataset_paths["limited"]
     threshold = metadata["lst_valid_ratio_threshold"]
 
     print(f"Satellite Only のデータセットを読み込みます: {satellite_path}")
@@ -524,12 +538,14 @@ def main(argv: list[str] | None = None) -> None:
     seeds = resolve_seeds(args.first_seed, args.n_seeds)
     limited_feature_columns = resolve_limited_feature_columns()
     print("途中結果の再利用判定のため、コードと両データセットのハッシュを求めます。")
+    dataset_paths = resolve_dataset_paths(metadata)
+    dataset_hashes = compute_dataset_hashes(metadata)
     run_conditions = build_run_conditions(
         args.rf_trees,
         metadata["cv_splits"],
         limited_feature_columns,
         compute_code_digest(),
-        compute_dataset_hashes(metadata),
+        dataset_hashes,
     )
 
     common_cell_ids, populations = build_populations(evaluation_set)
@@ -646,12 +662,14 @@ def main(argv: list[str] | None = None) -> None:
     result["provenance"] = build_provenance(
         SCRIPT_MODULE,
         input_paths=[
-            PROJECT_ROOT / metadata["datasets"]["satellite_only"],
-            PROJECT_ROOT / metadata["datasets"]["limited"],
+            dataset_paths["satellite_only"],
+            dataset_paths["limited"],
             cells_path,
             evaluation_set.metadata_path,
         ],
         extra_watch_paths=REPEAT_WATCH_PATHS,
+        # 開始時に求めた両データセットのハッシュを使い、計算し直さない
+        known_sha256={dataset_paths[scenario]: dataset_hashes[scenario] for scenario in SCENARIOS},
     )
     result_path = cells_path.with_name(f"repeated_comparison_{stem}_results.json")
     save_summary(result, result_path)

@@ -16,7 +16,7 @@ import logging
 import platform
 import subprocess
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
@@ -275,7 +275,9 @@ def get_package_versions(packages: Iterable[str] = DEFAULT_PROVENANCE_PACKAGES) 
 
 
 def describe_input_files(
-    input_paths: Iterable[Path], project_root: Path = PROJECT_ROOT
+    input_paths: Iterable[Path],
+    project_root: Path = PROJECT_ROOT,
+    known_sha256: Mapping[Path, str] | None = None,
 ) -> list[dict[str, str]]:
     """入力ファイルのパスとSHA-256ハッシュの一覧を作る。
 
@@ -284,20 +286,27 @@ def describe_input_files(
     Args:
         input_paths: 入力ファイルのパスの並び。
         project_root: 相対化の基準ディレクトリ。
+        known_sha256: 計算済みのハッシュ（パス → SHA-256）。キーと同じ `Path` の入力は
+            計算し直さずにこの値を使う（大容量の入力を読み込んだ時点で求めたハッシュを
+            記録し、二重に計算しないため）。キーに無い入力は従来どおり計算する。
 
     Returns:
         `path` と `sha256` を持つ辞書のリスト（入力順を保持する）。
 
     Raises:
-        FileNotFoundError: 入力ファイルが存在しない場合。
+        FileNotFoundError: 入力ファイルが存在しない場合（計算済みのハッシュがある場合も含む）。
     """
-    return [
-        {
-            "path": to_project_relative_string(path, project_root),
-            "sha256": compute_file_sha256(path),
-        }
-        for path in input_paths
-    ]
+    known = known_sha256 or {}
+    records = []
+    for path in input_paths:
+        if path in known:
+            if not path.is_file():
+                raise FileNotFoundError(f"ハッシュを記録する入力ファイルが見つかりません: {path}")
+            sha256 = known[path]
+        else:
+            sha256 = compute_file_sha256(path)
+        records.append({"path": to_project_relative_string(path, project_root), "sha256": sha256})
+    return records
 
 
 def build_provenance(
@@ -307,6 +316,7 @@ def build_provenance(
     repo_root: Path = PROJECT_ROOT,
     executed_at: datetime | None = None,
     extra_watch_paths: Iterable[str] = (),
+    known_sha256: Mapping[Path, str] | None = None,
 ) -> dict[str, Any]:
     """結果JSONへ付与する来歴メタデータを組み立てる。
 
@@ -326,6 +336,7 @@ def build_provenance(
             `code.watch_paths` をすべて監視するため、ここに渡したパスの変更も検出される。
             git の追跡ファイルが1件も無いパス（打ち間違い等）は、変更を検出できないため
             警告する（来歴の取得で結果の保存を止めないよう、例外にはしない）。
+        known_sha256: 入力ファイルの計算済みのハッシュ（`describe_input_files` に渡す）。
 
     Returns:
         `script`・`executed_at`・`python_version`・`platform`・`git`・`code`・`packages`・
@@ -363,5 +374,5 @@ def build_provenance(
         "git": get_git_state(repo_root),
         "code": code,
         "packages": get_package_versions(packages),
-        "inputs": describe_input_files(input_paths, repo_root),
+        "inputs": describe_input_files(input_paths, repo_root, known_sha256),
     }

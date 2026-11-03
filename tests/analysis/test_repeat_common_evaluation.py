@@ -31,6 +31,7 @@ from src.analysis.repeat_common_evaluation import (
     summarize_seed_differences,
     summarize_seed_variation,
 )
+from src.common import summary as summary_module
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_SURVEY_COLUMN
 from src.common.cv_paired_comparison import FOLD_METRIC_COLUMNS
 from src.common.evaluation_cells import resolve_metadata_path
@@ -334,6 +335,43 @@ class TestMain:
 
         monkeypatch.setattr(repeat, "run_seed", _fail_if_called)
         main(argv)
+
+    def test_hashes_each_dataset_only_once(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """両データセットの SHA-256 は開始時の1回だけ求め、来歴にも同じ値を記録する。"""
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        hashed: list[str] = []
+        original = summary_module.compute_file_sha256
+
+        def _counting(path: Path) -> str:
+            hashed.append(path.name)
+            return original(path)
+
+        # 反復スクリプトは関数を直接 import しているため、両方の参照を差し替える
+        monkeypatch.setattr(repeat, "compute_file_sha256", _counting)
+        monkeypatch.setattr(summary_module, "compute_file_sha256", _counting)
+
+        main(["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"])
+
+        for dataset in (
+            "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg",
+            "dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        ):
+            assert hashed.count(dataset) == 1
+        result = json.loads(
+            cells_path.with_name(
+                "repeated_comparison_evaluation_cells_seed42_results.json"
+            ).read_text(encoding="utf-8")
+        )
+        inputs = result["provenance"]["inputs"]
+        recorded = result["seed_records"][0][RUN_CONDITIONS_KEY]["dataset_sha256"]
+        assert [entry["sha256"] for entry in inputs[:2]] == [
+            recorded["satellite_only"],
+            recorded["limited"],
+        ]
+        # 評価セルとメタデータのハッシュは従来どおり計算して記録する
+        assert len(inputs) == 4
 
     def test_resumed_run_reproduces_results_exactly(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

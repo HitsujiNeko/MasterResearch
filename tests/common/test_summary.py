@@ -266,6 +266,60 @@ def test_describe_input_files_uses_project_relative_path(tmp_path: Path) -> None
     assert described == [{"path": "data/input.csv", "sha256": hashlib.sha256(content).hexdigest()}]
 
 
+def test_describe_input_files_uses_known_sha256_only_for_matching_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """計算済みのハッシュがある入力は計算し直さず、無い入力だけを計算する。"""
+    known_path = tmp_path / "large.gpkg"
+    other_path = tmp_path / "small.json"
+    known_path.write_bytes(b"large")
+    other_path.write_bytes(b"small")
+    hashed: list[Path] = []
+    original = summary_module.compute_file_sha256
+
+    def _counting(path: Path) -> str:
+        hashed.append(path)
+        return original(path)
+
+    monkeypatch.setattr(summary_module, "compute_file_sha256", _counting)
+
+    described = describe_input_files(
+        [known_path, other_path], project_root=tmp_path, known_sha256={known_path: "precomputed"}
+    )
+
+    assert described == [
+        {"path": "large.gpkg", "sha256": "precomputed"},
+        {"path": "small.json", "sha256": hashlib.sha256(b"small").hexdigest()},
+    ]
+    assert hashed == [other_path]
+
+
+def test_describe_input_files_raises_for_missing_file_even_if_hash_is_known(
+    tmp_path: Path,
+) -> None:
+    """計算済みのハッシュがあっても、入力ファイルが無ければ FileNotFoundError にする。"""
+    missing = tmp_path / "missing.gpkg"
+
+    with pytest.raises(FileNotFoundError):
+        describe_input_files([missing], project_root=tmp_path, known_sha256={missing: "abc"})
+
+
+def test_build_provenance_passes_known_sha256_to_inputs(tmp_path: Path) -> None:
+    """来歴の入力には、渡した計算済みのハッシュがそのまま記録される。"""
+    target = tmp_path / "input.gpkg"
+    target.write_bytes(b"data")
+
+    provenance = build_provenance(
+        "x",
+        input_paths=[target],
+        packages=[],
+        repo_root=tmp_path,
+        known_sha256={target: "precomputed"},
+    )
+
+    assert provenance["inputs"] == [{"path": "input.gpkg", "sha256": "precomputed"}]
+
+
 def test_build_provenance_schema_and_json_serializable(tmp_path: Path) -> None:
     """来歴は所定のキーを持ち、save_summary でそのまま保存できる。"""
     target = tmp_path / "input.csv"

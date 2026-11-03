@@ -3,9 +3,9 @@
 本スキルが担う意味的整合性チェックの対象・判定基準・手順を定義する。
 
 機械的に判定可能な項目（カタログ差分・リンク切れ・メタ情報の有無・用語の表記揺れ・
-書誌整合・鮮度）は `src/doc_checks/` へスクリプト化され、CI で実行される
+書誌整合・鮮度・論文の追従）は `src/doc_checks/` へスクリプト化され、CI で実行される
 （catalog_diff.py・broken_links.py・metadata_presence.py・terminology.py・
-bibliography_consistency.py・freshness.py）。**判定ロジックはスクリプト側が正本**であり、
+bibliography_consistency.py・freshness.py・thesis_source_tracking.py）。**判定ロジックはスクリプト側が正本**であり、
 本ドキュメントには記載しない。本 spec は**スクリプトでは拾えない「意味判断を伴う照合」のみ**を
 「列挙されたリストの逐件照合」として定義する。判定を実行者の裁量に委ねる曖昧な指定
 （「可能な範囲で」等）は用いず、照合対象は本 spec の表・手順で必ず列挙する。

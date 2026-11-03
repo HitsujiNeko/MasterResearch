@@ -47,6 +47,8 @@ SWEEP_OPTIONS = [
     "--buffers-m",
     "0",
     "1000",
+    "--thinning-buffers-m",
+    "1000",
     "--n-seeds",
     "1",
     "--rf-trees",
@@ -81,6 +83,10 @@ class TestHelpers:
     def test_config_key(self) -> None:
         """設定のファイル名用の文字列は緩衝帯の小数を省いて表す。"""
         assert config_key(42, 2700, 900.0) == "seed42_block2700_buffer900"
+
+    def test_config_key_for_thinning_control(self) -> None:
+        """学習量の対照は、合わせた緩衝帯を接尾辞で表す。"""
+        assert config_key(42, 2700, 0.0, 900.0) == "seed42_block2700_buffer0_thinned900"
 
     def test_config_files_are_not_scanned_as_results(self, tmp_path: Path) -> None:
         """途中結果は陳腐化チェックの走査対象（`_results.json`）にならない名前にする。"""
@@ -193,16 +199,29 @@ class TestSweep:
         )
         assert result["block_sizes_m"] == [2700, 5400]
         assert result["buffers_m"] == [0.0, 1000.0]
-        assert len(result["configs"]) == 4
+        assert len(result["configs"]) == 6
+        assert result["thinned_to_buffers_m"] == [1000.0]
         assert len(result["provenance"]["inputs"]) == 4
         assert "esda" in result["provenance"]["packages"]
         summary = pd.read_csv(output_dir / "spatial_cv_sweep_summary.csv")
         assert set(summary["scenario"]) == {"satellite_only", "limited"}
-        assert len(summary) == 8
+        assert len(summary) == 12
         # 900m 間隔のセルに緩衝帯 1000m をかけると、評価セルの隣の学習セルが除かれる
         folds = pd.read_csv(output_dir / "spatial_cv_sweep_folds.csv")
-        assert (folds.loc[folds["buffer_m"] == 0, "n_excluded"] == 0).all()
+        no_buffer = (folds["buffer_m"] == 0) & (folds["thinned_to_buffer_m"] == 0)
+        assert (folds.loc[no_buffer, "n_excluded"] == 0).all()
         assert (folds.loc[folds["buffer_m"] == 1000, "n_excluded"] > 0).all()
+        # 学習量の対照は、緩衝帯 1000m の設定と fold ごとに同じ学習セル数になる
+        buffered = folds[folds["buffer_m"] == 1000].sort_values(
+            ["block_size_m", "scenario", "fold"]
+        )
+        thinned = folds[folds["thinned_to_buffer_m"] == 1000].sort_values(
+            ["block_size_m", "scenario", "fold"]
+        )
+        np.testing.assert_array_equal(
+            thinned["train_size"].to_numpy(), buffered["train_size"].to_numpy()
+        )
+        assert (thinned["buffer_m"] == 0).all()
         correlograms = pd.read_csv(output_dir / "spatial_cv_sweep_correlograms.csv")
         assert set(correlograms["band_type"]) == {"ring", "cumulative"}
         assert set(correlograms["series"]) == {
@@ -220,6 +239,28 @@ class TestSweep:
 
         monkeypatch.setattr(diagnose, "run_config", _fail_if_called)
         main(argv)
+
+    def test_collects_configs_across_runs(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """格子の一部を足す実行を分けても、同じ実行条件の完了済み設定がすべて集計される。"""
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        output_dir = tmp_path / "design"
+        common = ["sweep", "--evaluation-cells", str(cells_path), "--output-dir", str(output_dir)]
+        options = [*SWEEP_OPTIONS]
+        main([*common, *options])
+        # ブロック 8100m・緩衝帯 0 だけを足す
+        options[options.index("--block-sizes-m") + 1 : options.index("--buffers-m")] = ["8100"]
+        options[options.index("--buffers-m") + 1 : options.index("--thinning-buffers-m") + 2] = [
+            "0"
+        ]
+        main([*common, *options])
+
+        result = json.loads(
+            (output_dir / "spatial_cv_sweep_results.json").read_text(encoding="utf-8")
+        )
+        assert result["block_sizes_m"] == [2700, 5400, 8100]
+        assert len(result["configs"]) == 7
 
     def test_stops_when_primary_sample_differs(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

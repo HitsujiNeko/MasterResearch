@@ -10,6 +10,7 @@ from src.common.spatial_cv import (
     assign_spatial_blocks,
     compute_block_cells,
     split_by_spatial_blocks,
+    thin_training_folds,
 )
 
 
@@ -245,3 +246,62 @@ class TestApplySpatialBuffer:
         """scaleが0以下だと距離を計算できないため例外にする。"""
         with pytest.raises(ValueError, match="正の値"):
             apply_spatial_buffer([], np.array([]), np.array([]), scale=0, buffer_m=30)
+
+
+class TestThinTrainingFolds:
+    """thin_training_folds のテスト。"""
+
+    def test_thins_to_requested_sizes_keeping_order_and_test(self) -> None:
+        """学習側を指定件数の順序を保った部分集合にし、評価側は変えない。"""
+        row, col = _grid(12)
+        block_id, _ = assign_spatial_blocks(row, col, block_cells=3, block_id_stride=1000)
+        folds = split_by_spatial_blocks(block_id, n_splits=4)
+        sizes = [len(train) // 2 for train, _ in folds]
+
+        thinned, info = thin_training_folds(folds, sizes, seed=0)
+
+        for (train, test), (t_train, t_test), size, fold in zip(
+            folds, thinned, sizes, info, strict=True
+        ):
+            np.testing.assert_array_equal(t_test, test)
+            assert len(t_train) == size
+            np.testing.assert_array_equal(t_train, train[np.isin(train, t_train)])
+            assert fold == {
+                "n_train_before": len(train),
+                "n_train_after": size,
+                "n_excluded": len(train) - size,
+                "n_test": len(test),
+            }
+
+    def test_is_reproducible_with_seed(self) -> None:
+        """同じシードなら同じ間引きになる。"""
+        folds = [(np.arange(10), np.array([10, 11]))]
+        first, _ = thin_training_folds(folds, [4], seed=3)
+        second, _ = thin_training_folds(folds, [4], seed=3)
+        np.testing.assert_array_equal(first[0][0], second[0][0])
+
+    def test_matches_buffer_sizes(self) -> None:
+        """緩衝帯を適用したときの学習セル数に合わせた対照を作れる。"""
+        row, col = _grid(12)
+        block_id, _ = assign_spatial_blocks(row, col, block_cells=3, block_id_stride=1000)
+        folds = split_by_spatial_blocks(block_id, n_splits=4)
+        _, buffer_info = apply_spatial_buffer(folds, row, col, scale=30, buffer_m=61)
+
+        _, info = thin_training_folds(
+            folds, [fold["n_train_after"] for fold in buffer_info], seed=0
+        )
+
+        assert [fold["n_train_after"] for fold in info] == [
+            fold["n_train_after"] for fold in buffer_info
+        ]
+
+    @pytest.mark.parametrize("size", [0, 11])
+    def test_raises_on_invalid_size(self, size: int) -> None:
+        """件数が1未満、または元の学習セル数を超える場合は例外にする。"""
+        with pytest.raises(ValueError, match="以下である必要"):
+            thin_training_folds([(np.arange(10), np.array([10]))], [size], seed=0)
+
+    def test_raises_on_length_mismatch(self) -> None:
+        """件数の指定がfold数と合わない場合は例外にする。"""
+        with pytest.raises(ValueError, match="一致しません"):
+            thin_training_folds([(np.arange(10), np.array([10]))], [5, 5], seed=0)

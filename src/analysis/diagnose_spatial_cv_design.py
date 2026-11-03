@@ -18,7 +18,9 @@
    抽出し、ブロックサイズ × 緩衝帯 × シードの各設定で、Satellite Only と Limited の
    採用構成（各分析スクリプトの既定値）の線形回帰・RF を Spatial CV で評価する。
    out-of-fold 残差からは、距離帯ごとの Moran's I（輪帯・累積）と残差の
-   セミバリオグラムを求める
+   セミバリオグラムを求める。緩衝帯は空間リークと同時に学習量も減らすため、
+   緩衝帯なしで学習セルを「緩衝帯 b をかけたときと同じ件数」までランダムに間引いた
+   対照（``--thinning-buffers-m``）も評価できる
 
 標本の抽出はブロックの割り当てより前に行われる（``draw_evaluation_cells``）ため、
 同じシードならブロックサイズを変えても同じセルの標本になる。ブロックサイズ間の比較は
@@ -27,8 +29,10 @@
 
 設定ごとの途中結果を保存し、中断しても続きから再開できる（完了印に記録した実行条件と
 標本のダイジェストがすべて一致する設定は計算し直さない。``repeat_common_evaluation`` と
-同じ方式）。残差の部分標本は再集計できるよう保存するが、行数が多いため git では
-追跡しない（``.gitignore``）。
+同じ方式）。最終結果は、途中結果の保存先にある**今回と同じ実行条件の完了済み設定すべて**を
+集計する（格子の一部だけを足す実行を複数回に分けても、1つの結果にまとまる）。
+残差の部分標本は再集計できるよう保存するが、行数が多いため git では追跡しない
+（``.gitignore``）。
 """
 
 from __future__ import annotations
@@ -72,7 +76,7 @@ from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.regression_models import fit_linear_regression, fit_random_forest  # noqa: E402
 from src.common.residual_autocorrelation import BAND_TYPES, compute_moran_correlogram  # noqa: E402
 from src.common.semivariogram import build_lag_edges, compute_semivariogram  # noqa: E402
-from src.common.spatial_cv import apply_spatial_buffer  # noqa: E402
+from src.common.spatial_cv import apply_spatial_buffer, thin_training_folds  # noqa: E402
 from src.common.summary import (  # noqa: E402
     CODE_WATCH_PATHS,
     DEFAULT_PROVENANCE_PACKAGES,
@@ -115,6 +119,16 @@ DIAGNOSE_WATCH_PATHS = (
 )
 PROVENANCE_PACKAGES = (*DEFAULT_PROVENANCE_PACKAGES, "esda", "libpysal", "scikit-gstat", "scipy")
 RUN_CONDITIONS_KEY = "run_conditions"
+# 設定を識別する列（シードを除く）。学習量の対照でない設定の thinned_to_buffer_m は 0
+CONFIG_KEYS = ("block_size_m", "buffer_m", "thinned_to_buffer_m")
+# 集計結果の configs に残す完了印の項目
+CONFIG_RECORD_KEYS = (
+    "seed",
+    *CONFIG_KEYS,
+    "block_design",
+    "buffer",
+    "elapsed_seconds",
+)
 # Limited の採用構成・フィルタの既定値（分析スクリプトの引数の既定値）
 _LIMITED_DEFAULTS = limited.parse_arguments([])
 
@@ -156,6 +170,13 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     sweep.add_argument("--evaluation-cells", type=Path, default=resolve_default_cells_path())
     sweep.add_argument("--block-sizes-m", type=int, nargs="+", default=list(DEFAULT_BLOCK_SIZES_M))
     sweep.add_argument("--buffers-m", type=float, nargs="+", default=list(DEFAULT_BUFFERS_M))
+    sweep.add_argument(
+        "--thinning-buffers-m",
+        type=float,
+        nargs="*",
+        default=[],
+        help="学習量の対照: 緩衝帯なしで、この緩衝帯をかけたときと同じ学習セル数まで間引く",
+    )
     sweep.add_argument("--first-seed", type=int, default=DEFAULT_FIRST_SEED)
     sweep.add_argument("--n-seeds", type=int, default=DEFAULT_N_SEEDS)
     sweep.add_argument(
@@ -449,17 +470,22 @@ def resolve_seeds(first_seed: int, n_seeds: int) -> list[int]:
     return list(range(first_seed, first_seed + n_seeds))
 
 
-def config_key(seed: int, block_size_m: int, buffer_m: float) -> str:
-    """設定（シード・ブロックサイズ・緩衝帯）を表すファイル名用の文字列を作る。
+def config_key(
+    seed: int, block_size_m: int, buffer_m: float, thinned_to_buffer_m: float = 0.0
+) -> str:
+    """設定（シード・ブロックサイズ・緩衝帯・学習量の対照）を表すファイル名用の文字列を作る。
 
     Args:
         seed: シード。
         block_size_m: ブロックサイズ（m）。
         buffer_m: 緩衝帯（m）。
+        thinned_to_buffer_m: 学習量の対照で合わせる緩衝帯（m）。0 なら間引かない。
     Returns:
-        ``seed42_block2700_buffer900`` の形式の文字列。
+        ``seed42_block2700_buffer900`` の形式の文字列。学習量の対照では
+        ``seed42_block2700_buffer0_thinned900`` のように接尾辞を付ける。
     """
-    return f"seed{seed}_block{block_size_m}_buffer{buffer_m:g}"
+    key = f"seed{seed}_block{block_size_m}_buffer{buffer_m:g}"
+    return f"{key}_thinned{thinned_to_buffer_m:g}" if thinned_to_buffer_m else key
 
 
 def config_paths(intermediate_dir: Path, key: str) -> dict[str, Path]:
@@ -660,6 +686,7 @@ def run_config(
     seed: int,
     cells: pd.DataFrame,
     buffer_m: float,
+    thinned_to_buffer_m: float,
     populations: Mapping[str, pd.DataFrame],
     limited_feature_columns: Sequence[str],
     args: argparse.Namespace,
@@ -669,9 +696,12 @@ def run_config(
     """1つの設定について、両シナリオの Spatial CV と残差の分析を行う。
 
     Args:
-        seed: 標本抽出・RF・部分標本・並べ替え検定の乱数シード。
+        seed: 標本抽出・RF・部分標本・間引き・並べ替え検定の乱数シード。
         cells: このシード・ブロックサイズの評価セル（``draw_evaluation_cells``）。
         buffer_m: 緩衝帯（m）。
+        thinned_to_buffer_m: 学習量の対照で合わせる緩衝帯（m）。正の値なら、緩衝帯
+            ``buffer_m`` の fold の学習側を、この緩衝帯をかけたときの fold ごとの学習セル数
+            までランダムに間引く。0 なら間引かない。
         populations: ``satellite_only``・``limited`` をキーとする有効母集団。
         limited_feature_columns: Limited の投入候補の列。
         args: ``parse_arguments`` の戻り値（RF 本数・残差の分析条件）。
@@ -687,6 +717,11 @@ def run_config(
     cell_ids = cells[CELL_ID_COLUMN].to_numpy(dtype=np.int64)
     row, col = split_cell_id(cell_ids)
     buffered_folds, buffer_info = apply_spatial_buffer(folds, row, col, scale, buffer_m)
+    if thinned_to_buffer_m:
+        _, matched_info = apply_spatial_buffer(folds, row, col, scale, thinned_to_buffer_m)
+        buffered_folds, buffer_info = thin_training_folds(
+            buffered_folds, [info["n_train_after"] for info in matched_info], seed
+        )
 
     satellite_sample = select_evaluation_rows(populations["satellite_only"], cells)
     limited_sample, kept, _ = repeat.prepare_limited_sample(
@@ -701,7 +736,7 @@ def run_config(
         "limited": (limited_sample, kept, limited.TARGET_COLUMN),
     }
 
-    # 残差の部分標本は、シナリオ・モデル・緩衝帯をまたいで同じセルにそろえる
+    # 残差の部分標本は、シナリオ・モデル・緩衝帯・間引きをまたいで同じセルにそろえる
     subsample = draw_subsample_indices(len(cells), args.residual_sample_size, seed)
     fold_frames = []
     residual_values: dict[str, np.ndarray] = {}
@@ -744,7 +779,7 @@ def summarize_sweep(fold_table: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         fold_table: 全設定の fold 別指標（``seed``・``block_size_m``・``buffer_m``・
-            ``scenario`` 列を持つ）。
+            ``thinned_to_buffer_m``・``scenario`` 列を持つ）。
     Returns:
         設定・シナリオごとの fold 平均（R²・RMSE・MAE・学習セル数・除外数）の表。
         シード間の平均と sd は ``summarize_across_seeds`` で求める。
@@ -754,7 +789,7 @@ def summarize_sweep(fold_table: pd.DataFrame) -> pd.DataFrame:
         for column in fold_table.columns
         if column.startswith(("linear_", "rf_")) or column in ("train_size", "n_excluded")
     ]
-    keys = ["block_size_m", "buffer_m", "scenario", "seed"]
+    keys = [*CONFIG_KEYS, "scenario", "seed"]
     return fold_table.groupby(keys)[metric_columns].mean().reset_index()
 
 
@@ -764,10 +799,10 @@ def summarize_across_seeds(per_seed: pd.DataFrame) -> pd.DataFrame:
     Args:
         per_seed: ``summarize_sweep`` の戻り値。
     Returns:
-        ブロックサイズ・緩衝帯・シナリオごとの、各指標の平均（列名そのまま）と
+        ブロックサイズ・緩衝帯・学習量の対照・シナリオごとの、各指標の平均（列名そのまま）と
         sd（``_sd`` 接尾辞。シードが1本なら NaN）の表。
     """
-    keys = ["block_size_m", "buffer_m", "scenario"]
+    keys = [*CONFIG_KEYS, "scenario"]
     metrics = [column for column in per_seed.columns if column not in (*keys, "seed")]
     grouped = per_seed.groupby(keys)[metrics]
     mean = grouped.mean()
@@ -777,6 +812,8 @@ def summarize_across_seeds(per_seed: pd.DataFrame) -> pd.DataFrame:
 
 def plot_sweep(summary: pd.DataFrame, path: Path) -> None:
     """ブロックサイズに対する out-of-fold R² を、緩衝帯ごとの線で描く。
+
+    学習量の対照は、合わせた緩衝帯ごとの破線で描く。
 
     Args:
         summary: ``summarize_across_seeds`` の戻り値。
@@ -789,24 +826,84 @@ def plot_sweep(summary: pd.DataFrame, path: Path) -> None:
         for col_no, model in enumerate(MODELS):
             ax = axes[row_no, col_no]
             data = summary[summary["scenario"] == scenario]
-            for buffer_m, group in data.groupby("buffer_m"):
+            for (buffer_m, thinned_m), group in data.groupby(["buffer_m", "thinned_to_buffer_m"]):
                 group = group.sort_values("block_size_m")
+                label = f"buffer {buffer_m:g} m"
+                if thinned_m:
+                    label = f"no buffer, train thinned as buffer {thinned_m:g} m"
                 ax.errorbar(
                     group["block_size_m"] / 1000,
                     group[f"{model}_r2"],
                     yerr=group[f"{model}_r2_sd"].fillna(0),
-                    marker="o",
+                    marker="x" if thinned_m else "o",
+                    linestyle="--" if thinned_m else "-",
                     capsize=3,
-                    label=f"buffer {buffer_m:g} m",
+                    label=label,
                 )
             ax.set_title(f"{scenario} / {model}")
             ax.set_xlabel("Block size (km)")
             ax.set_ylabel("Out-of-fold R2 (fold mean)")
             ax.grid(alpha=0.3)
-    axes[0, 0].legend()
+    axes[0, 0].legend(fontsize="x-small")
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def resolve_config_grid(
+    buffers_m: Sequence[float], thinning_buffers_m: Sequence[float]
+) -> list[tuple[float, float]]:
+    """1つのシード・ブロックサイズで回す（緩衝帯, 学習量の対照で合わせる緩衝帯）の組を求める。
+
+    Args:
+        buffers_m: 緩衝帯の一覧。
+        thinning_buffers_m: 学習量の対照で合わせる緩衝帯の一覧（緩衝帯なしで間引く）。
+    Returns:
+        ``(buffer_m, thinned_to_buffer_m)`` のリスト。緩衝帯の設定が先、対照が後。
+    """
+    return [(float(buffer_m), 0.0) for buffer_m in buffers_m] + [
+        (0.0, float(thinned_m)) for thinned_m in thinning_buffers_m
+    ]
+
+
+def collect_completed_configs(
+    intermediate_dir: Path, run_conditions: Mapping[str, Any]
+) -> dict[str, Any]:
+    """途中結果の保存先から、今回と同じ実行条件の完了済み設定をすべて集める。
+
+    格子の一部を足す実行を複数回に分けても1つの結果にまとめるためである。実行条件
+    （コード・データセットのハッシュを含む）が違う設定は集めない。
+
+    Args:
+        intermediate_dir: 途中結果の保存先。
+        run_conditions: 今回の実行条件。
+    Returns:
+        ``folds``・``correlograms``・``residual_semivariograms``（設定の列つきの
+        データフレーム）と ``records``（設定ごとの完了印の抜粋のリスト）の辞書。
+    Raises:
+        ValueError: 集める設定が1つも無い場合。
+    """
+    frames: dict[str, list[pd.DataFrame]] = {
+        "folds": [],
+        "correlograms": [],
+        "residual_semivariograms": [],
+    }
+    records = []
+    for summary_path in sorted(intermediate_dir.glob("*_summary.json")):
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        if summary.get(RUN_CONDITIONS_KEY) != dict(run_conditions):
+            continue
+        paths = config_paths(intermediate_dir, summary_path.name.removesuffix("_summary.json"))
+        columns = {"seed": summary["seed"], **{key: summary[key] for key in CONFIG_KEYS}}
+        for name, items in frames.items():
+            items.append(pd.read_csv(paths[name]).assign(**columns))
+        records.append({key: summary[key] for key in CONFIG_RECORD_KEYS})
+    if not records:
+        raise ValueError(f"集計できる完了済みの設定がありません: {intermediate_dir}")
+    return {
+        **{name: pd.concat(items, ignore_index=True) for name, items in frames.items()},
+        "records": records,
+    }
 
 
 def run_sweep_command(args: argparse.Namespace) -> None:
@@ -847,7 +944,7 @@ def run_sweep_command(args: argparse.Namespace) -> None:
     common_cell_ids, populations = repeat.build_populations(evaluation_set)
     print(f"共通集合: {len(common_cell_ids):,} セル。シード: {seeds}")
 
-    fold_frames, correlogram_frames, lag_frames, records = [], [], [], []
+    grid = resolve_config_grid(args.buffers_m, args.thinning_buffers_m)
     for seed in seeds:
         for block_size_m in args.block_sizes_m:
             cells, sample_summary = draw_evaluation_cells(
@@ -869,67 +966,51 @@ def run_sweep_command(args: argparse.Namespace) -> None:
                     f"一致しません（{cells_path}）。"
                 )
             design = summarize_block_design(cells)
-            for buffer_m in args.buffers_m:
-                key = config_key(seed, block_size_m, buffer_m)
+            for buffer_m, thinned_m in grid:
+                key = config_key(seed, block_size_m, buffer_m, thinned_m)
                 paths = config_paths(intermediate_dir, key)
                 print(f"  {key}:")
                 started = time.perf_counter()
-                completed = load_completed_config(paths, digest, run_conditions)
-                if completed is None:
-                    outcome = run_config(
-                        seed,
-                        cells,
-                        buffer_m,
-                        populations,
-                        limited_feature_columns,
-                        args,
-                        scale,
-                        cv_splits,
-                    )
-                    outcome["folds"].to_csv(paths["folds"], index=False)
-                    outcome["correlograms"].to_csv(paths["correlograms"], index=False)
-                    outcome["residual_semivariograms"].to_csv(
-                        paths["residual_semivariograms"], index=False
-                    )
-                    outcome["residuals"].to_csv(paths["residuals"], index=False)
-                    summary = {
-                        "seed": seed,
-                        "block_size_m": block_size_m,
-                        "buffer_m": buffer_m,
-                        "digest": digest,
-                        RUN_CONDITIONS_KEY: run_conditions,
-                        "sample": sample_summary,
-                        "block_design": design,
-                        "buffer": outcome["buffer"],
-                        "limited_features": outcome["limited_features"],
-                        "residual_semivariograms": outcome["residual_semivariogram_summaries"],
-                        "elapsed_seconds": time.perf_counter() - started,
-                    }
-                    # 完了印は他の途中結果を保存した後に書く（途中で止まった設定を完了扱いしない）
-                    save_summary(summary, paths["summary"])
-                    completed = {**outcome, "summary": summary}
-                    print(f"    完了（{summary['elapsed_seconds']:.0f} 秒）")
-                else:
+                if load_completed_config(paths, digest, run_conditions) is not None:
                     print("    途中結果を再利用します。")
-                config_columns = {"seed": seed, "block_size_m": block_size_m, "buffer_m": buffer_m}
-                fold_frames.append(completed["folds"].assign(**config_columns))
-                correlogram_frames.append(completed["correlograms"].assign(**config_columns))
-                lag_frames.append(completed["residual_semivariograms"].assign(**config_columns))
-                records.append(
-                    {
-                        key_: completed["summary"][key_]
-                        for key_ in (
-                            "seed",
-                            "block_size_m",
-                            "buffer_m",
-                            "block_design",
-                            "buffer",
-                            "elapsed_seconds",
-                        )
-                    }
+                    continue
+                outcome = run_config(
+                    seed,
+                    cells,
+                    buffer_m,
+                    thinned_m,
+                    populations,
+                    limited_feature_columns,
+                    args,
+                    scale,
+                    cv_splits,
                 )
+                outcome["folds"].to_csv(paths["folds"], index=False)
+                outcome["correlograms"].to_csv(paths["correlograms"], index=False)
+                outcome["residual_semivariograms"].to_csv(
+                    paths["residual_semivariograms"], index=False
+                )
+                outcome["residuals"].to_csv(paths["residuals"], index=False)
+                summary = {
+                    "seed": seed,
+                    "block_size_m": block_size_m,
+                    "buffer_m": buffer_m,
+                    "thinned_to_buffer_m": thinned_m,
+                    "digest": digest,
+                    RUN_CONDITIONS_KEY: run_conditions,
+                    "sample": sample_summary,
+                    "block_design": design,
+                    "buffer": outcome["buffer"],
+                    "limited_features": outcome["limited_features"],
+                    "residual_semivariograms": outcome["residual_semivariogram_summaries"],
+                    "elapsed_seconds": time.perf_counter() - started,
+                }
+                # 完了印は他の途中結果を保存した後に書く（途中で止まった設定を完了扱いしない）
+                save_summary(summary, paths["summary"])
+                print(f"    完了（{summary['elapsed_seconds']:.0f} 秒）")
 
-    fold_table = pd.concat(fold_frames, ignore_index=True)
+    collected = collect_completed_configs(intermediate_dir, run_conditions)
+    fold_table = collected["folds"]
     per_seed = summarize_sweep(fold_table)
     summary_table = summarize_across_seeds(per_seed)
     outputs = {
@@ -941,17 +1022,14 @@ def run_sweep_command(args: argparse.Namespace) -> None:
     }
     fold_table.to_csv(outputs["folds_csv"], index=False)
     summary_table.to_csv(outputs["summary_csv"], index=False)
-    pd.concat(correlogram_frames, ignore_index=True).to_csv(
-        outputs["correlograms_csv"], index=False
-    )
-    pd.concat(lag_frames, ignore_index=True).to_csv(
-        outputs["residual_semivariograms_csv"], index=False
-    )
+    collected["correlograms"].to_csv(outputs["correlograms_csv"], index=False)
+    collected["residual_semivariograms"].to_csv(outputs["residual_semivariograms_csv"], index=False)
     plot_sweep(summary_table, outputs["figure"])
 
     result = {
         "description": (
-            "共通評価セル集合の標本で、ブロックサイズ × 緩衝帯 × シードの各設定の Spatial CV を"
+            "共通評価セル集合の標本で、ブロックサイズ × 緩衝帯（と学習量の対照）× シードの"
+            "各設定の Spatial CV を"
             "評価し、out-of-fold 残差の空間自己相関を測った結果。"
         ),
         "evaluation_cells": to_project_relative_string(cells_path),
@@ -959,16 +1037,19 @@ def run_sweep_command(args: argparse.Namespace) -> None:
         "analysis_area": metadata["analysis_area"],
         "common_size": int(len(common_cell_ids)),
         "sample_size": metadata["sample_size"],
-        "seeds": seeds,
-        "block_sizes_m": list(args.block_sizes_m),
-        "buffers_m": list(args.buffers_m),
+        "seeds": sorted({record["seed"] for record in collected["records"]}),
+        "block_sizes_m": sorted({record["block_size_m"] for record in collected["records"]}),
+        "buffers_m": sorted({record["buffer_m"] for record in collected["records"]}),
+        "thinned_to_buffers_m": sorted(
+            {record["thinned_to_buffer_m"] for record in collected["records"]} - {0.0}
+        ),
         "lag_width_m": LAG_WIDTH_M,
         "block_design_criteria": {
             "min_blocks": MIN_BLOCKS,
             "max_fold_size_ratio": MAX_FOLD_SIZE_RATIO,
         },
         RUN_CONDITIONS_KEY: {k: v for k, v in run_conditions.items() if k != "dataset_sha256"},
-        "configs": records,
+        "configs": collected["records"],
         # シードが1本のときの sd は NaN になる。JSON には NaN を書けないため null にする
         "summary": summary_table.astype(object)
         .where(summary_table.notna(), None)
@@ -981,9 +1062,14 @@ def run_sweep_command(args: argparse.Namespace) -> None:
                 "評価側は変えない。"
             ),
             (
+                "thinned_to_buffer_m が正の設定は学習量の対照: 緩衝帯なしで、その緩衝帯を"
+                "かけたときと同じ fold ごとの学習セル数までランダムに間引く。"
+            ),
+            (
                 "残差 = 観測 LST − 予測（°C）。Moran's I は二値の距離帯の重みを行標準化し、"
                 "孤立点は帯ごとに除く。"
             ),
+            "集計は途中結果の保存先にある、同じ実行条件の完了済み設定すべてを対象とする。",
         ],
     }
     result["provenance"] = build_provenance(

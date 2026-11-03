@@ -200,3 +200,53 @@ def apply_spatial_buffer(
             }
         )
     return buffered_folds, fold_info
+
+
+def thin_training_folds(
+    folds: list[tuple[np.ndarray, np.ndarray]],
+    train_sizes: list[int],
+    seed: int,
+) -> tuple[list[tuple[np.ndarray, np.ndarray]], list[dict[str, int]]]:
+    """各foldの学習側を、指定した件数までランダムに間引く（学習量の対照）。
+
+    緩衝帯（``apply_spatial_buffer``）は評価セルの近くの学習セルを除くため、空間リークの
+    除去と同時に学習量も減らす。緩衝帯を使わずに同じ件数までランダムに間引いた対照と
+    比べることで、精度低下のうち学習量の減少による分を切り分ける。評価側は変えない。
+
+    Args:
+        folds: ``split_by_spatial_blocks`` の戻り値（(train_idx, test_idx) のリスト）。
+        train_sizes: foldごとの間引き後の学習セル数（例: 緩衝帯を適用したときの
+            ``n_train_after``）。
+        seed: 間引きの乱数シード。
+    Returns:
+        間引いた (train_idx, test_idx) のリストと、foldごとの
+        ``{"n_train_before", "n_train_after", "n_excluded", "n_test"}`` のリスト
+        （``apply_spatial_buffer`` と同じ形式）。学習側は元の順序を保つ。
+    Raises:
+        ValueError: ``train_sizes`` の長さがfold数と違う場合、件数が1未満または
+            元の学習セル数を超える場合。
+    """
+    if len(train_sizes) != len(folds):
+        raise ValueError(
+            f"train_sizes の長さ（{len(train_sizes)}）がfold数（{len(folds)}）と一致しません。"
+        )
+    rng = np.random.default_rng(seed)
+    thinned_folds = []
+    fold_info = []
+    for fold_no, ((train_idx, test_idx), size) in enumerate(zip(folds, train_sizes, strict=True)):
+        if not 1 <= size <= len(train_idx):
+            raise ValueError(
+                f"fold {fold_no} の間引き後の学習セル数（{size}）は1以上・元の学習セル数"
+                f"（{len(train_idx)}）以下である必要があります。"
+            )
+        keep = np.sort(rng.choice(len(train_idx), size=int(size), replace=False))
+        thinned_folds.append((train_idx[keep], test_idx))
+        fold_info.append(
+            {
+                "n_train_before": int(len(train_idx)),
+                "n_train_after": int(size),
+                "n_excluded": int(len(train_idx) - size),
+                "n_test": int(len(test_idx)),
+            }
+        )
+    return thinned_folds, fold_info

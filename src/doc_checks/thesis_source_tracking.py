@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import argparse
+import posixpath
 import re
 import subprocess
 import sys
@@ -42,16 +43,19 @@ SHORT_HASH_LENGTH = 10
 KIND_UPDATED = "正本が更新された"
 KIND_MISSING = "正本が見つからない"
 KIND_NO_HASH = "ハッシュ未記録"
+KIND_NO_SOURCES = "正本未記入"
 KIND_MALFORMED = "書式不正"
 
 # 本文が無く追従の対象にならない節の状態（この状態の節は検査しない）
 UNSTARTED_STATE = "未着手"
 
+_BOM = chr(0xFEFF)
+_COMMENT_END = "-->"
 _STATE_PATTERN = re.compile(r"^状態\s*[:：]\s*(?P<state>\S+)\s*$")
-_SOURCES_KEY_PATTERN = re.compile(r"^依拠する正本\s*[:：]\s*$")
-_ENTRY_PATTERN = re.compile(r"^\s+-\s+(?P<path>\S+)(?:\s+@\s+(?P<hash>[0-9a-fA-F]{7,40}))?\s*$")
-_ENTRY_LINE_PATTERN = re.compile(r"^\s+-\s")
-_PLACEHOLDER_PATTERN = re.compile(r"^\s+-\s+（.*）\s*$")
+_SOURCES_KEY_PATTERN = re.compile(r"^依拠する正本\s*[:：]\s*(?P<rest>.*)$")
+_ENTRY_PATTERN = re.compile(r"^\s*-\s+(?P<path>\S+)(?:\s+@\s+(?P<hash>[0-9a-fA-F]{7,40}))?\s*$")
+_ENTRY_LINE_PATTERN = re.compile(r"^\s*-\s")
+_PLACEHOLDER_PATTERN = re.compile(r"^\s*-\s+（.*）\s*$")
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,8 @@ class _ParsedSection:
     references: list[SourceReference]
     malformed: list[TrackingFinding]
     state: str | None = None
+    placeholder_line: int | None = None
+    section_file: str = ""
 
 
 def collect_section_files(project_root: Path = PROJECT_ROOT) -> list[Path]:
@@ -113,65 +119,87 @@ def parse_section_sources(text: str, section_file: str) -> _ParsedSection:
     """節ファイル冒頭のメタ情報欄から「依拠する正本」を抽出する。
 
     メタ情報欄はファイル先頭の HTML コメント（`<!--` 〜 `-->`）とする。
-    「依拠する正本:」の行に続く字下げされた `- ` 行を1件ずつ読む。
-    `- （執筆時に記入）` のような全角括弧だけのプレースホルダは無視する。
-    あわせて「状態:」の値も読む。
+    「依拠する正本:」の行に続く `- ` 行を1件ずつ読む（空行は読み飛ばし、
+    `- ` で始まらない行が来たら欄の終わりとする）。
+    `- （執筆時に記入）` のような全角括弧だけのプレースホルダは正本として扱わず、
+    残っていることだけを記録する。あわせて「状態:」の値も読む。
 
     Args:
         text: 節ファイルの本文。
         section_file: 結果に記録する節ファイルのパス（表示用）。
     Returns:
-        抽出した正本の一覧、書式に合わない行の一覧、状態。
+        抽出した正本の一覧、書式に合わない行の一覧、状態、プレースホルダの行番号。
     """
     references: list[SourceReference] = []
     malformed: list[TrackingFinding] = []
     state: str | None = None
+    placeholder_line: int | None = None
 
     lines = text.splitlines()
-    if not lines or not lines[0].lstrip("﻿").startswith("<!--"):
-        return _ParsedSection(references, malformed)
+    first_line = lines[0].lstrip(_BOM) if lines else ""
+    # 1行で閉じたコメント（`<!-- ... -->`）は「依拠する正本」の欄を持たない
+    if not first_line.startswith("<!--") or _COMMENT_END in first_line:
+        return _ParsedSection(references, malformed, section_file=section_file)
 
     in_sources = False
-    for index, line in enumerate(lines[1:], start=2):
-        if line.strip().startswith("-->"):
-            break
+    for index, raw_line in enumerate(lines[1:], start=2):
+        # 行の途中で `-->` が現れた場合も、そこまでをメタ情報欄として読む
+        line, comment_end, _ = raw_line.partition(_COMMENT_END)
+        is_last_line = bool(comment_end)
+        if not line.strip():
+            if is_last_line:
+                break
+            continue
         state_match = _STATE_PATTERN.match(line)
+        sources_match = _SOURCES_KEY_PATTERN.match(line)
         if state_match:
             state = state_match.group("state")
             in_sources = False
-            continue
-        if _SOURCES_KEY_PATTERN.match(line):
+        elif sources_match:
             in_sources = True
-            continue
-        if not in_sources:
-            continue
-        if not _ENTRY_LINE_PATTERN.match(line):
-            # 字下げされた `- ` 以外の行が来たら「依拠する正本」の欄は終わり
+            if sources_match.group("rest").strip():
+                # 「依拠する正本: docs/a.md」のような1行書きは書式に合わない
+                malformed.append(_malformed(section_file, index, line))
+        elif not in_sources:
+            pass
+        elif not _ENTRY_LINE_PATTERN.match(line):
+            # `- ` で始まらない行が来たら「依拠する正本」の欄は終わり
             in_sources = False
-            continue
-        if _PLACEHOLDER_PATTERN.match(line):
-            continue
-        match = _ENTRY_PATTERN.match(line)
-        if match is None:
-            malformed.append(
-                TrackingFinding(
+        elif _PLACEHOLDER_PATTERN.match(line):
+            placeholder_line = index
+        elif (match := _ENTRY_PATTERN.match(line)) is None:
+            malformed.append(_malformed(section_file, index, line))
+        else:
+            recorded_hash = match.group("hash")
+            references.append(
+                SourceReference(
                     section_file=section_file,
                     line=index,
-                    kind=KIND_MALFORMED,
-                    source_path=line.strip(),
+                    path=match.group("path"),
+                    recorded_hash=recorded_hash.lower() if recorded_hash else None,
                 )
             )
-            continue
-        recorded_hash = match.group("hash")
-        references.append(
-            SourceReference(
-                section_file=section_file,
-                line=index,
-                path=match.group("path"),
-                recorded_hash=recorded_hash.lower() if recorded_hash else None,
-            )
-        )
-    return _ParsedSection(references, malformed, state)
+        if is_last_line:
+            break
+    return _ParsedSection(references, malformed, state, placeholder_line, section_file)
+
+
+def _malformed(section_file: str, line_number: int, line: str) -> TrackingFinding:
+    """書式不正の検出結果を1件作る。
+
+    Args:
+        section_file: 節ファイルのパス（表示用）。
+        line_number: 書式に合わない行の行番号。
+        line: 書式に合わない行の内容。
+    Returns:
+        書式不正の検出結果。
+    """
+    return TrackingFinding(
+        section_file=section_file,
+        line=line_number,
+        kind=KIND_MALFORMED,
+        source_path=line.strip(),
+    )
 
 
 def resolve_object_hashes(
@@ -186,7 +214,8 @@ def resolve_object_hashes(
 
     Args:
         project_root: git リポジトリのルートディレクトリ。
-        paths: リポジトリルートからの相対パス（`/` 区切り。末尾の `/` は無視する）。
+        paths: リポジトリルートからの相対パス
+            （`./` や末尾の `/`、`\\` 区切りは正規化して照合する）。
         revision: 比較の基準とするリビジョン。
     Returns:
         入力どおりのパス → 完全なハッシュ。リビジョンに存在しないパスは含まない。
@@ -194,7 +223,7 @@ def resolve_object_hashes(
         RuntimeError: git が無い・リポジトリ外・リビジョンが無いなどで git の実行に失敗した場合
             （「正本が見つからない」と区別できなくなるため、空の結果にせず例外にする）。
     """
-    requested = {path: path.rstrip("/") for path in paths}
+    requested = {path: _normalize_source_path(path) for path in paths}
     lookup_paths = sorted({path for path in requested.values() if path})
     if not lookup_paths:
         return {}
@@ -223,6 +252,20 @@ def resolve_object_hashes(
     return {path: found[lookup] for path, lookup in requested.items() if lookup in found}
 
 
+def _normalize_source_path(path: str) -> str:
+    """正本のパスを git の出力（`/` 区切り・ルートからの相対）と照合できる形にする。
+
+    Args:
+        path: 節ファイルに記録されたパス。
+    Returns:
+        正規化したパス。リポジトリの外を指す・空になる場合は空文字列（照合しない）。
+    """
+    normalized = posixpath.normpath(path.replace("\\", "/"))
+    if normalized in (".", "") or normalized.startswith(("../", "/")) or normalized == "..":
+        return ""
+    return normalized
+
+
 def check_thesis_source_tracking(
     project_root: Path = PROJECT_ROOT,
     revision: str = "HEAD",
@@ -230,12 +273,16 @@ def check_thesis_source_tracking(
     """論文の各節が依拠する正本の更新を検出する。
 
     状態が「未着手」の節は、追従すべき本文が無いため検査しない。
+    それ以外の状態で、正本が1件も無くプレースホルダが残っている節は「正本未記入」とする
+    （依拠する正本が無い節は、プレースホルダの行を消して明示する運用とする）。
 
     Args:
         project_root: プロジェクトのルートディレクトリ（git リポジトリ）。
         revision: 正本の現在の版とみなすリビジョン。
     Returns:
-        要見直し・ハッシュ未記録・書式不正の一覧（節ファイル・行の順）。
+        要見直し・ハッシュ未記録・正本未記入・書式不正の一覧（節ファイル・行の順）。
+    Raises:
+        RuntimeError: git の実行に失敗した場合。
     """
     parsed_sections = [
         parsed
@@ -252,6 +299,16 @@ def check_thesis_source_tracking(
     current_hashes = resolve_object_hashes(project_root, (ref.path for ref in references), revision)
 
     findings = [finding for parsed in parsed_sections for finding in parsed.malformed]
+    findings.extend(
+        TrackingFinding(
+            section_file=parsed.section_file,
+            line=parsed.placeholder_line,
+            kind=KIND_NO_SOURCES,
+            source_path="（依拠する正本が未記入）",
+        )
+        for parsed in parsed_sections
+        if not parsed.references and parsed.placeholder_line is not None
+    )
     for ref in references:
         finding = _compare_reference(ref, current_hashes.get(ref.path))
         if finding is not None:
@@ -289,24 +346,42 @@ def _compare_reference(
     )
 
 
+@dataclass(frozen=True)
+class StampResult:
+    """`--stamp` で1つの節ファイルを処理した結果。"""
+
+    stamped: int
+    not_found: list[str]
+    malformed: list[TrackingFinding]
+
+    @property
+    def is_ok(self) -> bool:
+        """1件以上を記録でき、記録できなかった行が無いかを返す。"""
+        return self.stamped > 0 and not self.not_found and not self.malformed
+
+
 def stamp_section_sources(
     section_file: Path,
     project_root: Path = PROJECT_ROOT,
     revision: str = "HEAD",
-) -> list[str]:
+) -> StampResult:
     """節ファイルの「依拠する正本」のハッシュを現在の値に書き換える。
 
-    改行コードを含め、該当行以外の内容は変更しない。
-    リビジョンに存在しない正本の行は書き換えず、そのパスを返す。
+    改行コードを含め、該当行以外の内容は変更しない。内容が変わらない場合は書き込まない。
+    リビジョンに存在しない正本の行と書式に合わない行は書き換えず、結果として返す。
 
     Args:
         section_file: 書き換える節ファイル（絶対パス、または project_root からの相対パス）。
         project_root: プロジェクトのルートディレクトリ（git リポジトリ）。
         revision: 記録するハッシュの基準とするリビジョン。
     Returns:
-        リビジョンに見つからず書き換えなかった正本のパスの一覧。
+        記録した件数、見つからなかった正本のパス、書式不正の行。
+    Raises:
+        FileNotFoundError: 節ファイルが存在しない場合。
     """
     target = section_file if section_file.is_absolute() else project_root / section_file
+    if not target.is_file():
+        raise FileNotFoundError(f"節ファイルが見つかりません: {target}")
     raw_text = target.read_bytes().decode("utf-8")
     parsed = parse_section_sources(raw_text, section_file.as_posix())
     current_hashes = resolve_object_hashes(
@@ -316,6 +391,7 @@ def stamp_section_sources(
     # 改行コードを保持するため、行末の改行を残したまま行単位で置き換える
     lines = raw_text.splitlines(keepends=True)
     not_found: list[str] = []
+    stamped = 0
     for ref in parsed.references:
         current_hash = current_hashes.get(ref.path)
         if current_hash is None:
@@ -326,8 +402,11 @@ def stamp_section_sources(
         newline = original[len(body) :]
         indent = body[: len(body) - len(body.lstrip())]
         lines[ref.line - 1] = f"{indent}- {ref.path} @ {current_hash[:SHORT_HASH_LENGTH]}{newline}"
-    target.write_bytes("".join(lines).encode("utf-8"))
-    return not_found
+        stamped += 1
+    new_text = "".join(lines)
+    if new_text != raw_text:
+        target.write_bytes(new_text.encode("utf-8"))
+    return StampResult(stamped=stamped, not_found=not_found, malformed=parsed.malformed)
 
 
 def format_finding(finding: TrackingFinding) -> str:
@@ -345,6 +424,32 @@ def format_finding(finding: TrackingFinding) -> str:
     return text
 
 
+def _stamp_and_report(section_file: Path, project_root: Path) -> bool:
+    """1つの節ファイルに `--stamp` を実行し、結果を表示する。
+
+    Args:
+        section_file: 書き換える節ファイル。
+        project_root: プロジェクトのルートディレクトリ。
+    Returns:
+        記録が成功した（1件以上記録し、記録できなかった行が無い）場合は True。
+    """
+    label = section_file.as_posix()
+    try:
+        result = stamp_section_sources(section_file, project_root)
+    except FileNotFoundError as error:
+        print(f"[NG] {error}")
+        return False
+    for path in result.not_found:
+        print(f"[NG] {label}: 正本が HEAD に見つからない: {path}")
+    for finding in result.malformed:
+        print(f"[NG] {label}:{finding.line}: 書式不正のため記録しなかった: {finding.source_path}")
+    if result.stamped == 0 and not result.not_found and not result.malformed:
+        print(f"[NG] {label}: 記録する正本がありません（「依拠する正本」にパスを書いてください）")
+    if result.is_ok:
+        print(f"[OK] {label}: 正本のハッシュを記録しました（{result.stamped} 件）")
+    return result.is_ok
+
+
 def main(argv: list[str] | None = None, project_root: Path = PROJECT_ROOT) -> int:
     """検出結果を表示する。`--stamp` 指定時は節ファイルのハッシュを書き換える。
 
@@ -352,7 +457,9 @@ def main(argv: list[str] | None = None, project_root: Path = PROJECT_ROOT) -> in
         argv: コマンドライン引数（None の場合は sys.argv を使う）。
         project_root: プロジェクトのルートディレクトリ。
     Returns:
-        終了コード。検出のみの場合は常に0、`--stamp` で正本が見つからない行があれば1。
+        終了コード。検出のみの場合は0（git の実行に失敗した場合は1）。
+        `--stamp` では、記録できなかった行がある・記録する正本が1件も無い・
+        節ファイルが無い場合に1。
     """
     parser = argparse.ArgumentParser(description="論文の節が依拠する正本の更新を検出する")
     parser.add_argument(
@@ -360,22 +467,20 @@ def main(argv: list[str] | None = None, project_root: Path = PROJECT_ROOT) -> in
         nargs="+",
         type=Path,
         metavar="SECTION_FILE",
-        help="指定した節ファイルの正本のハッシュを HEAD 時点の値に書き換える",
+        help="指定した節ファイル（リポジトリルートからの相対パス）の正本のハッシュを"
+        " HEAD 時点の値に書き換える",
     )
     args = parser.parse_args(argv)
 
     if args.stamp:
-        exit_code = 0
-        for section_file in args.stamp:
-            not_found = stamp_section_sources(section_file, project_root)
-            for path in not_found:
-                exit_code = 1
-                print(f"[NG] {section_file.as_posix()}: 正本が HEAD に見つからない: {path}")
-            if not not_found:
-                print(f"[OK] {section_file.as_posix()}: 正本のハッシュを記録しました")
-        return exit_code
+        results = [_stamp_and_report(section_file, project_root) for section_file in args.stamp]
+        return 0 if all(results) else 1
 
-    findings = check_thesis_source_tracking(project_root)
+    try:
+        findings = check_thesis_source_tracking(project_root)
+    except RuntimeError as error:
+        print(f"[NG] {error}")
+        return 1
     if not findings:
         print("[OK] 論文の各節が依拠する正本に更新はありません。")
     for finding in findings:

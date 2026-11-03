@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from src.doc_checks.thesis_source_tracking import (
     KIND_MALFORMED,
     KIND_MISSING,
     KIND_NO_HASH,
+    KIND_NO_SOURCES,
     KIND_UPDATED,
     check_thesis_source_tracking,
     main,
@@ -22,11 +24,13 @@ _SECTION = "thesis/chapters/01_introduction/01_background.md"
 
 
 def _git(args: list[str], cwd: Path) -> str:
+    """git を実行し、標準出力を返す。"""
     result = subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
     return result.stdout.decode("utf-8").strip()
 
 
 def _init_repo(repo_dir: Path) -> None:
+    """テスト用の git リポジトリを作る（改行コードの自動変換は無効にする）。"""
     _git(["init", "-q"], repo_dir)
     _git(["config", "user.email", "test@example.com"], repo_dir)
     _git(["config", "user.name", "Test"], repo_dir)
@@ -35,21 +39,25 @@ def _init_repo(repo_dir: Path) -> None:
 
 
 def _write(repo_dir: Path, relative_path: str, content: str) -> None:
+    """改行コードを変換せずに UTF-8 でファイルを書く。"""
     path = repo_dir / relative_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content.encode("utf-8"))
 
 
 def _commit_all(repo_dir: Path) -> None:
+    """作業ツリーの変更をすべてコミットする。"""
     _git(["add", "-A"], repo_dir)
     _git(["commit", "-q", "-m", "test commit"], repo_dir)
 
 
 def _blob_hash(repo_dir: Path, relative_path: str) -> str:
+    """HEAD 時点のパスのオブジェクトハッシュを返す。"""
     return _git(["rev-parse", f"HEAD:{relative_path}"], repo_dir)
 
 
 def _section(sources: list[str], state: str = "執筆中") -> str:
+    """指定した正本の行を持つ節ファイルの本文を作る。"""
     entries = "".join(f"  - {source}\n" for source in sources)
     return (
         "<!--\n"
@@ -274,6 +282,94 @@ def test_no_thesis_directory(tmp_path: Path) -> None:
     assert check_thesis_source_tracking(project_root=tmp_path) == []
 
 
+def test_placeholder_in_started_section_is_reported(tmp_path: Path) -> None:
+    """未着手以外の節でプレースホルダのままなら「正本未記入」として検出する。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["（執筆時に記入）"], "確定"))
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [(finding.kind, finding.line) for finding in findings] == [(KIND_NO_SOURCES, 5)]
+
+
+def test_empty_sources_without_placeholder_is_not_reported(tmp_path: Path) -> None:
+    """プレースホルダを消して正本を空にした節は、依拠する正本が無いものとして扱う。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([], "確定"))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_dot_slash_path_is_resolved(tmp_path: Path) -> None:
+    """`./docs/a.md` のような書き方でも正本を照合できる。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"./docs/a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_parse_entry_without_indent() -> None:
+    """字下げの無い `- パス @ ハッシュ` も正本として読む。"""
+    text = "<!--\n状態: 執筆中\n依拠する正本:\n- docs/a.md @ 0123456789\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def test_parse_skips_blank_line_after_key() -> None:
+    """「依拠する正本:」の直後の空行は読み飛ばす。"""
+    text = "<!--\n依拠する正本:\n\n  - docs/a.md @ 0123456789\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def test_parse_one_line_key_is_malformed() -> None:
+    """「依拠する正本: docs/a.md」のような1行書きは書式不正とする。"""
+    text = "<!--\n依拠する正本: docs/a.md\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+    assert [(finding.kind, finding.line) for finding in parsed.malformed] == [(KIND_MALFORMED, 2)]
+
+
+def test_parse_comment_closed_at_end_of_entry_line() -> None:
+    """行末で `-->` が閉じる場合も、その行までを読み、本文は読まない。"""
+    text = (
+        "<!--\n依拠する正本:\n  - docs/a.md @ 0123456789 -->\n"
+        "\n依拠する正本:\n  - docs/b.md @ 0123456789\n"
+    )
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+    assert parsed.malformed == []
+
+
+def test_parse_single_line_comment_has_no_sources() -> None:
+    """1行で閉じたコメントの後の本文は解析しない。"""
+    text = "<!-- 状態: 執筆中 -->\n\n依拠する正本:\n  - docs/a.md @ 0123456789\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+
+
+def test_parse_with_bom() -> None:
+    """BOM 付きのファイルでもメタ情報欄を読む。"""
+    text = chr(0xFEFF) + _section(["docs/a.md @ 0123456789"])
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
 # --- 記録（--stamp） ---
 
 
@@ -287,9 +383,10 @@ def test_stamp_records_current_hash(tmp_path: Path) -> None:
     _commit_all(tmp_path)
     assert len(check_thesis_source_tracking(project_root=tmp_path)) == 2
 
-    not_found = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
 
-    assert not_found == []
+    assert result.is_ok
+    assert result.stamped == 2
     text = (tmp_path / _SECTION).read_text(encoding="utf-8")
     assert f"  - docs/a.md @ {_blob_hash(tmp_path, 'docs/a.md')[:10]}\n" in text
     assert f"  - docs/b.md @ {_blob_hash(tmp_path, 'docs/b.md')[:10]}\n" in text
@@ -314,16 +411,91 @@ def test_stamp_reports_missing_source(tmp_path: Path) -> None:
     original = _section(["docs/moved.md @ 0123456789"])
     _write(tmp_path, _SECTION, original)
 
-    not_found = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
 
-    assert not_found == ["docs/moved.md"]
+    assert result.not_found == ["docs/moved.md"]
+    assert not result.is_ok
     assert (tmp_path / _SECTION).read_text(encoding="utf-8") == original
+
+
+def test_stamp_absolute_path_and_bom(tmp_path: Path) -> None:
+    """絶対パスで指定でき、BOM 付きのファイルでも BOM を保持して記録する。"""
+    blob = _setup_repo_with_source(tmp_path)
+    bom = chr(0xFEFF)
+    _write(tmp_path, _SECTION, bom + _section(["docs/a.md"]))
+
+    result = stamp_section_sources(tmp_path / _SECTION, project_root=tmp_path)
+
+    assert result.is_ok
+    text = (tmp_path / _SECTION).read_bytes().decode("utf-8")
+    assert text.startswith(bom + "<!--")
+    assert f"  - docs/a.md @ {blob[:10]}\n" in text
+
+
+def test_stamp_directory_source_then_detects_change(tmp_path: Path) -> None:
+    """末尾 `/` 付きのディレクトリを stamp し、配下の変更で要見直しになる。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/"]))
+    _commit_all(tmp_path)
+
+    assert stamp_section_sources(Path(_SECTION), project_root=tmp_path).is_ok
+    _commit_all(tmp_path)
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+    _write(tmp_path, "docs/a.md", "# A\n\n改訂版\n")
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+    assert [(finding.kind, finding.source_path) for finding in findings] == [
+        (KIND_UPDATED, "docs/")
+    ]
+
+
+def test_stamp_does_not_rewrite_unchanged_file(tmp_path: Path) -> None:
+    """記録済みのハッシュが現在の値と同じなら、ファイルを書き直さない。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"docs/a.md @ {blob[:10]}"]))
+    target = tmp_path / _SECTION
+    os.utime(target, ns=(1_000_000_000, 1_000_000_000))
+
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert result.is_ok
+    assert target.stat().st_mtime_ns == 1_000_000_000
+
+
+def test_stamp_reports_malformed_and_empty(tmp_path: Path) -> None:
+    """書式不正の行は記録せず返す。正本が1件も無い節は成功としない。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md @ 未記入"]))
+
+    malformed_result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert [finding.line for finding in malformed_result.malformed] == [5]
+    assert not malformed_result.is_ok
+
+    _write(tmp_path, _SECTION, _section(["（執筆時に記入）"]))
+
+    empty_result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert empty_result.stamped == 0
+    assert not empty_result.is_ok
+
+
+def test_stamp_missing_file_raises(tmp_path: Path) -> None:
+    """節ファイルが無い場合は日本語のメッセージで例外にする。"""
+    _setup_repo_with_source(tmp_path)
+
+    with pytest.raises(FileNotFoundError, match="節ファイルが見つかりません"):
+        stamp_section_sources(Path(_SECTION), project_root=tmp_path)
 
 
 # --- コマンドライン ---
 
 
-def test_main_reports_findings_with_exit_zero(tmp_path: Path, capsys) -> None:
+def test_main_reports_findings_with_exit_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """検出結果を表示し、要見直しがあっても終了コードは0とする。"""
     _setup_repo_with_source(tmp_path)
     _write(tmp_path, _SECTION, _section(["docs/a.md @ 0123456789"]))
@@ -343,3 +515,41 @@ def test_main_stamp_returns_one_when_source_missing(tmp_path: Path) -> None:
     _write(tmp_path, _SECTION, _section(["docs/moved.md"]))
 
     assert main(["--stamp", _SECTION], project_root=tmp_path) == 1
+
+
+def test_main_stamp_multiple_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """--stamp に複数の節ファイルを渡すと、それぞれを記録する。"""
+    _setup_repo_with_source(tmp_path)
+    other = "thesis/chapters/01_introduction/02_positioning.md"
+    _write(tmp_path, _SECTION, _section(["docs/a.md"]))
+    _write(tmp_path, other, _section(["docs/a.md"]))
+
+    exit_code = main(["--stamp", _SECTION, other], project_root=tmp_path)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.count("[OK]") == 2
+
+
+def test_main_stamp_empty_section_returns_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """記録する正本が無い節に --stamp すると [NG] で終了コード1を返す。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["（執筆時に記入）"]))
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    assert "記録する正本がありません" in capsys.readouterr().out
+
+
+def test_main_stamp_missing_file_returns_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """存在しない節ファイルに --stamp すると [NG] で終了コード1を返す。"""
+    _setup_repo_with_source(tmp_path)
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    assert "[NG] 節ファイルが見つかりません" in capsys.readouterr().out

@@ -78,7 +78,12 @@ def main(project_root: Path = PROJECT_ROOT) -> int:
                 f"最終コミット={w.last_commit_date} 乖離={w.days_diff}日"
             )
 
-    tracking_findings = check_thesis_source_tracking(project_root)
+    try:
+        tracking_findings = check_thesis_source_tracking(project_root)
+    except RuntimeError as error:
+        # 警告扱いのチェックのため、検査できなくても他のチェックの結果と終了コードは変えない
+        print(f"[WARN] 論文の追従（fail対象外）: 検査できませんでした（{error}）")
+        tracking_findings = []
     if tracking_findings:
         print("[WARN] 論文の追従（fail対象外・依拠する正本の更新により要見直し）:")
         for finding in tracking_findings:

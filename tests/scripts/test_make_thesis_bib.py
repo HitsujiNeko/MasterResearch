@@ -219,6 +219,48 @@ def test_check_consistency_collects_all_problems():
 
 
 # ---------------------------------------------------------------------------
+# CSV の読み込み
+# ---------------------------------------------------------------------------
+def test_load_rows_rejects_missing_columns(tmp_path):
+    """列名の誤り（「ページ」→「頁」）は、欄が黙って空になる前に失敗させる。"""
+    row = _bib_row()
+    row["頁"] = row.pop("ページ")
+    path = tmp_path / "bib.csv"
+    _write_csv(path, [row])
+    with pytest.raises(target.BibliographyError) as info:
+        target.load_rows(path, target.BIBLIOGRAPHY_COLUMNS)
+    assert info.value.problems == ["bib.csv: 列がありません: ページ"]
+
+
+def test_load_rows_reports_row_with_extra_values(tmp_path):
+    """列数がヘッダーより多い行（引用符漏れ）は、行番号つきで報告する（例外で止まらない）。"""
+    path = tmp_path / "db.csv"
+    path.write_text(
+        "ID,年,タイトル,掲載誌,DOI_URL\nS1,2020,A, B and C,Remote Sensing,\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(target.BibliographyError) as info:
+        target.load_rows(path, target.DATABASE_COLUMNS)
+    assert info.value.problems[0].startswith("db.csv: 2 行目の列数がヘッダーより多い")
+
+
+def test_load_rows_rejects_header_only_csv(tmp_path):
+    """データの行が無い CSV は失敗させる（空の .bib を黙って作らない）。"""
+    path = tmp_path / "db.csv"
+    path.write_text("ID,年,タイトル,掲載誌,DOI_URL\n", encoding="utf-8")
+    with pytest.raises(target.BibliographyError, match="データの行がありません"):
+        target.load_rows(path, target.DATABASE_COLUMNS)
+
+
+def test_load_rows_strips_values_and_fills_short_rows(tmp_path):
+    """値の前後の空白を除き、列が足りない行の欠けた値は空文字にする。"""
+    path = tmp_path / "db.csv"
+    path.write_text("ID,年,タイトル,掲載誌,DOI_URL\n S1 ,2020,T\n", encoding="utf-8")
+    rows = target.load_rows(path, target.DATABASE_COLUMNS)
+    assert rows == [{"ID": "S1", "年": "2020", "タイトル": "T", "掲載誌": "", "DOI_URL": ""}]
+
+
+# ---------------------------------------------------------------------------
 # .bib の生成・書き出し
 # ---------------------------------------------------------------------------
 def test_build_bibtex_orders_entries_by_id_number():
@@ -273,7 +315,7 @@ def test_main_reports_problems_and_returns_error(tmp_path, capsys):
     ]
     assert target.main(argv) == target.EXIT_ERROR
     err = capsys.readouterr().err
-    assert "整合しません" in err
+    assert "問題があります" in err
     assert "S1: 年が文献 DB と違います" in err
 
 
@@ -293,7 +335,7 @@ def test_repository_bibliography_is_consistent_with_database():
     文献 DB に論文を追加したときは、引用用書誌（papers_bibliography.csv）にも原典で
     照合した行を足す必要がある。このテストが落ちたら不足・不一致の行を直す。
     """
-    db_rows = target.load_rows(target.DATABASE_FILE)
-    bib_rows = target.load_rows(target.BIBLIOGRAPHY_FILE)
+    db_rows = target.load_rows(target.DATABASE_FILE, target.DATABASE_COLUMNS)
+    bib_rows = target.load_rows(target.BIBLIOGRAPHY_FILE, target.BIBLIOGRAPHY_COLUMNS)
     assert _problems(db_rows, bib_rows) == []
     assert len(bib_rows) == len(db_rows)

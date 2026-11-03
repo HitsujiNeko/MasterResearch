@@ -220,19 +220,38 @@ class TestExtraBibliography:
         )
         assert target.bibliography_keys(text) == ["masuda2011", "usgs_landsat"]
 
+    def test_keys_handle_bom_and_parenthesized_entries(self) -> None:
+        """先頭の BOM の直後のエントリと「@book(key, …)」形式のエントリも拾う。"""
+        text = "﻿@book{first,\n}\n@book(second,\n  title = {x})\n"
+        assert target.bibliography_keys(text) == ["first", "second"]
+
     def test_accepts_repository_extra_bibliography(self) -> None:
         """リポジトリの手書きの .bib は S 番号のキー・重複キーを含まない。"""
-        text = target.EXTRA_BIBLIOGRAPHY.read_text(encoding="utf-8")
-        target.check_extra_bibliography(text, "@article{S1,\n}\n")
+        target.check_extra_bibliography(target.EXTRA_BIBLIOGRAPHY.read_text(encoding="utf-8"))
 
     def test_rejects_reserved_and_duplicate_keys(self) -> None:
         """S 番号の形のキーと、手書き分の中での重複キーを報告する。"""
         extra = "@book{S99,\n}\n@book{dup,\n}\n@book{dup,\n}\n"
         with pytest.raises(target.make_thesis_bib.BibliographyError) as info:
-            target.check_extra_bibliography(extra, "@article{S1,\n}\n")
+            target.check_extra_bibliography(extra)
         problems = info.value.problems
         assert any(problem.startswith("S99:") for problem in problems)
         assert "dup: 手書きの .bib で引用キーが重複しています" in problems
+
+    def test_build_docx_rejects_reserved_key_before_pandoc(self, tmp_path: Path) -> None:
+        """手書きの .bib に S 番号の形のキーがあれば、.bib の生成・pandoc の実行前に失敗する。"""
+        _touch(tmp_path / "chapters" / "01" / "00.md", "# 第1章")
+        extra = _touch(tmp_path / "extra.bib", "@book{S99,\n  title = {x},\n}\n")
+        output = tmp_path / "build" / "out.docx"
+        with pytest.raises(target.make_thesis_bib.BibliographyError, match="S99"):
+            target.build_docx(
+                tmp_path / "chapters",
+                output,
+                pandoc="pandoc_not_called",
+                crossref="crossref_not_called",
+                extra_bibliography=extra,
+            )
+        assert not (output.parent / target.GENERATED_BIBLIOGRAPHY_NAME).exists()
 
 
 def test_export_pdf_rejects_non_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

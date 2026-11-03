@@ -57,8 +57,9 @@ PANDOC_TIMEOUT_SECONDS = 300
 
 # 文献 DB の論文の引用キー（S 番号）の形。手書きの .bib では使わない
 RESERVED_KEY_PATTERN = re.compile(r"^S\d+$")
-# .bib のエントリの型と引用キー（@comment 等の非エントリは後で除く）
-BIB_ENTRY_PATTERN = re.compile(r"^[ \t]*@([A-Za-z]+)[ \t]*\{[ \t]*([^,\s]+)[ \t]*,", re.MULTILINE)
+# .bib のエントリの型と引用キー（@comment 等の非エントリは後で除く）。
+# BibTeX は「@book{key,」と「@book(key,」の両方を受け付ける
+BIB_ENTRY_PATTERN = re.compile(r"^[ \t]*@([A-Za-z]+)[ \t]*[{(][ \t]*([^,\s]+)[ \t]*,", re.MULTILINE)
 BIB_NON_ENTRY_TYPES = {"comment", "string", "preamble"}
 
 # 終了コード
@@ -163,26 +164,38 @@ def find_executable(name: str, explicit: str | None = None) -> str:
 
 
 def bibliography_keys(text: str) -> list[str]:
-    """.bib の本文から引用キーを出現順に取り出す（@comment 等は除く）。"""
+    """.bib の本文から引用キーを出現順に取り出す（@comment 等は除く）。
+
+    Args:
+        text: .bib の本文（先頭の BOM は無視する）。
+
+    Returns:
+        引用キーの一覧（重複を含む）。
+    """
     return [
         key
-        for entry_type, key in BIB_ENTRY_PATTERN.findall(text)
+        for entry_type, key in BIB_ENTRY_PATTERN.findall(text.removeprefix("﻿"))
         if entry_type.lower() not in BIB_NON_ENTRY_TYPES
     ]
 
 
-def check_extra_bibliography(extra_text: str, generated_text: str) -> None:
-    """手書きの .bib の引用キーが、文献 DB の生成分・手書き分の中で衝突しないことを確かめる。
+def check_extra_bibliography(extra_text: str) -> None:
+    """手書きの .bib の引用キーが、文献 DB の論文・手書き分の中で衝突しないことを確かめる。
+
+    文献 DB から生成する .bib の引用キーはすべて S 番号の形のため、手書き分で S 番号の形を
+    禁じれば生成分との衝突も防げる。
+
+    Args:
+        extra_text: 手書きの .bib の本文。
 
     Raises:
         make_thesis_bib.BibliographyError: S 番号の形のキー・重複キーがある場合。
     """
     extra_keys = bibliography_keys(extra_text)
-    generated_keys = set(bibliography_keys(generated_text))
     problems = [
         f"{key}: 手書きの .bib では S 番号の形のキーを使わない（文献 DB の論文用）"
         for key in extra_keys
-        if RESERVED_KEY_PATTERN.match(key) or key in generated_keys
+        if RESERVED_KEY_PATTERN.match(key)
     ]
     seen: set[str] = set()
     for key in extra_keys:
@@ -256,7 +269,7 @@ def build_docx(
 
     図のパスは ``thesis/`` からの相対（``figures/...``）か、リポジトリルートからの相対
     （``images/...``）で書ける（``resource_paths`` の既定値）。文献 DB から生成する .bib は
-    出力 docx と同じディレクトリの ``references.bib`` に書き出す。
+    出力 docx と同じディレクトリの ``references.bib`` に書き出す（同名のファイルは上書きする）。
 
     Returns:
         pandoc・pandoc-crossref の標準エラー（警告。無ければ空文字列）。
@@ -272,13 +285,10 @@ def build_docx(
         if not path.is_file():
             raise FileNotFoundError(f"ファイルがありません: {path}")
     inputs = collect_chapter_files(chapters_dir)
+    check_extra_bibliography(extra_bibliography.read_text(encoding="utf-8"))
     output.parent.mkdir(parents=True, exist_ok=True)
     generated_bibliography = output.parent / GENERATED_BIBLIOGRAPHY_NAME
     make_thesis_bib.write_bibtex(generated_bibliography)
-    check_extra_bibliography(
-        extra_bibliography.read_text(encoding="utf-8"),
-        generated_bibliography.read_text(encoding="utf-8"),
-    )
     command = build_pandoc_command(
         pandoc,
         crossref,
@@ -339,7 +349,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="pandoc・pandoc-crossref が警告（図の欠落・未定義の参照等）を出したら失敗にする",
+        help=(
+            "pandoc・pandoc-crossref が警告（図の欠落・未定義の参照・存在しない引用キー等）を"
+            "出したら失敗にする"
+        ),
     )
     parser.add_argument("--pandoc", default=None, help="pandoc の実行ファイル")
     parser.add_argument("--pandoc-crossref", default=None, help="pandoc-crossref の実行ファイル")

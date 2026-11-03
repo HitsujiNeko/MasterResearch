@@ -1,7 +1,7 @@
 # 修士論文 執筆規約
 
-**最終更新**: 2026-11-02  
-**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [task-workflow.md](../../.github/task-workflow.md), [CodingRule.md](CodingRule.md)  
+**最終更新**: 2026-11-03  
+**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [task-workflow.md](../../.github/task-workflow.md), [CodingRule.md](CodingRule.md), [literature_management_guide.md](../04_archive/literature_management_guide.md)  
 **前提知識**: Markdown の基本記法、コマンドラインでの Python 実行
 
 ---
@@ -29,9 +29,12 @@ thesis/
 │   ├── 02_study_area_data/ ...
 │   └── 90_back_matter/     # 謝辞・参考文献・付録
 ├── figures/                # 論文専用の図（概念図など）
+├── references/
+│   └── extra.bib           # 文献 DB に登録しない文献（教科書・データの出典等）の手書きの書誌
 ├── templates/
-│   └── reference.docx      # 書式の雛形（生成物。手で編集しない）
-└── build/                  # ビルド出力（Git 管理外）
+│   ├── reference.docx      # 書式の雛形（生成物。手で編集しない）
+│   └── thesis-ja.csl       # 引用・参考文献の書式（卒業論文に準拠）
+└── build/                  # ビルド出力（Git 管理外。文献 DB から生成した references.bib も置かれる）
 ```
 
 - **章はディレクトリ、節はファイル**とする。章見出しは各章の `00_chapter.md` にだけ書き、節ファイルは `## 1.1　…` から始める。項（`### 1.1.1　…`）は節ファイルの中に書く
@@ -178,7 +181,46 @@ $$ \mathrm{LST} = \beta_0 + \beta_1 \mathrm{NDVI} $$ {#eq:model}
 ## 8. 引用と参考文献
 
 - 先行研究を引用するときは**原典（PDF）で記述を確認してから**書く。構造化要約（`docs/04_archive/02_structured_summaries/`）は文献探しの手がかりであり、引用の根拠にしない
-- 参考文献リストの自動生成（文献データベースからの書誌ファイル生成と書式の指定）は今後整備する。それまでは、引用箇所に著者名・発行年を仮に書いたうえで `[要出典]` を付けて残してよい
+- 引用文献がまだ決まらない・原典で確認できていない箇所は、著者名・発行年を仮に書いたうえで `[要出典]` を付けて残してよい
+
+### 8.1 引用の書き方
+
+本文中の引用は pandoc の引用記法で書き、番号を手で書かない。参考文献リストはビルド時に自動で作られ、`thesis/chapters/90_back_matter/02_references.md` の `::: {#refs}` の位置に出力される。
+
+```markdown
+LST の算出には SMW 法を用いた[@S1]．
+多重共線性の扱いは既往研究に従う[@S12; @S13]．
+```
+
+- 文献 DB の論文は **S 番号を引用キー**にする（`[@S1]`）。複数の文献は 1 つの角括弧に `;` で区切って並べる（`[@S12; @S13]`。角括弧を 2 つ続けて書かない）
+- 引用は句点「．」の前に置く。docx では上付きの「1)」となり、複数は「2)3)」と並ぶ。番号は本文で初めて引用した順に振られ、同じ文献を再び引用すると同じ番号になる
+- 参考文献リストには**本文で引用した文献だけ**が載る（文献 DB の全件は載らない）
+- 存在しない引用キーは警告になり、本文に `キー?`（例: `nokey?`）が上付きで残る。`--strict` 付きのビルドで確認する
+
+### 8.2 参考文献リストの書式
+
+書式は `thesis/templates/thesis-ja.csl` が卒業論文に合わせて定める（区切りは全角の「：」「，」、末尾は「．」）。
+
+| 種別 | 例 |
+|---|---|
+| 雑誌論文 | `1) Ermida, S. L., Soares, P., Mantas, V., Göttsche, F.-M. and Trigo, I. F.：Google Earth Engine Open-Source Code for …，Remote Sensing，Vol.12，No.9，p.1471，2020．` |
+| 書籍 | `2) 益田晴恵：都市の水資源と地下水の未来，京都大学学術出版会，2011．` |
+| Web ページ・データ | `3) 大阪府：地下水質調査結果，https://…（参照 2025/2/25）．` |
+
+- 著者は全員を「姓, 名の頭文字」で並べ、最後の 1 人の前に「and」を置く
+- ページ範囲は `pp.80-90`、論文番号の雑誌（MDPI 等）は `p.1471` と表示する（pandoc の BibTeX 読み込みに論文番号の欄が無いため、ページ欄に論文番号を入れる）
+- 題名は原典の表記（大文字小文字を含む）のまま出力する
+
+### 8.3 書誌の置き場所
+
+| 文献 | 書誌の置き場所 | 引用キー |
+|---|---|---|
+| 査読論文（文献 DB に登録するもの） | [papers_database.csv](../04_archive/01_metadata/papers_database.csv)（収録と S 番号）＋ [papers_bibliography.csv](../04_archive/01_metadata/papers_bibliography.csv)（引用用書誌） | S 番号（`S1`） |
+| 教科書・報告書・データの出典・Web ページ等 | `thesis/references/extra.bib`（手書きの BibTeX） | 英小文字・数字・`_` で内容が分かる名前（`usgs_landsat_c2`） |
+
+- **引用用書誌（papers_bibliography.csv）**: 文献 DB の各論文につき 1 行。全著者（BibTeX の `姓, 名 and 姓, 名` 形式）・原典表記の題名・誌名・年・巻・号・ページ（範囲は `80-90`、論文番号は `1471`）・DOI を、**Crossref と原典 PDF の両方で照合して**書き、照合元・照合日を残す。2026 年 2 月に ChatGPT で作った構造化要約には事実誤りがあるため、要約経由の書誌は使わない。文献 DB に論文を追加したら、この CSV にも行を足す（`/add-paper` は扱わない）
+- ビルドのたびに `scripts/make_thesis_bib.py` の処理で両 CSV から `thesis/build/references.bib` が生成される（コミットしない）。生成前に行の過不足と年・題名・誌名・DOI の一致を検査し、ずれがあればビルドが失敗する。単独で生成する場合は `python scripts/make_thesis_bib.py` を実行する
+- **手書きの書誌（extra.bib）**: 書誌は原典（書籍の奥付・報告書の表紙・Web ページ）で確かめてから書く。漢字の氏名・機関名は `{{益田晴恵}}` のように二重の波括弧で囲む（姓・名に分けると名の後ろに「.」が付くため）。Web ページ・データの出典は `@online` とし、`url` と `urldate`（参照日）を書く。S 番号の形のキー・重複キーはビルドが失敗する。書き方の例はファイル冒頭のコメントにある
 
 ---
 

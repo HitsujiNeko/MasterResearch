@@ -363,5 +363,5 @@ pytest tests/
 ## 14. 補足
 
 - [`requirements.txt`](../requirements.txt) は CI（[12章](#12-cigithub-actions)）とクラウドセッション（[13章](#13-リモートセッションclaude-code-on-the-web)）が pip で依存を導入するための一覧であり、ローカル環境構築の正本ではない
-- 依存を追加するときは `environment.yml` と `requirements.txt` の両方を更新する。手順は [CodingRule.md 10.2](02_methods/CodingRule.md#102-依存を追加するときの手順) を参照する
+- 依存を追加するときの手順（`requirements.txt` への反映を含む）は [CodingRule.md 10.2](02_methods/CodingRule.md#102-依存を追加するときの手順) を参照する
 - セットアップ手順を変更した場合は、この `setup.md` も更新する

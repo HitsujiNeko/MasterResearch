@@ -11,11 +11,17 @@ analysis層の `canonical_grid` モジュールへ依存しないようにする
 であり、呼び出し側（分析スクリプト）が `canonical_grid.split_cell_id()` でデコード
 した row / col を渡す。同じ理由で、cell_idの桁送りに使う定数（`CELL_ID_STRIDE`）も
 このモジュールでは持たず、`block_id_stride` として引数で受け取る。
+
+`apply_spatial_buffer` は、作ったfoldの学習側から評価セルの近くのセルを除く
+（緩衝帯）。ブロックサイズを広げたときの精度低下には、空間リークの除去と
+保留域の拡大（空間的非定常性による外挿）の2つが混ざるため、ブロックサイズを
+固定して緩衝帯だけを広げることで、前者を切り分けられるようにする。
 """
 
 from __future__ import annotations
 
 import numpy as np
+from scipy.spatial import cKDTree
 from sklearn.model_selection import GroupKFold
 
 
@@ -123,3 +129,74 @@ def split_by_spatial_blocks(
     dummy_features = np.zeros(len(block_id))
     splitter = GroupKFold(n_splits=n_splits)
     return list(splitter.split(dummy_features, groups=block_id))
+
+
+def apply_spatial_buffer(
+    folds: list[tuple[np.ndarray, np.ndarray]],
+    row: np.ndarray,
+    col: np.ndarray,
+    scale: float,
+    buffer_m: float,
+) -> tuple[list[tuple[np.ndarray, np.ndarray]], list[dict[str, int]]]:
+    """各foldの学習側から、評価セルに近いセルを除いた緩衝帯付きのfoldを作る。
+
+    ブロック境界をまたいで評価セルのすぐ隣に学習セルが残ると、空間自己相関に
+    よって評価セルの値を「覗ける」（空間リーク）。評価セルまでの距離が
+    ``buffer_m`` 未満の学習セルを除くことで、保留域の大きさ（ブロックサイズ）を
+    変えずに、評価セルと学習セルの最短距離だけを広げる。
+
+    距離はセル中心間のユークリッド距離（``row`` / ``col`` × ``scale``）。
+    距離がちょうど ``buffer_m`` のセルは除かない。評価側（test）は変更しない。
+
+    Args:
+        folds: ``split_by_spatial_blocks`` の戻り値（(train_idx, test_idx) のリスト）。
+        row: 正準グリッドの行インデックス（サンプル順）。
+        col: 正準グリッドの列インデックス（サンプル順）。
+        scale: 正準グリッドの解像度（メートル/セル）。
+        buffer_m: 緩衝帯の幅（メートル）。0 なら ``folds`` と同じ分割を返す。
+    Returns:
+        緩衝帯を適用した (train_idx, test_idx) のリストと、foldごとの
+        ``{"n_train_before", "n_train_after", "n_excluded", "n_test"}`` のリスト。
+        学習セルの減少量を記録し、学習量の減少による精度低下と空間リークの
+        除去による低下を区別できるようにする。
+    Raises:
+        ValueError: ``buffer_m`` が負、``scale`` が0以下の場合。緩衝帯の適用後に
+            学習セルが0になるfoldがある場合（モデルを学習できないため、
+            黙って空の学習集合を返さない）。
+    """
+    if buffer_m < 0:
+        raise ValueError(f"buffer_mは0以上である必要があります（buffer_m={buffer_m}）。")
+    if scale <= 0:
+        raise ValueError(f"scaleは正の値である必要があります（scale={scale}）。")
+
+    # x を列方向、y を行方向とするセル中心の座標（メートル）
+    coords = np.column_stack((np.asarray(col, dtype=float), np.asarray(row, dtype=float)))
+    coords *= scale
+
+    buffered_folds = []
+    fold_info = []
+    for fold_no, (train_idx, test_idx) in enumerate(folds):
+        if buffer_m == 0:
+            keep = np.ones(len(train_idx), dtype=bool)
+        else:
+            # 上限を緩衝帯の幅にすると、それより遠い学習セルは探索せず inf が返る
+            distance, _ = cKDTree(coords[test_idx]).query(
+                coords[train_idx], k=1, distance_upper_bound=buffer_m
+            )
+            keep = ~(distance < buffer_m)
+        kept_train_idx = train_idx[keep]
+        if kept_train_idx.size == 0:
+            raise ValueError(
+                f"fold {fold_no} で緩衝帯（{buffer_m}m）の適用後に学習セルが0になりました。"
+                "緩衝帯を狭めるか、ブロックサイズ・n_splitsを見直してください。"
+            )
+        buffered_folds.append((kept_train_idx, test_idx))
+        fold_info.append(
+            {
+                "n_train_before": int(len(train_idx)),
+                "n_train_after": int(kept_train_idx.size),
+                "n_excluded": int(len(train_idx) - kept_train_idx.size),
+                "n_test": int(len(test_idx)),
+            }
+        )
+    return buffered_folds, fold_info

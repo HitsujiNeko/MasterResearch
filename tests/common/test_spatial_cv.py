@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from src.common.spatial_cv import (
+    apply_spatial_buffer,
     assign_spatial_blocks,
     compute_block_cells,
     split_by_spatial_blocks,
@@ -165,3 +166,82 @@ class TestSplitBySpatialBlocks:
 
         with pytest.raises(ValueError, match="2以上"):
             split_by_spatial_blocks(block_id, n_splits=1)
+
+
+def _grid(n: int) -> tuple[np.ndarray, np.ndarray]:
+    """n×n の正準グリッドの row / col（サンプル順は行優先）を作る。"""
+    row, col = np.divmod(np.arange(n * n), n)
+    return row, col
+
+
+class TestApplySpatialBuffer:
+    """apply_spatial_buffer のテスト。"""
+
+    def test_zero_buffer_returns_identical_folds(self) -> None:
+        """緩衝帯0では既存のfoldと完全に一致する（既存ランとの互換）。"""
+        row, col = _grid(12)
+        block_id, _ = assign_spatial_blocks(row, col, block_cells=3, block_id_stride=1000)
+        folds = split_by_spatial_blocks(block_id, n_splits=4)
+
+        buffered, info = apply_spatial_buffer(folds, row, col, scale=30, buffer_m=0)
+
+        for (train, test), (b_train, b_test) in zip(folds, buffered, strict=True):
+            np.testing.assert_array_equal(b_train, train)
+            np.testing.assert_array_equal(b_test, test)
+        assert all(fold["n_excluded"] == 0 for fold in info)
+
+    def test_excludes_cells_closer_than_buffer_and_keeps_exact_distance(self) -> None:
+        """評価セルからの距離が緩衝帯未満の学習セルだけを除き、ちょうど等しいセルは残す。
+
+        1行5セル（30m間隔）で中央を評価セルにし、緩衝帯60mを適用する。
+        距離30mの隣接セルは除き、距離60mの両端は残す。
+        """
+        row = np.zeros(5, dtype=int)
+        col = np.arange(5)
+        folds = [(np.array([0, 1, 3, 4]), np.array([2]))]
+
+        buffered, info = apply_spatial_buffer(folds, row, col, scale=30, buffer_m=60)
+
+        np.testing.assert_array_equal(buffered[0][0], [0, 4])
+        assert info[0] == {"n_train_before": 4, "n_train_after": 2, "n_excluded": 2, "n_test": 1}
+
+    def test_uses_euclidean_distance_for_diagonal_cells(self) -> None:
+        """斜め隣（30√2≈42.4m）は緩衝帯45mで除き、緩衝帯42mでは残す。"""
+        row = np.array([0, 1])
+        col = np.array([0, 1])
+        folds = [(np.array([1]), np.array([0]))]
+
+        with pytest.raises(ValueError, match="学習セルが0"):
+            apply_spatial_buffer(folds, row, col, scale=30, buffer_m=45)
+        buffered, _ = apply_spatial_buffer(folds, row, col, scale=30, buffer_m=42)
+        np.testing.assert_array_equal(buffered[0][0], [1])
+
+    def test_does_not_change_test_side_and_keeps_train_order(self) -> None:
+        """評価側は変えず、学習側は元の順序を保った部分集合になる。"""
+        row, col = _grid(12)
+        block_id, _ = assign_spatial_blocks(row, col, block_cells=3, block_id_stride=1000)
+        folds = split_by_spatial_blocks(block_id, n_splits=4)
+
+        buffered, info = apply_spatial_buffer(folds, row, col, scale=30, buffer_m=61)
+
+        for (train, test), (b_train, b_test), fold in zip(folds, buffered, info, strict=True):
+            np.testing.assert_array_equal(b_test, test)
+            np.testing.assert_array_equal(b_train, train[np.isin(train, b_train)])
+            assert fold["n_train_after"] + fold["n_excluded"] == fold["n_train_before"]
+            assert fold["n_excluded"] > 0
+            # 残った学習セルはどの評価セルからも61m以上離れている
+            d = np.hypot(
+                (row[b_train, None] - row[None, b_test]) * 30,
+                (col[b_train, None] - col[None, b_test]) * 30,
+            )
+            assert d.min() >= 61
+
+    def test_raises_on_negative_buffer(self) -> None:
+        """負の緩衝帯は意味を持たないため例外にする。"""
+        with pytest.raises(ValueError, match="0以上"):
+            apply_spatial_buffer([], np.array([]), np.array([]), scale=30, buffer_m=-1)
+
+    def test_raises_on_non_positive_scale(self) -> None:
+        """scaleが0以下だと距離を計算できないため例外にする。"""
+        with pytest.raises(ValueError, match="正の値"):
+            apply_spatial_buffer([], np.array([]), np.array([]), scale=0, buffer_m=30)

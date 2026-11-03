@@ -97,9 +97,12 @@ def _git(args: list[str], cwd: Path) -> None:
 
 
 def test_thesis_tracking_git_failure_is_warning(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """論文の追従チェックが git の失敗で検査できなくても、警告にとどめ終了コード0のまま。"""
+    # 親ディレクトリの git リポジトリや GIT_DIR を git に探させない（git 失敗の前提を固定）
+    monkeypatch.delenv("GIT_DIR", raising=False)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
     _build_valid_project(tmp_path)
     _write(
         tmp_path / "thesis" / "chapters" / "01_intro" / "01_background.md",

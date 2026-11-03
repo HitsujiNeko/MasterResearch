@@ -267,8 +267,15 @@ def test_parse_reads_state() -> None:
     assert [ref.path for ref in parsed.references] == ["docs/a.md"]
 
 
-def test_git_failure_raises_runtime_error(tmp_path: Path) -> None:
+def _isolate_from_parent_repo(monkeypatch: pytest.MonkeyPatch, repo_dir: Path) -> None:
+    """repo_dir の親にある git リポジトリや GIT_DIR を git に探させない（git 失敗の前提を固定）。"""
+    monkeypatch.delenv("GIT_DIR", raising=False)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(repo_dir.parent))
+
+
+def test_git_failure_raises_runtime_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """git リポジトリでない場所では「正本が見つからない」ではなく例外にする。"""
+    _isolate_from_parent_repo(monkeypatch, tmp_path)
     _write(tmp_path, _SECTION, _section(["docs/a.md @ 0123456789"]))
 
     with pytest.raises(RuntimeError, match="正本のハッシュを取得できませんでした"):
@@ -328,6 +335,41 @@ def test_unusual_path_is_missing_without_stopping_others(tmp_path: Path, bad_pat
         (_SECTION, KIND_MISSING),
         (other, KIND_UPDATED),
     ]
+
+
+def test_directory_and_child_file_at_same_time(tmp_path: Path) -> None:
+    """ディレクトリとその配下のファイルを同時に正本にしても、両方を照合できる。"""
+    _setup_repo_with_source(tmp_path)
+    tree = _blob_hash(tmp_path, "docs")
+    blob = _blob_hash(tmp_path, "docs/a.md")
+    _write(tmp_path, _SECTION, _section([f"docs/ @ {tree[:10]}", f"docs/a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+    _write(tmp_path, _SECTION, _section(["docs/", "docs/a.md"]))
+    assert stamp_section_sources(Path(_SECTION), project_root=tmp_path).stamped == 2
+
+
+def test_backslash_path_is_resolved(tmp_path: Path) -> None:
+    """`docs\\a.md` のような `\\` 区切りのパスでも正本を照合できる。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs" + chr(92) + f"a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "bad_line", ["docs/a.md @ 0123456789", "* docs/a.md", "-docs/a.md", "・docs/a.md"]
+)
+def test_parse_line_without_dash_is_malformed(bad_line: str) -> None:
+    """欄の中の `- ` で始まらない行（次の項目の行を除く）は書式不正とする。"""
+    text = f"<!--\n状態: 執筆中\n依拠する正本:\n  {bad_line}\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+    assert [(finding.kind, finding.line) for finding in parsed.malformed] == [(KIND_MALFORMED, 4)]
 
 
 def test_parse_entry_without_indent() -> None:
@@ -606,9 +648,10 @@ def test_main_stamp_missing_file_returns_one(
 
 
 def test_main_stamp_git_failure_returns_one(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """--stamp で git の実行に失敗した場合は、例外ではなく [NG] で終了コード1を返す。"""
+    _isolate_from_parent_repo(monkeypatch, tmp_path)
     _write(tmp_path, _SECTION, _section(["docs/a.md"]))
 
     exit_code = main(["--stamp", _SECTION], project_root=tmp_path)

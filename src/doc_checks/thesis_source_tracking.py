@@ -55,6 +55,8 @@ _STATE_PATTERN = re.compile(r"^状態\s*[:：]\s*(?P<state>\S+)\s*$")
 _SOURCES_KEY_PATTERN = re.compile(r"^依拠する正本\s*[:：]\s*(?P<rest>.*)$")
 _ENTRY_PATTERN = re.compile(r"^\s*-\s+(?P<path>\S+)(?:\s+@\s+(?P<hash>[0-9a-fA-F]{7,40}))?\s*$")
 _ENTRY_LINE_PATTERN = re.compile(r"^\s*-\s")
+# メタ情報欄の項目の行（`目安: 10 ページ` など）。`C:/x.md` のようなパスは含めない
+_NEXT_KEY_PATTERN = re.compile(r"^[^\s:：/\\]+\s*[:：](\s|$)")
 _DRIVE_LETTER_PATTERN = re.compile(r"^[A-Za-z]:")
 _PLACEHOLDER_PATTERN = re.compile(r"^\s*-\s+（.*）\s*$")
 
@@ -121,7 +123,7 @@ def parse_section_sources(text: str, section_file: str) -> _ParsedSection:
 
     メタ情報欄はファイル先頭の HTML コメント（`<!--` 〜 `-->`）とする。
     「依拠する正本:」の行に続く `- ` 行を1件ずつ読む（空行は読み飛ばし、
-    `- ` で始まらない行が来たら欄の終わりとする）。
+    次の項目の行が来たら欄の終わりとする。それ以外の `- ` で始まらない行は書式不正）。
     `- （執筆時に記入）` のような全角括弧だけのプレースホルダは正本として扱わず、
     残っていることだけを記録する。あわせて「状態:」の値も読む。
 
@@ -163,8 +165,12 @@ def parse_section_sources(text: str, section_file: str) -> _ParsedSection:
                 malformed.append(_malformed(section_file, index, line))
         elif in_sources:
             if not _ENTRY_LINE_PATTERN.match(line):
-                # `- ` で始まらない行が来たら「依拠する正本」の欄は終わり
-                in_sources = False
+                if _NEXT_KEY_PATTERN.match(line):
+                    # 「目安:」などの次の項目が来たら「依拠する正本」の欄は終わり
+                    in_sources = False
+                else:
+                    # `- ` の無い `docs/a.md` や `* docs/a.md` を黙って見落とさないようにする
+                    malformed.append(_malformed(section_file, index, line))
             elif _PLACEHOLDER_PATTERN.match(line):
                 placeholder_line = index
             elif (match := _ENTRY_PATTERN.match(line)) is None:
@@ -229,13 +235,16 @@ def resolve_object_hashes(
         return {}
     # -z で出力するとパスが引用符でエスケープされない（日本語のパスに対応するため）。
     # --literal-pathspecs で `:(exclude)` などの特殊記法を解釈させず、
-    # 1件の記述ミスで全節の検査が止まらないようにする
+    # 1件の記述ミスで全節の検査が止まらないようにする。
+    # -t は、ディレクトリと配下のファイルを同時に問い合わせたときにも
+    # ディレクトリ自身の tree の行を出力させるため
     try:
         result = subprocess.run(
             [
                 "git",
                 "--literal-pathspecs",
                 "ls-tree",
+                "-t",
                 "-z",
                 "--full-tree",
                 revision,

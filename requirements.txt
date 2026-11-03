@@ -28,3 +28,9 @@ scikit-learn
 matplotlib>=3.5
 # 動作確認済みバージョンを下限として明示する
 shap>=0.48
+# Spatial CV のブロック設計の診断（残差 Moran's I・経験セミバリオグラム）に使う。
+# 数値の再現性のため environment.yml と同じ版に固定する。ピンなしだと pip は
+# ローカルで検証していない新しい版（例: esda 2.9・scikit-gstat 1.0.27）を取得する。
+esda==2.7.1
+libpysal==4.14.1
+scikit-gstat==1.0.22

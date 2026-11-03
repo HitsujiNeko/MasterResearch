@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from pathlib import Path
 
 import matplotlib.image as mpimg
@@ -14,6 +15,7 @@ from sklearn.ensemble import RandomForestRegressor
 
 from src.common import shap_report
 from src.common.shap_report import (
+    _fixed_global_numpy_random_state,
     _measure_xlabel_overflow_inches,
     _widen_figure_until_xlabel_fits,
     compute_shap_outputs,
@@ -102,6 +104,7 @@ class TestComputeShapOutputs:
             output_dir=output_dir,
             output_stem="test",
             observation_label="2023-07-07",
+            random_state=0,
         )
 
         importance_path = output_dir / "test_shap_importance.csv"
@@ -130,6 +133,7 @@ class TestComputeShapOutputs:
             output_dir=output_dir,
             output_stem="test",
             observation_label="2023-07-07",
+            random_state=0,
         )
 
         dependence_paths = shap_result["outputs"]["shap_dependence_png"]
@@ -152,6 +156,7 @@ class TestComputeShapOutputs:
             output_dir=output_dir,
             output_stem="test",
             observation_label="2023-07-07",
+            random_state=0,
         )
 
         assert set(shap_result["mean_abs_shap"].keys()) == {"feat_a", "feat_b"}
@@ -170,6 +175,7 @@ class TestComputeShapOutputs:
             output_dir=output_dir,
             output_stem="test",
             observation_label="2023-07-07",
+            random_state=0,
         )
 
         assert shap_result["sample_size"] == 20
@@ -198,6 +204,7 @@ class TestComputeShapOutputs:
                 output_dir=output_dir,
                 output_stem="test",
                 observation_label="2023-07-07",
+                random_state=0,
             )
 
     def test_raises_when_background_features_column_order_differs_from_model(
@@ -217,7 +224,114 @@ class TestComputeShapOutputs:
                 output_dir=output_dir,
                 output_stem="test",
                 observation_label="2023-07-07",
+                random_state=0,
             )
+
+
+def _render_shap_outputs(output_dir: Path, random_state: int) -> dict[str, bytes]:
+    """同じモデル・データでSHAP出力を書き出し、ファイル名ごとのバイト列を返す。
+
+    出力の比較に使う。散布図の点が描画順の違いで重なり方を変えられるよう、
+    サンプル数を多めにとる。
+    """
+    model, x = _fit_small_forest(n=200)
+    output_dir.mkdir()
+    compute_shap_outputs(
+        model=model,
+        shap_features=x.iloc[:150],
+        background_features=x.iloc[150:],
+        output_dir=output_dir,
+        output_stem="test",
+        observation_label="2023-07-07",
+        random_state=random_state,
+    )
+    return {path.name: path.read_bytes() for path in sorted(output_dir.iterdir())}
+
+
+class TestShapPlotReproducibility:
+    """summary図・dependence図の描画の乱数を固定することのテスト。"""
+
+    def test_same_random_state_gives_byte_identical_images(self, project_root: Path) -> None:
+        """同じ入力・同じrandom_stateなら、summary図・dependence図のPNGがバイト単位で一致する。
+
+        shapはこれらの図の点の描画順などに乱数を使うため、固定しないと再実行の
+        たびに画像が変わる。
+        """
+        first = _render_shap_outputs(project_root / "first", random_state=7)
+        second = _render_shap_outputs(project_root / "second", random_state=7)
+
+        compared_names = [
+            "test_shap_summary.png",
+            "test_shap_dependence_feat_a.png",
+            "test_shap_dependence_feat_b.png",
+        ]
+        assert set(compared_names) <= set(first)
+        for name in compared_names:
+            assert first[name] == second[name], name
+
+    def test_random_state_affects_only_point_layout(self, project_root: Path) -> None:
+        """random_stateを変えても、SHAP重要度のCSVと棒グラフのPNGは変わらない。
+
+        シードの影響が summary図・dependence図の点の並びに限られ、SHAP値や
+        棒グラフには及ばないことを確かめる。あわせて、summary図はシードで
+        実際に変わること（＝シードが描画に渡っていること）も確かめる。
+        """
+        seed_a = _render_shap_outputs(project_root / "seed_a", random_state=1)
+        seed_b = _render_shap_outputs(project_root / "seed_b", random_state=2)
+
+        assert seed_a["test_shap_importance.csv"] == seed_b["test_shap_importance.csv"]
+        assert seed_a["test_shap_bar.png"] == seed_b["test_shap_bar.png"]
+        assert seed_a["test_shap_summary.png"] != seed_b["test_shap_summary.png"]
+
+    def test_does_not_change_global_numpy_random_state(self, project_root: Path) -> None:
+        """compute_shap_outputsの前後で、グローバルなnp.randomの状態が変わらない。"""
+        np.random.seed(12345)
+        expected_next_values = np.random.RandomState(12345).random_sample(5)
+
+        _render_shap_outputs(project_root / "out", random_state=7)
+
+        np.testing.assert_array_equal(np.random.random_sample(5), expected_next_values)
+
+    def test_does_not_emit_future_warning_when_global_rng_is_seeded(
+        self, project_root: Path
+    ) -> None:
+        """グローバルな乱数がシード済みでも、shapのFutureWarningを出さない。
+
+        shap は `rng` を渡されない `summary_plot` で、`np.random.seed()` 済みの
+        グローバルな乱数を使うと FutureWarning を出す。summary図に `rng` を
+        渡していれば、呼び出し側（他の処理）がシードしていても警告は出ない。
+        """
+        np.random.seed(0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            _render_shap_outputs(project_root / "out", random_state=7)
+
+
+class TestFixedGlobalNumpyRandomState:
+    """_fixed_global_numpy_random_state のテスト。"""
+
+    def test_fixes_state_inside_block(self) -> None:
+        """ブロック内の乱数列はシードだけで決まる。"""
+        np.random.seed(1)
+        with _fixed_global_numpy_random_state(99):
+            first = np.random.random_sample(3)
+        np.random.seed(2)
+        with _fixed_global_numpy_random_state(99):
+            second = np.random.random_sample(3)
+
+        np.testing.assert_array_equal(first, second)
+
+    def test_restores_state_after_exception(self) -> None:
+        """ブロック内で例外が起きても、抜けた後はブロックに入る前の状態に戻る。"""
+        np.random.seed(3)
+        expected_next_values = np.random.RandomState(3).random_sample(4)
+
+        with pytest.raises(RuntimeError):
+            with _fixed_global_numpy_random_state(99):
+                np.random.random_sample(10)
+                raise RuntimeError("描画中の失敗を模擬")
+
+        np.testing.assert_array_equal(np.random.random_sample(4), expected_next_values)
 
 
 class TestBarPlotXLabelFits:
@@ -241,6 +355,7 @@ class TestBarPlotXLabelFits:
             output_dir=output_dir,
             output_stem="test",
             observation_label="2023-07-07",
+            random_state=0,
         )
 
         assert _count_ink_pixels_on_side_edges(output_dir / "test_shap_bar.png") == 0

@@ -1796,6 +1796,7 @@ def main() -> None:
         output_dir=args.output_dir,
         output_stem=output_stem,
         observation_label=observation_label,
+        random_state=args.random_state,
     )
     vegetation_shap = summarize_vegetation_shap(shap_result["mean_abs_shap"], model_feature_columns)
     if vegetation_shap is not None:

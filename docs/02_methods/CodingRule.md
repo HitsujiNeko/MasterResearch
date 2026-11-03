@@ -124,7 +124,7 @@ def calculate_mean(values: list[float]) -> float:
 これは現状の一覧であり、ライブラリ選定を制限するものではない。実装内容に応じて最適なライブラリを選定してよい（判断基準は [10.1](#101-既存パッケージ優先の判断基準)）。`environment.yml`に含まれないライブラリが必要な場合は、追加前にユーザーの承認を得てから、[10.2](#102-依存を追加するときの手順) の手順で追加する。
 
 `environment.yml` をローカル環境構築の正本とし、手順は [../setup.md](../setup.md) に記載する。  
-`requirements.txt` は CI（[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)）がテスト環境を作るための依存一覧である。GeoPandas・GDAL などを含むため、ローカルの環境構築の起点にはしない。
+`requirements.txt` は CI（[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)）とクラウドセッションが pip で依存を導入するための一覧であり、ローカルの環境構築の起点にはしない（理由は [setup.md 1章](../setup.md#1-方針)）。
 
 ### 10.1 既存パッケージ優先の判断基準
 
@@ -139,15 +139,18 @@ def calculate_mean(values: list[float]) -> float:
 自前実装を選んだ場合は、次の2点を守る。
 
 - **検算テストを付ける**: 参照実装（既存パッケージ・他言語の実装・論文の数値例）や手計算の値と突き合わせるテストを書く。両端の値などの性質を確かめるテストだけでは足りない
-- **計画書に理由を残す**: 計画書の「検討したが採用しなかった代替案」に既存パッケージ案を挙げ、採用しない理由（上記 1〜3 のどれに当てはまるか）を書く
+- **計画書に理由を残す**: 計画書の「決定事項」にある「検討したが採用しなかった代替案」に既存パッケージ案を挙げ、採用しない理由（上記 1〜3 のどれに当てはまるか）を書く
 
 ### 10.2 依存を追加するときの手順
 
-1. 追加前に `conda install -n masterresearch -c conda-forge --dry-run {パッケージ}` を実行し、既存パッケージの版が変わらないことを確認する。確認結果は計画書に記録する
-2. `environment.yml` と `requirements.txt` の**両方**に追加する。CI は `requirements.txt` で環境を作るため、`environment.yml` だけに追加すると CI のテストが import で失敗する
-3. 版の指定は既存の記述に揃える
-   - `environment.yml`: 再現性のため、`geopandas=1.0` のように minor 版まで固定する
-   - `requirements.txt`: 原則として版を指定しない。`environment.yml` で固定した版と CI が取得する版がずれ、CI だけで挙動が変わりうる場合（メジャーバージョンの更新など）は下限・上限を指定し、理由をコメントで残す
+1. 追加前に `conda install -n masterresearch -c conda-forge --dry-run {パッケージ}` を実行し、既存パッケージの版が変わらないことを確認する。確認結果は計画書（計画書を作らないタスクでは PR 本文の「備考」）に記録する。既存パッケージの版が変わる場合は、追加する前にユーザーに相談する
+2. `src/`・`tests/` が import する実行時の依存は、`environment.yml` と `requirements.txt` の**両方**に追加する。CI は `requirements.txt` で環境を作るため、`environment.yml` だけに追加すると CI のテストが import で失敗する。lint・文書ビルドなどの開発ツール（ruff・pytest・pandoc 等）は `environment.yml` のみに追加し、CI で必要なものは `ci.yml` 側で導入する
+3. 版の指定は次の方針に揃える
+   - `environment.yml`: 再現性のため、原則として `geopandas=1.0` のように minor 版まで固定する。ツール間の連携のため patch 版まで固定する場合は、理由をコメントで残す
+   - `requirements.txt`: 原則として版を指定しない。次の場合に限り下限・上限を指定し、理由をコメントで残す
+     - 使う API が必要とする下限（例: `pyogrio>=0.11`）
+     - `environment.yml` で固定した版と CI が取得する版がずれ、CI だけで挙動が変わりうる場合の上限（メジャーバージョンの更新など）
+     - 推移的依存の互換性のための上限（例: `affine<3`）
 4. `docs/setup.md` の記述と食い違わないか確認する（[15.3](#153-出力前チェック)）
 
 ## 11. テスト方針
@@ -310,7 +313,7 @@ PR作成時・`main` へのpush時にも自動実行される（[setup.md 12章]
 - [ ] 主要ファイルの静的エラー（LSP/構文エラー）を確認した
 - [ ] 変更内容を説明する際、根拠となるファイルを明示できる状態にした
 - [ ] ドキュメントを追加・改名した場合は `docs/README.md` を更新した
-- [ ] `environment.yml` を更新した場合は `requirements.txt` にも反映し（[10.2](#102-依存を追加するときの手順)）、`docs/setup.md` も確認した
+- [ ] `environment.yml` を更新した場合は `docs/setup.md` も確認した。実行時の依存を追加した場合は `requirements.txt` にも反映した（[10.2](#102-依存を追加するときの手順)）
 - [ ] `.gitignore` や生成物方針を更新した場合は `docs/02_methods/data_management_guide.md` も確認した
 
 ## 16. ツール利用時の読み取り規律

@@ -1,6 +1,6 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-10-22  
+**最終更新**: 2026-11-03  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
@@ -82,6 +82,7 @@
 
    - RFモデルに対してSHAP値を計算
    - 平均絶対SHAPを算出し、summary/bar/dependence図を保存
+   - summary図・dependence図の点の描画順などの乱数は `--random-state` で固定され、同じ入力・同じシードなら同じ画像になる（SHAP値・棒グラフはシードに依存しない）
 
 9. **結果JSONを保存**（`src.common.summary.save_summary`）
 

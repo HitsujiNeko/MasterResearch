@@ -82,7 +82,7 @@
 
    - RFモデルに対してSHAP値を計算
    - 平均絶対SHAPを算出し、summary/bar/dependence図を保存
-   - summary図・dependence図の点の描画順などの乱数は `--random-state` で固定され、同じ入力・同じシードなら同じ画像になる（SHAP値・棒グラフはシードに依存しない）
+   - summary図・dependence図の点の描画順などの乱数は `--random-state` で固定され、同じ入力・同じシードなら同じ画像になる（SHAP値・棒グラフの算出は描画の乱数を使わない）
 
 9. **結果JSONを保存**（`src.common.summary.save_summary`）
 

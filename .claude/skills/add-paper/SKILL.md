@@ -72,7 +72,7 @@ curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
    - 上記 `curl` で `works?query.bibliographic={タイトル}&rows=3` を検索し、DOI の特定を試みる
    - 上位候補が複数返るため自動採用しない。候補（タイトル・著者・年・DOI）を比較ルールに従って提示し、ユーザーが同一論文と確認したうえで DOI を採用する
    - 見つからない、またはユーザーが同一論文と確認できない場合は従来どおり「未確認」と明記する（小規模会議録等は Crossref 未収載のことが多い）
-3. **API が失敗した場合・DOI が未登録の場合**: 照合をスキップし、失敗種別（`DOI未登録` / `HTTP {ステータスコード}` / `タイムアウト` / `JSON不正` 等）と再試行可否を記録する（登録フロー自体は止めない）
+3. **API が失敗した場合・DOI が未登録の場合**: 照合をスキップし、失敗種別（`DOI未登録` / `HTTP {ステータスコード}` / `タイムアウト` / `JSON不正` 等）と再試行可否を記録する（登録フロー自体は止めない）。DOI は原典 PDF に記載の値を正規化して採用し、要約ファイル・`papers_database.csv`・`papers_bibliography.csv` に同じ値を書く（引用用書誌の照合元は `PDF`）
 4. 照合結果（実施日・一致/不一致/候補採用/スキップの別。スキップ時は失敗種別を含む）は Step 2 で要約ファイル末尾に記録する
 
 ### Step 2: S番号の採番・要約ファイルの作成
@@ -105,10 +105,10 @@ curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
 | 列 | 書き方 | Crossref の対応フィールド |
 |---|---|---|
 | ID | Step 2 で採番した S 番号 | — |
-| 文献種別 | 雑誌論文は `article`、会議録は `inproceedings`（生成スクリプトはこの2つのみ受け付ける）。書籍の章・プレプリント・報告書等それ以外の種別は、登録前にユーザーに扱いを確認する | `type`（`journal-article` / `proceedings-article`） |
-| 著者 | 全著者を原典の順に `姓, 名 and 姓, 名` 形式で並べる（`et al.` で省略しない）。名はミドルネーム・頭文字を含めて PDF の表記どおりに書き、発音区別符号（č・ö 等）を残す。姓だけの著者は1語のまま書く。姓・名の区別は PDF で判断し、Crossref の分割と異なる場合（ベトナム人著者名等）・団体名の著者・和文（漢字）の著者はユーザーに確認する | `author[].family` / `author[].given` |
-| 題名 | 原典 PDF の表記（大文字小文字・記号を含む）のまま。副題も含める。Crossref の題名に含まれる HTML タグ（`<i>` 等）・エンティティ（`&amp;` 等）は除く | `title` / `subtitle` |
-| 誌名 | 正式名称（略称にしない）。Step 3 の `掲載誌` と同じ名称にする | `container-title` |
+| 文献種別 | 雑誌論文は `article`、会議録は `inproceedings`（生成スクリプトはこの2つのみ受け付ける）。書籍の章・プレプリント・報告書等それ以外の種別は文献 DB に登録せず保留し、論文で引用する場合は `thesis/references/extra.bib` に手書きするか（執筆規約 8.3）をユーザーに確認する | `type`（`journal-article` / `proceedings-article`） |
+| 著者 | 全著者を原典の順に `姓, 名 and 姓, 名` 形式で並べる（`et al.` で省略しない）。名はミドルネーム・頭文字を含めて PDF の表記どおりに書き、発音区別符号（č・ö 等）を残す。姓だけの著者は1語のまま書く。姓・名の区別は PDF で判断し、Crossref の分割と異なる場合（ベトナム人著者名等）は判断した案を示してユーザーに確認する。複数語の団体名・和文（漢字）の著者は、生成スクリプトが CSV の値を波括弧で保護できず正しく出力できないため、登録を保留してユーザーに報告する | `author[].family` / `author[].given` |
+| 題名 | 原典 PDF の表記（大文字小文字・記号を含む）のまま。副題も含める。Crossref の値に含まれる HTML タグ（`<i>` 等）は除き、エンティティ（`&amp;` 等）は元の文字（`&`）に戻す | `title` / `subtitle` |
+| 誌名 | 正式名称（略称にしない）。Step 3 の `掲載誌` と同じ名称にする。HTML エンティティは題名と同様に元の文字に戻す | `container-title` |
 | 年 | 4桁。Step 1.5 と同じ `issued` 基準 | `issued` |
 | 巻・号 | 無ければ空欄。合併号は `3-4` | `volume` / `issue` |
 | ページ | 範囲は `80-90`（半角ハイフン）、論文番号の雑誌（MDPI 等）は論文番号（`1471`）。無ければ空欄 | `page` / `article-number` |
@@ -145,7 +145,7 @@ curl -sS -f --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 1 \
   - 掲載誌: papers_database.csv・要約ファイルの2層で一致
   - DOI: papers_database.csv の `DOI_URL`・要約ファイルの `DOI/URL` 欄・papers_bibliography.csv の `DOI` が、Step 1.5 で採用した値と一致
   - 年・題名・誌名: papers_database.csv と papers_bibliography.csv で一致（下記のテストで機械的に確認する）
-- 引用用書誌のうちテストで検査されない列（全著者・巻・号・ページ）は、記載値と Crossref・PDF の値を並べた表で提示し、一致を確認する
+- 引用用書誌のうちテストで検査されない列（全著者・題名の表記・文献種別・巻・号・ページ）は、記載値と Crossref・PDF の値を並べた表で提示し、一致を確認する
 - 引用用書誌の確認: `PYTHONPATH="$PWD" python -m pytest tests/scripts/test_make_thesis_bib.py` を実行し（`python` は conda 環境 masterresearch のもの）、全件通ることを確認する。失敗した場合は出力された ID・列を `papers_bibliography.csv`（または `papers_database.csv`）で直してから再実行する
 - コミットメッセージ: `docs: 先行研究S{番号}（{著者} {年}）を追加 (#{Issue番号})`
 

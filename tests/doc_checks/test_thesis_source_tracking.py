@@ -1,0 +1,660 @@
+"""thesis_source_tracking.py（論文の節が依拠する正本の更新検出）のテスト。"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from src.doc_checks.thesis_source_tracking import (
+    KIND_MALFORMED,
+    KIND_MISSING,
+    KIND_NO_HASH,
+    KIND_NO_SOURCES,
+    KIND_UPDATED,
+    check_thesis_source_tracking,
+    main,
+    parse_section_sources,
+    stamp_section_sources,
+)
+
+_SECTION = "thesis/chapters/01_introduction/01_background.md"
+
+
+def _git(args: list[str], cwd: Path) -> str:
+    """git を実行し、標準出力を返す。"""
+    result = subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+    return result.stdout.decode("utf-8").strip()
+
+
+def _init_repo(repo_dir: Path) -> None:
+    """テスト用の git リポジトリを作る（改行コードの自動変換は無効にする）。"""
+    _git(["init", "-q"], repo_dir)
+    _git(["config", "user.email", "test@example.com"], repo_dir)
+    _git(["config", "user.name", "Test"], repo_dir)
+    _git(["config", "commit.gpgsign", "false"], repo_dir)
+    _git(["config", "core.autocrlf", "false"], repo_dir)
+
+
+def _write(repo_dir: Path, relative_path: str, content: str) -> None:
+    """改行コードを変換せずに UTF-8 でファイルを書く。"""
+    path = repo_dir / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content.encode("utf-8"))
+
+
+def _commit_all(repo_dir: Path) -> None:
+    """作業ツリーの変更をすべてコミットする。"""
+    _git(["add", "-A"], repo_dir)
+    _git(["commit", "-q", "-m", "test commit"], repo_dir)
+
+
+def _blob_hash(repo_dir: Path, relative_path: str) -> str:
+    """HEAD 時点のパスのオブジェクトハッシュを返す。"""
+    return _git(["rev-parse", f"HEAD:{relative_path}"], repo_dir)
+
+
+def _section(sources: list[str], state: str = "執筆中") -> str:
+    """指定した正本の行を持つ節ファイルの本文を作る。"""
+    entries = "".join(f"  - {source}\n" for source in sources)
+    return (
+        "<!--\n"
+        "見出し: 1.1　研究背景\n"
+        f"状態: {state}\n"
+        "依拠する正本:\n"
+        f"{entries}"
+        "-->\n"
+        "\n"
+        "## 1.1　研究背景\n"
+        "\n"
+        "本文．\n"
+    )
+
+
+def _setup_repo_with_source(repo_dir: Path) -> str:
+    """正本 docs/a.md をコミットし、その blob ハッシュを返す。"""
+    _init_repo(repo_dir)
+    _write(repo_dir, "docs/a.md", "# A\n\n初版\n")
+    _commit_all(repo_dir)
+    return _blob_hash(repo_dir, "docs/a.md")
+
+
+# --- 解析 ---
+
+
+def test_parse_reads_path_and_hash() -> None:
+    """`- パス @ ハッシュ` の行からパスとハッシュを読む。"""
+    parsed = parse_section_sources(_section(["docs/a.md @ 0123456789"]), _SECTION)
+
+    assert len(parsed.references) == 1
+    ref = parsed.references[0]
+    assert ref.path == "docs/a.md"
+    assert ref.recorded_hash == "0123456789"
+    assert ref.line == 5
+    assert parsed.malformed == []
+
+
+def test_parse_ignores_placeholder() -> None:
+    """未着手の節のプレースホルダ `（執筆時に記入）` は検査対象にしない。"""
+    parsed = parse_section_sources(_section(["（執筆時に記入）"]), _SECTION)
+
+    assert parsed.references == []
+    assert parsed.malformed == []
+
+
+def test_parse_entry_without_hash() -> None:
+    """ハッシュの無い行はパスのみを読み、ハッシュは None とする。"""
+    parsed = parse_section_sources(_section(["docs/a.md"]), _SECTION)
+
+    assert parsed.references[0].recorded_hash is None
+
+
+def test_parse_reports_malformed_entry() -> None:
+    """書式に合わない行（ハッシュが16進数でない等）は書式不正とする。"""
+    parsed = parse_section_sources(_section(["docs/a.md @ 未記入"]), _SECTION)
+
+    assert parsed.references == []
+    assert len(parsed.malformed) == 1
+    assert parsed.malformed[0].kind == KIND_MALFORMED
+    assert parsed.malformed[0].line == 5
+
+
+def test_parse_stops_at_next_key() -> None:
+    """「依拠する正本」の後に別の項目が来たら、それ以降は正本として読まない。"""
+    text = (
+        "<!--\n"
+        "依拠する正本:\n"
+        "  - docs/a.md @ 0123456789\n"
+        "目安: 10 ページ\n"
+        "  - docs/b.md @ 0123456789\n"
+        "-->\n"
+    )
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def test_parse_ignores_body_outside_metadata_comment() -> None:
+    """冒頭の HTML コメントの外（本文）は解析しない。"""
+    text = "## 1.1　研究背景\n\n依拠する正本:\n  - docs/a.md @ 0123456789\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+
+
+def test_parse_handles_crlf() -> None:
+    """改行コードが CRLF でも同じ結果になる。"""
+    text = _section(["docs/a.md @ 0123456789"]).replace("\n", "\r\n")
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references[0].recorded_hash == "0123456789"
+
+
+# --- 検出 ---
+
+
+def test_no_finding_when_source_unchanged(tmp_path: Path) -> None:
+    """正本が記録時点から変わっていなければ何も検出しない。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"docs/a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_detects_updated_source(tmp_path: Path) -> None:
+    """正本を更新すると、それに依拠する節が要見直しとして検出される。"""
+    old_blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"docs/a.md @ {old_blob[:10]}"]))
+    _commit_all(tmp_path)
+    _write(tmp_path, "docs/a.md", "# A\n\n改訂版\n")
+    _commit_all(tmp_path)
+    new_blob = _blob_hash(tmp_path, "docs/a.md")
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding.kind == KIND_UPDATED
+    assert finding.section_file == _SECTION
+    assert finding.source_path == "docs/a.md"
+    assert finding.recorded_hash == old_blob[:10]
+    assert finding.current_hash == new_blob[:10]
+    assert finding.diff_command == f"git diff {old_blob[:10]} {new_blob[:10]}"
+
+
+def test_uncommitted_source_change_is_not_detected(tmp_path: Path) -> None:
+    """未コミットの正本の変更は検出しない（HEAD 時点の版と比較するため）。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"docs/a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+    _write(tmp_path, "docs/a.md", "# A\n\n未コミットの変更\n")
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_detects_missing_source(tmp_path: Path) -> None:
+    """正本が移動・削除されて見つからない場合は検出する。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/moved.md @ 0123456789"]))
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [finding.kind for finding in findings] == [KIND_MISSING]
+
+
+def test_detects_missing_hash(tmp_path: Path) -> None:
+    """パスのみでハッシュが記録されていない正本は未記録として検出する。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md"]))
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [finding.kind for finding in findings] == [KIND_NO_HASH]
+
+
+def test_directory_source_detects_change_of_child(tmp_path: Path) -> None:
+    """ディレクトリを正本にした場合、配下のファイルの更新で要見直しになる。"""
+    _setup_repo_with_source(tmp_path)
+    tree = _git(["rev-parse", "HEAD:docs"], tmp_path)
+    _write(tmp_path, _SECTION, _section([f"docs/ @ {tree[:10]}"]))
+    _commit_all(tmp_path)
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+    _write(tmp_path, "docs/b.md", "# B\n")
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [(finding.kind, finding.source_path) for finding in findings] == [
+        (KIND_UPDATED, "docs/")
+    ]
+
+
+def test_japanese_path_source(tmp_path: Path) -> None:
+    """日本語を含むパスの正本も比較できる。"""
+    _init_repo(tmp_path)
+    _write(tmp_path, "docs/結果.md", "# 結果\n")
+    _commit_all(tmp_path)
+    blob = _blob_hash(tmp_path, "docs/結果.md")
+    _write(tmp_path, _SECTION, _section([f"docs/結果.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_unstarted_section_is_skipped(tmp_path: Path) -> None:
+    """状態が「未着手」の節は、ハッシュ未記録や正本の更新があっても検査しない。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md", "docs/moved.md @ 0123456789"], "未着手"))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_parse_reads_state() -> None:
+    """メタ情報欄の「状態:」を読む。"""
+    parsed = parse_section_sources(_section(["docs/a.md"], "初稿"), _SECTION)
+
+    assert parsed.state == "初稿"
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def _isolate_from_parent_repo(monkeypatch: pytest.MonkeyPatch, repo_dir: Path) -> None:
+    """repo_dir の親にある git リポジトリや GIT_DIR を git に探させない（git 失敗の前提を固定）。"""
+    monkeypatch.delenv("GIT_DIR", raising=False)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(repo_dir.parent))
+
+
+def test_git_failure_raises_runtime_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """git リポジトリでない場所では「正本が見つからない」ではなく例外にする。"""
+    _isolate_from_parent_repo(monkeypatch, tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md @ 0123456789"]))
+
+    with pytest.raises(RuntimeError, match="正本のハッシュを取得できませんでした"):
+        check_thesis_source_tracking(project_root=tmp_path)
+
+
+def test_no_thesis_directory(tmp_path: Path) -> None:
+    """`thesis/chapters/` が無ければ何も検出しない。"""
+    _setup_repo_with_source(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_placeholder_in_started_section_is_reported(tmp_path: Path) -> None:
+    """未着手以外の節でプレースホルダのままなら「正本未記入」として検出する。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["（執筆時に記入）"], "確定"))
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [(finding.kind, finding.line) for finding in findings] == [(KIND_NO_SOURCES, 5)]
+
+
+def test_empty_sources_without_placeholder_is_not_reported(tmp_path: Path) -> None:
+    """プレースホルダを消して正本を空にした節は、依拠する正本が無いものとして扱う。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([], "確定"))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_dot_slash_path_is_resolved(tmp_path: Path) -> None:
+    """`./docs/a.md` のような書き方でも正本を照合できる。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"./docs/a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+@pytest.mark.parametrize("bad_path", [":(exclude)docs", "C:/x.md", "../outside.md", "/abs.md"])
+def test_unusual_path_is_missing_without_stopping_others(tmp_path: Path, bad_path: str) -> None:
+    """特殊記法・絶対パス・リポジトリ外のパスは「正本が見つからない」とし、他の節の検査は続ける。"""
+    old_blob = _setup_repo_with_source(tmp_path)
+    other = "thesis/chapters/01_introduction/02_positioning.md"
+    _write(tmp_path, _SECTION, _section([f"{bad_path} @ 0123456789"]))
+    _write(tmp_path, other, _section([f"docs/a.md @ {old_blob[:10]}"]))
+    _commit_all(tmp_path)
+    _write(tmp_path, "docs/a.md", "# A\n\n改訂版\n")
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+
+    assert [(finding.section_file, finding.kind) for finding in findings] == [
+        (_SECTION, KIND_MISSING),
+        (other, KIND_UPDATED),
+    ]
+
+
+def test_directory_and_child_file_at_same_time(tmp_path: Path) -> None:
+    """ディレクトリとその配下のファイルを同時に正本にしても、両方を照合できる。"""
+    _setup_repo_with_source(tmp_path)
+    tree = _blob_hash(tmp_path, "docs")
+    blob = _blob_hash(tmp_path, "docs/a.md")
+    _write(tmp_path, _SECTION, _section([f"docs/ @ {tree[:10]}", f"docs/a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+    _write(tmp_path, _SECTION, _section(["docs/", "docs/a.md"]))
+    assert stamp_section_sources(Path(_SECTION), project_root=tmp_path).stamped == 2
+
+
+def test_backslash_path_is_resolved(tmp_path: Path) -> None:
+    """`docs\\a.md` のような `\\` 区切りのパスでも正本を照合できる。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs" + chr(92) + f"a.md @ {blob[:10]}"]))
+    _commit_all(tmp_path)
+
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "bad_line", ["docs/a.md @ 0123456789", "* docs/a.md", "-docs/a.md", "・docs/a.md"]
+)
+def test_parse_line_without_dash_is_malformed(bad_line: str) -> None:
+    """欄の中の `- ` で始まらない行（次の項目の行を除く）は書式不正とする。"""
+    text = f"<!--\n状態: 執筆中\n依拠する正本:\n  {bad_line}\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+    assert [(finding.kind, finding.line) for finding in parsed.malformed] == [(KIND_MALFORMED, 4)]
+
+
+def test_parse_entry_without_indent() -> None:
+    """字下げの無い `- パス @ ハッシュ` も正本として読む。"""
+    text = "<!--\n状態: 執筆中\n依拠する正本:\n- docs/a.md @ 0123456789\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def test_parse_skips_blank_line_after_key() -> None:
+    """「依拠する正本:」の直後の空行は読み飛ばす。"""
+    text = "<!--\n依拠する正本:\n\n  - docs/a.md @ 0123456789\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+def test_parse_one_line_key_is_malformed() -> None:
+    """「依拠する正本: docs/a.md」のような1行書きは書式不正とする。"""
+    text = "<!--\n依拠する正本: docs/a.md\n-->\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+    assert [(finding.kind, finding.line) for finding in parsed.malformed] == [(KIND_MALFORMED, 2)]
+
+
+def test_parse_comment_closed_at_end_of_entry_line() -> None:
+    """行末で `-->` が閉じる場合も、その行までを読み、本文は読まない。"""
+    text = (
+        "<!--\n依拠する正本:\n  - docs/a.md @ 0123456789 -->\n"
+        "\n依拠する正本:\n  - docs/b.md @ 0123456789\n"
+    )
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+    assert parsed.malformed == []
+
+
+def test_parse_single_line_comment_has_no_sources() -> None:
+    """1行で閉じたコメントの後の本文は解析しない。"""
+    text = "<!-- 状態: 執筆中 -->\n\n依拠する正本:\n  - docs/a.md @ 0123456789\n"
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert parsed.references == []
+
+
+def test_parse_with_bom() -> None:
+    """BOM 付きのファイルでもメタ情報欄を読む。"""
+    text = chr(0xFEFF) + _section(["docs/a.md @ 0123456789"])
+
+    parsed = parse_section_sources(text, _SECTION)
+
+    assert [ref.path for ref in parsed.references] == ["docs/a.md"]
+
+
+# --- 記録（--stamp） ---
+
+
+def test_stamp_records_current_hash(tmp_path: Path) -> None:
+    """stamp でハッシュ未記録・古いハッシュを現在の値に書き換え、検出が解消する。"""
+    old_blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, "docs/b.md", "# B\n")
+    _write(tmp_path, _SECTION, _section([f"docs/a.md @ {old_blob[:10]}", "docs/b.md"]))
+    _commit_all(tmp_path)
+    _write(tmp_path, "docs/a.md", "# A\n\n改訂版\n")
+    _commit_all(tmp_path)
+    assert len(check_thesis_source_tracking(project_root=tmp_path)) == 2
+
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert result.is_ok
+    assert result.stamped == 2
+    text = (tmp_path / _SECTION).read_text(encoding="utf-8")
+    assert f"  - docs/a.md @ {_blob_hash(tmp_path, 'docs/a.md')[:10]}\n" in text
+    assert f"  - docs/b.md @ {_blob_hash(tmp_path, 'docs/b.md')[:10]}\n" in text
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_stamp_preserves_other_lines_and_crlf(tmp_path: Path) -> None:
+    """stamp は該当行以外を変えず、CRLF の改行コードも保持する。"""
+    blob = _setup_repo_with_source(tmp_path)
+    original = _section(["docs/a.md", "（執筆時に記入）"]).replace("\n", "\r\n")
+    _write(tmp_path, _SECTION, original)
+
+    stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    expected = original.replace("  - docs/a.md\r\n", f"  - docs/a.md @ {blob[:10]}\r\n")
+    assert (tmp_path / _SECTION).read_bytes().decode("utf-8") == expected
+
+
+def test_stamp_reports_missing_source(tmp_path: Path) -> None:
+    """HEAD に無い正本の行は書き換えず、そのパスを返す。"""
+    _setup_repo_with_source(tmp_path)
+    original = _section(["docs/moved.md @ 0123456789"])
+    _write(tmp_path, _SECTION, original)
+
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert result.not_found == ["docs/moved.md"]
+    assert not result.is_ok
+    assert (tmp_path / _SECTION).read_text(encoding="utf-8") == original
+
+
+def test_stamp_absolute_path_and_bom(tmp_path: Path) -> None:
+    """絶対パスで指定でき、BOM 付きのファイルでも BOM を保持して記録する。"""
+    blob = _setup_repo_with_source(tmp_path)
+    bom = chr(0xFEFF)
+    _write(tmp_path, _SECTION, bom + _section(["docs/a.md"]))
+
+    result = stamp_section_sources(tmp_path / _SECTION, project_root=tmp_path)
+
+    assert result.is_ok
+    text = (tmp_path / _SECTION).read_bytes().decode("utf-8")
+    assert text.startswith(bom + "<!--")
+    assert f"  - docs/a.md @ {blob[:10]}\n" in text
+
+
+def test_stamp_directory_source_then_detects_change(tmp_path: Path) -> None:
+    """末尾 `/` 付きのディレクトリを stamp し、配下の変更で要見直しになる。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/"]))
+    _commit_all(tmp_path)
+
+    assert stamp_section_sources(Path(_SECTION), project_root=tmp_path).is_ok
+    _commit_all(tmp_path)
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+    _write(tmp_path, "docs/a.md", "# A\n\n改訂版\n")
+    _commit_all(tmp_path)
+
+    findings = check_thesis_source_tracking(project_root=tmp_path)
+    assert [(finding.kind, finding.source_path) for finding in findings] == [
+        (KIND_UPDATED, "docs/")
+    ]
+
+
+def test_stamp_does_not_rewrite_unchanged_file(tmp_path: Path) -> None:
+    """記録済みのハッシュが現在の値と同じなら、ファイルを書き直さない。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section([f"docs/a.md @ {blob[:10]}"]))
+    target = tmp_path / _SECTION
+    os.utime(target, ns=(1_000_000_000, 1_000_000_000))
+
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert result.is_ok
+    assert target.stat().st_mtime_ns == 1_000_000_000
+
+
+def test_stamp_reports_malformed_and_empty(tmp_path: Path) -> None:
+    """書式不正の行は記録せず返す。正本が1件も無い節は成功としない。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md @ 未記入"]))
+
+    malformed_result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert [finding.line for finding in malformed_result.malformed] == [5]
+    assert not malformed_result.is_ok
+
+    _write(tmp_path, _SECTION, _section(["（執筆時に記入）"]))
+
+    empty_result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert empty_result.stamped == 0
+    assert not empty_result.is_ok
+
+
+def test_stamp_keeps_comment_end_on_same_line(tmp_path: Path) -> None:
+    """行末で `-->` が閉じる行を stamp しても `-->` を残し、本文がコメントに入らない。"""
+    blob = _setup_repo_with_source(tmp_path)
+    original = "<!--\n状態: 執筆中\n依拠する正本:\n  - docs/a.md -->\n\n本文\n"
+    _write(tmp_path, _SECTION, original)
+
+    result = stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+    assert result.is_ok
+    text = (tmp_path / _SECTION).read_text(encoding="utf-8")
+    assert text == original.replace("  - docs/a.md -->", f"  - docs/a.md @ {blob[:10]} -->")
+    _commit_all(tmp_path)
+    assert check_thesis_source_tracking(project_root=tmp_path) == []
+
+
+def test_stamp_partial_success(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """一部の正本が見つからない場合も、見つかった正本は記録し、その件数を表示する。"""
+    blob = _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md", "docs/moved.md"]))
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    text = (tmp_path / _SECTION).read_text(encoding="utf-8")
+    assert f"  - docs/a.md @ {blob[:10]}\n" in text
+    assert "  - docs/moved.md\n" in text
+    output = capsys.readouterr().out
+    assert "正本が HEAD に見つからない: docs/moved.md" in output
+    assert "上記以外の 1 件はハッシュを記録しました" in output
+
+
+def test_stamp_missing_file_raises(tmp_path: Path) -> None:
+    """節ファイルが無い場合は日本語のメッセージで例外にする。"""
+    _setup_repo_with_source(tmp_path)
+
+    with pytest.raises(FileNotFoundError, match="節ファイルが見つかりません"):
+        stamp_section_sources(Path(_SECTION), project_root=tmp_path)
+
+
+# --- コマンドライン ---
+
+
+def test_main_reports_findings_with_exit_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """検出結果を表示し、要見直しがあっても終了コードは0とする。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md @ 0123456789"]))
+    _commit_all(tmp_path)
+
+    exit_code = main([], project_root=tmp_path)
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert f"{_SECTION}:5 [{KIND_UPDATED}] docs/a.md" in output
+    assert "git diff 0123456789" in output
+
+
+def test_main_stamp_returns_one_when_source_missing(tmp_path: Path) -> None:
+    """--stamp で正本が見つからない行があれば終了コード1を返す。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/moved.md"]))
+
+    assert main(["--stamp", _SECTION], project_root=tmp_path) == 1
+
+
+def test_main_stamp_multiple_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """--stamp に複数の節ファイルを渡すと、それぞれを記録する。"""
+    _setup_repo_with_source(tmp_path)
+    other = "thesis/chapters/01_introduction/02_positioning.md"
+    _write(tmp_path, _SECTION, _section(["docs/a.md"]))
+    _write(tmp_path, other, _section(["docs/a.md"]))
+
+    exit_code = main(["--stamp", _SECTION, other], project_root=tmp_path)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.count("[OK]") == 2
+
+
+def test_main_stamp_empty_section_returns_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """記録する正本が無い節に --stamp すると [NG] で終了コード1を返す。"""
+    _setup_repo_with_source(tmp_path)
+    _write(tmp_path, _SECTION, _section(["（執筆時に記入）"]))
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    assert "記録する正本がありません" in capsys.readouterr().out
+
+
+def test_main_stamp_missing_file_returns_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """存在しない節ファイルに --stamp すると [NG] で終了コード1を返す。"""
+    _setup_repo_with_source(tmp_path)
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    assert "[NG] 節ファイルが見つかりません" in capsys.readouterr().out
+
+
+def test_main_stamp_git_failure_returns_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--stamp で git の実行に失敗した場合は、例外ではなく [NG] で終了コード1を返す。"""
+    _isolate_from_parent_repo(monkeypatch, tmp_path)
+    _write(tmp_path, _SECTION, _section(["docs/a.md"]))
+
+    exit_code = main(["--stamp", _SECTION], project_root=tmp_path)
+
+    assert exit_code == 1
+    assert "[NG] 正本のハッシュを取得できませんでした" in capsys.readouterr().out

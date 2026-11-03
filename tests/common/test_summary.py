@@ -8,6 +8,7 @@ import math
 import os
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from src.common.summary import (
     describe_input_files,
     get_git_state,
     get_package_versions,
+    get_python_version,
     save_summary,
     script_module_to_path,
 )
@@ -134,6 +136,14 @@ def test_get_package_versions_marks_missing_package_as_none() -> None:
 
     assert isinstance(versions["pytest"], str)
     assert versions["no-such-package-for-provenance-test"] is None
+
+
+def test_get_python_version_matches_running_interpreter(tmp_path: Path) -> None:
+    """Python のバージョンは実行中のインタプリタの版で、来歴の記録と同じ表記になる。"""
+    version = get_python_version()
+
+    assert version.split(".")[:2] == [str(sys.version_info.major), str(sys.version_info.minor)]
+    assert build_provenance("x", packages=[], repo_root=tmp_path)["python_version"] == version
 
 
 @pytest.mark.parametrize(("status", "expected_dirty"), [("", False), (" M src/a.py", True)])

@@ -224,6 +224,15 @@ def describe_code_files(
     return {"watch_paths": paths, "files": files}
 
 
+def get_python_version() -> str:
+    """実行中の Python のバージョンを、来歴に記録する表記で返す。
+
+    Returns:
+        バージョン文字列（例: `3.11.9`）。
+    """
+    return sys.version.split()[0]
+
+
 def get_package_versions(packages: Iterable[str] = DEFAULT_PROVENANCE_PACKAGES) -> dict[str, Any]:
     """指定したライブラリのインストール済みバージョンを取得する。
 
@@ -316,7 +325,7 @@ def build_provenance(
     return {
         "script": script,
         "executed_at": timestamp.isoformat(),
-        "python_version": sys.version.split()[0],
+        "python_version": get_python_version(),
         "platform": platform.platform(),
         "git": get_git_state(repo_root),
         "code": describe_code_files(watch_paths, repo_root),

@@ -23,8 +23,8 @@ Limited のスクリプトの既定値（採用構成）を使う。
 シードごとの途中結果を保存し、中断しても続きから再開できる（完了印のある
 シードは、標本のダイジェストと実行条件（`build_run_conditions`）がどちらも一致すれば
 計算し直さない）。実行条件には木の本数・分割数・Limited の構成と投入列・Satellite Only
-の投入列・結果に効くコードのダイジェスト・両データセットの SHA-256 を含め、条件の記録が
-無い途中結果は再利用しない。
+の投入列・来歴と同じ範囲（`src/common/` 全体を含む）のコードのダイジェスト・両データセットの
+SHA-256・Python と主要ライブラリのバージョンを含め、条件の記録が無い途中結果は再利用しない。
 """
 
 from __future__ import annotations
@@ -71,6 +71,8 @@ from src.common.summary import (
     build_provenance,
     compute_file_sha256,
     describe_code_files,
+    get_package_versions,
+    get_python_version,
     save_summary,
     script_module_to_path,
 )
@@ -217,11 +219,13 @@ def build_limited_configuration() -> dict[str, Any]:
 
 
 def compute_code_digest() -> str | None:
-    """途中結果の再利用判定に使う、結果に効くコードの内容ダイジェストを求める。
+    """途中結果の再利用判定に使う、来歴と同じ範囲のコードの内容ダイジェストを求める。
 
-    来歴と同じ範囲（本スクリプト・既定の監視パス・`REPEAT_WATCH_PATHS`）の git 追跡
-    ファイルのハッシュ一覧（`describe_code_files`。改行は LF にそろえる）から求める。
-    コードが変わった後に、変わる前の途中結果を使い回さないためである。
+    来歴と同じ範囲（本スクリプト・既定の監視パス（`src/common/` 全体を含む）・
+    `REPEAT_WATCH_PATHS`）の git 追跡ファイルのハッシュ一覧（`describe_code_files`。改行は
+    LF にそろえる）から求める。範囲には結果に効かないコードも含むため、それらを変えた
+    場合も途中結果は計算し直しになる。コードが変わった後に、変わる前の途中結果を使い
+    回さないためである。
 
     Returns:
         SHA-256 の16進文字列。git を利用できない場合は `None`。
@@ -264,7 +268,10 @@ def build_run_conditions(
     """シードの途中結果を再利用してよいかを判定するための実行条件を組み立てる。
 
     標本の中身（セル・ブロック・fold）は標本のダイジェストで照合するため、ここには
-    標本に表れない学習の条件と入力の中身を入れる。
+    標本に表れない学習の条件と入力の中身を入れる。Python と主要ライブラリのバージョンは
+    来歴（`provenance.python_version`・`provenance.packages`）と同じ範囲で記録する。環境を
+    更新した後に再開すると、最終結果の来歴には現在のバージョンしか残らず、旧バージョンで
+    計算したシードの混在を見分けられないためである。
 
     Args:
         rf_trees: RF の決定木本数。
@@ -283,6 +290,8 @@ def build_run_conditions(
         "satellite_only_features": list(satellite_only.FEATURE_COLUMNS),
         "code_digest": code_digest,
         "dataset_sha256": dict(dataset_hashes),
+        "python_version": get_python_version(),
+        "packages": get_package_versions(),
     }
 
 

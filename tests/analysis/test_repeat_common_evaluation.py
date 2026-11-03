@@ -243,12 +243,14 @@ class TestResume:
             ("satellite_only_features", ["NDVI"]),
             ("code_digest", "code-v2"),
             ("dataset_sha256", {"satellite_only": "s1", "limited": "l2"}),
+            ("python_version", "3.0.0"),
+            ("packages", {"scikit-learn": "0.1"}),
         ],
     )
     def test_does_not_reuse_when_a_condition_differs(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str], key: str, value: object
     ) -> None:
-        """木の本数・構成・投入列・コード・データセットのどれかが違えば、違うキーを示して計算し直す。"""
+        """木の本数・構成・投入列・コード・データセット・バージョンのどれかが違えば、違うキーを示して計算し直す。"""
         self._write_seed(
             tmp_path, {"seed": 42, "digest": "abc", RUN_CONDITIONS_KEY: self._CONDITIONS}
         )
@@ -321,6 +323,11 @@ class TestMain:
             ].read_text(encoding="utf-8")
         )
         assert summary[RUN_CONDITIONS_KEY]["rf_trees"] == 5
+        # 実行条件のバージョンは、最終結果の来歴と同じ範囲・同じ表記で記録する
+        assert summary[RUN_CONDITIONS_KEY]["packages"] == result["provenance"]["packages"]
+        assert (
+            summary[RUN_CONDITIONS_KEY]["python_version"] == result["provenance"]["python_version"]
+        )
 
         def _fail_if_called(*args: object, **kwargs: object) -> None:
             raise AssertionError("完了済みのシードを計算し直してはならない")
@@ -356,11 +363,11 @@ class TestMain:
         }
         assert folds_path.read_text(encoding="utf-8") == computed_folds
 
-    @pytest.mark.parametrize("change", ["rf_trees", "code", "dataset"])
+    @pytest.mark.parametrize("change", ["rf_trees", "code", "dataset", "packages"])
     def test_recomputes_seeds_when_run_conditions_change(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, change: str
     ) -> None:
-        """木の本数・コード・データセットが変わった再実行では、全シードを計算し直す。
+        """木の本数・コード・データセット・ライブラリのバージョンが変わった再実行では、全シードを計算し直す。
 
         データセットは読込を合成データへ差し替えているため、ファイルの中身だけを変えても
         標本（セル・fold）は変わらない。標本のダイジェストでは検出できない変更の例になる。
@@ -373,6 +380,14 @@ class TestMain:
             monkeypatch.setattr(repeat, "compute_code_digest", lambda: "changed-code")
         if change == "dataset":
             (tmp_path / "dataset_limited_20220906_032358_hanoi_30m.gpkg").write_bytes(b"rebuilt")
+        if change == "packages":
+            # 環境を更新した後の再開を模す（scikit-learn の版だけが変わる）
+            current = repeat.get_package_versions()
+            monkeypatch.setattr(
+                repeat,
+                "get_package_versions",
+                lambda: {**current, "scikit-learn": "0.0.1"},
+            )
         computed: list[int] = []
         original = repeat.run_seed
 

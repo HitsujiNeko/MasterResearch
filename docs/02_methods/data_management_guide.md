@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-03  
+**最終更新**: 2026-11-04  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -233,9 +233,11 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `src.analysis.build_common_evaluation_set` | 評価セルのメタデータ `evaluation_cells_seed{シード}_results.json` |
 | `src.analysis.compare_common_evaluation` | `scenario_comparison_*_results.json` |
 | `src.analysis.repeat_common_evaluation` | `repeated_comparison_*_results.json` |
+| `src.analysis.diagnose_spatial_cv_design` | `lst_semivariogram_results.json`、`spatial_cv_sweep_results.json` |
 
 - **追加の監視パス**: 共通評価セルの生成（`src.analysis.build_common_evaluation_set`）・比較
-  （`src.analysis.compare_common_evaluation`）・反復（`src.analysis.repeat_common_evaluation`）は、
+  （`src.analysis.compare_common_evaluation`）・反復（`src.analysis.repeat_common_evaluation`）・Spatial CV の診断
+  （`src.analysis.diagnose_spatial_cv_design`）は、
   有効母集団の定義を持つ両分析スクリプト（`analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py`）を追加で監視する
   （フィルタを広げても既存の評価セルは新しい母集団に含まれ、分析時の停止条件では検出できないため）。
   反復は、共通集合の求め方と標本の抽出をそのまま呼ぶ `build_common_evaluation_set.py` も監視する

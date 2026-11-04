@@ -1,6 +1,6 @@
 # 測量由来 GIS データ整備状況レポート
 
-**最終更新**: 2026-10-19  
+**最終更新**: 2026-11-04  
 **作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、`gpkgの確認結果.md`、`DGNファイル内容確定結果.md` の確認メモをもとに整理  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md)
 
@@ -31,7 +31,7 @@ LST や公開 GIS を含む研究全体の進捗ではなく、あくまで `Ful
 ### 研究上の位置づけ
 
 - `Satellite Only`: 完了済み
-- `Limited`: 公開 GIS を用いる段階で未完了
+- `Limited`: 完了済み
 - `Full`: 本ドキュメントの測量由来 GIS を使う段階で未完了
 
 したがって、本ドキュメントは **Full 実装の前提整理**として扱う。

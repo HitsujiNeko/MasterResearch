@@ -396,7 +396,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` / `lulc_glc2022` / `ntl_viirs2023` / `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` | 可 |
 | `full` | `mask_roi` / `mask_survey` / `build_dc` / `road_gt` | 可 |
 
-> **`full` の展開と Full シナリオの関係**: `full` が展開するのは測量GIS由来のテーブルとマスクだけであり、Full シナリオの定義（衛星データ・公開GIS・測量GIS。CLAUDE.md 用語集）の全体ではない。公開GISのテーブルは `--tables` で追加する。ただし `build_gba` / `road_osm` は`build_dc` / `road_gt` と列名が同じため、同時には結合できない。Full の最終変数セットは未確定であり（[analysis_workflow.md](../analysis_workflow.md) 5.3.1節）、確定時に `SCENARIO_TABLES` の `full` と上表を見直す。
+> **`full` の展開と Full シナリオの関係**: `full` が展開するのは `mask_roi` と測量GIS由来のテーブル・マスクだけであり、Full シナリオの定義（衛星データ・公開GIS・測量GIS。CLAUDE.md 用語集）の全体ではない。公開GISと衛星指標のテーブルは `--tables` で追加する。ただし `build_gba` / `road_osm` は `build_dc` / `road_gt` と列名が同じため、同時には結合できない。Full の最終変数セットは未確定であり（[analysis_workflow.md](../analysis_workflow.md) 5.3.1節）、確定時に `SCENARIO_TABLES` の `full` と上表を見直す。
 
 **`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。ただし `= 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味し、**境界にかかる部分被覆セルを含む**（面積換算の超過は 30m で約0.4%・300m で約8%。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。部分被覆セルでは有効域外の部分が 0 として集約されるため、測量GIS由来の値（`build_dc` / `road_gt`）が過小になりうる。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で Satellite Only / Limited を比較する用途に使える。
 

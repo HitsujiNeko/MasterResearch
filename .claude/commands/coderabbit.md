@@ -15,6 +15,9 @@ argument-hint: "{PR番号}"
 # CodeRabbit のレビュー（指摘の本体）
 gh pr view $ARGUMENTS --json reviews --jq '.reviews[] | select(.author.login == "coderabbitai")'
 
+# PR の最新コミット（レビューの commit.oid と比べ、未レビューのコミットの有無を見る）
+gh pr view $ARGUMENTS --json headRefOid --jq '.headRefOid'
+
 # 通常コメント（スキップ通知・起動の投稿・CodeRabbit の応答）。本文は先頭に HTML コメントの目印が並び、
 # 切り詰めると判定の手がかりが見えなくなるため、目印の有無を真偽値で出す
 # （Windows の Git Bash ではバックスラッシュが崩れるため、正規表現ではなく contains で判定する）
@@ -36,9 +39,9 @@ gh api repos/{owner}/{repo}/pulls/$ARGUMENTS/comments
 
 | 状態 | 判定の目安 | 対応 |
 |---|---|---|
-| 到着済み | `coderabbitai` のレビューがある | Step 2 へ（指摘対応後の再実行では、Step 4 で返信済みの指摘を除いて扱う） |
+| 到着済み | `coderabbitai` のレビューがあり、最新のレビューの `submittedAt` が最新の起動の投稿（`trigger_comment` が真のコメント）の `createdAt` より後である（起動の投稿がなければ、レビューがあるだけでよい） | Step 2 へ（指摘対応後の再実行では、Step 4 で返信済みの指摘を除いて扱う。レビューの `commit.oid` が `headRefOid` と異なる場合は、以降のコミットが未レビューであることを報告に添える） |
 | 未起動 | `coderabbitai` のレビューがなく、起動の操作（`trigger_comment` が真のコメント、またはスキップ通知の `trigger_checked` が真）もない。スキップ通知（`skip_notice` が真）の有無は問わない（PR 作成直後で通知がまだ付いていない場合を含む） | 下記の手動起動 |
-| 起動済み・未到着 | 起動の操作はあるが、`coderabbitai` のレビューがまだない | 下記の待機 |
+| 起動済み・未到着 | 起動の操作はあるが、その後の `coderabbitai` のレビューがまだない（再起動の前からある古いレビューは数えない） | 下記の待機 |
 
 - チェックボックスは起動後に未チェックへ戻ることがあり（未確認）、`trigger_checked` だけでは起動済みを見分けられない場合がある。そのため手動起動の確認では、ユーザーがすでにチェックボックスを押していないかも併せて尋ねる
 - **手動起動**（未起動の場合）:

@@ -28,7 +28,7 @@
 残る主な作業（優先順位と進捗は GitHub Issues / Project を正本とする）:
 
 1. 測量由来 GIS のレイヤ別の確認と変数対応を確定し、`Full` を実行する。
-2. RQ2 の本分析として、グリッド解像度（30 / 90 / 300m）と分析対象範囲の組合せを比べる。
+2. RQ2 の本分析として、グリッド解像度（30 / 90 / 300m）と分析対象範囲の組合せを比べる（主採用の観測のテーブルは 30m のみのため、先に 90m・300m を生成する）。
 3. 比較用の観測 `2024-11-30T03:23:36` で分析する（在庫の指標に MNDWI が無いため、先に再エクスポートする）。
 
 現在の主要実装:
@@ -465,7 +465,7 @@ LST分布をどの程度説明できるかを評価し、測量GISを加えた�
 RQ3 は、次の順で進めている。
 
 1. `Satellite Only` の基準線を、主採用の観測で固定する。**完了**
-2. `Limited` のために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。**完了**
+2. `Limited` のために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。**完了**（GBA の有効カバレッジそのものの検証は未実施。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 7章）
 3. `urban_params` パッケージを公開 GIS / 測量 GIS の両方に対応できる設計へ揃える。公開 GIS での算出は**完了**し、測量 GIS での算出の確認が残る。
 4. `Limited` を実行する。**完了**（主採用の観測・30m・採用構成）
 5. `Full` を実行する。**未実施**
@@ -485,7 +485,8 @@ RQ3 は、次の順で進めている。
 | 出力 | モデル指標 JSON、特徴量重要度 CSV、比較図 |
 
 この最小仕様は既に実施済みであり、主採用の観測での結果を [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章に記録している。  
-`Limited` の改善幅は評価済みであり（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6節）、今後はこの基準線に対して `Full` の改善幅を評価する。
+`Limited` との差は共通評価セルで測定済みである（全域は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6節、測量GIS範囲は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6節）。ただし分光指数の扱いがシナリオ間で揃っていないため、この差は公開GISを加えた効果だけではない（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.5節）。  
+`Full` は測量GISの有効域でしか成立しないため、測量GIS範囲の結果を基準線として差を評価する。
 
 ### 5.3.3 共通評価セル集合（シナリオ間比較の標本統制）
 
@@ -577,8 +578,8 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 |---------|---------|----------|--------|
 | **Phase 1** | GISデータ空間範囲の把握（BBox比較） | `src/analysis/analyze_spatial_extents.py` | ✅ 完了（2026-03-03） |
 | **Phase 1.5** | Satellite Only データセット構築 | （削除済み） | ✅ 完了 |
-| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・1観測日。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲。分析対象範囲の指定は表下の注記） | ✅ 完了 |
-| **Phase 2** | 公開 GIS の取得・カバレッジの確認 | `extract_geofabrik_roads_hanoi.py`, `fetch_gba_buildings_hanoi.py` | ✅ 完了 |
+| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・主採用と旧採用の2観測。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲。分析対象範囲の指定は表下の注記） | ✅ 完了 |
+| **Phase 2** | 公開 GIS の取得・範囲の確認 | `extract_geofabrik_roads_hanoi.py`, `fetch_gba_buildings_hanoi.py` | ✅ 完了 |
 | **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計（公開 GIS） | `src/analysis/urban_params/` | ✅ 完了 |
 | **Phase 3** | 近傍変数算出（今後の課題。本研究の RQ2 では扱わない） | `calc_neighborhood_vars.py` | ⚪ 今後の課題 |
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |

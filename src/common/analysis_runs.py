@@ -34,8 +34,9 @@ def build_observation_label(output_stem: str) -> str:
     分析エントリスクリプトの `resolve_output_stem` の戻り値（例:
     `dataset_limited_20230707_032329_hanoi_30m`）に含まれる
     `{8桁の日付}_{6桁の時刻}` を `"2023-07-07 03:23:29"` のような可読な形式へ
-    整形する。プロット・SHAP図のタイトルに使うためのラベルであり、ファイル名
-    そのもの（`resolve_output_stem` の戻り値）とは用途が異なる。
+    整形する。共通評価で観測を識別する用途に使うため、分析対象範囲などの条件は
+    混ぜない（図のタイトルには `build_plot_label` を使う）。ファイル名そのもの
+    （`resolve_output_stem` の戻り値）とは用途が異なる。
 
     Args:
         output_stem: 分析エントリスクリプトの `resolve_output_stem` の戻り値。

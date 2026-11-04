@@ -252,6 +252,8 @@ python -m src.analysis.analysis_rq3_satellite_only `
   --analysis-area survey
 ```
 
+上の `--output-dir` は比較結果の置き場です。このまま実行すると、同じ名前の既存の図・結果JSONを上書きします。試しに実行する場合は、別のディレクトリを指定してください。
+
 ---
 
 ## 9. 初心者向けの読み解き順

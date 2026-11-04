@@ -1,7 +1,7 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-11-03  
-**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
+**最終更新**: 2026-11-04  
+**関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（「衛星データだけでLSTをどこまで説明できるか」）
 
 ---
@@ -35,6 +35,7 @@
 - `NDVI`, `NDBI`, `NDWI`: 説明変数（予測に使う特徴量）
 - `IN_ANALYSIS_AREA`, `LST_VALID_RATIO`: 品質管理列（フィルタに使用。3節参照）
 - `VALID_SATELLITE_MASK`: 品質管理列。ただし独立のフィルタ条件には使わない（この列は「NDVI / NDBI / NDWI のいずれかが非NULL」というORで定義されており、3列すべての非NULLを要求する時点で包含されるため）
+- `IN_ANALYSIS_AREA_SURVEY`: 測量GIS範囲（ハノイ都心部）のフラグ。`--analysis-area survey` のときだけ読み込みます。`mask_survey` を結合したデータセットが必要で、列が無ければ学習前に停止します
 
 ---
 
@@ -45,6 +46,7 @@
 1. **引数を読む**（`parse_arguments`）
 
    - データセットパス、しきい値、サンプル数、CV分割数、RF木本数などを受け取る
+   - `--analysis-area {roi,survey}`（既定 `roi`）で分析対象範囲を選ぶ。`survey` は測量GIS範囲に絞る指定で、ROI全体より狭い範囲を評価する
 
 2. **データセットを読み込む**（`analysis_dataset.load_analysis_dataset`）
 
@@ -53,6 +55,7 @@
 3. **品質列でフィルタし、サンプリングする**（`analysis_dataset.filter_valid_rows` / `sample_dataset`）
 
    - `IN_ANALYSIS_AREA == 1` かつ特徴量・目的変数が非NULL かつ `LST_VALID_RATIO >= しきい値`（既定0.5）
+   - `--analysis-area survey` のときは、さらに `IN_ANALYSIS_AREA_SURVEY == 1` を要求する
    - フィルタ→サンプリングの順（ブロック割り当てより先。ブロック割り当てを先にすると各ブロックのセル数が不均等に減るため）
 
 4. **ランダム分割で学習・評価**（`regression_models.fit_linear_regression` / `fit_random_forest`）
@@ -77,6 +80,7 @@
 7. **可視化の保存**（`analysis_plots.save_*`）
 
    - モデル比較図、特徴量重要度図、Spatial CVのfold別性能図
+   - `survey` ランの図のタイトルには `(survey GIS extent)` が付く（次のSHAP図も同じ）。図の既定フォントに日本語の字形が無いため英語で表記する。`roi` ランのタイトルには何も付かない
 
 8. **SHAP解析**（`shap_report.compute_shap_outputs`）
 
@@ -219,6 +223,8 @@ SHAPは「各特徴量が予測値をどれだけ押し上げ/押し下げたか
 - `*_shap_summary.png`, `*_shap_bar.png`, `*_shap_dependence_*.png`: SHAP可視化
 - `*_results.json`: 全結果の要約。乱数シード・RF決定木本数などの実行パラメータは `run_parameters` キーに記録される（記録範囲は `src/common/run_parameters.py` のmodule docstringを参照。記録の導入前に実行した既存ランは持たない）。あわせて、どのコード・環境・入力から生成したかを示す来歴メタデータが `provenance` キーに記録される（コミットハッシュ・主要ライブラリの版・データセット GeoPackage の SHA-256 等。内容は [data_management_guide.md](data_management_guide.md) 7.5節を参照。これも導入前の既存ランは持たない）
 
+`--analysis-area survey` のランは、出力名の末尾に `_area_survey` が付きます。同じデータセットから回した全域ランの出力を上書きしないためです。結果JSONの `analysis_area` に範囲の識別子、`required_mask_columns` に `== 1` を要求した品質列が記録されます。全域と測量GIS範囲の比較結果の正本は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) です。
+
 旧経路の出力先（`data/output/satellite_only/`）とは分離しています。集計単位・格子が異なる別物であるためです（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節）。
 
 ---
@@ -236,6 +242,15 @@ python -m src.analysis.analysis_rq3_satellite_only `
 ```
 
 引数を省略すると、既定値（30m・主採用の`20220906_032358`観測・block-size-m=2700等）で実行されます。旧採用の`20230707_032305`観測など別の観測で実行する場合は、`--dataset-path` と `--output-dir` を同じ観測にそろえて指定してください（片方だけ変えると、別観測の結果が既定の出力先に混在します）。データセットが未生成の場合は、先に `build_dataset.py` で生成してください（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6章参照）。
+
+測量GIS範囲に絞る場合は、`mask_survey` を結合したデータセットと `--analysis-area survey` を指定します。
+
+```powershell
+python -m src.analysis.analysis_rq3_satellite_only `
+  --dataset-path data/output/datasets/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m.gpkg `
+  --output-dir data/output/satellite_only_cellbased/20220906_032358_area_comparison `
+  --analysis-area survey
+```
 
 ---
 

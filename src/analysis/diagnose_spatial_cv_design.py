@@ -29,10 +29,10 @@
 
 設定ごとの途中結果を保存し、中断しても続きから再開できる（完了印に記録した実行条件と
 標本のダイジェストがすべて一致する設定は計算し直さない。``repeat_common_evaluation`` と
-同じ方式）。最終結果は、途中結果の保存先にある**今回と同じ実行条件の完了済み設定すべて**を
-集計する（格子の一部だけを足す実行を複数回に分けても、1つの結果にまとまる）。実行条件の
-違う完了済み設定が同じ保存先に残っていれば、別の標本やコードの結果を混ぜたり、部分実行で
-既存の集計を置き換えたりしないよう、集計せずに止める。
+同じ方式）。最終結果は、途中結果の保存先にある完了済み設定すべてを集計する（格子の一部だけを
+足す実行を複数回に分けても、1つの結果にまとまる）。実行条件の違う完了済み設定が同じ保存先に
+残っていれば、別の標本やコードの結果を混ぜたり、部分実行で既存の集計や追跡中の途中結果を
+置き換えたりしないよう、計算を始める前に止める。この場合は空の保存先を指定する。
 残差の部分標本は再集計できるよう保存するが、行数が多いため git では追跡しない
 （``.gitignore``）。
 """
@@ -870,23 +870,47 @@ def resolve_config_grid(
     ]
 
 
-def collect_completed_configs(
-    intermediate_dir: Path, run_conditions: Mapping[str, Any]
-) -> dict[str, Any]:
-    """途中結果の保存先から、今回と同じ実行条件の完了済み設定をすべて集める。
+def check_no_other_conditions(intermediate_dir: Path, run_conditions: Mapping[str, Any]) -> None:
+    """途中結果の保存先に、実行条件の違う完了済み設定が残っていないことを確かめる。
 
-    格子の一部を足す実行を複数回に分けても1つの結果にまとめるためである。実行条件
-    （評価セル・コード・データセットのハッシュを含む）が違う設定が残っていれば、黙って
-    除くと部分実行が既存の集計を置き換えてしまうため、集計せずに止める。
+    計算の後に気づくと、長時間の計算が無駄になり、追跡中の途中結果も上書きされるため、
+    計算を始める前に呼ぶ。全設定の集計も、この確認を前提に条件で絞らず行う。
 
     Args:
         intermediate_dir: 途中結果の保存先。
         run_conditions: 今回の実行条件。
     Returns:
+        None
+    Raises:
+        ValueError: 実行条件の違う完了済み設定が残っている場合。
+    """
+    mismatched = [
+        path.name
+        for path in sorted(intermediate_dir.glob("*_summary.json"))
+        if json.loads(path.read_text(encoding="utf-8")).get(RUN_CONDITIONS_KEY)
+        != dict(run_conditions)
+    ]
+    if mismatched:
+        raise ValueError(
+            f"実行条件の違う完了済み設定が {len(mismatched)} 件残っています"
+            f"（例: {mismatched[0]}）。--output-dir で空の保存先を指定してください:"
+            f" {intermediate_dir}"
+        )
+
+
+def collect_completed_configs(intermediate_dir: Path) -> dict[str, Any]:
+    """途中結果の保存先から、完了済みの設定をすべて集める。
+
+    格子の一部を足す実行を複数回に分けても1つの結果にまとめるためである。実行条件の
+    一致は計算の前に ``check_no_other_conditions`` で確かめる。
+
+    Args:
+        intermediate_dir: 途中結果の保存先。
+    Returns:
         ``folds``・``correlograms``・``residual_semivariograms``（設定の列つきの
         データフレーム）と ``records``（設定ごとの完了印の抜粋のリスト）の辞書。
     Raises:
-        ValueError: 実行条件の違う設定が残っている場合、集める設定が1つも無い場合。
+        ValueError: 集める設定が1つも無い場合。
     """
     frames: dict[str, list[pd.DataFrame]] = {
         "folds": [],
@@ -894,23 +918,13 @@ def collect_completed_configs(
         "residual_semivariograms": [],
     }
     records = []
-    mismatched = []
     for summary_path in sorted(intermediate_dir.glob("*_summary.json")):
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        if summary.get(RUN_CONDITIONS_KEY) != dict(run_conditions):
-            mismatched.append(summary_path.name)
-            continue
         paths = config_paths(intermediate_dir, summary_path.name.removesuffix("_summary.json"))
         columns = {"seed": summary["seed"], **{key: summary[key] for key in CONFIG_KEYS}}
         for name, items in frames.items():
             items.append(pd.read_csv(paths[name]).assign(**columns))
         records.append({key: summary[key] for key in CONFIG_RECORD_KEYS})
-    if mismatched:
-        raise ValueError(
-            f"実行条件の違う完了済み設定が {len(mismatched)} 件残っています"
-            f"（例: {mismatched[0]}）。全設定を計算し直すか、--output-dir で別の保存先を"
-            f"指定してください: {intermediate_dir}"
-        )
     if not records:
         raise ValueError(f"集計できる完了済みの設定がありません: {intermediate_dir}")
     return {
@@ -943,6 +957,7 @@ def run_sweep_command(args: argparse.Namespace) -> None:
     print("途中結果の再利用判定のため、コードと両データセットのハッシュを求めます。")
     run_conditions = {
         "evaluation_cells": to_project_relative_string(cells_path),
+        "evaluation_cells_digest": evaluation_set.digest,
         "sample_size": metadata["sample_size"],
         "analysis_area": metadata["analysis_area"],
         "rf_trees": int(args.rf_trees),
@@ -959,6 +974,7 @@ def run_sweep_command(args: argparse.Namespace) -> None:
         "python_version": get_python_version(),
         "packages": get_package_versions(PROVENANCE_PACKAGES),
     }
+    check_no_other_conditions(intermediate_dir, run_conditions)
     common_cell_ids, populations = repeat.build_populations(evaluation_set)
     print(f"共通集合: {len(common_cell_ids):,} セル。シード: {seeds}")
 
@@ -1027,7 +1043,7 @@ def run_sweep_command(args: argparse.Namespace) -> None:
                 save_summary(summary, paths["summary"])
                 print(f"    完了（{summary['elapsed_seconds']:.0f} 秒）")
 
-    collected = collect_completed_configs(intermediate_dir, run_conditions)
+    collected = collect_completed_configs(intermediate_dir)
     fold_table = collected["folds"]
     per_seed = summarize_sweep(fold_table)
     summary_table = summarize_across_seeds(per_seed)

@@ -20,7 +20,7 @@ from src.analysis.diagnose_spatial_cv_design import (
     MAX_FOLD_SIZE_RATIO,
     RUN_CONDITIONS_KEY,
     cell_coordinates,
-    collect_completed_configs,
+    check_no_other_conditions,
     config_key,
     config_paths,
     draw_subsample_indices,
@@ -266,26 +266,40 @@ class TestSweep:
     def test_stops_when_other_conditions_remain(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        """実行条件の違う設定が残る保存先では、集計せずに止めて既存の集計を残す。"""
+        """実行条件の違う設定が残る保存先では、計算を始めずに止めて既存の結果を残す。"""
         cells_path = _build_cells(monkeypatch, tmp_path)
         output_dir = tmp_path / "design"
         common = ["sweep", "--evaluation-cells", str(cells_path), "--output-dir", str(output_dir)]
         main([*common, *SWEEP_OPTIONS])
         result_path = output_dir / "spatial_cv_sweep_results.json"
-        before = result_path.read_bytes()
+        completed = output_dir / "sweep" / "seed42_block2700_buffer0_folds.csv"
+        before = (result_path.read_bytes(), completed.read_bytes())
 
+        def _fail_if_called(*args: object, **kwargs: object) -> None:
+            raise AssertionError("条件の違う保存先で計算を始めてはならない")
+
+        monkeypatch.setattr(diagnose, "run_config", _fail_if_called)
         options = [*SWEEP_OPTIONS]
         options[options.index("--rf-trees") + 1] = "3"
-        options[options.index("--block-sizes-m") + 1 : options.index("--buffers-m")] = ["8100"]
         with pytest.raises(ValueError, match="実行条件の違う完了済み設定"):
             main([*common, *options])
-        assert result_path.read_bytes() == before
+        assert (result_path.read_bytes(), completed.read_bytes()) == before
 
-    @pytest.mark.parametrize("key", ["evaluation_cells", "sample_size", "analysis_area"])
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "evaluation_cells",
+            "evaluation_cells_digest",
+            "sample_size",
+            "analysis_area",
+            "python_version",
+            "packages",
+        ],
+    )
     def test_run_conditions_identify_evaluation_set(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, key: str
     ) -> None:
-        """評価セルの識別情報が違う実行条件では、完了済み設定を集計しない。"""
+        """実行条件は評価セルと環境を識別し、それが違えば完了済み設定を使わない。"""
         cells_path = _build_cells(monkeypatch, tmp_path)
         output_dir = tmp_path / "design"
         main(
@@ -294,9 +308,10 @@ class TestSweep:
         )
         completed = output_dir / "sweep" / "seed42_block2700_buffer0_summary.json"
         conditions = json.loads(completed.read_text(encoding="utf-8"))["run_conditions"]
-        assert len(collect_completed_configs(output_dir / "sweep", conditions)["records"]) == 6
+        assert key in conditions
+        check_no_other_conditions(output_dir / "sweep", conditions)
         with pytest.raises(ValueError, match="実行条件の違う完了済み設定"):
-            collect_completed_configs(output_dir / "sweep", {**conditions, key: "other"})
+            check_no_other_conditions(output_dir / "sweep", {**conditions, key: "other"})
 
     def test_stops_when_primary_sample_differs(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

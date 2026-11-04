@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-11-03  
+**最終更新**: 2026-11-04  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -264,7 +264,7 @@ Osborne & Alvares 2019（[S5](../04_archive/02_structured_summaries/S5_Osborne_2
 | 近傍効果2 | 60–90m リング | `_60_90` | `BUILD_COV_60_90` |
 | 近傍効果3 | 90–120m リング | `_90_120` | `BUILD_COV_90_120` |
 
-> **根拠**: S5では30m解像度において「近傍効果 > 即時効果（相関0.956）」が示されており、  
+> **根拠**: S5では30m解像度において、建物・硬質面で周辺リングの構成が当該ピクセルより重要であることが示されており（最上位は当該ピクセルの自然被覆）、  
 > 近傍変数は空間スケールの影響を評価する有力な設計である。本研究では RQ2 の比較軸を絞ったため、今後の課題とした。
 
 **実装方針**:
@@ -431,7 +431,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 
 評価指標は各ケースのR², RMSE, 変数重要度の変化とする。
 
-> **根拠**: S5[Osborne 2019]では「近傍リング(annuli)変数の重要度 > 即時効果、相関0.956」を示した。
+> **根拠**: S5[Osborne 2019]では、建物・硬質面で近傍リング(annuli)変数の重要度が当該ピクセルを上回った（最上位は当該ピクセルの自然被覆）。
 
 ### 5.3 RQ3: データ制約下での有効性評価
 

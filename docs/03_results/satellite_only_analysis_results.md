@@ -1,6 +1,6 @@
 # Satellite Only 分析結果
 
-**最終更新**: 2026-08-26  
+**最終更新**: 2026-11-04  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -231,8 +231,10 @@ NDVI と NDWI の VIF は 3 観測日とも高く、多重共線性の影響が�
 
 ### 6.1 Limited シナリオへ進む
 
-次段階では、OpenStreetMap や Microsoft GlobalMLBuildingFootprints を導入し、  
+次段階では、OpenStreetMap や GlobalBuildingAtlas を導入し、  
 公開 GIS を加えた `Limited` が `Satellite Only` をどれだけ改善するかを確認する。
+
+> **2026-11-04時点の補足**: `Limited` は実施済みである（[limited_analysis_results.md](limited_analysis_results.md)）。建物データは GlobalBuildingAtlas で確定している（[gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)）。
 
 ### 6.2 Full シナリオへ接続する
 

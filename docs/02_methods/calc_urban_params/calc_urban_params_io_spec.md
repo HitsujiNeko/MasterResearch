@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-10-19
+**最終更新**: 2026-11-04
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -86,6 +86,8 @@
 > なお Hanoi ROI では Microsoft 建物データが西側行政区画を十分に覆っていない。比較用に用いる場合、建物データの有効カバレッジ外では被覆率・棟数密度の `0` が建物不存在を意味しない点に注意する。
 
 #### 5.2.2 Full
+
+本節は測量GISに固有の入力のみを列挙する。公開GISの入力は 5.2.1 節を参照する。Full でどの公開GISを組み合わせるかは未確定である（6.6節）。
 
 - `data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`。測量GIS有効域の単一ポリゴン、EPSG:5897、約99.9 km²。`整備データ/merge/merge_CS.gpkg` の図郭内枠から `python -m src.preprocessing.build_survey_extent_hanoi` で生成する。生成物は Git 追跡外）
 - `整備データ/merge/merge_DC.gpkg`（建物）
@@ -393,6 +395,8 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `satellite_only` | `mask_roi` | `--tables` に `idx_*` を伴う場合のみ可（下記） |
 | `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` / `lulc_glc2022` / `ntl_viirs2023` / `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` | 可 |
 | `full` | `mask_roi` / `mask_survey` / `build_dc` / `road_gt` | 可 |
+
+> **`full` の展開と Full シナリオの関係**: `full` が展開するのは測量GIS由来のテーブルとマスクだけであり、Full シナリオの定義（衛星データ・公開GIS・測量GIS。CLAUDE.md 用語集）の全体ではない。公開GISのテーブルは `--tables` で追加する。ただし `build_gba` / `road_osm` は`build_dc` / `road_gt` と列名が同じため、同時には結合できない。Full の最終変数セットは未確定であり（[analysis_workflow.md](../analysis_workflow.md) 5.3.1節）、確定時に `SCENARIO_TABLES` の `full` と上表を見直す。
 
 **`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。ただし `= 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味し、**境界にかかる部分被覆セルを含む**（面積換算の超過は 30m で約0.4%・300m で約8%。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。部分被覆セルでは有効域外の部分が 0 として集約されるため、測量GIS由来の値（`build_dc` / `road_gt`）が過小になりうる。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で Satellite Only / Limited を比較する用途に使える。
 

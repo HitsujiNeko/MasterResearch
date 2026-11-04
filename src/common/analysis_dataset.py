@@ -39,6 +39,12 @@ _ANALYSIS_AREA_MASK_COLUMNS: dict[str, tuple[str, ...]] = {
     ANALYSIS_AREA_ROI: (),
     ANALYSIS_AREA_SURVEY: (IN_ANALYSIS_AREA_SURVEY_COLUMN,),
 }
+# 範囲ごとに、図のタイトルへ添える表記。`roi` は既存の図との互換のため何も付けない。
+# 図の既定フォント（DejaVu Sans）は日本語の字形を持たないため英語で表記する。
+_ANALYSIS_AREA_TITLE_PARTS: dict[str, str] = {
+    ANALYSIS_AREA_ROI: "",
+    ANALYSIS_AREA_SURVEY: "(survey GIS extent)",
+}
 
 
 def resolve_analysis_area_mask_columns(analysis_area: str) -> tuple[str, ...]:
@@ -84,6 +90,26 @@ def analysis_area_output_part(analysis_area: str) -> str:
     if analysis_area == ANALYSIS_AREA_ROI:
         return ""
     return f"area_{analysis_area}"
+
+
+def analysis_area_title_part(analysis_area: str) -> str:
+    """分析対象範囲を図のタイトルに添えるときの表記を返す。
+
+    全域と測量GIS範囲の図を画像だけで見分けられるようにするためのもので、
+    測量GIS範囲をROI全体と同一視しない表記にしている。
+
+    Args:
+        analysis_area: 分析対象範囲の識別子（`ANALYSIS_AREAS` のいずれか）。
+    Returns:
+        タイトルに添える表記。`roi` は空文字。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
+    """
+    if analysis_area not in _ANALYSIS_AREA_TITLE_PARTS:
+        raise ValueError(
+            f"未対応の分析対象範囲です: {analysis_area}（対応: {list(ANALYSIS_AREAS)}）。"
+        )
+    return _ANALYSIS_AREA_TITLE_PARTS[analysis_area]
 
 
 def require_analysis_area_columns(

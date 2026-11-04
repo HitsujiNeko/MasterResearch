@@ -55,7 +55,7 @@ def save_model_comparison_plot(
         random_rf_metrics: ランダム分割のRF指標。
         spatial_linear_metrics: Spatial CVの線形回帰指標（`summarize_metric_dicts` の戻り値）。
         spatial_rf_metrics: Spatial CVのRF指標。
-        observation_label: 図タイトルに使う観測日時ラベル。
+        observation_label: 図タイトルに使うラベル（`build_plot_label` の戻り値）。
     """
     metric_names = ["r2", "rmse", "mae"]
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
@@ -92,7 +92,7 @@ def save_feature_importance_plot(
         standardized_coefficients: 線形回帰の標準化係数（キーが特徴量名）。
         rf_importance: RFの特徴量重要度（`standardized_coefficients` と同じ
             キー集合を持つ必要がある）。
-        observation_label: 図タイトルに使う観測日時ラベル。
+        observation_label: 図タイトルに使うラベル（`build_plot_label` の戻り値）。
     Raises:
         ValueError: `standardized_coefficients` と `rf_importance` のキー集合が
             一致しない場合。素の `KeyError` にすると原因が分かりにくいため。
@@ -121,12 +121,16 @@ def save_feature_importance_plot(
     _finalize_figure(fig, output_path)
 
 
-def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> None:
+def save_spatial_cv_plot(
+    output_path: Path, fold_metrics_df: pd.DataFrame, title_suffix: str = ""
+) -> None:
     """Spatial CVのfold別性能推移を可視化して保存する。
 
     Args:
         output_path: 出力画像パス。
         fold_metrics_df: fold別評価指標データ（`fold` / `linear_r2` / `rf_r2` 等の列を持つ）。
+        title_suffix: 各パネルのタイトルの末尾に付ける表記（分析対象範囲など）。
+            空文字なら何も付けない。
     """
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     metrics = [("r2", "R²"), ("rmse", "RMSE"), ("mae", "MAE")]
@@ -146,7 +150,8 @@ def save_spatial_cv_plot(output_path: Path, fold_metrics_df: pd.DataFrame) -> No
             label="RF",
             color="#e45756",
         )
-        axes[index].set_title(f"Spatial CV {title}")
+        panel_title = f"Spatial CV {title}"
+        axes[index].set_title(f"{panel_title} {title_suffix}" if title_suffix else panel_title)
         axes[index].set_xlabel("Fold")
         axes[index].grid(alpha=0.3)
 
@@ -167,7 +172,7 @@ def save_correlation_heatmap(
         correlation_matrix: `compute_correlation_matrix` の戻り値（正方行列で、
             行ラベルと列ラベルが一致している必要がある）。
         method_label: 相関係数の種類（図タイトルに使う。例: `Pearson`）。
-        observation_label: 図タイトルに使う観測日時ラベル。
+        observation_label: 図タイトルに使うラベル（`build_plot_label` の戻り値）。
     Raises:
         ValueError: `correlation_matrix` の行ラベルと列ラベルが一致しない場合。
             素の描画エラーにすると原因が分かりにくいため。

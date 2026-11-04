@@ -452,6 +452,7 @@ class TestMainRunParameters:
 
         for suffix in EXPECTED_FIGURE_SUFFIXES:
             assert any(name.endswith(suffix) for name in saved_titles), suffix
+        assert any("_shap_dependence_" in name for name in saved_titles)
         area_part = analysis_area_title_part(ANALYSIS_AREA_SURVEY)
         for name, titles in saved_titles.items():
             assert any(area_part in title for title in titles), name
@@ -459,14 +460,22 @@ class TestMainRunParameters:
     def test_roi_run_does_not_show_area_in_figure_titles(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        """roi ランのタイトルには範囲を付けない（既存の図との互換）。"""
+        """roi ランのタイトルは範囲を付けず、観測ラベルを保つ（既存の図との互換）。"""
         saved_titles = _capture_saved_figure_titles(monkeypatch)
         self._run_main(monkeypatch, tmp_path)
 
-        assert saved_titles
+        comparison_name = next(
+            name for name in saved_titles if name.endswith("_model_comparison.png")
+        )
+        observation_label = build_observation_label(
+            comparison_name.removesuffix("_model_comparison.png")
+        )
         area_part = analysis_area_title_part(ANALYSIS_AREA_SURVEY)
         for name, titles in saved_titles.items():
             assert not any(area_part in title for title in titles), name
+            # Spatial CV 図のタイトルは、もともと観測ラベルを持たない
+            if not name.endswith("_spatial_cv.png"):
+                assert any(observation_label in title for title in titles), name
 
 
 class TestRunParametersFromDefaults:

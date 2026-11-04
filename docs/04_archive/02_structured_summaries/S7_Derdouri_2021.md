@@ -1,7 +1,8 @@
 # S7: Derdouri et al. (2021)
 
-**最終更新**: 2026-10-10  
-**関連ドキュメント**: [previous_studies_report.md](../previous_studies_report.md), [research_guide.md](../../01_planning/research_guide.md), [literature_management_guide.md](../literature_management_guide.md)
+**最終更新**: 2026-11-04  
+**関連ドキュメント**: [previous_studies_report.md](../previous_studies_report.md), [research_guide.md](../../01_planning/research_guide.md), [literature_management_guide.md](../literature_management_guide.md)  
+**原本照合**: 2026-11-04 にPDF本文と再照合し、引用・条件の脱落と本研究との関連性を修正した（Claude Code）
 
 ## 📌 基本情報
 
@@ -12,7 +13,7 @@
 - **掲載誌**: Remote Sensing, 13(18), 3654
 - **DOI**: <https://doi.org/10.3390/rs13183654>
 - **論文種別**: Systematic Review
-- **対象論文数**: 113本（初期1300件から選定）
+- **対象論文数**: 113本（検索の1300件から110本を選定し、検索外の3本を追加。PDF p.5）
 - **レビュー期間**: 2001–2020
 - **PDF**: 有
 
@@ -195,7 +196,9 @@
 
 ---
 
-## Landsat利用割合（期間別）
+## 中解像度データを使う研究の期間長
+
+原典のTable 2は、Landsat・ASTER・HJ-1Bを含む中解像度の研究を期間長で分けた内訳で、Landsatの利用割合ではない（PDF p.10）。
 
 | 期間 | 割合 |
 |---|---|
@@ -374,8 +377,8 @@ SUHI_i = LST_{urban} - LST_{rural}
 
 ### ハノイ事例
 
-> 市街地が1%増加すると
-> LSTが0.075–0.108℃上昇
+> ハノイ都心部（Hanoi inner city）で市街地が1%増加すると
+> LSTが0.075–0.108℃上昇しうる（Tran et al. の推定の引用。PDF p.18）
 
 ---
 
@@ -520,9 +523,9 @@ SUHI_i = LST_{urban} - LST_{rural}
 
 ### 衛星 vs 実測
 
-| 都市 | 誤差 |
+| 都市 | 報告値（誤差または相関） |
 |---|---|
-| Delhi | r=0.89 |
+| Delhi | 相関 0.89 |
 | Zhengzhou | 2.7–4.7℃ |
 | Nguyen研究 | 0.3–3.34℃ |
 
@@ -575,7 +578,7 @@ SUHI_i = LST_{urban} - LST_{rural}
 
 ## RQ1
 
-◎ 極めて重要
+○ 関連あり
 
 - NDVI/NDBI中心研究整理
 - IS/LST関係整理
@@ -584,20 +587,19 @@ SUHI_i = LST_{urban} - LST_{rural}
 
 ## RQ2
 
-◎ 重要
+△ 関連は限定的
 
-- 季節性
-- スケール依存性
-- 都市形態
+- 季節性と都市形態を整理している
+- 集計単位のスケールは論じていない（地区・地域レベルの研究を除外したレビュー。PDF p.4）
 
 ---
 
 ## RQ3
 
-◎ 重要
+○ 関連あり
 
-- Landsat/GEE活用基盤
-- 再現可能研究
+- 発展途上国の都市が研究の大半で、Landsatが主流であることを示す
+- 公開データと測量データの比較は扱わない
 
 ---
 
@@ -615,7 +617,7 @@ SUHI_i = LST_{urban} - LST_{rural}
 
 - Landsatを基盤とする30m級解析は先行研究の主流として妥当。
 - 季節差が大きいため、観測時期を乾季・雨季・夏季などで明示する。
-- GWRや近傍集計など、局所的・スケール依存的な関係を確認する設計が有効。
+- GWRのように局所的な関係を確認する設計は、多くの研究でOLSより高性能と報告されている。
 
 ---
 
@@ -628,9 +630,7 @@ SUHI_i = LST_{urban} - LST_{rural}
 
 # 📎 重要引用候補
 
-> “LULC changes are one of the major drivers of SUHI intensification.”
-
-> “The relationship between urban structure and SUHI is highly scale dependent.”
+> “urban expansion is one of the leading drivers of SUHI development in UAs”（PDF p.8）
 
 ---
 
@@ -660,7 +660,6 @@ SUHI×LULC研究の「基盤レビュー論文」。
 - NDVI/NDBI中心研究
 - IS重要性
 - 季節変動
-- スケール依存性
 - 3D都市形態不足
 
 を体系整理している。
@@ -670,6 +669,7 @@ SUHI×LULC研究の「基盤レビュー論文」。
 ---
 
 **作成日**: 2026-05-20  
-**最終更新**: 2026-10-10  
+**最終更新**: 2026-11-04  
 **作成者**: ChatGPT  
-**修正**: 2026-10-08 Claude Code（PDF 原本と突合し、使用指数の出典が付録 Table A2 であることと、本文 4.2節の値との食い違いを注記）
+**修正**: 2026-10-08 Claude Code（PDF 原本と突合し、使用指数の出典が付録 Table A2 であることと、本文 4.2節の値との食い違いを注記）  
+**修正**: 2026-11-04 Claude Code（PDF 原本と再照合。原文に存在しなかった引用2件を実在の文に差し替えた）

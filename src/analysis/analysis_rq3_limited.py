@@ -52,6 +52,7 @@ from src.common.analysis_dataset import (  # noqa: E402
     IN_ANALYSIS_AREA_COLUMN,
     LST_VALID_RATIO_COLUMN,
     analysis_area_output_part,
+    analysis_area_title_part,
     filter_valid_rows,
     load_analysis_dataset,
     require_analysis_area_columns,
@@ -67,7 +68,7 @@ from src.common.analysis_plots import (  # noqa: E402
     save_spatial_cv_plot,
 )
 from src.common.analysis_runs import (  # noqa: E402
-    build_observation_label,
+    build_plot_label,
     run_random_split_models,
     run_spatial_cv_models,
     validate_scale_matches_dataset,
@@ -1501,7 +1502,7 @@ def save_correlation_outputs(
         candidate_frame: `build_candidate_correlation_frame` の戻り値の1つ目。
         output_dir: 出力先ディレクトリ。
         output_stem: 出力ファイル名の接頭辞。
-        observation_label: 図タイトルに使う観測日時ラベル。
+        observation_label: 図タイトルに使うラベル（`build_plot_label` の戻り値）。
     Returns:
         出力パス（`PROJECT_ROOT` からの相対文字列）を方法ごとに格納した辞書。
     """
@@ -1571,7 +1572,7 @@ def main() -> None:
         args.water_index,
         args.analysis_area,
     )
-    observation_label = build_observation_label(output_stem)
+    plot_label = build_plot_label(output_stem, args.analysis_area)
     # 評価セルを使う場合は、重い読込より前に引数とメタデータの一致を確かめる。
     evaluation_set = load_evaluation_set_for_run(args)
     if evaluation_set is not None:
@@ -1623,7 +1624,7 @@ def main() -> None:
 
     candidate_frame, missing_candidate_columns = build_candidate_correlation_frame(sampled)
     correlation_outputs = save_correlation_outputs(
-        candidate_frame, args.output_dir, output_stem, observation_label
+        candidate_frame, args.output_dir, output_stem, plot_label
     )
     vif = compute_vif(sampled[model_feature_columns])
     # VIFと相関行列は対象範囲が異なる。後から結果を読む人が取り違えないよう、
@@ -1772,15 +1773,19 @@ def main() -> None:
         random_split.rf_result["metrics"],
         spatial_cv_summary["linear_regression"],
         spatial_cv_summary["random_forest"],
-        observation_label,
+        plot_label,
     )
     save_feature_importance_plot(
         importance_plot_path,
         standardized_coefficients,
         rf_importance,
-        observation_label,
+        plot_label,
     )
-    save_spatial_cv_plot(spatial_cv_plot_path, spatial_cv_folds)
+    save_spatial_cv_plot(
+        spatial_cv_plot_path,
+        spatial_cv_folds,
+        title_suffix=analysis_area_title_part(args.analysis_area),
+    )
 
     shap_source = random_split.x_test.reset_index(drop=True)
     shap_sample_size = min(args.shap_sample_size, len(shap_source))
@@ -1795,7 +1800,7 @@ def main() -> None:
         background_features=background_features,
         output_dir=args.output_dir,
         output_stem=output_stem,
-        observation_label=observation_label,
+        observation_label=plot_label,
         random_state=args.random_state,
     )
     vegetation_shap = summarize_vegetation_shap(shap_result["mean_abs_shap"], model_feature_columns)

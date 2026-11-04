@@ -210,7 +210,7 @@ def compute_shap_outputs(
             で `PROJECT_ROOT` からの相対パスへ変換して記録する（`PROJECT_ROOT` 配下
             でない場合は絶対パスのまま記録する）。
         output_stem: 出力ファイル名の接頭辞。
-        observation_label: 図タイトルに使う観測日時ラベル。
+        observation_label: 図タイトルに使うラベル（`build_plot_label` の戻り値）。
         random_state: summary図・dependence図の描画に使う乱数シード（点の描画順など）。
             同じ入力・同じ値なら同じ画像になる。SHAP値・重要度表・棒グラフには
             影響しない。グローバルな `np.random` の状態は呼び出し前後で変わらない。

@@ -18,6 +18,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
+from src.common.analysis_dataset import analysis_area_title_part
 from src.common.model_metrics import summarize_metric_dicts
 from src.common.regression_models import fit_linear_regression, fit_random_forest
 from src.common.spatial_cv import split_by_spatial_blocks
@@ -50,6 +51,28 @@ def build_observation_label(output_stem: str) -> str:
     date_label = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
     time_label = f"{raw_time[:2]}:{raw_time[2:4]}:{raw_time[4:6]}"
     return f"{date_label} {time_label}"
+
+
+def build_plot_label(output_stem: str, analysis_area: str) -> str:
+    """図のタイトルに使う、観測日時と分析対象範囲のラベルを生成する。
+
+    `build_observation_label` は共通評価で観測を識別する用途にも使うため、範囲の
+    表記はそちらへ混ぜず、図のタイトル専用の本関数で付ける。
+
+    Args:
+        output_stem: 分析エントリスクリプトの `resolve_output_stem` の戻り値。
+        analysis_area: 分析対象範囲の識別子（`ANALYSIS_AREAS` のいずれか）。
+    Returns:
+        図のタイトルに使うラベル。`roi` は `build_observation_label` の戻り値のまま、
+        それ以外は末尾に範囲の表記を付ける。
+    Raises:
+        ValueError: `analysis_area` が対応外の場合。
+    """
+    observation_label = build_observation_label(output_stem)
+    area_part = analysis_area_title_part(analysis_area)
+    if not area_part:
+        return observation_label
+    return f"{observation_label} {area_part}"
 
 
 def validate_scale_matches_dataset(dataset_path: Path, scale: int) -> None:

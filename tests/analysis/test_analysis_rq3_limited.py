@@ -32,6 +32,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -105,6 +106,7 @@ from src.common.analysis_dataset import (
     IN_ANALYSIS_AREA_COLUMN,
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
     LST_VALID_RATIO_COLUMN,
+    analysis_area_title_part,
 )
 from src.common.analysis_runs import build_observation_label
 from src.common.evaluation_cells import METADATA_OBSERVATION_KEY, save_evaluation_set
@@ -1900,6 +1902,41 @@ class TestMainDiagnoseOnly:
         assert diagnostics["population_size"] == len(dataframe)
 
 
+# main() が保存する図のファイル名の末尾（図の控えが働いていることの確認に使う）
+EXPECTED_FIGURE_SUFFIXES = (
+    "_correlation_pearson.png",
+    "_correlation_spearman.png",
+    "_model_comparison.png",
+    "_feature_importance.png",
+    "_spatial_cv.png",
+    "_shap_summary.png",
+    "_shap_bar.png",
+)
+
+
+def _capture_saved_figure_titles(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
+    """保存される図のタイトルを、実際の保存処理を通したまま控える。
+
+    図を描く関数の引数ではなく保存時の図を見るため、範囲を渡し忘れた図も検出できる。
+
+    Args:
+        monkeypatch: pytest の monkeypatch。
+
+    Returns:
+        ファイル名をキー、図の全タイトルを値とする辞書（main() 実行後に埋まる）。
+    """
+    original_savefig = Figure.savefig
+    saved_titles: dict[str, list[str]] = {}
+
+    def recording_savefig(figure: Figure, fname: object, *args: object, **kwargs: object) -> None:
+        titles = [axis.get_title() for axis in figure.axes]
+        saved_titles[Path(str(fname)).name] = [*titles, figure.get_suptitle()]
+        original_savefig(figure, fname, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", recording_savefig)
+    return saved_titles
+
+
 def _capture_model_run_arguments(
     monkeypatch: pytest.MonkeyPatch, module_name: str
 ) -> dict[str, dict[str, object]]:
@@ -1945,6 +1982,8 @@ class TestMainRunParameters:
         n = 200
         dataframe = _quality_dataframe(n=n)
         dataframe["cell_id"] = make_cell_id(np.zeros(n, dtype=np.int64), np.arange(n) * 30)
+        # --analysis-area survey でも同じ合成データを使えるよう、全行を測量GIS範囲内にする
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = 1
         monkeypatch.setattr(
             "src.analysis.analysis_rq3_limited.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
@@ -2018,6 +2057,31 @@ class TestMainRunParameters:
         result = self._run_main(monkeypatch, tmp_path)
 
         _assert_dataset_provenance(result["provenance"])
+
+    def test_survey_run_shows_area_in_every_figure_title(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """survey ランは、保存するすべての図のタイトルに範囲を表示する。"""
+        saved_titles = _capture_saved_figure_titles(monkeypatch)
+        self._run_main(monkeypatch, tmp_path, "--analysis-area", ANALYSIS_AREA_SURVEY)
+
+        for suffix in EXPECTED_FIGURE_SUFFIXES:
+            assert any(name.endswith(suffix) for name in saved_titles), suffix
+        area_part = analysis_area_title_part(ANALYSIS_AREA_SURVEY)
+        for name, titles in saved_titles.items():
+            assert any(area_part in title for title in titles), name
+
+    def test_roi_run_does_not_show_area_in_figure_titles(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """roi ランのタイトルには範囲を付けない（既存の図との互換）。"""
+        saved_titles = _capture_saved_figure_titles(monkeypatch)
+        self._run_main(monkeypatch, tmp_path)
+
+        assert saved_titles
+        area_part = analysis_area_title_part(ANALYSIS_AREA_SURVEY)
+        for name, titles in saved_titles.items():
+            assert not any(area_part in title for title in titles), name
 
 
 class TestRunParametersConsistencyAcrossScenarios:

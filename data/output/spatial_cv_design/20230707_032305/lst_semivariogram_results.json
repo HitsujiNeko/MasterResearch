@@ -1,0 +1,358 @@
+{
+  "description": "LST（°C）の経験セミバリオグラム（Matheron 推定量）を部分標本で複数本求めた結果。",
+  "population": "limited_valid_population",
+  "dataset": "data/output/datasets/dataset_limited_20230707_032305_hanoi_30m.gpkg",
+  "observation": "20230707_032305",
+  "analysis_area": "roi",
+  "lst_valid_ratio_threshold": 0.5,
+  "population_sources": [
+    "worldpop2020"
+  ],
+  "scale_m": 30,
+  "lag_width_m": 900.0,
+  "max_lag_m": 40500.0,
+  "population_size": 3274657,
+  "population_variance": 6.248781710714081,
+  "sample_size": 10000,
+  "repeats": [
+    {
+      "n_points": 10000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 40500.0,
+      "estimator": "matheron",
+      "variance": 6.176017605941382,
+      "n_pairs_total": 35964628,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": 14850.0,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 23922.97975974958,
+          "partial_sill": 2.879531675642735,
+          "nugget": 3.5854670399397444,
+          "total_sill": 6.46499871558248,
+          "range_at_upper_bound": false,
+          "rmse": 0.22614870812505233
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 24471.54166687458,
+          "partial_sill": 3.631906226342731,
+          "nugget": 2.9140112166032006,
+          "total_sill": 6.545917442945932,
+          "range_at_upper_bound": false,
+          "rmse": 0.1809162762939298
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      },
+      "seed": 42,
+      "elapsed_seconds": 32.493293000006815
+    },
+    {
+      "n_points": 10000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 40500.0,
+      "estimator": "matheron",
+      "variance": 6.102130972986187,
+      "n_pairs_total": 35518585,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": 14850.0,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 23380.144709223263,
+          "partial_sill": 2.889413000007482,
+          "nugget": 3.5264230153378064,
+          "total_sill": 6.415836015345288,
+          "range_at_upper_bound": false,
+          "rmse": 0.22217482315394432
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 23817.657869325853,
+          "partial_sill": 3.6389656427179293,
+          "nugget": 2.8527327782422933,
+          "total_sill": 6.491698420960223,
+          "range_at_upper_bound": false,
+          "rmse": 0.18430746094132922
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      },
+      "seed": 43,
+      "elapsed_seconds": 31.220589400007157
+    },
+    {
+      "n_points": 10000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 40500.0,
+      "estimator": "matheron",
+      "variance": 6.279440072663681,
+      "n_pairs_total": 35716016,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": 13950.0,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 23735.98484410253,
+          "partial_sill": 2.9967903634155912,
+          "nugget": 3.6389712014440483,
+          "total_sill": 6.6357615648596395,
+          "range_at_upper_bound": false,
+          "rmse": 0.2105946384180677
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 24730.622735547837,
+          "partial_sill": 3.7363930191015586,
+          "nugget": 2.988194594032353,
+          "total_sill": 6.724587613133911,
+          "range_at_upper_bound": false,
+          "rmse": 0.18679029779969472
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      },
+      "seed": 44,
+      "elapsed_seconds": 30.990708400000585
+    }
+  ],
+  "spread": {
+    "empirical_range_m": [
+      14850.0,
+      14850.0,
+      13950.0
+    ],
+    "effective_range_m": {
+      "spherical": [
+        23922.97975974958,
+        23380.144709223263,
+        23735.98484410253
+      ],
+      "exponential": [
+        24471.54166687458,
+        23817.657869325853,
+        24730.622735547837
+      ]
+    }
+  },
+  "outputs": {
+    "lags_csv": "data/output/spatial_cv_design/20230707_032305/lst_semivariogram_lags.csv",
+    "figure": "data/output/spatial_cv_design/20230707_032305/lst_semivariogram.png"
+  },
+  "provenance": {
+    "script": "src.analysis.diagnose_spatial_cv_design",
+    "executed_at": "2026-11-03T10:36:48.247376+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "1322bee3524206aecd3670fec858f6cd113266ee",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/diagnose_spatial_cv_design.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/analysis_rq3_satellite_only.py",
+        "src/analysis/analysis_rq3_limited.py",
+        "src/analysis/build_common_evaluation_set.py",
+        "src/analysis/repeat_common_evaluation.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/analysis_rq3_limited.py",
+          "sha256": "4a98008d3e0ec363eff44012217930ea1c8c4cea7aade5d1fb95438080080370"
+        },
+        {
+          "path": "src/analysis/analysis_rq3_satellite_only.py",
+          "sha256": "cb7089805138e28872fd07bc467b7d3ac5431861a791b169bc84949cdceba07f"
+        },
+        {
+          "path": "src/analysis/build_common_evaluation_set.py",
+          "sha256": "435114b02912388af2df2bd55559312c340e364cf15336f35293feab50f82723"
+        },
+        {
+          "path": "src/analysis/diagnose_spatial_cv_design.py",
+          "sha256": "f30626782adc06a3e6181d796d4fe091329e926e07df97e724f5b68ca551bbd7"
+        },
+        {
+          "path": "src/analysis/repeat_common_evaluation.py",
+          "sha256": "00c3332fb77ff44576c34d0d60f65e52a3713eab1323ee57f1975143b5eaa0aa"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "136882fd24d78ba6f51ba33f115ba50ff613c35383a10cb0a4e29326a1fff5c5"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0",
+      "esda": "2.7.1",
+      "libpysal": "4.14.1",
+      "scikit-gstat": "1.0.22",
+      "scipy": "1.17.1"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_limited_20230707_032305_hanoi_30m.gpkg",
+        "sha256": "c8c5921212327120503ba0e71e80efdde4a80d77eb14fe4dc3e91c7fa2732074"
+      }
+    ]
+  }
+}

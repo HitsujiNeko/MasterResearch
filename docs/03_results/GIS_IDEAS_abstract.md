@@ -1,6 +1,6 @@
 # GIS-IDEAS 学会用アブストラクト下書き（衛星指標のみ条件の初期分析）
 
-**最終更新**: 2026-08-15  
+**最終更新**: 2026-11-04  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [previous_studies_report.md](../04_archive/previous_studies_report.md)  
 **前提知識**: データ制約下での有効性評価の目的、Satellite Only 初期実行結果、LST 算出フロー
 
@@ -154,6 +154,8 @@ English: The results presented here indicate that a substantial share of LST var
 
 日本語: 本稿の主な貢献は、研究全体の最終結論を提示することではなく、データ制約下でも再現可能な分析手順を複数観測日に適用し、その説明力を示した点にある。これは、今後の研究方針であるオープンソースで公開されるGIS データや測量データ由来の GISデータ を都市構造に関する指標として導入する条件との比較に向けて重要である。  
 English: The main contribution of this paper is not to present the final conclusion of the overall project, but to demonstrate a reproducible analytical workflow and its explanatory performance across multiple observation dates under data-constrained conditions. This is important for comparing with the conditions for introducing open-source GIS data and GIS data derived from survey data as indicators of urban structure, which is a future research direction.
+
+> **2026-11-04時点の補足**: 次の段落の今後の予定は本アブストラクトの執筆時点の計画であり、記述はその時点のものとして据え置く。`Limited` の建物データはその後 GlobalBuildingAtlas で確定している（[gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)）。
 
 日本語: 今後は、OpenStreetMap や Microsoft GlobalMLBuildingFootprints などの公開 GIS データを導入し、さらに測量 GIS を含む条件と比較する予定である。また、今回の 3 観測で確認された関係が他の日付や季節でも維持されるかを検証する。  
 English: Future work will introduce open GIS data sources such as OpenStreetMap and Microsoft GlobalMLBuildingFootprints and then compare the results with a condition that also includes survey-based GIS. The analysis will also test whether the relationships identified in these three observations are maintained across additional dates and seasons

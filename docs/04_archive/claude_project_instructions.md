@@ -1,6 +1,6 @@
 # Claude Projects プロジェクト指示（コピペ用）
 
-**最終更新**: 2026-07-22  
+**最終更新**: 2026-11-04  
 **関連ドキュメント**: [claude_project_knowledge.md](claude_project_knowledge.md), [structured_summary_template.md](templates/structured_summary_template.md), [literature_management_guide.md](literature_management_guide.md)
 
 > **このファイルの役割**  
@@ -14,7 +14,7 @@
 ## プロジェクト指示（ここからコピー）
 
 ```text
-あなたは修士研究「ベトナム主要都市を対象とした地表面温度（LST）と都市構造の関係性評価」の文献調査を支援するリサーチアシスタントです。研究の背景・RQ・用語・先行研究の現状は、ナレッジにアップロードされた claude_project_knowledge.md を必ず参照してください。
+あなたは修士研究「ベトナム・ハノイを対象とした地表面温度（LST）と都市構造の関係性評価」の文献調査を支援するリサーチアシスタントです。研究の背景・RQ・用語・先行研究の現状は、ナレッジにアップロードされた claude_project_knowledge.md を必ず参照してください。
 
 ## 主なタスク
 

@@ -3,11 +3,17 @@
 特徴量名はモジュールグローバルな定数ではなく `shap_features.columns` から
 取得するため、シナリオ（Satellite Only / Limited / Full）ごとに異なる
 特徴量集合でも同じ関数を再利用できる。
+
+summary図・dependence図は点の描画順などに乱数を使うため、実行の `random_state`
+で固定し、同じ入力から同じ画像が得られるようにする（棒グラフとSHAP値は乱数を
+使わない）。
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -102,6 +108,30 @@ def _widen_figure_until_xlabel_fits(
         )
 
 
+@contextmanager
+def _fixed_global_numpy_random_state(seed: int) -> Iterator[None]:
+    """グローバルな `np.random` の状態を一時的にシードで固定し、抜けるときに元へ戻す。
+
+    `shap.dependence_plot`（shap 0.48.0 の `dependence_legacy`）は乱数生成器を
+    引数で受け取らず、点の描画順のシャッフル等にグローバルな `np.random` を使う。
+    そのため描画の間だけ状態を固定し、例外時も含めて元の状態へ戻して他の処理への
+    影響を避ける。
+
+    固定は `np.random.seed()` ではなく `set_state()` で行う。`np.random.seed()` を
+    呼ぶと shap が「グローバルな乱数がシード済み」と判定し、以後 `rng` を渡さない
+    `shap.summary_plot` の呼び出しで `FutureWarning` を出すようになるため。
+
+    Args:
+        seed: 描画の間だけ使う乱数シード。
+    """
+    saved_state = np.random.get_state()
+    np.random.set_state(np.random.RandomState(seed).get_state())
+    try:
+        yield
+    finally:
+        np.random.set_state(saved_state)
+
+
 def _finalize_current_figure(output_path: Path, title: str, fit_xlabel: bool = False) -> None:
     """現在のmatplotlib figureにタイトルを付けて保存し、閉じる。
 
@@ -168,6 +198,7 @@ def compute_shap_outputs(
     output_dir: Path,
     output_stem: str,
     observation_label: str,
+    random_state: int,
 ) -> tuple[dict[str, object], pd.DataFrame]:
     """SHAP値を計算し、重要度表と可視化画像を保存する。
 
@@ -180,6 +211,9 @@ def compute_shap_outputs(
             でない場合は絶対パスのまま記録する）。
         output_stem: 出力ファイル名の接頭辞。
         observation_label: 図タイトルに使う観測日時ラベル。
+        random_state: summary図・dependence図の描画に使う乱数シード（点の描画順など）。
+            同じ入力・同じ値なら同じ画像になる。SHAP値・重要度表・棒グラフには
+            影響しない。グローバルな `np.random` の状態は呼び出し前後で変わらない。
     Returns:
         SHAP集計結果辞書（`mean_abs_shap` と `outputs` を含む）と、
         重要度降順に並べたデータフレームのタプル。
@@ -206,12 +240,26 @@ def compute_shap_outputs(
 
     summary_path = output_dir / f"{output_stem}_shap_summary.png"
     plt.figure(figsize=(8, 5))
-    shap.summary_plot(shap_values.values, shap_features, show=False)
+    # summary図（dot）は点の描画順等に乱数を使う。rngを渡すとグローバルな乱数を使わない。
+    shap.summary_plot(
+        shap_values.values,
+        shap_features,
+        show=False,
+        rng=np.random.default_rng(random_state),
+    )
     _finalize_current_figure(summary_path, f"SHAP value distribution {observation_label}")
 
     bar_path = output_dir / f"{output_stem}_shap_bar.png"
     plt.figure(figsize=(8, 5))
-    shap.summary_plot(shap_values.values, shap_features, plot_type="bar", show=False)
+    # 棒グラフは乱数を使わないが、rngを渡さないとグローバルな乱数がシード済みのとき
+    # shapがFutureWarningを出すため、summary図と同じく渡す（描画結果は変わらない）。
+    shap.summary_plot(
+        shap_values.values,
+        shap_features,
+        plot_type="bar",
+        show=False,
+        rng=np.random.default_rng(random_state),
+    )
     _finalize_current_figure(
         bar_path, f"SHAP value distribution {observation_label}", fit_xlabel=True
     )
@@ -219,13 +267,15 @@ def compute_shap_outputs(
     dependence_paths: dict[str, str] = {}
     for feature in feature_names:
         dependence_path = output_dir / f"{output_stem}_shap_dependence_{feature}.png"
-        shap.dependence_plot(
-            feature,
-            shap_values.values,
-            shap_features,
-            show=False,
-            interaction_index="auto",
-        )
+        # 特徴量ごとに同じシードで固定し直すため、図の内容は描く順番に左右されない。
+        with _fixed_global_numpy_random_state(random_state):
+            shap.dependence_plot(
+                feature,
+                shap_values.values,
+                shap_features,
+                show=False,
+                interaction_index="auto",
+            )
         _finalize_current_figure(
             dependence_path, f"SHAP value distribution {observation_label}: {feature}"
         )

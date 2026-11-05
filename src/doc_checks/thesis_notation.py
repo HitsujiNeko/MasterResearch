@@ -28,7 +28,7 @@ _INLINE_CODE_PATTERN = re.compile(r"`[^`\n]*`")
 
 _PUNCTUATION_PATTERN = re.compile(r"[、。]")
 # 数値に続く K（単位としての K）。英単語の一部（例: 5Km）は除く
-_TEMPERATURE_UNIT_PATTERN = re.compile(r"℃|度C|\d\s?ケルビン|\d\s?K(?![A-Za-z0-9_])")
+_TEMPERATURE_UNIT_PATTERN = re.compile(r"℃|\d\s?度\s?C|\d\s?ケルビン|\d\s?°?K(?![A-Za-z0-9_])")
 
 
 @dataclass(frozen=True)

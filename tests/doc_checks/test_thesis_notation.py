@@ -37,11 +37,13 @@ def test_detects_japanese_punctuation(tmp_path: Path) -> None:
 
 def test_detects_temperature_unit_violations(tmp_path: Path) -> None:
     """数値に続く K・ケルビン・℃・度C を検出し，単語の一部の K は検出しない。"""
-    _section(tmp_path, "LST は 305 K，300 ケルビン，30℃，30度C である．5Km は対象外．\n")
+    _section(
+        tmp_path, "LST は 305 K，300 ケルビン，30℃，30度C，300°K である．5Km と温度Cは対象外．\n"
+    )
 
     result = check_thesis_notation(tmp_path)
 
-    assert [v.matched_text for v in result] == ["5 K", "0 ケルビン", "℃", "度C"]
+    assert [v.matched_text for v in result] == ["5 K", "0 ケルビン", "℃", "0度C", "0°K"]
     assert all(v.category == "温度の単位" for v in result)
 
 

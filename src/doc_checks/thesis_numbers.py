@@ -13,7 +13,7 @@
 図表のラベル、年、節番号は対象から除く。
 
 結果は警告であり、違反とは限らない（正本に書かれていない自明な値など）。
-終了コードは常に0とし、CI の fail 対象にしない。
+指摘があっても終了コードは0とし、CI の fail 対象にしない（節ファイルを読めない場合のみ2）。
 
 コマンドラインからの使い方:
     python -m src.doc_checks.thesis_numbers
@@ -41,6 +41,7 @@ LEGACY_CHAPTERS: dict[str, frozenset[str]] = {
 
 KIND_LEGACY_ONLY = "旧観測のみ"
 KIND_NOT_IN_SOURCE = "正本に無い"
+KIND_SOURCE_UNREADABLE = "正本を読めない"
 
 _STATE_NOT_STARTED = "未着手"
 
@@ -54,7 +55,11 @@ _NUMBERED_REFERENCE_PATTERN = re.compile(r"[図表]-\d+|式\(\d+\)|\d+(?:\.\d+)*
 _HEADING_PATTERN = re.compile(r"^#{1,6}\s")
 _CHAPTER_HEADING_PATTERN = re.compile(r"^##\s+(?P<chapter>\d+)\.\s")
 # 小数部を持つ数値、または3桁区切りの数値（英数字・小数点に隣接するものは除く）
-_NUMBER_PATTERN = re.compile(r"(?<![\w.])(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+)(?![\w])")
+# 境界は ASCII の英数字・小数点だけで判定する
+# （\w は日本語の文字も含み、「値は0.85である」を拾えなくなるため）
+_NUMBER_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z_.])(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+)(?![0-9A-Za-z_])"
+)
 _NUMBER_KEY_DIGITS = 6
 
 
@@ -142,9 +147,13 @@ def check_section_numbers(
     if parsed.state == _STATE_NOT_STARTED:
         return []
 
+    if not parsed.references:
+        return []
     sources = _load_sources(project_root, [ref.path for ref in parsed.references])
     if not sources:
-        return []
+        # 依拠する正本が Markdown でない・見つからない場合は、照合できなかったことを知らせる
+        paths = tuple(ref.path for ref in parsed.references)
+        return [NumberFinding(relative, 0, KIND_SOURCE_UNREADABLE, "", paths)]
 
     findings: list[NumberFinding] = []
     source_paths = tuple(sorted(sources))
@@ -192,6 +201,11 @@ def _classify(key: float, sources: dict[str, dict[float, set[str]]]) -> str | No
 def format_finding(finding: NumberFinding) -> str:
     """指摘1件を表示用の1行にする。"""
     sources = ", ".join(finding.source_paths)
+    if finding.kind == KIND_SOURCE_UNREADABLE:
+        return (
+            f"{finding.section_file} [{finding.kind}] 照合しませんでした"
+            f"（Markdown の正本が無い: {sources}）"
+        )
     return (
         f"{finding.section_file}:{finding.line} [{finding.kind}] {finding.number_text}"
         f"（依拠する正本: {sources}）"
@@ -199,7 +213,7 @@ def format_finding(finding: NumberFinding) -> str:
 
 
 def main(argv: list[str] | None = None, project_root: Path = PROJECT_ROOT) -> int:
-    """節の数値を照合し、結果を表示する。終了コードは常に0。"""
+    """節の数値を照合し、結果を表示する。指摘があっても終了コードは0（読めない節ファイルは2）。"""
     parser = argparse.ArgumentParser(description="論文の節の数値を依拠する正本と照合する")
     parser.add_argument("sections", nargs="*", type=Path, help="照合する節ファイル（省略時は全節）")
     args = parser.parse_args(argv)
@@ -207,7 +221,11 @@ def main(argv: list[str] | None = None, project_root: Path = PROJECT_ROOT) -> in
     sections = args.sections or collect_section_files(project_root)
     findings: list[NumberFinding] = []
     for section in sections:
-        findings.extend(check_section_numbers(section, project_root))
+        try:
+            findings.extend(check_section_numbers(section, project_root))
+        except (FileNotFoundError, ValueError) as error:
+            print(f"[ERROR] 節ファイルを照合できません: {section}（{error}）", file=sys.stderr)
+            return 2
 
     if findings:
         print("[WARN] 論文の数値の照合（要確認。fail 対象外）:")

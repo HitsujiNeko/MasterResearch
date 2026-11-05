@@ -9,6 +9,7 @@ import pytest
 from src.doc_checks.thesis_numbers import (
     KIND_LEGACY_ONLY,
     KIND_NOT_IN_SOURCE,
+    KIND_SOURCE_UNREADABLE,
     check_section_numbers,
     extract_numbers,
     index_source_numbers,
@@ -65,6 +66,37 @@ def test_extract_numbers_skips_non_target_text() -> None:
     )
 
     assert extract_numbers(text) == [(2, "0.63"), (4, "12,345")]
+
+
+def test_extract_numbers_adjacent_to_japanese() -> None:
+    """日本語の文字に隣接する数値も拾い、英数字に隣接する数値は拾わない。"""
+    text = "値は0.85である．約12.5と1,234.5です．v1.2 と a3.14 は除く．\n"
+
+    assert [n for _, n in extract_numbers(text)] == ["0.85", "12.5", "1,234.5"]
+
+
+def test_index_source_numbers_adjacent_to_japanese() -> None:
+    """正本側でも日本語に隣接する数値を索引に載せる。"""
+    index = index_source_numbers("## 8. 結果\n値は0.85である．\n")
+
+    assert index[number_key("0.85")] == {"8"}
+
+
+def test_non_markdown_source_is_reported(tmp_path: Path) -> None:
+    """依拠する正本が Markdown でない節は、照合できなかったことを知らせる。"""
+    section = tmp_path / "thesis" / "chapters" / "04_results" / "02_s.md"
+    header = "<!--\n見出し: x\n状態: 執筆中\n依拠する正本:\n  - data/a.csv @ 1a2b3c4d5e\n-->\n"
+    _write(section, header + "値は0.5．\n")
+    _write(tmp_path / "data" / "a.csv", "a\n0.5\n")
+
+    result = check_section_numbers(section, tmp_path)
+
+    assert [f.kind for f in result] == [KIND_SOURCE_UNREADABLE]
+
+
+def test_main_returns_two_for_missing_section(tmp_path: Path) -> None:
+    """存在しない節ファイルは案内のエラーにして終了コード2を返す。"""
+    assert main([str(tmp_path / "thesis" / "none.md")], project_root=tmp_path) == 2
 
 
 def test_index_source_numbers_records_chapters() -> None:

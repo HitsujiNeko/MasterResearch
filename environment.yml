@@ -27,6 +27,9 @@ dependencies:
   - esda=2.7.1
   - libpysal=4.14.1
   - scikit-gstat=1.0.22
+  # 多重共線性の診断（VIF）に検証済みの実装を用いる。数値が版で動かないよう導入時の
+  # 版に固定する
+  - statsmodels=0.15.0
   - tqdm=4.67
   - rasterio=1.4
   # NASA Black Marble（VNP46A4）は HDF-EOS5 配布で、本環境の GDAL は HDF5 ドライバ

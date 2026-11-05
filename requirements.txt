@@ -34,3 +34,5 @@ shap>=0.48
 esda==2.7.1
 libpysal==4.14.1
 scikit-gstat==1.0.22
+# 多重共線性の診断（VIF）に使う。数値の再現性のため environment.yml と同じ版に固定する。
+statsmodels==0.15.0

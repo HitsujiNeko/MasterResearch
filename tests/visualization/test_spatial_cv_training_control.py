@@ -93,6 +93,20 @@ class TestSelectTrainingControl:
         with pytest.raises(ValueError, match="足りません"):
             select_training_control(lacking)
 
+    @pytest.mark.parametrize(
+        ("column", "value"), [("buffer_m", 1800.0), ("thinned_to_buffer_m", 1800.0)]
+    )
+    def test_rejects_config_missing_in_one_scenario(self, column: str, value: float) -> None:
+        """片方のシナリオだけ比較点が欠けている表も例外にする。"""
+        summary = _summary()
+        missing = (
+            (summary["scenario"] == "limited")
+            & (summary["block_size_m"] == 2700)
+            & (summary[column] == value)
+        )
+        with pytest.raises(ValueError, match="limited の比較点が足りません"):
+            select_training_control(summary[~missing])
+
 
 def test_format_buffer_tick() -> None:
     """目盛りは緩衝帯（km）と学習セルの割合を2行で表す。"""

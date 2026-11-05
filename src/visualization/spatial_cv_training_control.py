@@ -82,8 +82,8 @@ def select_training_control(summary: pd.DataFrame) -> pd.DataFrame:
         ``series``（``buffered``・``thinned``）・``matched_buffer_m``（合わせた緩衝帯）・
         ``train_share``（緩衝帯なしに対する学習セル数の割合）の列を加えた表。
     Raises:
-        ValueError: 対照が無い場合、対照が複数のブロックサイズにある場合、対照に対応する
-            緩衝帯の設定が欠けている場合。
+        ValueError: 対照が無い場合、対照が複数のブロックサイズにある場合、いずれかのシナリオで
+            緩衝帯の設定または対照が欠けている場合。
     """
     thinned = summary[summary["thinned_to_buffer_m"] > 0]
     block_sizes = thinned["block_size_m"].unique()
@@ -95,8 +95,13 @@ def select_training_control(summary: pd.DataFrame) -> pd.DataFrame:
     matched_buffers = sorted(thinned["thinned_to_buffer_m"].unique())
     plain = block_table[block_table["thinned_to_buffer_m"] == 0]
     buffered = plain[plain["buffer_m"].isin([0.0, *matched_buffers])]
-    if set(buffered["buffer_m"]) != {0.0, *matched_buffers}:
-        raise ValueError(f"対照に対応する緩衝帯の設定が足りません: {matched_buffers}")
+    for scenario in SCENARIOS:
+        scenario_buffers = buffered.loc[buffered["scenario"] == scenario, "buffer_m"]
+        scenario_controls = thinned.loc[thinned["scenario"] == scenario, "thinned_to_buffer_m"]
+        if set(scenario_buffers) != {0.0, *matched_buffers} or set(scenario_controls) != set(
+            matched_buffers
+        ):
+            raise ValueError(f"{scenario} の比較点が足りません: {matched_buffers}")
     baseline = plain[plain["buffer_m"] == 0]
     frames = [
         buffered.assign(series=BUFFERED, matched_buffer_m=buffered["buffer_m"]),

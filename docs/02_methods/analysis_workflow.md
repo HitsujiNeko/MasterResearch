@@ -370,7 +370,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 | 評価指標 | 標準化回帰係数・寄与率（%）, R², VIF |
 | 実装ライブラリ | `sklearn.linear_model.LinearRegression` or `statsmodels.OLS` |
 
-> **参考**: S6[Garzón 2021]でMLR寄与率: NDWI 51.46%, NDBI 21.38%, PUC 14.32%, NDVI 12.84%（R²=0.82。PCA成分同士の回帰の適合度で、NDBI・NDWIのVIFは45超）
+> **参考**: S6[Garzón 2021]でMLR寄与率: NDWI 51.46%, NDBI 21.38%, PUC 14.32%, NDVI 12.84%（R²=0.82。PCA成分を用いた回帰の適合度で、NDBI・NDWIのVIFは45超）
 
 #### 手法2: Random Forest（RF）
 

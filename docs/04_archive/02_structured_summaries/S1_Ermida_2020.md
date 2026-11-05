@@ -84,8 +84,8 @@ Google Earth Engine（GEE）上で、Landsat 4/5/7/8のLSTを一貫した枠組�
 
 ### 7.1 定量的結果
 
-- **全体の検証統計（FPK・TBL・GOBを除く9局、外れ値除去後）**: accuracy（bias相当・中央誤差）はLandsat 5/7/8で **0.5 K / 0.0(3) K / 0.3 K**、precision（σ）は **1.3 K / 1.1 K / 1.0 K**、RMSEは **2.0 K / 2.0 K / 1.9 K**（PDF p.13）
-- **読み方の注記**: 原文は "overall precision (RMSE) is 1.3 (2.0) K" の形で、括弧内をRMSEと読んだ。Table 3の9局の単純平均（σ 1.27 / 1.08 / 1.04、RMSE 2.02 / 2.02 / 1.94）と一致し、外れ値除去前のRMSEの平均（3.67 / 3.34 / 3.01）とは一致しない（検算に基づく解釈）
+- **全体の検証統計（FPK・TBL・GOBを除く9局〔Landsat 5は6局〕、外れ値除去後）**: accuracy（bias相当・中央誤差）はLandsat 5/7/8で **0.5 K / 0.0(3) K / 0.3 K**、precision（σ）は **1.3 K / 1.1 K / 1.0 K**、RMSEは **2.0 K / 2.0 K / 1.9 K**（PDF p.13）
+- **読み方の注記**: 原文は "overall precision (RMSE) is 1.3 (2.0) K" の形で、括弧内をRMSEと読んだ。Table 3の各局の単純平均（σ 1.27 / 1.11 / 1.01、RMSE 2.02 / 2.02 / 1.94）と一致し、外れ値除去前のRMSEの平均（3.67 / 3.34 / 3.01）とは一致しない（検算に基づく解釈）
 - **サイト別**: FPK・TBL・GOBを除くとbias（μ）は−1.2〜1.3 K、RMSEは1.4〜2.5 K（Table 3, PDF p.13）
 - 極端に湿潤な大気（TCWV>5cm）ではLandsat 8の方がやや良い傾向を示唆。原典は、この条件は熱帯以外の晴天ではまれで、アルゴリズムの性能の低下はわずかと述べる（PDF p.13, p.16）。一方、Landsat 5はTCWVが5.4cmを超えるとバイアスが2.5 Kに達する（Figure 3）
 
@@ -151,7 +151,7 @@ Google Earth Engine（GEE）上で、Landsat 4/5/7/8のLSTを一貫した枠組�
 ## 📌 PDF精読による重要な修正点
 
 1. **手法名の確認**: SMW（Statistical Mono-Window）法が正式名称
-2. **精度の整理**: FPK・TBL・GOBを除く9局、外れ値除去後でaccuracy 0.5 / 0.0(3) / 0.3 K、precision 1.3 / 1.1 / 1.0 K、RMSE 2.0 / 2.0 / 1.9 K（PDF p.13）
+2. **精度の整理**: FPK・TBL・GOBを除く9局（Landsat 5は6局）、外れ値除去後でaccuracy 0.5 / 0.0(3) / 0.3 K、precision 1.3 / 1.1 / 1.0 K、RMSE 2.0 / 2.0 / 1.9 K（PDF p.13）
 3. **TCWV粗さ**: **2.5°の空間解像度**という重要な限界を明記
 4. **RQ1関連度**: ◎→○に修正（手法基盤としての位置づけ）
 5. **著者名の修正（PDF突合監査）**: Patrícia Soares・Vasco Mantas（誤: Pedro Soares・Victor Mantas。PDF p.1）

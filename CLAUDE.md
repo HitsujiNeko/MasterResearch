@@ -75,6 +75,7 @@
 3. 長時間・大規模処理では中間結果の保存・進捗表示・ログ出力を行う
 4. QGIS-MCP を使う作業では [qgis_operation_guidelines.md](docs/02_methods/qgis_operation_guidelines.md) / [qgis_mcp_usage_guide.md](docs/02_methods/qgis_mcp_usage_guide.md) を読み込んでから操作する
 5. ツール呼び出し・ファイル読み取りはコンテキスト消費を抑える規律に従う（詳細: [CodingRule.md](docs/02_methods/CodingRule.md) 16章）
+6. `thesis/` の原稿を書く・直す作業では、先に [thesis_writing_guide.md](docs/02_methods/thesis_writing_guide.md) を読む（文体・用語・数値・引用・未確定箇所の印・PR 前の検証）
 
 ### 禁止事項
 
@@ -109,4 +110,4 @@
 - 研究の進行に応じて随時更新し、変更時は日付を記録する
 - 詳細手順はここに書かず、参照先（task-workflow.md・CodingRule.md・コマンド・スキル）に置く
 
-**最終更新**: 2026-10-29
+**最終更新**: 2026-11-05

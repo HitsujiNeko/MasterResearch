@@ -1,7 +1,7 @@
 # Satellite Only 分析結果（cell_id結合経路）
 
-**最終更新**: 2026-10-27  
-**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
+**最終更新**: 2026-11-04  
+**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -191,7 +191,7 @@ Satellite Only は `required_mask_columns` が `IN_ANALYSIS_AREA` の1列のみ�
 
 random split から Spatial CV への変化は RF `0.6376 → 0.6297`（-0.008）、線形 `0.4828 → 0.4767`（-0.006）である。
 
-**この低下の小ささを「空間自己相関による過大評価が無い」根拠として読んではならない。** [limited_analysis_results.md](limited_analysis_results.md) 3.9節の実測では、LST のセミバリアンスは 2,700m 地点で全体分散の69%にとどまり、sill に達するのは15〜30kmである。またブロックを広げると R² は単調に低下する。**目的変数とブロック定義は本シナリオと共通であるため、同じ制約がかかる。** 低下が小さいのは過大評価が無いからではなく、ブロックが小さく学習側と評価側が空間的に近いままであるためと解釈する。**本シナリオでのブロックサイズ感度の測定は未実施である。**
+**この低下の小ささを「空間自己相関による過大評価が無い」根拠として読んではならない。** [limited_analysis_results.md](limited_analysis_results.md) 3.9節の実測では、LST のセミバリアンスは 2,700m 地点で全体分散の69%にとどまり、sill に達するのは15〜30kmである。またブロックを広げると R² は単調に低下する。**目的変数とブロック定義は本シナリオと共通であるため、同じ制約がかかる。** 低下が小さいのは過大評価が無いからではなく、ブロックが小さく学習側と評価側が空間的に近いままであるためと解釈する。本シナリオのブロックサイズ感度は、主採用の観測で [spatial_cv_design_results.md](spatial_cv_design_results.md) に測定した（共通評価セル・2シード平均の RF で 2,700m が 0.751、13,500m が 0.727、21,600m が 0.715）。本節の値は遡及修正せず、この読み方の注意に留める。
 
 fold別の値は `*_spatial_cv_folds.csv` にある。RF の R² は fold 1〜3 が 0.583〜0.620、fold 4・5 が 0.681・0.673 と二分され、線形も同じ向きに分かれる（fold 1〜3 が 0.442〜0.449、fold 4・5 が 0.522・0.523）。**両モデルで同じ fold が高いことから、これはモデルの性質ではなく fold の地域差による。** fold間sd（RF 0.040）はこの偏りを反映している。
 
@@ -229,7 +229,7 @@ SHAP でも NDBI が最大であり、RF Importance・Permutation Importance と
 
 隣接セルの実在を問わず位置だけで判定しても 146,018セル（4.40%）・127,222セル（3.84%）・87.13% とほぼ変わらない（母集団がブロックをおおむね埋めているため）。**4.2節の Spatial CV が実際に用いる10万件サンプルの fold で測り直すと、別foldの隣接セルを持つ割合は 3.59%（119,223セル）、境界セルのうち別foldに落ちる割合は 81.81% に下がる。** 上表は母集団全数の fold で測った、より保守的な値である。
 
-境界セルの多くは実際に別foldへ分かれており、**空間的な独立性は完全ではない**。対象は全体の4%程度に限られるが、**本節が測ったのはセル数の割合だけであり、これが 4.2節の R² をどれだけ押し上げているかは未評価である**。境界セルを除外した再評価・バッファ付き leave-block-out・性能指標への感度分析は、いずれも実施していない。**したがって「規模が小さいから評価傾向は変わらない」とは本節の測定からは言えない。** 対処の要否は手法選択として独立に検討する。
+境界セルの多くは実際に別foldへ分かれており、**空間的な独立性は完全ではない**。対象は全体の4%程度に限られるが、**本節が測ったのはセル数の割合だけであり、これが 4.2節の R² をどれだけ押し上げているかは未評価である**。境界セルを除外した再評価・バッファ付き leave-block-out・性能指標への感度分析は、いずれもこの観測では実施していない。**したがって「規模が小さいから評価傾向は変わらない」とは本節の測定からは言えない。** 主採用の観測では緩衝帯付きの評価を測定し、既定には緩衝帯を入れないと決めた（[spatial_cv_design_results.md](spatial_cv_design_results.md) 5章）。
 
 ---
 
@@ -261,17 +261,17 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 
 限界は2つあり、**わかっている度合いが異なる**。
 
-1. **ブロックサイズが空間自己相関の到達距離に対して小さい**（4.2節）。Limited 側でブロックを広げると R² が単調に低下することが実測されており、**報告する R² の読み方そのものに関わる**
-2. **ブロック境界の残差リーク**（4.5節）。境界セルは全体の 4.39% で、その 87.13% が別fold の隣接セルを持つ。**セル数の規模は限定的だが、R² への影響は測っておらず未評価である**
+1. **ブロックサイズが空間自己相関の到達距離に対して小さい**（4.2節）。Limited 側でブロックを広げると R² が単調に低下することが実測されており、**報告する R² の読み方そのものに関わる**。主採用の観測では本シナリオでも測定した（[spatial_cv_design_results.md](spatial_cv_design_results.md)）
+2. **ブロック境界の残差リーク**（4.5節）。境界セルは全体の 4.39% で、その 87.13% が別fold の隣接セルを持つ。**セル数の規模は限定的だが、この観測では R² への影響は測っておらず未評価である**。主採用の観測では緩衝帯付きの評価を測定した（[spatial_cv_design_results.md](spatial_cv_design_results.md)）
 
-`GroupKFold` の据え置きは意図的な見送りである。バッファ付き leave-block-out やブロックサイズの見直しは、Limited と共通の方法論上の課題として独立に検討する。
+`GroupKFold` の据え置きは意図的な判断である。ブロックサイズと緩衝帯の見直しは Limited と共通の課題として検討し、既定の 2,700m・緩衝帯なしを維持して 13,500m の値を併記すると決めた（[spatial_cv_design_results.md](spatial_cv_design_results.md) 5章）。
 
 ---
 
 ## 6. 今後の研究の方向性
 
 - **Limited / Full との改善幅の評価**: 主採用の観測 032358 では、Limited との比較を両シナリオに共通する評価セルと fold で行った（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）。分光指数の扱いをシナリオ間で揃えた比較（下の「分光指数間の共線性の解消」と関わる）と、Full との比較は残っている。Full を加えるときは同じ共通評価セルの仕組みを使う（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
-- **Spatial CV の設計見直し**: 5.4節の2つの限界のうち、ブロックサイズの見直しの優先度が高い。シナリオ横断の方法論として扱う
+- **Spatial CV の設計**: シナリオ横断の方法論として見直し、設計を決定した（[spatial_cv_design_results.md](spatial_cv_design_results.md) 5章）
 - **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。Limited では水指数の構成を同一セル上で比較し NDWI を除外する構成を採用したが（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、本シナリオでは構成比較は未実施である。本シナリオは説明変数が分光指数のみであり、NDWI を除外すると説明変数が2つになるため、Limited の結論をそのまま適用してよいかを含めて判断する
 - **LSTプロダクトの算出仕様の確認**: Level-2 地表面温度プロダクトの放射率推定が同一シーンの植生指数を用いる場合、`NDVI` と `LST` の間に間接的な代数的依存が生じうる（[limited_analysis_results.md](limited_analysis_results.md) 3.9節）。**本シナリオは説明変数が分光指数のみであるため、この依存の影響を最も強く受ける。** 確認を要する
 - **30mでの観測日拡張**: `20230723_032309` / `20241130_032336` の `idx_*` / `lst_*` テーブル算出は別途扱う。複数観測日が揃った時点で、同一経路での複数日比較を実施する

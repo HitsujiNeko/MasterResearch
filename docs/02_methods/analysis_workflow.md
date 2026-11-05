@@ -1,7 +1,7 @@
 # 分析ワークフロー仕様書
 
 **最終更新**: 2026-11-05  
-**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
+**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [spatial_cv_design_results.md](../03_results/spatial_cv_design_results.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
 ---
@@ -547,6 +547,17 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 | MAE | 予測精度（外れ値に頑健） | Σ\|y-ŷ\|/n |
 | VIF | 多重共線性の診断 | 1/(1-R²_j) |
 
+#### 6.1.1 Spatial CV の設計
+
+既定は **ブロック 2,700m・緩衝帯なし・Group K-Fold 5分割** とする。Limited・Satellite Only・共通評価セル構築の3スクリプトで同じ値を使う。論文の性能値には **13,500m・緩衝帯なしの値を併記**する。決定の根拠と数値は [spatial_cv_design_results.md](../03_results/spatial_cv_design_results.md) 5章を正本とする。
+
+- **読み方**: 2,700m の R² は「未知の場所への汎化性能」ではなく、同一ROI内・空間的に近い場所への内挿性能として読む。LST の比が 0.95 に達する距離（主採用の観測で 12,150m）より小さいブロックだからである
+- **既定を広げない理由**: 都心部は 2,700m でも24ブロックしかなく、広げると全域と同じ設計で比べられなくなる
+- **緩衝帯を既定にしない理由**: 学習セルが大きく減る（2,700m ブロック・2,700m 緩衝帯で23.1%）
+- **既存台帳**: 遡及修正しない。比較可能性を保つため既定値も変えない
+- **解像度との関係**: 区画長は解像度に合わせて変えず、**物理的な長さ（m）で固定する**。空間自己相関の到達距離は物理的な距離の量であり、解像度で変わるのは区画あたりのセル数だからである。90m・300m では区画あたりのセル数が減るため、ブロック判定（非空ブロック数 10 以上・fold のテストセル数の最大/最小 1.5 以下）を満たすかを確認してから評価する
+- **診断の手段**: `src/analysis/diagnose_spatial_cv_design.py`（LST のセミバリオグラム、ブロック × 緩衝帯の掃引、学習量の対照、残差の Moran's I）。緩衝帯は `src/common/spatial_cv.py`、セミバリオグラムは `src/common/semivariogram.py`、Moran's I は `src/common/residual_autocorrelation.py` にある
+
 ### 6.2 可視化一覧
 
 | 図の種類 | 用途 | 対応RQ |
@@ -564,6 +575,7 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 |----------|---------|
 | `src/analysis/visualize_lst.py` | LSTの空間分布マップ作成 |
 | `src/analysis/visualize_model_results.py` | モデル評価結果・SHAP値の可視化 |
+| `src/visualization/spatial_cv_training_control.py` | Spatial CV の緩衝帯と学習量の対照の比較（掃引の集計表から描く） |
 
 ---
 
@@ -598,7 +610,7 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 | 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TV の利用方法を確定する（TH は水域パラメータ未採用のため対象外） |
 | 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み | どの版を `Limited` の変数セットへ入れるかを、多重共線性の診断とあわせて判断する |
 | 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある | `Limited` の変数セットへ入れるかを、人口密度と同様に多重共線性の診断とあわせて判断する（全解析スケールで実質的な内挿になるため、RQ2 には割り当てない） |
-| 訓練・テスト分割 | Satellite Only では Spatial CV 実施済み | Limited / Full でも同一評価法を維持する |
+| 訓練・テスト分割 | Spatial CV の設計を決定済み（6.1.1節） | Full でも同一評価法を維持する |
 | 季節変動の扱い | 夏季2観測 + 乾季1観測 | 追加季節データの取得可否を検討 |
 
 ---

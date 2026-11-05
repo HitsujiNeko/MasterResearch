@@ -39,6 +39,8 @@ data/output/satellite_only/*/*_sample_*.csv
 data/output/satellite_only_cellbased/*/*_sample_*.csv
 data/output/limited/*/*_sample_*.csv
 data/output/urban_params/*.csv
+# Spatial CV のブロック設計の診断で、再集計用に残す残差の部分標本（設定ごとに数千行）
+data/output/spatial_cv_design/*/sweep/*_residuals.csv
 
 # GIS空間データ（大容量）は追跡しない
 data/gis/

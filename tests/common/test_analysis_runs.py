@@ -13,8 +13,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.common.analysis_dataset import ANALYSIS_AREA_ROI, ANALYSIS_AREA_SURVEY
 from src.common.analysis_runs import (
     build_observation_label,
+    build_plot_label,
     run_random_split_models,
     run_spatial_cv_models,
     validate_fold_test_sizes,
@@ -48,6 +50,39 @@ class TestBuildObservationLabel:
         label = build_observation_label("dataset_without_date")
 
         assert label == "dataset_without_date"
+
+
+class TestBuildPlotLabel:
+    """build_plot_label のテスト。"""
+
+    OUTPUT_STEM = "dataset_example_20220906_032358_hanoi_30m_area_survey"
+
+    def test_roi_matches_observation_label(self) -> None:
+        """roi は観測日時ラベルのまま（既存の図のタイトルを変えない）。"""
+        label = build_plot_label("dataset_example_20220906_032358_hanoi_30m", ANALYSIS_AREA_ROI)
+
+        assert label == "2022-09-06 03:23:58"
+
+    def test_survey_appends_area(self) -> None:
+        """survey は観測日時の後ろに範囲の表記を付ける。"""
+        label = build_plot_label(self.OUTPUT_STEM, ANALYSIS_AREA_SURVEY)
+
+        assert label == "2022-09-06 03:23:58 (survey GIS extent)"
+
+    def test_area_comes_from_argument_not_output_stem(self) -> None:
+        """範囲は出力接頭辞ではなく引数で決まる。"""
+        label = build_plot_label(self.OUTPUT_STEM, ANALYSIS_AREA_ROI)
+
+        assert label == "2022-09-06 03:23:58"
+
+    def test_observation_label_is_unchanged(self) -> None:
+        """観測の識別に使う build_observation_label には範囲を混ぜない。"""
+        assert build_observation_label(self.OUTPUT_STEM) == "2022-09-06 03:23:58"
+
+    def test_unknown_area_raises(self) -> None:
+        """対応外の範囲名はタイトルへ混ぜずに止める。"""
+        with pytest.raises(ValueError, match="未対応の分析対象範囲"):
+            build_plot_label(self.OUTPUT_STEM, "full")
 
 
 class TestValidateScaleMatchesDataset:

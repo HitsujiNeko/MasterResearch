@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 
 from src.analysis.analysis_rq3_satellite_only import (
     DEFAULT_BLOCK_SIZE_M,
@@ -53,6 +54,7 @@ from src.common.analysis_dataset import (
     DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_COLUMN,
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
+    analysis_area_title_part,
 )
 from src.common.analysis_runs import build_observation_label
 from src.common.evaluation_cells import METADATA_OBSERVATION_KEY, save_evaluation_set
@@ -280,6 +282,39 @@ def _spread_dataframe(n: int = 200) -> pd.DataFrame:
     )
 
 
+# main() が保存する図のファイル名の末尾（図の控えが働いていることの確認に使う）
+EXPECTED_FIGURE_SUFFIXES = (
+    "_model_comparison.png",
+    "_feature_importance.png",
+    "_spatial_cv.png",
+    "_shap_summary.png",
+    "_shap_bar.png",
+)
+
+
+def _capture_saved_figure_titles(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
+    """保存される図のタイトルを、実際の保存処理を通したまま控える。
+
+    図を描く関数の引数ではなく保存時の図を見るため、範囲を渡し忘れた図も検出できる。
+
+    Args:
+        monkeypatch: pytest の monkeypatch。
+
+    Returns:
+        ファイル名をキー、図の全タイトルを値とする辞書（main() 実行後に埋まる）。
+    """
+    original_savefig = Figure.savefig
+    saved_titles: dict[str, list[str]] = {}
+
+    def recording_savefig(figure: Figure, fname: object, *args: object, **kwargs: object) -> None:
+        titles = [axis.get_title() for axis in figure.axes]
+        saved_titles[Path(str(fname)).name] = [*titles, figure.get_suptitle()]
+        original_savefig(figure, fname, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", recording_savefig)
+    return saved_titles
+
+
 def _capture_model_run_arguments(
     monkeypatch: pytest.MonkeyPatch, module_name: str
 ) -> dict[str, dict[str, object]]:
@@ -321,6 +356,8 @@ class TestMainRunParameters:
     ) -> dict[str, object]:
         """合成データで main() を実行し、保存された results.json を読み込んで返す。"""
         dataframe = _spread_dataframe()
+        # --analysis-area survey でも同じ合成データを使えるよう、全行を測量GIS範囲内にする
+        dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = 1
         monkeypatch.setattr(
             "src.analysis.analysis_rq3_satellite_only.load_analysis_dataset",
             lambda *args, **kwargs: dataframe,
@@ -405,6 +442,40 @@ class TestMainRunParameters:
             "dataset_satellite_only_dummy_hanoi_30m.gpkg"
         )
         assert provenance["inputs"][0]["sha256"] == hashlib.sha256(DUMMY_DATASET_BYTES).hexdigest()
+
+    def test_survey_run_shows_area_in_every_figure_title(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """survey ランは、保存するすべての図のタイトルに範囲を表示する。"""
+        saved_titles = _capture_saved_figure_titles(monkeypatch)
+        self._run_main(monkeypatch, tmp_path, "--analysis-area", ANALYSIS_AREA_SURVEY)
+
+        for suffix in EXPECTED_FIGURE_SUFFIXES:
+            assert any(name.endswith(suffix) for name in saved_titles), suffix
+        assert any("_shap_dependence_" in name for name in saved_titles)
+        area_part = analysis_area_title_part(ANALYSIS_AREA_SURVEY)
+        for name, titles in saved_titles.items():
+            assert any(area_part in title for title in titles), name
+
+    def test_roi_run_does_not_show_area_in_figure_titles(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """roi ランのタイトルは範囲を付けず、観測ラベルを保つ（既存の図との互換）。"""
+        saved_titles = _capture_saved_figure_titles(monkeypatch)
+        self._run_main(monkeypatch, tmp_path)
+
+        comparison_name = next(
+            name for name in saved_titles if name.endswith("_model_comparison.png")
+        )
+        observation_label = build_observation_label(
+            comparison_name.removesuffix("_model_comparison.png")
+        )
+        area_part = analysis_area_title_part(ANALYSIS_AREA_SURVEY)
+        for name, titles in saved_titles.items():
+            assert not any(area_part in title for title in titles), name
+            # Spatial CV 図のタイトルは、もともと観測ラベルを持たない
+            if not name.endswith("_spatial_cv.png"):
+                assert any(observation_label in title for title in titles), name
 
 
 class TestRunParametersFromDefaults:

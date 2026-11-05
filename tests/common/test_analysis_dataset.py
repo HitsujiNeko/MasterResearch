@@ -19,6 +19,7 @@ from src.common.analysis_dataset import (
     DEFAULT_REQUIRED_MASK_COLUMNS,
     IN_ANALYSIS_AREA_SURVEY_COLUMN,
     analysis_area_output_part,
+    analysis_area_title_part,
     filter_valid_rows,
     load_analysis_dataset,
     require_analysis_area_columns,
@@ -122,6 +123,28 @@ class TestAnalysisAreaOutputPart:
         """対応外の範囲名はファイル名へ混ぜずに止める。"""
         with pytest.raises(ValueError, match="未対応の分析対象範囲"):
             analysis_area_output_part("full")
+
+
+class TestAnalysisAreaTitlePart:
+    """analysis_area_title_part のテスト（図のタイトルへ添える範囲の表記）。"""
+
+    def test_roi_returns_empty(self) -> None:
+        """roi は何も付けない（既存の図のタイトルとの互換）。"""
+        assert analysis_area_title_part(ANALYSIS_AREA_ROI) == ""
+
+    def test_survey_returns_extent_label(self) -> None:
+        """survey は測量GIS範囲であることが分かる表記を返す。"""
+        assert analysis_area_title_part(ANALYSIS_AREA_SURVEY) == "(survey GIS extent)"
+
+    def test_title_parts_are_ascii(self) -> None:
+        """図の既定フォントに字形が無い文字（日本語など）を含めない。"""
+        for analysis_area in ANALYSIS_AREAS:
+            assert analysis_area_title_part(analysis_area).isascii()
+
+    def test_unknown_area_raises(self) -> None:
+        """対応外の範囲名は図のタイトルへ混ぜずに止める。"""
+        with pytest.raises(ValueError, match="未対応の分析対象範囲"):
+            analysis_area_title_part("full")
 
 
 class TestRequireAnalysisAreaColumns:

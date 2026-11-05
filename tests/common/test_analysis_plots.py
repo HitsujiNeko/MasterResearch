@@ -1,13 +1,15 @@
 """src/common/analysis_plots.py（モデル比較・重要度・Spatial CV・相関行列の可視化）のテスト。
 
 プロット内容そのものの検証は前例が無いため作り込まず、「ファイルが生成され、
-サイズが0でない」ことの確認に留める（計画書の方針）。
+サイズが0でない」ことの確認に留める（計画書の方針）。分析対象範囲を区別するための
+タイトルの文字列のみ、例外として検証する。
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -87,6 +89,52 @@ class TestSaveSpatialCvPlot:
 
         assert output_path.exists()
         assert output_path.stat().st_size > 0
+
+    def _panel_titles(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **kwargs: str
+    ) -> list[str]:
+        """Spatial CV図を描き、保存直前の各パネルのタイトルを返す。"""
+        titles: list[str] = []
+        monkeypatch.setattr(
+            "src.common.analysis_plots._finalize_figure",
+            lambda fig, _: titles.extend(axis.get_title() for axis in fig.axes),
+        )
+        fold_metrics_df = pd.DataFrame(
+            {
+                "fold": [1, 2],
+                "linear_r2": [0.7, 0.72],
+                "linear_rmse": [1.1, 1.0],
+                "linear_mae": [0.6, 0.55],
+                "rf_r2": [0.8, 0.78],
+                "rf_rmse": [0.9, 0.95],
+                "rf_mae": [0.5, 0.52],
+            }
+        )
+
+        save_spatial_cv_plot(tmp_path / "spatial_cv.png", fold_metrics_df, **kwargs)
+
+        plt.close("all")
+        return titles
+
+    def test_titles_are_unchanged_by_default(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """title_suffix を指定しなければ、タイトルは従来のまま。"""
+        titles = self._panel_titles(monkeypatch, tmp_path)
+
+        assert titles == ["Spatial CV R²", "Spatial CV RMSE", "Spatial CV MAE"]
+
+    def test_title_suffix_is_appended_to_every_panel(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """title_suffix は3つのパネルすべてのタイトルの末尾に付く。"""
+        titles = self._panel_titles(monkeypatch, tmp_path, title_suffix="(survey GIS extent)")
+
+        assert titles == [
+            "Spatial CV R² (survey GIS extent)",
+            "Spatial CV RMSE (survey GIS extent)",
+            "Spatial CV MAE (survey GIS extent)",
+        ]
 
 
 def _make_correlation_matrix(feature_count: int) -> pd.DataFrame:

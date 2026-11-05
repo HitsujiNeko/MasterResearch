@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-05  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -370,7 +370,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 | 評価指標 | 標準化回帰係数・寄与率（%）, R², VIF |
 | 実装ライブラリ | `sklearn.linear_model.LinearRegression` or `statsmodels.OLS` |
 
-> **参考**: S6[Garzón 2021]でMLR寄与率: NDWI 51.46%, NDBI 21.38%, PUC 14.32%, NDVI 12.84%（R²=0.82）
+> **参考**: S6[Garzón 2021]でMLR寄与率: NDWI 51.46%, NDBI 21.38%, PUC 14.32%, NDVI 12.84%（R²=0.82。PCA成分同士の回帰の適合度で、NDBI・NDWIのVIFは45超）
 
 #### 手法2: Random Forest（RF）
 
@@ -383,7 +383,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 | 実装ライブラリ | `sklearn.ensemble.RandomForestRegressor` |
 | 乱数シード | `random_state=42`（固定） |
 
-> **参考**: S4[Sun et al. 2019]でRF変数重要度: NDVI（都市生態インフラ）・建物密度が支配的（RF R²>0.9、CV R²=0.66）
+> **参考**: S4[Sun et al. 2019]でRF変数重要度: NDVI（都市生態インフラ）・建物密度が支配的（RF R²>0.9は全データでの適合度。ランダムな10分割CVの最良値は0.66で、空間的な分離はしていない）
 
 #### 手法3: SHAP値分析
 

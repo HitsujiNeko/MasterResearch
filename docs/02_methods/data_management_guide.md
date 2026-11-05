@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-05  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -123,6 +123,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
   - `data/output/satellite_only/*/*_dataset.csv`（大容量中間生成物）
   - `data/output/satellite_only/*/*_sample_100000.csv`（大容量サンプルCSV）
   - `data/output/limited/*/*_sample_*.csv`（大容量サンプルCSV。Limitedシナリオ分析）
+  - `data/output/spatial_cv_design/*/sweep/*_residuals.csv`（Spatial CV 診断の残差の部分標本CSV）
   - `data/output/urban_params/*.csv`（都市構造パラメータCSV）
 - ファイルベースの除外
   - `data/BSHorizon/input/merge_DH_elevation_points.csv`（正本 `data/output/survey_translated/merge_DH_elevation_points.csv` から `prepare_bs_horizon_input.py` で再生成可能なため）

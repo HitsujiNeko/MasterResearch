@@ -17,6 +17,7 @@ import rasterio
 from affine import Affine
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
+from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
 from src.analysis import compare_lulc_esri_glc as target
 from src.common.lulc_classes import (
@@ -325,9 +326,120 @@ class TestBuildConfusionMatrix:
 
         assert confusion.shape == (len(class_values), len(class_values))
 
+    def test_matches_sklearn_confusion_matrix(self) -> None:
+        """不連続なクラス値を含む入力で、sklearn の混同行列と一致する。"""
+        rng = np.random.default_rng(42)
+        class_values = [1, 2, 4, 6, 9]
+        glc = rng.choice(class_values, size=5000).astype(np.uint8)
+        esri = rng.choice(class_values, size=5000).astype(np.uint8)
+
+        confusion = target.build_confusion_matrix(glc, esri, class_values)
+
+        expected = confusion_matrix(glc, esri, labels=class_values)
+        np.testing.assert_array_equal(confusion, expected)
+
+    def test_unsorted_class_values_follow_given_order(self) -> None:
+        """`class_values` の並びが行・列の並びになり、sklearn の `labels` と一致する。"""
+        rng = np.random.default_rng(7)
+        class_values = [9, 1, 4]
+        glc = rng.choice(class_values, size=1000).astype(np.uint8)
+        esri = rng.choice(class_values, size=1000).astype(np.uint8)
+
+        confusion = target.build_confusion_matrix(glc, esri, class_values)
+
+        expected = confusion_matrix(glc, esri, labels=class_values)
+        np.testing.assert_array_equal(confusion, expected)
+
+    def test_class_missing_from_data_stays_zero(self) -> None:
+        """データに現れないクラスの行・列は 0 のまま残り、sklearn と一致する。"""
+        class_values = [1, 2, 4]
+        glc = np.array([1, 1, 4, 4], dtype=np.uint8)
+        esri = np.array([1, 4, 4, 4], dtype=np.uint8)
+
+        confusion = target.build_confusion_matrix(glc, esri, class_values)
+
+        expected = confusion_matrix(glc, esri, labels=class_values)
+        np.testing.assert_array_equal(confusion, expected)
+
+
+def _kappa_by_previous_formula(confusion: np.ndarray) -> float:
+    """置き換え前の式（観測一致率と偶然一致率）で kappa を求める参照値。"""
+    total = float(confusion.sum())
+    observed = float(np.trace(confusion)) / total
+    expected = float(np.sum(confusion.sum(axis=1) / total * (confusion.sum(axis=0) / total)))
+    return (observed - expected) / (1.0 - expected)
+
 
 class TestCohensKappa:
     """cohens_kappa のテスト。"""
+
+    def test_matches_sklearn_on_expanded_labels(self) -> None:
+        """全画素のラベル配列を sklearn に渡した場合と一致する。"""
+        rng = np.random.default_rng(42)
+        labels_a = rng.integers(0, 5, size=5000)
+        labels_b = np.where(rng.random(5000) < 0.6, labels_a, rng.integers(0, 5, size=5000))
+        confusion = confusion_matrix(labels_a, labels_b, labels=np.arange(5))
+
+        assert target.cohens_kappa(confusion) == pytest.approx(
+            cohen_kappa_score(labels_a, labels_b), rel=1e-12
+        )
+
+    def test_matches_previous_formula(self) -> None:
+        """置き換え前の式と相対 1e-9 以内で一致する。"""
+        rng = np.random.default_rng(42)
+        confusion = rng.integers(0, 10**7, size=(6, 6))
+
+        assert target.cohens_kappa(confusion) == pytest.approx(
+            _kappa_by_previous_formula(confusion), rel=1e-9
+        )
+
+    def test_matches_hand_calculated_value(self) -> None:
+        """手計算の値と一致する（観測 0.7・偶然 0.5 → kappa 0.4）。"""
+        confusion = np.array([[35, 15], [15, 35]])
+
+        assert target.cohens_kappa(confusion) == pytest.approx(0.4)
+
+    def test_billions_of_pixels_do_not_overflow(self) -> None:
+        """数十億画素の行列でも桁あふれせず、参照値と一致する。"""
+        confusion = np.array([[3_000_000_000, 40_000_000], [50_000_000, 1_000_000_000]])
+
+        assert target.cohens_kappa(confusion) == pytest.approx(
+            _kappa_by_previous_formula(confusion), rel=1e-12
+        )
+
+    def test_narrow_integer_dtype_is_accepted(self) -> None:
+        """uint8 の行列でも、桁あふれせず int64 と同じ値になる。"""
+        confusion = np.array([[200, 30], [20, 100]], dtype=np.uint8)
+
+        assert target.cohens_kappa(confusion) == pytest.approx(
+            target.cohens_kappa(confusion.astype(np.int64))
+        )
+
+    def test_returns_builtin_float(self) -> None:
+        """結果 JSON に書き出せるよう、組み込みの float を返す。"""
+        assert type(target.cohens_kappa(np.array([[9, 1], [2, 8]]))) is float
+
+    def test_worse_than_chance_is_negative(self) -> None:
+        """すべて不一致なら kappa は負（-1）になる。"""
+        assert target.cohens_kappa(np.array([[0, 50], [50, 0]])) == pytest.approx(-1.0)
+
+    def test_class_absent_from_both_axes_is_ignored(self) -> None:
+        """どちらにも現れないクラスは kappa に影響しない。"""
+        with_empty_class = np.array([[9, 1, 0], [2, 8, 0], [0, 0, 0]])
+
+        assert target.cohens_kappa(with_empty_class) == pytest.approx(
+            target.cohens_kappa(np.array([[9, 1], [2, 8]]))
+        )
+
+    @pytest.mark.parametrize(
+        "confusion",
+        [[[0, 0], [0, 10]], [[0, 0, 0], [0, 7, 0], [0, 0, 0]]],
+        ids=["last_class", "middle_class"],
+    )
+    @pytest.mark.filterwarnings("ignore:.*have only one label in common.*")
+    def test_single_class_at_any_position_gives_zero(self, confusion: list[list[int]]) -> None:
+        """単一クラスは行列のどの位置でも 0 を返す。"""
+        assert target.cohens_kappa(np.array(confusion)) == 0.0
 
     def test_perfect_agreement_gives_one(self) -> None:
         """完全一致では kappa が 1 になる。"""

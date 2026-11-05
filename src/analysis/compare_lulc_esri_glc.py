@@ -37,6 +37,7 @@ from affine import Affine
 from rasterio.enums import Resampling
 from rasterio.features import geometry_mask
 from rasterio.warp import reproject
+from sklearn.metrics import cohen_kappa_score
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.lulc_classes import (
@@ -275,22 +276,28 @@ def build_confusion_matrix(
 def cohens_kappa(confusion: np.ndarray) -> float:
     """混同行列から Cohen's kappa を求める。
 
+    `sklearn.metrics.cohen_kappa_score` に、行・列の番号を各セルの代表値、セルの画素数を
+    `sample_weight` として渡す。全画素のラベル配列を作らずに済む。
+
     Args:
         confusion (np.ndarray): 混同行列。
 
     Returns:
         float: kappa 係数。総画素数が 0 または偶然一致率が 1 の場合は 0.0。
     """
-    total = float(confusion.sum())
-    if total == 0:
+    if confusion.sum() == 0:
         return 0.0
-    observed = float(np.trace(confusion)) / total
-    row_ratio = confusion.sum(axis=1) / total
-    column_ratio = confusion.sum(axis=0) / total
-    expected = float(np.sum(row_ratio * column_ratio))
-    if expected >= 1.0:
-        return 0.0
-    return (observed - expected) / (1.0 - expected)
+    rows, columns = np.indices(confusion.shape)
+    return float(
+        cohen_kappa_score(
+            rows.ravel(),
+            columns.ravel(),
+            labels=np.arange(confusion.shape[0]),
+            # 整数のままだと内部の積で桁あふれする余地があるため float64 で渡す
+            sample_weight=confusion.ravel().astype(np.float64),
+            replace_undefined_by=0.0,
+        )
+    )
 
 
 def summarize_classes(confusion: np.ndarray, class_values: list[int]) -> list[dict[str, Any]]:

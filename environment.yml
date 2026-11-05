@@ -16,7 +16,8 @@ dependencies:
   - pandas=2.2
   - numpy=1.26
   - scipy
-  - scikit-learn
+  # cohen_kappa_score の replace_undefined_by は1.9以降で使用可能なため下限を明示する
+  - scikit-learn>=1.9
   # Axes.set_xticks(labels=...) は3.5.0以降で使用可能なため下限を明示する
   - matplotlib>=3.5
   # 動作確認済みバージョンを下限として明示する

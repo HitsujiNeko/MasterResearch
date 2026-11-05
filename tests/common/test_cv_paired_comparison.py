@@ -12,6 +12,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import stats
 
 from src.common.cv_paired_comparison import (
     FOLD_METRIC_COLUMNS,
@@ -90,6 +91,84 @@ class TestSummarizePairedDifferences:
         """信頼係数が 0〜1 の範囲外なら停止する。"""
         with pytest.raises(ValueError, match="confidence"):
             summarize_paired_differences(DIFFERENCES, 0.25, confidence=1.5)
+
+
+class TestAgainstCorrectR:
+    """R パッケージ correctR の出力との突き合わせ。
+
+    参照値は R 4.5.3・correctR 0.3.1 で下記の入力から算出して固定した（テストは R に
+    依存しない）。correctR は統計量と両側 p 値を返すため、平均差と補正後の標準誤差
+    から同じ量を求めて比べる。呼び出しは次のとおり。
+
+    - `resampled_ttest(x, y, n = 10, n1 = 900, n2 = 100)`
+    - `repkfold_ttest(data, n1 = 80, n2 = 20, k = 5, r = 3)`
+    - `resampled_ttest(x, y, n = 5, n1 = 80, n2 = 20)`（単発 5-fold 相当）
+    """
+
+    RESAMPLED_X = (0.81, 0.79, 0.84, 0.80, 0.83, 0.78, 0.82, 0.85, 0.80, 0.79)
+    RESAMPLED_Y = (0.78, 0.80, 0.81, 0.77, 0.80, 0.79, 0.78, 0.83, 0.81, 0.76)
+    REPEATED_X = (
+        0.71, 0.74, 0.69, 0.73, 0.72, 0.70, 0.75, 0.71, 0.72, 0.73, 0.74, 0.69, 0.72, 0.70, 0.73,
+    )  # fmt: skip
+    REPEATED_Y = (
+        0.68, 0.73, 0.70, 0.70, 0.69, 0.69, 0.71, 0.69, 0.71, 0.72, 0.70, 0.70, 0.69, 0.68, 0.71,
+    )  # fmt: skip
+
+    @staticmethod
+    def _assert_matches(
+        differences: np.ndarray,
+        train_size: int,
+        test_size: int,
+        expected_statistic: float,
+        expected_p_value: float,
+    ) -> None:
+        """統計量と両側 p 値が参照値に一致することを確かめる。
+
+        Args:
+            differences: 分割ごとの差。
+            train_size: 分割ごとの学習行数。
+            test_size: 分割ごとのテスト行数。
+            expected_statistic: correctR の統計量。
+            expected_p_value: correctR の両側 p 値。
+        """
+        n_splits = differences.size
+        ratio = mean_test_train_ratio([train_size] * n_splits, [test_size] * n_splits)
+
+        result = summarize_paired_differences(differences, test_train_ratio=ratio)
+
+        statistic = result["mean_difference"] / result["corrected"]["standard_error"]
+        p_value = 2.0 * stats.t.sf(abs(statistic), result["degrees_of_freedom"])
+        assert statistic == pytest.approx(expected_statistic, rel=1e-12)
+        assert p_value == pytest.approx(expected_p_value, rel=1e-9)
+
+    def test_matches_resampled_ttest(self) -> None:
+        """反復のないランダム分割（J = 10・ρ = 1/9）で一致する。"""
+        differences = np.array(self.RESAMPLED_X) - np.array(self.RESAMPLED_Y)
+
+        self._assert_matches(differences, 900, 100, 1.9697595514974791, 0.080373202837306201)
+
+    def test_matches_repkfold_ttest(self) -> None:
+        """反復 k-fold（k = 5・r = 3、J = 15）で一致する。"""
+        differences = np.array(self.REPEATED_X) - np.array(self.REPEATED_Y)
+
+        self._assert_matches(differences, 80, 20, 2.1369776791062982, 0.050731670734402559)
+
+    def test_matches_resampled_ttest_for_single_kfold(self) -> None:
+        """単発 5-fold 相当（J = 5・ρ = 0.25）で一致する。"""
+        self._assert_matches(np.array(DIFFERENCES), 80, 20, 1.8856180831641267, 0.13241892222024934)
+
+    def test_interval_and_p_value_lead_to_same_decision(self) -> None:
+        """補正 t 区間が 0 を含むかどうかと、p 値による判定が一致する。
+
+        反復 k-fold の参照値は p = 0.0507 なので、95% 区間は 0 を含み、90% 区間は含まない。
+        """
+        differences = np.array(self.REPEATED_X) - np.array(self.REPEATED_Y)
+
+        at_95 = summarize_paired_differences(differences, 0.25)["corrected"]
+        at_90 = summarize_paired_differences(differences, 0.25, confidence=0.90)["corrected"]
+
+        assert at_95["lower"] < 0.0 < at_95["upper"]
+        assert at_90["lower"] > 0.0
 
 
 class TestMeanTestTrainRatio:

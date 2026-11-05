@@ -19,6 +19,7 @@ from src.doc_checks.catalog_diff import check_catalog_diff
 from src.doc_checks.freshness import check_freshness
 from src.doc_checks.metadata_presence import check_metadata_presence
 from src.doc_checks.terminology import check_terminology
+from src.doc_checks.thesis_notation import check_thesis_notation
 from src.doc_checks.thesis_source_tracking import check_thesis_source_tracking, format_finding
 
 
@@ -68,6 +69,13 @@ def main(project_root: Path = PROJECT_ROOT) -> int:
         print("[NG] 書誌整合:")
         for m in bibliography_mismatches:
             print(f"  - {m.paper_id} [{m.source}]: 正本={m.canonical_year!r} 記載={m.found_year!r}")
+
+    notation_violations = check_thesis_notation(project_root)
+    if notation_violations:
+        has_failure = True
+        print("[NG] 原稿の表記:")
+        for v in notation_violations:
+            print(f"  - {v.file}:{v.line} [{v.category}] {v.matched_text!r}")
 
     freshness_warnings = check_freshness(project_root)
     if freshness_warnings:

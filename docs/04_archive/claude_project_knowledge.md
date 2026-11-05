@@ -1,6 +1,6 @@
 # Claude Projects ナレッジ（アップロード用）
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-05  
 **関連ドキュメント**: [claude_project_instructions.md](claude_project_instructions.md), [research_guide.md](../01_planning/research_guide.md), [previous_studies_report.md](previous_studies_report.md)
 
 > **このファイルの役割**  

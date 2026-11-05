@@ -1,6 +1,6 @@
 # S2: Le Ngoc Hanh & Tran Thi An（2025）
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-05  
 **分析者**: ChatGPT（PDF精読版）／PDF突合監査（2026-07-15）  
 **本研究との関連度**: 中（※ベトナム都市の事例で、著者が指標不足を限界として明記している。RQ1の"都市構造多変量/ML"は扱わない）  
 **原本照合**: 2026-11-04 にPDF本文と照合し、限界の記述・数値の条件と本研究との関連性を修正した（Claude Code）
@@ -13,7 +13,7 @@
 |------|------|
 | **著者** | Le Ngoc Hanh; Tran Thi An |
 | **発表年** | 2025 |
-| **発表年 詳細** | Received 15-04-2025 / Accepted 15-06-2025 / Published August 2025（PDF p.16で確定） |
+| **発表年 詳細** | Received 15-04-2025 / Accepted 15-06-2025 / Published August 2025（PDF p.1で確定） |
 | **タイトル** | Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach |
 | **掲載誌** | The GIS-IDEAS Journal, Vol. 1, No. 3, 16–28（AGILE Publishing, ISSN 2759-7369） |
 | **DOI/URL** | DOIの明記なし（How to cite: Le, N. H., & Tran, T. A. (2025). The GIS-IDEAS Journal, 1(3), 16–28） |
@@ -33,7 +33,7 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
 
 - **対象地域**: Da Nang City, Vietnam（地区別集計あり：Hai Chau/Thanh Khe/Hoa Vang等）
 - **対象期間**: 1991–2020（乾季：May–Augustを扱う記述）
-- **空間範囲**: 市域全体（自然面積 1284.74 km²。うち都市地区 246.56 km²、郊外地区 1038.18 km²。PDF p.17–18）
+- **空間範囲**: 市域全体（自然面積 1284.74 km²。うち都市地区 246.56 km²、郊外地区 1038.18 km²。PDF p.3）
 
 ---
 
@@ -91,7 +91,7 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
   - Hai Chau: **26.99°C**
   - Hoa Vang: **23.99°C**（低温）
 
-- **将来推定（RCP4.5）**: ダナンの報告書（Center for Climate Change Response, 2020）の夏季平均気温の上昇量（基準期1986–2005）を、1991–2005年の平均LSTに加算したもの（PDF p.5, p.10。基準期は本文で1990–2005、Table 3で1991–2005と原典内で揺れがある）。論文独自の推定ではない
+- **将来推定（RCP4.5）**: ダナンの報告書（Center for Climate Change Response, 2020）の夏季平均気温の上昇量（基準期1986–2005）を、1991–2005年の平均LSTに加算したもの（PDF p.5, p.10。基準期は本文で1990–2005、Table 3で1991–2005と原典内で揺れがある）。上昇量は論文独自の推定ではない
   - 2016–2035: **+0.7°C**（0.3–1.2）
   - 2046–2065: **+1.8°C**（1.1–2.8）
   - 2080–2099: **+2.4°C**（1.7–3.4）
@@ -156,6 +156,6 @@ Da Nang City（ベトナム）で、LandsatとGEEを用いて乾季のLSTの長�
 ## 📌 PDF精読による重要な修正点
 
 1. **発表年・原題の確定（PDF突合監査）**: 2025年（Published August 2025）、原題 "Assessment of Temperature Change in Da Nang City, Vietnam, Using Remote Sensing and Cloud-Computing Approach"。市域面積1284.74 km²もPDFで確定
-2. **著者自身の限界明記**: 「NDVI/NDBIのみでは不足」と明確に記載
+2. **著者自身の限界明記**: NDVI・NDBIのみの評価では人口密度・建物高さ等を捉えられないと記載
 3. **詳細な定量結果**: 地区別LST、5年期平均など
 4. **将来推定の詳細**: ダナンの報告書のRCP4.5の上昇量+0.7°C/+1.8°C/+2.4°Cを基準期のLST平均に加算

@@ -41,7 +41,7 @@ Spatial CV のブロックサイズ 2,700m は、[limited_analysis_results.md](l
 
 **数値の正本**は `data/output/spatial_cv_design/` 配下の出力であり、本ドキュメントの表は抜粋である。全50設定（シナリオを含む）を2シードで平均した値は `20220906_032358/spatial_cv_sweep_summary.csv`、シード・fold 別の値は `spatial_cv_sweep_folds.csv`、残差の分析は `spatial_cv_sweep_correlograms.csv`・`spatial_cv_sweep_residual_semivariograms.csv`、セミバリオグラムは各観測の `lst_semivariogram_results.json`・`lst_semivariogram_lags.csv` にある。図は `spatial_cv_sweep_r2.png`・`spatial_cv_training_control.png`・`lst_semivariogram.png` である。
 
-**再現手順**: 掃引は全体で約23時間かかる。途中結果を設定ごとに保存し、コードと実行条件が同じなら再実行時に再利用する。実行条件の違う完了済み設定が同じ保存先に残っていると、計算を始める前に止まる。コミット済みの途中結果は現在のコードと実行条件が違うため、下のコマンドで掃引をやり直すときは `--output-dir` で空の保存先を指定する。
+**再現手順**: 掃引は全体で約23時間かかる。途中結果を設定ごとに保存し、コードと実行条件が同じなら再実行時に再利用する。実行条件の違う完了済み設定が同じ保存先に残っていると、計算を始める前に止まる。コミット済みの途中結果は現在のコードと実行条件が違うため、下のコマンドで掃引をやり直すときは、3本の `sweep` に同じ空の保存先を `--output-dir` で指定し、最後のコマンドの `--summary-csv` もその保存先の集計表に変える。
 
 ```bash
 python -m src.analysis.diagnose_spatial_cv_design semivariogram

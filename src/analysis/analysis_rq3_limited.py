@@ -89,7 +89,7 @@ from src.common.model_metrics import (  # noqa: E402
     sanitize_vif_for_json,
 )
 from src.common.model_metrics import (  # noqa: E402
-    PROVENANCE_PACKAGES as MODEL_METRICS_PROVENANCE_PACKAGES,
+    EXTRA_PROVENANCE_PACKAGES as MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES,
 )
 from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
@@ -1549,7 +1549,7 @@ def build_dataset_provenance(
     return build_provenance(
         "src.analysis.analysis_rq3_limited",
         input_paths=[dataset_path, *extra_input_paths],
-        packages=(*DEFAULT_PROVENANCE_PACKAGES, *MODEL_METRICS_PROVENANCE_PACKAGES),
+        packages=(*DEFAULT_PROVENANCE_PACKAGES, *MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES),
     )
 
 

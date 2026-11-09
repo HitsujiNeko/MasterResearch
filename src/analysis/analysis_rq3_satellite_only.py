@@ -69,7 +69,7 @@ from src.common.evaluation_cells import (  # noqa: E402
     select_evaluation_rows,
 )
 from src.common.model_metrics import (  # noqa: E402
-    PROVENANCE_PACKAGES as MODEL_METRICS_PROVENANCE_PACKAGES,
+    EXTRA_PROVENANCE_PACKAGES as MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES,
 )
 from src.common.model_metrics import (  # noqa: E402
     compute_vif,
@@ -582,7 +582,7 @@ def main() -> None:
     result["provenance"] = build_provenance(
         "src.analysis.analysis_rq3_satellite_only",
         input_paths=[args.dataset_path, *evaluation_input_paths(evaluation_set)],
-        packages=(*DEFAULT_PROVENANCE_PACKAGES, *MODEL_METRICS_PROVENANCE_PACKAGES),
+        packages=(*DEFAULT_PROVENANCE_PACKAGES, *MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES),
     )
 
     result_path = args.output_dir / f"{output_stem}_results.json"

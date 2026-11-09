@@ -21,9 +21,10 @@ from statsmodels.tools.tools import add_constant
 # 揃えないと「発散した」ことが結果から読み取れなくなる。
 VIF_PERFECT_COLLINEARITY_THRESHOLD: float = 1e6
 
-# 本モジュールの計算結果を左右するため、結果の来歴に版を残すべき追加のパッケージ
-# （`src.common.summary.DEFAULT_PROVENANCE_PACKAGES` に含まれないもの）
-PROVENANCE_PACKAGES: tuple[str, ...] = ("statsmodels",)
+# 本モジュールの計算結果を左右するため、結果の来歴に版を残すべき追加のパッケージ。
+# `src.common.summary.DEFAULT_PROVENANCE_PACKAGES` に含まれないものだけを並べるので、
+# `build_provenance` には既定の一覧と連結して渡す（単独で渡すと既定分が記録から抜ける）
+EXTRA_PROVENANCE_PACKAGES: tuple[str, ...] = ("statsmodels",)
 
 # 対応する相関係数の種類。VIFが線形の共線性指標であるためPearsonを主とするが、
 # 被覆率型の変数（土地被覆クラス別面積率など）は細かいスケールで0へ偏りやすく、
@@ -72,8 +73,9 @@ def compute_vif(dataframe: pd.DataFrame) -> dict[str, float]:
     """説明変数ごとのVIF（分散拡大係数）を計算する。
 
     statsmodels の `variance_inflation_factor` により、定数項つきの補助回帰から
-    1/(1-R²) を求める。入力の型によらず float64 で計算する（float32 のまま回帰すると
-    丸め誤差が相対 1e-6 程度の差として値に現れるため）。
+    1/(1-R²) を求める。入力は float64 に変換し、欠測・無限大と分散0の列をその値で
+    判定する（statsmodels も内部で float64 に変換するため、入力が float32 でも結果は
+    変わらない）。
 
     Args:
         dataframe: 説明変数のみを含むデータフレーム（2列以上必要）。

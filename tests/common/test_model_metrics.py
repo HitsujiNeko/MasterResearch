@@ -229,7 +229,8 @@ class TestComputeVif:
     def test_float32_input_is_computed_in_float64(self) -> None:
         """float32の入力は、同じ値をfloat64で渡した場合と完全に同じ結果になる。
 
-        float32のまま回帰すると、丸め誤差が相対1e-6程度の差として値に現れる。
+        保存済みのVIFは置き換え前の実装がfloat32のまま回帰した値で、float64の値と
+        相対1e-6程度異なる。置き換え後はその差が生じないことを固定する。
         """
         dataframe = _correlated_dataframe().astype("float32")
 

@@ -69,6 +69,9 @@ from src.common.evaluation_cells import (  # noqa: E402
     select_evaluation_rows,
 )
 from src.common.model_metrics import (  # noqa: E402
+    PROVENANCE_PACKAGES as MODEL_METRICS_PROVENANCE_PACKAGES,
+)
+from src.common.model_metrics import (  # noqa: E402
     compute_vif,
     sanitize_vif_for_json,
 )
@@ -76,7 +79,11 @@ from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
 from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
-from src.common.summary import build_provenance, save_summary  # noqa: E402
+from src.common.summary import (  # noqa: E402
+    DEFAULT_PROVENANCE_PACKAGES,
+    build_provenance,
+    save_summary,
+)
 
 # 分析対象は30m・単一観測日（2022-09-06 03:23:58Z）に限定する
 # （Limitedと同じ制約。他日時・他スケールの拡張は別途行う）。
@@ -575,6 +582,7 @@ def main() -> None:
     result["provenance"] = build_provenance(
         "src.analysis.analysis_rq3_satellite_only",
         input_paths=[args.dataset_path, *evaluation_input_paths(evaluation_set)],
+        packages=(*DEFAULT_PROVENANCE_PACKAGES, *MODEL_METRICS_PROVENANCE_PACKAGES),
     )
 
     result_path = args.output_dir / f"{output_stem}_results.json"

@@ -21,6 +21,10 @@ from statsmodels.tools.tools import add_constant
 # 揃えないと「発散した」ことが結果から読み取れなくなる。
 VIF_PERFECT_COLLINEARITY_THRESHOLD: float = 1e6
 
+# 本モジュールの計算結果を左右するため、結果の来歴に版を残すべき追加のパッケージ
+# （`src.common.summary.DEFAULT_PROVENANCE_PACKAGES` に含まれないもの）
+PROVENANCE_PACKAGES: tuple[str, ...] = ("statsmodels",)
+
 # 対応する相関係数の種類。VIFが線形の共線性指標であるためPearsonを主とするが、
 # 被覆率型の変数（土地被覆クラス別面積率など）は細かいスケールで0へ偏りやすく、
 # 線形相関だけでは関係を取りこぼしうるためSpearmanも併せて算出できるようにする。
@@ -102,7 +106,9 @@ def compute_vif(dataframe: pd.DataFrame) -> dict[str, float]:
     design = add_constant(values[:, ~is_constant], has_constant="add")
     # 設計行列の先頭は定数項なので、説明変数は1列目から対応する。
     for design_index, column in enumerate(dataframe.columns[~is_constant], start=1):
-        vif = float(variance_inflation_factor(design, design_index))
+        # 列を標準化してから回帰させ、桁の大きく異なる列があっても小さい列を無視しない
+        # ようにする（statsmodels 0.15 の既定値だが、結果を左右するため明示する）。
+        vif = float(variance_inflation_factor(design, design_index, standardize=True))
         if vif < VIF_PERFECT_COLLINEARITY_THRESHOLD:
             vif_values[column] = vif
     return vif_values

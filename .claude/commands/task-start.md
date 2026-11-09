@@ -75,6 +75,7 @@ gh pr list --head "$current_branch" --json number,url,state
 2. 前提としているファイル・関数・ディレクトリが現在のコードベースに存在するか確認する
 3. 前提 Issue のステータスを確認する（未完了なら着手可否をユーザーに確認）
 4. 曖昧な要件があればユーザーに確認する
+   - 変更対象が `thesis/` の原稿の場合は、[thesis_writing_guide.md](../../docs/02_methods/thesis_writing_guide.md) を読み、計画に反映する
 5. **問題なしの場合も、確認結果を明示的に報告する**
 
 ステータスが「保留」の場合は「再開しますか？」と確認してから進める。

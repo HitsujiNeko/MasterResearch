@@ -433,6 +433,16 @@ class TestCohensKappa:
 
     @pytest.mark.parametrize(
         "confusion",
+        [[[5, 1, 2], [1, 4, 3]], [[5, 1], [1, 4], [2, 3]], [5, 1, 1, 4]],
+        ids=["more_columns", "more_rows", "one_dimensional"],
+    )
+    def test_rejects_non_square_matrix(self, confusion: list) -> None:
+        """正方でない行列は、一部の画素を黙って捨てずに例外にする。"""
+        with pytest.raises(ValueError, match="正方"):
+            target.cohens_kappa(np.array(confusion))
+
+    @pytest.mark.parametrize(
+        "confusion",
         [[[0, 0], [0, 10]], [[0, 0, 0], [0, 7, 0], [0, 0, 0]]],
         ids=["last_class", "middle_class"],
     )

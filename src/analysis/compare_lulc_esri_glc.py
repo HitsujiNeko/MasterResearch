@@ -284,7 +284,13 @@ def cohens_kappa(confusion: np.ndarray) -> float:
 
     Returns:
         float: kappa 係数。総画素数が 0 または偶然一致率が 1 の場合は 0.0。
+
+    Raises:
+        ValueError: 混同行列が正方の 2 次元配列でない場合（列だけにあるクラスの画素を
+            黙って捨てないため）。
     """
+    if confusion.ndim != 2 or confusion.shape[0] != confusion.shape[1]:
+        raise ValueError(f"混同行列は正方の 2 次元配列にしてください（形状: {confusion.shape}）。")
     if confusion.sum() == 0:
         return 0.0
     rows, columns = np.indices(confusion.shape)
@@ -293,7 +299,8 @@ def cohens_kappa(confusion: np.ndarray) -> float:
             rows.ravel(),
             columns.ravel(),
             labels=np.arange(confusion.shape[0]),
-            # 整数のままだと内部の積で桁あふれする余地があるため float64 で渡す
+            # 重みの型による差を持ち込まないよう float64 で渡す（sklearn 1.9.0 は整数の
+            # 重みでも同じ値を返すことを確認済み）
             sample_weight=confusion.ravel().astype(np.float64),
             replace_undefined_by=0.0,
         )

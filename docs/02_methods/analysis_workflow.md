@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-11-05  
+**最終更新**: 2026-11-09  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [spatial_cv_design_results.md](../03_results/spatial_cv_design_results.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -14,29 +14,31 @@
 実装を始める前に各工程の入出力・手法選定の根拠を明確にし、  
 再現性のある研究プロセスを確立することを目的とする。
 
-### 現在の優先実行範囲（2026-04-21）
+### 現在の優先実行範囲（2026-11-04）
 
-研究の分析シナリオは、現在次の 3 段階で整理している。
+研究の分析シナリオは、次の 3 段階で整理している。
 
 1. `Satellite Only`: 衛星指標のみ
 2. `Limited`: 衛星指標 + オープンソース GIS
 3. `Full`: 衛星指標 + オープンソース GIS + 測量由来 GIS
 
-このうち、**Satellite Only は初期成立済み**であり、2023-07-07、2023-07-23、2024-11-30 の 3 観測でベースライン結果が得られている。  
-現在の優先実行範囲は、**Limited / Full に接続するための GIS データ仕様整理、公開建物データのカバレッジ QA、都市構造パラメータ算出設計の更新**である。
+このうち、**Satellite Only と Limited は、主採用の観測 `2022-09-06T03:23:58`・30m で完了している**（Limited は採用構成のみ）。結果は [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章、[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章、全域と測量GIS範囲の比較は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章にある。採用観測の根拠は [observation_selection.md](observation_selection.md) 5章・8章を正本とする。  
+**Full は未実施**である。
 
-直近の優先事項:
+残る主な作業（優先順位と進捗は GitHub Issues / Project を正本とする）:
 
-1. `Satellite Only` の複数観測日結果を基準線として固定する。
-2. `available_gis_data.md` を根拠に、`Limited` で使う公開 GIS の主ソース候補を比較し、建物データの有効範囲を確定する。
-3. 測量由来 GIS の利用可能レイヤと制約を整理し、`Full` の入力仕様を明確化する。
-4. `calc_urban_params.py` の入出力仕様を、公開 GIS / 測量 GIS のどちらにも適用できる形へ更新する。
+1. 測量由来 GIS のレイヤ別の確認と変数対応を確定し、`Full` を実行する。
+2. RQ2 の本分析として、グリッド解像度（30 / 90 / 300m）と分析対象範囲の組合せを比べる（主採用の観測のテーブルは 30m のみのため、先に 90m・300m を生成する）。
+3. 比較用の観測 `2024-11-30T03:23:36` で分析する（在庫の指標に MNDWI が無いため、先に再エクスポートする）。
 
 現在の主要実装:
 
-- `src/analysis/analysis_rq3_satellite_only.py`
 - `src/preprocessing/extract_geofabrik_roads_hanoi.py`
-- `src/preprocessing/fetch_microsoft_buildings_hanoi.py`
+- `src/preprocessing/fetch_gba_buildings_hanoi.py`
+- `src/analysis/urban_params/`
+- `src/analysis/build_dataset.py`
+- `src/analysis/analysis_rq3_satellite_only.py`
+- `src/analysis/analysis_rq3_limited.py`
 
 ---
 
@@ -50,7 +52,7 @@
   │   ※GEEでROI（行政区画）クリップ済み                       │
   │                                                           │
   ├─ GISベクタ (GPKG/WGS84)                                  │
-  │   公開GIS（OSM / Microsoft / Google等）または           │
+  │   公開GIS（OSM / GlobalBuildingAtlas等）または          │
   │   測量DGN → マージ済みGPKG（正本: EPSG:5897）            │
   │   ※データソースごとに空間範囲と完全性が異なる            │
   │                                                           │
@@ -119,13 +121,13 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 | F-48-68-(251-c)_2018_DC.dgn | 処理ハング | DCデータの1区画欠落 |
 | F-48-80-(11-c)_2018_TV.dgn | DGNv8形式（GDAL非対応） | TVデータの1区画欠落 |
 
-#### 1.2.1 オープンソース GIS（Limited シナリオ候補）
+#### 1.2.1 オープンソース GIS（Limited シナリオ）
 
-`Limited` では、現時点で次の公開データを候補とする。
+`Limited` では次の公開データを使う（比較・補助の候補を含む）。
 
 | データ | 主用途 | 現状 | 備考 |
 |------|------|------|------|
-| OpenStreetMap / Geofabrik | 道路、補助的な建物 | 候補確定 | 道路の主ソース。建物利用時は QA が必要 |
+| OpenStreetMap / Geofabrik | 道路、補助的な建物 | 道路の主ソース・使用済み | 道路の主ソース。建物利用時は QA が必要 |
 | Microsoft GlobalMLBuildingFootprints | 建物フットプリント | 保留 | Hanoi ROI 西側欠落（105.47°E境界）を確認済み。単独主ソースとして採用しない |
 | GlobalBuildingAtlas | 建物フットプリント＋高さ（ML推定） | **採用確定・取得済み** | WFS（`lod1_global`）でHanoi ROI全域を取得済み。Microsoft欠落域でも実データを確認しカバレッジ欠落を解消。CC BY-NC 4.0（学術可）。`Limited` シナリオの建物主ソース |
 | Google Open Buildings V3 | 建物フットプリント | 第2候補 | Vietnam明記。CC BY 4.0。建物高さなし（V3）。GBA代替として利用 |
@@ -158,7 +160,7 @@ LST と GIS データでは空間範囲が異なる。この非対称性を理�
 |--------|---------|------|
 | **LST** | ROI（行政区画全体） | GEEで算出時にクリップ済み |
 | **GISデータ（測量）** | ハノイ中心部の矩形範囲 | 測量図幅の格子範囲。ROIより狭い |
-| **GISデータ（公開）** | ROI全体または取得範囲全体 | OSM / Microsoft / Google Open Buildings など。データごとに有効範囲が異なる |
+| **GISデータ（公開）** | ROI全体または取得範囲全体 | OSM / GlobalBuildingAtlas など。データごとに有効範囲が異なる |
 | **衛星指標**（NDVI等） | LSTと同一（ROI全体） | GEEで同時算出 |
 
 #### 2.2.1 実測BBox（2026-03-03）
@@ -452,7 +454,7 @@ LST分布をどの程度説明できるかを評価し、測量GISを加えた�
 **公開GISデータ取得**:
 
 - 道路: Geofabrik / OSM の `highway=*`
-- 建物: GlobalBuildingAtlas を主ソースとして採用確定。Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` は比較候補
+- 建物: GlobalBuildingAtlas を主ソースとして採用確定。Google Open Buildings / OSM `building=*` は比較候補。Microsoft GlobalMLBuildingFootprints は保留
 - 標高・土地利用・人口密度・夜間光: いずれも取得済み（採用済み）
 - 採否の一覧は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md)、データソースの候補比較は [available_gis_data.md](../01_planning/available_gis_data.md) を参照する
 
@@ -460,15 +462,17 @@ LST分布をどの程度説明できるかを評価し、測量GISを加えた�
 
 ### 5.3.1 現時点の実行順序
 
-RQ3 は、現在次の順で進める。
+RQ3 は、次の順で進めている。
 
-1. `Satellite Only` の複数観測日結果を基準線として固定する。
-2. `Limited` のために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。
-3. `urban_params` パッケージを公開 GIS / 測量 GIS の両方に対応できる設計へ揃える。
-4. `Limited` を先に実装し、その後 `Full` を実装する。
+1. `Satellite Only` の基準線を、主採用の観測で固定する。**完了**
+2. `Limited` のために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。**完了**（GBA の有効カバレッジそのものの検証は未実施。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 7章）
+3. `urban_params` パッケージを公開 GIS / 測量 GIS の両方に対応できる設計へ揃える。公開 GIS での算出は**完了**し、測量 GIS での算出の確認が残る。
+4. `Limited` を実行する。**完了**（主採用の観測・30m・採用構成）
+5. `Full` を実行する。**未実施**
 
 `Limited` の建物データソースは **GlobalBuildingAtlas に確定済み**である（Microsoft 単独では ROI 全域を代表できないため）。Google Open Buildings / OSM `building=*` は比較・妥当性確認の候補として残す。  
-`Full` の算出手順と、両シナリオの最終変数セットは未確定である。
+`Limited` の採用構成は、変数セット `both`・建物高さ `mean`・水指数 `none`・土地被覆 GLC・人口 WorldPop2020 である（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章）。採用構成以外の比較軸を主採用の観測で測り直す作業は残っている（同 7章）。  
+`Full` の算出手順と変数セットは未確定である。
 
 ### 5.3.2 Satellite Only の最小評価仕様
 
@@ -480,8 +484,9 @@ RQ3 は、現在次の順で進める。
 | ベースラインモデル | MLR, Random Forest |
 | 出力 | モデル指標 JSON、特徴量重要度 CSV、比較図 |
 
-この最小仕様は既に実施済みであり、現在は複数観測日での比較結果を保持している。  
-今後はこの基準線に対して `Limited` / `Full` の改善幅を評価する。
+この最小仕様は既に実施済みであり、主採用の観測での結果を [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章に記録している。  
+`Limited` との差は共通評価セルで測定済みである（全域は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6節、測量GIS範囲は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6節）。ただし分光指数の扱いがシナリオ間で揃っていないため、この差は公開GISを加えた効果だけではない（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.5節）。  
+`Full` は測量GISの有効域でしか成立しないため、測量GIS範囲の結果を基準線として差を評価する。
 
 ### 5.3.3 共通評価セル集合（シナリオ間比較の標本統制）
 
@@ -585,9 +590,9 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 |---------|---------|----------|--------|
 | **Phase 1** | GISデータ空間範囲の把握（BBox比較） | `src/analysis/analyze_spatial_extents.py` | ✅ 完了（2026-03-03） |
 | **Phase 1.5** | Satellite Only データセット構築 | （削除済み） | ✅ 完了 |
-| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・1観測日。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲。分析対象範囲の指定は表下の注記） | ✅ 完了 |
-| **Phase 2** | 公開 GIS 候補の取得・QA | `extract_geofabrik_roads_hanoi.py`, `fetch_microsoft_buildings_hanoi.py`, Google / OSM 建物取得スクリプト | 🔴 高 |
-| **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計 | `calc_urban_params.py` | 🔴 高 |
+| **Phase 1.6** | Satellite Only ベースライン分析（新経路・cell_id結合・主採用と旧採用の2観測。旧経路3観測日は先行結果として保持） | `src/analysis/analysis_rq3_satellite_only.py`（`src/common/analysis_dataset.py` 等の共通モジュールに処理を委譲。分析対象範囲の指定は表下の注記） | ✅ 完了 |
+| **Phase 2** | 公開 GIS の取得・範囲の確認 | `extract_geofabrik_roads_hanoi.py`, `fetch_gba_buildings_hanoi.py` | ✅ 完了 |
+| **Phase 2** | 分析グリッド設計 + GIS由来パラメータ集計（公開 GIS） | `src/analysis/urban_params/` | ✅ 完了 |
 | **Phase 3** | 近傍変数算出（今後の課題。本研究の RQ2 では扱わない） | `calc_neighborhood_vars.py` | ⚪ 今後の課題 |
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
 | **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など（分析対象範囲の指定は表下の注記） | ✅ 完了 |
@@ -604,14 +609,14 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 | 事項 | 現状 | 検討方向 |
 |------|------|---------|
 | 対象都市のROI確定 | ハノイROIは確認済み。対象はハノイ1都市に限ると決定済み（2026-10-25） | 他都市への拡張は本研究の範囲外とする（[research_guide.md](../01_planning/research_guide.md) §4.2 第四） |
-| LSTの日付選定 | 3観測日は確定済み | 追加観測日の拡張条件を整理する |
+| LSTの日付選定 | 主採用は `2022-09-06T03:23:58`、比較用は `2023-07-07T03:23:05`・`2024-11-30T03:23:36` に確定済み（[observation_selection.md](observation_selection.md) 5章・8章） | `2024-11-30` での分析は未実施（同 9.1節） |
 | 公開建物データ | GlobalBuildingAtlas を `Limited` の主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
-| 公開道路データ | OSM を主候補 | 道路種別と欠測率の QA を続ける |
+| 公開道路データ | OSM / Geofabrik を主ソースとして `Limited` で使用済み | 道路種別と欠測率の QA を続ける |
 | 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TV の利用方法を確定する（TH は水域パラメータ未採用のため対象外） |
-| 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み | どの版を `Limited` の変数セットへ入れるかを、多重共線性の診断とあわせて判断する |
-| 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある | `Limited` の変数セットへ入れるかを、人口密度と同様に多重共線性の診断とあわせて判断する（全解析スケールで実質的な内挿になるため、RQ2 には割り当てない） |
+| 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み。`Limited` の採用構成は `WorldPop 2020` | LandScan 2版との比較は旧世代のラン（[limited_analysis_results.md](../03_results/limited_analysis_results.md) ラン8・9）のままであり、主採用の観測で測り直す（同 7章） |
+| 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある。`Limited` の採用構成は `VIIRS DNB 2023`（`NTL_MEAN`）を含む | 全解析スケールで実質的な内挿になるため、RQ2 には割り当てない |
 | 訓練・テスト分割 | Spatial CV の設計を決定済み（6.1.1節） | Full でも同一評価法を維持する |
-| 季節変動の扱い | 夏季2観測 + 乾季1観測 | 追加季節データの取得可否を検討 |
+| 季節変動の扱い | 主採用と `2023-07-07` は雨季、`2024-11-30` は乾季。雨季の2観測の比較は実施済み（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.5節） | 乾季の `2024-11-30` で分析し、季節による結果の違いを確かめる |
 
 ---
 

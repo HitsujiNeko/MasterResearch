@@ -1,6 +1,6 @@
 # 測量由来 GIS データ整備状況レポート
 
-**最終更新**: 2026-10-19  
+**最終更新**: 2026-11-09  
 **作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、`gpkgの確認結果.md`、`DGNファイル内容確定結果.md` の確認メモをもとに整理  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md)
 
@@ -31,8 +31,8 @@ LST や公開 GIS を含む研究全体の進捗ではなく、あくまで `Ful
 ### 研究上の位置づけ
 
 - `Satellite Only`: 完了済み
-- `Limited`: 公開 GIS を用いる段階で未完了
-- `Full`: 本ドキュメントの測量由来 GIS を使う段階で未完了
+- `Limited`: 完了済み（主採用の観測・30m・採用構成）
+- `Full`: 本ドキュメントの測量由来 GIS を使う段階で未実施
 
 したがって、本ドキュメントは **Full 実装の前提整理**として扱う。
 
@@ -237,7 +237,7 @@ MasterResearch/
 
 1. ~~RG / CS を用いた分析対象域の定義~~ → 完了。CS の図郭内枠から定義し、`mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）として算出できる（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）
 2. DC / GT / TH / TV / DH の変数対応表の確定
-3. `calc_urban_params.py` で測量由来 GIS を安定して処理できること
+3. `src/analysis/urban_params/` で測量由来 GIS を安定して処理できること
 
 ---
 
@@ -252,9 +252,9 @@ MasterResearch/
 
 を根拠に、`DH` / `TH` / `TV` の利用方法を最終整理する。
 
-#### タスク2: `calc_urban_params.py` の入力仕様更新
+#### タスク2: `urban_params` の入力仕様更新
 
-- 公開 GIS と測量由来 GIS の両方に対応する設計へ更新する
+- 測量由来 GIS（`build_dc`・`road_gt`）での算出を確認する（テーブル定義と `full` の構成は `src/analysis/urban_params/config.py` にある）
 - `Full` 用の必須列と品質管理列を確定する
 
 #### タスク3: Full 用データセットの組み立て
@@ -269,7 +269,7 @@ MasterResearch/
 
 - 欠落図葉の影響範囲を地図で確認する（DC が極端に少ない図葉が北端中央に1つあり、欠落図葉 251-c に当たるかは未確認。[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）
 - DC の欠落のようなレイヤ別の欠けを、有効カバレッジとしてどう扱うかを決める（測量 GIS 有効域はレイヤ共通の範囲であり、レイヤ別の欠けは反映しない）
-- 測量 GIS 有効域に絞った Satellite Only / Limited を再実行し、Full と同じセル集合で比較する
+- 測量 GIS 有効域に絞った Satellite Only / Limited は実行済み（[survey_area_comparison_results.md](survey_area_comparison_results.md) 7章）。Full の実行後に、Full と同じセル集合で比較する
 - `DH` の標高点利用方法を比較する
 - `TV` の土地利用分類がそのまま緑地率に使えるか確認する
 
@@ -331,5 +331,5 @@ MasterResearch/
 **次のステップ**:
 
 - 🔄 レイヤ意味と都市構造パラメータの対応づけ
-- 🔄 `calc_urban_params.py` の `Full` 対応整理
-- 🔄 `Limited` 完了後の `Full` 実装接続
+- 🔄 `urban_params` の `Full` 対応整理
+- 🔄 `Full` の実装接続

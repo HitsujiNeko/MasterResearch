@@ -1,6 +1,6 @@
 # Satellite Only 分析結果
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-09  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -17,7 +17,7 @@
 | Satellite Only | 衛星指標のみ | 最も制約された状況 |
 
 本記録の作成時点では `Limited` / `Full` は未完了であり、**Satellite Only をベースラインとして先に成立させる段階**にあった。  
-本ドキュメントは、そのベースライン結果を単日ではなく **3 観測日**で整理し、今後の比較の基準線として残すことを目的とする。
+本ドキュメントは、そのベースライン結果を単日ではなく **3 観測日**で整理し、その後の比較の基準線として残すことを目的としていた。現行の Satellite Only の基準線は [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章（主採用の観測）である。
 
 ---
 

@@ -121,13 +121,13 @@ GIS データ前処理は、**測量由来 GIS** と **オープンソース GIS
 | F-48-68-(251-c)_2018_DC.dgn | 処理ハング | DCデータの1区画欠落 |
 | F-48-80-(11-c)_2018_TV.dgn | DGNv8形式（GDAL非対応） | TVデータの1区画欠落 |
 
-#### 1.2.1 オープンソース GIS（Limited シナリオ候補）
+#### 1.2.1 オープンソース GIS（Limited シナリオ）
 
-`Limited` では、現時点で次の公開データを候補とする。
+`Limited` では次の公開データを使う（比較・補助の候補を含む）。
 
 | データ | 主用途 | 現状 | 備考 |
 |------|------|------|------|
-| OpenStreetMap / Geofabrik | 道路、補助的な建物 | 候補確定 | 道路の主ソース。建物利用時は QA が必要 |
+| OpenStreetMap / Geofabrik | 道路、補助的な建物 | 道路の主ソース・使用済み | 道路の主ソース。建物利用時は QA が必要 |
 | Microsoft GlobalMLBuildingFootprints | 建物フットプリント | 保留 | Hanoi ROI 西側欠落（105.47°E境界）を確認済み。単独主ソースとして採用しない |
 | GlobalBuildingAtlas | 建物フットプリント＋高さ（ML推定） | **採用確定・取得済み** | WFS（`lod1_global`）でHanoi ROI全域を取得済み。Microsoft欠落域でも実データを確認しカバレッジ欠落を解消。CC BY-NC 4.0（学術可）。`Limited` シナリオの建物主ソース |
 | Google Open Buildings V3 | 建物フットプリント | 第2候補 | Vietnam明記。CC BY 4.0。建物高さなし（V3）。GBA代替として利用 |

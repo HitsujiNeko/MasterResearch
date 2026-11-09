@@ -1,6 +1,6 @@
 # 測量由来 GIS データ整備状況レポート
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-09  
 **作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、`gpkgの確認結果.md`、`DGNファイル内容確定結果.md` の確認メモをもとに整理  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md)
 
@@ -254,7 +254,7 @@ MasterResearch/
 
 #### タスク2: `urban_params` の入力仕様更新
 
-- 公開 GIS と測量由来 GIS の両方に対応する設計へ更新する
+- 測量由来 GIS（`build_dc`・`road_gt`）での算出を確認する（テーブル定義と `full` の構成は `src/analysis/urban_params/config.py` にある）
 - `Full` 用の必須列と品質管理列を確定する
 
 #### タスク3: Full 用データセットの組み立て

@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-05  
+**最終更新**: 2026-11-09  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -218,7 +218,7 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `python_version` / `platform` | Python のバージョンと OS |
 | `git.commit` / `git.dirty` | コミットハッシュと、コード（`src/` 配下。未追跡ファイルを含む）の未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。結果ファイル等のコード以外の変更は判定に含めない。git を利用できない環境では両方 `null` |
 | `code` | 生成時のコードのファイルハッシュ。`watch_paths`（ハッシュを取った範囲: 生成スクリプト・既定の監視パス `src.common.summary.CODE_WATCH_PATHS`・スクリプトごとの追加の監視パス（`build_provenance` の `extra_watch_paths`。結果が `src/common/` の外の別スクリプトの定義に依存する場合に渡す。陳腐化チェックは記録された `watch_paths` をすべて監視する。git の追跡ファイルが1件も無い追加の監視パス（打ち間違い等）は変更を検出できないため警告を出す。来歴の保存は止めない））と、その配下の git 追跡ファイルごとの `path`・`sha256` のリスト（`files`）。ハッシュは改行を LF にそろえた内容から計算する（`core.autocrlf` で作業ツリーが CRLF になる Windows と、LF の clone とで一致させるため）。記録コミットがローカルから消えても、陳腐化検出が生成時のコードと現在の `HEAD` を比べられるようにする。git を利用できない環境では `null` |
-| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。未インストールは `null` |
+| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。結果を左右するライブラリをスクリプトが追加する場合がある（RQ3 の Limited・Satellite Only は VIF に使う statsmodels、Spatial CV の設計診断は esda・libpysal・scikit-gstat・scipy）。未インストールは `null` |
 | `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト。プロジェクトルート外のパスは絶対パスのまま記録されるため、入力はプロジェクト内（`data/` 配下）に配置して実行する。`sha256` は原則として来歴の生成時に計算するが、呼び出し側が計算済みのハッシュ（`build_provenance` の `known_sha256`）を渡した入力はその値を記録する（下記「記録する入力の範囲」） |
 
 - **記録しないもの**: 乱数シード・モデルのハイパーパラメータ等の**実行パラメータ**は来歴に含めず、

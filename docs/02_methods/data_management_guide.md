@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-03  
+**最終更新**: 2026-11-05  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -123,6 +123,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
   - `data/output/satellite_only/*/*_dataset.csv`（大容量中間生成物）
   - `data/output/satellite_only/*/*_sample_100000.csv`（大容量サンプルCSV）
   - `data/output/limited/*/*_sample_*.csv`（大容量サンプルCSV。Limitedシナリオ分析）
+  - `data/output/spatial_cv_design/*/sweep/*_residuals.csv`（Spatial CV 診断の残差の部分標本CSV）
   - `data/output/urban_params/*.csv`（都市構造パラメータCSV）
 - ファイルベースの除外
   - `data/BSHorizon/input/merge_DH_elevation_points.csv`（正本 `data/output/survey_translated/merge_DH_elevation_points.csv` から `prepare_bs_horizon_input.py` で再生成可能なため）
@@ -233,12 +234,14 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `src.analysis.build_common_evaluation_set` | 評価セルのメタデータ `evaluation_cells_seed{シード}_results.json` |
 | `src.analysis.compare_common_evaluation` | `scenario_comparison_*_results.json` |
 | `src.analysis.repeat_common_evaluation` | `repeated_comparison_*_results.json` |
+| `src.analysis.diagnose_spatial_cv_design` | `lst_semivariogram_results.json`、`spatial_cv_sweep_results.json` |
 
 - **追加の監視パス**: 共通評価セルの生成（`src.analysis.build_common_evaluation_set`）・比較
-  （`src.analysis.compare_common_evaluation`）・反復（`src.analysis.repeat_common_evaluation`）は、
+  （`src.analysis.compare_common_evaluation`）・反復（`src.analysis.repeat_common_evaluation`）・Spatial CV の診断
+  （`src.analysis.diagnose_spatial_cv_design`）は、
   有効母集団の定義を持つ両分析スクリプト（`analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py`）を追加で監視する
   （フィルタを広げても既存の評価セルは新しい母集団に含まれ、分析時の停止条件では検出できないため）。
-  反復は、共通集合の求め方と標本の抽出をそのまま呼ぶ `build_common_evaluation_set.py` も監視する
+  反復と Spatial CV の診断は、共通集合の求め方と標本の抽出をそのまま呼ぶ `build_common_evaluation_set.py` も監視する。診断は `repeat_common_evaluation.py` も監視する
 - **記録する入力の範囲**: どのファイルを渡すかは各スクリプトが決める（`build_provenance` は渡されたパスをそのままハッシュする）。
   ただし `known_sha256`（パス → 計算済みの SHA-256）に含まれる入力は、計算し直さずにその値を記録する。
   共通評価の反復は、実行条件の照合のために開始時に求めた両データセットのハッシュを渡す（約1GB を二重に読まないため）。

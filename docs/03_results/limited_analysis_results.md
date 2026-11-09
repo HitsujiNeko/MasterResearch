@@ -1,7 +1,7 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-11-01  
-**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
+**最終更新**: 2026-11-04  
+**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -285,7 +285,7 @@ python -m src.analysis.analysis_rq3_limited --random-state 43 --output-dir <一�
 
 **本ドキュメントの既存ランの `*_results.json` には、乱数シード（3.4節）・RF決定木本数等の実行パラメータが記録されていない**（実行パラメータ記録の導入前に実行したため。値は本節・3.4節の記述を正とする）。既定値が変われば引数を省略した再実行では同じ条件を再現できないため、再現時は `--random-state 42 --rf-trees 300` を明示する。導入後のランでは `*_results.json` の `run_parameters` に記録される（キー構成は Satellite Only と共通。記録範囲の判断は `src/common/run_parameters.py` のmodule docstringを正本とする）。既存ランは再実行・追記修正を行わない（記録値を後から書き足すと、実行時に実際に使われた値であることを結果ファイル自身が保証できなくなるため）。
 
-**Spatial CV の R² の読み方（重要）**: ブロックサイズ 2,700m では LST の空間自己相関を断ち切れていない。本ドキュメントが報告する Spatial CV の R² を**「未知の場所への汎化性能」として読んではならない**（同一ROI内・空間的に近い場所への内挿性能として読む）。実測の根拠は3.9節を参照する。
+**Spatial CV の R² の読み方（重要）**: ブロックサイズ 2,700m では LST の空間自己相関を断ち切れていない。本ドキュメントが報告する Spatial CV の R² を**「未知の場所への汎化性能」として読んではならない**（同一ROI内・空間的に近い場所への内挿性能として読む）。実測の根拠は3.9節を、主採用の観測での測定と採用した設計は [spatial_cv_design_results.md](spatial_cv_design_results.md) を参照する。
 
 ### 3.6 分散0の特徴量列の除外
 
@@ -488,7 +488,11 @@ python -m src.analysis.analysis_rq3_limited --block-size-m 5400 --rf-trees 100 -
 
 ただし**低下のすべてが空間リークとは限らない**。ブロックを大きくすると保留域が大きな連続地域になるため、リークの除去と空間的非定常性（地域が変われば説明変数とLSTの関係自体が変わる）が混在する。fold間sdが0.045から0.205へ膨らむのはこのためであり、**大きいブロックでの個々の数値は信頼できない**。信頼できるのは単調に低下するという傾向である。
 
-**結果の読み方（重要）**: いずれの解釈でも帰結は同じで、**本ドキュメントが報告する Spatial CV の R² を「未知の場所への汎化性能」として読んではならない**。同一ROI内・空間的に近い場所への内挿性能として読む。ブロックサイズ自体の見直し（適切なサイズ・緩衝帯の要否）は独立した方法論の判断であり、本ドキュメントの対象外とする。
+**結果の読み方（重要）**: いずれの解釈でも帰結は同じで、**本ドキュメントが報告する Spatial CV の R² を「未知の場所への汎化性能」として読んではならない**。同一ROI内・空間的に近い場所への内挿性能として読む。ブロックサイズ自体の見直し（適切なサイズ・緩衝帯の要否）は [spatial_cv_design_results.md](spatial_cv_design_results.md) で行った。
+
+**主採用の観測での測り直し（2026-11-04 追記）**: 上の表と本文は 032305 の記録として残す。セミバリオグラムはスクリプトで算出し直し、数値と測定条件は [spatial_cv_design_results.md](spatial_cv_design_results.md) 3節・4.1節を出典とする。032305 の 1,800〜2,700m のラグの値は 0.685〜0.691 で「69%」を再現し、「sill に達するのは15〜30km」も矛盾しない（3本の平均曲線で、比が 1 に達するのは 18,450m、最大は 31,950m）。032358 では同じラグが 0.743〜0.751、比が 0.95 に達する距離が 12,150m である。
+
+一方、**ブロックサイズに対する低下は 032358 ではかなり弱い。** RF は 2,700m の 0.839 から 21,600m の 0.797 への低下にとどまり、RF が線形を上回る幅も +0.073 から +0.064 への縮小にとどまる（共通評価セル・2シード平均・RF 300本）。**上の「RFの優位の相当部分は、非線形性の捕捉ではなく空間自己相関の利用」という読みは、032358 では支持されにくい。** 032305 と違う理由は切り分けていない（未確認）。
 
 #### 建物高さ0補完の構造的な従属
 
@@ -583,7 +587,7 @@ R² は台帳（2節）に記載する。random split から Spatial CV への�
 
 **低下幅はランによって2倍以上ちがう。** 最大はラン10（`coverage`・Esri、-0.083）、最小はラン6（建物高さ `max`、-0.036）であり、被覆率のみの構成で低下が大きい。**線形モデルではラン3・8・9 で Spatial CV のほうがわずかに高くなる**が、いずれも fold間sd（0.042〜0.053）よりはるかに小さく、符号を意味のある差として読まない。
 
-**この低下の小ささを「空間自己相関による過大評価が無い」根拠として読んではならない。** ブロックサイズを変えた実測（3.9節）が示すとおり、ブロックサイズ 2,700m では LST の空間自己相関を断ち切れておらず、ブロックを広げると R² はさらに単調に低下する。**低下が小さいのは過大評価が無いからではなく、ブロックが小さく学習側と評価側が空間的に近いままであるためと解釈するのが妥当である。**
+**この低下の小ささを「空間自己相関による過大評価が無い」根拠として読んではならない。** ブロックサイズを変えた実測（3.9節）が示すとおり、ブロックサイズ 2,700m では LST の空間自己相関を断ち切れておらず、ブロックを広げると R² はさらに単調に低下する。**低下が小さいのは過大評価が無いからではなく、ブロックが小さく学習側と評価側が空間的に近いままであるためと解釈するのが妥当である。** 台帳の R² は遡及修正せず、この読み方の注意に留める（[spatial_cv_design_results.md](spatial_cv_design_results.md) 5章）。
 
 ### 4.3 変数セット別の比較
 
@@ -1137,7 +1141,7 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 | Random Forest | Spatial CV（mean） | **0.8392**（sd 0.0068） | 1.0518 | 0.7841 | 0.398 |
 
 - 非空ブロック数（10万件サンプル後）は 506 である
-- **Spatial CV の値は「未知の場所への汎化性能」ではなく、同一ROI内・空間的に近い場所への内挿性能として読む。** ブロックサイズが空間自己相関の到達距離より小さいという制約（3.9節）は本章にもそのまま当てはまる。本観測でのブロックサイズ感度の測定は未実施である
+- **Spatial CV の値は「未知の場所への汎化性能」ではなく、同一ROI内・空間的に近い場所への内挿性能として読む。** ブロックサイズが空間自己相関の到達距離より小さいという制約（3.9節）は本章にもそのまま当てはまる（本観測で LST の比が 0.95 に達する距離は 12,150m）。本観測のブロックサイズ感度は [spatial_cv_design_results.md](spatial_cv_design_results.md) で測定した。性能値は 13,500m・緩衝帯なしの値を併記する（共通評価セル・2シード平均で RF 0.807・RMSE 1.126°C、2,700m は同じ条件で 0.839・1.058°C）
 - fold間sd は標本で2倍近く動くため（2.1節）、032305 との差の物差しに使わない
 
 ### 8.4 変数重要度

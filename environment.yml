@@ -11,7 +11,8 @@ dependencies:
   - pyogrio=0.11
   - gdal=3.10
   - pyproj=3.7
-  - shapely=2.0
+  # esda 2.7 以降が shapely>=2.1 を要求するため 2.1 とする（GEOS は 3.13.1 で変わらない）
+  - shapely=2.1
   - pandas=2.2
   - numpy=1.26
   - scipy
@@ -20,6 +21,12 @@ dependencies:
   - matplotlib>=3.5
   # 動作確認済みバージョンを下限として明示する
   - shap>=0.48
+  # Spatial CV のブロック設計の診断に使う（残差の距離帯ごとの Moran's I と、LST の
+  # 経験セミバリオグラム）。検定・重み・ラグ境界・理論モデルの当てはめは誤りやすいため、
+  # 検証済みの実装を用い、数値が版で動かないよう導入時の版に固定する
+  - esda=2.7.1
+  - libpysal=4.14.1
+  - scikit-gstat=1.0.22
   - tqdm=4.67
   - rasterio=1.4
   # NASA Black Marble（VNP46A4）は HDF-EOS5 配布で、本環境の GDAL は HDF5 ドライバ

@@ -1,0 +1,277 @@
+{
+  "seed": 42,
+  "block_size_m": 21600,
+  "buffer_m": 0.0,
+  "thinned_to_buffer_m": 0.0,
+  "digest": "276b70f879bc09a30bd3f7afc6e826f3f44c475f7e8019c05e0843767ef46bdf",
+  "run_conditions": {
+    "rf_trees": 300,
+    "cv_splits": 5,
+    "limited_configuration": {
+      "variable_set": "both",
+      "building_height_mode": "mean",
+      "water_index_mode": "none",
+      "population_sources": [
+        "worldpop2020"
+      ]
+    },
+    "limited_feature_columns": [
+      "BUILD_COV",
+      "BUILD_DEN",
+      "BUILD_H_MEAN",
+      "ROAD_DEN",
+      "ELEV_MEAN",
+      "POP_DEN_WORLDPOP2020",
+      "NTL_MEAN",
+      "NDVI",
+      "NDBI",
+      "LULC_WATER_COV",
+      "LULC_TREE_COV",
+      "LULC_BUILT_COV",
+      "LULC_RANGE_COV",
+      "LULC_WETLAND_COV",
+      "LULC_BARE_COV"
+    ],
+    "satellite_only_features": [
+      "NDVI",
+      "NDBI",
+      "NDWI"
+    ],
+    "residual_sample_size": 5000,
+    "residual_max_lag_m": 13500.0,
+    "cumulative_max_lag_m": 4500.0,
+    "permutations": 99,
+    "code_digest": "061921a84a2c573e49c71ebf77dbff4ac6ec7b5256e4f41ae2525c2fe3433a01",
+    "dataset_sha256": {
+      "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+      "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+    }
+  },
+  "sample": {
+    "row_count": 100000,
+    "n_blocks": 18,
+    "fold_sizes": {
+      "1": 19621,
+      "2": 19595,
+      "3": 19955,
+      "4": 19708,
+      "5": 21121
+    }
+  },
+  "block_design": {
+    "n_blocks": 18,
+    "fold_test_sizes": {
+      "1": 19621,
+      "2": 19595,
+      "3": 19955,
+      "4": 19708,
+      "5": 21121
+    },
+    "fold_size_ratio": 1.077877009441184,
+    "meets_min_blocks": true,
+    "meets_fold_size_ratio": true
+  },
+  "buffer": [
+    {
+      "n_train_before": 80379,
+      "n_train_after": 80379,
+      "n_excluded": 0,
+      "n_test": 19621
+    },
+    {
+      "n_train_before": 80405,
+      "n_train_after": 80405,
+      "n_excluded": 0,
+      "n_test": 19595
+    },
+    {
+      "n_train_before": 80045,
+      "n_train_after": 80045,
+      "n_excluded": 0,
+      "n_test": 19955
+    },
+    {
+      "n_train_before": 80292,
+      "n_train_after": 80292,
+      "n_excluded": 0,
+      "n_test": 19708
+    },
+    {
+      "n_train_before": 78879,
+      "n_train_after": 78879,
+      "n_excluded": 0,
+      "n_test": 21121
+    }
+  ],
+  "limited_features": [
+    "BUILD_COV",
+    "BUILD_DEN",
+    "BUILD_H_MEAN",
+    "ROAD_DEN",
+    "ELEV_MEAN",
+    "POP_DEN_WORLDPOP2020",
+    "NTL_MEAN",
+    "NDVI",
+    "NDBI",
+    "LULC_WATER_COV",
+    "LULC_TREE_COV",
+    "LULC_BUILT_COV",
+    "LULC_RANGE_COV",
+    "LULC_WETLAND_COV"
+  ],
+  "residual_semivariograms": {
+    "satellite_only_linear": {
+      "n_points": 5000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 13500.0,
+      "estimator": "matheron",
+      "variance": 2.146856778290632,
+      "n_pairs_total": 1727302,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": 13050.0,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 8074.494363912258,
+          "partial_sill": 0.7229845326994916,
+          "nugget": 1.2838889281434027,
+          "total_sill": 2.006873460842894,
+          "range_at_upper_bound": false,
+          "rmse": 0.03922636264116142
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 8914.12952691314,
+          "partial_sill": 0.9304873180971107,
+          "nugget": 1.1111347828148261,
+          "total_sill": 2.041622100911937,
+          "range_at_upper_bound": false,
+          "rmse": 0.017823597578561026
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      }
+    },
+    "satellite_only_rf": {
+      "n_points": 5000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 13500.0,
+      "estimator": "matheron",
+      "variance": 1.8458330657481907,
+      "n_pairs_total": 1727302,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": 10350.0,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 8956.182515691258,
+          "partial_sill": 0.587364650397153,
+          "nugget": 1.1718931000540203,
+          "total_sill": 1.7592577504511733,
+          "range_at_upper_bound": false,
+          "rmse": 0.03222030476908744
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 10266.227378655953,
+          "partial_sill": 0.7512160464707935,
+          "nugget": 1.0442559831152531,
+          "total_sill": 1.7954720295860467,
+          "range_at_upper_bound": false,
+          "rmse": 0.01562861111103814
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      }
+    },
+    "limited_linear": {
+      "n_points": 5000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 13500.0,
+      "estimator": "matheron",
+      "variance": 1.7031742697357635,
+      "n_pairs_total": 1727302,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": null,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 9358.907982335455,
+          "partial_sill": 0.5137648479568435,
+          "nugget": 1.0597687693454279,
+          "total_sill": 1.5735336173022714,
+          "range_at_upper_bound": false,
+          "rmse": 0.032372424184597536
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 10555.019189615443,
+          "partial_sill": 0.6631707739888384,
+          "nugget": 0.9419171741538737,
+          "total_sill": 1.605087948142712,
+          "range_at_upper_bound": false,
+          "rmse": 0.017360842144835433
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      }
+    },
+    "limited_rf": {
+      "n_points": 5000,
+      "lag_width_m": 900.0,
+      "max_lag_m": 13500.0,
+      "estimator": "matheron",
+      "variance": 1.34771936374569,
+      "n_pairs_total": 1727302,
+      "empirical_range_ratio": 0.95,
+      "empirical_range_m": 11250.0,
+      "models": [
+        {
+          "model": "spherical",
+          "effective_range_m": 10526.426211809354,
+          "partial_sill": 0.42635310302662344,
+          "nugget": 0.8675972547510105,
+          "total_sill": 1.293950357777634,
+          "range_at_upper_bound": false,
+          "rmse": 0.027416055687998438
+        },
+        {
+          "model": "exponential",
+          "effective_range_m": 12495.422527447437,
+          "partial_sill": 0.5491012911401201,
+          "nugget": 0.7799188057585926,
+          "total_sill": 1.3290200968987127,
+          "range_at_upper_bound": false,
+          "rmse": 0.01526023808572623
+        }
+      ],
+      "definitions": {
+        "lag_interval": "lower <= 距離 < upper",
+        "empirical_range_m": "半分散が初めて全体分散（不偏分散）の empirical_range_ratio 倍以上になるラグの中心距離。最大ラグまでに達しない場合は null",
+        "effective_range_m": "scikit-gstat の実用 range。spherical はちょうど sill に達する距離、exponential は sill の 95% に達する距離。当てはめはラグの上端の距離に対して行う",
+        "partial_sill": "nugget を除いた sill。total_sill = partial_sill + nugget",
+        "range_at_upper_bound": "range が当てはめの上限（最大ラグ）に張り付いた",
+        "fit_bounds": "当てはめの上限は range が最大ラグ、partial_sill が経験半分散の最大値、nugget が経験半分散の最大値の0.99倍（下限はいずれも0）"
+      }
+    }
+  },
+  "elapsed_seconds": 874.381234600005
+}

@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-09  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -289,7 +289,7 @@ python -m src.analysis.analysis_rq3_limited --random-state 43 --output-dir <一�
 
 ### 3.6 分散0の特徴量列の除外
 
-説明変数のうち分析サンプル内で分散が0になる列は、VIF算出・モデル学習の前に除外する。定数列を残すと `compute_vif` の補助回帰が決定係数1.0を返し、**VIFが `inf`（完全共線）と報告される**が、これは実体のある共線性ではなく定数列に起因する偽陽性であり、多重共線性の診断そのものを汚染するためである。
+説明変数のうち分析サンプル内で分散が0になる列は、VIF算出・モデル学習の前に除外する。定数列を残すと、分散0の列は決定係数を定義できないため `compute_vif` が `inf` を返し、**完全共線と同じ形で報告される**が、これは実体のある共線性ではなく定数列に起因する偽陽性であり、多重共線性の診断そのものを汚染するためである。
 
 GLC を土地被覆ソースとするラン（1・2・4〜9）では `LULC_BARE_COV` が除外された。ハノイROIのGLC_FCS30Dには裸地クラス（200・201・202）の画素が1つも存在せず、**全セルで厳密に0.0になる**（実測100.00%・5.5.1節）ためである。**Esri を用いたラン（10・11）では裸地画素が存在するため除外は発生しない**（Esri の変数数が1つ多い理由）。除外した列名は各ランの `*_results.json` の `dropped_constant_features` に記録している。
 
@@ -1279,6 +1279,6 @@ Satellite Only も同じ観測 032358 で実行した（[satellite_only_analysis
 - **同じセル・同じ分割の上で、Limited は Satellite Only を Spatial CV の RF R² で約 +0.086、線形 R² で約 +0.073 上回る。** 差は分割の違い・標本の違いのいずれでも説明できない大きさである。RMSE では RF で約 0.25°C、線形で約 0.19°C 小さい
 - **この差は「公開GISを加えた効果」だけではない。** 分光指数の扱いがシナリオ間で揃っていない（Satellite Only は `NDWI` を含む3変数、Limited は `NDWI` を除外・6.5節）。差は「Limited の採用構成の変数集合」と「Satellite Only の3変数」の比較であり、公開GIS由来の変数だけの寄与を切り出したものではない。分光指数の扱いを揃えた比較は7節の課題として残る
 - **Spatial CV の値は同一ROI内・空間的に近い場所への内挿性能である**（8.3節）。差も内挿性能の差として読む
-- **補正 t 区間の式は R パッケージ correctR の `resampled_ttest`・`repkfold_ttest` の実装と突き合わせて確認した。** 単発の k-fold 用の `kfold_ttest` との突き合わせと、Nadeau & Bengio (2003)・Bouckaert & Frank (2004) の原典との突き合わせは未確認である
+- **補正 t 区間は、R パッケージ correctR の `resampled_ttest`・`repkfold_ttest` と統計量・p 値が一致することをテストで確認し、補正係数は原典の本文と照合した**（Bouckaert & Frank (2004) は著者版、Nadeau & Bengio は同名の会議版。2003 年の雑誌版は未確認）。単発の k-fold 用の `kfold_ttest` は参照に使っていない。反復数の引数 n を J とすると、コードの係数が同パッケージの説明文と異なるためで（k = n = 5 で 0.5 と 0.45）、本研究の係数は原典と説明文に一致する。fold ごとの行数の比の平均を ρ に使う点と、反復の自由度 `J − 1` は原典に記述がない本研究の扱いである（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
 - **以前の参考比較との関係**: 共通評価セルを使う前の参考比較（母数・標本が別物）では、Spatial CV の差は RF +0.0917・線形 +0.0797 だった。共通評価セルでの差（RF +0.0871・線形 +0.0727）はこれよりやや小さいが、以前の比較は母集団の違いを含んでおり、標本変動（2.1節。独立な2標本で 0.01 程度）の範囲を大きく超える違いではない
 - **032305 では正式な比較を行っていない。** 6.7節は参考比較のまま残す

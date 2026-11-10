@@ -23,6 +23,7 @@ import numpy as np
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
+from scipy.stats import pearsonr
 
 from src.common.paths import to_project_relative_string
 
@@ -237,36 +238,29 @@ def calculate_safe_correlation(
     base_values: np.ndarray,
     target_values: np.ndarray,
 ) -> float | None:
-    """相関係数を安全に計算する。
+    """ピアソンの相関係数を安全に計算する。
 
-    `np.corrcoef` は環境依存で不安定になることがあるため、
-    平均・分散・共分散から手計算する。
+    `scipy.stats.pearsonr` を用いる。入力の型によらず float64 で計算する。
 
     Args:
-        base_values (np.ndarray): 基準DEMの値配列。
-        target_values (np.ndarray): 比較DEMの値配列。
+        base_values (np.ndarray): 基準DEMの値配列（1次元）。
+        target_values (np.ndarray): 比較DEMの値配列（1次元）。
 
     Returns:
-        float | None: 相関係数。計算不能な場合はNone。
+        float | None: 相関係数。どちらかの要素数が2未満、または定数列で相関を定義
+        できない場合はNone。
     """
     if base_values.size < 2 or target_values.size < 2:
         return None
 
     base_float = base_values.astype(np.float64, copy=False)
     target_float = target_values.astype(np.float64, copy=False)
-
-    base_mean = float(base_float.mean())
-    target_mean = float(target_float.mean())
-    base_centered = base_float - base_mean
-    target_centered = target_float - target_mean
-
-    base_std = float(np.sqrt(np.mean(np.square(base_centered))))
-    target_std = float(np.sqrt(np.mean(np.square(target_centered))))
-    if base_std == 0.0 or target_std == 0.0:
+    # pearsonr は定数列に警告を出して NaN を返すため、先に None へ振り分ける。分散で
+    # 判定すると、丸め誤差で 0 にならない定数列を見逃す。
+    if np.ptp(base_float) == 0 or np.ptp(target_float) == 0:
         return None
 
-    covariance = float(np.mean(base_centered * target_centered))
-    return covariance / (base_std * target_std)
+    return float(pearsonr(base_float, target_float).statistic)
 
 
 def write_diff_raster(

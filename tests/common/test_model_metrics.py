@@ -8,8 +8,10 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.linear_model import LinearRegression
 
 from src.common.model_metrics import (
+    VIF_PERFECT_COLLINEARITY_THRESHOLD,
     compute_correlation_matrix,
     compute_metrics,
     compute_vif,
@@ -74,8 +76,189 @@ class TestSummarizeMetricDicts:
             summarize_metric_dicts([])
 
 
+def _vif_by_sklearn_regression(dataframe: pd.DataFrame) -> dict[str, float]:
+    """置き換え前の式（sklearnの補助回帰のR²から1/(1-R²)）でVIFを求める。
+
+    statsmodels への置き換えで値が変わらないことの参照値として残す。
+    """
+    vif_values: dict[str, float] = {}
+    for column in dataframe.columns:
+        target = dataframe[column]
+        others = dataframe.drop(columns=column)
+        r_squared = LinearRegression().fit(others, target).score(others, target)
+        vif_values[column] = float(1.0 / (1.0 - r_squared))
+    return vif_values
+
+
+def _vif_by_inverse_correlation(dataframe: pd.DataFrame) -> dict[str, float]:
+    """相関行列の逆行列の対角成分としてVIFを求める（回帰を使わない参照値）。"""
+    inverse = np.linalg.inv(dataframe.corr().to_numpy())
+    return dict(zip(dataframe.columns, np.diag(inverse).tolist(), strict=True))
+
+
+def _correlated_dataframe(row_count: int = 500) -> pd.DataFrame:
+    """相関のある列を含む、VIFが有限になる合成データを作る。"""
+    rng = np.random.default_rng(42)
+    base = rng.normal(size=row_count)
+    other = rng.normal(size=row_count)
+    return pd.DataFrame(
+        {
+            "a": base,
+            "b": other,
+            "c": base + 0.5 * other + rng.normal(scale=0.5, size=row_count),
+            "d": 100.0 + 20.0 * base + rng.normal(scale=10.0, size=row_count),
+        }
+    )
+
+
 class TestComputeVif:
     """compute_vif のテスト。"""
+
+    def test_matches_previous_sklearn_implementation(self) -> None:
+        """置き換え前の式と相対1e-9以内で一致する。"""
+        dataframe = _correlated_dataframe()
+
+        result = compute_vif(dataframe)
+
+        assert result == pytest.approx(_vif_by_sklearn_regression(dataframe), rel=1e-9)
+
+    def test_matches_inverse_correlation_diagonal(self) -> None:
+        """VIFは相関行列の逆行列の対角成分に等しい（回帰によらない検算）。"""
+        dataframe = _correlated_dataframe()
+
+        result = compute_vif(dataframe)
+
+        assert result == pytest.approx(_vif_by_inverse_correlation(dataframe), rel=1e-9)
+
+    def test_two_columns_match_closed_form(self) -> None:
+        """2変数のVIFは相関係数rから1/(1-r²)で求まる値に等しい。"""
+        dataframe = _correlated_dataframe()[["a", "c"]]
+        correlation = float(np.corrcoef(dataframe["a"], dataframe["c"])[0, 1])
+
+        result = compute_vif(dataframe)
+
+        expected = 1.0 / (1.0 - correlation**2)
+        assert result["a"] == pytest.approx(expected, rel=1e-9)
+        assert result["c"] == pytest.approx(expected, rel=1e-9)
+
+    def test_is_invariant_to_extreme_column_scales(self) -> None:
+        """列の桁が大きく異なっても、小さい列を無視せず正しいVIFを返す。
+
+        VIFは列の定数倍・定数加算で変わらない。置き換え前の実装は、桁の差が約1e9を
+        超えると小さい列を実質的に無視し、誤った値を返していた。
+        """
+        dataframe = _correlated_dataframe()
+        scaled = dataframe.assign(a=dataframe["a"] * 1e6 + 1e7, b=dataframe["b"] * 1e-6)
+
+        result = compute_vif(scaled)
+
+        assert result == pytest.approx(compute_vif(dataframe), rel=1e-6)
+
+    def test_constant_column_is_infinite_without_changing_others(self) -> None:
+        """定数列はInfになり、残りの列のVIFは定数列が無い場合と変わらない。"""
+        dataframe = _correlated_dataframe()
+
+        result = compute_vif(dataframe.assign(constant=3.0, zeros=0.0))
+
+        assert math.isinf(result["constant"])
+        assert math.isinf(result["zeros"])
+        others = {name: result[name] for name in dataframe.columns}
+        assert others == pytest.approx(compute_vif(dataframe), rel=1e-12)
+
+    def test_single_varying_column_has_vif_of_one(self) -> None:
+        """定数列以外が1列だけなら、説明する列が無いためVIFは1になる。"""
+        dataframe = pd.DataFrame({"a": [1.0, 2.0, 4.0, 8.0], "constant": [5.0] * 4})
+
+        result = compute_vif(dataframe)
+
+        assert result["a"] == pytest.approx(1.0)
+        assert math.isinf(result["constant"])
+
+    def test_all_constant_columns_are_infinite(self) -> None:
+        """全列が定数でも例外にせず、全列をInfとして返す。"""
+        dataframe = pd.DataFrame({"a": [1.0] * 4, "b": [2.0] * 4})
+
+        result = compute_vif(dataframe)
+
+        assert list(result) == ["a", "b"]
+        assert all(math.isinf(value) for value in result.values())
+
+    def test_linearly_dependent_three_columns_are_infinite(self) -> None:
+        """2列の和である3列目を含むと、3列とも完全共線としてInfになる。"""
+        dataframe = _correlated_dataframe()[["a", "b"]]
+
+        result = compute_vif(dataframe.assign(total=dataframe["a"] + dataframe["b"]))
+
+        assert all(math.isinf(value) for value in result.values())
+
+    def test_threshold_separates_finite_and_infinite(self) -> None:
+        """VIFが閾値を超えるとInfになり、下回れば有限の値のまま返す。
+
+        `b` が `a` にノイズを足した列のとき、VIFはノイズの分散に反比例する。
+        """
+        dataframe = _correlated_dataframe()[["a", "b"]]
+        noise_at_threshold = 1.0 / math.sqrt(VIF_PERFECT_COLLINEARITY_THRESHOLD)
+
+        above = compute_vif(
+            dataframe.assign(b=dataframe["a"] + 0.5 * noise_at_threshold * dataframe["b"])
+        )
+        below = compute_vif(
+            dataframe.assign(b=dataframe["a"] + 2.0 * noise_at_threshold * dataframe["b"])
+        )
+
+        assert math.isinf(above["a"])
+        assert 1e5 < below["a"] < VIF_PERFECT_COLLINEARITY_THRESHOLD
+
+    def test_column_order_and_names_are_kept(self) -> None:
+        """結果は入力の列順で返り、statsmodelsの定数項の既定名constとも衝突しない。"""
+        dataframe = _correlated_dataframe()[["c", "a", "b"]].rename(columns={"a": "const"})
+
+        result = compute_vif(dataframe)
+
+        assert list(result) == ["c", "const", "b"]
+        assert all(math.isfinite(value) for value in result.values())
+
+    def test_integer_columns_match_float_columns(self) -> None:
+        """整数列は浮動小数点の列と同じ値になる。"""
+        dataframe = pd.DataFrame({"a": [1, 2, 3, 5, 8], "b": [2, 1, 0, 5, 7]})
+
+        result = compute_vif(dataframe)
+
+        assert result == pytest.approx(compute_vif(dataframe.astype(float)))
+
+    def test_float32_input_is_computed_in_float64(self) -> None:
+        """float32の入力は、同じ値をfloat64で渡した場合と完全に同じ結果になる。
+
+        保存済みのVIFは置き換え前の実装がfloat32のまま回帰した値で、float64の値と
+        相対1e-6程度異なる。置き換え後はその差が生じないことを固定する。
+        """
+        dataframe = _correlated_dataframe().astype("float32")
+
+        result = compute_vif(dataframe)
+
+        assert result == compute_vif(dataframe.astype("float64"))
+
+    @pytest.mark.parametrize("bad_value", [float("nan"), float("inf"), float("-inf")])
+    def test_raises_when_values_are_not_finite(self, bad_value: float) -> None:
+        """欠測・無限大を含む場合は値を返さず例外にする。"""
+        dataframe = pd.DataFrame({"a": [1.0, bad_value, 3.0, 4.0], "b": [2.0, 1.0, 0.0, 5.0]})
+
+        with pytest.raises(ValueError, match="欠測・無限大"):
+            compute_vif(dataframe)
+
+    def test_raises_when_no_rows(self) -> None:
+        """行が無い場合はVIFを定義できないため例外にする。"""
+        dataframe = pd.DataFrame({"a": np.array([], dtype=float), "b": np.array([], dtype=float)})
+
+        with pytest.raises(ValueError, match="1行以上"):
+            compute_vif(dataframe)
+
+    def test_raises_when_column_is_not_numeric(self) -> None:
+        """数値に変換できない列を含む場合は例外にする。"""
+        dataframe = pd.DataFrame({"a": ["x", "y", "z"], "b": [1.0, 2.0, 3.0]})
+
+        with pytest.raises(ValueError):
+            compute_vif(dataframe)
 
     def test_independent_columns_have_low_vif(self) -> None:
         """互いに無相関な列はVIFが1に近い値になる。"""

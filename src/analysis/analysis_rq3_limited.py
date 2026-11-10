@@ -88,11 +88,18 @@ from src.common.model_metrics import (  # noqa: E402
     compute_vif,
     sanitize_vif_for_json,
 )
+from src.common.model_metrics import (  # noqa: E402
+    EXTRA_PROVENANCE_PACKAGES as MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES,
+)
 from src.common.paths import to_project_relative_string  # noqa: E402
 from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
 from src.common.shap_report import compute_shap_outputs  # noqa: E402
 from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
-from src.common.summary import build_provenance, save_summary  # noqa: E402
+from src.common.summary import (  # noqa: E402
+    DEFAULT_PROVENANCE_PACKAGES,
+    build_provenance,
+    save_summary,
+)
 
 # 分析対象は30m・単一観測日（2022-09-06 03:23:58Z）に限定する
 # （Satellite Onlyと同じ制約。他日時・他スケールの拡張は別途行う）。
@@ -758,9 +765,9 @@ def drop_constant_features(
 ) -> tuple[list[str], list[str]]:
     """分散が0の特徴量列を、モデル学習・VIF算出の対象から外す。
 
-    定数列を残すと `compute_vif` の補助回帰が決定係数1.0を返し、**VIFが `inf`
-    （完全共線）と報告される**。これは実体のある共線性ではなく定数列に起因する
-    偽陽性であり、多重共線性の診断そのものを汚染する。
+    定数列を残すと、分散0の列は決定係数を定義できないため `compute_vif` が `inf` を
+    返し、**完全共線と同じ形で報告される**。これは実体のある共線性ではなく定数列に
+    起因する偽陽性であり、多重共線性の診断そのものを汚染する。
 
     データ依存の判定にするのは、ソース固定の除外リストでは対応できないためである。
     たとえば主ソース GLC_FCS30D はハノイROIに裸地クラスの画素を1つも持たないため
@@ -1540,7 +1547,9 @@ def build_dataset_provenance(
     """
     print("来歴メタデータ（入力ファイルのハッシュ等）を記録します。")
     return build_provenance(
-        "src.analysis.analysis_rq3_limited", input_paths=[dataset_path, *extra_input_paths]
+        "src.analysis.analysis_rq3_limited",
+        input_paths=[dataset_path, *extra_input_paths],
+        packages=(*DEFAULT_PROVENANCE_PACKAGES, *MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES),
     )
 
 

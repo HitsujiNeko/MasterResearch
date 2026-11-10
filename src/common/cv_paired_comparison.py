@@ -17,9 +17,19 @@
 GroupKFold は fold ごとにテスト行数が異なるため、ρ は全分割の `test_size / train_size`
 の平均を使い、使った値を出力に記録する。
 
-式（補正係数・分散の分母・自由度）は、両手法を実装した R パッケージ correctR の
-`resampled_ttest`・`repkfold_ttest` と一致させてある。原典の論文本文との突き合わせは
-未確認である。
+補正係数 `1/J + n2/n1` は原典の本文と照合した。Nadeau & Bengio は会議版（NIPS 12、
+"Inference for the Generalization Error"、3節。2003 年の雑誌版は未確認）、Bouckaert &
+Frank は著者版（3節）である。自由度は、Bouckaert & Frank が corrected resampled t-test
+について n−1 と明記している。corrected repeated k-fold cv test の統計量の箇所に自由度の
+記述はなく、J−1 は correctR の実装と、補正前の統計量の記述（k·r−1）に合わせた。
+**原典は n1・n2 を一定としており、fold ごとの比の平均を ρ に使うのは本実装の近似である。**
+
+R パッケージ correctR 0.3.1 の `resampled_ttest`・`repkfold_ttest` と統計量・p 値が
+一致することをテストで確認している。同パッケージの `kfold_ttest` は参照に使わない。
+反復数の引数 n を J とすると、コードの係数 `(1/n + 1/k)/(1 − 1/k)` が、同パッケージの
+説明文の `1/n + ρ/(1−ρ)`（ρ = 1/k。各 fold の大きさが等しい k-fold では
+`1/J + n2/n1` に等しい）と異なるためである（k = n = 5 で 0.5 と 0.45）。
+同パッケージは n の説明（総標本数か反復数か）も文書によって異なる。
 """
 
 from __future__ import annotations

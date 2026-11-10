@@ -437,6 +437,8 @@ class TestMainRunParameters:
         provenance = result["provenance"]
         assert set(provenance) == PROVENANCE_KEYS
         assert provenance["script"] == "src.analysis.analysis_rq3_satellite_only"
+        # VIF の計算に使う statsmodels の版も残す
+        assert "statsmodels" in provenance["packages"]
         assert len(provenance["inputs"]) == 1
         assert provenance["inputs"][0]["path"].endswith(
             "dataset_satellite_only_dummy_hanoi_30m.gpkg"

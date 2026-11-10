@@ -1634,6 +1634,8 @@ def _assert_dataset_provenance(provenance: dict[str, object]) -> None:
     """
     assert set(provenance) == PROVENANCE_KEYS
     assert provenance["script"] == "src.analysis.analysis_rq3_limited"
+    # VIF の計算に使う statsmodels の版も残す
+    assert "statsmodels" in provenance["packages"]
     inputs = provenance["inputs"]
     assert len(inputs) == 1
     assert inputs[0]["path"].endswith("dataset_limited_dummy_hanoi_30m.gpkg")

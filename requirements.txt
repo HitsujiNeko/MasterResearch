@@ -23,7 +23,8 @@ affine<3
 h5py
 requests
 scipy>=1.9
-scikit-learn
+# cohen_kappa_score の replace_undefined_by は1.9以降で使用可能なため下限を明示する
+scikit-learn>=1.9
 # Axes.set_xticks(labels=...) は3.5.0以降で使用可能なため下限を明示する
 matplotlib>=3.5
 # 動作確認済みバージョンを下限として明示する
@@ -34,3 +35,5 @@ shap>=0.48
 esda==2.7.1
 libpysal==4.14.1
 scikit-gstat==1.0.22
+# 多重共線性の診断（VIF）に使う。数値の再現性のため environment.yml と同じ版に固定する。
+statsmodels==0.15.0

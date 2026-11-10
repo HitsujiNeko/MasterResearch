@@ -12,8 +12,19 @@ import math
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
+
+# VIFがこの値以上なら完全共線とみなし、`inf` を返す（補助回帰の決定係数 0.999999 に
+# 相当する）。完全共線でも数値誤差で有限の巨大な値（1e15 程度）になるため、閾値で
+# 揃えないと「発散した」ことが結果から読み取れなくなる。
+VIF_PERFECT_COLLINEARITY_THRESHOLD: float = 1e6
+
+# 本モジュールの計算結果を左右するため、結果の来歴に版を残すべき追加のパッケージ。
+# `src.common.summary.DEFAULT_PROVENANCE_PACKAGES` に含まれないものだけを並べるので、
+# `build_provenance` には既定の一覧と連結して渡す（単独で渡すと既定分が記録から抜ける）
+EXTRA_PROVENANCE_PACKAGES: tuple[str, ...] = ("statsmodels",)
 
 # 対応する相関係数の種類。VIFが線形の共線性指標であるためPearsonを主とするが、
 # 被覆率型の変数（土地被覆クラス別面積率など）は細かいスケールで0へ偏りやすく、
@@ -61,29 +72,47 @@ def summarize_metric_dicts(metric_dicts: list[dict[str, float]]) -> dict[str, fl
 def compute_vif(dataframe: pd.DataFrame) -> dict[str, float]:
     """説明変数ごとのVIF（分散拡大係数）を計算する。
 
+    statsmodels の `variance_inflation_factor` により、定数項つきの補助回帰から
+    1/(1-R²) を求める。入力は float64 に変換し、欠測・無限大と分散0の列をその値で
+    判定する（statsmodels も内部で float64 に変換するため、入力が float32 でも結果は
+    変わらない）。
+
     Args:
         dataframe: 説明変数のみを含むデータフレーム（2列以上必要）。
     Returns:
-        変数名をキー、VIFを値とする辞書。完全共線（決定係数がほぼ1）の場合は
-        `float("inf")` を返す。
+        変数名をキー、VIFを値とする辞書。完全共線（VIFが
+        `VIF_PERFECT_COLLINEARITY_THRESHOLD` 以上）の列と、分散が0で決定係数を
+        定義できない列（1行しかない場合を含む）は `float("inf")` を返す。
     Raises:
         ValueError: `dataframe` の列数が2未満の場合。VIFは対象列を残りの列に
             回帰して求めるため、比較対象となる他の列が最低1つ必要。
+            また、行が無い場合、欠測・無限大を含む場合、数値に変換できない列を
+            含む場合。
     """
     if dataframe.shape[1] < 2:
         raise ValueError(f"VIFの計算には説明変数が2列以上必要です（列数: {dataframe.shape[1]}）。")
 
-    vif_values: dict[str, float] = {}
-    for column in dataframe.columns:
-        y = dataframe[column]
-        x = dataframe.drop(columns=column)
-        model = LinearRegression()
-        model.fit(x, y)
-        r_squared = model.score(x, y)
-        if r_squared >= 0.999999:
-            vif_values[column] = float("inf")
-            continue
-        vif_values[column] = float(1.0 / (1.0 - r_squared))
+    values = dataframe.to_numpy(dtype=np.float64)
+    if values.shape[0] == 0 or not np.isfinite(values).all():
+        raise ValueError("VIFの計算には、欠測・無限大を含まない1行以上のデータが必要です。")
+
+    # 分散0の列は定数項と重複して設計行列のランクを落とすだけなので、他の列の補助回帰
+    # からも外す。外しても他の列のVIFは変わらない。
+    is_constant = np.ptp(values, axis=0) == 0
+    vif_values: dict[str, float] = dict.fromkeys(dataframe.columns, float("inf"))
+    if is_constant.all():
+        return vif_values
+
+    # 既定の "skip" は定数列があると定数項を追加しない。定数列は上で外しているが、
+    # 補助回帰に定数項が必ず入ることを明示する。
+    design = add_constant(values[:, ~is_constant], has_constant="add")
+    # 設計行列の先頭は定数項なので、説明変数は1列目から対応する。
+    for design_index, column in enumerate(dataframe.columns[~is_constant], start=1):
+        # 列を標準化してから回帰させ、桁の大きく異なる列があっても小さい列を無視しない
+        # ようにする（statsmodels 0.15 の既定値だが、結果を左右するため明示する）。
+        vif = float(variance_inflation_factor(design, design_index, standardize=True))
+        if vif < VIF_PERFECT_COLLINEARITY_THRESHOLD:
+            vif_values[column] = vif
     return vif_values
 
 

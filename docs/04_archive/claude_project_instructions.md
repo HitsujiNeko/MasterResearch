@@ -1,6 +1,6 @@
 # Claude Projects プロジェクト指示（コピペ用）
 
-**最終更新**: 2026-11-04  
+**最終更新**: 2026-11-10  
 **関連ドキュメント**: [claude_project_knowledge.md](claude_project_knowledge.md), [structured_summary_template.md](templates/structured_summary_template.md), [literature_management_guide.md](literature_management_guide.md)
 
 > **このファイルの役割**  
@@ -66,4 +66,4 @@ claude_project_knowledge.md を参照して、S4（Sun et al. 2019）の
 対象都市とRFモデルのR²を教えてください
 ```
 
-期待する回答に更新後の値（例: 対象都市=寧波、R²>0.9でCV時0.66）が含まれていれば同期成功。古い値が返る場合は再同期を再実行する。
+期待する回答に更新後の値（例: 対象都市=寧波、全データでの適合度R²>0.9、ランダムな10分割CVの最良値0.66）が含まれていれば同期成功。古い値が返る場合は再同期を再実行する。

@@ -22,6 +22,7 @@ rasterio
 affine<3
 h5py
 requests
+python-dotenv
 scipy>=1.9
 # cohen_kappa_score の replace_undefined_by は1.9以降で使用可能なため下限を明示する
 scikit-learn>=1.9

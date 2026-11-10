@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-09  
+**最終更新**: 2026-11-10  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -146,7 +146,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 | `.env` | **しない**（`.gitignore` で除外） | 実際のトークン値 |
 | `.env.example` | する | 変数名と取得手順のみ。**値は書かない** |
 
-- 読み込みは `src/common/env_file.py`（標準ライブラリのみ。外部依存を追加しない）。**`os.environ` は書き換えない**
+- 読み込みは `src/common/env_file.py`（構文の解釈は python-dotenv の `dotenv_values` に任せる。[CodingRule.md 10.1](CodingRule.md#101-既存パッケージ優先の判断基準) の既存パッケージ優先の原則による）。**`os.environ` は書き換えない**（`load_dotenv` は使わない）
 - 優先順位は「コマンドライン引数での明示指定 → 環境変数 → `.env`」。環境変数を`.env`より優先することで、CIや一時的な上書きが`.env`を書き換えずに効く
 - **`data/input/` には置かない**。同ディレクトリは「配下のファイルはGit追跡する」運用のため、秘密情報を置くと`.gitignore`の1行だけが漏洩を防ぐ状態になり、取り違えが起きやすい
 

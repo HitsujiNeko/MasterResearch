@@ -80,7 +80,7 @@ class TestLoadEnvFile:
     def test_skips_line_without_equals_and_warns(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """= の無い行は読み飛ばし、行番号だけを警告に残す（値は出力しない）。"""
+        """= の無い行は読み飛ばし、件数だけを警告に残す（キー名・値は出力しない）。"""
         env_path = tmp_path / ".env"
         env_path.write_text("EARTHDATA_TOKEN\nOTHER=xyz\n", encoding="utf-8")
 
@@ -88,9 +88,99 @@ class TestLoadEnvFile:
             values = target.load_env_file(env_path)
 
         assert values == {"OTHER": "xyz"}
-        assert "1 行目" in caplog.text
+        assert "1 件" in caplog.text
         # 秘密情報が混ざりうるため、行の中身はログへ出さない
         assert "EARTHDATA_TOKEN" not in caplog.text
+
+    def test_treats_hash_after_whitespace_as_comment(self, tmp_path: Path) -> None:
+        """空白に続く # は注釈として扱う（python-dotenv の仕様。自前実装からの意図した差）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text('A=abc # memo\nB="abc # keep"\n', encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"A": "abc", "B": "abc # keep"}
+
+    def test_keeps_hash_without_preceding_whitespace_unquoted(self, tmp_path: Path) -> None:
+        """引用符なしで、空白を挟まない途中の # は値に残る（トークンを壊さない）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("S=a#b\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"S": "a#b"}
+
+    def test_interprets_escapes_only_in_double_quotes(self, tmp_path: Path) -> None:
+        """二重引用符の中ではエスケープが解釈され、単一引用符・囲みなしでは解釈されない。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("D=\"a\\nb\"\nS='a\\nb'\nP=a\\nb\n", encoding="utf-8")
+
+        values = target.load_env_file(env_path)
+
+        assert values["D"] == "a\nb"
+        assert values["S"] == "a\\nb"
+        assert values["P"] == "a\\nb"
+
+    def test_interprets_backslash_and_quote_escapes_in_single_quotes(self, tmp_path: Path) -> None:
+        """単一引用符の中でも 2 連のバックスラッシュと `\\'` だけは解釈され、他は残る。
+
+        バックスラッシュを含むトークンを単一引用符で囲むと値が変わりうるため、挙動を固定する。
+        """
+        env_path = tmp_path / ".env"
+        backslash = chr(92)
+        env_path.write_text(
+            f"A='a{backslash * 2}b'\nB='a{backslash}'b'\nC='a{backslash}xb'\n", encoding="utf-8"
+        )
+
+        assert target.load_env_file(env_path) == {
+            "A": f"a{backslash}b",
+            "B": "a'b",
+            "C": f"a{backslash}xb",
+        }
+
+    def test_allows_multiline_value_inside_quotes(self, tmp_path: Path) -> None:
+        """引用符の中の改行は値に含まれる（複数行の値になる）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text('M="x\ny"\nNEXT=1\n', encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"M": "x\ny", "NEXT": "1"}
+
+    def test_last_duplicate_key_wins(self, tmp_path: Path) -> None:
+        """同じキーが複数あれば、後に書いた行の値が採用される。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("A=1\nA=2\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"A": "2"}
+
+    def test_strips_whitespace_around_key_and_value(self, tmp_path: Path) -> None:
+        """キーと値の前後の空白は取り除く。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("K = v   \nT=abc   \n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"K": "v", "T": "abc"}
+
+    def test_keeps_empty_value(self, tmp_path: Path) -> None:
+        """`KEY=` は空文字列の値として読む（`=` の無い行とは区別する）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"EARTHDATA_TOKEN": ""}
+
+    def test_does_not_expand_variable_references(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`${VAR}` は展開しない（`$` を含むトークンを壊さず、環境変数も参照しない）。"""
+        monkeypatch.setenv("OTHER_VAR", "expanded")
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=ab${OTHER_VAR}cd\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"EARTHDATA_TOKEN": "ab${OTHER_VAR}cd"}
+
+    def test_does_not_log_values(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """正常な読み込みでは、値をログに出さない。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=secret-value\n", encoding="utf-8")
+
+        with caplog.at_level(logging.DEBUG):
+            target.load_env_file(env_path)
+
+        assert "secret-value" not in caplog.text
 
     def test_does_not_mutate_process_environment(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

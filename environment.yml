@@ -38,6 +38,8 @@ dependencies:
   - h5py=3.16
   - requests=2.32
   - pyyaml
+  # .env の読み込み（src/common/env_file.py）に使う
+  - python-dotenv=1.2
   # CI（.github/workflows/ci.yml）と pre-commit のフックに合わせて固定する。
   # ローカルの lint が別バージョンだと、手元で通してから CI の lint だけが落ちる
   - ruff=0.16.0

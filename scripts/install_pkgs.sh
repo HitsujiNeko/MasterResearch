@@ -7,7 +7,7 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR"
 
-if python3 -c "import ee, geopandas, fiona, pyproj, shapely, rasterio, pandas, numpy, pytest" 2>/dev/null; then
+if python3 -c "import ee, geopandas, fiona, pyproj, shapely, rasterio, pandas, numpy, pytest, dotenv" 2>/dev/null; then
   exit 0
 fi
 

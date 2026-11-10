@@ -117,6 +117,23 @@ class TestLoadEnvFile:
         assert values["S"] == "a\\nb"
         assert values["P"] == "a\\nb"
 
+    def test_interprets_backslash_and_quote_escapes_in_single_quotes(self, tmp_path: Path) -> None:
+        """単一引用符の中でも 2 連のバックスラッシュと `\\'` だけは解釈され、他は残る。
+
+        バックスラッシュを含むトークンを単一引用符で囲むと値が変わりうるため、挙動を固定する。
+        """
+        env_path = tmp_path / ".env"
+        backslash = chr(92)
+        env_path.write_text(
+            f"A='a{backslash * 2}b'\nB='a{backslash}'b'\nC='a{backslash}xb'\n", encoding="utf-8"
+        )
+
+        assert target.load_env_file(env_path) == {
+            "A": f"a{backslash}b",
+            "B": "a'b",
+            "C": f"a{backslash}xb",
+        }
+
     def test_allows_multiline_value_inside_quotes(self, tmp_path: Path) -> None:
         """引用符の中の改行は値に含まれる（複数行の値になる）。"""
         env_path = tmp_path / ".env"

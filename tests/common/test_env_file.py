@@ -99,6 +99,45 @@ class TestLoadEnvFile:
 
         assert target.load_env_file(env_path) == {"A": "abc", "B": "abc # keep"}
 
+    def test_keeps_hash_without_preceding_whitespace_unquoted(self, tmp_path: Path) -> None:
+        """引用符なしで、空白を挟まない途中の # は値に残る（トークンを壊さない）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("S=a#b\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"S": "a#b"}
+
+    def test_interprets_escapes_only_in_double_quotes(self, tmp_path: Path) -> None:
+        """二重引用符の中ではエスケープが解釈され、単一引用符・囲みなしでは解釈されない。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("D=\"a\\nb\"\nS='a\\nb'\nP=a\\nb\n", encoding="utf-8")
+
+        values = target.load_env_file(env_path)
+
+        assert values["D"] == "a\nb"
+        assert values["S"] == "a\\nb"
+        assert values["P"] == "a\\nb"
+
+    def test_allows_multiline_value_inside_quotes(self, tmp_path: Path) -> None:
+        """引用符の中の改行は値に含まれる（複数行の値になる）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text('M="x\ny"\nNEXT=1\n', encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"M": "x\ny", "NEXT": "1"}
+
+    def test_last_duplicate_key_wins(self, tmp_path: Path) -> None:
+        """同じキーが複数あれば、後に書いた行の値が採用される。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("A=1\nA=2\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"A": "2"}
+
+    def test_strips_whitespace_around_key_and_value(self, tmp_path: Path) -> None:
+        """キーと値の前後の空白は取り除く。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("K = v   \nT=abc   \n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"K": "v", "T": "abc"}
+
     def test_keeps_empty_value(self, tmp_path: Path) -> None:
         """`KEY=` は空文字列の値として読む（`=` の無い行とは区別する）。"""
         env_path = tmp_path / ".env"

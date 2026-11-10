@@ -145,6 +145,29 @@ class TestCalculateSafeCorrelation:
         assert result is not None
         assert math.isnan(result)
 
+    @pytest.mark.parametrize(
+        ("base", "other"),
+        [
+            ([1.0, np.inf, 3.0], [1.0, 2.0, 4.0]),
+            ([1.0, 2.0, 3.0], [1.0, -np.inf, 4.0]),
+            ([np.inf, -np.inf, 3.0], [1.0, 2.0, 4.0]),
+            ([np.inf, np.inf, np.inf], [1.0, 2.0, 4.0]),
+        ],
+        ids=["positive_in_base", "negative_in_other", "both_signs", "all_infinite"],
+    )
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    @pytest.mark.filterwarnings("ignore::scipy.stats.ConstantInputWarning")
+    def test_infinite_values_give_nan(self, base: list[float], other: list[float]) -> None:
+        """無限大を含む入力も None にせず NaN を返す（呼び出し側は有効域のみを渡す）。
+
+        値の範囲が NaN になる全要素が無限大の場合も、定数列としては扱わない。
+        numpy・scipy の実行時警告が出るが、戻り値の仕様だけを固定する。
+        """
+        result = target.calculate_safe_correlation(np.array(base), np.array(other))
+
+        assert result is not None
+        assert math.isnan(result)
+
     def test_raises_when_lengths_differ(self) -> None:
         """長さが異なる配列は比較できないため例外にする。"""
         with pytest.raises(ValueError):

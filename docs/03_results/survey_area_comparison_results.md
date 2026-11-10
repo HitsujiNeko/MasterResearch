@@ -1,6 +1,6 @@
 # ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（Satellite Only・Limited）
 
-**最終更新**: 2026-10-30  
+**最終更新**: 2026-11-10  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節・8章・9.1節, [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: Satellite Only・Limited の処理条件（両結果ドキュメントの3節）、Spatial CV のブロック定義、共通評価セルと補正 t 区間（analysis_workflow.md 5.3.3節）  
 **対象RQ**: RQ2（解析範囲による関係の変化）・RQ3（データ制約下での有効性評価）
@@ -452,3 +452,23 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 - **比較の母集団は、低温で水域寄りの 902セルを含まない**（7.6.1節）。通常ランの Satellite Only の母集団はこれらを含む
 - **抽出密度の差が Spatial CV に与える影響は未評価である**（5.5節と同じ）。測量GIS範囲のサンプルはほぼ全数で、ブロック境界をはさんだ近傍セルが学習側に入りやすい
 - **補正 t 区間の式の確認範囲は全域と同じである**（[limited_analysis_results.md](limited_analysis_results.md) 8.6.5節）
+
+### 7.9 検証・来歴の改善後のコードでの再生成
+
+7.1節の測量GIS範囲の出力は、共通評価の検証・来歴の改善より前のコードで生成していた。陳腐化チェックで「要再実行（コード変更）」と判定されたため、同じ入力・同じ引数・コミット `6e5e876`（`provenance.git.dirty` は `false`）で次の出力を再生成した（2026-11-10）。
+
+- 評価セルとメタデータ、通常ラン（Satellite Only・Limited の採用構成）、両シナリオの評価セルのラン（シード42）、単発の比較、20シードの反復（シード42〜61）
+- 反復の途中結果は、再生成前の記録に実行条件が無く、コードのダイジェストも変わっていたため再利用されず、20シードすべてを計算し直した
+
+**再生成前（Git の版）との照合**:
+
+| 対象 | 結果 |
+|---|---|
+| 評価セルの CSV（`cell_id`・`block_id`・`fold`）、単発比較・反復の fold CSV と差の CSV | 差分なし（Git 上で変更なし） |
+| 評価セルのメタデータ・単発の比較・20シードの反復・シードごとの途中結果（計23ファイル）の JSON | 来歴・実行時間・`run_conditions` を除いて**全項目一致** |
+| 通常ランと評価セルランの結果 JSON・特徴量重要度 CSV | VIF だけが変わった（最大の絶対差は Satellite Only の通常ランの NDWI で約 1.4e-5、最大の相対差は約 6e-7。VIF が 1e-8〜6e-7 程度の相対差で動いた原因は未調査）。R²・RMSE・MAE・SHAP・ランダムフォレストの重要度・順位は一致 |
+| 図（PNG） | 再描画された。内容の照合は目視していない |
+
+**判定**: VIF を除く照合対象の数値は再生成前と一致し、VIF も 1e-5 程度の差にとどまるため、4章・5章・7章の記述と表の数値に修正は要らない。陳腐化チェックでは、測量GIS範囲の主採用の観測（032358）の結果 JSON 7件がすべて「最新」と判定された。
+
+**対象外**: 同じ `20220906_032358_area_comparison/` ディレクトリにある全域（ROI）の通常ランの結果と、旧採用（032305）の測量GIS範囲の結果は、今回は再生成していない。陳腐化チェックでは「要再実行（コード変更）」のままである。

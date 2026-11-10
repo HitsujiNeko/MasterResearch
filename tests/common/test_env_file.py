@@ -80,7 +80,7 @@ class TestLoadEnvFile:
     def test_skips_line_without_equals_and_warns(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """= の無い行は読み飛ばし、行番号だけを警告に残す（値は出力しない）。"""
+        """= の無い行は読み飛ばし、件数だけを警告に残す（キー名・値は出力しない）。"""
         env_path = tmp_path / ".env"
         env_path.write_text("EARTHDATA_TOKEN\nOTHER=xyz\n", encoding="utf-8")
 
@@ -88,9 +88,43 @@ class TestLoadEnvFile:
             values = target.load_env_file(env_path)
 
         assert values == {"OTHER": "xyz"}
-        assert "1 行目" in caplog.text
+        assert "1 件" in caplog.text
         # 秘密情報が混ざりうるため、行の中身はログへ出さない
         assert "EARTHDATA_TOKEN" not in caplog.text
+
+    def test_treats_hash_after_whitespace_as_comment(self, tmp_path: Path) -> None:
+        """空白に続く # は注釈として扱う（python-dotenv の仕様。自前実装からの意図した差）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text('A=abc # memo\nB="abc # keep"\n', encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"A": "abc", "B": "abc # keep"}
+
+    def test_keeps_empty_value(self, tmp_path: Path) -> None:
+        """`KEY=` は空文字列の値として読む（`=` の無い行とは区別する）。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"EARTHDATA_TOKEN": ""}
+
+    def test_does_not_expand_variable_references(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`${VAR}` は展開しない（`$` を含むトークンを壊さず、環境変数も参照しない）。"""
+        monkeypatch.setenv("OTHER_VAR", "expanded")
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=ab${OTHER_VAR}cd\n", encoding="utf-8")
+
+        assert target.load_env_file(env_path) == {"EARTHDATA_TOKEN": "ab${OTHER_VAR}cd"}
+
+    def test_does_not_log_values(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """正常な読み込みでは、値をログに出さない。"""
+        env_path = tmp_path / ".env"
+        env_path.write_text("EARTHDATA_TOKEN=secret-value\n", encoding="utf-8")
+
+        with caplog.at_level(logging.DEBUG):
+            target.load_env_file(env_path)
+
+        assert "secret-value" not in caplog.text
 
     def test_does_not_mutate_process_environment(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

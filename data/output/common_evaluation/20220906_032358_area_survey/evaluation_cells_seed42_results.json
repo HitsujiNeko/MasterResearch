@@ -310,23 +310,33 @@
   ],
   "provenance": {
     "script": "src.analysis.build_common_evaluation_set",
-    "executed_at": "2026-10-29T14:21:51.576059+00:00",
+    "executed_at": "2026-11-10T06:09:36.300859+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "ef5f7a395f890c149939a6f0ac49e649ce1157f6",
+      "commit": "6e5e876c0c70c6b22a145cc74d0fcd1020af7ac5",
       "dirty": false
     },
     "code": {
       "watch_paths": [
         "src/analysis/build_common_evaluation_set.py",
         "src/common",
-        "src/analysis/urban_params/canonical_grid.py"
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/analysis_rq3_satellite_only.py",
+        "src/analysis/analysis_rq3_limited.py"
       ],
       "files": [
         {
+          "path": "src/analysis/analysis_rq3_limited.py",
+          "sha256": "3ceb3252e41589da5e0b10890560b5b5d5d9cf8d091ac5c04e0e7b1efe34b1b0"
+        },
+        {
+          "path": "src/analysis/analysis_rq3_satellite_only.py",
+          "sha256": "77907beea028a1c61a6c758a17ba2bbfde8a5d7c047c10f6c6a2ed35ccb4432d"
+        },
+        {
           "path": "src/analysis/build_common_evaluation_set.py",
-          "sha256": "d629813b634d430955e88824378d7e0489925f6f05a2e7a524725fe5829d0631"
+          "sha256": "435114b02912388af2df2bd55559312c340e364cf15336f35293feab50f82723"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",
@@ -338,15 +348,15 @@
         },
         {
           "path": "src/common/analysis_dataset.py",
-          "sha256": "832cb21b5369358d9b25751df85e81e4b28a56713d4cbd4e46305b7d3705c887"
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
         },
         {
           "path": "src/common/analysis_plots.py",
-          "sha256": "399773496c90b65c7178de037eb2d58d3d31f93fd2dcc605e48579ffd8105939"
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
         },
         {
           "path": "src/common/analysis_runs.py",
-          "sha256": "353518344fbed8d7d4b2dfc8b09053eaca9764fe06dbcb708aab0de828a4e58e"
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
         },
         {
           "path": "src/common/array_lookup.py",
@@ -358,15 +368,15 @@
         },
         {
           "path": "src/common/cv_paired_comparison.py",
-          "sha256": "70ee27cb0b376532742e38546ac2ea306dd50da5dd549e6602b38d349af807a2"
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
         },
         {
           "path": "src/common/env_file.py",
-          "sha256": "aee17b664810d38f1ce93153a5cdac001cfcb5c891921cc40f844f4e1ef26d8c"
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
         },
         {
           "path": "src/common/evaluation_cells.py",
-          "sha256": "be2907e928e8829c9697b039e5fd5c5ff678645e59845902e12da79b465a0a9a"
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
         },
         {
           "path": "src/common/gdal_tools.py",
@@ -390,7 +400,7 @@
         },
         {
           "path": "src/common/http_fetch.py",
-          "sha256": "8465da5cac287d9d5305f37c5a75ae4c7100c7ff2151737af476b6b852b783cc"
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
         },
         {
           "path": "src/common/lulc_classes.py",
@@ -398,7 +408,7 @@
         },
         {
           "path": "src/common/model_metrics.py",
-          "sha256": "20eae9d1bd8dc9622c33952629e87c3d2e4e439a1c05b402c08eb03fc889f14e"
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
         },
         {
           "path": "src/common/paired_stats.py",
@@ -418,7 +428,7 @@
         },
         {
           "path": "src/common/raster_grid.py",
-          "sha256": "f0f1fca26b07013d3ef57dcd56f9ca9fca59031d29b9d35b9bff670a4967f9f7"
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
         },
         {
           "path": "src/common/raster_stats.py",
@@ -429,6 +439,10 @@
           "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
         },
         {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
           "path": "src/common/roi.py",
           "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
         },
@@ -437,16 +451,24 @@
           "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
         },
         {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
           "path": "src/common/shap_report.py",
-          "sha256": "a83224c9b3c934f49d41fe70ca3b3274480ce7d8913492a6cc2cf03f92d3aec2"
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
         },
         {
           "path": "src/common/spatial_cv.py",
-          "sha256": "20fdcbb1e9a121cc05839093c72470b1726ab84ba00ac0f43570b1ffacfd2c14"
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
         },
         {
           "path": "src/common/summary.py",
-          "sha256": "7003c71bbd0f1e4df642a5b489aaf32a948cc6267eb5fcacb43116a70bdc487b"
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
         }
       ]
     },
@@ -457,7 +479,7 @@
       "shap": "0.48.0",
       "geopandas": "1.0.1",
       "rasterio": "1.4.3",
-      "shapely": "2.0.7",
+      "shapely": "2.1.1",
       "pyproj": "3.7.2",
       "pyogrio": "0.11.0"
     },

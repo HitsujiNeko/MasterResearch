@@ -1,6 +1,6 @@
 # 水域データ（近接距離・面積率）の調査・評価
 
-**最終更新**: 2026-11-02  
+**最終更新**: 2026-11-10  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [gis_data_lulc.md](gis_data_lulc.md), [urban_structure_parameters.md](../urban_structure_parameters.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義（NDWIとの違い）
 
@@ -10,7 +10,7 @@
 
 本資料の作成時点で算出済みだった水域関連の指標は、衛星由来のNDWI（水域・湿潤域指標）のみである。その後、衛星由来のMNDWIと、土地被覆（GLC_FCS30D）由来の水域被覆率 `LULC_WATER_COV` が `Limited` シナリオに入った（[urban_structure_parameters.md](../urban_structure_parameters.md) §2.2・§3.2）。NDWI・MNDWIは連続値・単一時点の分光指標であり、水域の物理的な広がりや位置関係を直接表すものではない。都市構造パラメータとしては、以下の2種類の水域関連指標が候補となる。
 
-- **水域近接距離**（`WATER_DIST`等）: 最近接の水域までの距離。先行研究S3・S5・S6で扱われる`PW`（距離変数）に相当。
+- **水域近接距離**（`WATER_DIST`等）: 最近接の水域までの距離。先行研究S5（最近接水域までの距離）・S6（`PW`。最終モデルには残っていない）・S8（`DFW`）で扱われる距離変数に相当。
 - **水域面積率**（`WATER_COV`）: グリッド内の水域面積割合。
 
 両指標は同じ水域データソース（水域ポリゴン/マスク）を元に、異なる算出方法（距離変換 vs 面積集計）を適用して得られるため、本資料では候補データの調査を1ファイルにまとめ、推奨方針のみ指標ごとに分けて記載する。

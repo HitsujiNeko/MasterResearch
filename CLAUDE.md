@@ -37,7 +37,7 @@
   |---|---|---|---|
   | `satellite_only` | 衛星データのみ | Satellite only | 主軸。衛星由来指標のみを用いる |
   | `limited` | 衛星＋公開GISデータ | Satellite + open GIS | 主軸。衛星データに公開GISデータを加える |
-  | `full` | 測量建物置き換え（付録） | Survey-building substitution | 付録。衛星＋公開GISデータの建物の変数を測量GISから算出したものに置き換える |
+  | `full` | 測量建物置き換え（付録） | Survey-building substitution | 付録。衛星＋公開GISデータの建物の変数を測量GISから算出したものに置き換える。現行の `config.py` の `full` はこの定義に未対応（[analysis_workflow.md](docs/02_methods/analysis_workflow.md) 5.3.1節） |
 
 - **有効カバレッジ / 有効域**: 実際に信頼して使えるデータ範囲。**ROI全体と同一視しない**
 

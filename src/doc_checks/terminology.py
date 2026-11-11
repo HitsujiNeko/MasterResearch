@@ -7,8 +7,8 @@
 分析シナリオは論文・ドキュメントでの呼び名（衛星データのみ／衛星＋公開GISデータ／
 測量建物置き換え）に改めており、旧呼び名（Satellite Only・Limited シナリオ・
 Full シナリオ）が本文に残っていれば「シナリオ名（旧呼び名）」として検出する。
-コード上の識別子や出力値の引用はインラインコード（バックティック）で書く規約のため、
-インラインコード内は検出しない。提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も
+コード上の識別子や出力値の引用はインラインコード（バックティック）やコードブロックで
+書く規約のため、インラインコードとフェンス付きコードブロックの中は検出しない。提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も
 当時の記録として対象外とする。新しい呼び名の表記揺れ（「衛星＋公開GIS」のような
 短縮等）は意味判断を要するため対象外とし、`check-docs-consistency` スキルの
 意味的チェックに委ねる。
@@ -46,10 +46,15 @@ _LST_UNIT_PATTERN = re.compile(rf"℃|度C|\d+\s?ケルビン|\d+\s?K{_R}")
 _SATELLITE_ONLY_PATTERN = re.compile(rf"(?i){_L}satellite\s+only{_R}")
 _SATELLITE_ONLY_NEW_ENGLISH = "Satellite only"
 # シナリオ名（旧呼び名）: 「Limited」「Full」は「シナリオ」直前に現れる場合のみ対象
-# （単独の英単語として本文中に頻出するため、誤検出を避けて範囲を絞る）
-_LIMITED_FULL_SCENARIO_PATTERN = re.compile(rf"(?i){_L}(Limited|Full)(?=\s?シナリオ)")
+# （単独の英単語として本文中に頻出するため、誤検出を避けて範囲を絞る）。
+# 「Limited・Full シナリオ」のような並記では、先頭の語も「シナリオ」に掛かるため検出する
+_LIMITED_FULL_SCENARIO_PATTERN = re.compile(
+    rf"(?i){_L}(Limited|Full)(?=(?:\s?[・/／]\s?(?:Limited|Full))*\s?シナリオ)"
+)
 # インラインコード（同じ数のバックティックで囲まれた範囲）
 _INLINE_CODE_PATTERN = re.compile(r"(`+)(.+?)\1")
+# フェンス付きコードブロックの開始・終了行（``` または ~~~ で始まる行）
+_FENCE_PATTERN = re.compile(r"^\s*(```|~~~)")
 _SCENARIO_CATEGORY = "シナリオ名（旧呼び名）"
 
 # 座標系: EPSG:NNNN 形式からの逸脱（空白・ハイフン区切り、小文字epsg等）
@@ -82,8 +87,14 @@ def check_terminology(project_root: Path = PROJECT_ROOT) -> list[TerminologyViol
         if posix_path.startswith(_EXCLUDED_PREFIX):
             continue
         text = (project_root / relative_path).read_text(encoding="utf-8")
-        check_scenario = not posix_path.startswith(_SCENARIO_EXCLUDED_PREFIX)
+        scenario_target = not posix_path.startswith(_SCENARIO_EXCLUDED_PREFIX)
+        in_fence = False
         for line_number, line in enumerate(text.splitlines(), start=1):
+            is_fence_line = bool(_FENCE_PATTERN.match(line))
+            if is_fence_line:
+                in_fence = not in_fence
+            # コードブロック内（出力例・CLI 例）はインラインコードと同じくシナリオ名を検査しない
+            check_scenario = scenario_target and not (in_fence or is_fence_line)
             violations.extend(
                 _check_line(posix_path, line_number, line, check_scenario=check_scenario)
             )
@@ -99,7 +110,8 @@ def _check_line(
         file: 検査対象ファイルのプロジェクトルート相対パス。
         line_number: 行番号（1始まり）。
         line: 検査対象の行テキスト。
-        check_scenario: シナリオ名（旧呼び名）を検査するか。提出済み資料では False。
+        check_scenario: シナリオ名（旧呼び名）を検査するか。提出済み資料と
+            フェンス付きコードブロック内の行では False。
     Returns:
         検出された表記揺れのリスト。
     """

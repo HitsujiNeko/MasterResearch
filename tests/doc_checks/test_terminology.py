@@ -142,6 +142,52 @@ def test_excludes_submitted_gis_ideas_documents_only_for_scenario_names(tmp_path
     assert [(v.category, v.matched_text) for v in result] == [("LST単位", "℃")]
 
 
+def test_does_not_flag_old_scenario_names_inside_fenced_code_block(tmp_path: Path) -> None:
+    """フェンス付きコードブロック内の旧呼び名は検出せず、ブロックの外は検出する。"""
+    content = (
+        "```json\n"
+        '{"scenario": "Satellite Only"}\n'
+        "Limited シナリオ\n"
+        "```\n"
+        "~~~\n"
+        "Full シナリオ\n"
+        "~~~\n"
+        "Satellite Only の記述。\n"
+    )
+    _write(tmp_path / "docs" / "a.md", content)
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.line, v.matched_text) for v in result] == [(8, "Satellite Only")]
+
+
+def test_fenced_code_block_does_not_hide_other_categories(tmp_path: Path) -> None:
+    """コードブロック内でも、シナリオ名以外の用語は従来どおり検査する。"""
+    _write(tmp_path / "docs" / "a.md", "```text\n30℃\n```\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.category, v.matched_text) for v in result] == [("LST単位", "℃")]
+
+
+def test_detects_old_scenario_name_after_unclosed_backtick(tmp_path: Path) -> None:
+    """閉じていないバックティックはインラインコードとみなさず、その後ろも検査する。"""
+    _write(tmp_path / "docs" / "a.md", "`limited の説明として Satellite Only を使う。\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [v.matched_text for v in result] == ["Satellite Only"]
+
+
+def test_detects_both_names_in_juxtaposed_scenario_phrase(tmp_path: Path) -> None:
+    """「Limited・Full シナリオ」のような並記では両方の旧呼び名を検出する。"""
+    _write(tmp_path / "docs" / "a.md", "Limited・Full シナリオに含める。Limited / Fullシナリオ。\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [v.matched_text for v in result] == ["Limited", "Full", "Limited", "Full"]
+
+
 def test_does_not_flag_full_or_limited_outside_scenario_context(tmp_path: Path) -> None:
     """「シナリオ」に続かないLimited/Fullは通常の英単語として扱い検出しない。"""
     _write(tmp_path / "docs" / "a.md", "This is a full stack limited example.\n")

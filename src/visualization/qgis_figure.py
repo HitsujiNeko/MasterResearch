@@ -33,7 +33,7 @@ MCP の応答が打ち切られて QGIS 本体が応答しなくなるため、�
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from osgeo import gdal
 from qgis.core import (
@@ -237,12 +237,18 @@ def build_gis_figure(
     roi_margin: float = 0.05,
     dpi: int = 150,
     project: QgsProject | None = None,
+    overlay_layer_names: Sequence[str] = (),
+    background_layer_names: Sequence[str] = (),
 ) -> dict:
     """ROI 固定の印刷レイアウト図を組み、PNG を出力する。
 
     地図フレームは ROI の縦横比に一致させる（見切れ防止）。凡例が必要な図は
-    ページを縦に伸ばし、地図の下に凡例帯を置く。凡例には対象データレイヤのみを残す
-    （ROI 枠は除外）。
+    ページを縦に伸ばし、地図の下に凡例帯を置く。凡例には対象データレイヤ（と
+    ``overlay_layer_names`` のレイヤ）のみを残す（ROI 枠と背景は除外）。
+
+    比較用のレイヤを重ねたり、衛星画像を下絵に敷いたりするときは
+    ``overlay_layer_names``・``background_layer_names`` を渡す。重ね順は
+    :func:`figure_layout.map_layer_stack` に従う（省略時は従来どおり ROI 枠と対象データのみ）。
 
     一時レイアウトはエクスポート成否に関わらず片付け、プロジェクトの ellipsoid も
     元の値へ復元する（呼び出し側のプロジェクト状態を汚さないため）。
@@ -260,16 +266,32 @@ def build_gis_figure(
         roi_margin: ROI 範囲へ加えるマージンの割合。
         dpi: 出力解像度。
         project: 対象プロジェクト。省略時は現在のプロジェクト。
+        overlay_layer_names: 対象データの上に重ねるレイヤ名（上から順）。凡例にも載る。
+            1つだけでもリストかタプルで渡す（文字列をそのまま渡すと ``TypeError``）。
+        background_layer_names: 対象データの下に敷くレイヤ名（上から順。衛星画像など）。
+            凡例には載せない。渡し方は ``overlay_layer_names`` と同じ。
 
     Returns:
         ``{"ok": bool, "path": str}``。
 
     Raises:
-        ValueError: データレイヤ・ROI レイヤが見つからないとき。
+        TypeError: 重ねる／敷くレイヤ名を文字列のまま渡したとき。
+        ValueError: データレイヤ・ROI レイヤ・重ねる／敷くレイヤが見つからないとき、
+            または同じレイヤ名が重複して指定されたとき。
     """
+    # 名前の段階で検査し、問題のある名前をそのまま示す（レイヤを探す前に止める）
+    fl.validate_layer_names(
+        roi_layer_name, data_layer_name, overlay_layer_names, background_layer_names
+    )
     prj = _project(project)
     data_layer = _require_layer(prj, data_layer_name)
     roi_layer = _require_layer(prj, roi_layer_name)
+    map_layers, legend_layers = fl.map_layer_stack(
+        roi_layer,
+        data_layer,
+        [_require_layer(prj, name) for name in overlay_layer_names],
+        [_require_layer(prj, name) for name in background_layer_names],
+    )
     roi_ext = roi_layer.extent()
     extent = fl.roi_extent_with_margin(
         (roi_ext.xMinimum(), roi_ext.yMinimum(), roi_ext.xMaximum(), roi_ext.yMaximum()),
@@ -293,12 +315,12 @@ def build_gis_figure(
     )
 
     try:
-        # ROI を上、対象データを下に。プロジェクトの他の可視レイヤは描画しない
-        _add_map(layout, geom, extent, roi_layer.crs(), [roi_layer, data_layer])
+        # ROI を最上位、背景を最下位に。プロジェクトの他の可視レイヤは描画しない
+        _add_map(layout, geom, extent, roi_layer.crs(), map_layers)
         _add_title(layout, geom, title_text)
         _add_scalebar(layout, geom)
         if legend_kind == fl.LEGEND_ITEMS:
-            _add_legend(layout, geom, data_layer, legend_cols, legend_font_pt)
+            _add_legend(layout, geom, legend_layers, legend_cols, legend_font_pt)
 
         exporter = QgsLayoutExporter(layout)
         settings = QgsLayoutExporter.ImageExportSettings()
@@ -381,15 +403,15 @@ def _add_scalebar(layout: QgsPrintLayout, geom: dict) -> None:
 def _add_legend(
     layout: QgsPrintLayout,
     geom: dict,
-    data_layer: QgsMapLayer,
+    legend_layers: list[QgsMapLayer],
     legend_cols: int,
     legend_font_pt: int,
 ) -> None:
-    """対象データレイヤのみの項目凡例を地図の下に追加する。
+    """凡例に載せるレイヤ（対象データと重ねるレイヤ）だけの項目凡例を地図の下に追加する。
 
     凡例モデルを対象レイヤだけで組み直す（プロジェクトのレイヤツリーに依存しない）。
-    これにより ROI 枠や他の可視レイヤは凡例に出さず、対象レイヤがツリー外にあっても
-    正しく凡例を生成できる。
+    これにより ROI 枠や背景・他の可視レイヤは凡例に出さず、対象レイヤがツリー外に
+    あっても正しく凡例を生成できる。
     """
     x, y, w, h = geom["legend"]
     legend = QgsLayoutItemLegend(layout)
@@ -401,7 +423,8 @@ def _add_legend(
     legend.setAutoUpdateModel(False)
     root = legend.model().rootGroup()
     root.clear()
-    root.addLayer(data_layer)
+    for layer in legend_layers:
+        root.addLayer(layer)
     _set_legend_font(legend, QgsLegendStyle.SymbolLabel, legend_font_pt)
     _set_legend_font(legend, QgsLegendStyle.Title, 10, bold=True)
     legend.setBackgroundColor(QColor(255, 255, 255, 255))

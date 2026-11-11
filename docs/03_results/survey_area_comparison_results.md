@@ -259,7 +259,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 ## 6. 今後の方向性
 
 - **主採用の観測での回し直し（実施済み・7章）**: Satellite Only と Limited の採用構成（ラン13相当）を、主採用の観測 032358 で全域・測量GIS範囲の両方について回し直した。測量GIS範囲では共通評価セルによる比較も行った。ラン12相当（水指数 `ndwi`）は回していない（7.1節）
-- **Full シナリオとの比較**: 7章の測量GIS範囲の結果を基準に、測量GIS由来の建物・道路を加えた Full シナリオを同じ範囲・同じ条件で評価する。Full も7章と同じ評価セル（`data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv`）で回せば、Limited・Satellite Only と同じセル・同じ分割で比べられる。ただし Full の有効母集団が共通集合をすべて含むかは未確認である
+- **Full シナリオとの比較**: 7章の測量GIS範囲の結果を基準に、測量GIS由来の建物（Level 5 の面）を加えた Full シナリオを同じ範囲・同じ条件で評価する（道路は OSM のまま。[survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md) 2.7節）。Full も7章と同じ評価セル（`data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv`）で回せば、Limited・Satellite Only と同じセル・同じ分割で比べられる。ただし Full の有効母集団が共通集合をすべて含むかは未確認である
 - **他スケールへの展開**: 90m・300m では境界セルの超過が大きく（3.2節）、1ブロックあたりのセル数が減るため（ブロック数は区画長で決まり、都心部は24のまま）、境界セルの扱いとブロック長を改めて検討する。Satellite Only・Limited は、境界セルをそのまま使い区画長 2,700m を保って 90m・300m で実施済みである（[rq2_scale_area_results.md](rq2_scale_area_results.md)）。Full では改めて検討する
 - **Spatial CV の頑健性**: Satellite Only と Limited の差については、測量GIS範囲でも20シードの反復で頑健さを確かめた（7.6.3節）。一方、各シナリオの性能そのものと、全域と測量GIS範囲の違い（7.4節・7.6.4節）は fold の組み方に左右されやすく、区間も求めていない。ブロックの割り当てを変えた繰り返し等での確認は残る
 

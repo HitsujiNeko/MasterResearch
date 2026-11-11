@@ -5,6 +5,11 @@ CI から `python -m src.doc_checks.run_all` で呼び出す。
 1件でも違反があれば終了コード1を返す。鮮度チェックと論文の追従チェックは
 警告のみで、終了コードには影響しない（更新日の乖離や論文の追従待ちは
 違反ではなく注意情報のため）。
+
+実行環境の制約: CI の `doc-consistency` ジョブは依存パッケージを導入せずに本スクリプトを
+実行する。そのため `src/doc_checks/` は標準ライブラリのみで実装し、import するのも
+標準ライブラリと、同じく標準ライブラリのみで書かれた `src.common.config` に限る。
+（CodingRule.md 10.1 の条件 4）
 """
 
 from __future__ import annotations

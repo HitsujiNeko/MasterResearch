@@ -1,4 +1,4 @@
-# 衛星データのみ分析結果
+# 衛星データのみの分析結果
 
 **最終更新**: 2026-11-11  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [observation_selection.md](../02_methods/observation_selection.md)  
@@ -219,7 +219,7 @@ NDVI と NDWI の VIF は 3 観測日とも高く、多重共線性の影響が�
 今回の結果は、研究全体としてはまだ衛星データのみに限られている。  
 ただし、次の 3 点は十分に示せた。
 
-1. 衛星データのみ条件でも LST の説明力は無視できない
+1. 衛星データのみの条件でも LST の説明力は無視できない
 2. その説明力は 3 観測日で概ね再現した
 3. NDBI 優位、NDVI / NDWI 冷却という解釈は複数観測日で大きく崩れなかった
 
@@ -257,7 +257,7 @@ RQ3 の中心比較は衛星データのみと衛星＋公開GISデータの2条
 
 今回の実行から言えることは、以下の通りである。
 
-1. 衛星データのみ条件でも LST の説明は十分に可能である
+1. 衛星データのみの条件でも LST の説明は十分に可能である
 2. Random Forest は 3 観測すべてで Spatial CV 後も `R² mean > 0.60` を維持した
 3. 過大評価は多少あるかもしれないが、空間分割後も結論が大きく崩れるほどではなかった
 4. `NDBI` は一貫して最重要の昇温側要因であり、`NDVI` と `NDWI` は冷却側要因として働いた

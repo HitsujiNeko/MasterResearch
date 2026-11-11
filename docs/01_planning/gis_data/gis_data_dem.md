@@ -1,6 +1,6 @@
 # 標高データ（DEM）候補の調査・選定ガイド
 
-**最終更新**: 2026-08-05  
+**最終更新**: 2026-11-11  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、分析シナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義
 

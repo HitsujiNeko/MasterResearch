@@ -1,6 +1,6 @@
 # QGIS MCP 活用ガイド
 
-**最終更新**: 2026-10-22
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [qgis_operation_guidelines.md](qgis_operation_guidelines.md), [data_management_guide.md](data_management_guide.md)
 **前提知識**: QGIS MCPのセットアップ完了（[qgis_mcp_setup.md](../setup/qgis_mcp_setup.md)）、QGISの基本操作
 

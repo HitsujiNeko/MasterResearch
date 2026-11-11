@@ -63,7 +63,7 @@ RQ2 は、都市構造パラメータと LST の関係（説明力と変数の�
 - **出力名に区画長・サンプル数・シードが入らないため、群ごとに出力先を分けて上書きを防ぐ。** 解像度と範囲は出力名に入る（`_hanoi_{解像度}m`・範囲が `survey` のとき末尾に `_area_survey`）
 - **13,500m は全域だけで併記する。** 論文の性能値には 13,500m の値を併記する方針である（analysis_workflow.md 6.1.1節）。都心部は約100 km² しかなく、13,500m（1ブロック約182 km²）では非空ブロックが数個にとどまり、ブロック判定 (a)（10 以上）を満たさないため実行しない
 - **C は「30m 全域の結果は標本数で決まっているのではないか」を確かめる。** 全域 300m の母数は 38,200 セル以下（`IN_ANALYSIS_AREA = 1` のセル数。4.2節）で、10万件の上限に届かない。サンプル数は全域 300m のランのフィルタ後の母数（シナリオごと）に揃えるため、群 A の実行後に決まる。30m 全域を同じ件数に減らして回し、30m と 300m の差のうち標本数の違いで説明できる分を見る
-- **D は SHAP の順位の揺れを測る。** シードを変えると、ランダム分割の学習/テスト・RF の乱数・SHAP の評価標本が変わる。都心部の 90m・300m は全件を使うため標本は変わらず、モデル側の揺れだけを測ることになる（30m は10万件の抽出も変わる）。fold ごとの SHAP は分析スクリプトの変更が要るため採らない
+- **D は SHAP の順位の揺れを測る。** シードを変えると、ランダム分割の学習/テスト・RF の乱数・SHAP の評価標本と背景標本が変わる。都心部の 90m・300m は全件を使うため分析対象のセルは変わらないが、これらの揺れは合わせて現れ、互いに分けられない（30m は10万件の抽出も変わる）。fold ごとの SHAP は分析スクリプトの変更が要るため採らない
 - **共通評価セル（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）は使わない。** RQ2 はシナリオ内での解像度・範囲の比較であり、シナリオ間で標本をそろえる必要が無いためである
 
 各ランの結果は `src/analysis/summarize_rq2_scale_area.py` で1つの表に集計し、`data/output/rq2_scale_area/20220906_032358/` に保存する。本ドキュメントの数値はこの集計結果を正本とする。
@@ -103,8 +103,10 @@ python -m src.analysis.urban_params --city hanoi --lst-file data/satellite/lst/2
 30m と同じ形（衛星指標・LST・`mask_survey` を結合）で、90m・300m のデータセットを4本生成した（既存のデータセットは上書きしていない）。
 
 ```bash
-python -m src.analysis.build_dataset --city hanoi --scale {90,300} --scenario limited --tables idx_20220906_032358 lst_20220906_032358 mask_survey --name limited_masksurvey_20220906_032358
-python -m src.analysis.build_dataset --city hanoi --scale {90,300} --scenario satellite_only --tables idx_20220906_032358 lst_20220906_032358 mask_survey --name satellite_only_masksurvey_20220906_032358
+python -m src.analysis.build_dataset --city hanoi --scale 90 --scenario limited --tables idx_20220906_032358 lst_20220906_032358 mask_survey --name limited_masksurvey_20220906_032358
+python -m src.analysis.build_dataset --city hanoi --scale 300 --scenario limited --tables idx_20220906_032358 lst_20220906_032358 mask_survey --name limited_masksurvey_20220906_032358
+python -m src.analysis.build_dataset --city hanoi --scale 90 --scenario satellite_only --tables idx_20220906_032358 lst_20220906_032358 mask_survey --name satellite_only_masksurvey_20220906_032358
+python -m src.analysis.build_dataset --city hanoi --scale 300 --scenario satellite_only --tables idx_20220906_032358 lst_20220906_032358 mask_survey --name satellite_only_masksurvey_20220906_032358
 ```
 
 | データセット | 行数 | `IN_ANALYSIS_AREA = 1` | `IN_ANALYSIS_AREA_SURVEY = 1` |
@@ -295,7 +297,7 @@ python -m src.analysis.build_dataset --city hanoi --scale {90,300} --scenario sa
 | Limited | 90m | 0.352 | 0.385 | 0.837（0.048） |
 | Limited | 300m | 0.305 | 0.335 | 0.875（0.027） |
 
-- 13,500m では主指標が 0.01〜0.03 大きくなった（説明力が下がった）。区画が大きいほど、テストのセルが学習のセルから離れるためである
+- 13,500m では主指標が 0.01〜0.03 大きくなった（説明力が下がった）。区画が大きいほどテストのセルが学習のセルから離れることと、テストに入る地域の組み合わせが変わること（地域による関係の違い）の両方が考えられ、この比較では分けられない
 - **解像度の順序（粗いほど説明力が高い）とシナリオの順序は、13,500m でも変わらなかった。** 6.1節の結論は区画長の選び方に依存しない
 
 ## 10. 標本数の感度（30m 全域）

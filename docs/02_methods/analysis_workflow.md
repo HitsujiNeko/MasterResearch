@@ -414,7 +414,7 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 
 **評価指標**: 各条件の RMSE・R²（Spatial CV）と、変数の寄与順位（SHAP）の変化。範囲間の比較では RMSE を主、R² を従とする（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 5.1節）。解像度をまたぐ比較では、セル内の平均で LST の分散が変わるため、Spatial CV の RF の RMSE をフィルタ後の母数の LST 標準偏差で割った値と SHAP の順位を主とする（[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) 2章）。
 
-**実施状況**: 主採用の観測で Satellite Only・Limited（採用構成）を 30 / 90 / 300m × 全域・都心部で実施済み（2026-11-11）。区画長 13,500m の併記・標本数の感度・都心部でシードを変えた順位の安定性もあわせて測った。結果は [rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) を正本とする。`Full` の都心部での評価は未実施である。
+**実施状況**: 主採用の観測で Satellite Only・Limited（採用構成）を 30 / 90 / 300m × 全域・都心部で実施済み（2026-11-11）。区画長 13,500m の併記（全域のみ。都心部はブロック判定を満たさないため対象外）・標本数の感度・都心部でシードを変えた順位の安定性もあわせて測った。結果は [rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) を正本とする。`Full` の都心部での評価は未実施である。
 
 **2軸を掛け合わせる際の留意点**:
 

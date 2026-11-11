@@ -1,8 +1,8 @@
 # 標高データ（DEM）候補の調査・選定ガイド
 
-**最終更新**: 2026-08-05  
+**最終更新**: 2026-11-11  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
-**前提知識**: RQ1-RQ3の理解、分析シナリオ（Satellite Only / Limited / Full）の定義
+**前提知識**: RQ1-RQ3の理解、分析シナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義
 
 ---
 
@@ -13,7 +13,7 @@
 特に以下の2点を目的とする。
 
 1. 候補DEMのセンサー特性・DSM/DTM分類・熱帯都市域での精度特性を整理する。
-2. 測量由来DEM（BSHorizon）との比較結果をもとに、Limitedシナリオで採用するDEMを選定する根拠を示す。
+2. 測量由来DEM（BSHorizon）との比較結果をもとに、衛星＋公開GISデータのシナリオで採用するDEMを選定する根拠を示す。
 
 ---
 
@@ -21,9 +21,9 @@
 
 | シナリオ | 使用DEM | 出典 | 備考 |
 |---|---|---|---|
-| **Full** | 測量由来DEM（BSHorizon） | `data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif` | 10m解像度、EPSG:5897、有効カバレッジはROIより小さい |
-| **Limited** | **FABDEM v1.2**（本資料で選定・採用確定） | GEE経由で取得済み | ハノイROIをほぼ全域カバー（ROIでcrop済みのため境界セルに欠損・部分被覆あり）。`ELEV_MEAN` / `ELEV_VALID_RATIO` として実装済み |
-| **Satellite Only** | DEMなし（衛星指標のみ） | — | — |
+| **測量建物置き換え（付録）** | 衛星＋公開GISデータと同じ FABDEM v1.2 を使う方針（建物の変数だけを測量GISに置き換えるため） | GEE経由で取得済み（衛星＋公開GISデータと同じ） | 測量由来DEM（BSHorizon。`data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif`、10m解像度、EPSG:5897、有効カバレッジはROIより小さい）は FABDEM を選ぶ際の比較（5章）に用いたもので、どのシナリオからも参照していない（採否は未決） |
+| **衛星＋公開GISデータ** | **FABDEM v1.2**（本資料で選定・採用確定） | GEE経由で取得済み | ハノイROIをほぼ全域カバー（ROIでcrop済みのため境界セルに欠損・部分被覆あり）。`ELEV_MEAN` / `ELEV_VALID_RATIO` として実装済み |
+| **衛星データのみ** | DEMなし（衛星指標のみ） | — | — |
 
 ---
 
@@ -187,7 +187,7 @@
   - ただし、沿岸部・急峻地形では建物アーティファクトが残存する場合がある。
   - 熱帯の高密度キャノピー（カバー率50%超）では補正精度が低下する可能性がある。
 - **取得方法**: GEE経由で取得可能。`download_open_dem.py --dataset fabdem` で他のDEMと同じ手順で取得できる（タイルの手動選択不要）。Bristol大学リポジトリ（<https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn>）からの直接ダウンロードも可能だが、GEE経由の方が簡便。
-- **判断**: 技術的に最も望ましい準DTM候補。取得・BSHorizonとの比較を実施のうえ（5章）、**Limitedシナリオの採用DEMとして確定**した（7章）。
+- **判断**: 技術的に最も望ましい準DTM候補。取得・BSHorizonとの比較を実施のうえ（5章）、**衛星＋公開GISデータのシナリオの採用DEMとして確定**した（7章）。
 
 ---
 
@@ -238,10 +238,10 @@
 
 ### 6.2 DSMバイアスへの対処
 
-全候補がDSMであり、建物・植生の高さが含まれる。Limitedシナリオでの利用に際しては以下の点を明示する必要がある。
+全候補がDSMであり、建物・植生の高さが含まれる。衛星＋公開GISデータのシナリオでの利用に際しては以下の点を明示する必要がある。
 
 - 記述・論文中に「利用するDEMはDSMであり、地形面高さではなく建物・植生を含む表面高さを反映する」と注記する。
-- Fullシナリオの測量由来DEMとの比較時は、この特性差（地形 vs 表面）を考察に組み込む。
+- 測量由来DEM（BSHorizon）と比べる際は、この特性差（地形 vs 表面）を考察に組み込む。
 
 ### 6.3 FABDEMの扱い
 
@@ -253,7 +253,7 @@
 
 ## 7. 選定結果
 
-### 7.1 Limitedシナリオ採用DEM（確定）
+### 7.1 衛星＋公開GISデータのシナリオの採用DEM（確定）
 
 | 採用 | データセット | 根拠 |
 |---|---|---|
@@ -270,7 +270,7 @@
 ### 7.2 採用ファイルパス
 
 ```text
-data/gis/dem/fabdem/fabdem_hanoi_dem.tif                    # Limitedシナリオ採用（確定）
+data/gis/dem/fabdem/fabdem_hanoi_dem.tif                    # 衛星＋公開GISデータのシナリオで採用（確定）
 data/gis/dem/nasadem/nasadem_hanoi_dem.tif                  # 参考保存（比較用）
 data/gis/dem/copernicus_glo30/copernicus_glo30_hanoi_dem_clipped.tif  # 参考保存（比較用）
 data/gis/dem/srtmgl1/srtmgl1_hanoi_dem.tif                  # 参考保存（比較用）

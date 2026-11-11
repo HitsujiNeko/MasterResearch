@@ -2,9 +2,17 @@
 
 対象は `docs/` 配下（`docs/04_archive/` は先行研究の引用文脈のため除外）。
 検出するのは規約表記からの機械的に判定可能な逸脱（大文字小文字・区切り文字・
-空白混入）のみ。「日本語訳との混在」（例: Satellite Only の代わりに
-「衛星のみ」と訳す）のような意味判断を要する揺れは対象外とし、
-`check-docs-consistency` スキルの意味的チェックに委ねる。
+空白混入）と、分析シナリオの旧呼び名の残りのみ。
+
+分析シナリオは論文・ドキュメントでの呼び名（衛星データのみ／衛星＋公開GISデータ／
+測量建物置き換え）に改めており、旧呼び名（Satellite Only・Limited シナリオ・
+Full シナリオ）が本文に残っていれば「シナリオ名（旧呼び名）」として検出する。
+コード上の識別子や出力値の引用はインラインコード（バックティック）やコードブロックで
+書く規約のため、インラインコードとフェンス付きコードブロックの中は検出しない。
+コードブロックの判定は CommonMark に合わせ、閉じていないブロックは文書末まで続くとみなす。
+提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も当時の記録として対象外とする。
+新しい呼び名の表記揺れ（「衛星＋公開GIS」のような短縮等）は意味判断を要するため
+対象外とし、`check-docs-consistency` スキルの意味的チェックに委ねる。
 """
 
 from __future__ import annotations
@@ -17,6 +25,8 @@ from src.common.config import PROJECT_ROOT
 from src.doc_checks.scan_targets import collect_docs_markdown_files
 
 _EXCLUDED_PREFIX = "docs/04_archive/"
+# シナリオ名（旧呼び名）の検出だけを除外するファイル（提出済み資料）
+_SCENARIO_EXCLUDED_PREFIX = "docs/03_results/GIS_IDEAS_"
 
 # Unicode対応の \b は日本語文字も「単語文字」とみなすため、
 # 英字直後に日本語が続くケース（例: "RQ 1について"）で境界判定に失敗する。
@@ -31,11 +41,25 @@ _R = r"(?![A-Za-z0-9_])"  # 右境界
 # だが本研究では°Cに変換」）でも使われるため、数値を伴う場合のみ誤表記とみなす。
 _LST_UNIT_PATTERN = re.compile(rf"℃|度C|\d+\s?ケルビン|\d+\s?K{_R}")
 
-# シナリオ名: 「Satellite Only」の大文字小文字・空白の揺れ
+# シナリオ名（旧呼び名）: 「Satellite Only」とその大文字小文字・空白の揺れ。
+# 新しい英語表記「Satellite only」とは大文字の O/o だけで分かれるため、
+# 大文字小文字を区別して「Satellite only」と完全一致するものだけを許容する。
 _SATELLITE_ONLY_PATTERN = re.compile(rf"(?i){_L}satellite\s+only{_R}")
-# シナリオ名: 「Limited」「Full」は「シナリオ」直前に現れる場合のみ対象
-# （単独の英単語として本文中に頻出するため、誤検出を避けて範囲を絞る）
-_LIMITED_FULL_SCENARIO_PATTERN = re.compile(rf"(?i){_L}(Limited|Full)(?=\s?シナリオ)")
+_SATELLITE_ONLY_NEW_ENGLISH = "Satellite only"
+# シナリオ名（旧呼び名）: 「Limited」「Full」は「シナリオ」直前に現れる場合のみ対象
+# （単独の英単語として本文中に頻出するため、誤検出を避けて範囲を絞る）。
+# 「Limited・Full シナリオ」のような並記では、先頭の語も「シナリオ」に掛かるため検出する
+_LIMITED_FULL_SCENARIO_PATTERN = re.compile(
+    rf"(?i){_L}(Limited|Full)(?=(?:\s?[・/／]\s?(?:Limited|Full))*\s?シナリオ)"
+)
+# インラインコード（同じ数のバックティックで囲まれた範囲）。CommonMark に合わせ、
+# 開始・終了とも連続したバックティック列の全体で長さが一致する場合だけを対象とする
+# （``a``` のように列の一部分だけが一致するものはインラインコードではない）
+_INLINE_CODE_PATTERN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
+# フェンス付きコードブロックのフェンス行（字下げ3文字まで・``` か ~~~ を3つ以上）。
+# group(1) がフェンス記号の並び、group(2) がその後ろ（info string）
+_FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+_SCENARIO_CATEGORY = "シナリオ名（旧呼び名）"
 
 # 座標系: EPSG:NNNN 形式からの逸脱（空白・ハイフン区切り、小文字epsg等）
 _EPSG_MENTION_PATTERN = re.compile(rf"(?i){_L}epsg[\s:-]*\d{{3,6}}{_R}")
@@ -67,18 +91,65 @@ def check_terminology(project_root: Path = PROJECT_ROOT) -> list[TerminologyViol
         if posix_path.startswith(_EXCLUDED_PREFIX):
             continue
         text = (project_root / relative_path).read_text(encoding="utf-8")
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            violations.extend(_check_line(posix_path, line_number, line))
+        scenario_target = not posix_path.startswith(_SCENARIO_EXCLUDED_PREFIX)
+        lines = text.splitlines()
+        in_code_block = _code_block_mask(lines)
+        for line_number, (line, in_block) in enumerate(zip(lines, in_code_block), start=1):
+            # コードブロック内（出力例・CLI 例）はインラインコードと同じくシナリオ名を検査しない
+            check_scenario = scenario_target and not in_block
+            violations.extend(
+                _check_line(posix_path, line_number, line, check_scenario=check_scenario)
+            )
     return violations
 
 
-def _check_line(file: str, line_number: int, line: str) -> list[TerminologyViolation]:
+def _code_block_mask(lines: list[str]) -> list[bool]:
+    """各行がフェンス付きコードブロック（フェンス行を含む）に属するかを判定する。
+
+    CommonMark に合わせ、ブロックは開始フェンスと同じ記号で長さが同じか長く、
+    info string を持たないフェンス行でだけ閉じる。閉じていないブロックは文書末まで続く。
+    バッククォートの開始フェンスは、info string にバッククォートを含む場合はフェンスとみなさない。
+
+    Args:
+        lines: 文書の行のリスト。
+    Returns:
+        行ごとの真偽値のリスト（True はコードブロック内）。
+    """
+    mask: list[bool] = []
+    open_fence: str | None = None
+    for line in lines:
+        match = _FENCE_PATTERN.match(line)
+        if open_fence is None:
+            is_open = match is not None and not (
+                match.group(1).startswith("`") and "`" in match.group(2)
+            )
+            if is_open:
+                open_fence = match.group(1)
+            mask.append(is_open)
+            continue
+        mask.append(True)
+        if (
+            match is not None
+            and match.group(1)[0] == open_fence[0]
+            and len(match.group(1)) >= len(open_fence)
+            # CommonMark で閉じフェンスの後ろに許されるのは半角空白とタブだけ
+            and match.group(2).strip(" \t") == ""
+        ):
+            open_fence = None
+    return mask
+
+
+def _check_line(
+    file: str, line_number: int, line: str, *, check_scenario: bool = True
+) -> list[TerminologyViolation]:
     """1行分のテキストに対して全カテゴリの表記揺れパターンを検査する。
 
     Args:
         file: 検査対象ファイルのプロジェクトルート相対パス。
         line_number: 行番号（1始まり）。
         line: 検査対象の行テキスト。
+        check_scenario: シナリオ名（旧呼び名）を検査するか。提出済み資料と
+            フェンス付きコードブロック内の行では False。
     Returns:
         検出された表記揺れのリスト。
     """
@@ -87,14 +158,8 @@ def _check_line(file: str, line_number: int, line: str) -> list[TerminologyViola
     for match in _LST_UNIT_PATTERN.finditer(line):
         results.append(_violation(file, line_number, "LST単位", match.group(0)))
 
-    for match in _SATELLITE_ONLY_PATTERN.finditer(line):
-        if match.group(0) != "Satellite Only":
-            results.append(_violation(file, line_number, "シナリオ名", match.group(0)))
-
-    for match in _LIMITED_FULL_SCENARIO_PATTERN.finditer(line):
-        text = match.group(1)
-        if text not in ("Limited", "Full"):
-            results.append(_violation(file, line_number, "シナリオ名", text))
+    if check_scenario:
+        results.extend(_check_scenario_names(file, line_number, line))
 
     for match in _EPSG_MENTION_PATTERN.finditer(line):
         text = match.group(0)
@@ -113,6 +178,30 @@ def _check_line(file: str, line_number: int, line: str) -> list[TerminologyViola
         canonical = f"RQ{text[-1]}"
         if text != canonical:
             results.append(_violation(file, line_number, "RQ表記", text))
+
+    return results
+
+
+def _check_scenario_names(file: str, line_number: int, line: str) -> list[TerminologyViolation]:
+    """インラインコードの外側に残ったシナリオの旧呼び名を検出する。
+
+    Args:
+        file: 検査対象ファイルのプロジェクトルート相対パス。
+        line_number: 行番号（1始まり）。
+        line: 検査対象の行テキスト。
+    Returns:
+        検出された旧呼び名のリスト。
+    """
+    # インラインコードは同じ長さの空白に置き換え、識別子・出力値の引用を検出から外す
+    masked = _INLINE_CODE_PATTERN.sub(lambda m: " " * len(m.group(0)), line)
+    results: list[TerminologyViolation] = []
+
+    for match in _SATELLITE_ONLY_PATTERN.finditer(masked):
+        if match.group(0) != _SATELLITE_ONLY_NEW_ENGLISH:
+            results.append(_violation(file, line_number, _SCENARIO_CATEGORY, match.group(0)))
+
+    for match in _LIMITED_FULL_SCENARIO_PATTERN.finditer(masked):
+        results.append(_violation(file, line_number, _SCENARIO_CATEGORY, match.group(1)))
 
     return results
 

@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-11-04
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -13,7 +13,7 @@
 | 節 | 1行要約 |
 |---|---|
 | 5.1 必須入力（共通） | 全パラメータセットで共通に必要な入力レイヤ |
-| 5.2 パラメータセット別入力（GIS） | パラメータセットの定義・Limited/Full の入力レイヤ |
+| 5.2 パラメータセット別入力（GIS） | パラメータセットの定義・`limited` / `full` の入力レイヤ |
 | 5.3 任意入力（衛星指標・LSTラスタ） | 衛星指標・LSTラスタのバンド仕様と検証 |
 | 6.0 出力構成の全体像 | 算出フェーズ・結合フェーズそれぞれの出力構成 |
 | 6.1 パラメータテーブル | 算出フェーズの出力（`cell_id` キーのGeoPackage） |
@@ -22,7 +22,7 @@
 | 6.4 GIS由来パラメータ | 確定済みのGIS由来パラメータ一覧 |
 | 6.5 出力列と算出モジュールの対応 | 列名と `params/*.py` の対応表 |
 | 6.6 分析用データセット | 結合フェーズの出力（分析用データセット） |
-| 6.7 新旧の差異と比較可能性（Satellite Only） | 旧経路・新経路の仕様差と比較不可の理由 |
+| 6.7 新旧の差異と比較可能性（衛星データのみ） | 旧経路・新経路の仕様差と比較不可の理由 |
 
 ---
 
@@ -36,7 +36,7 @@
 
 ### 5.2 パラメータセット別入力（GIS）
 
-> **本節の位置づけ**: 建物・道路・標高（`Limited`）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。  
+> **本節の位置づけ**: 建物・道路・標高（衛星＋公開GISデータ）は入力源・算出方法とも確定し、出力仕様（6章）に反映済みである。  
 > 採用済みで設計が未確定なパラメータは、入力データ・算出方法をパラメータ単位で確定したうえで出力仕様へ追加する。  
 > どのパラメータが採用済みかは [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md) を正本とする（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
@@ -67,11 +67,11 @@
 
 **シナリオは算出側では扱わない。** シナリオは「どのテーブルを結合するか」の選択へ還元されており、`SCENARIO_TABLES`（シナリオ → 結合するテーブル名の一覧）として結合フェーズが持つ（6.6節）。
 
-**正準グリッド（解析範囲）は3シナリオとも ROI から作り、測量GISの範囲はテーブルで絞る。** 測量GISの有効域は **CS の図郭内枠（Level 5）80図葉の和集合**と定義し、`mask_survey` テーブルの `IN_ANALYSIS_AREA_SURVEY` として出力する。測量GISの範囲で別の正準グリッドを作らないのは、シナリオ間で `cell_id` の集合が分かれ、共通の母集団で比較できなくなるためである。定義方式と却下した案（RG の面化・凸包等）は [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.5.6節を正本とする。
+**正準グリッド（解析範囲）はすべてのシナリオで ROI から作り、測量GISの範囲はテーブルで絞る。** 測量GISの有効域は **CS の図郭内枠（Level 5）80図葉の和集合**と定義し、`mask_survey` テーブルの `IN_ANALYSIS_AREA_SURVEY` として出力する。測量GISの範囲で別の正準グリッドを作らないのは、シナリオ間で `cell_id` の集合が分かれ、共通の母集団で比較できなくなるためである。定義方式と却下した案（RG の面化・凸包等）は [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7.5.6節を正本とする。
 
 **範囲レイヤ（`mask_*` の入力）は面ジオメトリのみで構成されている必要がある。** 線・点は面積を持たず、被覆判定に寄与しないためである。`params/mask.py: validate_resource()` が入力解決の段階で面以外を含むレイヤを拒否する（RG・CS の生レイヤを指定すると、この検証で止まる）。
 
-#### 5.2.1 Limited
+#### 5.2.1 `limited`（衛星＋公開GISデータ）
 
 **確定済みの入力**
 
@@ -82,21 +82,20 @@
 - **夜間光ラスタ**: `data/gis/nighttime_lights/viirs_dnb/viirs_dnb_hanoi_2023.tif`（主候補）／`data/gis/nighttime_lights/black_marble/black_marble_vnp46a4_hanoi_2023.tif`（副候補）。いずれも **band 1**、EPSG:4326（6.4節）
 - **土地被覆ラスタ**: `data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`（GLC_FCS30D 2022年、主ソース）／`data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif`（Esri Sentinel-2 10m LULC 2022年、感度分析用の副ソース）。いずれも **band 1**、EPSG:4326。植生（植生被覆率）は独立入力を持たず、土地被覆クラス別面積率の樹林・草地低木クラスの読み替えである（6.4節）
 
-> 建物データの比較候補として Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` を検討したが、Limited シナリオの採用は GlobalBuildingAtlas で確定している（詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md)）。  
+> 建物データの比較候補として Microsoft GlobalMLBuildingFootprints / Google Open Buildings / OSM `building=*` を検討したが、衛星＋公開GISデータのシナリオの採用は GlobalBuildingAtlas で確定している（詳細は [gis_data_buildings.md](../../01_planning/gis_data/gis_data_buildings.md)）。  
 > なお Hanoi ROI では Microsoft 建物データが西側行政区画を十分に覆っていない。比較用に用いる場合、建物データの有効カバレッジ外では被覆率・棟数密度の `0` が建物不存在を意味しない点に注意する。
 
-#### 5.2.2 Full
+#### 5.2.2 `full`（測量建物置き換え・付録）
 
-本節は測量GISに固有の入力のみを列挙する。公開GISの入力は 5.2.1 節を参照する。Full でどの公開GISを組み合わせるかは未確定である（6.6節）。
+本節は測量GISに固有の入力のみを列挙する。公開GISの入力は 5.2.1 節を参照する。測量建物置き換えでどの公開GISを組み合わせるかは未確定である（建物の変数だけを測量GISに置き換え、それ以外は公開GISを使う方針。6.6節）。
 
 - `data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`。測量GIS有効域の単一ポリゴン、EPSG:5897、約99.9 km²。`整備データ/merge/merge_CS.gpkg` の図郭内枠から `python -m src.preprocessing.build_survey_extent_hanoi` で生成する。生成物は Git 追跡外）
-- `整備データ/merge/merge_DC.gpkg`（建物）
-- `整備データ/merge/merge_GT.gpkg`（道路）
-- `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連、利用方法は要確認）
-- `整備データ/merge/merge_TV.gpkg`（植生・土地利用）
+- `整備データ/merge/merge_DC.gpkg`（建物。付録では建物被覆率・棟数密度の算出に使う）
+- `整備データ/merge/merge_GT.gpkg`（道路。現行の `full` の入力だが、付録では使わず道路は OSM とする）
+- `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連。参考在庫であり、付録では使わない）
+- `整備データ/merge/merge_TV.gpkg`（植生・土地利用。参考在庫であり、付録では使わない）
 
-> DH / TV のどちらを標高・植生率に使うかは、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて最終確定する。  
-> 現時点では完全確定ではなく、実装と並行して調整中である。  
+> DH / TV の利用方法と採否は、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて今後検討する。付録の測量建物置き換えでは使わない。  
 > `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。水域関連のパラメータは採用しておらず、算出対象ではない（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 ### 5.3 任意入力（衛星指標・LSTラスタ）
@@ -396,9 +395,9 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 | `limited` | `mask_roi` / `build_gba` / `road_osm` / `elev_fabdem` / `lulc_glc2022` / `ntl_viirs2023` / `pop_worldpop2020` / `pop_landscan2020` / `pop_landscan2023` | 可 |
 | `full` | `mask_roi` / `mask_survey` / `build_dc` / `road_gt` | 可 |
 
-> **`full` の展開と Full シナリオの関係**: `full` が展開するのは `mask_roi` と測量GIS由来のテーブル・マスクだけであり、Full シナリオの定義（衛星データ・公開GIS・測量GIS。CLAUDE.md 用語集）の全体ではない。公開GISと衛星指標のテーブルは `--tables` で追加する。ただし `build_gba` / `road_osm` は `build_dc` / `road_gt` と列名が同じため、同時には結合できない。Full の最終変数セットは未確定であり（[analysis_workflow.md](../analysis_workflow.md) 5.3.1節）、確定時に `SCENARIO_TABLES` の `full` と上表を見直す。
+> **`full` の展開と測量建物置き換えの関係**: `full` が展開するのは `mask_roi` と測量GIS由来のテーブル・マスクだけであり、測量建物置き換えの定義（衛星＋公開GISデータの建物の変数を測量GISから算出したものに置き換える。CLAUDE.md 用語集）の全体ではない。公開GISと衛星指標のテーブルは `--tables` で追加する。ただし `build_gba` / `road_osm` は `build_dc` / `road_gt` と列名が同じため、同時には結合できない。測量建物置き換えの最終変数セットは未確定であり（[analysis_workflow.md](../analysis_workflow.md) 5.3.1節）、確定時に `SCENARIO_TABLES` の `full` と上表を見直す。
 
-**`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。ただし `= 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味し、**境界にかかる部分被覆セルを含む**（面積換算の超過は 30m で約0.4%・300m で約8%。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。部分被覆セルでは有効域外の部分が 0 として集約されるため、測量GIS由来の値（`build_dc` / `road_gt`）が過小になりうる。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で Satellite Only / Limited を比較する用途に使える。
+**`full` は `mask_survey` を結合し、`IN_ANALYSIS_AREA_SURVEY = 1` で測量GIS範囲内のセルを識別する。** 正準グリッドは他シナリオと共通（ROI 由来）のため、`full` のデータセットも ROI 全体の行を持つ。測量GIS範囲外のセルでは `build_dc` / `road_gt` の 0 が「地物が無い」ではなく「測量していない」を意味するため、分析時は必ず `IN_ANALYSIS_AREA_SURVEY = 1` で絞る。ただし `= 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味し、**境界にかかる部分被覆セルを含む**（面積換算の超過は 30m で約0.4%・300m で約8%。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。部分被覆セルでは有効域外の部分が 0 として集約されるため、測量GIS由来の値（`build_dc` / `road_gt`）が過小になりうる。`mask_survey` は他シナリオのデータセットにも `--tables` で追加でき、同じ範囲で衛星データのみと衛星＋公開GISデータを比較する用途に使える。
 
 **`limited` が土地被覆・夜間光の主ソースのみを列挙する理由**: `lulc_glc2022` と `lulc_esri2022`、`ntl_viirs2023` と `ntl_bm2023` は列名を共有する差し替え関係であり、同一データセットへ同時結合すると `join_tables()` が列名衝突として拒否する。副ソースでの感度分析は `--tables` に全テーブルを明示列挙した**別データセット**として生成する（`--scenario limited` を併用すると展開分の主ソースが混入して衝突するため、併用しない）。人口3版は列名に接尾辞が付いて衝突しないため、3版とも同時に結合する（6.4節）。
 
@@ -406,7 +405,7 @@ LSTは目的変数であり、`idx_*`（説明変数）とは別のテーブル�
 
 **`--scenario` と `--tables` は併用できる。** シナリオ展開分（先）と直接指定分（後）を連結し、重複は除く（`build_dataset.resolve_table_names()`）。併用時は `--name` を必須とする（既定名としてシナリオ名を推測しないため）。観測ファイル単位のテーブルは `SCENARIO_TABLES` に列挙できないため、シナリオ展開＋観測テーブルの追加が RQ1・RQ2 でも定型になる。
 
-**`--scenario satellite_only` は単独では拒否する。** 衛星指標を列挙できない以上、シナリオ名だけで展開すると `mask_roi` だけの4列（`cell_id` / `lon` / `lat` / `IN_ANALYSIS_AREA`）のデータセットが `dataset_satellite_only_*.gpkg` という名前で出力される。**名前が中身を偽る**ため、`--tables` に `idx_*` を伴う場合のみ許可する。**`lst_*` の有無は解禁条件にしない。** `Satellite Only` は「衛星由来指標のみを用いる分析シナリオ」（CLAUDE.md 用語集）であり、説明変数が `idx_*` だからである。`mask_roi` + `lst_*` だけを許すと、目的変数しか持たないデータセットが `satellite_only` を名乗ることになる。
+**`--scenario satellite_only` は単独では拒否する。** 衛星指標を列挙できない以上、シナリオ名だけで展開すると `mask_roi` だけの4列（`cell_id` / `lon` / `lat` / `IN_ANALYSIS_AREA`）のデータセットが `dataset_satellite_only_*.gpkg` という名前で出力される。**名前が中身を偽る**ため、`--tables` に `idx_*` を伴う場合のみ許可する。**`lst_*` の有無は解禁条件にしない。** 衛星データのみのシナリオは「衛星由来指標のみを用いる」シナリオ（CLAUDE.md 用語集）であり、説明変数が `idx_*` だからである。`mask_roi` + `lst_*` だけを許すと、目的変数しか持たないデータセットが `satellite_only` を名乗ることになる。
 
 ```bash
 python -m src.analysis.build_dataset --city hanoi --scale 30 \
@@ -427,7 +426,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 \
 - **土台と `cell_id` が一致した件数**をテーブルごとに報告し、0件なら警告する。古い解析範囲で算出した stale なテーブルを結合しても例外にはならず、該当列が広範囲に NULL になるだけである
 - **観測日時の混在**（`idx_20230707_032329` と `lst_20241130_032336` の同時結合など）は、テーブルを読み込む前に `ValueError` で拒否する（`validate_observation_consistency()`）。LSTと衛星指標が別観測から来ていると目的変数と説明変数の関係を見るという前提が崩れるが、**結合自体は `cell_id` で成立し、行数も欠損も正常に見えるため出力からは判別できない**。テーブル名が観測日時を保持しているうちに入口で止める。同種どうし（`idx_*` が2つなど）も同様に拒否する
 
-### 6.7 新旧の差異と比較可能性（Satellite Only）
+### 6.7 新旧の差異と比較可能性（衛星データのみ）
 
 旧経路（`build_satellite_only_dataset.py`。移行に伴い削除済み）と本節冒頭の新経路（`urban_params` + `build_dataset`）は、以下の3点で仕様が異なる。**単なる集計単位の違いではないため、3点まとめて記載する。**
 

@@ -1,6 +1,6 @@
 # calc_urban_params 設計再定義ガイド
 
-**最終更新**: 2026-08-26
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [analysis_workflow.md](analysis_workflow.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [CodingRule.md](CodingRule.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params/calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md), [observation_selection.md](observation_selection.md)
 **前提知識**: RQ1-RQ3、CRS（WGS84/投影座標系）、ラスタ/ベクタ処理の基礎
 
@@ -44,7 +44,7 @@
 - GIS由来と衛星由来の説明変数を同一フレームで扱う
 - LSTとの空間整合ルール（ROI→GIS有効域）を明文化する
 - 再現可能な入出力仕様を固定する
-- `Satellite Only` / `Limited` / `Full` の3シナリオ・複数スケール（30/90/300m）で使える設計を明文化する
+- すべてのデータシナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）・複数スケール（30/90/300m）で使える設計を明文化する
 
 ### 1.1 正本の境界
 
@@ -78,7 +78,7 @@
 ### 3.2 分析時の空間整合
 
 1. LSTはROIクリップ済みデータを入力する  
-2. `Limited` では公開 GIS の有効カバレッジ、`Full` では測量 GIS 有効域で分析対象を限定する  
+2. 衛星＋公開GISデータのシナリオでは公開 GIS の有効カバレッジ、付録の測量建物置き換えでは測量 GIS 有効域で分析対象を限定する  
 3. その結果、LSTとの結合時には「ROI内かつシナリオごとのGIS有効域内」のセルが対象になる
 
 > これは不整合ではなく、処理段階の違いである。

@@ -1,6 +1,6 @@
 # calc_urban_params 処理設計
 
-**最終更新**: 2026-10-19
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章、[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章（入出力仕様）
 
@@ -80,7 +80,7 @@ def compute(
 
 ### 7.2 Step B: GIS由来指標（一部は設計未確定、6.4節参照）
 
-> 建物・道路・標高（`Limited`）は[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節の通り**設計確定・実装済み**である。以下「設計未確定」に挙げるパラメータの列名・入力源は案であり、各パラメータを別途個別に確定する。  
+> 建物・道路・標高（衛星＋公開GISデータ）は[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節の通り**設計確定・実装済み**である。以下「設計未確定」に挙げるパラメータの列名・入力源は案であり、各パラメータを別途個別に確定する。  
 > 本節は**採用済みのパラメータのみ**を扱う（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 **設計確定・実装済み**
@@ -115,10 +115,10 @@ def compute(
 **設計未確定**（採用済み）
 
 - 測量GIS由来の標高（DH）
-  - `full` シナリオ向けに、点属性から数値標高を抽出しセル平均を算出する案を第一候補とする
+  - 付録の測量建物置き換えでは使わない（標高は FABDEM）。将来の検討案として、点属性から数値標高を抽出しセル平均を算出する案を第一候補とする
 
 > 測量由来GISのレイヤ意味は最終的に固定し切れていない部分があるため、  
-> `full` シナリオの `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
+> 測量 GIS の標高を将来使う場合、`full` の `ELEV_MEAN` の入力源は今後の確認で更新され得る。  
 > `limited` シナリオの建物データソースは GlobalBuildingAtlas（`hanoi_gba_buildings.gpkg`）、標高は FABDEM v1.2 を使用する。
 
 **共通基盤関数の算出手法と制約**:
@@ -251,7 +251,7 @@ RG は**境界線**であり（[survey_gis_data_preparation_status.md](../../03_
 
 ##### 測量GISの範囲はグリッドではなくテーブルで絞る
 
-`full` シナリオ用に測量GIS範囲の正準グリッドを別に作ることはしない。**正準グリッドは3シナリオとも ROI 由来で共通**とし、測量GISの範囲は `mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）で絞る。別グリッドにするとシナリオ間で `cell_id` の集合が分かれ、同じセル集合で Satellite Only / Limited / Full を比較できなくなるためである。ROI が全シナリオの解析範囲を包含する（上記）ことから、測量GIS範囲のセルは ROI の正準グリッドにすべて含まれ、別グリッドを作らなくても欠けは生じない（30m で実測。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。
+`full` シナリオ用に測量GIS範囲の正準グリッドを別に作ることはしない。**正準グリッドはすべてのシナリオで ROI 由来の共通のもの**とし、測量GISの範囲は `mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）で絞る。別グリッドにするとシナリオ間で `cell_id` の集合が分かれ、同じセル集合でシナリオどうしを比較できなくなるためである。ROI が全シナリオの解析範囲を包含する（上記）ことから、測量GIS範囲のセルは ROI の正準グリッドにすべて含まれ、別グリッドを作らなくても欠けは生じない（30m で実測。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。
 
 `--mask-layer-key survey_extent` で測量GIS範囲だけの正準グリッドを作ることは技術的には可能であり、面として正しく切れることの検証には使う。ただし分析用の正準グリッドとしては使わない。
 

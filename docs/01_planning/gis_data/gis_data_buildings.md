@@ -1,8 +1,8 @@
 # 建物データの調査・評価
 
-**最終更新**: 2026-09-01  
+**最終更新**: 2026-11-11  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
-**前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義、分析シナリオ（Satellite Only / Limited / Full）の定義
+**前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義、分析シナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義
 
 ---
 
@@ -36,20 +36,20 @@ GBA の WFS 取得完了・Microsoft 欠落域の定量確認を経て、比較�
 | 建物高さ情報 | ✅ あり（ML推定、RMSE未確認） | ❌ なし（V3 polygon） | △ 一部のみ |
 | ライセンス | CC BY-NC 4.0（学術OK） | CC BY 4.0（最も寛容） | ODbL |
 | アクセス方法 | **✅ 取得済み**（GPKG出力済み）。再取得はHuggingFaceを推奨 | gsutil / Colab ノートブック | Geofabrik（取得済み） |
-| 取得状況 | ✅ 採用済み（`Limited`シナリオ主ソース） | 未取得・比較候補 | 未取得・比較候補 |
+| 取得状況 | ✅ 採用済み（衛星＋公開GISデータのシナリオ主ソース） | 未取得・比較候補 | 未取得・比較候補 |
 | 下地データ | Google Open Buildings 由来 | — | コミュニティ編集 |
 | 備考 | **WFSレート制限注意**: 1,554タイルでIPブロック（48h+）が発生。再取得はHuggingFace（タイル`e105_n25_e110_n20`、~1.78GB）推奨 | 建物高さはV3ではなく2.5D Temporalで別途取得 | 品質は地域差が大きい |
 
 #### 優先順位・取得状況
 
-1. `GlobalBuildingAtlas` via WFS / HuggingFace: **✅ 採用済み（`Limited`シナリオ建物主ソース）**。2026-06-09 に ROI クリップ済みで 3,071,511 件取得完了。`data/gis/buildings/hanoi_gba_buildings.gpkg` に出力済み。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS でなく HuggingFace バルクDL推奨**（WFS は大量リクエスト時に IP ブロックが発生するため）。
+1. `GlobalBuildingAtlas` via WFS / HuggingFace: **✅ 採用済み（衛星＋公開GISデータのシナリオ建物主ソース）**。2026-06-09 に ROI クリップ済みで 3,071,511 件取得完了。`data/gis/buildings/hanoi_gba_buildings.gpkg` に出力済み。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS でなく HuggingFace バルクDL推奨**（WFS は大量リクエスト時に IP ブロックが発生するため）。
 2. `Google Open Buildings V3 Polygons`: 未取得。ライセンスがより寛容（CC BY 4.0）。建物高さ不要で面積・密度のみ算出する場合の比較候補。confidence閾値の感度分析が必要。GBA との重複率・差分を確認してから採用判断する。
 3. `OSM building=*`: 未取得。Geofabrik Vietnam extract から追加取得でき、道路と同一ソースで再現性が高い。コミュニティ整備状況に依存するため、建物密度の空間偏りを QA する。
 4. `Google Open Buildings 2.5D Temporal`, `GHSL`, `WSF`: 個別フットプリントではなく、built-up / building presence / height の補助変数または妥当性確認に使う。
 
-### 1.3 Limited シナリオの建物データ方針（2026-06-09 更新）
+### 1.3 衛星＋公開GISデータのシナリオの建物データ方針（2026-06-09 更新）
 
-**GBA の取得完了により、`Limited` シナリオの建物主ソースを `GlobalBuildingAtlas` に確定した。**
+**GBA の取得完了により、衛星＋公開GISデータのシナリオの建物主ソースを `GlobalBuildingAtlas` に確定した。**
 
 - `data/gis/buildings/hanoi_gba_buildings.gpkg`（3,071,511 件、ROI クリップ済み）を建物フットプリントの正本として使う。
 - Microsoft 欠落域（105.29–105.47°E）では GBA に 273,742 件の実データが存在することを確認済み。GBA を使うことで Microsoft のカバレッジ欠落問題は解消される。
@@ -61,7 +61,7 @@ GBA の WFS 取得完了・Microsoft 欠落域の定量確認を経て、比較�
 
 ## 2. GlobalBuildingAtlas 詳細仕様
 
-本研究の `Limited` シナリオで建物主ソースとして採用した GlobalBuildingAtlas（GBA）について、データの特性・制限・引用方法を記録する。
+本研究の衛星＋公開GISデータのシナリオで建物主ソースとして採用した GlobalBuildingAtlas（GBA）について、データの特性・制限・引用方法を記録する。
 
 ### 2.1 データセット概要
 
@@ -226,7 +226,7 @@ GBA から算出する建物パラメータの定義と、解釈上の前提を�
 
 - **欠測（NULL / NaN）も除外する**。判定は `var >= 0` かつ `height >= 0` で行い、欠測値との比較は偽になるため自動的に集計対象外になる。GBA は両属性とも欠測 0 件だが、他レイヤへ適用する際の規則として同じ扱いとする
 - **`var` 列を持たないレイヤ**では信頼度による絞り込みができないため、取得できた高さをすべて集計し、意味論が変わることを警告する。同じ `BUILD_H_MEAN` という列名でも、GBA のように分散で絞り込んだ値とは前提が異なる
-- **`height` 列も持たないレイヤ**では高さ列がすべて NaN になる。`Full` シナリオの建物レイヤ（`merge_DC.gpkg`）は CAD 由来で `height` / `var` のいずれも持たないため、この状態になる
+- **`height` 列も持たないレイヤ**では高さ列がすべて NaN になる。付録の測量建物置き換えで使う建物レイヤ（`merge_DC.gpkg`）は CAD 由来で `height` / `var` のいずれも持たないため、この状態になる
 
 ### 3.4 欠測値の扱い
 
@@ -445,7 +445,7 @@ WHERE d.IN_ANALYSIS_AREA = 1 AND d.LST IS NOT NULL AND d.LST_VALID_RATIO >= 0.5
 
 1. Microsoft 建物データのカバレッジ欠落を QA 結果として固定し、現行 `hanoi_microsoft_buildings.gpkg` の有効範囲を明示する（保留扱い確定）。
 2. ~~`GlobalBuildingAtlas` を WFS で Hanoi ROI から取得する。~~ **✅ 完了（2026-06-09）**。行政区画ポリゴンクリップ済みで 3,071,511 件取得。出力: `data/gis/buildings/hanoi_gba_buildings.gpkg`。スクリプト: `src/preprocessing/fetch_gba_buildings_hanoi.py`（`--start-tile-index` で途中再開可能）。**再取得時は WFS ではなく HuggingFace バルクDL を推奨**（WFS は IP ブロックが発生したため）。
-3. ~~GBA 取得後、Microsoft 欠落域（105.29–105.47°E）での建物数・面積率を比較し、カバレッジ改善を定量確認する。~~ **✅ 完了（2026-06-09）**。Microsoft 欠落域で 273,742 件・面積率 1.25% を確認（ゼロでなく実データあり）。GBA を `Limited` シナリオ建物主ソースとして確定。
+3. ~~GBA 取得後、Microsoft 欠落域（105.29–105.47°E）での建物数・面積率を比較し、カバレッジ改善を定量確認する。~~ **✅ 完了（2026-06-09）**。Microsoft 欠落域で 273,742 件・面積率 1.25% を確認（ゼロでなく実データあり）。GBA を衛星＋公開GISデータのシナリオ建物主ソースとして確定。
 4. 必要に応じて `Google Open Buildings V3 Polygons` を Geofabrik の代替または補完データとして取得し、GBA と比較する。
 5. Geofabrik Vietnam extract から `building=*` を抽出し、GBA / Google と密度・面積率を比較する。
 6. `GHSL`, `WSF`, `Google Open Buildings 2.5D Temporal` で built-up / building presence の補助指標を作る。

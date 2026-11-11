@@ -173,6 +173,41 @@ def layout_geometry(
     return geometry
 
 
+def validate_layer_names(
+    roi_name: str,
+    data_name: str,
+    overlay_names: Sequence[str] = (),
+    background_names: Sequence[str] = (),
+) -> None:
+    """地図に載せるレイヤ名の指定を、レイヤを探す前に検査する。
+
+    重なり順の重複は :func:`map_layer_stack` でも検出できるが、そこではレイヤ
+    オブジェクトの表示（``<QgsVectorLayer object at 0x...>``）でしか報告できない。
+    名前の段階で検査し、どの名前が問題かを示すために本関数を置く。
+
+    Args:
+        roi_name: ROI 枠のレイヤ名。
+        data_name: 主題データのレイヤ名。
+        overlay_names: 主題データの上に重ねるレイヤ名の並び。
+        background_names: 主題データの下に敷くレイヤ名の並び。
+
+    Raises:
+        TypeError: ``overlay_names``・``background_names`` に文字列をそのまま渡したとき
+            （1 文字ずつのレイヤ名と解釈されてしまうため）。
+        ValueError: 同じレイヤ名が 2 回以上現れるとき。
+    """
+    for arg_name, names in (
+        ("overlay_layer_names", overlay_names),
+        ("background_layer_names", background_names),
+    ):
+        if isinstance(names, str):
+            raise TypeError(f"{arg_name} は文字列ではなくリストかタプルで渡してください: {names!r}")
+    all_names = [roi_name, *overlay_names, data_name, *background_names]
+    duplicated = sorted({name for name in all_names if all_names.count(name) > 1})
+    if duplicated:
+        raise ValueError(f"同じレイヤ名が重複しています: {duplicated}")
+
+
 def map_layer_stack(
     roi: T,
     data: T,

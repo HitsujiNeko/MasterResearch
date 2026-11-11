@@ -267,8 +267,7 @@ def build_gis_figure(
         dpi: 出力解像度。
         project: 対象プロジェクト。省略時は現在のプロジェクト。
         overlay_layer_names: 対象データの上に重ねるレイヤ名（上から順）。凡例にも載る。
-            1つだけでもリストかタプルで渡す（文字列をそのまま渡すと1文字ずつの
-            レイヤ名とみなされ、レイヤが見つからないエラーになる）。
+            1つだけでもリストかタプルで渡す（文字列をそのまま渡すと ``TypeError``）。
         background_layer_names: 対象データの下に敷くレイヤ名（上から順。衛星画像など）。
             凡例には載せない。渡し方は ``overlay_layer_names`` と同じ。
 
@@ -276,9 +275,14 @@ def build_gis_figure(
         ``{"ok": bool, "path": str}``。
 
     Raises:
+        TypeError: 重ねる／敷くレイヤ名を文字列のまま渡したとき。
         ValueError: データレイヤ・ROI レイヤ・重ねる／敷くレイヤが見つからないとき、
-            または同じレイヤが重複して指定されたとき。
+            または同じレイヤ名が重複して指定されたとき。
     """
+    # 名前の段階で検査し、問題のある名前をそのまま示す（レイヤを探す前に止める）
+    fl.validate_layer_names(
+        roi_layer_name, data_layer_name, overlay_layer_names, background_layer_names
+    )
     prj = _project(project)
     data_layer = _require_layer(prj, data_layer_name)
     roi_layer = _require_layer(prj, roi_layer_name)

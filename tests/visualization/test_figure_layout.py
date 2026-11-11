@@ -18,6 +18,7 @@ from src.visualization.figure_layout import (
     present_class_values,
     roi_extent_with_margin,
     shorten_label,
+    validate_layer_names,
 )
 
 # ハノイ ROI + 5%マージン相当の代表的な描画範囲（EPSG:4326）
@@ -292,6 +293,28 @@ def test_map_layer_stack_rejects_duplicate_layer() -> None:
         map_layer_stack("roi", "data", overlays=["data"])
     with pytest.raises(ValueError, match="重複"):
         map_layer_stack("roi", "data", backgrounds=["roi"])
+
+
+def test_validate_layer_names_accepts_distinct_names() -> None:
+    """名前が重ならず、並びをリスト・タプルで渡せば例外を出さない。"""
+    validate_layer_names("範囲", "DC", ["GBA", "DC 他"], ("衛星画像",))
+    validate_layer_names("範囲", "DC")
+
+
+def test_validate_layer_names_rejects_plain_string() -> None:
+    """文字列をそのまま渡すと 1 文字ずつの名前になるため、型の誤りとして止める。"""
+    with pytest.raises(TypeError, match="overlay_layer_names"):
+        validate_layer_names("範囲", "DC", overlay_names="GBA")
+    with pytest.raises(TypeError, match="background_layer_names"):
+        validate_layer_names("範囲", "DC", background_names="衛星画像")
+
+
+def test_validate_layer_names_reports_duplicated_name() -> None:
+    """重複したレイヤ名を、エラーの文面に名前のまま示す。"""
+    with pytest.raises(ValueError, match="GBA"):
+        validate_layer_names("範囲", "DC", ["GBA"], ["GBA"])
+    with pytest.raises(ValueError, match="DC"):
+        validate_layer_names("範囲", "DC", ["DC"])
 
 
 def test_map_layer_stack_accepts_objects_compared_by_identity() -> None:

@@ -12,8 +12,12 @@ PyQGIS に依存せず、レイアウトの寸法・位置（mm）だけを算�
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from typing import TypeVar
 
 import numpy as np
+
+# レイヤを表す任意の型（QgsMapLayer やレイヤ名）。重ね順の関数を QGIS 非依存に保つため
+T = TypeVar("T")
 
 # レイアウト定数（mm）。全図で共通の体裁を保つための基準値。
 SIDE_MARGIN_MM = 10.0  # 左右余白
@@ -167,6 +171,76 @@ def layout_geometry(
             legend_h_mm,
         )
     return geometry
+
+
+def validate_layer_names(
+    roi_name: str,
+    data_name: str,
+    overlay_names: Sequence[str] = (),
+    background_names: Sequence[str] = (),
+) -> None:
+    """地図に載せるレイヤ名の指定を、レイヤを探す前に検査する。
+
+    重なり順の重複は :func:`map_layer_stack` でも検出できるが、そこではレイヤ
+    オブジェクトの表示（``<QgsVectorLayer object at 0x...>``）でしか報告できない。
+    名前の段階で検査し、どの名前が問題かを示すために本関数を置く。
+
+    Args:
+        roi_name: ROI 枠のレイヤ名。
+        data_name: 主題データのレイヤ名。
+        overlay_names: 主題データの上に重ねるレイヤ名の並び。
+        background_names: 主題データの下に敷くレイヤ名の並び。
+
+    Raises:
+        TypeError: ``overlay_names``・``background_names`` に文字列をそのまま渡したとき
+            （1 文字ずつのレイヤ名と解釈されてしまうため）。
+        ValueError: 同じレイヤ名が 2 回以上現れるとき。
+    """
+    for arg_name, names in (
+        ("overlay_layer_names", overlay_names),
+        ("background_layer_names", background_names),
+    ):
+        if isinstance(names, str):
+            raise TypeError(f"{arg_name} は文字列ではなくリストかタプルで渡してください: {names!r}")
+    all_names = [roi_name, *overlay_names, data_name, *background_names]
+    duplicated = sorted({name for name in all_names if all_names.count(name) > 1})
+    if duplicated:
+        raise ValueError(f"同じレイヤ名が重複しています: {duplicated}")
+
+
+def map_layer_stack(
+    roi: T,
+    data: T,
+    overlays: Sequence[T] = (),
+    backgrounds: Sequence[T] = (),
+) -> tuple[list[T], list[T]]:
+    """地図アイテムに渡すレイヤの重ね順と、凡例に載せるレイヤを決める。
+
+    重ね順は上から ROI 枠 → 重ねるレイヤ → 主題データ → 背景（衛星画像など）とする。
+    ROI 枠を最上位に置くのは範囲の目安を常に見せるため、背景を最下位に置くのは
+    他のレイヤを覆わないためである。凡例には重ねるレイヤと主題データを地図と同じ順で
+    載せ、ROI 枠と背景は載せない（範囲の目安と下絵は凡例で説明する対象ではないため）。
+
+    Args:
+        roi: ROI 枠のレイヤ（またはその識別子）。
+        data: 主題データのレイヤ。
+        overlays: 主題データの上に重ねるレイヤ（上から順）。
+        backgrounds: 主題データの下に敷くレイヤ（上から順）。
+
+    Returns:
+        ``(地図に渡すレイヤ（上から順）, 凡例に載せるレイヤ（上から順）)``。
+
+    Raises:
+        ValueError: 同じレイヤが2回以上現れるとき（重ね順が一意に決まらないため）。
+    """
+    map_layers = [roi, *overlays, data, *backgrounds]
+    seen: list[T] = []
+    for layer in map_layers:
+        if layer in seen:
+            raise ValueError(f"同じレイヤが重複しています: {layer!r}")
+        seen.append(layer)
+    legend_layers = [*overlays, data]
+    return map_layers, legend_layers
 
 
 def present_class_values(

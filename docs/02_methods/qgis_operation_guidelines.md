@@ -1,6 +1,6 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-10-27
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
@@ -179,6 +179,7 @@ finally:
 ```
 
 - レイヤを受け取る`qgis_figure`の公開関数は、いずれも`build_gis_figure`と同じ「レイヤ名 + `project`」で呼べる（例: `qf.style_roi_outline("ROI", project=project)`）。`style_roi_outline` / `filter_paletted_to_present` / `set_raster_itemized_legend`は、上記の骨格のようにレイヤオブジェクトを渡してもよい
+- 衛星画像などの下絵を敷く、または比較用のレイヤを重ねるときは、`build_gis_figure`の`background_layer_names` / `overlay_layer_names`にレイヤ名を渡す。重ね順は上から ROI 枠 → 重ねるレイヤ → 対象データ → 下絵で、凡例には重ねるレイヤと対象データが載る。XYZ タイルの読み込みに失敗しても書き出しは`ok: True`を返すため、出力した図は目視で確かめる
 - `roi_path` / `raster_path` / `out_png`もリポジトリルートと同様に引数や設定から受け取り、研究データの絶対パスをランナーに書かない（[CodingRule.md](CodingRule.md) 7章）
 - タイトルの書式は[取得方法・構図](#取得方法構図)に従う（例は既存の`images/gis_data/dem/dem_fabdem_hanoi.png`と同じタイトルで、書式の`{年}`を省いている。FABDEM の原データの観測期間は 2010〜2015 年にまたがり、年が一つに定まらないため）
 - 複数枚を作る場合は、`initQgis()`から`exitQgis()`までの 1 回の起動の中でループする。起動と終了には数秒かかるため、1 枚ごとに起動し直さない

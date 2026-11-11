@@ -1,6 +1,6 @@
 # calc_urban_params CLI・検証
 
-**最終更新**: 2026-10-19
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md), [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md)
 **前提知識**: [calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 5章・6章、[calc_urban_params_processing_design.md](calc_urban_params_processing_design.md) 7章（処理設計）
 
@@ -422,7 +422,7 @@ python -m src.analysis.build_dataset --city hanoi --scenario limited --tables lu
 | 有効域と図郭内枠の一致 | 有効域の外周が図郭内枠（8列×10行）の外周と一致し、内部に隙間・穴はない |
 | RG との関係 | RG は有効域の内側の区・坊の行政界で、範囲の縁で途切れて開いている（RG を面化しても範囲にならない理由を目視で確認） |
 | CRS の整合 | DC（EPSG:5897 を付与）と GBA 建物（EPSG:4326）の建物位置にずれはない |
-| DC が極端に少ない図葉（北端中央、DC 10件） | 同じ区域は GBA 建物もほぼ空白で、北側の河川沿いの建物が少ない区域に当たる。DC の欠落ファイル（図葉 251-c。[survey_gis_data_preparation_status.md](../../03_results/survey_gis_data_preparation_status.md) 2.6節）がこの図葉に当たるかは、図葉名と位置の対応を確かめておらず**未確認**である。当たる場合でも、建物が少ない区域のため欠落の影響は小さいと見込まれる（GBA との整合からの推定） |
+| DC が極端に少ない図葉（北端中央、DC 10件） | 同じ区域は GBA 建物もほぼ空白で、北側の河川沿いの建物が少ない区域に当たる。この図葉は 219-b で、DC の欠落ファイルとされていた図葉 251-c ではない。251-c は現在の `merge_DC.gpkg` に含まれている（[survey_gis_data_preparation_status.md](../../03_results/survey_gis_data_preparation_status.md) 2.6節。件数の 10 件と同節の約 12 件の違いは数え方の違いによる） |
 
 > **QGIS での注意**: 測量GISの merge ファイルはジオメトリ型が混在するため、QGIS はサブレイヤの1つ（DC では Point）だけを読み込む。建物面を見るには URI に `|geometrytype=MultiPolygon` を付けて読み込む。
 

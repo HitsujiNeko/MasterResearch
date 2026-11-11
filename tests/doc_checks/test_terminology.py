@@ -16,8 +16,9 @@ def test_no_violations_for_canonical_terms(tmp_path: Path) -> None:
     """規約表記どおりであれば違反は検出しない。"""
     content = (
         "LSTは30°Cである。\n"
-        "分析シナリオは Satellite Only / Limited / Full の3種類。\n"
-        "GBAをLimitedシナリオの建物主ソースとする。\n"
+        "分析シナリオは衛星データのみ／衛星＋公開GISデータ。\n"
+        "英語表記は Satellite only / Satellite + open GIS。\n"
+        "GBAを衛星＋公開GISデータのシナリオの建物主ソースとする。\n"
         "CRSはEPSG:4326、WGS84、VN-2000を使用する。\n"
         "RQ1とRQ2とRQ3を検証する。\n"
     )
@@ -65,25 +66,80 @@ def test_does_not_flag_rq_or_epsg_inside_snake_case_identifiers(tmp_path: Path) 
 
 
 def test_detects_satellite_only_case_variant(tmp_path: Path) -> None:
-    """Satellite Onlyの大文字小文字の揺れを検出する。"""
+    """Satellite Onlyの大文字小文字の揺れを旧呼び名として検出する。"""
     _write(tmp_path / "docs" / "a.md", "satellite only シナリオで分析する。\n")
 
     result = check_terminology(project_root=tmp_path)
 
     assert len(result) == 1
-    assert result[0].category == "シナリオ名"
+    assert result[0].category == "シナリオ名（旧呼び名）"
     assert result[0].matched_text == "satellite only"
 
 
 def test_detects_limited_lowercase_before_scenario_word(tmp_path: Path) -> None:
-    """「シナリオ」直前のLimited/Fullの大文字小文字の揺れを検出する。"""
+    """「シナリオ」直前のLimited/Fullの大文字小文字の揺れを旧呼び名として検出する。"""
     _write(tmp_path / "docs" / "a.md", "limitedシナリオで採用する。\n")
 
     result = check_terminology(project_root=tmp_path)
 
     assert len(result) == 1
-    assert result[0].category == "シナリオ名"
+    assert result[0].category == "シナリオ名（旧呼び名）"
     assert result[0].matched_text == "limited"
+
+
+def test_detects_old_scenario_names_in_prose(tmp_path: Path) -> None:
+    """本文に残った旧呼び名（Satellite Only・Limited シナリオ・Fullシナリオ）を検出する。"""
+    content = "Satellite Only と比べる。\nLimited シナリオで採用する。\nFullシナリオは未実施。\n"
+    _write(tmp_path / "docs" / "a.md", content)
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.line, v.category, v.matched_text) for v in result] == [
+        (1, "シナリオ名（旧呼び名）", "Satellite Only"),
+        (2, "シナリオ名（旧呼び名）", "Limited"),
+        (3, "シナリオ名（旧呼び名）", "Full"),
+    ]
+
+
+def test_does_not_flag_new_english_scenario_name(tmp_path: Path) -> None:
+    """新しい英語表記「Satellite only」は大文字小文字を区別して許容する。"""
+    _write(tmp_path / "docs" / "a.md", "英語表記は Satellite only とする。\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert result == []
+
+
+def test_does_not_flag_old_scenario_names_inside_inline_code(tmp_path: Path) -> None:
+    """インラインコード内（出力値の引用・識別子）の旧呼び名は検出しない。"""
+    content = (
+        '結果 JSON の `"scenario": "Satellite Only"` と `Limited − Satellite Only` を引用する。\n'
+        "テーマ ``Full`` シナリオ表示の切り替え。\n"
+    )
+    _write(tmp_path / "docs" / "a.md", content)
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert result == []
+
+
+def test_detects_old_scenario_name_outside_inline_code_on_same_line(tmp_path: Path) -> None:
+    """同じ行にインラインコードがあっても、その外側の旧呼び名は検出する。"""
+    _write(tmp_path / "docs" / "a.md", "`limited` を指す Satellite Only の記述。\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [v.matched_text for v in result] == ["Satellite Only"]
+
+
+def test_excludes_submitted_gis_ideas_documents_only_for_scenario_names(tmp_path: Path) -> None:
+    """提出済み資料（GIS_IDEAS_*）ではシナリオ名だけを対象外とし、他の用語は検出する。"""
+    poster = tmp_path / "docs" / "03_results" / "GIS_IDEAS_poster.md"
+    _write(poster, "Satellite Only と Limited シナリオ。30℃\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.category, v.matched_text) for v in result] == [("LST単位", "℃")]
 
 
 def test_does_not_flag_full_or_limited_outside_scenario_context(tmp_path: Path) -> None:

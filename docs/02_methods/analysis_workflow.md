@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-11-09  
+**最終更新**: 2026-11-11  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [spatial_cv_design_results.md](../03_results/spatial_cv_design_results.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -14,7 +14,7 @@
 実装を始める前に各工程の入出力・手法選定の根拠を明確にし、  
 再現性のある研究プロセスを確立することを目的とする。
 
-### 現在の優先実行範囲（2026-11-04）
+### 現在の優先実行範囲（2026-11-11）
 
 研究の分析シナリオは、次の 3 段階で整理している。
 
@@ -23,13 +23,13 @@
 3. `Full`: 衛星指標 + オープンソース GIS + 測量由来 GIS
 
 このうち、**Satellite Only と Limited は、主採用の観測 `2022-09-06T03:23:58`・30m で完了している**（Limited は採用構成のみ）。結果は [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章、[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章、全域と測量GIS範囲の比較は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章にある。採用観測の根拠は [observation_selection.md](observation_selection.md) 5章・8章を正本とする。  
+RQ2 のグリッド解像度（30 / 90 / 300m）と分析対象範囲の比較も、同じ観測で Satellite Only・Limited について実施済みである（[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md)）。  
 **Full は未実施**である。
 
 残る主な作業（優先順位と進捗は GitHub Issues / Project を正本とする）:
 
 1. 測量由来 GIS のレイヤ別の確認と変数対応を確定し、`Full` を実行する。
-2. RQ2 の本分析として、グリッド解像度（30 / 90 / 300m）と分析対象範囲の組合せを比べる（主採用の観測のテーブルは 30m のみのため、先に 90m・300m を生成する）。
-3. 比較用の観測 `2024-11-30T03:23:36` で分析する（在庫の指標に MNDWI が無いため、先に再エクスポートする）。
+2. 比較用の観測 `2024-11-30T03:23:36` で分析する（在庫の指標に MNDWI が無いため、先に再エクスポートする）。
 
 現在の主要実装:
 
@@ -412,12 +412,14 @@ GIS 列は Full / Limited シナリオの実装時に追加する。
 | 空間集計単位 | 30m / 90m / 300m のグリッド解像度（3.2節） | 説明変数・LST ともセル単位で集計する（LST はセル平均） |
 | 分析対象範囲 | 全域（ROI の解析対象域）／都心部（測量GIS範囲） | 指定方法は実装スケジュール表下の注記「分析対象範囲の指定」。全域も ROI そのものではなく、`IN_ANALYSIS_AREA == 1` とシナリオごとの有効域品質列で絞った範囲である。都心部は `Full` を他シナリオと同じ範囲で比べる前提にもなる（5.3節） |
 
-**評価指標**: 各条件の RMSE・R²（Spatial CV）と、変数の寄与順位（SHAP）の変化。範囲間の比較では RMSE を主、R² を従とする（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 5.1節）。
+**評価指標**: 各条件の RMSE・R²（Spatial CV）と、変数の寄与順位（SHAP）の変化。範囲間の比較では RMSE を主、R² を従とする（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 5.1節）。解像度をまたぐ比較では、セル内の平均で LST の分散が変わるため、Spatial CV の RF の RMSE をフィルタ後の母数の LST 標準偏差で割った値と SHAP の順位を主とする（[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) 2章）。
+
+**実施状況**: 主採用の観測で Satellite Only・Limited（採用構成）を 30 / 90 / 300m × 全域・都心部で実施済み（2026-11-11）。区画長 13,500m の併記・標本数の感度・都心部でシードを変えた順位の安定性もあわせて測った。結果は [rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) を正本とする。`Full` の都心部での評価は未実施である。
 
 **2軸を掛け合わせる際の留意点**:
 
 - **対象シナリオ**: `Full` は全域では成立しないため、分析対象範囲の軸で比べるのは `Satellite Only` と `Limited` である。説明変数は各シナリオの変数セットをそのまま用いる。`Full` は都心部でのみ評価する
-- **都心部 × 90m・300m**: 境界にかかる部分被覆セルの面積超過が 90m で約1.8%、300m で約8% に広がり、30m と同じ扱い（境界セルをそのまま使う）でよいかの再検討が要る（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.2節）。あわせてセル数が大きく減り（300m で約1,200 セル。[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）、Spatial CV のブロック数は 30m の時点ですでに 24 個にとどまる（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.5節）。このため都心部の 90m・300m は、ブロック判定を満たすかを確認してから評価する
+- **都心部 × 90m・300m**: 境界にかかる部分被覆セルの面積超過が 90m で約1.8%、300m で約8% に広がり、30m と同じ扱い（境界セルをそのまま使う）でよいかの再検討が要る（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.2節）。あわせてセル数が大きく減り（300m で約1,200 セル。[calc_urban_params_cli_verification.md](calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）、Spatial CV のブロック数は 30m の時点ですでに 24 個にとどまる（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 3.5節）。このため都心部の 90m・300m は、ブロック判定を満たすかを確認してから評価する。Satellite Only・Limited では、境界セルをそのまま使うことと、都心部 300m を参考値として扱うことを実行前に決め、全条件がブロック判定を満たした（[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) 2章・5章）。`Full` では境界セルの扱いを改めて検討する
 
 #### 今後の課題: 近傍リング型変数による比較（未実装の設計案）
 
@@ -597,7 +599,8 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
 | **Phase 5** | `Limited` シナリオ比較（RQ3） | `analysis_rq3_limited.py` など（分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 5** | `Full` シナリオ比較（RQ3） | `analysis_rq3_full.py` など | 🟡 中 |
-| **Phase 6** | RQ1 / RQ2 本分析 | `analysis_rq1.py`, `analysis_rq2.py` | 🟢 後 |
+| **Phase 6** | RQ1 本分析 | `analysis_rq1.py` | 🟢 後 |
+| **Phase 6** | RQ2 本分析（Satellite Only・Limited。解像度 × 分析対象範囲） | `analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py` の `--scale`・`--analysis-area` で実行し、`src/analysis/summarize_rq2_scale_area.py` で集計 | ✅ 完了（2026-11-11） |
 | **Phase 6** | 可視化・図表作成 | `visualize_*.py` | 🟢 後 |
 
 > **分析対象範囲の指定**: `analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py` は `--analysis-area {roi,survey}`（既定 `roi`）を持つ。`roi` は従来どおり `IN_ANALYSIS_AREA == 1` で絞り、出力名・母数は変わらない。`survey` は測量GIS範囲（ハノイ都心部）に絞るため `IN_ANALYSIS_AREA_SURVEY == 1` を追加で要求し、`mask_survey` テーブルを結合したデータセット（`build_dataset.py --tables ... mask_survey`）を必要とする（列が無ければモデル学習前に停止する）。`survey` の出力名には末尾に `_area_survey` が付き、結果 JSON（Limited は `--diagnose-only` の診断 JSON も）に `analysis_area` と `required_mask_columns` が記録される。両範囲の比較結果は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) を正本とする。

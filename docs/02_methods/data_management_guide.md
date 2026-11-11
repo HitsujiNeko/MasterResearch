@@ -122,7 +122,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
   - `data/satellite/`（衛星由来データ）
   - `data/output/satellite_only/*/*_dataset.csv`（大容量中間生成物）
   - `data/output/satellite_only/*/*_sample_100000.csv`（大容量サンプルCSV）
-  - `data/output/limited/*/*_sample_*.csv`（大容量サンプルCSV。Limitedシナリオ分析）
+  - `data/output/limited/*/*_sample_*.csv`（大容量サンプルCSV。衛星＋公開GISデータのシナリオ分析）
   - `data/output/spatial_cv_design/*/sweep/*_residuals.csv`（Spatial CV 診断の残差の部分標本CSV）
   - `data/output/urban_params/*.csv`（都市構造パラメータCSV）
 - ファイルベースの除外
@@ -135,7 +135,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 
 - `data/output/satellite_only/*/*_dataset.csv` はピクセル単位の大容量中間生成物を想定し、Git管理外とする
 - `data/output/satellite_only/*/*_sample_100000.csv` も同様に大容量のため、Git管理外とする
-- `data/output/limited/*/*_sample_*.csv` はLimitedシナリオ分析（`analysis_rq3_limited.py`）のサンプルCSV（1件あたり10MB超）を想定し、Git管理外とする
+- `data/output/limited/*/*_sample_*.csv` は衛星＋公開GISデータのシナリオ分析（`analysis_rq3_limited.py`）のサンプルCSV（1件あたり10MB超）を想定し、Git管理外とする
 
 ### 7.2 認証情報（APIトークン）の扱い
 
@@ -218,7 +218,7 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `python_version` / `platform` | Python のバージョンと OS |
 | `git.commit` / `git.dirty` | コミットハッシュと、コード（`src/` 配下。未追跡ファイルを含む）の未コミット変更の有無。`dirty` が `true` の場合、コミットだけでは生成時のコードを復元できない。結果ファイル等のコード以外の変更は判定に含めない。git を利用できない環境では両方 `null` |
 | `code` | 生成時のコードのファイルハッシュ。`watch_paths`（ハッシュを取った範囲: 生成スクリプト・既定の監視パス `src.common.summary.CODE_WATCH_PATHS`・スクリプトごとの追加の監視パス（`build_provenance` の `extra_watch_paths`。結果が `src/common/` の外の別スクリプトの定義に依存する場合に渡す。陳腐化チェックは記録された `watch_paths` をすべて監視する。git の追跡ファイルが1件も無い追加の監視パス（打ち間違い等）は変更を検出できないため警告を出す。来歴の保存は止めない））と、その配下の git 追跡ファイルごとの `path`・`sha256` のリスト（`files`）。ハッシュは改行を LF にそろえた内容から計算する（`core.autocrlf` で作業ツリーが CRLF になる Windows と、LF の clone とで一致させるため）。記録コミットがローカルから消えても、陳腐化検出が生成時のコードと現在の `HEAD` を比べられるようにする。git を利用できない環境では `null` |
-| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。結果を左右するライブラリをスクリプトが追加する場合がある（RQ3 の Limited・Satellite Only は VIF に使う statsmodels、Spatial CV の設計診断は esda・libpysal・scikit-gstat・scipy）。未インストールは `null` |
+| `packages` | 主要ライブラリ（numpy・pandas・scikit-learn・shap・geopandas・rasterio・shapely・pyproj・pyogrio）のバージョン。結果を左右するライブラリをスクリプトが追加する場合がある（RQ3 の衛星＋公開GISデータ・衛星データのみの分析は VIF に使う statsmodels、Spatial CV の設計診断は esda・libpysal・scikit-gstat・scipy）。未インストールは `null` |
 | `inputs` | 入力ファイルの `path`（可能ならプロジェクト相対）と `sha256` のリスト。プロジェクトルート外のパスは絶対パスのまま記録されるため、入力はプロジェクト内（`data/` 配下）に配置して実行する。`sha256` は原則として来歴の生成時に計算するが、呼び出し側が計算済みのハッシュ（`build_provenance` の `known_sha256`）を渡した入力はその値を記録する（下記「記録する入力の範囲」） |
 
 - **記録しないもの**: 乱数シード・モデルのハイパーパラメータ等の**実行パラメータ**は来歴に含めず、
@@ -248,9 +248,9 @@ JSON として再生成できるインベントリスクリプトを用意して
   このため反復の `inputs` の両データセットのハッシュは、保存直前ではなく、データセットを読み込む直前の中身を表す。
   欠測脱落診断では、データセット・ROI・参照ラスタを渡し、ROI の Shapefile は主ファイル（`.shp`）に加えて
   実在する付随ファイル（`.shx`・`.dbf`・`.prj`・`.cpg`）も渡す（座標系の再定義では `.prj` だけが変わるため）。
-  RQ3 の分析スクリプト（Satellite Only・Limited）では、分析用データセット GeoPackage の1件のみを渡す
+  RQ3 の分析スクリプト（衛星データのみ・衛星＋公開GISデータ）では、分析用データセット GeoPackage の1件のみを渡す
   （両スクリプトが読むファイルはこれだけであるため。サンプル CSV 等は出力であり入力に含めない）。
-  Limited の診断JSONにも付与するのは、相関行列・VIF・フィルタ脱落の数値の出典になるためである
+  `analysis_rq3_limited.py` の診断JSONにも付与するのは、相関行列・VIF・フィルタ脱落の数値の出典になるためである
   （実行パラメータの `run_parameters` はモデル学習の条件のため、診断JSONには付与しない）
 - **注意**: 入力ハッシュは全バイトを読んで計算するため、大容量の GeoPackage・GeoTIFF では
   実行時間が延びる

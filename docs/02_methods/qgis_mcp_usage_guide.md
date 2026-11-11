@@ -50,10 +50,10 @@ Claude Codeは`add_vector_layer`でレイヤーを読み込み、`get_layer_feat
 
 ## ユースケース4: Map Theme切り替え
 
-研究のシナリオ定義（Satellite Only / Limited / Full）に対応したMap Themeが`hanoi.qgz`に設定済み。
+研究のデータシナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）に対応したMap Theme（テーマ名は `Satellite Only` / `Limited` / `Full`）が`hanoi.qgz`に設定済み。
 
 ```text
-「hanoi.qgz で Limited のMap Themeに切り替えて」
+「hanoi.qgz で `Limited` のMap Themeに切り替えて」
 ```
 
 `apply_map_theme`で切り替える。テーマ自体の再定義・追加は、対象レイヤーグループの可視性を`execute_code`（`QgsLayerTreeGroup.setItemVisibilityChecked`）で設定してから`add_map_theme`を呼ぶ（同名テーマは上書き更新される）。起動中のプロジェクトの構成を変える操作であり、`execute_code`を使う場面に当たる。

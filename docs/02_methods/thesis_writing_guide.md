@@ -154,13 +154,13 @@ python scripts/build_thesis.py --pdf
 | 研究課題 | 「RQ1」「RQ2」「RQ3」（1.4 節で定義した後に使う） |
 | 衛星 | 「Landsat 8/9」のように半角英数字で書く |
 
-分析シナリオの和名（暫定。第 3 章の初稿で確定する）:
+分析シナリオの呼び名（確定。コード上の識別子との対応は [CLAUDE.md](../../CLAUDE.md) の最小用語集）:
 
-| 英名 | 和名（案） | 使うデータ |
-|---|---|---|
-| Satellite Only | 衛星のみ構成 | 衛星由来データのみ |
-| Limited | 公開データ構成 | 衛星由来データ＋公開 GIS データ |
-| Full | 測量データ構成 | 衛星由来データ＋公開 GIS データ＋測量 GIS データ |
+| 和名 | 英名 | 使うデータ | 扱い |
+|---|---|---|---|
+| 衛星データのみ | Satellite only | 衛星由来データのみ | 主軸 |
+| 衛星＋公開GISデータ | Satellite + open GIS | 衛星由来データ＋公開 GIS データ | 主軸 |
+| 測量建物置き換え | Survey-building substitution | 衛星＋公開GISデータの建物の変数を測量 GIS データから算出したものに置き換える | 付録 |
 
 シナリオの定義の正本は [CLAUDE.md](../../CLAUDE.md) の最小用語集、各シナリオが成立する範囲は [research_guide.md](../01_planning/research_guide.md) のシナリオ表を参照する。
 

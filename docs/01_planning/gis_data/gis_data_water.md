@@ -8,7 +8,7 @@
 
 ## 1. 調査目的
 
-本資料の作成時点で算出済みだった水域関連の指標は、衛星由来のNDWI（水域・湿潤域指標）のみである。その後、衛星由来のMNDWIと、土地被覆（GLC_FCS30D）由来の水域被覆率 `LULC_WATER_COV` が `Limited` シナリオに入った（[urban_structure_parameters.md](../urban_structure_parameters.md) §2.2・§3.2）。NDWI・MNDWIは連続値・単一時点の分光指標であり、水域の物理的な広がりや位置関係を直接表すものではない。都市構造パラメータとしては、以下の2種類の水域関連指標が候補となる。
+本資料の作成時点で算出済みだった水域関連の指標は、衛星由来のNDWI（水域・湿潤域指標）のみである。その後、衛星由来のMNDWIと、土地被覆（GLC_FCS30D）由来の水域被覆率 `LULC_WATER_COV` が 衛星＋公開GISデータのシナリオに入った（[urban_structure_parameters.md](../urban_structure_parameters.md) §2.2・§3.2）。NDWI・MNDWIは連続値・単一時点の分光指標であり、水域の物理的な広がりや位置関係を直接表すものではない。都市構造パラメータとしては、以下の2種類の水域関連指標が候補となる。
 
 - **水域近接距離**（`WATER_DIST`等）: 最近接の水域までの距離。先行研究S5（最近接の潮汐水域までの距離）・S6（`PW`。最終モデルには残っていない）・S8（`DFW`）で扱われる距離変数に相当。
 - **水域面積率**（`WATER_COV`）: グリッド内の水域面積割合。
@@ -119,7 +119,7 @@ ROI 内の画素数は 4,015,081（GLC_FCS30D の 4,015,086 とほぼ同じ格�
 
 ## 7. 水域データの一致度（GLC・Esri・JRC・MNDWI、主採用観測 2022-09-06）
 
-Limited シナリオの水域被覆率 `LULC_WATER_COV` は GLC_FCS30D の水域クラス（210）から算出している（[urban_structure_parameters.md](../urban_structure_parameters.md) §2.2）。GLC と Esri の比較（[gis_data_lulc.md](gis_data_lulc.md) 7章）で水域の IoU が 0.40 にとどまったため、水域判定専用の JRC GSW と観測日の MNDWI を加えて、同じグリッド上で一致度を比べた。
+衛星＋公開GISデータのシナリオの水域被覆率 `LULC_WATER_COV` は GLC_FCS30D の水域クラス（210）から算出している（[urban_structure_parameters.md](../urban_structure_parameters.md) §2.2）。GLC と Esri の比較（[gis_data_lulc.md](gis_data_lulc.md) 7章）で水域の IoU が 0.40 にとどまったため、水域判定専用の JRC GSW と観測日の MNDWI を加えて、同じグリッド上で一致度を比べた。
 
 ### 7.1 方法
 
@@ -244,7 +244,7 @@ MNDWI の閾値と IoU（抜粋）:
 
 - **`LULC_WATER_COV` の値はデータの選択に敏感である**。水域の面積はデータと定義で GLC の 0.24〜2.08 倍変わり、差の主因は季節的な水域（水田・養殖池・砂州）の扱いである。主採用観測（9月・雨季）では冠水した農地が多く、観測日に近い判定ほど水域が広がる
 - GLC は複数データの中間に位置し、比べたデータのうち JRC 月次（観測日と暦月がそろう）と最もよく一致する。GLC を誤りとする根拠は得られなかった
-- **方針（研究者判断、2026-11-01）**: **P7 のクラス列 `LULC_WATER_COV` の元データは GLC_FCS30D を継続**し、**水域率を JRC（月次または Occurrence）で差し替えた感度分析を後続タスクで追加**する。差し替え後の Limited・共通評価の再実行は本比較の対象外とした
+- **方針（研究者判断、2026-11-01）**: **P7 のクラス列 `LULC_WATER_COV` の元データは GLC_FCS30D を継続**し、**水域率を JRC（月次または Occurrence）で差し替えた感度分析を後続タスクで追加**する。差し替え後の衛星＋公開GISデータのシナリオ・共通評価の再実行は本比較の対象外とした
 - 後続の P11・P12 の採否の見直し（[urban_structure_parameters.md](../urban_structure_parameters.md) §1.5）では、本章の一致度と、GLC の「湿地」との境界の揺れを判断材料にする
 
 ---

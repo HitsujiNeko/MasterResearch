@@ -123,7 +123,7 @@ ROIの約半分しか覆っておらず、実効ROIカバー率は12位（52.3%�
 |---|---|
 | 観測日時（UTC） | `2022-09-06T03:23:58`（Landsat 8・`LC08_127045_20220906`） |
 | 実効ROIカバー率 | 93.5%（2022年以降の386件で4位、Landsat 8 で雨季の最上位） |
-| 季節 | 9月（雨季）。既存のSatellite Only / Limitedの分析結果（7月）と季節がそろう |
+| 季節 | 9月（雨季）。既存の衛星データのみ・衛星＋公開GISデータの分析結果（7月）と季節がそろう |
 | 値の妥当性 | 平均 ± 6σ を超える画素は 0.013%（埋立地・中州の砂地・工場の屋根と、原因未確認の川岸1か所）で、合否基準（0.1%以下）に合格（8.4） |
 | ラスタ | `data/satellite/lst/2022/LST_Landsat8_20220906_032358Z.tif`, `data/satellite/indices/2022/INDICES_Landsat8_20220906_032358Z.tif` |
 | 比較用の観測 | `2023-07-07T03:23:05`（旧採用・雨季）、`2024-11-30T03:23:36`（乾季）。ラスタは `data/satellite/{lst,indices}/2023/` に在庫（`2024-11-30` の指標は MNDWI が無く、分析前に再エクスポートが要る。9.1） |
@@ -445,7 +445,7 @@ ROI に対する有効画素の割合で比べた。
 指標の GeoTIFF のバンド構成は、`2022-09-06`（今回エクスポート）と `2023-07-07`（在庫）が4バンド（NDVI・NDBI・NDWI・MNDWI）、
 `2024-11-30`（在庫）だけが3バンド（NDVI・NDBI・NDWI）である。`2023-07-07` は MNDWI を加えるために作り直している
 （[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）。都市構造パラメータの
-算出と Limited の分析は4つの指標を前提とするため、`2024-11-30` で分析するには指標の再エクスポートが要る（9.1）。
+算出と衛星＋公開GISデータの分析は4つの指標を前提とするため、`2024-11-30` で分析するには指標の再エクスポートが要る（9.1）。
 
 **合否**: GEE 上の集計（[gee_check_lst_cloud_mask.py](../../src/gee/gee_check_lst_cloud_mask.py)、3件を指定）では、
 3件とも現在の雲マスクで -20°C 未満の画素は0画素で、統計量は探索結果CSVと一致した。GeoTIFF で平均 ± 6σ を数えた結果は次の通りで、
@@ -528,8 +528,8 @@ ROI に対する有効画素の割合で比べた。
 - [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md) の
   既存結果（2023-07-07の観測に `032329` を使用）は、本ドキュメントの実効ROIカバー率で見ると
   ROI約半分（52.3%）に基づく結果である旨を当該ドキュメントに注記した。その後、cell_id 結合経路の
-  Satellite Only（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)）と
-  Limited（[limited_analysis_results.md](../03_results/limited_analysis_results.md)）は `032305` で実行し、
+  衛星データのみ（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md)）と
+  衛星＋公開GISデータ（[limited_analysis_results.md](../03_results/limited_analysis_results.md)）は `032305` で実行し、
   その後に主採用の `032358` でも実行した（9.1）。`032329` のままなのは旧経路の satellite_only_analysis_results.md である
 - 本ドキュメントで確定した採用観測・選定指標は、後続の都市構造パラメータ算出・
   モデル構築タスクの前提として参照すること
@@ -537,21 +537,21 @@ ROI に対する有効画素の割合で比べた。
 ### 9.1 主採用の変更（8章）による既存分析への影響
 
 **主採用を `2023-07-07T03:23:05` から `2022-09-06T03:23:58` に変えたため、主結果を得るには再実行が必要である。**
-主採用の観測での再実行（30m・Satellite Only と Limited の採用構成）は実施済みであり、結果は
+主採用の観測での再実行（30m・衛星データのみと衛星＋公開GISデータの採用構成）は実施済みであり、結果は
 [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章・
 [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章にある。
 比較用の観測（8.5）のうち `2024-11-30` での分析は未実施である。`032305` で実行済みの既存の分析結果は、
 旧採用（比較用の観測の1つ）に基づく結果として有効である。ただし `032305` の結果は衛星指標の作り方で2世代に分かれ
 （[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）、世代をまたいだ数値は直接比べない。
 新しい主採用は現行の手順（新世代: ROI でクリップ済み・MNDWI あり）で実行するため、比較に使えるのは新世代のラン
-（Limited はラン12〜15、採用構成はラン13）に限る。
+（衛星＋公開GISデータはラン12〜15、採用構成はラン13）に限る。
 
 | 段階 | 再実行の要否 | 対象 | 状態 |
 |---|---|---|---|
 | 都市構造パラメータ | 要 | `python -m src.analysis.urban_params`（ラスタ → GeoPackage。`data/output/params/hanoi/30m/` に `lst_20220906_032358.gpkg`・`idx_20220906_032358.gpkg` を新たに作る） | 実施済み（30m。RQ2 の解像度比較のため 90m・300m も作成済み。[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) 4.1節） |
-| データセット構築 | 要 | Satellite Only・Limited の gpkg（`dataset_*_20220906_032358_hanoi_30m.gpkg`） | 実施済み |
-| 分析 | 要 | [analysis_rq3_limited.py](../../src/analysis/analysis_rq3_limited.py)・[analysis_rq3_satellite_only.py](../../src/analysis/analysis_rq3_satellite_only.py)（既定の入力パスと出力先は `20220906_032358` に切り替え済み） | 実施済み（Limited は採用構成のみ） |
-| 測量GIS範囲での比較 | 要 | `mask_survey` を結合したデータセットで、Satellite Only と Limited の採用構成を全域・測量GIS範囲で実行し、測量GIS範囲では共通評価セルで比較する | 実施済み（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章。Limited は採用構成のみ） |
+| データセット構築 | 要 | 衛星データのみ・衛星＋公開GISデータの gpkg（`dataset_*_20220906_032358_hanoi_30m.gpkg`） | 実施済み |
+| 分析 | 要 | [analysis_rq3_limited.py](../../src/analysis/analysis_rq3_limited.py)・[analysis_rq3_satellite_only.py](../../src/analysis/analysis_rq3_satellite_only.py)（既定の入力パスと出力先は `20220906_032358` に切り替え済み） | 実施済み（衛星＋公開GISデータは採用構成のみ） |
+| 測量GIS範囲での比較 | 要 | `mask_survey` を結合したデータセットで、衛星データのみと衛星＋公開GISデータの採用構成を全域・測量GIS範囲で実行し、測量GIS範囲では共通評価セルで比較する | 実施済み（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章。衛星＋公開GISデータは採用構成のみ） |
 | 比較用の観測 | `2024-11-30` を新たに実行 | `2024-11-30T03:23:36`。在庫の指標 GeoTIFF に MNDWI が無いため、先に指標を再エクスポートする（8.4）。`2023-07-07` は `032305` で実行済みの新世代のランを使える（旧世代のランは比較に使わない） | 未実施 |
 
 主結果を新しい観測に差し替える際に追従の要否を判断した文書と、その判断は次の通りである（いずれも旧採用の観測を前提に書かれていた）。
@@ -568,8 +568,8 @@ ROI に対する有効画素の割合で比べた。
 
 **測量GIS範囲での比較は、主採用の観測で回し直した**（研究者の確認を経た判断。結果は
 [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章）。
-測量GIS範囲の結果は Full シナリオと比べるときの基準であり、Full シナリオを主採用の観測で評価する場合、基準も同じ観測にそろえる必要があったためである。
-同ドキュメントの 032305 の結果（2〜5章）は旧採用に基づく記録として残し、Full シナリオの基準には7章の結果を使う。
+測量GIS範囲の結果は付録の測量建物置き換えと比べるときの基準であり、付録を主採用の観測で評価する場合、基準も同じ観測にそろえる必要があったためである。
+同ドキュメントの 032305 の結果（2〜5章）は旧採用に基づく記録として残し、測量建物置き換えの基準には7章の結果を使う。
 主採用の観測では、公開GISを加えたモデルの RF の誤差が都心部で下がらないなど、032305 と向きが異なる点がある（同ドキュメント7.7節）。
 
 **比較可能性の限界**: 新しい主結果と既存の結果は観測（日時・LST の分布）が違うため、LST の絶対値や誤差（°C）は直接比べられない。

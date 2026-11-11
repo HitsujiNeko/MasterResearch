@@ -80,7 +80,7 @@ def compute(
 
 ### 7.2 Step B: GIS由来指標（一部は設計未確定、6.4節参照）
 
-> 建物・道路・標高（`Limited`）は[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節の通り**設計確定・実装済み**である。以下「設計未確定」に挙げるパラメータの列名・入力源は案であり、各パラメータを別途個別に確定する。  
+> 建物・道路・標高（衛星＋公開GISデータ）は[calc_urban_params_io_spec.md](calc_urban_params_io_spec.md) 6.4節の通り**設計確定・実装済み**である。以下「設計未確定」に挙げるパラメータの列名・入力源は案であり、各パラメータを別途個別に確定する。  
 > 本節は**採用済みのパラメータのみ**を扱う（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 **設計確定・実装済み**
@@ -251,7 +251,7 @@ RG は**境界線**であり（[survey_gis_data_preparation_status.md](../../03_
 
 ##### 測量GISの範囲はグリッドではなくテーブルで絞る
 
-`full` シナリオ用に測量GIS範囲の正準グリッドを別に作ることはしない。**正準グリッドは3シナリオとも ROI 由来で共通**とし、測量GISの範囲は `mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）で絞る。別グリッドにするとシナリオ間で `cell_id` の集合が分かれ、同じセル集合で Satellite Only / Limited / Full を比較できなくなるためである。ROI が全シナリオの解析範囲を包含する（上記）ことから、測量GIS範囲のセルは ROI の正準グリッドにすべて含まれ、別グリッドを作らなくても欠けは生じない（30m で実測。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。
+`full` シナリオ用に測量GIS範囲の正準グリッドを別に作ることはしない。**正準グリッドはすべてのシナリオで ROI 由来の共通のもの**とし、測量GISの範囲は `mask_survey` テーブル（`IN_ANALYSIS_AREA_SURVEY`）で絞る。別グリッドにするとシナリオ間で `cell_id` の集合が分かれ、同じセル集合でシナリオどうしを比較できなくなるためである。ROI が全シナリオの解析範囲を包含する（上記）ことから、測量GIS範囲のセルは ROI の正準グリッドにすべて含まれ、別グリッドを作らなくても欠けは生じない（30m で実測。[calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md) 11.8節）。
 
 `--mask-layer-key survey_extent` で測量GIS範囲だけの正準グリッドを作ることは技術的には可能であり、面として正しく切れることの検証には使う。ただし分析用の正準グリッドとしては使わない。
 

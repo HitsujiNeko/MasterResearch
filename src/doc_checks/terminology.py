@@ -8,8 +8,9 @@
 測量建物置き換え）に改めており、旧呼び名（Satellite Only・Limited シナリオ・
 Full シナリオ）が本文に残っていれば「シナリオ名（旧呼び名）」として検出する。
 コード上の識別子や出力値の引用はインラインコード（バックティック）やコードブロックで
-書く規約のため、インラインコードとフェンス付きコードブロックの中は検出しない。提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も
-当時の記録として対象外とする。新しい呼び名の表記揺れ（「衛星＋公開GIS」のような
+書く規約のため、インラインコードとフェンス付きコードブロックの中は検出しない。
+コードブロックの判定は CommonMark に合わせ、閉じていないブロックは文書末まで続くとみなす。
+提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も当時の記録として対象外とする。新しい呼び名の表記揺れ（「衛星＋公開GIS」のような
 短縮等）は意味判断を要するため対象外とし、`check-docs-consistency` スキルの
 意味的チェックに委ねる。
 """
@@ -53,8 +54,9 @@ _LIMITED_FULL_SCENARIO_PATTERN = re.compile(
 )
 # インラインコード（同じ数のバックティックで囲まれた範囲）
 _INLINE_CODE_PATTERN = re.compile(r"(`+)(.+?)\1")
-# フェンス付きコードブロックの開始・終了行（``` または ~~~ で始まる行）
-_FENCE_PATTERN = re.compile(r"^\s*(```|~~~)")
+# フェンス付きコードブロックのフェンス行（字下げ3文字まで・``` か ~~~ を3つ以上）。
+# group(1) がフェンス記号の並び、group(2) がその後ろ（info string）
+_FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _SCENARIO_CATEGORY = "シナリオ名（旧呼び名）"
 
 # 座標系: EPSG:NNNN 形式からの逸脱（空白・ハイフン区切り、小文字epsg等）
@@ -88,17 +90,50 @@ def check_terminology(project_root: Path = PROJECT_ROOT) -> list[TerminologyViol
             continue
         text = (project_root / relative_path).read_text(encoding="utf-8")
         scenario_target = not posix_path.startswith(_SCENARIO_EXCLUDED_PREFIX)
-        in_fence = False
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            is_fence_line = bool(_FENCE_PATTERN.match(line))
-            if is_fence_line:
-                in_fence = not in_fence
+        lines = text.splitlines()
+        in_code_block = _code_block_mask(lines)
+        for line_number, (line, in_block) in enumerate(zip(lines, in_code_block), start=1):
             # コードブロック内（出力例・CLI 例）はインラインコードと同じくシナリオ名を検査しない
-            check_scenario = scenario_target and not (in_fence or is_fence_line)
+            check_scenario = scenario_target and not in_block
             violations.extend(
                 _check_line(posix_path, line_number, line, check_scenario=check_scenario)
             )
     return violations
+
+
+def _code_block_mask(lines: list[str]) -> list[bool]:
+    """各行がフェンス付きコードブロック（フェンス行を含む）に属するかを判定する。
+
+    CommonMark に合わせ、ブロックは開始フェンスと同じ記号で長さが同じか長く、
+    info string を持たないフェンス行でだけ閉じる。閉じていないブロックは文書末まで続く。
+    バッククォートの開始フェンスは、info string にバッククォートを含む場合はフェンスとみなさない。
+
+    Args:
+        lines: 文書の行のリスト。
+    Returns:
+        行ごとの真偽値のリスト（True はコードブロック内）。
+    """
+    mask: list[bool] = []
+    open_fence: str | None = None
+    for line in lines:
+        match = _FENCE_PATTERN.match(line)
+        if open_fence is None:
+            is_open = match is not None and not (
+                match.group(1).startswith("`") and "`" in match.group(2)
+            )
+            if is_open:
+                open_fence = match.group(1)
+            mask.append(is_open)
+            continue
+        mask.append(True)
+        if (
+            match is not None
+            and match.group(1)[0] == open_fence[0]
+            and len(match.group(1)) >= len(open_fence)
+            and match.group(2).strip() == ""
+        ):
+            open_fence = None
+    return mask
 
 
 def _check_line(

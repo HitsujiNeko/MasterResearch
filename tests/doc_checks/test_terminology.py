@@ -161,6 +161,46 @@ def test_does_not_flag_old_scenario_names_inside_fenced_code_block(tmp_path: Pat
     assert [(v.line, v.matched_text) for v in result] == [(8, "Satellite Only")]
 
 
+def test_code_block_closes_only_with_same_fence_char_and_length(tmp_path: Path) -> None:
+    """閉じフェンスは開始と同じ記号・同じ長さ以上・info string なしの行だけとする。"""
+    content = (
+        "```\n"  # 1: 開始（```）
+        "~~~\n"  # 2: 記号が違うので閉じない
+        "````md\n"  # 3: info string 付きなので閉じない
+        "Limited シナリオ\n"  # 4: ブロック内
+        "```\n"  # 5: 閉じる
+        "Full シナリオ\n"  # 6: ブロック外
+        "````md\n"  # 7: 開始（````）
+        "```\n"  # 8: 短いので閉じない
+        "Limited シナリオ\n"  # 9: ブロック内
+        "````\n"  # 10: 閉じる
+        "Satellite Only\n"  # 11: ブロック外
+    )
+    _write(tmp_path / "docs" / "a.md", content)
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.line, v.matched_text) for v in result] == [(6, "Full"), (11, "Satellite Only")]
+
+
+def test_indented_four_spaces_is_not_a_fence(tmp_path: Path) -> None:
+    """字下げ4文字以上の ``` はフェンスとみなさず、後続の本文を検査する。"""
+    _write(tmp_path / "docs" / "a.md", "    ```\nFull シナリオ\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.line, v.matched_text) for v in result] == [(2, "Full")]
+
+
+def test_unclosed_fence_continues_to_end_of_document(tmp_path: Path) -> None:
+    """閉じていないコードブロックは CommonMark どおり文書末まで続くとみなす（仕様）。"""
+    _write(tmp_path / "docs" / "a.md", "Full シナリオ\n```\nコード\n\nLimited シナリオ\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [(v.line, v.matched_text) for v in result] == [(1, "Full")]
+
+
 def test_fenced_code_block_does_not_hide_other_categories(tmp_path: Path) -> None:
     """コードブロック内でも、シナリオ名以外の用語は従来どおり検査する。"""
     _write(tmp_path / "docs" / "a.md", "```text\n30℃\n```\n")

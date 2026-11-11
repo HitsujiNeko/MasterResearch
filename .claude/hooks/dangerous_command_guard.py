@@ -13,7 +13,11 @@ force push・リモートブランチ削除・``git reset --hard``・``git clean
 静的に判定できない形（変数展開・``eval``・インタプリタのコード文字列など）は、
 判定できなかった単純コマンド自身と、同じコマンド内の代入・パイプの接続元に危険語の組が
 含まれる場合に限り安全側（拒否）に倒す。
-標準ライブラリのみで動作させる（CI の test ジョブと hook の実行環境を揃えるため）。
+
+実行環境の制約: 本 hook は conda 環境（masterresearch）の外で動く。ラッパーの
+``dangerous_command_guard.sh`` が PATH 上の ``python3``・``python`` などを使うため、
+外部パッケージが入っているとは限らない。そのため標準ライブラリのみで動作させる
+（CodingRule.md 10.1 の条件 4）。
 """
 
 from __future__ import annotations

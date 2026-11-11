@@ -375,6 +375,60 @@ def test_summarize_rank_stability_requires_baseline(tmp_path: Path) -> None:
         summarize_rank_stability(runs, shap_ranks)
 
 
+def _write_seed_runs_with_shap(tmp_path: Path, shap_by_seed: dict[int, dict[str, float]]) -> None:
+    """都心部 90m で、シードごとに指定した平均絶対 SHAP のランを書く。"""
+    root = tmp_path / "limited"
+    for seed, shap_values in shap_by_seed.items():
+        directory = (
+            root / f"{OBSERVATION}_rq2_scale"
+            if seed == 42
+            else root / f"{OBSERVATION}_rq2_scale_seeds" / f"seed{seed}"
+        )
+        _write_run(
+            directory,
+            "survey90",
+            _make_result(
+                scale_m=90,
+                analysis_area="survey",
+                random_state=seed,
+                mean_abs_shap=shap_values,
+            ),
+        )
+
+
+def test_summarize_rank_stability_rejects_mismatched_features(tmp_path: Path) -> None:
+    """シード間で変数の集合が違う条件は、順位を比べられないため例外にする。"""
+    _write_seed_runs_with_shap(
+        tmp_path,
+        {
+            42: {"A": 3.0, "B": 2.0, "C": 1.0},
+            43: {"A": 3.0, "B": 2.0},
+        },
+    )
+    runs, shap_ranks = build_tables(discover_run_files(tmp_path, OBSERVATION))
+    with pytest.raises(ValueError, match="変数がそろっていません"):
+        summarize_rank_stability(runs, shap_ranks)
+
+
+def test_summarize_rank_stability_handles_tied_top1(tmp_path: Path) -> None:
+    """1位が同値で複数あるときは変数名を | でつなぎ、組が同じシードだけを一致と数える。"""
+    _write_seed_runs_with_shap(
+        tmp_path,
+        {
+            42: {"A": 2.0, "B": 2.0, "C": 1.0},
+            43: {"A": 2.0, "B": 2.0, "C": 1.0},
+            44: {"A": 3.0, "B": 2.0, "C": 1.0},
+        },
+    )
+    runs, shap_ranks = build_tables(discover_run_files(tmp_path, OBSERVATION))
+    _, summary = summarize_rank_stability(runs, shap_ranks)
+
+    row = summary.iloc[0]
+    assert row["top1_seed42"] == "A|B"
+    # シード43 は同じ組（A と B の同値）、シード44 は A 単独の1位のため一致しない
+    assert row["top1_same_count"] == 1
+
+
 def test_summarize_rank_stability_empty_without_seed_runs(tmp_path: Path) -> None:
     """シードの反復が無ければ空の表を返す。"""
     _write_run(tmp_path / "limited" / f"{OBSERVATION}_rq2_scale", "a90", _make_result())

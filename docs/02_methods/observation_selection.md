@@ -1,6 +1,6 @@
 # 観測（シーン）選定基準とROIカバー率
 
-**最終更新**: 2026-10-30
+**最終更新**: 2026-11-11
 **関連ドキュメント**: [calc_urban_params_guide.md](calc_urban_params_guide.md), [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md), [gee_calc_LST.md](gee_calc_LST.md), [CodingRule.md](CodingRule.md), [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)
 **前提知識**: ROIと有効カバレッジの違い（本ファイル冒頭の[用語]参照）、Landsat 8 / 9シーン探索の基本フロー（[gee_search_satellite_data.py](../../src/gee/gee_search_satellite_data.py)）
 
@@ -548,7 +548,7 @@ ROI に対する有効画素の割合で比べた。
 
 | 段階 | 再実行の要否 | 対象 | 状態 |
 |---|---|---|---|
-| 都市構造パラメータ | 要 | `python -m src.analysis.urban_params`（ラスタ → GeoPackage。`data/output/params/hanoi/30m/` に `lst_20220906_032358.gpkg`・`idx_20220906_032358.gpkg` を新たに作る） | 実施済み（30mのみ） |
+| 都市構造パラメータ | 要 | `python -m src.analysis.urban_params`（ラスタ → GeoPackage。`data/output/params/hanoi/30m/` に `lst_20220906_032358.gpkg`・`idx_20220906_032358.gpkg` を新たに作る） | 実施済み（30m。RQ2 の解像度比較のため 90m・300m も作成済み。[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md) 4.1節） |
 | データセット構築 | 要 | Satellite Only・Limited の gpkg（`dataset_*_20220906_032358_hanoi_30m.gpkg`） | 実施済み |
 | 分析 | 要 | [analysis_rq3_limited.py](../../src/analysis/analysis_rq3_limited.py)・[analysis_rq3_satellite_only.py](../../src/analysis/analysis_rq3_satellite_only.py)（既定の入力パスと出力先は `20220906_032358` に切り替え済み） | 実施済み（Limited は採用構成のみ） |
 | 測量GIS範囲での比較 | 要 | `mask_survey` を結合したデータセットで、Satellite Only と Limited の採用構成を全域・測量GIS範囲で実行し、測量GIS範囲では共通評価セルで比較する | 実施済み（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章。Limited は採用構成のみ） |

@@ -1,7 +1,7 @@
 # ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（Satellite Only・Limited）
 
 **最終更新**: 2026-11-11  
-**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節・8章・9.1節, [research_guide.md](../01_planning/research_guide.md)  
+**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節・8章・9.1節, [rq2_scale_area_results.md](rq2_scale_area_results.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: Satellite Only・Limited の処理条件（両結果ドキュメントの3節）、Spatial CV のブロック定義、共通評価セルと補正 t 区間（analysis_workflow.md 5.3.3節）  
 **対象RQ**: RQ2（解析範囲による関係の変化）・RQ3（データ制約下での有効性評価）
 
@@ -103,7 +103,7 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 
 - 全域ランは従来どおり `IN_ANALYSIS_AREA == 1` で、測量GIS範囲ランはさらに `IN_ANALYSIS_AREA_SURVEY == 1` で絞る。それ以外のフィルタ条件（`LST_VALID_RATIO >= 0.5`・非NULL要求の列・Limited の人口/夜間光の有効域品質列）は両範囲で同じである
 - **境界にかかる部分被覆セルは除外せず、そのまま使う。** `IN_ANALYSIS_AREA_SURVEY = 1` は「セル内の fine ピクセル中心が1つでも有効域に入る」ことを意味するため境界セルを含むが、30m での面積換算の超過は約0.4%にとどまる（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節）。境界セルの被覆率を表す列の追加は、この大きさに見合わないと判断した
-- **90m・300m で使う場合は再検討が要る。** 超過は 90m で約1.8%、300m で約8% に広がる（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）
+- **90m・300m で使う場合は再検討が要る。** 超過は 90m で約1.8%、300m で約8% に広がる（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節）。Satellite Only・Limited では境界セルの値に欠けが無いため、そのまま使うと決めた（[rq2_scale_area_results.md](rq2_scale_area_results.md) 2章）。Full では改めて検討する
 
 ### 3.3 全域ランによる再現確認（Limited）
 
@@ -260,7 +260,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 - **主採用の観測での回し直し（実施済み・7章）**: Satellite Only と Limited の採用構成（ラン13相当）を、主採用の観測 032358 で全域・測量GIS範囲の両方について回し直した。測量GIS範囲では共通評価セルによる比較も行った。ラン12相当（水指数 `ndwi`）は回していない（7.1節）
 - **Full シナリオとの比較**: 7章の測量GIS範囲の結果を基準に、測量GIS由来の建物（Level 5 の面）を加えた Full シナリオを同じ範囲・同じ条件で評価する（道路は OSM のまま。[survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md) 2.7節）。Full も7章と同じ評価セル（`data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv`）で回せば、Limited・Satellite Only と同じセル・同じ分割で比べられる。ただし Full の有効母集団が共通集合をすべて含むかは未確認である
-- **他スケールへの展開**: 90m・300m では境界セルの超過が大きく（3.2節）、ブロック数もさらに減るため、境界セルの扱いとブロック長を改めて検討する
+- **他スケールへの展開**: 90m・300m では境界セルの超過が大きく（3.2節）、1ブロックあたりのセル数が減るため（ブロック数は区画長で決まり、都心部は24のまま）、境界セルの扱いとブロック長を改めて検討する。Satellite Only・Limited は、境界セルをそのまま使い区画長 2,700m を保って 90m・300m で実施済みである（[rq2_scale_area_results.md](rq2_scale_area_results.md)）。Full では改めて検討する
 - **Spatial CV の頑健性**: Satellite Only と Limited の差については、測量GIS範囲でも20シードの反復で頑健さを確かめた（7.6.3節）。一方、各シナリオの性能そのものと、全域と測量GIS範囲の違い（7.4節・7.6.4節）は fold の組み方に左右されやすく、区間も求めていない。ブロックの割り当てを変えた繰り返し等での確認は残る
 
 ---

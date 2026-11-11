@@ -38,6 +38,12 @@ data/output/satellite_only/*/*_dataset.csv
 data/output/satellite_only/*/*_sample_*.csv
 data/output/satellite_only_cellbased/*/*_sample_*.csv
 data/output/limited/*/*_sample_*.csv
+# RQ2 のシードを変えた反復（seed{S}/ の2階層下）。結果 JSON と CSV（fold・SHAP・
+# 重要度・相関）だけを追跡し、サンプル CSV と図は追跡しない（図はシード42の本体にある）
+data/output/satellite_only_cellbased/*_rq2_scale_seeds/*/*_sample_*.csv
+data/output/limited/*_rq2_scale_seeds/*/*_sample_*.csv
+data/output/satellite_only_cellbased/*_rq2_scale_seeds/*/*.png
+data/output/limited/*_rq2_scale_seeds/*/*.png
 data/output/urban_params/*.csv
 # Spatial CV のブロック設計の診断で、再集計用に残す残差の部分標本（設定ごとに数千行）
 data/output/spatial_cv_design/*/sweep/*_residuals.csv

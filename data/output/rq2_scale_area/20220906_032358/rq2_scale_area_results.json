@@ -1,0 +1,898 @@
+{
+  "observation": "20220906_032358",
+  "n_runs": 74,
+  "runs_by_group": {
+    "seeds": 54,
+    "main": 12,
+    "block13500": 6,
+    "sample_matched": 2
+  },
+  "criteria": {
+    "min_blocks": 10,
+    "max_fold_size_ratio": 1.5,
+    "reference_only_conditions": [
+      {
+        "analysis_area": "survey",
+        "scale_m": 300
+      }
+    ],
+    "baseline_seed": 42,
+    "note": "ブロック判定は非空ブロック数が min_blocks 以上、かつ fold のテストセル数の最大/最小が max_fold_size_ratio 以下のとき成立。満たさないランは評価対象から外す。解像度をまたぐ比較は cv_rf_rmse_over_lst_std（Spatial CV の RF の RMSE ÷ フィルタ後の母数の LST 標準偏差）と SHAP の順位を主とする。"
+  },
+  "block_design_failed_runs": [],
+  "rank_stability": [
+    {
+      "scenario": "limited",
+      "scale_m": 30,
+      "analysis_area": "survey",
+      "block_size_m": 2700,
+      "n_seeds": 10,
+      "n_features": 14,
+      "top1_seed42": "LULC_BUILT_COV",
+      "top1_same_count": 9,
+      "kendall_tau_min": 0.9340659340659341,
+      "kendall_tau_mean": 0.9706959706959708,
+      "max_rank_range": 2,
+      "cv_rf_rmse_mean_over_seeds": 1.1017109642643959,
+      "cv_rf_rmse_sd_over_seeds": 0.009582754578905513,
+      "cv_rf_r2_mean_over_seeds": 0.8503404831541731,
+      "cv_rf_r2_sd_over_seeds": 0.010658578418371386
+    },
+    {
+      "scenario": "limited",
+      "scale_m": 90,
+      "analysis_area": "survey",
+      "block_size_m": 2700,
+      "n_seeds": 10,
+      "n_features": 14,
+      "top1_seed42": "LULC_BUILT_COV",
+      "top1_same_count": 6,
+      "kendall_tau_min": 0.9560439560439562,
+      "kendall_tau_mean": 0.9780219780219781,
+      "max_rank_range": 1,
+      "cv_rf_rmse_mean_over_seeds": 0.9187396190792029,
+      "cv_rf_rmse_sd_over_seeds": 0.0007143290936472955,
+      "cv_rf_r2_mean_over_seeds": 0.8902026682801715,
+      "cv_rf_r2_sd_over_seeds": 0.00013602366737678254
+    },
+    {
+      "scenario": "limited",
+      "scale_m": 300,
+      "analysis_area": "survey",
+      "block_size_m": 2700,
+      "n_seeds": 10,
+      "n_features": 14,
+      "top1_seed42": "LULC_BUILT_COV",
+      "top1_same_count": 3,
+      "kendall_tau_min": 0.8681318681318682,
+      "kendall_tau_mean": 0.9218559218559219,
+      "max_rank_range": 2,
+      "cv_rf_rmse_mean_over_seeds": 0.7474266926225491,
+      "cv_rf_rmse_sd_over_seeds": 0.0008781099984667308,
+      "cv_rf_r2_mean_over_seeds": 0.924626020603433,
+      "cv_rf_r2_sd_over_seeds": 0.000257214431433627
+    },
+    {
+      "scenario": "satellite_only",
+      "scale_m": 30,
+      "analysis_area": "survey",
+      "block_size_m": 2700,
+      "n_seeds": 10,
+      "n_features": 3,
+      "top1_seed42": "NDBI",
+      "top1_same_count": 9,
+      "kendall_tau_min": 1.0,
+      "kendall_tau_mean": 1.0,
+      "max_rank_range": 0,
+      "cv_rf_rmse_mean_over_seeds": 1.3842796075876185,
+      "cv_rf_rmse_sd_over_seeds": 0.01876898151418674,
+      "cv_rf_r2_mean_over_seeds": 0.7985476646785442,
+      "cv_rf_r2_sd_over_seeds": 0.024507370135137298
+    },
+    {
+      "scenario": "satellite_only",
+      "scale_m": 90,
+      "analysis_area": "survey",
+      "block_size_m": 2700,
+      "n_seeds": 10,
+      "n_features": 3,
+      "top1_seed42": "NDBI",
+      "top1_same_count": 9,
+      "kendall_tau_min": 1.0,
+      "kendall_tau_mean": 1.0,
+      "max_rank_range": 0,
+      "cv_rf_rmse_mean_over_seeds": 1.1757131219898604,
+      "cv_rf_rmse_sd_over_seeds": 0.000604876369389889,
+      "cv_rf_r2_mean_over_seeds": 0.8352339981931347,
+      "cv_rf_r2_sd_over_seeds": 0.00019034943557845284
+    },
+    {
+      "scenario": "satellite_only",
+      "scale_m": 300,
+      "analysis_area": "survey",
+      "block_size_m": 2700,
+      "n_seeds": 10,
+      "n_features": 3,
+      "top1_seed42": "NDBI",
+      "top1_same_count": 9,
+      "kendall_tau_min": 0.33333333333333337,
+      "kendall_tau_mean": 0.40740740740740744,
+      "max_rank_range": 1,
+      "cv_rf_rmse_mean_over_seeds": 0.9031551757482903,
+      "cv_rf_rmse_sd_over_seeds": 0.002548690667776077,
+      "cv_rf_r2_mean_over_seeds": 0.8986089347213332,
+      "cv_rf_r2_sd_over_seeds": 0.00035629064861588365
+    }
+  ],
+  "outputs": {
+    "runs_csv": "data/output/rq2_scale_area/20220906_032358/rq2_runs.csv",
+    "shap_ranks_csv": "data/output/rq2_scale_area/20220906_032358/rq2_shap_ranks.csv",
+    "rank_stability_features_csv": "data/output/rq2_scale_area/20220906_032358/rq2_rank_stability_features.csv",
+    "rank_stability_summary_csv": "data/output/rq2_scale_area/20220906_032358/rq2_rank_stability_summary.csv"
+  },
+  "provenance": {
+    "script": "src.analysis.summarize_rq2_scale_area",
+    "executed_at": "2026-11-11T04:57:15.851004+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "946083bcb7494524a951a46152355ad5dc724d78",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/summarize_rq2_scale_area.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/diagnose_spatial_cv_design.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/diagnose_spatial_cv_design.py",
+          "sha256": "64c007c109d7cc84445d767019ade3495d845cf1a8ae2dfdae07af306548f29f"
+        },
+        {
+          "path": "src/analysis/summarize_rq2_scale_area.py",
+          "sha256": "1d184f38d71fa8dcc5bbd1ab39b92ab00681625612372980c7cc99e1260fac5b"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "b4174da323901fca9791d0ba30be130d1d55221dda1d36a7bea8be5bc8bef0d0"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "d42132ef254300e831f9f8a5ef7e3fa4bcdd3e13daf8616aec34700350679020"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_results.json",
+        "sha256": "acdb9acfa71c10e53d99ee2369bb22507d970974a3e3666926b74f060d8d048b"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_area_comparison/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_spatial_cv_folds.csv",
+        "sha256": "aee442e8674629c489985d0907894cf330ea43887f648fb6ccfbfb9370e216fa"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "d71cb4566c47c009b57fcdb35e5b92d9fc06709f1e06424a4de7206dd1d06520"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "3d808b04c4ed727904cd31cc34d6a11b0a775803b84bdf0f68cd37c40ab64a69"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_results.json",
+        "sha256": "d2302f441c0319ef3e609709c0dc7ef4e77f29928da1c2f9a41fbfcd16b35c51"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_spatial_cv_folds.csv",
+        "sha256": "a64dd4edb2d757ead4056fcc2cd2252503cc56a788bdc70a37b8a21f50d0dce7"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "053ba805241c62758eb377ec1263fde7ea1e2e8eed779a34edd34d99d4c3a4f6"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "977ec82b4810ffccd991ef94b25ab343c5d3e5fb0b0597ea7ed3909c24cfe15b"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_results.json",
+        "sha256": "5ff163b491482f71ecd86933dff02dbd967d97ab3554a796c60b276141ea3fe4"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_spatial_cv_folds.csv",
+        "sha256": "819df160cb9edc4dad8c386e89d88f55dce4116ea3152bc1b99ed1d322bab7cc"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_block13500/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_results.json",
+        "sha256": "d92f1cad85de0b7415e900a3d5f9327508cdf15a799c6fdfc5aab3618406c142"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_block13500/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_spatial_cv_folds.csv",
+        "sha256": "dff3f26be156e35461053afe02649fc1f4775cad91ed0dc47470702ba4405af2"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_block13500/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_results.json",
+        "sha256": "89fc0d5a3257d168fcc657595538036ab55fea9cf4fe4a713b1aa04deca0b75e"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_block13500/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_spatial_cv_folds.csv",
+        "sha256": "1b63f4cb375238887416de4a7484a3f21bea794d91c984dbfeb3fdddf772a7e7"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_block13500/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_results.json",
+        "sha256": "ae832169055d7edc0f8f751cc9c0a371053b3f831ed0ad0012a5e5d77e133428"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_block13500/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_spatial_cv_folds.csv",
+        "sha256": "45b4e2e372062d8f0ec7fdba59b107555d2e157bffd22918e37f501dcbe62ca6"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_n34962/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_results.json",
+        "sha256": "b51da7608a65a4a82c3df8171ac26b384d6bbf2cf2ad3d079b3abf5f9a148fd2"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_n34962/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_spatial_cv_folds.csv",
+        "sha256": "e4c065fc1921037690ba7b8f3152512a5e223b59a2ae2f636f32960cebe56d6d"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed43/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "6c34c09da1efe4c6c6aa3a3fb8b4018603533a9a0a5bcf5aff6ff1efc81d6f09"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed43/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "6cd9486fc28a8abb318980a7716d88b4a9ed20176c5ffe1643214c797af82fe9"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed43/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "eff68c34ed2282ea50994b2cb78a9560529a960b6cf535c044be139258667419"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed43/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "21761cbaf95bb5b3fd6fa857b3cf2698fe778cd5c99fd7c0b8292e0544b715ef"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed43/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "b16249a75f6989f191448054c2ca4a8dc3d27f0c7a994c9b1dbcd54bb110878a"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed43/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "9c0e0343e689dcf7c5dcdd8c85b6b5b96ed6bf526d7d52c1d7211a19007fd065"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed44/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "b030b7fc24c79adff14e3072f942a42b96bf64ae32ac4c82de5b0be7cf97a613"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed44/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "c34cd28ce2cdf731c0aacdf6ec4bcd02a63dbe3ff0adeca6eb214d7c00a6b30e"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed44/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "4017998749e1687e7fb7298cc25138dba593f9a40353646a3099856a2d340d73"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed44/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "a700c86a3f8332ea0a9bdded693e6779f7d35e3a49a84daee90b91749cb50953"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed44/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "4eac98e978cb79e72c11236af492441382f0772de8ba55ce043bded40dfe7725"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed44/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "13959f6c314a2994f205a03f2159bf0572f52070ad5e3e2bbe68edb34935a316"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed45/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "b5a7706df9d55e615670be8247c5d49bf45df77e42e8cd240d250ec6127ddf3d"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed45/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "97a4552d24c4da22af45226a6ac908f2c3b5634f6d2ce6b61660041aaa6303c6"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed45/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "4bfa0279ee43826a74ff3f90d546812508d6aa51d29984fb190bdf9a93b0df14"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed45/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "1429b15b2f1cfae190d9da951a5fc9147fb9303a9faa8ea0b7fc8233427df4db"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed45/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "c704e58aa90cbe93ec9125d2274e3d06c3e757a07b04817a765f4ae28bd78eea"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed45/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "8d340a02d61cb500adac2ba2da69a8ffbabf62aaec6ba6f52cafbe4b7e37de81"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed46/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "fafcf5440f38c1e382e4b733489cbd9bed719448a8a55c8b0d833e91e5e7f751"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed46/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "5cbf2a07c700b9a39ad6d8dbd9d1392b16bf6afa66d17e523dcf6e9d692e934b"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed46/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "e35e0c76ef2ba03a91ef98c6b4f775e48775395ceda6ce770fdd9dfd3fd540a1"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed46/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "7359fdbea177333203f19c7fa47b10715069e91743e0c40c81d4bab7fb1a9de1"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed46/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "8322ed6dacdebb0b969c0803a4aba8ee890f702a31267feaca6a8212ffceca73"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed46/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "9772634479c83ee49c8c600d4923dece6b7bff788c80c7422b7245fc464b8112"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed47/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "7c7ff39dd230b112d39367adbbb3b7b4b6d9a1f45f7a96d7d7919074b34cdd3e"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed47/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "ba434cc7adc30a26ef7dcac893579870c4c8d3eaddfff35a15a282805e001422"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed47/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "4c3643f0893b8cf4451729a6e3c1186d2f3e671dd9c5d4d49bfc0ef693a05547"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed47/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "ce09c262eab4f6f14bb7263a26d8cf6a568b9c33a5b906dbdb9b3b877427774a"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed47/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "2efec933af3c6e8e21467ac32b84aa26b408df6bc7687a67a754fbafdcfa4276"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed47/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "5c7aef7af2ec5618dc99e359c905c88486cde2eea5e20d27ee62216d78589ca3"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed48/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "2f6092a53560ac2462a2f6f4103b3f971e15a38c5312f128d2699baf8671dffd"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed48/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "fee7b2b2ba7c1d6a9804c4b66af8a15d3cddd956b6a843ac042ed073e04af8e4"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed48/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "5ebfaf4250ca11081d7b9aef6859012e6b97aac02f5fb167d7ae269a709a8c84"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed48/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "e8029fca8aede80a34dcd96e477c738ff384abdb648c2d8595e2b847dde7bf34"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed48/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "a6a89cb0fe969e71c051ce4b7e1b4f6837b0815f79943f43c87637f2101995d0"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed48/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "c918258a2dc40214aef8cf30e2dfc1bca4e3a3462c767fa102011c3394e3e974"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed49/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "8bc64d07db94522aeadce0ee761dafdf2903302edbf83027bf7d519dfc57045e"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed49/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "668e62069a471b5a5d1ba025699e41eb0e85792173d26508227e7c7de5aedd4b"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed49/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "bd9571f33aa7adde01278d3003b991fd0674961d748cf6f62dfb29f060efe0a1"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed49/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "01ae7e2dcf35a0974ff7e12936bf1e9887c03cf242b141c2e364c681af06d737"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed49/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "8d086cb589c90912acce5aad7cb62f149a53823cf1ac4182f080b1f64ae9c003"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed49/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "ad6fb79d9a4a04553f5eb70af977658649fcb0f727b44fcb1e96b533a842245f"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed50/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "431231d396d54b06e040410dfd13d93798858f6daf4eaf76b2c8f1f9d054f0dc"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed50/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "a16c4235d594ad2532511a68f137ce849ddbb4e4fec38c2eccb3376b402d0ac7"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed50/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "3f4ac9ed73725135778392a0e711b068995a2200474330af78036eba02919db3"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed50/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "c4e25de5c670a886f8e01d37f9535172e08d1bd12367cd9f294dde7537d0758e"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed50/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "fd08dd2d85ef69b912e9ba45f552e6f1addd0dce8fb3dfaf555266d739063224"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed50/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "feafea5e2b78f9f2fbbb1ba09d85653ef941e89dd713e6c09f0d2200b7a820a2"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed51/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_results.json",
+        "sha256": "7b57dd3e0c4f47af7358bb94a61fbc375c7b8446e412abf171092167b7d75982"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed51/dataset_satellite_only_masksurvey_20220906_032358_hanoi_300m_area_survey_spatial_cv_folds.csv",
+        "sha256": "5a235a3fd2818af54af1132c593486496ed9fcba70a45c66365f46c70b1e25dc"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed51/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_results.json",
+        "sha256": "64a9b82527782df47fac327fa53a9735db144e0989547988379e36e5f71bac8d"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed51/dataset_satellite_only_masksurvey_20220906_032358_hanoi_30m_area_survey_spatial_cv_folds.csv",
+        "sha256": "141391a96300b174a05a46ce351eb4e59dc848a63e14a8b14fa61bcf85ecdc89"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed51/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_results.json",
+        "sha256": "16b4850f3e6707f010058f33f3a5664a85e93bea25194def0b4e30ccfe70597a"
+      },
+      {
+        "path": "data/output/satellite_only_cellbased/20220906_032358_rq2_scale_seeds/seed51/dataset_satellite_only_masksurvey_20220906_032358_hanoi_90m_area_survey_spatial_cv_folds.csv",
+        "sha256": "e26d1264237b8e2567971dc90f1715aac7f2ad83678d4271eadcbf9fd61aa841"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_area_comparison/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "fbe0c9dc480a81459df948cd7afb133c1f7c9ff9771ac775e90da7451b360283"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_area_comparison/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "10581a40f8765ec807f3dca36093c976bd9bd15b602d5e6356a2d1bc4d719cb6"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_area_comparison/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_results.json",
+        "sha256": "393388b9c4e8d4775719b77150c5b246f5c93a844576a5c0047568e8eaaee0ed"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_area_comparison/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "d67ab9aec387a64aef8f96d08383a0bfe0aaa67b311fefd157a336f8fab8600c"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "5ed33057a8f798c454a8ce61f0d5a77166d4ec149f0d23d3713951c1b753628c"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "8e9a49a1be88a50c888d734762f444de3ec104fb4231a616105f6716c9a04ac1"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_results.json",
+        "sha256": "32b58db41973108d6f4325a338cdd19fb2e2696cb5877065e522c0d0f3419778"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "04492cc3bc02a8a122741e348ea4af29340ec04ab358315b9dbc738afdedea6a"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "171e41d6c603e15859274b8b29dfa486926efc5f6cb66904811a594fd6f8ae10"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "753f2ba211d3f848cd81c9b847cb1c8f034bc6e1b4dd9a9b66b018c1ba096437"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_results.json",
+        "sha256": "dbbeb6b08c381f881f9ae1ba14c5531bfcc46f9399cbf4596abc33a6f6469ffe"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "b56262ed383c3f93d233388be68f073800d9775bf1bed1288f1c0614be4c3683"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_block13500/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_results.json",
+        "sha256": "b70e1d599397579ecdef6129573aa4a8b48a4dbaf092fbdaddf91a5db538ea8c"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_block13500/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "3496ac6887c8abe2756efcfa62a00e3eb4563a95fbb986fd77c0bf6989cce6c0"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_block13500/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_results.json",
+        "sha256": "22a26cf40e17f1adff14d03d0e7eba7d7ce865ab6afbf59c8f3aae20f51793d8"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_block13500/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "aa512e66a3535cb04b375fc3317436221719157afbcf2461f06f8e47cdb76235"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_block13500/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_results.json",
+        "sha256": "46577c1477776dc99ae1c2ddc97a91e978a79fcaf49cc2c7a3eb6a73928e4325"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_block13500/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "d393af997e25a498d2decdce5d4414ad5f2ec75156676ec4d2cb01ac0fcc4429"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_n34897/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_results.json",
+        "sha256": "bfdfb91b182e464335ca3442e1c9172bcf388b8bca43828fbac119beb323c187"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_n34897/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_spatial_cv_folds.csv",
+        "sha256": "56a8fb4493b4f8a33e4665aa679bdac4119ebb91b15118d54c04d832b3d3e065"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed43/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "d03ec3320693526d5f2679b9bc418483ace698501bb0471f28a3b6f428d146ac"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed43/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "a21bd12f16c38a81abbca53709c574888cf2d2d951190b007a8c7464f3409d5b"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed43/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "acce6525e1f89bf735de15a10b76450e27e415f56022be195266c5357b949d3a"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed43/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "d4016fba9d25a6da7315f50be115d5aaf7a17f9f40a50afb96588e21f2059610"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed43/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "d91cf1a6a62dc985e967dfa31cc15654301b27cd69df396661187a26fbc4c66b"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed43/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "62101f1d92c8f996cad7bc08413763d97fbaf5bc2bd1a2f1a617382387403a24"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed44/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "e9663a3ded7344c70f8e27fccf66881cf37a9897e5eacedb56d9d27cdbc3dc9e"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed44/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "875d08a6eda122cfca7126295223f5baa10f7f0842435f1b08b9e3c10e9c7adc"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed44/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "e5fc8b335740f4ade8dd0aa38015995d10935919a4310041a726d9860712ad9e"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed44/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "d11f6f83a41bde0fc49f3269bab52136d42ee5df92a8972b5d92c47bd7e1fc0c"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed44/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "c57db06bec5467726cbd8e0098c860baac918f2822c664268b79f675a6fa5f15"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed44/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "97319ea1a5f1ad9d8113a73a1c7d4a8821a261f27be16084bdf424bfa69ab59b"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed45/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "6034d4bfe1bf72d9290d6a4bab8c56276f30385644df8fc2a7fce1c68aae1e24"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed45/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "8bd043c15c1562ec00b4cd3df555d112314d2abebf408a85b9aa59bf789b2a72"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed45/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "93be297b83ac846171293de363d4daab09336ca2a1a8a84e617e82f4b2e44e40"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed45/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "2ec3e1e067ea7a30627e1bff3904d24e32dd68c2cd0186bddf43d5cea0f968f8"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed45/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "3d6a2b384538856a006749bfdc775f8b6b1a85e9a4c31bf041886899b3bbaf2c"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed45/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "f6113e83592345ee37f8d63f518e5a81832154f106d4e17c865bf82bd857c027"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed46/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "a6a286b8185c0063e5e00c0c4026378a3dd09240559fdd80f59de012c50ee03d"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed46/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "05821885280aef7676f470282683f8d401f2d383ae551388b5ea5bb452b3d4fa"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed46/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "cb7e7970dff02c834fc2e27507062e391f1e84483944b4efea42777554dd6b99"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed46/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "024cc7235a9c282f4f595f6c3c6d108b797b558ba756bd5269f56aa8c904c0fe"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed46/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "2f510d61c68b6f1bac15b207e4b32f7e5903cb3aef83b367da43c3b6e3489477"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed46/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "32561a71773696b5caa41a503e50f878798495a4b1135e39f2d14c7eeb7248b4"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed47/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "4dca58fd5f6c9b4125777cf1cddba25c141af3854a945e2478aed9dc3b8382c3"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed47/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "f74c7b075b05f9c9623e4e09acf0646522a1ab07eccc6c9dd63fd11def016ac9"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed47/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "52ae478109118f5591fdfb34df68400680663bc2acdcbbe7e083cb7fa7755a2f"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed47/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "5b363ec82896de2ed1548935005b73784452461a766fc51e7ef5548f4d58b62d"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed47/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "6f9e509dc7adf7cd0946912cc8034e6208c96a845f76779550ebc9e8f761def4"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed47/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "5422687bf4a5c26f421cfeb56deacdcc6111b41550160c451f57757b9910f0da"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed48/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "793b7f87a49509d0075718342ce8147e40d4a499650f11aacb613a1ee678a591"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed48/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "cffd46d726fef259d4db1bdbd9f3b27adca6b2d4d555de2baeb6bc0d9ef923b1"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed48/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "3a7e5d493512c1171432cab38805d1bc21b9806b36a4fe740a180c2721bd1a62"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed48/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "35b6cb09bd3de1e03fdc09356a134f397085ba968c83cd39654d609972f04807"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed48/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "3da0ed7333454311fc133494cecd94caec40240bb6d240bb2e43abb70ceebccd"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed48/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "fc60359fd0aa22685d083dcaad104cc4e932fc195599b3ccb443a107830b0fc8"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed49/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "97f9567f268a0e0beaf1a1c9ebcab9270a9913d505bc8e69f19f865f56ebf414"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed49/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "90489302bff7e0df2b202da21b5e5dc0fa82fa924799eb32c6b852e5383d5108"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed49/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "a7dd8e51a1e0efb4d74673b48c8c071182f62d230c956b086d00dc5ac090db89"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed49/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "13a4842fa42995fda66c20f38f1505732867c2d31a16a3f756a00bf4fe1a7e49"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed49/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "3f13be3c2328345f6174c06166ce5c89a49039be2437cf7ef0547df366563521"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed49/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "93fec87d79ddff73bb8ec6b698cc595556953eaf91c2dd23c310342f8c8a4e58"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed50/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "cbe768c5a09ffe6f156e5f6be48128c66cd481e7fbb54502337300a5a22ef3e7"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed50/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "47bccc01c8e6eaa2d614f407c696ac521b7ffefdbfe93a527dd5bab8a838a0e9"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed50/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "77fba3509194ac500e2d091d271a3df5a4f3a517183afd7c941addba80a4aca7"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed50/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "3c295efb87f0d8338bfd0103ea398d6aca624a5a3a7c22da6c004a14409a75bd"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed50/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "5f3eff6ae623e3dc2d2ac6fd5a72a4ba20cb23f609a04b64fb5137a84f056fe3"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed50/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "bbd9a994072bdf5e6f2b2bc7b38f445fc04b03248ecf4f959be2a0ea9391b4ea"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed51/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "4c190ee407560137883bb3a232f8e6d14c1161bff96c761588afba6de459f4a3"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed51/dataset_limited_masksurvey_20220906_032358_hanoi_300m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "802fa9f4b94c7e264e61a9e6ddf322c4033cf684dace41c83777767c4bf1209e"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed51/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "88c1f8de9e490b59a952239fd5191110b16652dd228731549d2d86987c701543"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed51/dataset_limited_masksurvey_20220906_032358_hanoi_30m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "0ed9448c927273268226bd64880f03397535aa2b8e11ba344c6a1502b6ffbcf7"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed51/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_results.json",
+        "sha256": "7873eccb31310bdfe12cc9daa7b5275e92711b6faf3fd4dcfe6ae3bd701b0990"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_rq2_scale_seeds/seed51/dataset_limited_masksurvey_20220906_032358_hanoi_90m_both_bh_mean_wi_none_area_survey_spatial_cv_folds.csv",
+        "sha256": "0941c7be244a5f7dbcd131098887d933c32aa5a4fb902faaf90658a7125d4ede"
+      }
+    ]
+  }
+}

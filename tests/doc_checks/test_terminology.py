@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.doc_checks.terminology import check_terminology
+from src.doc_checks.terminology import _code_block_mask, check_terminology
 
 
 def _write(path: Path, content: str) -> None:
@@ -181,6 +181,29 @@ def test_code_block_closes_only_with_same_fence_char_and_length(tmp_path: Path) 
     result = check_terminology(project_root=tmp_path)
 
     assert [(v.line, v.matched_text) for v in result] == [(6, "Full"), (11, "Satellite Only")]
+
+
+def test_code_block_mask_follows_commonmark_boundaries() -> None:
+    """フェンス判定の境界（info string・タブ字下げ・閉じフェンスの字下げと空白）を確認する。"""
+    cases = {
+        # バッククォートの開始フェンスは info string にバッククォートを含むとフェンスでない
+        "backtick_info_with_backtick": (["``` a`b", "x"], [False, False]),
+        # ~~~ の info string はバッククォートを含んでもフェンスとみなす
+        "tilde_info_with_backtick": (["~~~ a`b", "x", "~~~", "y"], [True, True, True, False]),
+        # タブ字下げはフェンスではない
+        "tab_indent": (["\t```", "x"], [False, False]),
+        # 閉じフェンスは字下げ3文字まで・後ろの半角空白とタブを許す
+        "close_indented_with_trailing_ws": (
+            ["```", "x", "   ``` \t", "y"],
+            [True, True, True, False],
+        ),
+        # 長い ~~~~ でも閉じる
+        "longer_tilde_close": (["~~~", "x", "~~~~", "y"], [True, True, True, False]),
+        # 全角空白が続く行は閉じフェンスではない
+        "fullwidth_space_does_not_close": (["```", "```　", "x"], [True, True, True]),
+    }
+    for name, (lines, expected) in cases.items():
+        assert _code_block_mask(lines) == expected, name
 
 
 def test_indented_four_spaces_is_not_a_fence(tmp_path: Path) -> None:

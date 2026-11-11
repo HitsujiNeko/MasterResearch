@@ -436,6 +436,7 @@ DC・GT の変数対応は確定した（2.7節）。`DH` / `TH` / `TV` は付�
 #### タスク2: `urban_params` の入力仕様更新
 
 - 測量由来 GIS の建物（`build_dc`）を Level 5 の面に絞って算出し、`full` の構成の道路を `road_gt` から OSM（`road_osm`）に切り替える（2.7.5節。テーブル定義と `full` の構成は `src/analysis/urban_params/config.py` にある）
+- `full` の構成に、衛星＋公開GISデータと同じ公開 GIS のテーブル（`build_gba`・`elev_fabdem`・`lulc_glc2022`・`ntl_viirs2023`・`pop_*`）を加える。建物は被覆率・棟数密度だけを `build_dc` 由来とし、`build_gba` と列名が同じため結合方法の変更も要る（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.1節）
 - 測量建物置き換え用の必須列と品質管理列を確定する
 
 #### タスク3: 測量建物置き換え用データセットの組み立て

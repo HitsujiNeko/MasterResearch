@@ -10,9 +10,9 @@ Full シナリオ）が本文に残っていれば「シナリオ名（旧呼び
 コード上の識別子や出力値の引用はインラインコード（バックティック）やコードブロックで
 書く規約のため、インラインコードとフェンス付きコードブロックの中は検出しない。
 コードブロックの判定は CommonMark に合わせ、閉じていないブロックは文書末まで続くとみなす。
-提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も当時の記録として対象外とする。新しい呼び名の表記揺れ（「衛星＋公開GIS」のような
-短縮等）は意味判断を要するため対象外とし、`check-docs-consistency` スキルの
-意味的チェックに委ねる。
+提出済み資料（`docs/03_results/GIS_IDEAS_*.md`）も当時の記録として対象外とする。
+新しい呼び名の表記揺れ（「衛星＋公開GIS」のような短縮等）は意味判断を要するため
+対象外とし、`check-docs-consistency` スキルの意味的チェックに委ねる。
 """
 
 from __future__ import annotations
@@ -130,7 +130,8 @@ def _code_block_mask(lines: list[str]) -> list[bool]:
             match is not None
             and match.group(1)[0] == open_fence[0]
             and len(match.group(1)) >= len(open_fence)
-            and match.group(2).strip() == ""
+            # CommonMark で閉じフェンスの後ろに許されるのは半角空白とタブだけ
+            and match.group(2).strip(" \t") == ""
         ):
             open_fence = None
     return mask

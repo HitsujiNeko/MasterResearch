@@ -20,6 +20,9 @@ dependencies:
   - scikit-learn>=1.9
   # Axes.set_xticks(labels=...) は3.5.0以降で使用可能なため下限を明示する
   - matplotlib>=3.5
+  # 地図タイルの画像処理（src/visualization/xyz_tiles.py）が直接 import する。
+  # matplotlib の依存として入るが、直接使うため明示する
+  - pillow=12.1
   # 動作確認済みバージョンを下限として明示する
   - shap>=0.48
   # Spatial CV のブロック設計の診断に使う（残差の距離帯ごとの Moran's I と、LST の
@@ -33,6 +36,10 @@ dependencies:
   - statsmodels=0.15.0
   - tqdm=4.67
   - rasterio=1.4
+  # rasterio の推移的依存だが、変換行列の扱いで直接 import するため明示する。3.0 台は
+  # Affine * tuple の行列乗算で PendingDeprecationWarning を出すため、requirements.txt の
+  # affine<3 に合わせて 2.4 に固定する
+  - affine=2.4
   # NASA Black Marble（VNP46A4）は HDF-EOS5 配布で、本環境の GDAL は HDF5 ドライバ
   # なしでビルドされているため h5py が必須
   - h5py=3.16

@@ -22,12 +22,17 @@ rasterio
 affine<3
 h5py
 requests
+# YAML 設定の読み込み（src/preprocessing/bs_horizon.py。使うときだけ import する）
+pyyaml
 python-dotenv
 scipy>=1.9
 # cohen_kappa_score の replace_undefined_by は1.9以降で使用可能なため下限を明示する
 scikit-learn>=1.9
 # Axes.set_xticks(labels=...) は3.5.0以降で使用可能なため下限を明示する
 matplotlib>=3.5
+# 地図タイルの画像処理（src/visualization/xyz_tiles.py）が直接 import する。
+# matplotlib の依存として入るが、直接使うため明示する
+pillow
 # 動作確認済みバージョンを下限として明示する
 shap>=0.48
 # Spatial CV のブロック設計の診断（残差 Moran's I・経験セミバリオグラム）に使う。

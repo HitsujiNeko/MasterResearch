@@ -13,6 +13,7 @@ from src.visualization.figure_layout import (
     SIDE_MARGIN_MM,
     layout_geometry,
     map_frame_size,
+    map_layer_stack,
     page_size,
     present_class_values,
     roi_extent_with_margin,
@@ -267,3 +268,36 @@ def test_shorten_label_removes_english_parenthetical() -> None:
 def test_shorten_label_without_parenthetical_is_unchanged() -> None:
     """英語括弧がなければそのまま返す。"""
     assert shorten_label("190 不透水面") == "190 不透水面"
+
+
+def test_map_layer_stack_defaults_keep_roi_above_data() -> None:
+    """重ねる・敷くレイヤを渡さなければ、従来どおり ROI 枠と主題データだけになる。"""
+    map_layers, legend_layers = map_layer_stack("roi", "data")
+    assert map_layers == ["roi", "data"]
+    assert legend_layers == ["data"]
+
+
+def test_map_layer_stack_orders_overlays_and_backgrounds() -> None:
+    """上から ROI 枠・重ねるレイヤ・主題データ・背景の順に並び、凡例は背景と ROI 枠を除く。"""
+    map_layers, legend_layers = map_layer_stack(
+        "roi", "data", overlays=["gba", "dc_other"], backgrounds=["satellite"]
+    )
+    assert map_layers == ["roi", "gba", "dc_other", "data", "satellite"]
+    assert legend_layers == ["gba", "dc_other", "data"]
+
+
+def test_map_layer_stack_rejects_duplicate_layer() -> None:
+    """同じレイヤを2回指定すると重ね順が一意に決まらないため、エラーにする。"""
+    with pytest.raises(ValueError, match="重複"):
+        map_layer_stack("roi", "data", overlays=["data"])
+    with pytest.raises(ValueError, match="重複"):
+        map_layer_stack("roi", "data", backgrounds=["roi"])
+
+
+def test_map_layer_stack_accepts_objects_compared_by_identity() -> None:
+    """値で比較しないオブジェクト（レイヤオブジェクト相当）も同一性で重複を判定する。"""
+    roi, data, sat = object(), object(), object()
+    map_layers, _ = map_layer_stack(roi, data, backgrounds=[sat])
+    assert map_layers == [roi, data, sat]
+    with pytest.raises(ValueError, match="重複"):
+        map_layer_stack(roi, data, backgrounds=[data])

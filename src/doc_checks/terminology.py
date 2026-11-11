@@ -52,8 +52,10 @@ _SATELLITE_ONLY_NEW_ENGLISH = "Satellite only"
 _LIMITED_FULL_SCENARIO_PATTERN = re.compile(
     rf"(?i){_L}(Limited|Full)(?=(?:\s?[・/／]\s?(?:Limited|Full))*\s?シナリオ)"
 )
-# インラインコード（同じ数のバックティックで囲まれた範囲）
-_INLINE_CODE_PATTERN = re.compile(r"(`+)(.+?)\1")
+# インラインコード（同じ数のバックティックで囲まれた範囲）。CommonMark に合わせ、
+# 開始・終了とも連続したバックティック列の全体で長さが一致する場合だけを対象とする
+# （``a``` のように列の一部分だけが一致するものはインラインコードではない）
+_INLINE_CODE_PATTERN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
 # フェンス付きコードブロックのフェンス行（字下げ3文字まで・``` か ~~~ を3つ以上）。
 # group(1) がフェンス記号の並び、group(2) がその後ろ（info string）
 _FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")

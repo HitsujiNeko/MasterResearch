@@ -242,6 +242,25 @@ def test_detects_old_scenario_name_after_unclosed_backtick(tmp_path: Path) -> No
     assert [v.matched_text for v in result] == ["Satellite Only"]
 
 
+def test_backtick_runs_of_different_length_are_not_inline_code(tmp_path: Path) -> None:
+    """開始と終了のバックティック列の長さが違う場合はインラインコードとみなさず検査する。"""
+    content = "本文 ``Satellite Only``` を比較する。\n本文 ```Limited シナリオ`` を比較する。\n"
+    _write(tmp_path / "docs" / "a.md", content)
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert [v.matched_text for v in result] == ["Satellite Only", "Limited"]
+
+
+def test_inline_code_may_contain_backtick_run_of_other_length(tmp_path: Path) -> None:
+    """長さの違うバックティックを中に含むインラインコードは、全体を対象外とする。"""
+    _write(tmp_path / "docs" / "a.md", "``Satellite Only ` Full シナリオ`` を引用する。\n")
+
+    result = check_terminology(project_root=tmp_path)
+
+    assert result == []
+
+
 def test_detects_both_names_in_juxtaposed_scenario_phrase(tmp_path: Path) -> None:
     """「Limited・Full シナリオ」のような並記では両方の旧呼び名を検出する。"""
     _write(tmp_path / "docs" / "a.md", "Limited・Full シナリオに含める。Limited / Fullシナリオ。\n")

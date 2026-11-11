@@ -40,7 +40,7 @@ bibliography_consistency.py・freshness.py・thesis_source_tracking.py）。**�
 
 | # | 事実 | 正本 | 写しの所在（照合先） |
 |---|---|---|---|
-| 1 | シナリオ定義（Satellite Only / Limited / Full の構成データ） | `CLAUDE.md` 最小用語集 | `docs/02_methods/analysis_workflow.md`（**同一ファイル内に複数箇所。行単位で照合**）、`docs/01_planning/research_guide.md`、`docs/02_methods/calc_urban_params/calc_urban_params_io_spec.md`、`docs/03_results/satellite_only_analysis_results.md`、`docs/04_archive/claude_project_knowledge.md` |
+| 1 | シナリオ定義（衛星データのみ／衛星＋公開GISデータ／測量建物置き換え（付録）の構成データと、コード上の識別子との対応） | `CLAUDE.md` 最小用語集 | `docs/02_methods/analysis_workflow.md`（**同一ファイル内に複数箇所。行単位で照合**）、`docs/01_planning/research_guide.md`、`docs/02_methods/calc_urban_params/calc_urban_params_io_spec.md`、`docs/03_results/satellite_only_analysis_results.md`、`docs/04_archive/claude_project_knowledge.md` |
 | 2 | 採用データ選定結果（DEM=FABDEM、建物=GBA、道路=OSM、LULC=GLC_FCS30D 等） | `docs/01_planning/gis_data/gis_data_*.md`（カテゴリ別詳細） | `docs/01_planning/available_gis_data.md`（§2 結論の要点・§3 採用データ一覧）、`docs/02_methods/analysis_workflow.md`、`docs/02_methods/calc_urban_params/calc_urban_params_io_spec.md`、`docs/04_archive/claude_project_knowledge.md` |
 | 3-a | `EPSG:4326`（WGS84）＝ 入出力の基準 CRS | `CLAUDE.md` 最小用語集 | `docs/` 配下と `CLAUDE.md` を対象に Grep `EPSG:` で得た全ヒット箇所（決定的規則）。ヒット例: `analysis_workflow.md`、`qgis_operation_guidelines.md`、`gee_calc_satellite_indices.md`、`claude_project_knowledge.md` |
 | 3-b | `EPSG:5897`（VN-2000 / TM-3 zone 482）＝ 測量データの正本 CRS | `docs/01_planning/gis_data/gis_data_dem.md` | `docs/02_methods/calc_urban_params/calc_urban_params_processing_design.md`、`docs/03_results/survey_gis_data_preparation_status.md`、`docs/02_methods/analysis_workflow.md` |
@@ -49,7 +49,7 @@ bibliography_consistency.py・freshness.py・thesis_source_tracking.py）。**�
 
 補足:
 
-- **#1**: `CLAUDE.md` 最小用語集の定義（Full＝衛星データ・公開GIS・測量GIS）を基準とする。
+- **#1**: `CLAUDE.md` 最小用語集の定義（主軸は衛星データのみ・衛星＋公開GISデータの2つ。付録の測量建物置き換え＝衛星＋公開GISデータの建物の変数を測量GIS由来に置き換えたもの）を基準とする。
   写しのうち `analysis_workflow.md` は同一ファイル内で複数回シナリオを定義しうるため、
   行単位照合が必須（片方のみ公開GIS欠落等の型を検出するため）。
 - **#2**: 正本は情報量の多いカテゴリ別詳細（`gis_data_*.md`）に置く。
@@ -69,7 +69,7 @@ bibliography_consistency.py・freshness.py・thesis_source_tracking.py）。**�
   - **対象外**: RQ の定義文以外は照合しない。具体的には、文献要約（`S*_*.md`）や
     `papers_database.csv` の関連度タグ（`[RQ1参考]`・`RQ3◎` 等）に加え、
     **手法・結果文書中の目的記述や要約による言い換え**（例: `analysis_workflow.md` の
-    Satellite Only 節が述べる RQ3 の目的）も含まない。完全一致を要求するのは定義文だけであり、
+    衛星データのみのシナリオの節が述べる RQ3 の目的）も含まない。完全一致を要求するのは定義文だけであり、
     これらを不一致として報告しない（過剰診断を避けるため）。
 
 ### 1.3 照合手順

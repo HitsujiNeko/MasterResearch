@@ -90,13 +90,12 @@
 本節は測量GISに固有の入力のみを列挙する。公開GISの入力は 5.2.1 節を参照する。測量建物置き換えでどの公開GISを組み合わせるかは未確定である（建物の変数だけを測量GISに置き換え、それ以外は公開GISを使う方針。6.6節）。
 
 - `data/gis/survey/hanoi_survey_extent.gpkg`（レイヤ `survey_extent`。測量GIS有効域の単一ポリゴン、EPSG:5897、約99.9 km²。`整備データ/merge/merge_CS.gpkg` の図郭内枠から `python -m src.preprocessing.build_survey_extent_hanoi` で生成する。生成物は Git 追跡外）
-- `整備データ/merge/merge_DC.gpkg`（建物）
-- `整備データ/merge/merge_GT.gpkg`（道路）
-- `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連、利用方法は要確認）
-- `整備データ/merge/merge_TV.gpkg`（植生・土地利用）
+- `整備データ/merge/merge_DC.gpkg`（建物。付録では建物被覆率・棟数密度の算出に使う）
+- `整備データ/merge/merge_GT.gpkg`（道路。現行の `full` の入力だが、付録では使わず道路は OSM とする）
+- `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連。参考在庫であり、付録では使わない）
+- `整備データ/merge/merge_TV.gpkg`（植生・土地利用。参考在庫であり、付録では使わない）
 
-> DH / TV のどちらを標高・植生率に使うかは、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて最終確定する。  
-> 現時点では完全確定ではなく、実装と並行して調整中である。  
+> DH / TV の利用方法と採否は、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて今後検討する。付録の測量建物置き換えでは使わない。  
 > `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。水域関連のパラメータは採用しておらず、算出対象ではない（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 ### 5.3 任意入力（衛星指標・LSTラスタ）

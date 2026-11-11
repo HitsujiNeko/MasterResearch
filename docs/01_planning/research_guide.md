@@ -1,6 +1,6 @@
 # 研究計画書
 
-**最終更新**: 2026-11-10  
+**最終更新**: 2026-11-11  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [urban_structure_parameters.md](urban_structure_parameters.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
 **前提知識**: LST・ROI・3シナリオ（`Satellite Only` / `Limited` / `Full`）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 
@@ -112,7 +112,7 @@ S5<sup>[5]</sup>の近傍リング設計を参考にした、説明変数の近�
 **第四に、データ制約下での適用可能性の検証（データ層別の3シナリオ比較）**  
 測量データや詳細な都市データが十分に整備されていない途上国大都市であるハノイを対象とし、**高精度測量データ vs 公開データ（OSM等）** の比較を通じて、データ制約下でも適用可能な分析フレームワークの有効性を検証する。具体的には `Satellite Only` / `Limited` / `Full` の3構成で同一の寄与度評価を行い、データ層の違いが寄与順位に与える影響そのものを分析対象とする。`Full` は測量GISの有効域でしか成立しないため、3シナリオはこの範囲に揃えて比較する（ただし有効域はレイヤ共通の範囲であり、有効域内でもレイヤ別に欠ける区画がある。その扱いは [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) で整理する）。検証はハノイ1都市に限られるため、他の途上国都市への一般化は本研究の範囲外とする。
 
-S10が建物高さ・緑地パッチ平均面積・降水量・人口密度を「対象地域・対象期間で信頼できるデータが得られなかった」として除外している事実は<sup>[10]</sup>、ベトナムのデータ制約が実在することの一次的な裏付けである。本研究はこのうち建物高さと人口密度を公開データから確保しており、これは**`Limited` シナリオの価値**を示す事例にあたる。なお建物高さが算出されるのは公開GIS層のみである——測量GISはCAD由来で高さ属性を持たないためである（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md)）。`Full` シナリオの価値はこれとは別で、建物被覆率・棟数密度・道路密度を測量GISからも算出し、公開GIS由来の値と突き合わせられる点にある。
+S10が建物高さ・緑地パッチ平均面積・降水量・人口密度を「対象地域・対象期間で信頼できるデータが得られなかった」として除外している事実は<sup>[10]</sup>、ベトナムのデータ制約が実在することの一次的な裏付けである。本研究はこのうち建物高さと人口密度を公開データから確保しており、これは**`Limited` シナリオの価値**を示す事例にあたる。なお建物高さが算出されるのは公開GIS層のみである——測量GISはCAD由来で高さ属性を持たないためである（[calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md)）。`Full` シナリオの価値はこれとは別で、建物被覆率・棟数密度を測量GISからも算出し、公開GIS由来の値と突き合わせられる点にある（道路密度は、測量GISの道路が両側の縁で描かれ車道と路地を区別できないため、`Full` でも OSM を使う。[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) 2.7節）。
 
 ### 4.3 先行研究との差別化
 

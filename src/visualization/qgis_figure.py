@@ -267,8 +267,10 @@ def build_gis_figure(
         dpi: 出力解像度。
         project: 対象プロジェクト。省略時は現在のプロジェクト。
         overlay_layer_names: 対象データの上に重ねるレイヤ名（上から順）。凡例にも載る。
+            1つだけでもリストかタプルで渡す（文字列をそのまま渡すと1文字ずつの
+            レイヤ名とみなされ、レイヤが見つからないエラーになる）。
         background_layer_names: 対象データの下に敷くレイヤ名（上から順。衛星画像など）。
-            凡例には載せない。
+            凡例には載せない。渡し方は ``overlay_layer_names`` と同じ。
 
     Returns:
         ``{"ok": bool, "path": str}``。

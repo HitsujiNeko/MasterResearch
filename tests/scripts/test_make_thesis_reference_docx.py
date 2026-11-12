@@ -214,6 +214,14 @@ class TestCommittedTemplate:
             assert '<w:sz w:val="21" />' in heading
             assert ("<w:pageBreakBefore />" in heading) is (level == 1)
 
+    def test_section_headings_have_space_before(self) -> None:
+        """節・項の見出しは段落前に 1 行の空きを持ち、改ページする章見出しは持たない。"""
+        styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
+        assert "w:beforeLines" not in _style(styles, "Heading1")
+        for level in (2, 3):
+            heading = _style(styles, f"Heading{level}")
+            assert 'w:beforeLines="100"' in heading
+
     def test_captions_and_table(self) -> None:
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         assert 'w:eastAsia="ＭＳ ゴシック"' in _style(styles, "Caption")

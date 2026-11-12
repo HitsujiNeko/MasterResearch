@@ -49,6 +49,9 @@ SIZE_TABLE = 22  # 11 pt
 SIZE_FOOTNOTE = 18  # 9 pt
 SIZE_COVER_TITLE = 48  # 24 pt
 SIZE_COVER_OTHER = 36  # 18 pt
+# 節・項以下の見出しの段落前の空き（卒業論文の値ではなく修士論文で加えた値）。
+# 1/100 行単位で、100 は Word の「段落前: 1 行」（行グリッド 1 行分）にあたる
+HEADING_SPACE_BEFORE_LINES = 100
 
 # A4 縦、余白 上35／下30／左30／右30 mm（卒業論文の本文の節の値）
 SECTION_PROPERTIES = (
@@ -141,11 +144,16 @@ def _paragraph_style(
 
 
 def _heading_style(level: int) -> str:
-    """見出しスタイル（ＭＳ ゴシック 10.5 pt。章見出しのみ改ページ前置）を返す。"""
+    """見出しスタイル（ＭＳ ゴシック 10.5 pt）を返す。
+
+    章見出し（レベル 1）は改ページを前置する。節・項以下の見出し（レベル 2 以上）は、
+    前の本文との切れ目が分かるよう、段落前に ``HEADING_SPACE_BEFORE_LINES`` の空きを置く。
+    """
     page_break = "<w:pageBreakBefore />" if level == 1 else ""
+    before_lines = f' w:beforeLines="{HEADING_SPACE_BEFORE_LINES}"' if level >= 2 else ""
     ppr = (
         f"<w:keepNext /><w:keepLines />{page_break}"
-        '<w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto" />'
+        f'<w:spacing w:before="0"{before_lines} w:after="0" w:line="360" w:lineRule="auto" />'
         f'<w:jc w:val="left" /><w:outlineLvl w:val="{level - 1}" />'
     )
     rpr = _fonts(FONT_GOTHIC, FONT_GOTHIC) + '<w:color w:val="000000" />' + _size(SIZE_BODY)

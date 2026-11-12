@@ -2,7 +2,7 @@
 見出し: 1.3　研究目的
 状態: 初稿
 依拠する正本:
-  - docs/01_planning/research_guide.md @ d18bc79a44
+  - docs/01_planning/research_guide.md @ bfc16f5171
 -->
 
 ## 1.3　研究目的

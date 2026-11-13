@@ -85,6 +85,9 @@ DEFAULT_NDVI_BINS: tuple[float, ...] = (-1.0, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
 DESCRIBE_PERCENTILES: tuple[int, ...] = (1, 5, 25, 50, 75, 95, 99)
 # 上位変数の比較に用いる順位の数
 TOP_K = 5
+# |ΔLST| の大きい画素を数える閾値（°C）と、放射率・NDVI の内訳を記録する閾値
+LARGE_DIFFERENCE_THRESHOLDS_C: tuple[float, ...] = (1.0, 2.0, 3.0, 5.0, 10.0)
+LARGE_DIFFERENCE_DETAIL_THRESHOLD_C = 3.0
 
 DIFFERENCE_DIRECTION = "EM0 版 − NDVI 版"
 DELTA_DIRECTION = "NDVI 版 − EM0 版"
@@ -354,6 +357,46 @@ def summarize_by_ndvi_class(
             }
         )
     return pd.DataFrame(rows)
+
+
+def summarize_large_differences(
+    delta_lst: np.ndarray,
+    em0_emissivity: np.ndarray,
+    ndvi: np.ndarray,
+    thresholds: Sequence[float] = LARGE_DIFFERENCE_THRESHOLDS_C,
+    detail_threshold: float = LARGE_DIFFERENCE_DETAIL_THRESHOLD_C,
+) -> dict[str, Any]:
+    """|ΔLST| の大きい画素の数と、その画素の EM0・NDVI の分布を求める。
+
+    EM0 の異常値（ASTER GEDv3 側の値）が大きな差を生んでいないかを確かめるための集計。
+
+    Args:
+        delta_lst: ΔLST（°C。無効値は NaN）。
+        em0_emissivity: EM0 版の放射率。
+        ndvi: NDVI。
+        thresholds: 画素数を数える |ΔLST| の閾値（°C）。
+        detail_threshold: EM0・NDVI の分布を記録する |ΔLST| の閾値（°C）。
+
+    Returns:
+        dict[str, Any]: 閾値ごとの画素数（`counts_above_c`）と、`detail_threshold` を超える
+            画素の EM0・NDVI の記述統計。
+    """
+    abs_delta = np.abs(delta_lst)
+    valid = np.isfinite(abs_delta)
+    counts = {
+        f"{threshold:g}": int((abs_delta[valid] > threshold).sum()) for threshold in thresholds
+    }
+    detail = valid.copy()
+    detail[valid] = abs_delta[valid] > detail_threshold
+    em0_values = em0_emissivity[detail]
+    ndvi_values = ndvi[detail]
+    return {
+        "counts_above_c": counts,
+        "valid_pixels": int(valid.sum()),
+        "detail_threshold_c": detail_threshold,
+        "detail_em0_emissivity": describe_values(em0_values[np.isfinite(em0_values)]),
+        "detail_ndvi": describe_values(ndvi_values[np.isfinite(ndvi_values)]),
+    }
 
 
 def save_difference_map(delta_lst: np.ndarray, transform: Affine, output_path: Path) -> None:
@@ -729,6 +772,7 @@ def run_lst_diff(
             "delta_lst": pearson_on_common(ndvi, delta_lst),
         },
         "ndvi_classes": class_table.to_dict(orient="records"),
+        "large_differences": summarize_large_differences(delta_lst, arrays["em0_emissivity"], ndvi),
         "note": (
             "統計は ROI 全体ではなく、各ラスタで有効な画素（雲マスク・ASTER GED の欠測を除く）"
             "に限る。相関は画素単位（30 m）で、分析のセル集計・欠測除去を経ていない。"

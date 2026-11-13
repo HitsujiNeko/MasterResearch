@@ -204,6 +204,24 @@ def test_summarize_by_ndvi_class_rejects_unsorted_bins() -> None:
         )
 
 
+def test_summarize_large_differences_counts_and_describes() -> None:
+    """|ΔLST| の閾値ごとの画素数と、閾値を超える画素の EM0・NDVI を手計算と照合する。"""
+    delta_lst = np.array([-4.0, 0.5, np.nan, 2.5, -12.0])
+    em0 = np.array([0.50, 0.97, 0.95, 0.96, 0.48])
+    ndvi = np.array([0.80, 0.30, 0.70, 0.60, np.nan])
+
+    result = sensitivity.summarize_large_differences(
+        delta_lst, em0, ndvi, thresholds=[1.0, 3.0, 10.0], detail_threshold=3.0
+    )
+
+    assert result["counts_above_c"] == {"1": 3, "3": 2, "10": 1}
+    assert result["valid_pixels"] == 4
+    assert result["detail_em0_emissivity"]["count"] == 2
+    assert result["detail_em0_emissivity"]["min"] == pytest.approx(0.48)
+    assert result["detail_ndvi"]["count"] == 1
+    assert result["detail_ndvi"]["max"] == pytest.approx(0.80)
+
+
 def test_run_lst_diff_writes_results(tmp_path: Path) -> None:
     """合成ラスタで再現確認・ΔLST・相関・図を出力する。"""
     reference = np.array([[30.0, 31.0], [np.nan, 34.0]])
@@ -233,6 +251,7 @@ def test_run_lst_diff_writes_results(tmp_path: Path) -> None:
     assert result["delta_lst_c"]["mean"] == pytest.approx((-0.5 - 0.2 + 1.0) / 3)
     assert result["valid_pixels"]["em0_lst"] == 3
     assert [row["count"] for row in result["ndvi_classes"]] == [1, 2]
+    assert result["large_differences"]["counts_above_c"]["1"] == 0
     assert (tmp_path / "out" / "lst_difference_map.png").exists()
     assert (tmp_path / "out" / "lst_difference_by_ndvi_class.png").exists()
 

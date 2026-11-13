@@ -1,6 +1,6 @@
 # gee_calc_LST.py 仕様（Landsat 8 / 9 LST）
 
-**最終更新**: 2026-11-12  
+**最終更新**: 2026-11-13  
 **関連ドキュメント**:  
 
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
@@ -123,13 +123,13 @@ Ermida et al. (2020) に準拠。
   FVC = \left(\frac{NDVI - 0.2}{0.86 - 0.2}\right)^2
   $$
 - **ASTER emissivity**（ASTER GEDv3。2000〜2008 年の平均・100 m。Band 13・14 を
-  $arepsilon = 0.6820\,arepsilon_{13} + 0.2578\,arepsilon_{14} + 0.0584$ で Landsat の熱赤外バンドへ換算する）:
+  $\varepsilon = 0.6820\,\varepsilon_{13} + 0.2578\,\varepsilon_{14} + 0.0584$ で Landsat の熱赤外バンドへ換算する）:
   - EM_bare（裸地放射率）: ASTER の NDVI から求めた FVC で、ASTER 放射率から植生の寄与を除いたもの
-    $arepsilon_{bare} = (arepsilon_{ASTER} - 0.99\,FVC_{ASTER}) / (1 - FVC_{ASTER})$
+    $\varepsilon_{bare} = (\varepsilon_{ASTER} - 0.99\,FVC_{ASTER}) / (1 - FVC_{ASTER})$
   - EM0（植生補正なし）: ASTER 放射率をそのまま換算したもの。観測シーンの NDVI に依存しない
 - **emissivity選択**（`EM` バンド）:
   - `use_ndvi=True` → EMd: 観測シーンの FVC で裸地と植生を混合する
-    $arepsilon = 0.99\,FVC + (1 - FVC)\,arepsilon_{bare}$
+    $\varepsilon = 0.99\,FVC + (1 - FVC)\,\varepsilon_{bare}$
   - `use_ndvi=False` → EM0  
   ※ `calculate_lst_smw()` の引数。既定は `True`。どちらの場合も、`QA_PIXEL` の水域（bit 7）は 0.99、雪（bit 5）は 0.989 に置き換える。
 - **TPW**:
@@ -223,6 +223,7 @@ EMd による LST（NDVI 版）と EM0 による LST（EM0 版）を 1 観測分
 EM0 版は放射率の精度が分析用の LST より高いことを意味しない（ASTER GEDv3 は過去の平均で、観測時点の植生・市街化を反映しない）。
 
 - NDVI 版・EM0 版の LST と放射率（`EM` バンド）を、放射率ごとに別の Drive フォルダ（`MasterResearch_Data_LST_emissivity_{ndvi,em0}_{YYYYMMDD_HHMMSS}`）へ出力する。LST の出力条件（雲マスク・ROI クリップ・EPSG・30 m）とファイル名は `gee_search_satellite_data.py` と同じ
+- EM0 は ASTER から直接取るため、SR の雲マスクを引き継がない（NDVI 由来の EMd は NDVI 経由で引き継ぐ）。TOA の B10 も未マスクのため、そのままでは雲の画素にも LST が入る。そこで EM0 版は、全バンドを雲マスク後の SR から求めた NDVI の有効画素に限る（`gee_search_satellite_data.build_lst_image`）。NDVI 版の出力は変わらない
 - 起動したタスクの一覧は JSON（`data/output/lst_emissivity_sensitivity/{YYYYMMDD_HHMMSS}/export_tasks.json`）に記録する
 - 観測は UTC の観測日時（`--observation-datetime`）で 1 つに特定し、一致するシーンが 1 件でない場合は止める
 - 既存の結果 CSV（`gee_calc_LST_results.csv`・`gee_search_satellite_data_results.csv`）には書き込まない。既存の出力 JSON がある場合は `--overwrite` なしでは止める

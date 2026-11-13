@@ -256,6 +256,7 @@ def build_lst_image(
     collection_toa: ee.ImageCollection,
     roi: ee.Geometry,
     sensor: str = DEFAULT_SENSOR,
+    use_ndvi: bool = True,
 ) -> ee.Image:
     """既存 LST ロジックと同一条件で LST 画像を作成する。
 
@@ -264,13 +265,16 @@ def build_lst_image(
         collection_toa (ee.ImageCollection): TOA コレクション（SR と同じセンサ）。
         roi (ee.Geometry): ROI。
         sensor (str): 画像の取得元センサ名（"L8" / "L9"）。SMW 係数の選択に用いる。
+        use_ndvi (bool): 放射率を同じシーンの NDVI から求めるか。既定の True が
+            分析に用いる LST の算出条件であり、False は ASTER GEDv3 の静的な放射率
+            （EM0）を用いる（放射率の感度分析の対照用）。
 
     Returns:
-        ee.Image: LST バンド付き画像。
+        ee.Image: LST バンド付き画像（放射率は `EM` バンド）。
     """
     lst_sr_image = cloud_mask(raw_sr_image)
     toa_image = get_matching_toa_image(lst_sr_image, collection_toa)
-    return calculate_lst_smw(lst_sr_image, toa_image, roi, sensor=sensor)
+    return calculate_lst_smw(lst_sr_image, toa_image, roi, use_ndvi=use_ndvi, sensor=sensor)
 
 
 def build_indices_image(raw_sr_image: ee.Image) -> ee.Image:

@@ -405,3 +405,51 @@ def test_build_failure_summary_lines_raises_on_unlisted_sensor() -> None:
 
     with pytest.raises(ValueError, match="シーン数が不明なセンサ"):
         search.build_failure_summary_lines({"L8": 3}, failures)
+
+
+def patch_lst_dependencies(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """`build_lst_image` が呼ぶ GEE の処理を差し替え、SMW 法への引数を記録する。
+
+    Args:
+        monkeypatch: pytest の monkeypatch。
+
+    Returns:
+        list[dict[str, Any]]: `calculate_lst_smw` へ渡された引数の記録。
+    """
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(search, "cloud_mask", lambda image: f"masked_{image}")
+    monkeypatch.setattr(search, "get_matching_toa_image", lambda image, collection: "toa")
+
+    def fake_calculate_lst_smw(image_sr: Any, image_toa: Any, roi: Any, **kwargs: Any) -> str:
+        calls.append({"image_sr": image_sr, "image_toa": image_toa, "roi": roi, **kwargs})
+        return "lst"
+
+    monkeypatch.setattr(search, "calculate_lst_smw", fake_calculate_lst_smw)
+    return calls
+
+
+def test_build_lst_image_uses_ndvi_emissivity_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """既定では NDVI 由来の放射率を使う（分析に用いる LST の算出条件を変えない）。"""
+    calls = patch_lst_dependencies(monkeypatch)
+
+    search.build_lst_image("raw", "toa_collection", "roi", sensor="L9")
+
+    assert calls == [
+        {
+            "image_sr": "masked_raw",
+            "image_toa": "toa",
+            "roi": "roi",
+            "use_ndvi": True,
+            "sensor": "L9",
+        }
+    ]
+
+
+def test_build_lst_image_passes_static_emissivity_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """use_ndvi=False を指定すると、SMW 法へ ASTER の静的な放射率の指定が渡る。"""
+    calls = patch_lst_dependencies(monkeypatch)
+
+    search.build_lst_image("raw", "toa_collection", "roi", use_ndvi=False)
+
+    assert calls[0]["use_ndvi"] is False
+    assert calls[0]["sensor"] == "L8"

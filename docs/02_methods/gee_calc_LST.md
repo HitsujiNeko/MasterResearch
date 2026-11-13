@@ -1,12 +1,13 @@
 # gee_calc_LST.py 仕様（Landsat 8 / 9 LST）
 
-**最終更新**: 2026-10-18  
+**最終更新**: 2026-11-12  
 **関連ドキュメント**:  
 
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  
 - コーディング規約 → [CodingRule.md](CodingRule.md)  
 - 実装コード → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)  
 - SMWモジュール → [src/module/lst_smw.py](../../src/module/lst_smw.py)  
+- 放射率の切り替え出力 → [src/gee/gee_export_lst_emissivity_variants.py](../../src/gee/gee_export_lst_emissivity_variants.py)（8.3 参照）  
 - 採用先行研究 → [previous_studies_report.md S1](../04_archive/previous_studies_report.md)  
 - セットアップ → [setup.md](../setup.md)  
 - ドキュメント全体 → [docs/README.md](../README.md)
@@ -121,13 +122,16 @@ Ermida et al. (2020) に準拠。
   $$
   FVC = \left(\frac{NDVI - 0.2}{0.86 - 0.2}\right)^2
   $$
-- **ASTER emissivity**:
-  - EM_bare（植生補正あり）
-  - EM0（植生補正なし）
-- **emissivity選択**:
-  - `use_ndvi=True` → EMd
+- **ASTER emissivity**（ASTER GEDv3。2000〜2008 年の平均・100 m。Band 13・14 を
+  $arepsilon = 0.6820\,arepsilon_{13} + 0.2578\,arepsilon_{14} + 0.0584$ で Landsat の熱赤外バンドへ換算する）:
+  - EM_bare（裸地放射率）: ASTER の NDVI から求めた FVC で、ASTER 放射率から植生の寄与を除いたもの
+    $arepsilon_{bare} = (arepsilon_{ASTER} - 0.99\,FVC_{ASTER}) / (1 - FVC_{ASTER})$
+  - EM0（植生補正なし）: ASTER 放射率をそのまま換算したもの。観測シーンの NDVI に依存しない
+- **emissivity選択**（`EM` バンド）:
+  - `use_ndvi=True` → EMd: 観測シーンの FVC で裸地と植生を混合する
+    $arepsilon = 0.99\,FVC + (1 - FVC)\,arepsilon_{bare}$
   - `use_ndvi=False` → EM0  
-  ※ `calculate_lst_smw()` の引数。既定は `True`。
+  ※ `calculate_lst_smw()` の引数。既定は `True`。どちらの場合も、`QA_PIXEL` の水域（bit 7）は 0.99、雪（bit 5）は 0.989 に置き換える。
 - **TPW**:
   - NCEPの当日00:00〜翌日00:00（UTC）を対象
   - 近い2時刻で線形補間
@@ -190,7 +194,7 @@ bit 2・bit 5 を加えるのは原典からの意図的な差分であり、根
 - 対応センサは **Landsat 8 と Landsat 9**。センサは設定の `sensors` 列で選び、SMW 係数はセンサ別に切り替える（8.2 参照）。
 - LSTは **摂氏（°C）出力**。
 - `cloud_threshold` は現行コードで未使用。
-- `use_ndvi` を変更したい場合は `calculate_lst_smw()` 呼び出しに引数を追加する。
+- 分析に用いる LST は `use_ndvi=True`（EMd）で算出している。`gee_calc_LST.py`・`gee_search_satellite_data.py` の設定 CSV には放射率を切り替える列が無く、EM0 による LST は専用スクリプトで出力する（8.3）。
 
 ### 8.1 原典実装からの意図的な差分
 
@@ -210,3 +214,25 @@ bit 2・bit 5 を加えるのは原典からの意図的な差分であり、根
 - ASTER 放射率の補間係数（c13, c14, c）は Landsat 8 の値を Landsat 9 にも用いる。原典の `compute_emissivity.js` は L4/L5/L7 以外を Landsat 8 の係数で処理し、`Landsat_LST.js` は Landsat 9 もこの経路で処理するため。
 - `TPW` は **当日 UTC の NCEP データ**のみを対象にし、最も近い2時刻で線形補間する。
 - SR と TOA の対応付けは、**同一シーンの `system:index`** を基準に行う。
+
+### 8.3 放射率を切り替えた LST の出力（感度分析用）
+
+EMd は観測シーンの NDVI から作るため、説明変数の NDVI が目的変数の LST の算出式に入る。
+その影響を調べる対照として、[gee_export_lst_emissivity_variants.py](../../src/gee/gee_export_lst_emissivity_variants.py) で
+EMd による LST（NDVI 版）と EM0 による LST（EM0 版）を 1 観測分だけ出力する。
+EM0 版は放射率の精度が分析用の LST より高いことを意味しない（ASTER GEDv3 は過去の平均で、観測時点の植生・市街化を反映しない）。
+
+| サブコマンド | 内容 | 出力 |
+|---|---|---|
+| `export` | NDVI 版・EM0 版の LST と放射率（`EM` バンド）を、放射率ごとに別の Drive フォルダ（`MasterResearch_Data_LST_emissivity_{ndvi,em0}_{YYYYMMDD_HHMMSS}`）へ出力する。LST の出力条件（雲マスク・ROI クリップ・EPSG・30 m）とファイル名は `gee_search_satellite_data.py` と同じ | 起動したタスクの一覧 JSON（`data/output/lst_emissivity_sensitivity/{YYYYMMDD_HHMMSS}/export_tasks.json`） |
+| `sample` | 既存の LST GeoTIFF のグリッド上で、有効画素から無作為に選んだ画素中心の点について、SMW（EMd）・SMW（EM0）・Simple 法の 3 方式の値を取る。既存 GeoTIFF がどの方式で作られたかを値の照合で確かめるために用いる | 点の CSV とサマリー JSON（`data/output/lst_emissivity_sensitivity/{YYYYMMDD_HHMMSS}_method_check/`） |
+
+- 観測は UTC の観測日時（`--observation-datetime`）で 1 つに特定し、一致するシーンが 1 件でない場合は止める
+- 既存の結果 CSV（`gee_calc_LST_results.csv`・`gee_search_satellite_data_results.csv`）には書き込まない。既存の出力 JSON がある場合は `--overwrite` なしでは止める
+- Drive からダウンロードした GeoTIFF は `data/satellite/lst_emissivity_sensitivity/{ndvi,em0}/{YYYY}/` に置く（手作業。既存の `data/satellite/lst/` は上書きしない）
+- `sample` は現行のコード（雲マスクを含む）で値を算出する。既存 GeoTIFF の作成後に雲マスクの条件が変わった場合、既存で有効な点が欠測になることがある
+
+```bash
+python -m src.gee.gee_export_lst_emissivity_variants export --observation-datetime 2022-09-06T03:23:58
+python -m src.gee.gee_export_lst_emissivity_variants sample --observation-datetime 2023-07-07T03:23:05 --reference-tif data/satellite/lst/2023/LST_Landsat8_20230707_032305Z.tif
+```

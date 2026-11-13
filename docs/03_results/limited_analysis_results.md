@@ -1,7 +1,7 @@
 # 衛星＋公開GISデータのシナリオ 分析結果
 
-**最終更新**: 2026-11-11  
-**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [observation_selection.md](../02_methods/observation_selection.md)  
+**最終更新**: 2026-11-13  
+**関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [observation_selection.md](../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
 ---
@@ -502,7 +502,11 @@ VIFはこれを検出できない（`BUILD_H_MEAN` のVIFは1.72）。VIFが測�
 
 #### 目的変数と説明変数の間接的な結合
 
-LSTはUSGS Landsat Collection 2のLevel-2地表面温度プロダクト（`ST_B10`）をスケーリングして用いており（`src.gee.gee_calc_LST.calculate_lst_simple`）、本研究のコード内で植生指数から放射率を算出してはいない。ただし**当該プロダクトの放射率推定が同一シーンの植生指数を用いる場合、`NDVI` と `LST` の間に間接的な代数的依存が生じうる**。RQ1（どの説明変数が支配的か）で植生指数の寄与を論じる際の前提になるため、**プロダクトの算出仕様の確認を要する（本ドキュメント時点では未確認）**。
+LST は SMW 法で算出しており、地表面放射率を**同じシーンの NDVI から**求めている（[gee_calc_LST.md](../02_methods/gee_calc_LST.md) 5.2節）。このため **`NDVI` と `LST` の間に算出式に由来する代数的な依存がある**。032305・032358 のどちらの LST もこの方式で算出されたことを確認した（[lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md) 3章・4.1節）。
+
+**訂正（2026-11-13）**: 本項の旧記述は「USGS Level-2 の地表面温度プロダクト（`ST_B10`）をスケーリングして用いており、コード内で植生指数から放射率を算出してはいない」としていたが、誤りだった。確認した 2 観測（032305・032358）の LST の算出には、`ST_B10` のスケーリング（`calculate_lst_simple`）は使われていない（他の観測は未確認）。
+
+放射率を NDVI に依存させない対照（ASTER GEDv3 の静的な放射率）で LST を作り直して比べた結果、主採用の観測では**変数の寄与の順位は変わらなかった**が、NDVI の寄与の大きさ、特に植生域で冷却効果に見える傾きは弱まった。RQ1 では順位の頑健性を記述し、NDVI の寄与の大きさは限界として扱う（同ドキュメント 6章）。
 
 #### 変数分布の性質
 
@@ -1087,7 +1091,7 @@ RF の不純度ベース重要度（括弧内は順位。首位はいずれの�
 - **標本変動の測定範囲の拡張**: 2.1節に、032358 の共通集合での20シードの実測を加えた。単一ランの R² の範囲は 0.008〜0.012 と、3標本の最大差（0.003程度）の3〜4倍あった。ただしどちらも母集団を固定した測定であり、母集団自体が変わる比較（ソース差し替え・フィルタ条件）に適用できる変動幅は測れていない。また、3標本の物差し（0.003）で判断した過去の記述（6.5.5節の事前基準など）は記録時のまま残しており、20シードの物差しで読み直すかは別途判断する
 - **モデル説明力の指標間の不一致**: 5.1節のとおり RF の不純度ベース重要度だけが `LULC_BUILT_COV` を首位とし、SHAP・Permutation と食い違う（032305 のラン13でも同じ）。主採用の観測（8.4節）ではこの食い違いが現れず、3指標とも `NDBI` を首位とする。取りうる値が少ない変数での不純度ベース重要度の挙動を確認し、報告する指標を明確に定める
 - **被覆率型変数の位置づけの再検討**: 4.3節・5.5節のとおり、被覆率型は RF では分光指数を上回らず、土地被覆ソースの解像度を上げても結論は変わらなかった。一方で線形モデルでは被覆率型が上回る。`both` 構成の分光単体に対する改善が 0.014（RF・GLC）と小さいことも踏まえ、被覆率型を最終的な変数セットに含めるかどうかを、モデルの簡潔性とのトレードオフとして別途判断する
-- **LSTプロダクトの算出仕様の確認**: 3.9節のとおり、Level-2 地表面温度プロダクトの放射率推定が同一シーンの植生指数を用いる場合、`NDVI` と `LST` の間に間接的な代数的依存が生じうる。RQ1 で植生指数の寄与を論じる前提となるため確認を要する
+- **LST の放射率と NDVI の依存**: 確認済み。LST は同じシーンの NDVI から放射率を求めており、依存を外した対照でも寄与の順位は変わらなかった。NDVI の寄与の大きさは限界として扱う（3.9節・[lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md)）
 - **GBAの有効カバレッジそのものの検証**: 3.3節で指摘したとおり、`missing_gis_data == 0` はテーブル結合の完全性のみを示し、GBAが現地の建物を漏れなく検出できているかは未検証である。別途、現地測量データや高解像度衛星画像との突合による検証を検討する
 - **30mでの観測日拡張**: 衛星データのみと同様、複数観測日が揃った時点で同じ経路での複数日比較を検討する
 - **結果ドキュメントの共通様式の規約化**: 本ドキュメントで用いた台帳形式（列定義・数値の正本の置き方・標本統制の明示）を規約として定めることを別途検討する。`satellite_only_analysis_results_cellbased.md` には数値の正本の置き方と一般化可能性の限界の明示を先行して適用済みである

@@ -273,7 +273,7 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 - **衛星＋公開GISデータとの改善幅の評価（測量建物置き換えは付録）**: 主採用の観測 032358 では、衛星＋公開GISデータとの比較を両シナリオに共通する評価セルと fold で行った（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）。分光指数の扱いをシナリオ間で揃えた比較（下の「分光指数間の共線性の解消」と関わる）と、測量建物置き換えとの比較は残っている。測量建物置き換えを加えるときは同じ共通評価セルの仕組みを使う（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
 - **Spatial CV の設計**: シナリオ横断の方法論として見直し、設計を決定した（[spatial_cv_design_results.md](spatial_cv_design_results.md) 5章）
 - **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。衛星＋公開GISデータでは水指数の構成を同一セル上で比較し NDWI を除外する構成を採用したが（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、本シナリオでは構成比較は未実施である。本シナリオは説明変数が分光指数のみであり、NDWI を除外すると説明変数が2つになるため、衛星＋公開GISデータの結論をそのまま適用してよいかを含めて判断する
-- **LST の放射率と NDVI の依存**: 確認済み。LST は同じシーンの NDVI から放射率を求めている（[limited_analysis_results.md](limited_analysis_results.md) 3.9節）。主採用の観測で依存を外した対照（ASTER GEDv3 の静的な放射率）と比べると、本シナリオの寄与の順位は4指標とも変わらず、RF の R² は 0.032 下がり、`NDVI` の平均 \|SHAP\| は約 17% 下がった（[lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md) 5章）
+- **LST の放射率と NDVI の依存**: 確認済み。LST は同じシーンの NDVI から放射率を求めている（[limited_analysis_results.md](limited_analysis_results.md) 3.9節）。主採用の観測で依存を外した対照（ASTER GEDv3 の静的な放射率）と比べると、本シナリオの寄与の順位は4指標とも変わらず、Spatial CV の RF の R² は 0.032 下がり、`NDVI` の平均 \|SHAP\| は約 17% 下がった（[lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md) 5章）
 - **30mでの観測日拡張**: `20230723_032309` / `20241130_032336` の `idx_*` / `lst_*` テーブル算出は別途扱う。複数観測日が揃った時点で、同一経路での複数日比較を実施する
 
 ---

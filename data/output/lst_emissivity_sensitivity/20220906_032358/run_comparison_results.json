@@ -30,96 +30,96 @@
           "model": "linear_regression",
           "metric": "r2",
           "baseline": 0.7686234712600708,
-          "variant": 0.7439128756523132,
-          "difference": -0.02471059560775757
+          "variant": 0.743924617767334,
+          "difference": -0.024698853492736816
         },
         {
           "evaluation": "random_split",
           "model": "linear_regression",
           "metric": "rmse",
           "baseline": 1.265198529764166,
-          "variant": 1.2671927643653653,
-          "difference": 0.001994234601199407
+          "variant": 1.2671594619000934,
+          "difference": 0.001960932135927518
         },
         {
           "evaluation": "random_split",
           "model": "linear_regression",
           "metric": "mae",
           "baseline": 0.9588321447372437,
-          "variant": 0.9611914157867432,
-          "difference": 0.0023592710494995117
+          "variant": 0.9611720442771912,
+          "difference": 0.0023398995399475098
         },
         {
           "evaluation": "spatial_cv",
           "model": "linear_regression",
           "metric": "r2_mean",
           "baseline": 0.7661571621894836,
-          "variant": 0.7390863060951233,
-          "difference": -0.02707085609436033
+          "variant": 0.7390897512435913,
+          "difference": -0.027067410945892267
         },
         {
           "evaluation": "spatial_cv",
           "model": "linear_regression",
           "metric": "rmse_mean",
           "baseline": 1.2759642311211683,
-          "variant": 1.284702265313376,
-          "difference": 0.008738034192207644
+          "variant": 1.284693654636509,
+          "difference": 0.008729423515340784
         },
         {
           "evaluation": "spatial_cv",
           "model": "linear_regression",
           "metric": "mae_mean",
           "baseline": 0.9632761597633361,
-          "variant": 0.9665251135826111,
-          "difference": 0.0032489538192749245
+          "variant": 0.966521394252777,
+          "difference": 0.003245234489440918
         },
         {
           "evaluation": "random_split",
           "model": "random_forest",
           "metric": "r2",
           "baseline": 0.85173289561674,
-          "variant": 0.8333380167961734,
-          "difference": -0.018394878820566674
+          "variant": 0.8333259089600723,
+          "difference": -0.018406986656667734
         },
         {
           "evaluation": "random_split",
           "model": "random_forest",
           "metric": "rmse",
           "baseline": 1.0127947561597204,
-          "variant": 1.0222734549828518,
-          "difference": 0.00947869882313146
+          "variant": 1.022307172225101,
+          "difference": 0.009512416065380558
         },
         {
           "evaluation": "random_split",
           "model": "random_forest",
           "metric": "mae",
           "baseline": 0.7407931979984949,
-          "variant": 0.7494518589936306,
-          "difference": 0.008658660995135792
+          "variant": 0.749481678679909,
+          "difference": 0.008688480681414146
         },
         {
           "evaluation": "spatial_cv",
           "model": "random_forest",
           "metric": "r2_mean",
           "baseline": 0.839941197382507,
-          "variant": 0.8159334696806363,
-          "difference": -0.024007727701870762
+          "variant": 0.815923427146736,
+          "difference": -0.024017770235771008
         },
         {
           "evaluation": "spatial_cv",
           "model": "random_forest",
           "metric": "rmse_mean",
           "baseline": 1.0553782147165351,
-          "variant": 1.0786053020152973,
-          "difference": 0.023227087298762106
+          "variant": 1.0786335763408903,
+          "difference": 0.023255361624355153
         },
         {
           "evaluation": "spatial_cv",
           "model": "random_forest",
           "metric": "mae_mean",
           "baseline": 0.7847914588367724,
-          "variant": 0.7966588319734809,
-          "difference": 0.011867373136708492
+          "variant": 0.7966842717114497,
+          "difference": 0.011892812874677361
         }
       ],
       "spatial_cv_paired": {
@@ -127,122 +127,122 @@
         "metrics": {
           "linear_r2": {
             "n_splits": 5,
-            "mean_difference": -0.02707085609436035,
-            "sd_difference": 0.006263077151797255,
+            "mean_difference": -0.027067410945892333,
+            "sd_difference": 0.006262997821304468,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.002800933251948886,
-              "lower": -0.03484749351171957,
-              "upper": -0.019294218677001127
+              "standard_error": 0.002800897774273974,
+              "lower": -0.0348439498614347,
+              "upper": -0.019290872030349966
             },
             "corrected": {
-              "standard_error": 0.004201399878288034,
-              "lower": -0.038735812221411765,
-              "upper": -0.015405899967308933
+              "standard_error": 0.004201346661775661,
+              "lower": -0.03873221932021846,
+              "upper": -0.015402602571566209
             }
           },
           "linear_rmse": {
             "n_splits": 5,
-            "mean_difference": 0.00873803419220769,
-            "sd_difference": 0.013759987204086483,
+            "mean_difference": 0.008729423515340784,
+            "sd_difference": 0.013754302096195544,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.00615365335157293,
-              "lower": -0.008347246534850968,
-              "upper": 0.025823314919266347
+              "standard_error": 0.006151110894032218,
+              "lower": -0.008348798217923791,
+              "upper": 0.02580764524860536
             },
             "corrected": {
-              "standard_error": 0.00923048002816065,
-              "lower": -0.016889886900604938,
-              "upper": 0.034365955285020316
+              "standard_error": 0.009226666341849252,
+              "lower": -0.0168879090867798,
+              "upper": 0.034346756117461366
             }
           },
           "linear_mae": {
             "n_splits": 5,
-            "mean_difference": 0.0032489538192748803,
-            "sd_difference": 0.0023607796060865016,
+            "mean_difference": 0.0032452344894408737,
+            "sd_difference": 0.0023465935484475622,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0010557727358209187,
-              "lower": 0.00031765877470360743,
-              "upper": 0.006180248863846154
+              "standard_error": 0.001049428537978239,
+              "lower": 0.00033155376191631525,
+              "upper": 0.006158915216965433
             },
             "corrected": {
-              "standard_error": 0.0015836591038688485,
-              "lower": -0.0011479887479637083,
-              "upper": 0.007645896386513469
+              "standard_error": 0.0015741428071040027,
+              "lower": -0.001125286602225349,
+              "upper": 0.0076157555811070966
             }
           },
           "rf_r2": {
             "n_splits": 5,
-            "mean_difference": -0.024007727701870808,
-            "sd_difference": 0.006045005372054305,
+            "mean_difference": -0.024017770235771074,
+            "sd_difference": 0.006052154950941184,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0027034085872529668,
-              "lower": -0.03151359324129899,
-              "upper": -0.016501862162442628
+              "standard_error": 0.0027066059761332783,
+              "lower": -0.03153251314990541,
+              "upper": -0.016503027321636738
             },
             "corrected": {
-              "standard_error": 0.004055112881231456,
-              "lower": -0.0352665260119904,
-              "upper": -0.01274892939175121
+              "standard_error": 0.00405990896455234,
+              "lower": -0.03528988460795106,
+              "upper": -0.012745655863591087
             }
           },
           "rf_rmse": {
             "n_splits": 5,
-            "mean_difference": 0.023227087298761884,
-            "sd_difference": 0.01551979723123308,
+            "mean_difference": 0.023255361624354976,
+            "sd_difference": 0.015539757696506637,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.006940664321210038,
-              "lower": 0.003956713817317308,
-              "upper": 0.042497460780206456
+              "standard_error": 0.006949590912652877,
+              "lower": 0.003960203951792831,
+              "upper": 0.042550519296917125
             },
             "corrected": {
-              "standard_error": 0.010410996482718787,
-              "lower": -0.005678472925914137,
-              "upper": 0.05213264752343791
+              "standard_error": 0.010424386369884209,
+              "lower": -0.005687374887000631,
+              "upper": 0.05219809813571058
             }
           },
           "rf_mae": {
             "n_splits": 5,
-            "mean_difference": 0.011867373136708558,
-            "sd_difference": 0.0015328591273199516,
+            "mean_difference": 0.011892812874677338,
+            "sd_difference": 0.0015516471410408302,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0006855154417236834,
-              "lower": 0.009964077143997335,
-              "upper": 0.013770669129419781
+              "standard_error": 0.0006939176968921001,
+              "lower": 0.009966188481731142,
+              "upper": 0.013819437267623535
             },
             "corrected": {
-              "standard_error": 0.0010282731626747848,
-              "lower": 0.009012429147393898,
-              "upper": 0.014722317126023218
+              "standard_error": 0.0010408765454285038,
+              "lower": 0.009002876285007181,
+              "upper": 0.014782749464347496
             }
           }
         }
@@ -347,15 +347,15 @@
           "max": 52.8521728515625
         },
         "variant": {
-          "count": 3447190,
-          "mean": 32.585968017578125,
-          "std": 2.514986515045166,
+          "count": 3446551,
+          "mean": 32.58651351928711,
+          "std": 2.514890670776367,
           "min": 23.843746185302734,
-          "p1": 27.230523433685303,
-          "p25": 30.836702346801758,
-          "p50": 32.228790283203125,
-          "p75": 33.99673366546631,
-          "p99": 39.245329475402826,
+          "p1": 27.23037624359131,
+          "p25": 30.837461471557617,
+          "p50": 32.229270935058594,
+          "p75": 33.997215270996094,
+          "p99": 39.24564552307129,
           "max": 69.7379150390625
         }
       }
@@ -377,96 +377,96 @@
           "model": "linear_regression",
           "metric": "r2",
           "baseline": 0.690294086933136,
-          "variant": 0.6653860211372375,
-          "difference": -0.024908065795898438
+          "variant": 0.6653957366943359,
+          "difference": -0.02489835023880005
         },
         {
           "evaluation": "random_split",
           "model": "linear_regression",
           "metric": "rmse",
           "baseline": 1.4637731276329327,
-          "variant": 1.448507869784671,
-          "difference": -0.015265257848261715
+          "variant": 1.4484819456851052,
+          "difference": -0.015291181947827415
         },
         {
           "evaluation": "random_split",
           "model": "linear_regression",
           "metric": "mae",
           "baseline": 1.0983105897903442,
-          "variant": 1.0910977125167847,
-          "difference": -0.00721287727355957
+          "variant": 1.0910792350769043,
+          "difference": -0.007231354713439941
         },
         {
           "evaluation": "spatial_cv",
           "model": "linear_regression",
           "metric": "r2_mean",
           "baseline": 0.693464708328247,
-          "variant": 0.6669848918914795,
-          "difference": -0.026479816436767556
+          "variant": 0.6669874429702759,
+          "difference": -0.026477265357971125
         },
         {
           "evaluation": "spatial_cv",
           "model": "linear_regression",
           "metric": "rmse_mean",
           "baseline": 1.4601927374411932,
-          "variant": 1.450871632946115,
-          "difference": -0.009321104495078059
+          "variant": 1.4508660359634675,
+          "difference": -0.00932670147772563
         },
         {
           "evaluation": "spatial_cv",
           "model": "linear_regression",
           "metric": "mae_mean",
           "baseline": 1.09636070728302,
-          "variant": 1.0906299591064452,
-          "difference": -0.005730748176574707
+          "variant": 1.0906278371810914,
+          "difference": -0.005732870101928578
         },
         {
           "evaluation": "random_split",
           "model": "random_forest",
           "metric": "r2",
           "baseline": 0.7550309060888183,
-          "variant": 0.7244826371579767,
-          "difference": -0.030548268930841616
+          "variant": 0.7244963914624639,
+          "difference": -0.03053451462635437
         },
         {
           "evaluation": "random_split",
           "model": "random_forest",
           "metric": "rmse",
           "baseline": 1.301831239759688,
-          "variant": 1.3143871284716007,
-          "difference": 0.0125558887119126
+          "variant": 1.3143499283750326,
+          "difference": 0.012518688615344553
         },
         {
           "evaluation": "random_split",
           "model": "random_forest",
           "metric": "mae",
           "baseline": 0.9794225405768031,
-          "variant": 0.9890636273917935,
-          "difference": 0.00964108681499043
+          "variant": 0.9890360918141045,
+          "difference": 0.009613551237301343
         },
         {
           "evaluation": "spatial_cv",
           "model": "random_forest",
           "metric": "r2_mean",
           "baseline": 0.7528061515917297,
-          "variant": 0.7208829345029792,
-          "difference": -0.031923217088750455
+          "variant": 0.7208911888923246,
+          "difference": -0.03191496269940508
         },
         {
           "evaluation": "spatial_cv",
           "model": "random_forest",
           "metric": "rmse_mean",
           "baseline": 1.311221608105588,
-          "variant": 1.3279132455987805,
-          "difference": 0.016691637493192468
+          "variant": 1.3278923850825604,
+          "difference": 0.01667077697697228
         },
         {
           "evaluation": "spatial_cv",
           "model": "random_forest",
           "metric": "mae_mean",
           "baseline": 0.9912928677223393,
-          "variant": 1.0006175456455009,
-          "difference": 0.009324677923161606
+          "variant": 1.000613567078103,
+          "difference": 0.009320699355763629
         }
       ],
       "spatial_cv_paired": {
@@ -474,122 +474,122 @@
         "metrics": {
           "linear_r2": {
             "n_splits": 5,
-            "mean_difference": -0.026479816436767577,
-            "sd_difference": 0.006559185637968041,
+            "mean_difference": -0.02647726535797119,
+            "sd_difference": 0.006557226436814663,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0029333569927073727,
-              "lower": -0.03462412110096768,
-              "upper": -0.018335511772567474
+              "standard_error": 0.002932480811315263,
+              "lower": -0.03461913735263391,
+              "upper": -0.018335393363308472
             },
             "corrected": {
-              "standard_error": 0.004400035489443006,
-              "lower": -0.03869627343412819,
-              "upper": -0.014263359439406965
+              "standard_error": 0.0043987212173547275,
+              "lower": -0.0386900733510254,
+              "upper": -0.014264457364916978
             }
           },
           "linear_rmse": {
             "n_splits": 5,
-            "mean_difference": -0.00932110449507797,
-            "sd_difference": 0.012711770545559388,
+            "mean_difference": -0.009326701477725675,
+            "sd_difference": 0.012701715997659783,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0056848766108500755,
-              "lower": -0.025104852334926084,
-              "upper": 0.006462643344770142
+              "standard_error": 0.005680380080332767,
+              "lower": -0.025097964947428632,
+              "upper": 0.006444561991977283
             },
             "corrected": {
-              "standard_error": 0.008527314917015331,
-              "lower": -0.032996726256905314,
-              "upper": 0.014354517266749375
+              "standard_error": 0.008520570121238783,
+              "lower": -0.03298359668433366,
+              "upper": 0.014330193728882314
             }
           },
           "linear_mae": {
             "n_splits": 5,
-            "mean_difference": -0.005730748176574707,
-            "sd_difference": 0.004252830478793307,
+            "mean_difference": -0.005732870101928711,
+            "sd_difference": 0.0042470387971773535,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0019019236094729624,
-              "lower": -0.011011334672556033,
-              "upper": -0.00045016168059338127
+              "standard_error": 0.0018993334907135009,
+              "lower": -0.011006265275358449,
+              "upper": -0.00045947492849897353
             },
             "corrected": {
-              "standard_error": 0.0028528854144570896,
-              "lower": -0.013651627921234272,
-              "upper": 0.0021901315680848583
+              "standard_error": 0.00284900023631756,
+              "lower": -0.013642962862759957,
+              "upper": 0.0021772226589025345
             }
           },
           "rf_r2": {
             "n_splits": 5,
-            "mean_difference": -0.031923217088750545,
-            "sd_difference": 0.006774714716759538,
+            "mean_difference": -0.03191496269940528,
+            "sd_difference": 0.0067794090580239824,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0030297445269685122,
-              "lower": -0.04033513645065208,
-              "upper": -0.023511297726849015
+              "standard_error": 0.003031843900203888,
+              "lower": -0.040332710855850155,
+              "upper": -0.023497214542960408
             },
             "corrected": {
-              "standard_error": 0.004544616790847266,
-              "lower": -0.04454109613269814,
-              "upper": -0.01930533804480295
+              "standard_error": 0.004547765850700603,
+              "lower": -0.04454158493516865,
+              "upper": -0.01928834046364191
             }
           },
           "rf_rmse": {
             "n_splits": 5,
-            "mean_difference": 0.016691637493192735,
-            "sd_difference": 0.013201692202881428,
+            "mean_difference": 0.016670776976972456,
+            "sd_difference": 0.013203733445756857,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.005903976236734363,
-              "lower": 0.00029957156950752295,
-              "upper": 0.03308370341687795
+              "standard_error": 0.005904889108299973,
+              "lower": 0.0002761765154972312,
+              "upper": 0.03306537743844768
             },
             "corrected": {
-              "standard_error": 0.00885596435587029,
-              "lower": -0.007896461394469461,
-              "upper": 0.04127973638085493
+              "standard_error": 0.008857333663218824,
+              "lower": -0.007921123717375089,
+              "upper": 0.04126267767132
             }
           },
           "rf_mae": {
             "n_splits": 5,
-            "mean_difference": 0.009324677923161495,
-            "sd_difference": 0.0020050363557423683,
+            "mean_difference": 0.009320699355763651,
+            "sd_difference": 0.002011070005634007,
             "degrees_of_freedom": 4,
             "t_quantile": 2.7764451051977934,
             "confidence": 0.95,
             "test_train_ratio": 0.25000000007812495,
             "correction_factor": 0.45000000007812496,
             "naive": {
-              "standard_error": 0.0008966795177596772,
-              "lower": 0.006835096465146522,
-              "upper": 0.01181425938117647
+              "standard_error": 0.0008993778480217049,
+              "lower": 0.006823626131900464,
+              "upper": 0.011817772579626839
             },
             "corrected": {
-              "standard_error": 0.001345019276756271,
-              "lower": 0.005590305735814871,
-              "upper": 0.01305905011050812
+              "standard_error": 0.0013490667721496638,
+              "lower": 0.005575089519643731,
+              "upper": 0.013066309191883571
             }
           }
         }
@@ -678,15 +678,15 @@
           "max": 52.8521728515625
         },
         "variant": {
-          "count": 3492538,
-          "mean": 32.574249267578125,
-          "std": 2.5299954414367676,
+          "count": 3491872,
+          "mean": 32.574764251708984,
+          "std": 2.5299072265625,
           "min": 23.843746185302734,
-          "p1": 27.194658908843994,
-          "p25": 30.822978973388672,
-          "p50": 32.21712112426758,
-          "p75": 33.98485088348389,
-          "p99": 39.2853539276123,
+          "p1": 27.194455680847167,
+          "p25": 30.823837280273438,
+          "p50": 32.21763229370117,
+          "p75": 33.98536682128906,
+          "p99": 39.28556823730469,
           "max": 69.7379150390625
         }
       }
@@ -700,11 +700,11 @@
   },
   "provenance": {
     "script": "src.analysis.lst_emissivity_sensitivity",
-    "executed_at": "2026-11-13T10:35:58.287304+00:00",
+    "executed_at": "2026-11-13T12:45:00.190666+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "cb14a7e8b9ddb3a38d1ac7a853fa2e52c61a13ab",
+      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
       "dirty": false
     },
     "code": {
@@ -722,7 +722,7 @@
         },
         {
           "path": "src/analysis/lst_emissivity_sensitivity.py",
-          "sha256": "5e4d23d5ae0ba1217af32cb3434b0e69f552813230fda45dc101c5b18c8ecf89"
+          "sha256": "ba13a44ed7ed94dbbbb2a979f4a2e03fe22d31a7070c04710ff4c260d987b74d"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",
@@ -880,7 +880,7 @@
       },
       {
         "path": "data/output/limited/20220906_032358_common_evaluation_lst_em0/dataset_limited_20220906_032358_lstem0_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
-        "sha256": "591c541553c91351560d301da9c78d3fad49195a8df03fbda0fe7d2046ebbb40"
+        "sha256": "1dd78a9d7e81ac331d0a9ae74517e68ad9169db2b1b95785845d8e5f4ddc19d2"
       },
       {
         "path": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
@@ -888,7 +888,7 @@
       },
       {
         "path": "data/output/limited/20220906_032358_common_evaluation_lst_em0/dataset_limited_20220906_032358_lstem0_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
-        "sha256": "8627c1e6de707de276ba80f51a404ed77ddc47c128fdabbebb08adaf21d2eca9"
+        "sha256": "c4707bc03f6347c766c22b87eb5145f0723cdc1bd43e12c3a1096c8efd6ef480"
       },
       {
         "path": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation/dataset_satellite_only_20220906_032358_hanoi_30m_evaluation_cells_seed42_results.json",
@@ -896,7 +896,7 @@
       },
       {
         "path": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation_lst_em0/dataset_satellite_only_20220906_032358_lstem0_hanoi_30m_evaluation_cells_seed42_results.json",
-        "sha256": "1738a90b0236733ef4b6b02441a02a7541f9819da79a1a343c962eb4ce940eed"
+        "sha256": "60cf3237eaa5fb135e059ec32567b06b34887ff2ba9a834ccafcea67c5ddbd2e"
       },
       {
         "path": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation/dataset_satellite_only_20220906_032358_hanoi_30m_evaluation_cells_seed42_spatial_cv_folds.csv",
@@ -904,7 +904,7 @@
       },
       {
         "path": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation_lst_em0/dataset_satellite_only_20220906_032358_lstem0_hanoi_30m_evaluation_cells_seed42_spatial_cv_folds.csv",
-        "sha256": "9f19fae5ab14e031b40d79e5256b0635370e8a31dcc075983c29b600cf95a8c8"
+        "sha256": "55a2491b5ca7bb8de53a0ba767c1a4c788a933e64d9eb1319b027549b2165eb7"
       }
     ]
   }

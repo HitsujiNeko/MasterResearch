@@ -79,7 +79,7 @@
     "metadata_path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42_results.json",
     "digest": "aa9ad8a222e8c564a19df96133894fa13ea12796d8085a267c99de210d1f5170",
     "row_count": 100000,
-    "population_size": 3447190,
+    "population_size": 3446551,
     "common_size": 3422216,
     "note": "標本と Spatial CV の fold は評価セル CSV から固定した（抽出・GroupKFold は行っていない）。population_size は本シナリオの有効母集団、common_size は評価セルを抽出した全構成の共通集合の母数。"
   },
@@ -145,21 +145,21 @@
       "BUILD_H_MAX"
     ],
     "dataset_filled_cell_count": 2781918,
-    "population_size": 3447190,
-    "population_filled_cell_count": 2523902,
+    "population_size": 3446551,
+    "population_filled_cell_count": 2523310,
     "sample_filled_cell_count": 73158
   },
   "filter_dropout": {
     "stages": {
       "dataset_row_count": 3739454,
       "mask_passed": 3682242,
-      "target_available": 3448832,
-      "feature_complete": 3447190,
+      "target_available": 3447130,
+      "feature_complete": 3446551,
       "sampled": 100000
     },
     "base_stage": "target_available",
-    "dropped_count": 1642,
-    "dropped_ratio": 0.0004761032140736342,
+    "dropped_count": 579,
+    "dropped_ratio": 0.0001679658150403379,
     "columns": {
       "BUILD_COV": {
         "null_count": 0,
@@ -192,24 +192,24 @@
         "target_mean": 30.912416458129883
       },
       "NDVI": {
-        "null_count": 1385,
+        "null_count": 322,
         "exclusive_null_count": 0,
-        "target_mean": 29.67186737060547
+        "target_mean": 29.727733612060547
       },
       "NDBI": {
-        "null_count": 1385,
+        "null_count": 322,
         "exclusive_null_count": 0,
-        "target_mean": 29.67186737060547
+        "target_mean": 29.727733612060547
       },
       "NDWI": {
-        "null_count": 1385,
+        "null_count": 322,
         "exclusive_null_count": 0,
-        "target_mean": 29.67186737060547
+        "target_mean": 29.727733612060547
       },
       "MNDWI": {
-        "null_count": 1385,
+        "null_count": 322,
         "exclusive_null_count": 0,
-        "target_mean": 29.67186737060547
+        "target_mean": 29.727733612060547
       },
       "LULC_WATER_COV": {
         "null_count": 91,
@@ -259,90 +259,90 @@
         "target_mean": null
       },
       "other": {
-        "null_count": 1621,
-        "exclusive_null_count": 1621,
-        "target_mean": 29.893545150756836
+        "null_count": 558,
+        "exclusive_null_count": 558,
+        "target_mean": 30.34808349609375
       }
     },
     "dropped_summary": {
       "BUILD_COV": {
         "dropped": {
-          "mean": 0.015563677065074444,
-          "non_null_count": 1642
+          "mean": 0.01228171307593584,
+          "non_null_count": 579
         },
         "final": {
-          "mean": 0.08254374563694,
-          "non_null_count": 3447190
+          "mean": 0.08255579322576523,
+          "non_null_count": 3446551
         }
       },
       "BUILD_DEN": {
         "dropped": {
-          "mean": 1.042089581489563,
-          "non_null_count": 1642
+          "mean": 0.9019381403923035,
+          "non_null_count": 579
         },
         "final": {
-          "mean": 9.562434196472168,
-          "non_null_count": 3447190
+          "mean": 9.564034461975098,
+          "non_null_count": 3446551
         }
       },
       "BUILD_H_MEAN": {
         "dropped": {
-          "mean": 0.2217874825000763,
-          "non_null_count": 1621
+          "mean": 0.23576001822948456,
+          "non_null_count": 558
         },
         "final": {
-          "mean": 1.5094940662384033,
-          "non_null_count": 3447190
+          "mean": 1.5097240209579468,
+          "non_null_count": 3446551
         }
       },
       "BUILD_H_MAX": {
         "dropped": {
-          "mean": 0.23956327140331268,
-          "non_null_count": 1621
+          "mean": 0.2599995732307434,
+          "non_null_count": 558
         },
         "final": {
-          "mean": 1.7029380798339844,
-          "non_null_count": 3447190
+          "mean": 1.7032041549682617,
+          "non_null_count": 3446551
         }
       },
       "ROAD_DEN": {
         "dropped": {
-          "mean": 47.691802978515625,
-          "non_null_count": 1642
+          "mean": 38.528873443603516,
+          "non_null_count": 579
         },
         "final": {
-          "mean": 90.01708221435547,
-          "non_null_count": 3447190
+          "mean": 90.02049255371094,
+          "non_null_count": 3446551
         }
       },
       "ELEV_MEAN": {
         "dropped": {
-          "mean": 9.688567161560059,
-          "non_null_count": 1481
+          "mean": 21.84795379638672,
+          "non_null_count": 418
         },
         "final": {
-          "mean": 23.16800880432129,
-          "non_null_count": 3447190
+          "mean": 23.1715030670166,
+          "non_null_count": 3446551
         }
       },
       "NDVI": {
         "dropped": {
-          "mean": 0.42001640796661377,
+          "mean": 0.4200163781642914,
           "non_null_count": 257
         },
         "final": {
-          "mean": 0.5490429401397705,
-          "non_null_count": 3447190
+          "mean": 0.5491014122962952,
+          "non_null_count": 3446551
         }
       },
       "NDBI": {
         "dropped": {
-          "mean": -0.312250018119812,
+          "mean": -0.3122499883174896,
           "non_null_count": 257
         },
         "final": {
-          "mean": -0.25234532356262207,
-          "non_null_count": 3447190
+          "mean": -0.25233224034309387,
+          "non_null_count": 3446551
         }
       },
       "NDWI": {
@@ -351,8 +351,8 @@
           "non_null_count": 257
         },
         "final": {
-          "mean": -0.5088902711868286,
-          "non_null_count": 3447190
+          "mean": -0.5089505910873413,
+          "non_null_count": 3446551
         }
       },
       "MNDWI": {
@@ -361,95 +361,95 @@
           "non_null_count": 257
         },
         "final": {
-          "mean": -0.3090664744377136,
-          "non_null_count": 3447190
+          "mean": -0.30914950370788574,
+          "non_null_count": 3446551
         }
       },
       "LULC_WATER_COV": {
         "dropped": {
-          "mean": 0.4736240804195404,
-          "non_null_count": 1551
+          "mean": 0.4067510962486267,
+          "non_null_count": 488
         },
         "final": {
-          "mean": 0.053295087069272995,
-          "non_null_count": 3447190
+          "mean": 0.053235478699207306,
+          "non_null_count": 3446551
         }
       },
       "LULC_TREE_COV": {
         "dropped": {
-          "mean": 0.014272525906562805,
-          "non_null_count": 1551
+          "mean": 0.045362066477537155,
+          "non_null_count": 488
         },
         "final": {
-          "mean": 0.05691138282418251,
-          "non_null_count": 3447190
+          "mean": 0.05692192539572716,
+          "non_null_count": 3446551
         }
       },
       "LULC_BUILT_COV": {
         "dropped": {
-          "mean": 0.048140477389097214,
-          "non_null_count": 1551
+          "mean": 0.05222547426819801,
+          "non_null_count": 488
         },
         "final": {
-          "mean": 0.20878292620182037,
-          "non_null_count": 3447190
+          "mean": 0.20881755650043488,
+          "non_null_count": 3446551
         }
       },
       "LULC_RANGE_COV": {
         "dropped": {
-          "mean": 0.007928929291665554,
-          "non_null_count": 1551
+          "mean": 0.0064620282500982285,
+          "non_null_count": 488
         },
         "final": {
-          "mean": 0.005248937290161848,
-          "non_null_count": 3447190
+          "mean": 0.005249675828963518,
+          "non_null_count": 3446551
         }
       },
       "LULC_WETLAND_COV": {
         "dropped": {
-          "mean": 0.04358783736824989,
-          "non_null_count": 1551
+          "mean": 0.04857242479920387,
+          "non_null_count": 488
         },
         "final": {
-          "mean": 0.014688380993902683,
-          "non_null_count": 3447190
+          "mean": 0.01468192134052515,
+          "non_null_count": 3446551
         }
       },
       "LULC_BARE_COV": {
         "dropped": {
           "mean": 0.0,
-          "non_null_count": 1551
+          "non_null_count": 488
         },
         "final": {
           "mean": 0.0,
-          "non_null_count": 3447190
+          "non_null_count": 3446551
         }
       }
     },
     "missing_summary_columns": [],
     "target_distribution": {
       "before": {
-        "count": 3448832,
-        "mean": 32.584716796875,
-        "std": 2.5153698921203613,
+        "count": 3447130,
+        "mean": 32.586151123046875,
+        "std": 2.515018939971924,
         "min": 23.843746185302734,
-        "p1": 27.230486755371093,
-        "p25": 30.835290908813477,
-        "p50": 32.2277774810791,
-        "p75": 33.99560546875,
-        "p99": 39.24500301361084,
+        "p1": 27.230030918121336,
+        "p25": 30.837087631225586,
+        "p50": 32.228973388671875,
+        "p75": 33.996901512145996,
+        "p99": 39.245585174560546,
         "max": 69.7379150390625
       },
       "after": {
-        "count": 3447190,
-        "mean": 32.585968017578125,
-        "std": 2.514986515045166,
+        "count": 3446551,
+        "mean": 32.58651351928711,
+        "std": 2.514890670776367,
         "min": 23.843746185302734,
-        "p1": 27.230523433685303,
-        "p25": 30.836702346801758,
-        "p50": 32.228790283203125,
-        "p75": 33.99673366546631,
-        "p99": 39.245329475402826,
+        "p1": 27.23037624359131,
+        "p25": 30.837461471557617,
+        "p50": 32.229270935058594,
+        "p75": 33.997215270996094,
+        "p99": 39.24564552307129,
         "max": 69.7379150390625
       }
     },
@@ -459,7 +459,7 @@
       "dropped_ratio": {
         "median": 0.0,
         "p90": 0.0009107938791053756,
-        "p99": 0.020388453592567506,
+        "p99": 0.009308083024717145,
         "max": 0.11111111111111116
       },
       "blocks_over_50pct": 0
@@ -469,84 +469,84 @@
   "random_split": {
     "linear_regression": {
       "metrics": {
-        "r2": 0.7439128756523132,
-        "rmse": 1.2671927643653653,
-        "mae": 0.9611914157867432
+        "r2": 0.743924617767334,
+        "rmse": 1.2671594619000934,
+        "mae": 0.9611720442771912
       },
       "standardized_coefficients": {
-        "BUILD_COV": 0.061728090047836304,
-        "BUILD_DEN": -0.030231833457946777,
-        "BUILD_H_MEAN": -0.016662798821926117,
-        "ROAD_DEN": 0.016078580170869827,
-        "ELEV_MEAN": -0.09468953311443329,
-        "POP_DEN_WORLDPOP2020": 0.06862635910511017,
-        "NTL_MEAN": 0.11188443005084991,
-        "NDVI": 0.1188766360282898,
-        "NDBI": 0.55051189661026,
-        "LULC_WATER_COV": -0.10260868072509766,
-        "LULC_TREE_COV": -0.02995884045958519,
-        "LULC_BUILT_COV": 0.2137407660484314,
-        "LULC_RANGE_COV": 0.0304969921708107,
-        "LULC_WETLAND_COV": 0.0038747992366552353
+        "BUILD_COV": 0.06172524765133858,
+        "BUILD_DEN": -0.030232667922973633,
+        "BUILD_H_MEAN": -0.016663148999214172,
+        "ROAD_DEN": 0.01607488840818405,
+        "ELEV_MEAN": -0.09468954801559448,
+        "POP_DEN_WORLDPOP2020": 0.06862771511077881,
+        "NTL_MEAN": 0.11188159883022308,
+        "NDVI": 0.11887919902801514,
+        "NDBI": 0.550513744354248,
+        "LULC_WATER_COV": -0.10261005908250809,
+        "LULC_TREE_COV": -0.029959816485643387,
+        "LULC_BUILT_COV": 0.21374481916427612,
+        "LULC_RANGE_COV": 0.03049536421895027,
+        "LULC_WETLAND_COV": 0.003867865540087223
       }
     },
     "random_forest": {
       "metrics": {
-        "r2": 0.8333380167961734,
-        "rmse": 1.0222734549828518,
-        "mae": 0.7494518589936306
+        "r2": 0.8333259089600723,
+        "rmse": 1.022307172225101,
+        "mae": 0.749481678679909
       },
       "feature_importance": {
-        "BUILD_COV": 0.0018791935821138694,
-        "BUILD_DEN": 0.0019736771158785616,
-        "BUILD_H_MEAN": 0.007445789721195607,
-        "ROAD_DEN": 0.004686230012665265,
-        "ELEV_MEAN": 0.058245919595491004,
-        "POP_DEN_WORLDPOP2020": 0.05707516078548022,
-        "NTL_MEAN": 0.029550773432487857,
-        "NDVI": 0.0842215756181312,
-        "NDBI": 0.21824866966988252,
-        "LULC_WATER_COV": 0.0018621957211808874,
-        "LULC_TREE_COV": 0.0009852854775762913,
-        "LULC_BUILT_COV": 0.5248438372787065,
-        "LULC_RANGE_COV": 0.0009484129909027846,
-        "LULC_WETLAND_COV": 0.00803327899830735
+        "BUILD_COV": 0.0018802497389340928,
+        "BUILD_DEN": 0.0019735439062676017,
+        "BUILD_H_MEAN": 0.007442819296683511,
+        "ROAD_DEN": 0.004683565326205971,
+        "ELEV_MEAN": 0.058241352518454276,
+        "POP_DEN_WORLDPOP2020": 0.057062511884258794,
+        "NTL_MEAN": 0.029563508272166677,
+        "NDVI": 0.08422706872367908,
+        "NDBI": 0.21825902182916285,
+        "LULC_WATER_COV": 0.0018604913700028423,
+        "LULC_TREE_COV": 0.0009858657424912487,
+        "LULC_BUILT_COV": 0.5248395574056322,
+        "LULC_RANGE_COV": 0.0009463293608617158,
+        "LULC_WETLAND_COV": 0.008034114625199264
       },
       "permutation_importance": {
-        "BUILD_COV": 0.00024083268206173125,
-        "BUILD_DEN": 0.0008853519658007403,
-        "BUILD_H_MEAN": 0.009292394764155998,
-        "ROAD_DEN": 0.000758753180180105,
-        "ELEV_MEAN": 0.10774426291713002,
-        "POP_DEN_WORLDPOP2020": 0.08352686199739365,
-        "NTL_MEAN": 0.041591310954257235,
-        "NDVI": 0.09251244844919627,
-        "NDBI": 0.3675020355815964,
-        "LULC_WATER_COV": 0.002167066564652542,
-        "LULC_TREE_COV": 0.0008613092555344593,
-        "LULC_BUILT_COV": 0.14839194477143172,
-        "LULC_RANGE_COV": 0.0002408283241092435,
-        "LULC_WETLAND_COV": 0.0028513612737780082
+        "BUILD_COV": 0.00023992890303292658,
+        "BUILD_DEN": 0.0008878704674708082,
+        "BUILD_H_MEAN": 0.009292289912003681,
+        "ROAD_DEN": 0.0007518098639298088,
+        "ELEV_MEAN": 0.10772552556283746,
+        "POP_DEN_WORLDPOP2020": 0.08351573426080908,
+        "NTL_MEAN": 0.04159431442661077,
+        "NDVI": 0.09251359472329301,
+        "NDBI": 0.36790098932397874,
+        "LULC_WATER_COV": 0.002162907414729609,
+        "LULC_TREE_COV": 0.0008598782484550815,
+        "LULC_BUILT_COV": 0.1482597857743848,
+        "LULC_RANGE_COV": 0.00023963057031334278,
+        "LULC_WETLAND_COV": 0.002843536099508337
       }
     }
   },
   "spatial_cv": {
     "cv_splits": 5,
     "linear_regression": {
-      "r2_mean": 0.7390863060951233,
-      "r2_std": 0.011695028420599366,
-      "rmse_mean": 1.284702265313376,
-      "rmse_std": 0.07057597584719025,
-      "mae_mean": 0.9665251135826111,
-      "mae_std": 0.021631092140835872
+      "r2_mean": 0.7390897512435913,
+      "r2_std": 0.011699417893897451,
+      "rmse_mean": 1.284693654636509,
+      "rmse_std": 0.07058407589415759,
+      "mae_mean": 0.966521394252777,
+      "mae_std": 0.021635929290954987
     },
     "random_forest": {
-      "r2_mean": 0.8159334696806363,
-      "r2_std": 0.0077340666453601286,
-      "rmse_mean": 1.0786053020152973,
-      "rmse_std": 0.047600427331157005,
-      "mae_mean": 0.7966588319734809,
-      "mae_std": 0.01692917421247077
+      "r2_mean": 0.815923427146736,
+      "r2_std": 0.0077420241177810515,
+      "rmse_mean": 1.0786335763408903,
+      "rmse_std": 0.04759589726195708,
+      "mae_mean": 0.7966842717114497,
+      "mae_std": 0.016933225924759918
     },
     "block_definition": {
       "block_size_m": 2700,
@@ -578,20 +578,20 @@
     "sample_size": 2000,
     "background_size": 500,
     "mean_abs_shap": {
-      "NDBI": 0.824232149627921,
-      "LULC_BUILT_COV": 0.5156669686180746,
-      "ELEV_MEAN": 0.3508129476304168,
-      "POP_DEN_WORLDPOP2020": 0.33852315226978213,
-      "NDVI": 0.1897818713695332,
-      "NTL_MEAN": 0.1793963778114651,
-      "BUILD_H_MEAN": 0.0658964249790442,
-      "LULC_WATER_COV": 0.016656770463226982,
-      "LULC_TREE_COV": 0.016463203439076615,
-      "ROAD_DEN": 0.010214451685252073,
-      "BUILD_DEN": 0.0060250830788865966,
-      "BUILD_COV": 0.005382536368866302,
-      "LULC_WETLAND_COV": 0.0049299228212033724,
-      "LULC_RANGE_COV": 0.002480161322120294
+      "NDBI": 0.8248031520156508,
+      "LULC_BUILT_COV": 0.5154163547182126,
+      "ELEV_MEAN": 0.35056989362559343,
+      "POP_DEN_WORLDPOP2020": 0.33847732492113763,
+      "NDVI": 0.18985761329423323,
+      "NTL_MEAN": 0.17931421038663928,
+      "BUILD_H_MEAN": 0.06582060850457218,
+      "LULC_WATER_COV": 0.01666442535314233,
+      "LULC_TREE_COV": 0.016451243591321732,
+      "ROAD_DEN": 0.010177661381144478,
+      "BUILD_DEN": 0.006005007227779356,
+      "BUILD_COV": 0.005351681567705801,
+      "LULC_WETLAND_COV": 0.0049564911701445846,
+      "LULC_RANGE_COV": 0.0024723995106364963
     },
     "outputs": {
       "shap_importance_csv": "data/output/limited/20220906_032358_common_evaluation_lst_em0/dataset_limited_20220906_032358_lstem0_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_shap_importance.csv",
@@ -620,7 +620,7 @@
         "LULC_RANGE_COV"
       ],
       "excluded_columns": [],
-      "mean_abs_shap_sum": 0.01894336476119691,
+      "mean_abs_shap_sum": 0.018923643101958227,
       "note": "植生被覆率は独立変数として投入せず、樹林・草地低木クラスの平均絶対SHAP値を事後合算した値を記録する。符号付きSHAP値を先に合算した場合と一致せず、グループ寄与の上限にあたる。"
     }
   },
@@ -635,11 +635,11 @@
   },
   "provenance": {
     "script": "src.analysis.analysis_rq3_limited",
-    "executed_at": "2026-11-13T10:33:01.709191+00:00",
+    "executed_at": "2026-11-13T12:44:53.950946+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "cb14a7e8b9ddb3a38d1ac7a853fa2e52c61a13ab",
+      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
       "dirty": false
     },
     "code": {
@@ -802,7 +802,7 @@
     "inputs": [
       {
         "path": "data/output/datasets/dataset_limited_20220906_032358_lstem0_hanoi_30m.gpkg",
-        "sha256": "abc13a62ce3a1111793ad8c7b5b366515e390345f5e9e09a66408fdb32360a25"
+        "sha256": "55755f7a94da9dbcf22354973d8a847170a45c8067f9dd3ee02b27118e727128"
       },
       {
         "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",

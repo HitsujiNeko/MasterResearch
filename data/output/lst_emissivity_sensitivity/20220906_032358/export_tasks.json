@@ -28,11 +28,11 @@
   "note": "Drive からのダウンロードと local_*_path への配置は手作業。ndvi は分析に用いる LST と同じ算出条件、em0 は ASTER GEDv3 の静的な放射率による対照。",
   "provenance": {
     "script": "src.gee.gee_export_lst_emissivity_variants",
-    "executed_at": "2026-11-13T06:10:49.560028+00:00",
+    "executed_at": "2026-11-13T11:28:32.298774+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "125eb34fe1bac35083ba383bc2b0717aca7a0766",
+      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
       "dirty": false
     },
     "code": {
@@ -184,11 +184,11 @@
         },
         {
           "path": "src/gee/gee_export_lst_emissivity_variants.py",
-          "sha256": "d2f34463ffb2a7de05c72d3e6621ce991e9302a287c94fb3d1417ff20c10c797"
+          "sha256": "daba98553c8fb031b5053a7bbd6baa56eb55b06ec348d44d45ae3cfef0ff58ed"
         },
         {
           "path": "src/gee/gee_search_satellite_data.py",
-          "sha256": "dd91d19f0c4d85024ca4a6fc223f3645278e0a5c8a4d963aa6682de759057bc9"
+          "sha256": "deb086d0fcfc14751d4eb07e0a63300712ce30b0295073e47f17e670bde36c9f"
         },
         {
           "path": "src/module/landsat_sensor.py",

@@ -30,35 +30,35 @@
     "stages": {
       "dataset_row_count": 3739454,
       "mask_passed": 3736107,
-      "target_available": 3494002,
-      "feature_complete": 3492538,
+      "target_available": 3492215,
+      "feature_complete": 3491872,
       "sampled": 100000
     },
     "base_stage": "target_available",
-    "dropped_count": 1464,
-    "dropped_ratio": 0.0004190037670270366,
+    "dropped_count": 343,
+    "dropped_ratio": 9.82184659306486e-05,
     "columns": {
       "NDVI": {
-        "null_count": 1464,
+        "null_count": 343,
         "exclusive_null_count": 0,
-        "target_mean": 29.709171295166016
+        "target_mean": 29.783733367919922
       },
       "NDBI": {
-        "null_count": 1464,
+        "null_count": 343,
         "exclusive_null_count": 0,
-        "target_mean": 29.709171295166016
+        "target_mean": 29.783733367919922
       },
       "NDWI": {
-        "null_count": 1464,
+        "null_count": 343,
         "exclusive_null_count": 0,
-        "target_mean": 29.709171295166016
+        "target_mean": 29.783733367919922
       }
     },
     "column_groups": {
       "spectral_indices": {
-        "null_count": 1464,
-        "exclusive_null_count": 1464,
-        "target_mean": 29.709171295166016
+        "null_count": 343,
+        "exclusive_null_count": 343,
+        "target_mean": 29.783733367919922
       }
     },
     "dropped_summary": {
@@ -68,8 +68,8 @@
           "non_null_count": 0
         },
         "final": {
-          "mean": 0.5461476445198059,
-          "non_null_count": 3492538
+          "mean": 0.5462073087692261,
+          "non_null_count": 3491872
         }
       },
       "NDBI": {
@@ -78,8 +78,8 @@
           "non_null_count": 0
         },
         "final": {
-          "mean": -0.25276806950569153,
-          "non_null_count": 3492538
+          "mean": -0.25275537371635437,
+          "non_null_count": 3491872
         }
       },
       "NDWI": {
@@ -88,35 +88,35 @@
           "non_null_count": 0
         },
         "final": {
-          "mean": -0.5061165690422058,
-          "non_null_count": 3492538
+          "mean": -0.5061774253845215,
+          "non_null_count": 3491872
         }
       }
     },
     "missing_summary_columns": [],
     "target_distribution": {
       "before": {
-        "count": 3494002,
-        "mean": 32.573036193847656,
-        "std": 2.530327796936035,
+        "count": 3492215,
+        "mean": 32.57451629638672,
+        "std": 2.529998302459717,
         "min": 23.843746185302734,
-        "p1": 27.19491579055786,
-        "p25": 30.8215389251709,
-        "p50": 32.216121673583984,
-        "p75": 33.98374080657959,
-        "p99": 39.285056343078594,
+        "p1": 27.194488105773925,
+        "p25": 30.823487281799316,
+        "p50": 32.21736145019531,
+        "p75": 33.985107421875,
+        "p99": 39.28554985046386,
         "max": 69.7379150390625
       },
       "after": {
-        "count": 3492538,
-        "mean": 32.574249267578125,
-        "std": 2.5299954414367676,
+        "count": 3491872,
+        "mean": 32.574764251708984,
+        "std": 2.5299072265625,
         "min": 23.843746185302734,
-        "p1": 27.194658908843994,
-        "p25": 30.822978973388672,
-        "p50": 32.21712112426758,
-        "p75": 33.98485088348389,
-        "p99": 39.2853539276123,
+        "p1": 27.194455680847167,
+        "p25": 30.823837280273438,
+        "p50": 32.21763229370117,
+        "p75": 33.98536682128906,
+        "p99": 39.28556823730469,
         "max": 69.7379150390625
       }
     },
@@ -126,8 +126,8 @@
       "dropped_ratio": {
         "median": 0.0,
         "p90": 0.0,
-        "p99": 0.018493464052287554,
-        "max": 0.04481481481481486
+        "p99": 0.00365312917746633,
+        "max": 0.010505944152612634
       },
       "blocks_over_50pct": 0
     },
@@ -138,58 +138,58 @@
     "metadata_path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42_results.json",
     "digest": "aa9ad8a222e8c564a19df96133894fa13ea12796d8085a267c99de210d1f5170",
     "row_count": 100000,
-    "population_size": 3492538,
+    "population_size": 3491872,
     "common_size": 3422216,
     "note": "標本と Spatial CV の fold は評価セル CSV から固定した（抽出・GroupKFold は行っていない）。population_size は本シナリオの有効母集団、common_size は評価セルを抽出した全構成の共通集合の母数。"
   },
   "random_split": {
     "linear_regression": {
       "metrics": {
-        "r2": 0.6653860211372375,
-        "rmse": 1.448507869784671,
-        "mae": 1.0910977125167847
+        "r2": 0.6653957366943359,
+        "rmse": 1.4484819456851052,
+        "mae": 1.0910792350769043
       },
       "standardized_coefficients": {
-        "NDVI": -0.22161802649497986,
-        "NDBI": 0.8047495484352112,
-        "NDWI": -0.33036136627197266
+        "NDVI": -0.22159868478775024,
+        "NDBI": 0.8047530055046082,
+        "NDWI": -0.33034753799438477
       }
     },
     "random_forest": {
       "metrics": {
-        "r2": 0.7244826371579767,
-        "rmse": 1.3143871284716007,
-        "mae": 0.9890636273917935
+        "r2": 0.7244963914624639,
+        "rmse": 1.3143499283750326,
+        "mae": 0.9890360918141045
       },
       "feature_importance": {
-        "NDVI": 0.10042813964114417,
-        "NDBI": 0.79144853501799,
-        "NDWI": 0.10812332534086594
+        "NDVI": 0.10043141818618809,
+        "NDBI": 0.7914504845027239,
+        "NDWI": 0.10811809731108797
       },
       "permutation_importance": {
-        "NDVI": 0.09326824960340921,
-        "NDBI": 1.0308420568128271,
-        "NDWI": 0.19549742817412125
+        "NDVI": 0.09321998514313473,
+        "NDBI": 1.03075664138836,
+        "NDWI": 0.1955176247592875
       }
     }
   },
   "spatial_cv": {
     "cv_splits": 5,
     "linear_regression": {
-      "r2_mean": 0.6669848918914795,
-      "r2_std": 0.011551483345112155,
-      "rmse_mean": 1.450871632946115,
-      "rmse_std": 0.06151793847244274,
-      "mae_mean": 1.0906299591064452,
-      "mae_std": 0.02154166883255184
+      "r2_mean": 0.6669874429702759,
+      "r2_std": 0.011554085628530433,
+      "rmse_mean": 1.4508660359634675,
+      "rmse_std": 0.061523208256777796,
+      "mae_mean": 1.0906278371810914,
+      "mae_std": 0.02154215001393099
     },
     "random_forest": {
-      "r2_mean": 0.7208829345029792,
-      "r2_std": 0.008691990281310685,
-      "rmse_mean": 1.3279132455987805,
-      "rmse_std": 0.043817938539442026,
-      "mae_mean": 1.0006175456455009,
-      "mae_std": 0.019047378913981613
+      "r2_mean": 0.7208911888923246,
+      "r2_std": 0.00869619500063791,
+      "rmse_mean": 1.3278923850825604,
+      "rmse_std": 0.04379145822719534,
+      "mae_mean": 1.000613567078103,
+      "mae_std": 0.019048319381848935
     },
     "block_definition": {
       "block_size_m": 2700,
@@ -210,9 +210,9 @@
     "sample_size": 2000,
     "background_size": 500,
     "mean_abs_shap": {
-      "NDBI": 1.329576089932029,
-      "NDWI": 0.317142858135197,
-      "NDVI": 0.26596402318527906
+      "NDBI": 1.3295664526598816,
+      "NDWI": 0.3172275070090502,
+      "NDVI": 0.2658720971257472
     },
     "outputs": {
       "shap_importance_csv": "data/output/satellite_only_cellbased/20220906_032358_common_evaluation_lst_em0/dataset_satellite_only_20220906_032358_lstem0_hanoi_30m_evaluation_cells_seed42_shap_importance.csv",
@@ -232,11 +232,11 @@
   },
   "provenance": {
     "script": "src.analysis.analysis_rq3_satellite_only",
-    "executed_at": "2026-11-13T10:13:33.820270+00:00",
+    "executed_at": "2026-11-13T12:24:38.363794+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "cb14a7e8b9ddb3a38d1ac7a853fa2e52c61a13ab",
+      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
       "dirty": false
     },
     "code": {
@@ -399,7 +399,7 @@
     "inputs": [
       {
         "path": "data/output/datasets/dataset_satellite_only_20220906_032358_lstem0_hanoi_30m.gpkg",
-        "sha256": "b6e8acd985daa109c89e4af0203d733f335a882b3b4fdf8a282a3a4b3ebba0c7"
+        "sha256": "d175ef04cabf58133afded20e84cbdf7d108956f3c6a5f2d68e7ebe9d5814440"
       },
       {
         "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",

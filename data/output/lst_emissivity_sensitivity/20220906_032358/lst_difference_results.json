@@ -51,7 +51,7 @@
   "valid_pixels": {
     "reference_lst": 3762674,
     "ndvi_lst": 3762674,
-    "em0_lst": 3764811,
+    "em0_lst": 3762674,
     "indices": 3763456
   },
   "delta_lst_c": {
@@ -158,6 +158,45 @@
       "delta_emissivity_mean": 0.022109671815908172
     }
   ],
+  "large_differences": {
+    "counts_above_c": {
+      "1": 91769,
+      "2": 3528,
+      "3": 1164,
+      "5": 178,
+      "10": 29
+    },
+    "valid_pixels": 3762674,
+    "detail_threshold_c": 3.0,
+    "detail_em0_emissivity": {
+      "count": 1164,
+      "mean": 0.8821018979381443,
+      "std": 0.053998284683615776,
+      "min": 0.4763208000000001,
+      "max": 0.9161046,
+      "p1": 0.6064751460000002,
+      "p5": 0.8225536,
+      "p25": 0.8874864,
+      "p50": 0.8949556,
+      "p75": 0.9043864,
+      "p95": 0.9101752000000001,
+      "p99": 0.913543
+    },
+    "detail_ndvi": {
+      "count": 1164,
+      "mean": 0.856160313252108,
+      "std": 0.0455571738410501,
+      "min": 0.6167913724663645,
+      "max": 0.8945693937984875,
+      "p1": 0.6494203333096219,
+      "p5": 0.7519459241315204,
+      "p25": 0.8589379510197663,
+      "p50": 0.8699791844221463,
+      "p75": 0.876882471981716,
+      "p95": 0.8853137369377208,
+      "p99": 0.888711228973299
+    }
+  },
   "note": "統計は ROI 全体ではなく、各ラスタで有効な画素（雲マスク・ASTER GED の欠測を除く）に限る。相関は画素単位（30 m）で、分析のセル集計・欠測除去を経ていない。",
   "outputs": {
     "ndvi_class_csv": "data/output/lst_emissivity_sensitivity/20220906_032358/lst_difference_by_ndvi_class.csv",
@@ -166,11 +205,11 @@
   },
   "provenance": {
     "script": "src.analysis.lst_emissivity_sensitivity",
-    "executed_at": "2026-11-13T09:56:55.519793+00:00",
+    "executed_at": "2026-11-13T12:11:12.690275+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "86bd988f4b56a1042beca603acf1b1c700d32218",
+      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
       "dirty": false
     },
     "code": {
@@ -188,7 +227,7 @@
         },
         {
           "path": "src/analysis/lst_emissivity_sensitivity.py",
-          "sha256": "5e4d23d5ae0ba1217af32cb3434b0e69f552813230fda45dc101c5b18c8ecf89"
+          "sha256": "ba13a44ed7ed94dbbbb2a979f4a2e03fe22d31a7070c04710ff4c260d987b74d"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",
@@ -358,11 +397,11 @@
       },
       {
         "path": "data/satellite/lst_emissivity_sensitivity/em0/2022/LST_Landsat8_20220906_032358Z.tif",
-        "sha256": "2f038d1993403c26ee5d9dc1fead4a32d9ead1fc5e60f694e010472de26306d9"
+        "sha256": "c7deb25bed1ab0aab6c5e018b9793d0b83526d2674917fea2ef0f0eeb83ddaae"
       },
       {
         "path": "data/satellite/lst_emissivity_sensitivity/em0/2022/EMIS_Landsat8_20220906_032358Z.tif",
-        "sha256": "8495ea378d6030d5ea6e1e89d759cea28ae1b860dfa0442b95267ed33fcd5b03"
+        "sha256": "9af7558c86b53c4e9c06ceac33f1db6aaa33ae5f4ec1700a28c3b85436f5075a"
       }
     ]
   }

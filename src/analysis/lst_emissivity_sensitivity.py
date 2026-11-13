@@ -5,18 +5,14 @@ ASTER GEDv3 の静的な放射率（EM0）による LST（以下 EM0 版）を�
 GEE からの出力は `src.gee.gee_export_lst_emissivity_variants` で行い、本スクリプトは
 ダウンロード後のファイルと分析ランの結果だけを読む（GEE には接続しない）。
 
-次の 3 つのサブコマンドを持つ。
+次の 2 つのサブコマンドを持つ。
 
-1. `method-check`:
-   既存 LST GeoTIFF のグリッド上の点で GEE から取得した 3 方式の LST
-   （`gee_export_lst_emissivity_variants sample` の出力）を既存 GeoTIFF の値と照合し、
-   既存 GeoTIFF がどの方式で作られたかを確かめる。許容差以内で一致した方式を記録する。
-2. `lst-diff`:
+1. `lst-diff`:
    (a) 再出力した NDVI 版が既存 GeoTIFF と画素単位で一致するか（有効画素の位置と値）、
    (b) ΔLST = LST(NDVI 版) − LST(EM0 版) と Δε = ε(NDVI 版) − ε(EM0 版) の分布、
    (c) NDVI 階級別の ΔLST、NDVI と LST の画素単位の相関（NDVI 版・EM0 版）、
    (d) ΔLST の空間分布図と NDVI 階級別の図、を出力する。
-3. `compare-runs`:
+2. `compare-runs`:
    同じ評価セルで NDVI 版・EM0 版の LST を目的変数にした分析ランの結果
    （results.json）の組を比べる。差の向きは **EM0 版 − NDVI 版**。
    評価指標（ランダム分割・Spatial CV）、Spatial CV の fold ごとの対応のある差と
@@ -30,8 +26,6 @@ EM0 版は放射率の精度が NDVI 版より高いことを意味しない（A
 
 使い方（プロジェクトルートで実行）:
 
-    python -m src.analysis.lst_emissivity_sensitivity method-check \
-        --observation-datetime 2023-07-07T03:23:05
     python -m src.analysis.lst_emissivity_sensitivity lst-diff \
         --observation-datetime 2022-09-06T03:23:58
     python -m src.analysis.lst_emissivity_sensitivity compare-runs \
@@ -74,8 +68,6 @@ from src.common.summary import build_provenance, save_summary  # noqa: E402
 from src.gee.gee_calc_LST import build_export_description  # noqa: E402
 from src.gee.gee_export_lst_emissivity_variants import (  # noqa: E402
     DEFAULT_OUTPUT_ROOT,
-    SAMPLE_CSV_NAME,
-    SAMPLE_METHOD_COLUMNS,
     build_export_plan,
     build_observation_token,
 )
@@ -86,7 +78,7 @@ LST_ROOT = Path("data") / "satellite" / "lst"
 INDICES_ROOT = Path("data") / "satellite" / "indices"
 NDVI_BAND_NAME = "NDVI"
 
-# 照合・再現の許容差（°C）。GeoTIFF は float64 で、同じ計算なら差は丸め誤差の範囲に収まる
+# 再現の許容差（°C）。GeoTIFF は float64 で、同じ計算なら差は丸め誤差の範囲に収まる
 DEFAULT_TOLERANCE_C = 1e-3
 # NDVI 階級の境界（左端の階級のみ下限を含み、他は (下限, 上限]）
 DEFAULT_NDVI_BINS: tuple[float, ...] = (-1.0, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
@@ -214,75 +206,6 @@ def describe_values(values: np.ndarray) -> dict[str, float | int | None]:
         }
     )
     return summary
-
-
-# ---------------------------------------------------------------------------
-# method-check: 既存 GeoTIFF の生成方法の照合
-# ---------------------------------------------------------------------------
-
-
-def attach_reference_values(samples: pd.DataFrame, reference: np.ndarray) -> pd.DataFrame:
-    """点の行・列から既存 GeoTIFF の値を引き、3 方式との差（方式 − 既存）を加える。
-
-    Args:
-        samples: `row`・`col` と `SAMPLE_METHOD_COLUMNS` の列を持つ表。
-        reference: 既存 GeoTIFF の値。
-
-    Returns:
-        pd.DataFrame: `reference_lst` と `diff_{方式}` の列を加えた表。
-
-    Raises:
-        ValueError: 行・列が既存 GeoTIFF の範囲外の場合（別のグリッドの点を照合して
-            しまうのを防ぐため）。
-    """
-    rows = samples["row"].to_numpy(dtype="int64")
-    cols = samples["col"].to_numpy(dtype="int64")
-    height, width = reference.shape
-    if (rows < 0).any() or (rows >= height).any() or (cols < 0).any() or (cols >= width).any():
-        raise ValueError("点の行・列が既存 GeoTIFF の範囲外です。グリッドを確認してください。")
-    table = samples.copy()
-    table["reference_lst"] = reference[rows, cols]
-    for column in SAMPLE_METHOD_COLUMNS:
-        table[f"diff_{column}"] = table[column] - table["reference_lst"]
-    return table
-
-
-def summarize_method_check(table: pd.DataFrame, tolerance: float) -> dict[str, Any]:
-    """方式ごとに既存 GeoTIFF との差を集計し、許容差以内で一致した方式を求める。
-
-    GEE 側で欠測（現行の雲マスクでマスクされた点など）の点と、既存 GeoTIFF 側が
-    無効な点は比べず、件数として記録する。
-
-    Args:
-        table: `attach_reference_values` の戻り値。
-        tolerance: 一致とみなす差の絶対値の上限（°C）。
-
-    Returns:
-        dict[str, Any]: 方式ごとの集計（`methods`）と、比べた点がすべて許容差以内だった
-            方式の一覧（`matching_methods`）。
-    """
-    reference_valid = np.isfinite(table["reference_lst"].to_numpy())
-    methods: dict[str, Any] = {}
-    matching: list[str] = []
-    for column in SAMPLE_METHOD_COLUMNS:
-        method_valid = np.isfinite(table[column].to_numpy())
-        compared = reference_valid & method_valid
-        abs_diff = np.abs(table.loc[compared, f"diff_{column}"].to_numpy())
-        within = int((abs_diff <= tolerance).sum())
-        methods[column] = {
-            "n_points": int(len(table)),
-            "n_missing_method": int((~method_valid).sum()),
-            "n_missing_reference": int((~reference_valid).sum()),
-            "n_compared": int(compared.sum()),
-            "n_within_tolerance": within,
-            "abs_difference": describe_values(abs_diff),
-            "signed_difference_mean": (
-                float(table.loc[compared, f"diff_{column}"].mean()) if compared.any() else None
-            ),
-        }
-        if compared.any() and within == int(compared.sum()):
-            matching.append(column)
-    return {"tolerance_c": tolerance, "methods": methods, "matching_methods": matching}
 
 
 # ---------------------------------------------------------------------------
@@ -753,44 +676,6 @@ def build_reference_paths(observation_datetime_utc: str, sensor: str) -> dict[st
     return paths
 
 
-def run_method_check(
-    samples_csv: Path, reference_tif: Path, output_dir: Path, tolerance: float
-) -> Path:
-    """点の値を既存 GeoTIFF と照合し、結果を保存する。
-
-    Args:
-        samples_csv: `gee_export_lst_emissivity_variants sample` の点の CSV。
-        reference_tif: 既存 LST GeoTIFF。
-        output_dir: 出力先ディレクトリ。
-        tolerance: 一致とみなす差の絶対値の上限（°C）。
-
-    Returns:
-        Path: 結果 JSON のパス。
-    """
-    samples_path = resolve_existing_path(samples_csv)
-    reference_path = resolve_existing_path(reference_tif)
-    reference, _, _ = read_band(reference_path)
-    table = attach_reference_values(pd.read_csv(samples_path), reference)
-    output_root = output_dir if output_dir.is_absolute() else PROJECT_ROOT / output_dir
-    output_root.mkdir(parents=True, exist_ok=True)
-    points_path = output_root / "method_check_points.csv"
-    table.to_csv(points_path, index=False, encoding="utf-8")
-    result = {
-        "description": "既存 LST GeoTIFF と、GEE で算出した 3 方式の LST の点での照合。",
-        "difference_direction": "方式 − 既存 GeoTIFF",
-        "samples_csv": to_project_relative_string(samples_path),
-        "reference_tif": to_project_relative_string(reference_path),
-        **summarize_method_check(table, tolerance),
-        "outputs": {"points_csv": to_project_relative_string(points_path)},
-        "provenance": build_provenance(
-            SCRIPT_NAME, [samples_path, reference_path], extra_watch_paths=EXTRA_WATCH_PATHS
-        ),
-    }
-    result_path = output_root / "method_check_results.json"
-    save_summary(result, result_path)
-    return result_path
-
-
 def run_lst_diff(
     paths: dict[str, Path], output_dir: Path, tolerance: float, bins: Sequence[float]
 ) -> Path:
@@ -919,7 +804,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     """コマンドライン引数のパーサーを作る。
 
     Returns:
-        argparse.ArgumentParser: `method-check`・`lst-diff`・`compare-runs` を持つパーサー。
+        argparse.ArgumentParser: `lst-diff`・`compare-runs` を持つパーサー。
     """
     parser = argparse.ArgumentParser(
         description="LST 算出の放射率が NDVI に依存することの感度分析（差の集計）。"
@@ -937,23 +822,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default=None,
         help="出力先ディレクトリ（既定: data/output/lst_emissivity_sensitivity/ 配下）。",
     )
-    tolerance = argparse.ArgumentParser(add_help=False)
-    tolerance.add_argument(
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    diff_parser = subparsers.add_parser(
+        "lst-diff", parents=[common], help="NDVI 版の再現確認と ΔLST を集計する。"
+    )
+    diff_parser.add_argument(
         "--tolerance",
         type=float,
         default=DEFAULT_TOLERANCE_C,
-        help="一致とみなす差の絶対値の上限（°C）。",
-    )
-
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    method_parser = subparsers.add_parser(
-        "method-check", parents=[common, tolerance], help="既存 GeoTIFF の生成方法を照合する。"
-    )
-    method_parser.add_argument(
-        "--samples-csv", type=Path, default=None, help="点の CSV（既定: sample の出力）。"
-    )
-    diff_parser = subparsers.add_parser(
-        "lst-diff", parents=[common, tolerance], help="NDVI 版の再現確認と ΔLST を集計する。"
+        help="再出力と既存 GeoTIFF の一致とみなす差の絶対値の上限（°C）。",
     )
     diff_parser.add_argument(
         "--ndvi-bins",
@@ -984,14 +861,7 @@ def main(argv: list[str] | None = None) -> None:
     """
     args = build_argument_parser().parse_args(argv)
     token = build_observation_token(args.observation_datetime)
-    if args.command == "method-check":
-        output_dir = args.output_dir or DEFAULT_OUTPUT_ROOT / f"{token}_method_check"
-        reference = build_reference_paths(args.observation_datetime, args.sensor)["reference_lst"]
-        samples_csv = args.samples_csv or DEFAULT_OUTPUT_ROOT / f"{token}_method_check" / (
-            SAMPLE_CSV_NAME
-        )
-        result_path = run_method_check(samples_csv, reference, output_dir, args.tolerance)
-    elif args.command == "lst-diff":
+    if args.command == "lst-diff":
         output_dir = args.output_dir or DEFAULT_OUTPUT_ROOT / token
         result_path = run_lst_diff(
             build_reference_paths(args.observation_datetime, args.sensor),

@@ -222,17 +222,12 @@ EMd は観測シーンの NDVI から作るため、説明変数の NDVI が目�
 EMd による LST（NDVI 版）と EM0 による LST（EM0 版）を 1 観測分だけ出力する。
 EM0 版は放射率の精度が分析用の LST より高いことを意味しない（ASTER GEDv3 は過去の平均で、観測時点の植生・市街化を反映しない）。
 
-| サブコマンド | 内容 | 出力 |
-|---|---|---|
-| `export` | NDVI 版・EM0 版の LST と放射率（`EM` バンド）を、放射率ごとに別の Drive フォルダ（`MasterResearch_Data_LST_emissivity_{ndvi,em0}_{YYYYMMDD_HHMMSS}`）へ出力する。LST の出力条件（雲マスク・ROI クリップ・EPSG・30 m）とファイル名は `gee_search_satellite_data.py` と同じ | 起動したタスクの一覧 JSON（`data/output/lst_emissivity_sensitivity/{YYYYMMDD_HHMMSS}/export_tasks.json`） |
-| `sample` | 既存の LST GeoTIFF のグリッド上で、有効画素から無作為に選んだ画素中心の点について、SMW（EMd）・SMW（EM0）・Simple 法の 3 方式の値を取る。既存 GeoTIFF がどの方式で作られたかを値の照合で確かめるために用いる | 点の CSV とサマリー JSON（`data/output/lst_emissivity_sensitivity/{YYYYMMDD_HHMMSS}_method_check/`） |
-
+- NDVI 版・EM0 版の LST と放射率（`EM` バンド）を、放射率ごとに別の Drive フォルダ（`MasterResearch_Data_LST_emissivity_{ndvi,em0}_{YYYYMMDD_HHMMSS}`）へ出力する。LST の出力条件（雲マスク・ROI クリップ・EPSG・30 m）とファイル名は `gee_search_satellite_data.py` と同じ
+- 起動したタスクの一覧は JSON（`data/output/lst_emissivity_sensitivity/{YYYYMMDD_HHMMSS}/export_tasks.json`）に記録する
 - 観測は UTC の観測日時（`--observation-datetime`）で 1 つに特定し、一致するシーンが 1 件でない場合は止める
 - 既存の結果 CSV（`gee_calc_LST_results.csv`・`gee_search_satellite_data_results.csv`）には書き込まない。既存の出力 JSON がある場合は `--overwrite` なしでは止める
 - Drive からダウンロードした GeoTIFF は `data/satellite/lst_emissivity_sensitivity/{ndvi,em0}/{YYYY}/` に置く（手作業。既存の `data/satellite/lst/` は上書きしない）
-- `sample` は現行のコード（雲マスクを含む）で値を算出する。既存 GeoTIFF の作成後に雲マスクの条件が変わった場合、既存で有効な点が欠測になることがある
 
 ```bash
-python -m src.gee.gee_export_lst_emissivity_variants export --observation-datetime 2022-09-06T03:23:58
-python -m src.gee.gee_export_lst_emissivity_variants sample --observation-datetime 2023-07-07T03:23:05 --reference-tif data/satellite/lst/2023/LST_Landsat8_20230707_032305Z.tif
+python -m src.gee.gee_export_lst_emissivity_variants --observation-datetime 2022-09-06T03:23:58
 ```

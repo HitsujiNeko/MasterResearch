@@ -5,36 +5,18 @@
 放射率を NDVI に依存させない対照として、ASTER GEDv3 の静的な放射率（EM0）による
 LST を作り、両者の差を調べる。
 
-次の 2 つのサブコマンドを持つ。どちらも観測を UTC の観測日時で 1 つに限定し、
+観測を UTC の観測日時で 1 つに限定し、NDVI 版（`ndvi`）と EM0 版（`em0`）の LST と
+放射率（`EM` バンド）を、放射率ごとに別の Google Drive フォルダへ GeoTIFF で出力する。
+LST の出力条件（雲マスク・ROI クリップ・EPSG・30 m）は `gee_search_satellite_data.py` と
+同一で、ファイル名の形式も既存と同じにする（`urban_params` がファイル名からテーブル名を
+導くため）。起動したタスクの一覧は来歴つきの JSON に記録する。
 `gee_search_satellite_data.py`・`gee_calc_LST.py` の結果 CSV には書き込まない。
-
-1. `export`:
-   NDVI 版（`ndvi`）と EM0 版（`em0`）の LST と放射率（`EM` バンド）を、
-   放射率ごとに別の Google Drive フォルダへ GeoTIFF で出力する。
-   LST の出力条件（雲マスク・ROI クリップ・EPSG・30 m）は
-   `gee_search_satellite_data.py` と同一で、ファイル名の形式も既存と同じにする
-   （`urban_params` がファイル名からテーブル名を導くため）。
-   起動したタスクの一覧は来歴つきの JSON に記録する。
-2. `sample`:
-   既存の LST GeoTIFF のグリッド上で、有効画素からランダムに選んだ画素中心の点について、
-   SMW（NDVI 放射率）・SMW（EM0）・`simple`（Collection 2 Level-2 の `ST_B10` の
-   スケーリングのみ）の 3 方式の LST を GEE から取得し、CSV に出力する。
-   既存 GeoTIFF がどの方式で作られたかを、値の照合で確かめるために用いる
-   （照合そのものは `src.analysis.lst_emissivity_sensitivity` で行う）。
-
-`sample` は現行のコード（雲マスクを含む）で LST を算出する。既存 GeoTIFF の作成後に
-雲マスクの条件が変わっている場合、既存で有効な画素が現行ではマスクされることがあり、
-その点の値は欠測（空欄）になる。
 
 使い方（プロジェクトルートで実行）:
 
-    python -m src.gee.gee_export_lst_emissivity_variants export \
-        --observation-datetime 2022-09-06T03:23:58
-    python -m src.gee.gee_export_lst_emissivity_variants sample \
-        --observation-datetime 2023-07-07T03:23:05 \
-        --reference-tif data/satellite/lst/2023/LST_Landsat8_20230707_032305Z.tif
+    python -m src.gee.gee_export_lst_emissivity_variants --observation-datetime 2022-09-06T03:23:58
 
-依存: earthengine-api、rasterio、numpy、pandas。GEE の認証と、設定 CSV
+依存: earthengine-api。GEE の認証と、設定 CSV
 （`data/input/gee_calc_LST_info.csv`）の `gee_project_id`・`roi_shapefile_path`・
 `output_epsg` を用いる。
 """
@@ -54,19 +36,13 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(project_root))
 
 import ee
-import numpy as np
-import pandas as pd
-import rasterio
-from affine import Affine
 
 from src.common.config import PROJECT_ROOT
-from src.common.paths import prepare_output_path, resolve_existing_path, to_project_relative_string
+from src.common.paths import prepare_output_path, resolve_existing_path
 from src.common.summary import build_provenance, save_summary
 from src.gee.gee_calc_LST import (
     authenticate_gee,
     build_export_description,
-    calculate_lst_simple,
-    cloud_mask,
     load_config,
     load_roi_from_shapefile,
 )
@@ -92,12 +68,6 @@ EMISSIVITY_BAND = "EM"
 LST_FILE_PREFIX = "LST"
 EMISSIVITY_FILE_PREFIX = "EMIS"
 
-# 点サンプリングで比べる 3 方式の列名（列の順序は CSV の列順になる）
-SAMPLE_METHOD_COLUMNS: tuple[str, ...] = ("lst_smw_ndvi", "lst_smw_em0", "lst_simple")
-DEFAULT_N_POINTS = 500
-DEFAULT_SEED = 42
-SAMPLE_CSV_NAME = "point_samples.csv"
-SAMPLE_SUMMARY_NAME = "point_samples_summary.json"
 EXPORT_SUMMARY_NAME = "export_tasks.json"
 
 # 出力値に影響するが src/common の外にあるコード（来歴の監視対象に加える）
@@ -313,214 +283,6 @@ def get_scene_index(raw_sr_image: ee.Image) -> str:
     return ee.String(raw_sr_image.get("system:index")).getInfo()
 
 
-def read_reference_raster(reference_tif: Path) -> tuple[np.ndarray, Affine, str]:
-    """既存 LST GeoTIFF の 1 バンド目の値・アフィン変換・CRS を読む。
-
-    Args:
-        reference_tif: 既存 LST GeoTIFF のパス。
-
-    Returns:
-        tuple[np.ndarray, Affine, str]: float64 の値（無効値は NaN）・変換・CRS 文字列。
-
-    Raises:
-        ValueError: CRS が未設定の場合（GEE 側で同じグリッドを指定できないため）。
-    """
-    with rasterio.open(reference_tif) as source:
-        values = source.read(1, masked=True).astype("float64").filled(np.nan)
-        transform = source.transform
-        if source.crs is None:
-            raise ValueError(f"参照ラスタに CRS が設定されていません: {reference_tif}")
-        crs_text = source.crs.to_string()
-    return values, transform, crs_text
-
-
-def select_reference_pixels(
-    values: np.ndarray, n_points: int, seed: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """有限値の画素から、重複なしで無作為に画素を選ぶ。
-
-    Args:
-        values: 参照ラスタの値（2 次元。無効値は NaN）。
-        n_points: 選ぶ画素数。
-        seed: 乱数シード。
-
-    Returns:
-        tuple[np.ndarray, np.ndarray]: 選んだ画素の行・列（行優先の昇順）。
-
-    Raises:
-        ValueError: `n_points` が 1 未満、または有効画素数を超える場合。
-    """
-    if n_points < 1:
-        raise ValueError(f"点の数は 1 以上を指定してください: {n_points}")
-    valid_rows, valid_cols = np.nonzero(np.isfinite(values))
-    if n_points > len(valid_rows):
-        raise ValueError(
-            f"点の数 {n_points} が参照ラスタの有効画素数 {len(valid_rows)} を超えています。"
-        )
-    rng = np.random.default_rng(seed)
-    chosen = np.sort(rng.choice(len(valid_rows), size=n_points, replace=False))
-    return valid_rows[chosen], valid_cols[chosen]
-
-
-def build_pixel_center_points(
-    rows: np.ndarray, cols: np.ndarray, transform: Affine
-) -> pd.DataFrame:
-    """画素の行・列から、画素中心の座標を持つ点の表を作る。
-
-    画素の境界上の点は隣の画素に割り当てられうるため、中心を用いる。
-
-    Args:
-        rows: 画素の行。
-        cols: 画素の列。
-        transform: 参照ラスタのアフィン変換。
-
-    Returns:
-        pd.DataFrame: `point_id`・`row`・`col`・`x`・`y`（参照ラスタの CRS の座標）。
-    """
-    x_coords, y_coords = transform * (cols + 0.5, rows + 0.5)
-    return pd.DataFrame(
-        {
-            "point_id": np.arange(len(rows), dtype="int64"),
-            "row": rows.astype("int64"),
-            "col": cols.astype("int64"),
-            "x": np.asarray(x_coords, dtype="float64"),
-            "y": np.asarray(y_coords, dtype="float64"),
-        }
-    )
-
-
-def build_sample_image(
-    raw_sr_image: ee.Image,
-    collection_toa: ee.ImageCollection,
-    roi: ee.Geometry,
-    sensor: str,
-) -> ee.Image:
-    """3 方式の LST を 1 枚の画像のバンドにまとめる。
-
-    `simple` は `gee_calc_LST.py` の `lst_method=simple` と同じく、雲マスク後の SR 画像の
-    `ST_B10` をスケーリングする。
-
-    Args:
-        raw_sr_image: 未マスクの SR 画像。
-        collection_toa: TOA コレクション（SR と同じセンサ）。
-        roi: ROI。
-        sensor: センサ名（"L8" / "L9"）。
-
-    Returns:
-        ee.Image: `SAMPLE_METHOD_COLUMNS` の名前を持つ 3 バンドの画像（°C）。
-    """
-    lst_ndvi = build_lst_image(raw_sr_image, collection_toa, roi, sensor=sensor, use_ndvi=True)
-    lst_em0 = build_lst_image(raw_sr_image, collection_toa, roi, sensor=sensor, use_ndvi=False)
-    lst_simple = calculate_lst_simple(cloud_mask(raw_sr_image))
-    return (
-        lst_ndvi.select("LST")
-        .rename(SAMPLE_METHOD_COLUMNS[0])
-        .addBands(lst_em0.select("LST").rename(SAMPLE_METHOD_COLUMNS[1]))
-        .addBands(lst_simple.select("LST").rename(SAMPLE_METHOD_COLUMNS[2]))
-    )
-
-
-def build_points_feature_collection(points: pd.DataFrame, crs_text: str) -> ee.FeatureCollection:
-    """点の表を、`point_id` を属性に持つ GEE の FeatureCollection にする。
-
-    Args:
-        points: `point_id`・`x`・`y` を持つ点の表。
-        crs_text: 座標の CRS（例: `EPSG:4326`）。
-
-    Returns:
-        ee.FeatureCollection: 点の FeatureCollection。
-    """
-    features = [
-        ee.Feature(
-            ee.Geometry.Point([float(row.x), float(row.y)], crs_text),
-            {"point_id": int(row.point_id)},
-        )
-        for row in points.itertuples(index=False)
-    ]
-    return ee.FeatureCollection(features)
-
-
-def parse_sampled_features(
-    features: list[dict[str, Any]], columns: tuple[str, ...]
-) -> pd.DataFrame:
-    """`reduceRegions` の結果（GeoJSON の Feature の辞書）を表にする。
-
-    マスクされた画素では `ee.Reducer.first()` が値を返さず、属性が欠けるか null になる。
-    どちらも欠測（NaN）として扱う。
-
-    Args:
-        features: `getInfo()` で得た Feature の辞書のリスト。
-        columns: 取り出す値の属性名。
-
-    Returns:
-        pd.DataFrame: `point_id` と `columns` の列を持つ表（`point_id` の昇順）。
-
-    Raises:
-        ValueError: `point_id` が欠けた Feature を含む場合。
-    """
-    records: list[dict[str, Any]] = []
-    for feature in features:
-        properties = feature.get("properties") or {}
-        if properties.get("point_id") is None:
-            raise ValueError("point_id を持たない Feature が含まれています。")
-        record: dict[str, Any] = {"point_id": int(properties["point_id"])}
-        for column in columns:
-            value = properties.get(column)
-            record[column] = float(value) if value is not None else np.nan
-        records.append(record)
-    table = pd.DataFrame.from_records(records, columns=["point_id", *columns])
-    table = table.astype({"point_id": "int64", **{column: "float64" for column in columns}})
-    return table.sort_values("point_id").reset_index(drop=True)
-
-
-def sample_image_on_reference_grid(
-    image: ee.Image, points: pd.DataFrame, crs_text: str, transform: Affine
-) -> pd.DataFrame:
-    """参照ラスタと同じグリッドで、点の位置の画像の値を取得する。
-
-    Export と同じく最近傍で参照グリッドへ投影した値を得るため、`reduceRegions` に
-    参照ラスタの CRS とアフィン変換をそのまま渡す。
-
-    Args:
-        image: 値を取る画像。
-        points: `point_id`・`x`・`y` を持つ点の表。
-        crs_text: 参照ラスタの CRS。
-        transform: 参照ラスタのアフィン変換。
-
-    Returns:
-        pd.DataFrame: `point_id` と画像のバンド名の列を持つ表。
-    """
-    reduced = image.reduceRegions(
-        collection=build_points_feature_collection(points, crs_text),
-        reducer=ee.Reducer.first(),
-        crs=crs_text,
-        crsTransform=list(transform)[:6],
-    )
-    features = reduced.getInfo().get("features", [])
-    return parse_sampled_features(features, SAMPLE_METHOD_COLUMNS)
-
-
-def merge_points_and_samples(points: pd.DataFrame, samples: pd.DataFrame) -> pd.DataFrame:
-    """点の表と取得値を `point_id` で結合する。
-
-    Args:
-        points: 点の表。
-        samples: 取得値の表。
-
-    Returns:
-        pd.DataFrame: 結合した表。
-
-    Raises:
-        ValueError: 取得値の `point_id` が点の表と一致しない場合（点の取りこぼしや
-            重複に気付かないまま照合するのを防ぐため）。
-    """
-    if sorted(points["point_id"]) != sorted(samples["point_id"]):
-        raise ValueError(
-            f"取得値の点（{len(samples)} 件）が要求した点（{len(points)} 件）と一致しません。"
-        )
-    return points.merge(samples, on="point_id", how="left", validate="one_to_one")
-
-
 def ensure_writable(path: Path, overwrite: bool) -> None:
     """既存の出力を黙って上書きしないよう確かめる。
 
@@ -642,145 +404,32 @@ def run_export(
     return summary_path
 
 
-def run_sample(
-    observation_datetime_utc: str,
-    sensor: str,
-    config_path: Path,
-    reference_tif: Path,
-    output_dir: Path,
-    n_points: int,
-    seed: int,
-    overwrite: bool,
-) -> tuple[Path, Path]:
-    """既存 LST GeoTIFF のグリッド上の点で、3 方式の LST を取得して保存する。
-
-    Args:
-        observation_datetime_utc: UTC の観測日時（`YYYY-MM-DDTHH:MM:SS` 形式）。
-        sensor: センサ名（"L8" / "L9"）。
-        config_path: 設定 CSV のパス。
-        reference_tif: 既存 LST GeoTIFF のパス。
-        output_dir: 出力先ディレクトリ。
-        n_points: 点の数。
-        seed: 点の選択の乱数シード。
-        overwrite: 既存の出力の上書きを許すか。
-
-    Returns:
-        tuple[Path, Path]: 点の CSV とサマリー JSON のパス。
-    """
-    validate_sensor(sensor)
-    parse_observation_datetime(observation_datetime_utc)
-    reference_path = resolve_existing_path(reference_tif)
-    csv_path = prepare_output_path(output_dir / SAMPLE_CSV_NAME)
-    summary_path = prepare_output_path(output_dir / SAMPLE_SUMMARY_NAME)
-    ensure_writable(csv_path, overwrite)
-    ensure_writable(summary_path, overwrite)
-
-    values, transform, crs_text = read_reference_raster(reference_path)
-    rows, cols = select_reference_pixels(values, n_points, seed)
-    points = build_pixel_center_points(rows, cols, transform)
-
-    _, roi, roi_path = load_gee_context(config_path)
-    raw_sr_image, collection_toa = fetch_observation(observation_datetime_utc, roi, sensor)
-    scene_index = get_scene_index(raw_sr_image)
-    image = build_sample_image(raw_sr_image, collection_toa, roi, sensor)
-    samples = sample_image_on_reference_grid(image, points, crs_text, transform)
-    table = merge_points_and_samples(points, samples)
-    table.to_csv(csv_path, index=False, encoding="utf-8")
-
-    summary = {
-        "observation_datetime_utc": observation_datetime_utc,
-        "satellite": get_sensor_label(sensor),
-        "scene_index": scene_index,
-        "reference_tif": to_project_relative_string(reference_path),
-        "reference_crs": crs_text,
-        "reference_transform": list(transform)[:6],
-        "n_points": n_points,
-        "seed": seed,
-        "methods": {
-            "lst_smw_ndvi": "SMW 法・同じシーンの NDVI から求めた放射率（分析に用いる LST の条件）",
-            "lst_smw_em0": "SMW 法・ASTER GEDv3 の静的な放射率（EM0）",
-            "lst_simple": "Collection 2 Level-2 の ST_B10 のスケーリングのみ",
-        },
-        "missing_counts": {
-            column: int(table[column].isna().sum()) for column in SAMPLE_METHOD_COLUMNS
-        },
-        "note": (
-            "点は参照ラスタの有効画素の中心。値は現行コード（雲マスクを含む）で算出しており、"
-            "参照ラスタの作成後に雲マスクが変わった場合は、マスクされた点が欠測になる。"
-        ),
-        "outputs": {"csv": to_project_relative_string(csv_path)},
-        "provenance": build_provenance(
-            SCRIPT_NAME, [reference_path, roi_path], extra_watch_paths=EXTRA_WATCH_PATHS
-        ),
-    }
-    save_summary(summary, summary_path)
-    logger.info("点の値を保存しました: %s（欠測: %s）", csv_path, summary["missing_counts"])
-    return csv_path, summary_path
-
-
 def build_argument_parser() -> argparse.ArgumentParser:
     """コマンドライン引数のパーサーを作る。
 
     Returns:
-        argparse.ArgumentParser: `export`・`sample` のサブコマンドを持つパーサー。
+        argparse.ArgumentParser: 引数のパーサー。
     """
     parser = argparse.ArgumentParser(
         description="LST の放射率を NDVI 版と ASTER 静的版（EM0）で切り替えて 1 観測分を出力する。"
     )
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument(
+    parser.add_argument(
         "--observation-datetime",
         required=True,
         help="対象観測の UTC 日時（YYYY-MM-DDTHH:MM:SS）。例: 2022-09-06T03:23:58",
     )
-    common.add_argument("--sensor", default=DEFAULT_SENSOR, help="センサ名（L8 / L9）。")
-    common.add_argument(
+    parser.add_argument("--sensor", default=DEFAULT_SENSOR, help="センサ名（L8 / L9）。")
+    parser.add_argument(
         "--config-path", type=Path, default=DEFAULT_CONFIG_PATH, help="GEE 設定 CSV のパス。"
     )
-    common.add_argument(
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
-        help="出力先ディレクトリ（既定: data/output/lst_emissivity_sensitivity/ 配下）。",
+        help="タスクの一覧 JSON の出力先（既定: lst_emissivity_sensitivity/{観測日時}）。",
     )
-    common.add_argument("--overwrite", action="store_true", help="既存の出力の上書きを許す。")
-
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser(
-        "export", parents=[common], help="NDVI 版・EM0 版の LST と放射率を Drive へ出力する。"
-    )
-    sample_parser = subparsers.add_parser(
-        "sample", parents=[common], help="既存 LST のグリッド上の点で 3 方式の LST を取得する。"
-    )
-    sample_parser.add_argument(
-        "--reference-tif", type=Path, required=True, help="照合する既存 LST GeoTIFF のパス。"
-    )
-    sample_parser.add_argument("--n-points", type=int, default=DEFAULT_N_POINTS, help="点の数。")
-    sample_parser.add_argument(
-        "--seed", type=int, default=DEFAULT_SEED, help="点の選択の乱数シード。"
-    )
+    parser.add_argument("--overwrite", action="store_true", help="既存の出力の上書きを許す。")
     return parser
-
-
-def build_default_output_dir(command: str, observation_datetime_utc: str) -> Path:
-    """サブコマンドごとの既定の出力先ディレクトリを作る。
-
-    Args:
-        command: サブコマンド名（`export` / `sample`）。
-        observation_datetime_utc: UTC の観測日時（`YYYY-MM-DDTHH:MM:SS` 形式）。
-
-    Returns:
-        Path: プロジェクト相対の出力先ディレクトリ。
-
-    Raises:
-        ValueError: 未定義のサブコマンドの場合。
-    """
-    token = build_observation_token(observation_datetime_utc)
-    if command == "export":
-        return DEFAULT_OUTPUT_ROOT / token
-    if command == "sample":
-        return DEFAULT_OUTPUT_ROOT / f"{token}_method_check"
-    raise ValueError(f"未定義のサブコマンドです: {command}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -790,28 +439,16 @@ def main(argv: list[str] | None = None) -> None:
         argv: コマンドライン引数（None の場合は `sys.argv` を使う）。
     """
     args = build_argument_parser().parse_args(argv)
-    output_dir = args.output_dir or build_default_output_dir(
-        args.command, args.observation_datetime
+    output_dir = args.output_dir or DEFAULT_OUTPUT_ROOT / build_observation_token(
+        args.observation_datetime
     )
-    if args.command == "export":
-        run_export(
-            observation_datetime_utc=args.observation_datetime,
-            sensor=args.sensor,
-            config_path=args.config_path,
-            output_dir=output_dir,
-            overwrite=args.overwrite,
-        )
-    else:
-        run_sample(
-            observation_datetime_utc=args.observation_datetime,
-            sensor=args.sensor,
-            config_path=args.config_path,
-            reference_tif=args.reference_tif,
-            output_dir=output_dir,
-            n_points=args.n_points,
-            seed=args.seed,
-            overwrite=args.overwrite,
-        )
+    run_export(
+        observation_datetime_utc=args.observation_datetime,
+        sensor=args.sensor,
+        config_path=args.config_path,
+        output_dir=output_dir,
+        overwrite=args.overwrite,
+    )
 
 
 if __name__ == "__main__":

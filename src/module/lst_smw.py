@@ -351,7 +351,10 @@ def calculate_lst_smw(
         image_sr: Landsat 8 / Landsat 9 Surface Reflectance画像
         image_toa: Landsat 8 / Landsat 9 TOA画像（B10バンド用）
         roi: 対象地域
-        use_ndvi: NDVIによる動的放射率を用いるか（Falseの場合はASTER放射率EM0を用いる）
+        use_ndvi: NDVIによる動的放射率を用いるか（Falseの場合はASTER放射率EM0を用いる）。
+            Falseの場合、EM0はSRの雲マスクを引き継がず、TOAのB10も未マスクのため、
+            雲の画素にもLSTが入る。呼び出し側でSRの有効画素に限ること
+            （gee_search_satellite_data.build_lst_image が行う）
         sensor: SMW係数を選ぶセンサ名（"L8" / "L9"）。画像の取得元センサと一致させる
 
     Returns:

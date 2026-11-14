@@ -130,7 +130,7 @@ Ermida et al. (2020) に準拠。
 - **emissivity選択**（`EM` バンド）:
   - `use_ndvi=True` → EMd: 観測シーンの FVC で裸地と植生を混合する
     $\varepsilon = 0.99\,FVC + (1 - FVC)\,\varepsilon_{bare}$
-  - `use_ndvi=False` → EM0  
+  - `use_ndvi=False` → EM0。EM0 は SR の雲マスクを引き継がないため、雲の画素にも値が入る。呼び出し側で SR の有効画素に限る必要がある（`gee_search_satellite_data.build_lst_image` が行う。8.3節）  
   ※ `calculate_lst_smw()` の引数。既定は `True`。どちらの場合も、`QA_PIXEL` の水域（bit 7）は 0.99、雪（bit 5）は 0.989 に置き換える。
 - **TPW**:
   - NCEPの当日00:00〜翌日00:00（UTC）を対象

@@ -93,15 +93,20 @@ def parse_observation_datetime(observation_datetime_utc: str) -> dt.datetime:
         dt.datetime: タイムゾーンなしの datetime（UTC として扱う）。
 
     Raises:
-        ValueError: 形式が `YYYY-MM-DDTHH:MM:SS` でない場合。
+        ValueError: 形式が `YYYY-MM-DDTHH:MM:SS` でない場合（ゼロ埋めの省略を含む）。
     """
+    message = (
+        f"観測日時は YYYY-MM-DDTHH:MM:SS 形式（UTC）で指定してください: {observation_datetime_utc}"
+    )
     try:
-        return dt.datetime.strptime(observation_datetime_utc, OBSERVATION_DATETIME_FORMAT)
+        parsed = dt.datetime.strptime(observation_datetime_utc, OBSERVATION_DATETIME_FORMAT)
     except ValueError as error:
-        raise ValueError(
-            "観測日時は YYYY-MM-DDTHH:MM:SS 形式（UTC）で指定してください: "
-            f"{observation_datetime_utc}"
-        ) from error
+        raise ValueError(message) from error
+    # strptime は月・日・時刻のゼロ埋めの省略（例: 2022-9-6）も受け付ける。そのまま通すと
+    # フォルダ名（正規化後の日時）とファイル名（入力のまま）が食い違うため、正規形と照合する
+    if parsed.strftime(OBSERVATION_DATETIME_FORMAT) != observation_datetime_utc:
+        raise ValueError(message)
+    return parsed
 
 
 def build_observation_time_window(observation_datetime_utc: str) -> tuple[str, str]:

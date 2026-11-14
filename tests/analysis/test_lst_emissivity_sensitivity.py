@@ -222,6 +222,41 @@ def test_summarize_large_differences_counts_and_describes() -> None:
     assert result["detail_ndvi"]["max"] == pytest.approx(0.80)
 
 
+def test_table_to_json_records_replaces_nan_with_none() -> None:
+    """NaN は None になり、数値と件数はそのまま残る。"""
+    table = pd.DataFrame({"count": [1, 0], "delta_lst_mean": [0.5, np.nan]})
+
+    records = sensitivity.table_to_json_records(table)
+
+    assert records == [
+        {"count": 1, "delta_lst_mean": 0.5},
+        {"count": 0, "delta_lst_mean": None},
+    ]
+
+
+def test_run_lst_diff_saves_empty_ndvi_class(tmp_path: Path) -> None:
+    """画素の無い NDVI 階級があっても、JSON の保存で止まらない。"""
+    lst = np.array([[30.0, 31.0], [32.0, 33.0]])
+    paths = {
+        "reference_lst": write_raster(tmp_path / "ref.tif", [lst]),
+        "indices": write_raster(
+            tmp_path / "indices.tif",
+            [np.array([[0.7, 0.5], [0.3, 0.1]])],
+            descriptions=["NDVI"],
+        ),
+        "ndvi_lst": write_raster(tmp_path / "ndvi_lst.tif", [lst.copy()]),
+        "ndvi_emissivity": write_raster(tmp_path / "ndvi_em.tif", [np.full((2, 2), 0.97)]),
+        "em0_lst": write_raster(tmp_path / "em0_lst.tif", [lst + 0.5]),
+        "em0_emissivity": write_raster(tmp_path / "em0_em.tif", [np.full((2, 2), 0.96)]),
+    }
+
+    result_path = sensitivity.run_lst_diff(paths, tmp_path / "out", 1e-3, [-1.0, 0.8, 0.9, 1.0])
+
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    assert [row["count"] for row in result["ndvi_classes"]] == [4, 0, 0]
+    assert result["ndvi_classes"][1]["delta_lst_median"] is None
+
+
 def test_run_lst_diff_writes_results(tmp_path: Path) -> None:
     """合成ラスタで再現確認・ΔLST・相関・図を出力する。"""
     reference = np.array([[30.0, 31.0], [np.nan, 34.0]])

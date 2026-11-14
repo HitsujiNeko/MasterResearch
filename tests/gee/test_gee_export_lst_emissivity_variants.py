@@ -22,6 +22,13 @@ def test_parse_observation_datetime_rejects_invalid_format() -> None:
         variants.parse_observation_datetime("2022-09-06 03:23")
 
 
+@pytest.mark.parametrize("text", ["2022-9-6T03:23:58", "2022-09-06T3:23:58"])
+def test_parse_observation_datetime_rejects_missing_zero_padding(text: str) -> None:
+    """ゼロ埋めを省略した日時は拒否する（フォルダ名とファイル名が食い違うため）。"""
+    with pytest.raises(ValueError, match="YYYY-MM-DDTHH:MM:SS"):
+        variants.parse_observation_datetime(text)
+
+
 def test_build_observation_time_window_spans_one_second() -> None:
     """表記の秒を含み、次の秒を含まない範囲を作る。"""
     assert variants.build_observation_time_window("2022-09-06T03:23:58") == (

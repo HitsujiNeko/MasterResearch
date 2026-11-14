@@ -399,6 +399,21 @@ def summarize_large_differences(
     }
 
 
+def table_to_json_records(table: pd.DataFrame) -> list[dict[str, Any]]:
+    """表を JSON に保存できる行の辞書のリストにする（NaN は None にする）。
+
+    画素の無い階級の統計は NaN になるが、`save_summary` は NaN を拒否する
+    （JSON の標準に無いため）。CSV 用の表は変えず、JSON に入れるときだけ変換する。
+
+    Args:
+        table: 変換する表。
+
+    Returns:
+        list[dict[str, Any]]: 行ごとの辞書。欠測値は None。
+    """
+    return table.astype(object).where(pd.notna(table), None).to_dict(orient="records")
+
+
 def save_difference_map(delta_lst: np.ndarray, transform: Affine, output_path: Path) -> None:
     """ΔLST の空間分布図を保存する（色の範囲は |ΔLST| の 99 パーセンタイルで対称にする）。
 
@@ -771,7 +786,7 @@ def run_lst_diff(
             "lst_em0_version": pearson_on_common(ndvi, arrays["em0_lst"]),
             "delta_lst": pearson_on_common(ndvi, delta_lst),
         },
-        "ndvi_classes": class_table.to_dict(orient="records"),
+        "ndvi_classes": table_to_json_records(class_table),
         "large_differences": summarize_large_differences(delta_lst, arrays["em0_emissivity"], ndvi),
         "note": (
             "統計は ROI 全体ではなく、各ラスタで有効な画素（雲マスク・ASTER GED の欠測を除く）"

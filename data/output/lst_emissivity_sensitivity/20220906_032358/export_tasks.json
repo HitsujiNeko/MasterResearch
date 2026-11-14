@@ -1,0 +1,221 @@
+{
+  "observation_datetime_utc": "2022-09-06T03:23:58",
+  "satellite": "Landsat8",
+  "scene_index": "LC08_127045_20220906",
+  "output_epsg": 4326,
+  "scale_m": 30,
+  "emissivity_band": "EM",
+  "exports": [
+    {
+      "variant": "ndvi",
+      "use_ndvi": true,
+      "drive_folder": "MasterResearch_Data_LST_emissivity_ndvi_20220906_032358",
+      "lst_file_prefix": "LST_Landsat8_20220906_032358Z",
+      "emissivity_file_prefix": "EMIS_Landsat8_20220906_032358Z",
+      "local_lst_path": "data/satellite/lst_emissivity_sensitivity/ndvi/2022/LST_Landsat8_20220906_032358Z.tif",
+      "local_emissivity_path": "data/satellite/lst_emissivity_sensitivity/ndvi/2022/EMIS_Landsat8_20220906_032358Z.tif"
+    },
+    {
+      "variant": "em0",
+      "use_ndvi": false,
+      "drive_folder": "MasterResearch_Data_LST_emissivity_em0_20220906_032358",
+      "lst_file_prefix": "LST_Landsat8_20220906_032358Z",
+      "emissivity_file_prefix": "EMIS_Landsat8_20220906_032358Z",
+      "local_lst_path": "data/satellite/lst_emissivity_sensitivity/em0/2022/LST_Landsat8_20220906_032358Z.tif",
+      "local_emissivity_path": "data/satellite/lst_emissivity_sensitivity/em0/2022/EMIS_Landsat8_20220906_032358Z.tif"
+    }
+  ],
+  "note": "Drive からのダウンロードと local_*_path への配置は手作業。ndvi は分析に用いる LST と同じ算出条件、em0 は ASTER GEDv3 の静的な放射率による対照。",
+  "provenance": {
+    "script": "src.gee.gee_export_lst_emissivity_variants",
+    "executed_at": "2026-11-13T11:28:32.298774+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/gee/gee_export_lst_emissivity_variants.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/gee/gee_calc_LST.py",
+        "src/gee/gee_search_satellite_data.py",
+        "src/module/lst_smw.py",
+        "src/module/landsat_sensor.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        },
+        {
+          "path": "src/gee/gee_calc_LST.py",
+          "sha256": "a7319c27dec52f584ff6b5e650b6895cc64eab8f954337d259a580e461d95110"
+        },
+        {
+          "path": "src/gee/gee_export_lst_emissivity_variants.py",
+          "sha256": "daba98553c8fb031b5053a7bbd6baa56eb55b06ec348d44d45ae3cfef0ff58ed"
+        },
+        {
+          "path": "src/gee/gee_search_satellite_data.py",
+          "sha256": "deb086d0fcfc14751d4eb07e0a63300712ce30b0295073e47f17e670bde36c9f"
+        },
+        {
+          "path": "src/module/landsat_sensor.py",
+          "sha256": "7d8ccd57b52c8916c1ce0f166e271ea1fb87bef78ca4e724ad0fdd92a7ef068d"
+        },
+        {
+          "path": "src/module/lst_smw.py",
+          "sha256": "c3dded035c95935b6eb0abe99c48f648df1b0cb7a3383ac78d98764a2084e4e0"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+        "sha256": "e2fbdaa4d2577113a36d4f24a2b9a73d293eefe1fc674b04bc4ac43a991572a5"
+      }
+    ]
+  }
+}

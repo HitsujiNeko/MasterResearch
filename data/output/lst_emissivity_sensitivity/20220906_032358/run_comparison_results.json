@@ -700,11 +700,11 @@
   },
   "provenance": {
     "script": "src.analysis.lst_emissivity_sensitivity",
-    "executed_at": "2026-11-13T12:45:00.190666+00:00",
+    "executed_at": "2026-11-14T11:10:07.310594+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "fc8738911dc992e3b3242f804b6bcd7466ba2e03",
+      "commit": "903912b3df8537b6cad7ce4531a7f34a9d85b800",
       "dirty": false
     },
     "code": {
@@ -722,7 +722,7 @@
         },
         {
           "path": "src/analysis/lst_emissivity_sensitivity.py",
-          "sha256": "ba13a44ed7ed94dbbbb2a979f4a2e03fe22d31a7070c04710ff4c260d987b74d"
+          "sha256": "429f51eb142aab069ce32064f29d0285e7e04c7368ee502c50aaf95f9ea2989e"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",
@@ -858,7 +858,7 @@
         },
         {
           "path": "src/gee/gee_export_lst_emissivity_variants.py",
-          "sha256": "daba98553c8fb031b5053a7bbd6baa56eb55b06ec348d44d45ae3cfef0ff58ed"
+          "sha256": "5866ee16df9163ec6961bfbea6e84f47bdb2303f6314c41ac5e661988f7adcd7"
         }
       ]
     },

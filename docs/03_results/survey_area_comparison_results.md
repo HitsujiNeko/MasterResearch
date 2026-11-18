@@ -285,13 +285,13 @@ python -m src.analysis.analysis_rq3_satellite_only --dataset-path data/output/da
 python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/dataset_limited_masksurvey_20220906_032358_hanoi_30m.gpkg --output-dir data/output/limited/20220906_032358_area_comparison --scale 30 --random-state 42 --sample-size 100000 --block-size-m 2700 --cv-splits 5 --variable-set both --building-height mean --population-source worldpop2020 --water-index none --analysis-area {area}
 ```
 
-共通評価セルの生成・比較・反復のコマンドは [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節の「分析対象範囲」の例のとおりである。両シナリオの評価セルのランは、上の通常ランのコマンド（`--analysis-area survey`）に `--evaluation-cells data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv` を加えて実行した。反復は `python -m src.analysis.repeat_common_evaluation --evaluation-cells {同じ CSV} --n-seeds 20` である。感度分析（7.6.5節）は、評価セルのランを `--water-index ndwi` で実行し、比較スクリプトに `--limited-results`（そのランの結果 JSON）と `--output-path`（`scenario_comparison_evaluation_cells_seed42_wi_ndwi_results.json`）を、反復に `--water-index ndwi` を加えた（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）。
+共通評価セルの生成・比較・反復のコマンドは [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節の「分析対象範囲」の例のとおりである。両シナリオの評価セルのランは、上の通常ランのコマンド（`--analysis-area survey`）に `--evaluation-cells data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv` を加えて実行した。反復は `python -m src.analysis.repeat_common_evaluation --evaluation-cells {同じ CSV} --n-seeds 20` である。感度分析（7.6.5節）は、評価セルのランを `--water-index ndwi` で実行し、比較スクリプトに `--limited-results`（そのランの結果 JSON）と `--output-path`（`data/output/common_evaluation/20220906_032358_area_survey/scenario_comparison_evaluation_cells_seed42_wi_ndwi_results.json`）を、反復に `--water-index ndwi` を加えた（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）。
 
 | 内容 | ファイル |
 |---|---|
 | 通常ラン（全域・測量GIS範囲） | `data/output/satellite_only_cellbased/20220906_032358_area_comparison/`・`data/output/limited/20220906_032358_area_comparison/`。出力名の規則は1.1節と同じ（接頭辞の観測が `20220906_032358` に変わり、衛星＋公開GISデータは `_both_bh_mean_wi_none` のみ） |
 | 評価セルと共通集合のメタデータ | `data/output/common_evaluation/20220906_032358_area_survey/evaluation_cells_seed42.csv`・`evaluation_cells_seed42_results.json` |
-| 両シナリオの評価セルのラン（シード42） | 通常ランと同じ2ディレクトリ。出力名の末尾が `_area_survey_evaluation_cells_seed42` |
+| 両シナリオの評価セルのラン（シード42） | 通常ランと同じ2ディレクトリ。出力名の末尾が `_area_survey_evaluation_cells_seed42`（衛星＋公開GISデータの採用構成は `_both_bh_mean_wi_none_area_survey_evaluation_cells_seed42`） |
 | 単発の比較 | `data/output/common_evaluation/20220906_032358_area_survey/scenario_comparison_evaluation_cells_seed42_results.json`・`_folds.csv` |
 | 20シードの反復 | 同じディレクトリの `repeated_comparison_evaluation_cells_seed42_results.json`・`_folds.csv`・`_differences.csv`（シードごとの途中結果は `repeat_evaluation_cells_seed42/`） |
 | 感度分析（`ndwi`・7.6.5節） | 衛星＋公開GISデータの評価セルのランは同じディレクトリで出力名の末尾が `_both_bh_mean_area_survey_evaluation_cells_seed42`（`_wi_` が付かない）。単発の比較と反復は、上の2行のファイル名の `evaluation_cells_seed42` の後に `_wi_ndwi` が付く（途中結果は `repeat_evaluation_cells_seed42_wi_ndwi/`） |
@@ -441,7 +441,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 - 区間の求め方は7.6.3節と同じである（J = 100・自由度99）。`ndwi` − 採用構成の差は、2つの反復の `_folds.csv` にある衛星＋公開GISデータ側の fold 別指標どうしの差から同じ方法で求めた。この差は結果ファイルとしては保存していない
 - 2つの反復の衛星データのみ側の fold 別指標は完全に一致した。`ndwi` の反復のシード42の fold 別指標は、`ndwi` の全工程ランと完全に一致した
 - **分光指数を揃えても、衛星＋公開GISデータと衛星データのみの差はほとんど変わらない。** 100個の fold すべてで衛星＋公開GISデータが上回る点も同じである
-- **RF では `ndwi` の構成のほうがわずかに良く**（RMSE で 0.004°C。区間は0を含まず、20シードすべてで `ndwi` が良い）、主結果の差は「わずかに控えめな見積もり」と読める。ただし大きさは主結果の差の約1%で、シードごとの差の sd（0.014°C）より小さい。**線形モデルではほぼ違いがない**（区間は0をはさみ、`ndwi` が良い fold は 54/100）。線形の R² だけはシードごとの平均で20シードとも `ndwi` がわずかに低いが、差は 0.0014 である
+- **RF では `ndwi` の構成のほうがわずかに良く**（RMSE で 0.004°C。区間は0を含まず、20シードすべてで `ndwi` が良い）、主結果の差は「わずかに控えめな見積もり」と読める。大きさは主結果の差の約1%である。`ndwi` − 採用構成のシードごとの差（5 fold の平均）の sd は 0.0008°C で、差はその約5倍ある。**線形モデルではほぼ違いがない**（区間は0をはさみ、`ndwi` が良い fold は 54/100）。線形の R² だけはシードごとの平均で20シードとも `ndwi` がわずかに低いが、差は 0.0014 である
 - 単発の比較（シード42）でも同じ向きである。`ndwi` − 採用構成は RF RMSE −0.0046°C [−0.0104, +0.0013]（5/5 fold で `ndwi` が良い）、線形 RMSE −0.0015°C [−0.0250, +0.0219]（3/5）で、`ndwi` − 衛星データのみは RF RMSE −0.2889°C、線形 RMSE −0.4546°C である
 
 変数の寄与（シード42の全工程ラン・SHAP 平均絶対値）:

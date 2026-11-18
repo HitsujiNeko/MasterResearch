@@ -1,0 +1,2257 @@
+{
+  "description": "共通集合から複数シードで標本を抽出し直し、Satellite Only と Limited のSpatial CV を同じ標本・同じ fold で反復した結果。",
+  "difference_direction": "Limited − Satellite Only",
+  "evaluation_cells": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",
+  "analysis_area": "roi",
+  "common_size": 3422216,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61
+  ],
+  "cv_splits": 5,
+  "sample_size": 100000,
+  "rf_trees": 300,
+  "limited_configuration": {
+    "variable_set": "both",
+    "building_height_mode": "mean",
+    "water_index_mode": "ndwi",
+    "population_sources": [
+      "worldpop2020"
+    ]
+  },
+  "satellite_only_features": [
+    "NDVI",
+    "NDBI",
+    "NDWI"
+  ],
+  "seed_records": [
+    {
+      "seed": 42,
+      "digest": "aa9ad8a222e8c564a19df96133894fa13ea12796d8085a267c99de210d1f5170",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 19999,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 876.7689903999999
+    },
+    {
+      "seed": 43,
+      "digest": "32a1194338b9f2f83244b9770ee9a29612bb1d6423f5542745c91520be267ce9",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20002,
+          "2": 20001,
+          "3": 20000,
+          "4": 19999,
+          "5": 19998
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 872.5348144000018
+    },
+    {
+      "seed": 44,
+      "digest": "fd18d6a4e0b416e8429349dbb351c58e3b10ecd4b0041c16af59e96d70c86b1f",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 500,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 19999,
+          "3": 20001,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 887.1471466000075
+    },
+    {
+      "seed": 45,
+      "digest": "345403ee7d73ef2949f4dec25c2f6f371866849739c790c499b82e74bd583bf3",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 851.0302164000022
+    },
+    {
+      "seed": 46,
+      "digest": "dfdef5eabb4f5ed2932148bad7555580f170154274e55efa5ba51394d7f2d09a",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 863.9233377000055
+    },
+    {
+      "seed": 47,
+      "digest": "935313cbc50573d4f8e2f494fb36945513c94343997982db163029a908982bca",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20001,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 866.4241008000099
+    },
+    {
+      "seed": 48,
+      "digest": "29b51c3e53ea34bf2df5002721f38c57f4b339aa544c0a00c0f769a8f3a03d43",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 863.3022969000012
+    },
+    {
+      "seed": 49,
+      "digest": "b67dac21b1827e6cf9c938cf0ab49caf67258ea29d69952f227694218c791196",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20001,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 867.7437933000037
+    },
+    {
+      "seed": 50,
+      "digest": "42dd07b3a525ad54b32333daeb0d3699a6df2755549e4e31a1be27d6eb8ea48b",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20001,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 888.3940063999908
+    },
+    {
+      "seed": 51,
+      "digest": "cd494db9af6123698c9960ab35e503f9db789c4cf0593b0df351cef3500a7928",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20001,
+          "3": 19999,
+          "4": 19999,
+          "5": 20001
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 917.8336455000099
+    },
+    {
+      "seed": 52,
+      "digest": "16fc8460125515daf88eb917d78f5d590e7381f08973b63cd283c82cf7ef7dfd",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20001,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 941.1886127999896
+    },
+    {
+      "seed": 53,
+      "digest": "6df9ba4c292e5c97f0eda445324a161818d6217ef4813cc57d8ea027314397bf",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 500,
+        "fold_sizes": {
+          "1": 20002,
+          "2": 20000,
+          "3": 19999,
+          "4": 19998,
+          "5": 20001
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 941.6179579000018
+    },
+    {
+      "seed": 54,
+      "digest": "a9a8b448a5804849579eb803f9b1be9d843ddc252727af55a574126bc281105a",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20001,
+          "3": 20000,
+          "4": 19999,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 871.1281539000047
+    },
+    {
+      "seed": 55,
+      "digest": "3c18117ef20dfe14886fd065edc2d7e976bef09c750d230ed9f17bec85d43beb",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 19999,
+          "3": 20001,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 891.552853000001
+    },
+    {
+      "seed": 56,
+      "digest": "220f8df674b6df67d6c7d9ef4bf4ce019f4f30af6822cb8adff03da38091b6d6",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20002,
+          "3": 20000,
+          "4": 19999,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 901.3062102999975
+    },
+    {
+      "seed": 57,
+      "digest": "8ae517501fe07c27daa08fc8b3a54f049aec12d1ac153fd6959ca32d14331a00",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 500,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 19999,
+          "3": 19999,
+          "4": 20001,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 913.9346551000053
+    },
+    {
+      "seed": 58,
+      "digest": "0a2a946dc57315394218290894de0381e48b2d4f58d1356dc003d9f1fce3f5a2",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 895.5902287000063
+    },
+    {
+      "seed": 59,
+      "digest": "363177e515ee603ad9e7f371eea5410ca29ff1d96f26dd4e4b6c83879d055ead",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 501,
+        "fold_sizes": {
+          "1": 20001,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 995.4725640999968
+    },
+    {
+      "seed": 60,
+      "digest": "a721dba91f0f2a302279722cc10bf4581f55f955818f0ab685a9bf4c0478d5eb",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 503,
+        "fold_sizes": {
+          "1": 20002,
+          "2": 20000,
+          "3": 20000,
+          "4": 19999,
+          "5": 19999
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 995.348723499992
+    },
+    {
+      "seed": 61,
+      "digest": "2695871e1cb908cd11b7cd4f215f53d1ce3c1a78f146cf4201036e665c3f0fc1",
+      "run_conditions": {
+        "rf_trees": 300,
+        "cv_splits": 5,
+        "limited_configuration": {
+          "variable_set": "both",
+          "building_height_mode": "mean",
+          "water_index_mode": "ndwi",
+          "population_sources": [
+            "worldpop2020"
+          ]
+        },
+        "limited_feature_columns": [
+          "BUILD_COV",
+          "BUILD_DEN",
+          "BUILD_H_MEAN",
+          "ROAD_DEN",
+          "ELEV_MEAN",
+          "POP_DEN_WORLDPOP2020",
+          "NTL_MEAN",
+          "NDVI",
+          "NDBI",
+          "NDWI",
+          "LULC_WATER_COV",
+          "LULC_TREE_COV",
+          "LULC_BUILT_COV",
+          "LULC_RANGE_COV",
+          "LULC_WETLAND_COV",
+          "LULC_BARE_COV"
+        ],
+        "satellite_only_features": [
+          "NDVI",
+          "NDBI",
+          "NDWI"
+        ],
+        "code_digest": "7499de12f3f66b7facb7ac3f1496c3c1015e1fc9c39c6caf81a799985157f571",
+        "dataset_sha256": {
+          "satellite_only": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec",
+          "limited": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+        },
+        "python_version": "3.11.15",
+        "packages": {
+          "numpy": "1.26.4",
+          "pandas": "2.2.3",
+          "scikit-learn": "1.9.0",
+          "shap": "0.48.0",
+          "geopandas": "1.0.1",
+          "rasterio": "1.4.3",
+          "shapely": "2.1.1",
+          "pyproj": "3.7.2",
+          "pyogrio": "0.11.0"
+        }
+      },
+      "sample": {
+        "row_count": 100000,
+        "n_blocks": 502,
+        "fold_sizes": {
+          "1": 20000,
+          "2": 20000,
+          "3": 20000,
+          "4": 20000,
+          "5": 20000
+        }
+      },
+      "limited_features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "NDWI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "limited_dropped_constant_features": [
+        "LULC_BARE_COV"
+      ],
+      "elapsed_seconds": 952.6001949999918
+    }
+  ],
+  "seed_variation": {
+    "satellite_only": {
+      "linear_r2": {
+        "mean": 0.6899051815271378,
+        "sd": 0.0027787156156280123,
+        "min": 0.683042585849762,
+        "max": 0.6937120437622071
+      },
+      "linear_rmse": {
+        "mean": 1.4649512502197186,
+        "sd": 0.005655655031822897,
+        "min": 1.454803357852225,
+        "max": 1.4750059530627735
+      },
+      "linear_mae": {
+        "mean": 1.1010728943347934,
+        "sd": 0.003163407717801579,
+        "min": 1.09636070728302,
+        "max": 1.10676429271698
+      },
+      "rf_r2": {
+        "mean": 0.7514064345843801,
+        "sd": 0.001947251496371776,
+        "min": 0.7479818805723292,
+        "max": 0.7557145100446041
+      },
+      "rf_rmse": {
+        "mean": 1.311329178514357,
+        "sd": 0.005401873437837012,
+        "min": 1.2986013000002425,
+        "max": 1.3196983899845232
+      },
+      "rf_mae": {
+        "mean": 0.9914888703581924,
+        "sd": 0.0028128921780989137,
+        "min": 0.9857710317122399,
+        "max": 0.9961535298348231
+      }
+    },
+    "limited": {
+      "linear_r2": {
+        "mean": 0.7638903295993805,
+        "sd": 0.0027686787542462042,
+        "min": 0.7585184454917908,
+        "max": 0.7699274063110352
+      },
+      "linear_rmse": {
+        "mean": 1.2774516134426024,
+        "sd": 0.007410924610550054,
+        "min": 1.2593821003217947,
+        "max": 1.291314927624457
+      },
+      "linear_mae": {
+        "mean": 0.9650641822814942,
+        "sd": 0.0031371110285394257,
+        "min": 0.958711051940918,
+        "max": 0.9717153668403625
+      },
+      "rf_r2": {
+        "mean": 0.8397910913370558,
+        "sd": 0.002179388732086156,
+        "min": 0.8364283952329075,
+        "max": 0.8452886150852874
+      },
+      "rf_rmse": {
+        "mean": 1.0522516215720605,
+        "sd": 0.006589566322634047,
+        "min": 1.0333421141955725,
+        "max": 1.0634189612009544
+      },
+      "rf_mae": {
+        "mean": 0.7822462573873898,
+        "sd": 0.003209618117127533,
+        "min": 0.7737893259465258,
+        "max": 0.7876908822826406
+      }
+    }
+  },
+  "seed_differences": {
+    "linear_r2": {
+      "mean": 0.07398514807224274,
+      "sd": 0.001587683984119927,
+      "p2.5": 0.0716766893863678,
+      "p97.5": 0.07626585602760315
+    },
+    "linear_rmse": {
+      "mean": -0.18749963677711617,
+      "sd": 0.0038601736268050104,
+      "p2.5": -0.19522550294333152,
+      "p97.5": -0.18232320521934584
+    },
+    "linear_mae": {
+      "mean": -0.13600871205329895,
+      "sd": 0.002439323010325298,
+      "p2.5": -0.14002934724092483,
+      "p97.5": -0.13188605338335038
+    },
+    "rf_r2": {
+      "mean": 0.08838465675267553,
+      "sd": 0.00142326668799861,
+      "p2.5": 0.08570086746367005,
+      "p97.5": 0.09049428805479569
+    },
+    "rf_rmse": {
+      "mean": -0.2590775569422965,
+      "sd": 0.0044217918612871315,
+      "p2.5": -0.26544938401966117,
+      "p97.5": -0.25087920557071713
+    },
+    "rf_mae": {
+      "mean": -0.20924261297080263,
+      "sd": 0.0032287112603581972,
+      "p2.5": -0.21436169517459958,
+      "p97.5": -0.20397051425787516
+    }
+  },
+  "repeated_kfold": {
+    "test_train_ratio": 0.2500000001250003,
+    "metrics": {
+      "linear_r2": {
+        "n_splits": 100,
+        "mean_difference": 0.07398514807224274,
+        "sd_difference": 0.015791593674536242,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.0015791593674536243,
+          "lower": 0.07085175328608477,
+          "upper": 0.07711854285840071
+        },
+        "corrected": {
+          "standard_error": 0.00805216443165449,
+          "lower": 0.05800790690999269,
+          "upper": 0.08996238923449279
+        }
+      },
+      "linear_rmse": {
+        "n_splits": 100,
+        "mean_difference": -0.1874996367771162,
+        "sd_difference": 0.042542561586816505,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.004254256158681651,
+          "lower": -0.19594100396356326,
+          "upper": -0.17905826959066914
+        },
+        "corrected": {
+          "standard_error": 0.021692535174154582,
+          "lower": -0.23054233279255834,
+          "upper": -0.14445694076167406
+        }
+      },
+      "linear_mae": {
+        "n_splits": 100,
+        "mean_difference": -0.13600871205329895,
+        "sd_difference": 0.025574931326069885,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.002557493132606989,
+          "lower": -0.1410833332805836,
+          "upper": -0.13093409082601432
+        },
+        "corrected": {
+          "standard_error": 0.013040707392177367,
+          "lower": -0.1618843047215356,
+          "upper": -0.11013311938506232
+        }
+      },
+      "rf_r2": {
+        "n_splits": 100,
+        "mean_difference": 0.08838465675267554,
+        "sd_difference": 0.006771324052830815,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.0006771324052830815,
+          "lower": 0.08704107915564437,
+          "upper": 0.08972823434970671
+        },
+        "corrected": {
+          "standard_error": 0.003452711348654431,
+          "lower": 0.08153372836574062,
+          "upper": 0.09523558513961046
+        }
+      },
+      "rf_rmse": {
+        "n_splits": 100,
+        "mean_difference": -0.25907755694229656,
+        "sd_difference": 0.01999579879506505,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.001999579879506505,
+          "lower": -0.2630451572352645,
+          "upper": -0.2551099566493286
+        },
+        "corrected": {
+          "standard_error": 0.010195896827042122,
+          "lower": -0.27930842826313973,
+          "upper": -0.23884668562145342
+        }
+      },
+      "rf_mae": {
+        "n_splits": 100,
+        "mean_difference": -0.20924261297080263,
+        "sd_difference": 0.014535191004011575,
+        "degrees_of_freedom": 99,
+        "t_quantile": 1.984216951586417,
+        "confidence": 0.95,
+        "test_train_ratio": 0.2500000001250003,
+        "correction_factor": 0.2600000001250003,
+        "naive": {
+          "standard_error": 0.0014535191004011576,
+          "lower": -0.21212671020927323,
+          "upper": -0.20635851573233202
+        },
+        "corrected": {
+          "standard_error": 0.007411522258106953,
+          "lower": -0.2239486810723985,
+          "upper": -0.19453654486920677
+        }
+      }
+    },
+    "note": "J = 分割数 × シード数 の fold ごとの差から求めた補正 t 区間（Bouckaert & Frank 2004 の反復 k-fold の補正）。シードごとに標本自体を抽出し直しているため、区間には分割の違いだけでなく標本の違いも含まれ、同じデータの分割し直しを想定する原典とは異なる。"
+  },
+  "outputs": {
+    "folds_csv": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_wi_ndwi_folds.csv",
+    "differences_csv": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_wi_ndwi_differences.csv",
+    "seed_intermediate_dir": "data/output/common_evaluation/20220906_032358/repeat_evaluation_cells_seed42_wi_ndwi"
+  },
+  "notes": [
+    "シードは標本抽出と RF の random_state の両方に使う。",
+    "反復では Spatial CV だけを回し、SHAP・ランダム分割・置換重要度は省く。"
+  ],
+  "provenance": {
+    "script": "src.analysis.repeat_common_evaluation",
+    "executed_at": "2026-11-18T05:49:25.633341+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "54dab86cd78e9df86277bc19b1f173db3e242be5",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/repeat_common_evaluation.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/analysis_rq3_satellite_only.py",
+        "src/analysis/analysis_rq3_limited.py",
+        "src/analysis/build_common_evaluation_set.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/analysis_rq3_limited.py",
+          "sha256": "3ceb3252e41589da5e0b10890560b5b5d5d9cf8d091ac5c04e0e7b1efe34b1b0"
+        },
+        {
+          "path": "src/analysis/analysis_rq3_satellite_only.py",
+          "sha256": "77907beea028a1c61a6c758a17ba2bbfde8a5d7c047c10f6c6a2ed35ccb4432d"
+        },
+        {
+          "path": "src/analysis/build_common_evaluation_set.py",
+          "sha256": "435114b02912388af2df2bd55559312c340e364cf15336f35293feab50f82723"
+        },
+        {
+          "path": "src/analysis/repeat_common_evaluation.py",
+          "sha256": "448b81a8e808cc14407559a5222b10e31a400288d6e77d46f79bb0d1b57a8989"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_satellite_only_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "43628af2bcd6599a37edd685bb7a8250693eb12de5a20ac4c0e382466407c4ec"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",
+        "sha256": "194b6f5d208599152ffdb92f5925b2dc532aac9640371e0ff4ec9237db7b025d"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42_results.json",
+        "sha256": "b95ceabb7149eb243e8f2ee5097dda1e4444983ea8d05f2ae16f9e43f0fece34"
+      }
+    ]
+  }
+}

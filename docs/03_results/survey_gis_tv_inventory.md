@@ -49,21 +49,21 @@ TV（植生・土地利用）の主な Level の中身を、集計と代表地�
 
 ![TV-1 Level 41・28 の短い線が密な地点](../../images/gis_data/survey/survey_tv_check1_hanoi_detail.png)
 
-- **研究者**: （記入待ち）
+- **研究者**: Claude の所見と同じであることを目視で確認した（2026-11-18）
 - **Claude**: Level 2 の面が区画を区切り、右側の田畑には Level 41 の記号、川沿いの樹木には Level 28 の記号、集落には Level 35 の記号、堤防の法面には Level 21 の記号が並ぶ。右側が暗いのは Level 2 の面が何枚も重なっているためである
 
 ### TV-2 Level 35・4・5 のある地点
 
 ![TV-2 Level 35・4・5 のある地点](../../images/gis_data/survey/survey_tv_check2_hanoi_detail.png)
 
-- **研究者**: （記入待ち）
+- **研究者**: Claude の所見と同じであることを目視で確認した（2026-11-18）
 - **Claude**: 住宅地も Level 2 の面で区切られ、その中に Level 35 の記号が並ぶ。左側の大きな Level 35 の面は草地・樹木の区画に重なる。Level 28・42 の記号は畑・樹木の区画に並ぶ
 
 ### TV-3 Level 31 の小さな面が密な地点
 
 ![TV-3 Level 31 の小さな面が密な地点](../../images/gis_data/survey/survey_tv_check3_hanoi_detail.png)
 
-- **研究者**: （記入待ち）
+- **研究者**: Claude の所見と同じであることを目視で確認した（2026-11-18）
 - **Claude**: Level 31 の小さな面（ハート形に近い記号）が公園の樹木の区画に並ぶ。Level 32 の「v」形の記号は草地と道路の中央分離帯に並ぶ。右側の市街地には TV の地物がない
 
 ---

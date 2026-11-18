@@ -311,7 +311,7 @@ S10が建物高さ・緑地パッチ平均面積・降水量・人口密度を�
 
 **主軸の2シナリオで分光指数の扱いが異なる（判断済み・2026-11-18）**
 
-衛星データのみのシナリオは分光指数3変数（`NDWI` を含む）のままである一方、衛星＋公開GISデータのシナリオは共線性への対処として `NDWI` を除いた構成を採用している。主結果はこの採用構成どうしの比較とし、`NDWI` を外せること（水域の情報を公開GISの土地被覆が担うことは、水指数の構成比較で確かめた。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.5節）も公開GISデータを加えた効果の一部として読む。分光指数を揃えた比較（衛星＋公開GISデータを `NDWI` を含む構成で実行）は感度分析として併記し、30m の全域・都心部とも差はほとんど変わらなかった。感度分析が示すのは性能差の小ささであり、土地被覆が `NDWI` の情報を代わりに担うことまでは示さない（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.6節・[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節）。衛星データのみを2変数に揃える比較は行わない。
+衛星データのみのシナリオは分光指数3変数（`NDWI` を含む）のままである一方、衛星＋公開GISデータのシナリオは共線性への対処として `NDWI` を除いた構成を採用している。主結果はこの採用構成どうしの比較とし、水域を表す変数として公開GISの土地被覆（`LULC_WATER_COV`）を用い、`NDWI` を除外したこと（`NDWI` 除外による性能低下を許容した判断。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.5節）も公開GISデータを加えた効果の一部として読む。両変数の情報の代替関係は検証していない。分光指数を揃えた比較（衛星＋公開GISデータを `NDWI` を含む構成で実行）は感度分析として併記し、30m の全域・都心部とも差はほとんど変わらなかった。感度分析が示すのは性能差の小ささである（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.6節・[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節）。衛星データのみを2変数に揃える比較は行わない。
 
 ---
 

@@ -452,7 +452,7 @@ LST分布の説明力と変数の寄与順位がどの程度変わるかを評�
 
 > 主軸の2シナリオは、全域（ROI の解析対象域）と都心部（測量GISの有効域）の両方で比較する（5.2節の分析対象範囲の軸。[research_guide.md](../01_planning/research_guide.md) 6.1節）。測量建物置き換えは測量GISの有効域でしか成立しないため、都心部で衛星＋公開GISデータと比べる。
 > 測量GISは比較の基準（正解）には据えない。測量GISから算出できるのは建物の2変数に限られ、測量の時点も主採用の観測と 5〜7 年ずれるためである（[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) 2.7節）。
-> 主軸の2シナリオでは分光指数の扱いが異なる（衛星データのみは `NDWI` を含む3変数、衛星＋公開GISデータの採用構成は `NDWI` を除外）。**主結果は採用構成どうしの比較とし**、`NDWI` を外せること（水域の情報を `LULC_WATER_COV` が担うことは、水指数の構成比較で確かめた。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.5節）も公開GISを加えた効果の一部として読む。分光指数を揃えた比較（衛星＋公開GISデータを `NDWI` を含む構成で実行）は感度分析として併記した（全域は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.6節、都心部は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節）。衛星データのみを2変数に揃える比較は行わない（同 8.6.6節）。
+> 主軸の2シナリオでは分光指数の扱いが異なる（衛星データのみは `NDWI` を含む3変数、衛星＋公開GISデータの採用構成は `NDWI` を除外）。**主結果は採用構成どうしの比較とし**、水域を表す変数として `LULC_WATER_COV` を用い、`NDWI` を除外したこと（`NDWI` 除外による性能低下を許容した判断。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.5節）も公開GISを加えた効果の一部として読む。両変数の情報の代替関係は検証していない。分光指数を揃えた比較（衛星＋公開GISデータを `NDWI` を含む構成で実行）は感度分析として併記した（全域は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.6節、都心部は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節）。衛星データのみを2変数に揃える比較は行わない（同 8.6.6節）。
 > ただし測量GIS有効域はレイヤ共通の範囲であり、レイヤ別の欠け（DC の図葉1枚の欠落など）は反映しない。この欠けを付録の比較でどう扱うかは未決である（[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)）。
 
 **公開GISデータ取得**:

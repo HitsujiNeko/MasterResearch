@@ -1,8 +1,8 @@
 # 測量由来 GIS データ整備状況レポート
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-18  
 **作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、`gpkgの確認結果.md`、`DGNファイル内容確定結果.md` の確認メモをもとに整理。DC・GT の Level 別確認（2.7節）は、集計と QGIS での目視（研究者と Claude）による  
-**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md), [qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md)
+**関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md), [qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md), [survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md)（属性整理・問い合わせ事項。DH・TH・TV はレイヤ別の文書）
 
 ---
 
@@ -120,16 +120,15 @@ EPSG:5897を仮定してWGS84へ変換した結果：
 |------|------|------|
 | CS | 測地・数学基盤（Level 5 が図郭内枠、Level 7 が図郭外枠） | 測量 GIS 有効域の定義（Level 5 の図郭内枠）。分析変数には使わない |
 | DC | 建物・住居。Level 5 の面が建物の外形、それ以外の Level の面は施設の敷地・記号（2.7節） | 建物被覆率・棟数密度（Level 5 の面のみ。条件つき） |
-| DH | 標高点・等高線寄り | 付録の測量建物置き換えでも使わない（標高関連の補助変数の候補。採否は未決） |
+| DH | 標高点（Level 7 の記号と Level 8 の標高値）と、区画を埋める小さな円の模様。等高線らしい線はない（[DH の確認](survey_gis_dh_inventory.md)） | 付録の測量建物置き換えでも使わない（標高関連の補助変数の候補。採否は未決） |
 | GT | 道路。線は道路の両側の縁、面は路面のほか水域・敷地・農地を含む（2.7節） | 道路密度には使わない（OSM を使う） |
 | RG | 区・坊の行政界（線。測量範囲の縁で途切れて開いている） | 分析対象域の定義には使わない（面にならない） |
-| TH | 水系 | 付録の測量建物置き換えでも使わない（水域率の候補。採否は未決） |
-| TV | 植生・土地利用 | 付録の測量建物置き換えでも使わない（緑地率の候補。採否は未決） |
+| TH | 水系。水面の面（Level 4・6・8・40）、水域の縁の線、堤防（Level 44）、砂州の模様（Level 24）など（[TH の確認](survey_gis_th_inventory.md)） | 付録の測量建物置き換えでも使わない（水域率の候補。採否は未決） |
+| TV | 植生・土地利用。Level 2 の面が区画を区切り、区画の種類は中に置いた記号の Level で表すとみられる。Level 2 の面は重なる（[TV の確認](survey_gis_tv_inventory.md)） | 付録の測量建物置き換えでも使わない（緑地率の候補。採否は未決） |
 
 **RG と CS の理解の更新（2026-10-19）**: 当初は RG を測量 GIS 有効域の定義に使う想定だったが、実データを調べた結果、RG の線（Level 7: 188本 / Level 10: 405本）は区・坊の行政界で、測量範囲の矩形の縁で途切れて開いており、面化しても 57.1 km² にとどまることが分かった。一方、CS の Level 5 の長い線（320本）は 80図葉 × 4辺の**図郭内枠**（1枚 約1,082 m × 1,153 m、8列 × 10行）であり、その和集合（99.895 km²、単一ポリゴン）が測量図面の描画範囲そのものになる。有効域はこれで定義し、`data/gis/survey/hanoi_survey_extent.gpkg` として生成している。定義方式・却下した案は [calc_urban_params_processing_design.md](../02_methods/calc_urban_params/calc_urban_params_processing_design.md) 7.5.6節を正本とする。
 
-ただし、`DH` / `TH` / `TV` の利用方法は最終確定ではない。  
-特に `DH` はポイントに標高値が多く、`TH` は水系、`TV` は植生・土地利用として使うのが現時点の第一候補である。
+ただし、`DH` / `TH` / `TV` の利用方法は最終確定ではない。7 レイヤの属性の整理（列の一覧・ジオメトリ型別件数・Level 別件数）、DH・TH・TV の Level 別の推定、分かっていないことと地図の作成者への問い合わせ事項は、[survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md) にまとめた。
 
 ### 2.6 ジオメトリエラー解消処理
 

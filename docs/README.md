@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-11-13  
+**最終更新**: 2026-11-18  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -88,7 +88,11 @@ docs/
 | ファイル名 | 概要 | 主要な内容 | 自動生成元 |
 |-----------|------|-----------|-----------|
 | [GIS_IDEAS_abstract.md](03_results/GIS_IDEAS_abstract.md) | GIS-IDEAS学会用アブストラクト下書き | RQ3 衛星データのみの本文案、図表案、表現上の注意点 | `docs/03_results/`, `data/output/satellite_only/`, `src/analysis/` |
-| [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認（RG・CS のレイヤ意味を含む）、付録の測量建物置き換えへの接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
+| [survey_gis_data_preparation_status.md](03_results/survey_gis_data_preparation_status.md) | 測量由来GISデータ整備状況レポート | 測量由来GISの整備、内容確認（RG・CS のレイヤ意味、DC・GT の Level 別確認を含む）、付録の測量建物置き換えへの接続条件 | `src/analysis/analyze_data_status.py`, `src/preprocessing/*` |
+| [survey_gis_attribute_inventory.md](03_results/survey_gis_attribute_inventory.md) | 測量GIS 7レイヤの属性整理と地図の作成者への問い合わせ事項（共通） | 集計の方法と照合結果、7レイヤ共通の属性列（欠損の割合・値の種類の数・`Text` の文字コード）、ジオメトリ型別件数、CS・RG の Level 別の中身、分かっていること／推定／分かっていないことの表、優先度つきの問い合わせ事項の一覧。DH・TH・TV の Level 別はレイヤ別の文書、DC・GT の Level 別は survey_gis_data_preparation_status.md 2.7節が正本 | `src/analysis/inventory_survey_gis_attributes.py`, `data/output/survey_gis_attribute_inventory/` |
+| [survey_gis_dh_inventory.md](03_results/survey_gis_dh_inventory.md) | 測量GIS DH（地形）の Level 別確認と標高点の詳細 | 主な Level の推定（等高線はなく、円の記号と標高値の注記・区画を埋める模様）、目視確認の記録、標高点の詳細（注記と記号の位置のずれ・標高値の検査・外れ値と堤防・水面・図葉の境目の段差・グリッドの充足率）、グリッドの標高として使う場合の論点（水域の扱いの4案） | `src/analysis/inventory_survey_gis_attributes.py`, `data/output/survey_gis_attribute_inventory/`（標高点の詳細は一時集計） |
+| [survey_gis_th_inventory.md](03_results/survey_gis_th_inventory.md) | 測量GIS TH（水系）の Level 別確認 | 主な Level の推定（水面の面・水域の縁・堤防・砂州の模様・水域名の注記）、同じ湖が図葉の境目で別の Level に分かれる事例、目視確認の記録 | `src/analysis/inventory_survey_gis_attributes.py`, `data/output/survey_gis_attribute_inventory/` |
+| [survey_gis_tv_inventory.md](03_results/survey_gis_tv_inventory.md) | 測量GIS TV（植生・土地利用）の Level 別確認 | 主な Level の推定（区画の面と記号の Level）、Level 2 の面の重複・入れ子、目視確認の記録 | `src/analysis/inventory_survey_gis_attributes.py`, `data/output/survey_gis_attribute_inventory/` |
 | [fig2_satellite_only_workflow.mmd](03_results/fig2_satellite_only_workflow.mmd) | RQ3図表用Mermaid図 | 衛星データのみの分析フローを図2向けに整理した構成図 | `docs/03_results/`, `src/analysis/` |
 | [fig3_limited_workflow.mmd](03_results/fig3_limited_workflow.mmd) | RQ3図表用Mermaid図 | Limited 分析フローを図3向けに整理した構成図。衛星指標と公開GISの正準グリッドへの集約、cell_id結合と品質列の付与、品質フィルタ、サンプリング、MLR/Random Forest、Spatial CV、SHAP までの流れ | `docs/03_results/`, `src/analysis/` |
 | [GIS_IDEAS_poster.md](03_results/GIS_IDEAS_poster.md) | GIS-IDEAS学会用ポスター原稿（衛星＋公開GISデータ・日英対訳） | A1縦を前提とした6パネルの日英対訳原稿（背景・対象とデータ・手法・モデル性能・変数重要度・結論と限界）、用語対訳表、想定問答、参考文献、版面の実測値。実物のpptxと1対1で対応させる。数値はラン1（提出時の主結果）に限り、出所の節番号を併記する。提出済みであり、数値は旧採用の観測20230707_032305に基づく（現在の主結果は `limited_analysis_results.md` 8章） | `docs/03_results/limited_analysis_results.md`, `docs/02_methods/observation_selection.md`, `data/output/limited/20230707_032305/` |

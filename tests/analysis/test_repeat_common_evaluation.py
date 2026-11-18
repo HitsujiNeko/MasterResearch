@@ -26,6 +26,7 @@ from src.analysis.repeat_common_evaluation import (
     main,
     prepare_limited_sample,
     resolve_limited_feature_columns,
+    resolve_output_suffix,
     resolve_seeds,
     seed_paths,
     summarize_seed_differences,
@@ -145,6 +146,75 @@ class TestHelpers:
         if "LULC_BARE_COV" in columns:
             assert "LULC_BARE_COV" in dropped
         assert set(kept) | set(dropped) == set(columns)
+
+    def test_default_arguments_keep_adopted_water_index_and_output_dir(self) -> None:
+        """既定の引数では、水指数は採用構成のままで、途中結果の保存先も従来の名前になる。"""
+        from src.analysis import analysis_rq3_limited as limited
+
+        cells = Path("common") / "evaluation_cells_seed42.csv"
+        args = repeat.parse_arguments(["--evaluation-cells", str(cells)])
+
+        assert args.water_index == limited.parse_arguments([]).water_index
+        assert args.output_dir == cells.with_name("repeat_evaluation_cells_seed42")
+        assert repeat.build_limited_configuration() == repeat.build_limited_configuration(
+            args.water_index
+        )
+
+    def test_non_adopted_water_index_gets_separate_output_dir(self) -> None:
+        """採用構成以外の水指数では、途中結果の保存先に `_wi_{構成}` を付けて分ける。"""
+        cells = Path("common") / "evaluation_cells_seed42.csv"
+        args = repeat.parse_arguments(["--evaluation-cells", str(cells), "--water-index", "ndwi"])
+
+        assert args.water_index == "ndwi"
+        assert args.output_dir == cells.with_name("repeat_evaluation_cells_seed42_wi_ndwi")
+
+    def test_output_suffix_is_based_on_value_not_default(self) -> None:
+        """接尾辞は `none` という値のときだけ付けず、他の構成には付ける。対応外は拒否する。"""
+        assert resolve_output_suffix("none") == ""
+        assert resolve_output_suffix("ndwi") == "_wi_ndwi"
+        assert resolve_output_suffix("pc1") == "_wi_pc1"
+        with pytest.raises(ValueError, match="対応していない水指数"):
+            resolve_output_suffix("ndmi")
+
+    def test_parse_rejects_unknown_water_index(self) -> None:
+        """分析スクリプトが受け付けない水指数の構成は受け付けない。"""
+        with pytest.raises(SystemExit):
+            repeat.parse_arguments(["--water-index", "ndmi"])
+
+    def test_limited_features_follow_selected_water_index(self) -> None:
+        """水指数の構成を指定すると、分析スクリプトの同じ構成と同じ投入列になる。"""
+        from src.analysis import analysis_rq3_limited as limited
+
+        defaults = limited.parse_arguments([])
+        for mode in limited.WATER_INDEX_MODES:
+            assert resolve_limited_feature_columns(mode) == limited.resolve_feature_columns(
+                defaults.variable_set,
+                defaults.population_source,
+                defaults.building_height,
+                mode,
+            )
+        assert "NDWI" in resolve_limited_feature_columns("ndwi")
+        assert "NDWI" not in resolve_limited_feature_columns("none")
+
+    def test_prepare_limited_sample_adds_pc1_for_pc1_water_index(self) -> None:
+        """水指数が `pc1` のときは、分析スクリプトと同じく合成列を作って投入する。"""
+        sample = _limited_dataframe(_satellite_only_dataframe())
+        columns = resolve_limited_feature_columns("pc1")
+
+        prepared, kept, _ = prepare_limited_sample(sample, columns, "pc1")
+
+        assert "VEG_WATER_PC1" in prepared.columns
+        assert "VEG_WATER_PC1" in kept
+
+    def test_run_conditions_record_water_index(self) -> None:
+        """実行条件には水指数の構成が入り、構成が違えば再利用の判定で一致しない。"""
+        hashes = {"satellite_only": "s1", "limited": "l1"}
+        adopted = build_run_conditions(5, 5, ["NDVI"], "code-v1", hashes)
+        ndwi = build_run_conditions(5, 5, ["NDVI"], "code-v1", hashes, "ndwi")
+
+        assert adopted["limited_configuration"]["water_index_mode"] == "none"
+        assert ndwi["limited_configuration"]["water_index_mode"] == "ndwi"
+        assert adopted != ndwi
 
     def test_parse_rejects_single_seed(self) -> None:
         """シード間の変動を求められないため、シード数1は受け付けない。"""
@@ -481,6 +551,53 @@ class TestMain:
         )
         assert result["seeds"] == [42, 43]
         assert result["analysis_area"] == "survey"
+
+    def test_ndwi_run_writes_separate_outputs_and_keeps_adopted_results(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """`ndwi` の反復は `_wi_ndwi` 付きの名前に出力し、採用構成の結果を上書きしない。
+
+        同じ標本・同じ fold・同じシードで回すため、Satellite Only 側の fold 別指標は
+        採用構成の反復と完全に一致する（変わるのは Limited 側の投入列だけ）。
+        """
+        cells_path = _build_cells(monkeypatch, tmp_path)
+        argv = ["--evaluation-cells", str(cells_path), "--n-seeds", "2", "--rf-trees", "5"]
+        main(argv)
+        adopted_path = cells_path.with_name(
+            "repeated_comparison_evaluation_cells_seed42_results.json"
+        )
+        adopted_bytes = adopted_path.read_bytes()
+
+        main([*argv, "--water-index", "ndwi"])
+
+        assert adopted_path.read_bytes() == adopted_bytes
+        ndwi_result = json.loads(
+            cells_path.with_name(
+                "repeated_comparison_evaluation_cells_seed42_wi_ndwi_results.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert ndwi_result["limited_configuration"]["water_index_mode"] == "ndwi"
+        assert all("NDWI" in record["limited_features"] for record in ndwi_result["seed_records"])
+        adopted_result = json.loads(adopted_bytes.decode("utf-8"))
+        assert all(
+            "NDWI" not in record["limited_features"] for record in adopted_result["seed_records"]
+        )
+        assert ndwi_result["outputs"]["seed_intermediate_dir"].endswith(
+            "repeat_evaluation_cells_seed42_wi_ndwi"
+        )
+        folds = {
+            suffix: pd.read_csv(
+                cells_path.with_name(
+                    f"repeated_comparison_evaluation_cells_seed42{suffix}_folds.csv"
+                )
+            )
+            for suffix in ("", "_wi_ndwi")
+        }
+        satellite = {
+            suffix: frame[frame["scenario"] == "satellite_only"].reset_index(drop=True)
+            for suffix, frame in folds.items()
+        }
+        pd.testing.assert_frame_equal(satellite[""], satellite["_wi_ndwi"])
 
     def test_stops_on_unknown_analysis_area(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

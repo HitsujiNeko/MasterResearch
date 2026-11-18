@@ -1,6 +1,6 @@
 # 研究計画書
 
-**最終更新**: 2026-11-12  
+**最終更新**: 2026-11-18  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [urban_structure_parameters.md](urban_structure_parameters.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
 **前提知識**: LST・ROI・データシナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 
@@ -309,9 +309,9 @@ S10が建物高さ・緑地パッチ平均面積・降水量・人口密度を�
 
 本研究は、衛星＋公開GISデータのシナリオの結果を測量データという基準と照らして確かめる設計を取らない（§6.2）。公開GISデータの値そのものの妥当性は、付録の測量建物置き換え（建物の2変数に限る）で部分的に確かめられるにとどまり、測量データが存在しない地域ではこの確認もできない。公開GISデータの妥当性をどう検証するかは、RQ3の一般化可能性に直結する論点として残っている。
 
-**主軸の2シナリオで分光指数の扱いが揃っていない**
+**主軸の2シナリオで分光指数の扱いが異なる（判断済み・2026-11-18）**
 
-衛星データのみのシナリオは分光指数3変数（`NDWI` を含む）のままである一方、衛星＋公開GISデータのシナリオは共線性への対処として `NDWI` を除いた構成を採用している。このため現状の2シナリオの差は、公開GISデータを加えた効果だけとしては読めない（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.5節）。主軸の比較の前提となる未決事項であり、扱いの検討は [analysis_workflow.md](../02_methods/analysis_workflow.md)「未確定事項・今後の検討課題」で管理する。
+衛星データのみのシナリオは分光指数3変数（`NDWI` を含む）のままである一方、衛星＋公開GISデータのシナリオは共線性への対処として `NDWI` を除いた構成を採用している。主結果はこの採用構成どうしの比較とし、`NDWI` を外せること（水域の情報を公開GISの土地被覆が担う）も公開GISデータを加えた効果の一部として読む。分光指数を揃えた比較（衛星＋公開GISデータを `NDWI` を含む構成で実行）は感度分析として併記し、30m の全域・都心部とも差はほとんど変わらなかった（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.6節・[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節）。衛星データのみを2変数に揃える比較は行わない。
 
 ---
 

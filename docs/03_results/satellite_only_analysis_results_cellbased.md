@@ -1,6 +1,6 @@
 # 衛星データのみの分析結果（cell_id結合経路）
 
-**最終更新**: 2026-11-13  
+**最終更新**: 2026-11-18  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -17,7 +17,7 @@
 | [satellite_only_analysis_results.md](satellite_only_analysis_results.md)（旧ピクセル経路・3観測日） | 集計単位（Landsatピクセル 対 正準グリッドのセル）・格子・観測日数・Spatial CV の定義。格子が一致しないため、セル単位の対応づけによる差分評価もできない（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md)（同一経路・観測032329） | 観測。処理条件は同一だが母数が異なり、そこから抽出される10万件も別物である |
 
-[衛星＋公開GISデータ](limited_analysis_results.md) とは観測・格子・経路・ブロック定義が一致する。**主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した**（衛星＋公開GISデータ側8.6節）。ただし分光指数の扱いがシナリオ間で揃っていないため、差は公開GISの追加の効果だけを表すものではない。032305 の比較は母数も揃っていない参考比較にとどまる（衛星＋公開GISデータ側6.7節）。シナリオ間比較の数値は衛星＋公開GISデータ側を正本とし、本ドキュメントに重複させない。
+[衛星＋公開GISデータ](limited_analysis_results.md) とは観測・格子・経路・ブロック定義が一致する。**主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した**（衛星＋公開GISデータ側8.6節）。分光指数の扱いはシナリオ間で異なるが、主結果は採用構成どうしの比較とし、分光指数を揃えた比較を感度分析として併記した（衛星＋公開GISデータ側8.6.6節）。032305 の比較は母数も揃っていない参考比較にとどまる（衛星＋公開GISデータ側6.7節）。シナリオ間比較の数値は衛星＋公開GISデータ側を正本とし、本ドキュメントに重複させない。
 
 ---
 
@@ -255,7 +255,7 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 
 **線形回帰の標準化係数の絶対値順位は補助的な情報として扱い、変数重要度の主たる解釈は Random Forest の重要度と SHAP に基づく。** 変数選択（NDVI または NDWI の除外等）による多重共線性の解消は本ドキュメントでは行わない。
 
-**衛星＋公開GISデータとは分光指数の変数定義が揃っていない。** 衛星＋公開GISデータでは水指数の扱いを同一セル上で比較し、NDWI を除外する構成を採用した（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）。同節の比較では、ラン1の NDVI・NDWI の標準化係数（第1・2位）が共線性のアーティファクトであり、共線性を解消すると NDVI の係数がほぼ0になることも示された。本ドキュメントの3変数構成でも同じ構造の共線性があるため、**NDVI・NDWI の標準化係数を個別の寄与として読んではならない**。**この変数定義の不整合は残っており、解消は後続の課題として別途扱う**（衛星データのみ側でも同じ構成比較を行うか、変数の定義をシナリオ間で揃えるかを判断する・6章）。
+**衛星＋公開GISデータとは分光指数の変数定義が揃っていない。** 衛星＋公開GISデータでは水指数の扱いを同一セル上で比較し、NDWI を除外する構成を採用した（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）。同節の比較では、ラン1の NDVI・NDWI の標準化係数（第1・2位）が共線性のアーティファクトであり、共線性を解消すると NDVI の係数がほぼ0になることも示された。本ドキュメントの3変数構成でも同じ構造の共線性があるため、**NDVI・NDWI の標準化係数を個別の寄与として読んではならない**。シナリオ間の比較では、本シナリオを3変数のまま主結果とし、衛星＋公開GISデータを `NDWI` を含む構成で回した比較を感度分析として併記した。本シナリオを2変数に揃える比較は行わない（[limited_analysis_results.md](limited_analysis_results.md) 8.6.6節）。
 
 ### 5.4 Spatial CVの限界
 
@@ -270,9 +270,9 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 
 ## 6. 今後の研究の方向性
 
-- **衛星＋公開GISデータとの改善幅の評価（測量建物置き換えは付録）**: 主採用の観測 032358 では、衛星＋公開GISデータとの比較を両シナリオに共通する評価セルと fold で行った（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）。分光指数の扱いをシナリオ間で揃えた比較（下の「分光指数間の共線性の解消」と関わる）と、測量建物置き換えとの比較は残っている。測量建物置き換えを加えるときは同じ共通評価セルの仕組みを使う（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
+- **衛星＋公開GISデータとの改善幅の評価（測量建物置き換えは付録）**: 主採用の観測 032358 では、衛星＋公開GISデータとの比較を両シナリオに共通する評価セルと fold で行った（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）。分光指数の扱いをシナリオ間で揃えた比較は感度分析として行った（同 8.6.6節）。測量建物置き換えとの比較は残っている。測量建物置き換えを加えるときは同じ共通評価セルの仕組みを使う（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
 - **Spatial CV の設計**: シナリオ横断の方法論として見直し、設計を決定した（[spatial_cv_design_results.md](spatial_cv_design_results.md) 5章）
-- **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。衛星＋公開GISデータでは水指数の構成を同一セル上で比較し NDWI を除外する構成を採用したが（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、本シナリオでは構成比較は未実施である。本シナリオは説明変数が分光指数のみであり、NDWI を除外すると説明変数が2つになるため、衛星＋公開GISデータの結論をそのまま適用してよいかを含めて判断する
+- **分光指数間の共線性の解消**: `NDVI` 26.83・`NDWI` 25.15 の VIF は未解決である。衛星＋公開GISデータでは水指数の構成を同一セル上で比較し NDWI を除外する構成を採用したが（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）、本シナリオでは構成比較は未実施である。シナリオ間の比較では本シナリオを3変数のまま使うと判断した（[limited_analysis_results.md](limited_analysis_results.md) 8.6.6節）。本シナリオ単独の結果で `NDVI`・`NDWI` の係数・寄与を個別に読まない方針（5.3節）は変わらない
 - **LST の放射率と NDVI の依存**: 確認済み。LST は同じシーンの NDVI から放射率を求めている（[limited_analysis_results.md](limited_analysis_results.md) 3.9節）。主採用の観測で依存を外した対照（ASTER GEDv3 の静的な放射率）と比べると、本シナリオの寄与の順位は4指標とも変わらず、Spatial CV の RF の R² は 0.032 下がり、`NDVI` の平均 \|SHAP\| は約 17% 下がった（[lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md) 5章）
 - **30mでの観測日拡張**: `20230723_032309` / `20241130_032336` の `idx_*` / `lst_*` テーブル算出は別途扱う。複数観測日が揃った時点で、同一経路での複数日比較を実施する
 

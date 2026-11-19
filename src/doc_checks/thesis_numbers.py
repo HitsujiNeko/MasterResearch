@@ -34,9 +34,15 @@ from src.common.config import PROJECT_ROOT
 from src.doc_checks.thesis_source_tracking import collect_section_files, parse_section_sources
 
 # 旧観測の章（正本のパス → 章番号の集合）。正本のうち、主採用の観測以外の
-# 結果を記録している章を定義する。主採用の章は、ここに無い章（8章など）とする。
+# 結果を記録している章を定義する。主採用の章は、ここに無いファイル・章とする。
+# limited_analysis_results.md はハブ（1章）と子ファイルに分かれており、章番号は分割前の
+# まま。旧観測の章（2〜7章）を収めた子ファイルは、冒頭のメタ情報（章 "0"）も旧観測側とする。
+# ハブ（1章）と主採用の観測の子ファイル（8章）は載せない。
+_LIMITED_DIR = "docs/03_results/limited_analysis"
 LEGACY_CHAPTERS: dict[str, frozenset[str]] = {
-    "docs/03_results/limited_analysis_results.md": frozenset({"2", "3", "4", "5", "6", "7"}),
+    f"{_LIMITED_DIR}/limited_analysis_legacy_20230707.md": frozenset({"0", "2", "4", "5", "7"}),
+    f"{_LIMITED_DIR}/limited_analysis_processing.md": frozenset({"0", "3"}),
+    f"{_LIMITED_DIR}/limited_analysis_multicollinearity.md": frozenset({"0", "6"}),
 }
 
 KIND_LEGACY_ONLY = "旧観測のみ"

@@ -1,6 +1,6 @@
 # 修士論文 執筆規約
 
-**最終更新**: 2026-11-12  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [task-workflow.md](../../.github/task-workflow.md), [CodingRule.md](CodingRule.md), [literature_management_guide.md](../04_archive/literature_management_guide.md)  
 **前提知識**: Markdown の基本記法、コマンドラインでの Python 実行
 
@@ -317,12 +317,13 @@ python -m src.doc_checks.thesis_numbers thesis/chapters/04_results/01_xxx.md
 
 | 表示 | 意味 | 対応 |
 |---|---|---|
-| 旧観測のみ | 正本のうち旧観測の章（`limited_analysis_results.md` の 2〜7 章）にだけある値 | 主採用の観測（8 章）の値に直す。旧観測の値を意図して書く場合は、その旨を本文で述べる |
+| 旧観測のみ | 正本のうち旧観測の章（衛星＋公開GISデータの結果の 2〜7 章。`limited_analysis/` 配下の `limited_analysis_legacy_20230707.md`・`limited_analysis_processing.md`・`limited_analysis_multicollinearity.md`）にだけある値 | 主採用の観測（8 章）の値に直す。旧観測の値を意図して書く場合は、その旨を本文で述べる |
 | 正本に無い | 依拠する正本のどこにも無い値 | 正本から転記し直す。正本に無い値は論文で作らず、先に正本へ記録する（1 章） |
 
 - 正本が Markdown でない節（CSV・JSON のみ）は照合できず、その旨が表示される。章の区切りは正本の `## N.` 見出しで判定し、最初の章見出しより前の数値は主採用側として扱う
 - 本文で正本の値を丸めて書いた場合（正本 0.8537 → 本文 0.85）は「正本に無い」と警告されうる。丸めの結果であれば無視してよい
-- `limited_analysis_results.md` の 3 章（ラン間で共通の処理条件）は観測に依らない定義や統計を含むが、旧観測の章（2〜7 章）として扱う。主採用の観測の節で 3 章の値を正しく引用した場合も「旧観測のみ」と警告されるので、その場合は無視してよい
+- 衛星＋公開GISデータの結果は、ハブ `limited_analysis_results.md`（1 章）と `limited_analysis/` 配下の子ファイル（2〜8 章。章番号は分割前のまま）に分かれている。ハブだけを依拠する正本に挙げると 2〜8 章の値を照合できないため、引用した章を収めた子ファイルを挙げる（まとめて挙げる場合は `docs/03_results/limited_analysis/` のディレクトリを挙げると配下の全ファイルを照合する。1 章の値も引用する場合はハブも挙げる）
+- `limited_analysis_processing.md`（3 章・ラン間で共通の処理条件）は観測に依らない定義や統計を含むが、旧観測の章（2〜7 章）として扱う。主採用の観測の節で 3 章の値を正しく引用した場合も「旧観測のみ」と警告されるので、その場合は無視してよい
 - 依拠する正本に Markdown と CSV・JSON が混在する節は、Markdown だけを照合する。CSV・JSON から転記した値は「正本に無い」と警告されるので、元のファイルで確認する。数値の符号は区別しない
 - 照合するのは、小数部を持つ数値と桁区切りのある数値である。整数（件数・年・節番号など）は照合しないため、通読で確認する
 - 旧観測の章の定義は `src/doc_checks/thesis_numbers.py` の `LEGACY_CHAPTERS` に1か所だけ置く。正本に旧観測と主採用の観測を並べる文書が増えたら、そこに追加する

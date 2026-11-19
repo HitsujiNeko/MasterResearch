@@ -17,9 +17,13 @@ from src.doc_checks.thesis_numbers import (
     number_key,
 )
 
-_SOURCE_PATH = "docs/03_results/limited_analysis_results.md"
+_LIMITED_DIR = "docs/03_results/limited_analysis"
+_HUB_PATH = "docs/03_results/limited_analysis_results.md"
+_LEGACY_PATH = f"{_LIMITED_DIR}/limited_analysis_legacy_20230707.md"
+_PROCESSING_PATH = f"{_LIMITED_DIR}/limited_analysis_processing.md"
+_MAIN_PATH = f"{_LIMITED_DIR}/limited_analysis_main_20220906.md"
 
-# 旧観測（2〜7章）と主採用の観測（8章）で値が異なる正本
+# 旧観測（2〜7章）と主採用の観測（8章）で値が異なる正本（分割前の1ファイルの形）
 _SOURCE_TEXT = """# Limited 結果
 
 ## 1. 位置づけ
@@ -35,19 +39,43 @@ _SOURCE_TEXT = """# Limited 結果
 主採用の R² は 0.63、RMSE は 1.82 °C。共通の値は 0.55。件数は 12,345 件。
 """
 
+# 分割後の構成（ハブ＋子ファイル）。章番号は分割前のまま
+_HUB_TEXT = "# Limited 結果（ハブ）\n\n## 1. 位置づけ\n\n定義の値は 0.77。\n"
+_LEGACY_TEXT = (
+    "# 旧採用の観測\n\n**前提知識**: 3.9節\n\n---\n\n"
+    "## 2. 旧観測の結果\n\n旧観測の R² は 0.41、RMSE は 2.35 °C。共通の値は 0.55。\n"
+)
+_PROCESSING_TEXT = "# 処理条件\n\n## 3. ラン間で共通の処理条件\n\n閾値は 0.31。定義の値は 0.77。\n"
+_MAIN_TEXT = (
+    "# 主採用の観測\n\n## 8. 主採用の観測の結果\n\n"
+    "主採用の R² は 0.63、RMSE は 1.82 °C。共通の値は 0.55。件数は 12,345 件。\n"
+)
+_SPLIT_SOURCES = {
+    _HUB_PATH: _HUB_TEXT,
+    _LEGACY_PATH: _LEGACY_TEXT,
+    _PROCESSING_PATH: _PROCESSING_TEXT,
+    _MAIN_PATH: _MAIN_TEXT,
+}
+
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
-def _section(tmp_path: Path, body: str, state: str = "執筆中") -> Path:
-    header = (
-        f"<!--\n見出し: 4.1\n状態: {state}\n依拠する正本:\n  - {_SOURCE_PATH} @ 1a2b3c4d5e\n-->\n"
-    )
+def _section(
+    tmp_path: Path,
+    body: str,
+    state: str = "執筆中",
+    references: tuple[str, ...] = (_LEGACY_PATH, _MAIN_PATH),
+) -> Path:
+    """分割後の正本を置き、指定した正本に依拠する節ファイルを作る。"""
+    lines = "".join(f"  - {ref} @ 1a2b3c4d5e\n" for ref in references)
+    header = f"<!--\n見出し: 4.1\n状態: {state}\n依拠する正本:\n{lines}-->\n"
     section = tmp_path / "thesis" / "chapters" / "04_results" / "01_s.md"
     _write(section, header + body)
-    _write(tmp_path / _SOURCE_PATH, _SOURCE_TEXT)
+    for path, text in _SPLIT_SOURCES.items():
+        _write(tmp_path / path, text)
     return section
 
 
@@ -121,7 +149,37 @@ def test_detects_legacy_observation_value(tmp_path: Path) -> None:
 
     result = check_section_numbers(section, tmp_path)
 
-    assert [(f.line, f.kind, f.number_text) for f in result] == [(7, KIND_LEGACY_ONLY, "2.35")]
+    assert [(f.line, f.kind, f.number_text) for f in result] == [(8, KIND_LEGACY_ONLY, "2.35")]
+
+
+def test_directory_reference_covers_all_child_files(tmp_path: Path) -> None:
+    """子ファイルのディレクトリを依拠する正本に挙げると、配下の全ファイルで照合する。"""
+    section = _section(
+        tmp_path, "R² は 0.63，閾値は 0.31，RMSE は 2.35 °C．\n", references=(_LIMITED_DIR,)
+    )
+
+    result = check_section_numbers(section, tmp_path)
+
+    assert [(f.kind, f.number_text) for f in result] == [
+        (KIND_LEGACY_ONLY, "0.31"),
+        (KIND_LEGACY_ONLY, "2.35"),
+    ]
+
+
+def test_value_also_in_hub_is_not_legacy_only(tmp_path: Path) -> None:
+    """旧観測の子ファイルとハブ（1章）の両方にある値は、旧観測のみとしない。"""
+    section = _section(tmp_path, "定義の値は 0.77．\n", references=(_HUB_PATH, _PROCESSING_PATH))
+
+    assert check_section_numbers(section, tmp_path) == []
+
+
+def test_legacy_child_header_counts_as_legacy(tmp_path: Path) -> None:
+    """旧観測の子ファイルの冒頭（最初の章見出しより前）の数値も旧観測側として扱う。"""
+    section = _section(tmp_path, "値は 3.9 である．\n")
+
+    result = check_section_numbers(section, tmp_path)
+
+    assert [(f.kind, f.number_text) for f in result] == [(KIND_LEGACY_ONLY, "3.9")]
 
 
 def test_detects_number_not_in_source(tmp_path: Path) -> None:

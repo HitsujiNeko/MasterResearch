@@ -1,0 +1,379 @@
+{
+  "description": "測量GIS（merge_*.gpkg）の属性の集計。Level 別の件数・描画属性・大きさ・属性値の例。",
+  "conditions": {
+    "assigned_crs": "EPSG:5897",
+    "text_read_encoding": "latin-1",
+    "text_output_note": "Text の ASCII 以外のバイトは \\xNN の形で出力する（文字コードは未確認のため解読しない）",
+    "dummy_origin": [
+      500000.0,
+      1000000.0
+    ],
+    "dummy_tolerance_m": 100.0,
+    "valid_extent": [
+      576000.0,
+      2316000.0,
+      595000.0,
+      2339000.0
+    ],
+    "size_note": "長さ・面積は EPSG:5897 の座標（メートル）で計算し、空・ダミー・範囲外の地物を除く",
+    "top_n": 5,
+    "sample_size": 5,
+    "seed": 42
+  },
+  "layers": {
+    "CS": {
+      "path": "data/gis/survey/merge_CS.gpkg",
+      "n_features": 20110,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 23,
+      "geometry_class_counts": {
+        "line": 11201,
+        "point": 8407,
+        "polygon": 502
+      },
+      "location_counts": {
+        "valid": 20110
+      },
+      "n_text": 8407,
+      "n_text_not_utf8": 2061,
+      "n_ulink": 4180,
+      "n_ulink_invalid_json": 0
+    },
+    "DC": {
+      "path": "data/gis/survey/merge_DC.gpkg",
+      "n_features": 464234,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 50,
+      "geometry_class_counts": {
+        "polygon": 430232,
+        "point": 18139,
+        "line": 15863
+      },
+      "location_counts": {
+        "valid": 463578,
+        "empty": 649,
+        "dummy": 6,
+        "out_of_extent": 1
+      },
+      "n_text": 18113,
+      "n_text_not_utf8": 12200,
+      "n_ulink": 249030,
+      "n_ulink_invalid_json": 0
+    },
+    "DH": {
+      "path": "data/gis/survey/merge_DH.gpkg",
+      "n_features": 104317,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 14,
+      "geometry_class_counts": {
+        "line": 58056,
+        "point": 46254,
+        "polygon": 7
+      },
+      "location_counts": {
+        "valid": 104314,
+        "dummy": 3
+      },
+      "n_text": 46254,
+      "n_text_not_utf8": 0,
+      "n_ulink": 63558,
+      "n_ulink_invalid_json": 0
+    },
+    "GT": {
+      "path": "data/gis/survey/merge_GT.gpkg",
+      "n_features": 209077,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 48,
+      "geometry_class_counts": {
+        "line": 131695,
+        "polygon": 73766,
+        "point": 3616
+      },
+      "location_counts": {
+        "valid": 209069,
+        "empty": 6,
+        "dummy": 2
+      },
+      "n_text": 3584,
+      "n_text_not_utf8": 3064,
+      "n_ulink": 158153,
+      "n_ulink_invalid_json": 0
+    },
+    "RG": {
+      "path": "data/gis/survey/merge_RG.gpkg",
+      "n_features": 721,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 4,
+      "geometry_class_counts": {
+        "line": 594,
+        "polygon": 68,
+        "point": 59
+      },
+      "location_counts": {
+        "valid": 721
+      },
+      "n_text": 59,
+      "n_text_not_utf8": 0,
+      "n_ulink": 629,
+      "n_ulink_invalid_json": 0
+    },
+    "TH": {
+      "path": "data/gis/survey/merge_TH.gpkg",
+      "n_features": 55269,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 34,
+      "geometry_class_counts": {
+        "line": 53325,
+        "polygon": 1502,
+        "point": 442
+      },
+      "location_counts": {
+        "valid": 55264,
+        "dummy": 5
+      },
+      "n_text": 442,
+      "n_text_not_utf8": 247,
+      "n_ulink": 54370,
+      "n_ulink_invalid_json": 0
+    },
+    "TV": {
+      "path": "data/gis/survey/merge_TV.gpkg",
+      "n_features": 127791,
+      "declared_geometry_type": "Unknown",
+      "declared_crs": null,
+      "assigned_crs": "EPSG:5897",
+      "n_levels": 27,
+      "geometry_class_counts": {
+        "line": 119258,
+        "polygon": 8523,
+        "point": 10
+      },
+      "location_counts": {
+        "valid": 127788,
+        "dummy": 3
+      },
+      "n_text": 8,
+      "n_text_not_utf8": 1,
+      "n_ulink": 7726,
+      "n_ulink_invalid_json": 0
+    }
+  },
+  "outputs": {
+    "columns": "data/output/survey_gis_attribute_inventory/columns.csv",
+    "geometry_types": "data/output/survey_gis_attribute_inventory/geometry_types.csv",
+    "levels": "data/output/survey_gis_attribute_inventory/levels.csv",
+    "value_distribution": "data/output/survey_gis_attribute_inventory/value_distribution.csv",
+    "style_combinations": "data/output/survey_gis_attribute_inventory/style_combinations.csv",
+    "sizes_by_level": "data/output/survey_gis_attribute_inventory/sizes_by_level.csv",
+    "attribute_examples": "data/output/survey_gis_attribute_inventory/attribute_examples.csv",
+    "ulink_linkages": "data/output/survey_gis_attribute_inventory/ulink_linkages.csv"
+  },
+  "provenance": {
+    "script": "src.analysis.inventory_survey_gis_attributes",
+    "executed_at": "2026-11-19T10:59:44.158750+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "bc5f8f8dfc0c3e8487614d29c54126ab64b4f2fb",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/inventory_survey_gis_attributes.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/inventory_survey_gis_attributes.py",
+          "sha256": "6632d3b733abbc242b57a9c799d8e2c942ffa79be595869650287b77628c8c2f"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/gis/survey/merge_CS.gpkg",
+        "sha256": "0124a7b373c40c86d4c885bc0418a776feb9e33c83411aedf272e42f606ac929"
+      },
+      {
+        "path": "data/gis/survey/merge_DC.gpkg",
+        "sha256": "61596564ed7f259e5fcf2fa3691073773f6f994a188e6034fb4e4dfd31b873cf"
+      },
+      {
+        "path": "data/gis/survey/merge_DH.gpkg",
+        "sha256": "7368ecd2d2a20dae590ea157d76a48547fc551da820bf6ad839e00cff002c4fa"
+      },
+      {
+        "path": "data/gis/survey/merge_GT.gpkg",
+        "sha256": "66c317e123b2af9e60a51beee089ca32c0b715e58b19c818e49a4b561bbe0f0d"
+      },
+      {
+        "path": "data/gis/survey/merge_RG.gpkg",
+        "sha256": "54fc0bfc1dd9e5ac744b0b39fbc8372f5a6e4fbd53be3557f45dc2ee52af5919"
+      },
+      {
+        "path": "data/gis/survey/merge_TH.gpkg",
+        "sha256": "08c3121f76e1e33452142de3384078dc4f4abdeeee25cf8c270d0fb0c2d1358f"
+      },
+      {
+        "path": "data/gis/survey/merge_TV.gpkg",
+        "sha256": "3c91ff0378aed670bd0a035ca395827d596234815d0b60062a098178c0241407"
+      }
+    ]
+  }
+}

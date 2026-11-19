@@ -1,0 +1,262 @@
+layer,Level,column,n_nonnull,n_unique,top_values,random_examples
+CS,1,Text,23,13,20 (2) | 0 (2) | 80 (2) | 40 (2) | 40 m (2),40 m | 20 | Kho\xb6ng cao \xae\xd2u \xae\xad\xeang b\xd7nh \xae\xe9 c\xac b\xb6n l\xb5 1 m | 0 | v\xedi \xb6nh s\xe8 n\xa8m 2018 t\xb9i T\xe6ng C\xabng ty T\xb5i nguy\xaan v\xb5 M\xabi tr\xad\xeang Vi\xd6t Nam.
+CS,1,MSLink,18,2,0 (16) | 4 (2),0 | 4
+CS,1,EntityNum,18,4,667 (14) | 4523 (2) | 33333 (1) | 6667 (1),33333 | 4523 | 667 | 6667
+CS,2,Text,80,80,F-48-68-(218-a) (1) | F-48-68-(218-b) (1) | F-48-68-(251-b) (1) | F-48-68-(251-a) (1) | F-48-68-(250-k) (1),F-48-68-(234-f) | F-48-68-(251-h) | F-48-68-(235-c) | F-48-68-(235-g) | F-48-68-(219-a)
+CS,3,Text,161,81,F-48-80-(11-b) (3) | F-48-68-(218-a) (2) | F-48-68-(250-c) (2) | F-48-68-(251-b) (2) | F-48-68-(251-a) (2),F-48-68-(235-b) | F-48-68-(236-a) | F-48-68-(235-c) | F-48-68-(234-f) | F-48-68-(251-g)
+CS,4,Text,320,118,F-48-68-(234-e) (8) | F-48-68-(235-c) (5) | F-48-68-(220-d) (5) | F-48-68-(235-g) (4) | F-48-68-(235-k) (4),F-48-80-(10-a) | F-48-68-(250-d) | F-48-68-(252-h) | F-48-68-(220-d) | F-48-68-(204-h)
+CS,5,MSLink,1710,739,0 (440) | 8994 (3) | 284753920 (3) | 64688 (2) | 6731 (2),9409 | 328073216 | -27328512 | 57675 | 796327936
+CS,5,EntityNum,1710,1416,25192 (11) | 28328 (10) | 41688 (10) | 25000 (10) | 25320 (8),34983 | 36226 | 21846 | 15983 | 39038
+CS,6,Text,1,1,ph\xad\xeang Ph\xf3c T\xa9n (1),ph\xad\xeang Ph\xf3c T\xa9n
+CS,7,MSLink,224,16,0 (207) | 145423544 (2) | -275840153 (2) | 282328226 (1) | 148044984 (1),282328226 | -275840153 | 282328227 | -273218713 | 275971235
+CS,7,EntityNum,224,220,52418 (2) | 51313 (2) | 18894 (2) | 19261 (2) | 52262 (1),49300 | 20357 | 39713 | 24013 | 38534
+CS,8,Text,160,65,"H\xb5 N\xe9i - (54) | h\xb5 n\xe9i - (19) | T\xa9y H\xe5 (7) |  h\xb5 n\xe9i - (4) | T\xa9y H\xe5, B\xbec T\xf5 Li\xaam (3)","B\xbec T\xf5 Li\xaam, T\xa9y H\xe5 | Long Bi\xaan, T\xa9y H\xe5, Ba \xa7\xd7nh | T\xa9y H\xe5, Long Bi\xaan | \xa7\xe8ng \xa7a, Ba \xa7\xd7nh | thanh xu\xa9n, ho\xb5ng mai"
+CS,9,Text,720,120,236-a (9) | 235-b (9) | 251-h (9) | 250-c (9) | 219-f (9),250-d | 251-a | 250-f | 220-b | 219-g
+CS,13,Text,14,14,"11,80 (1) | 12,10 (1) | 10,33 (1) | 10,63 (1) | 12,99 (1)","7,71 | 10,63 | 5,45 | 11,80 | 32,58"
+CS,13,MSLink,1,1,741860945 (1),741860945
+CS,13,EntityNum,1,1,62152 (1),62152
+CS,14,Text,2,2,"12,04 (1) | 12,01 (1)","12,04 | 12,01"
+CS,16,Text,1920,32,"O (640) | 105 (160) | 00"" (84) | 22""5 (68) | 37""5 (68)","105 51' | 22""5 | 37""5 | 21 03' | 48'45"""
+CS,17,Text,1749,104,86 6 (21) | 89 6 (20) | 89 2 (20) | 89 0 (20) | 88 6 (20),"89 8 | 26,6 | 24,0 | 82 8 | 30,6"
+CS,18,Text,630,2,5 (315) | 23 (315),23 | 5
+CS,18,MSLink,2,1,0 (2),0
+CS,18,EntityNum,2,1,667 (2),667
+CS,19,Text,414,12,20 (57) | 0 (57) | 80 (57) | 40 (57) | 40 m (57),"Kho\xb6ng cao \xae\xd2u \xae\xad\xeang b\xd7nh \xae\xe9 c\xac b\xb6n l\xb5 0,5 m | 20 | 40 | 80 | 0"
+CS,19,MSLink,403,2,0 (399) | 4 (4),4 | 0
+CS,19,EntityNum,403,2,667 (399) | 4523 (4),667 | 4523
+CS,20,Text,366,10,Kho\xb6ng cao \xae\xd2u \xae\xad\xeang b\xd7nh \xae\xe9 c\xac b\xb6n l\xb5 1 m (73) | 1 cm tr\xaan b\xb6n \xae\xe5 b\xbbng 20 m tr\xaan th\xf9c \xae\xdea (73) | 1:2000 (73) | 20 (21) | 0 (21),40 m | 0 | 1 cm tr\xaan b\xb6n \xae\xe5 b\xbbng 20 m tr\xaan th\xf9c \xae\xdea | 80 | 120
+CS,20,MSLink,220,2,0 (147) | 4 (73),0 | 4
+CS,20,EntityNum,220,2,667 (147) | 4523 (73),667 | 4523
+CS,23,Text,326,42,Ba \xa7\xd7nh (47) | T\xa9y H\xe5 (42) | C\xc7u Gi\xcay (28) | B\xbec T\xf5 Li\xaam (24) | Long Bi\xaan (17),Long Bi\xaan  | Thanh xu\xa9n |  Ho\xb5n Ki\xd5m  | Nam T\xf5 li\xaam | long bi\xaan
+CS,23,MSLink,1,1,0 (1),0
+CS,23,EntityNum,1,1,33333 (1),33333
+CS,24,Text,663,183,ph\xad\xeang Ng\xe4c Th\xf4y (27) | ph\xad\xeang Ph\xf3 Th\xad\xeeng (22) | ph\xad\xeang Nh\xcbt T\xa9n (22) | ph\xad\xeang Xu\xa9n La (19) | x\xb7 Xu\xa9n Canh (19),Phg. Th\xb5nh C\xabng | ph\xad\xeang Qu\xfanh Mai | Phg. Kim M\xb7 | Phg. Th\xe6 Quan | Phg. Y\xaan H\xdfa
+CS,24,MSLink,5,1,0 (5),0
+CS,24,EntityNum,5,1,667 (5),667
+CS,32,Text,830,23,o (80) | H\xd6 t\xe4a \xae\xe9 Qu\xe8c gia VN-2000. H\xd6 \xae\xe9 cao Qu\xe8c gia H\xdfn D\xcau - H\xb6i Ph\xdfng  (80) | \xa7\xad\xeang \xae\xdea gi\xedi h\xb5nh ch\xddnh \xae\xad\xeec chuy\xd3n theo b\xb6n \xae\xe5 364/CT  (80) | b\xe9 t\xb5i nguy\xaan v\xb5 m\xabi tr\xad\xeang (80) | \xaei\xd2u ch\xd8nh \xae\xd5n n\xa8m 2017. (79),"\xaei\xd2u ch\xd8nh \xae\xd5n n\xa8m 2016. | v\xedi \xb6nh s\xe8 n\xa8m 2018 t\xb9i T\xe6ng C\xabng ty T\xb5i nguy\xaan v\xb5 M\xabi tr\xad\xeang Vi\xd6t Nam. | \xa7i\xd2u tra, b\xe6 sung ngo\xb9i nghi\xd6p n\xa8m 2017. | Kinh tuy\xd5n trung \xad\xacng 105. | B\xb6n \xae\xe5 \xae\xad\xeec th\xb5nh l\xcbp theo c\xabng ngh\xd6 bay qu\xd0t LIDAR k\xd5t h\xeep"
+CS,32,MSLink,590,1,0 (590),0
+CS,32,EntityNum,590,4,25000 (176) | 33333 (175) | 6667 (159) | 8333 (80),8333 | 6667 | 25000 | 33333
+CS,33,Text,10,10,20 (1) | 0 (1) | Kho\xb6ng cao \xae\xd2u \xae\xad\xeang b\xd7nh \xae\xe9 c\xac b\xb6n l\xb5 1 m (1) | 1 cm tr\xaan b\xb6n \xae\xe5 b\xbbng 20 m tr\xaan th\xf9c \xae\xdea (1) | 80 (1),40 | 20 | 1 cm tr\xaan b\xb6n \xae\xe5 b\xbbng 20 m tr\xaan th\xf9c \xae\xdea | 80 | 120
+CS,33,MSLink,8,2,0 (7) | 4 (1),4 | 0
+CS,33,EntityNum,8,2,667 (7) | 4523 (1),667 | 4523
+CS,44,Text,10,5, \xae\xe8ng \xaea (4) | hai b\xb5 tr\xadng (3) |  ho\xb5n ki\xd5m (1) |  hai b\xb5 tr\xadng (1) | Thanh Xu\xa9n (1),hai b\xb5 tr\xadng |  hai b\xb5 tr\xadng |  \xae\xe8ng \xaea | Thanh Xu\xa9n |  ho\xb5n ki\xd5m
+CS,46,Text,7,3,Phg. Trung H\xdfa (3) | Phg. Y\xaan H\xdfa (2) | Phg. Ng\xb7 T\xad S\xeb (2),Phg. Ng\xb7 T\xad S\xeb | Phg. Trung H\xdfa | Phg. Y\xaan H\xdfa
+CS,63,Text,1,1,ph\xad\xeang Xu\xa9n T\xb6o (1),ph\xad\xeang Xu\xa9n T\xb6o
+DC,0,Text,2,1,DN (2),DN
+DC,1,Text,6,4,Q.\xae\xe9i (2) | 33 (2) | 40 (1) | ten (1),33 | Q.\xae\xe9i | ten | 40
+DC,2,Text,1,1,\xae\xcat tr\xe8ng (1),\xae\xcat tr\xe8ng
+DC,5,Text,3708,284,27 (495) | 28 (412) | 29 (365) | 30 (265) | 31 (203),126 | D4 | 134 | 32 | B4
+DC,5,MSLink,88,20,0 (51) | 2717 (13) | 805 (4) | 2486 (3) | 6779 (2),0 | 6779 | 404941823 | -883290889 | -425516939
+DC,5,EntityNum,88,65,1 (22) | 8333 (3) | 267 (1) | 18107 (1) | 5874 (1),6198 | 47459 | 58156 | 50936 | 29514
+DC,7,Text,7,4,  (4) | Tr\xb9m Th\xf1y v\xa8n  (1) | M\xabi tr\xad\xeang H\xb5 N\xe9i (1) | Q.\xae\xe9i (1),M\xabi tr\xad\xeang H\xb5 N\xe9i |   | Q.\xae\xe9i | Tr\xb9m Th\xf1y v\xa8n 
+DC,9,Text,59,36,ngh\xdca trang  (7) | ngh\xdca trang (5) | ngh\xdca trang th\xabn Xu\xa9n Tr\xb9ch (4) | Qu\xb6ng B\xb8 (2) | ngh\xdca trang Nh\xcbt T\xb6o (2),ngh\xdca trang Li\xaan M\xb9c | ngh\xdca trang th\xabn L\xb9i \xa7\xb5 | Qu\xb6ng B\xb8 | ngh\xdca trang ph\xad\xeang Xu\xa9n \xa7\xd8nh | ngh\xdca trang Trung K\xddnh H\xb9
+DC,10,Text,8,8,C\xb6nh s\xb8t Ph\xdfng ch\xb8y ch\xf7a ch\xb8y (1) |  th\xb5nh ph\xe8 H\xb5 N\xe9i (1) | \xa7\xe9i ch\xf7a ch\xb8y v\xb5 C\xf8u n\xb9n (1) | C\xf8u h\xe9 qu\xcbn Ba \xa7\xd7nh H\xb5 N\xe9i (1) | C\xb6nh s\xb8t PCCC S\xe8 2 (1),\xa7\xe9i ch\xf7a ch\xb8y v\xb5 C\xf8u n\xb9n | C\xb6nh s\xb8t PCCC S\xe8 2 | C\xb6nh s\xb8t Ph\xdfng ch\xb8y ch\xf7a ch\xb8y | C\xf4c c\xb6nh s\xb8t  | C\xf8u h\xe9 qu\xcbn Ba \xa7\xd7nh H\xb5 N\xe9i
+DC,11,Text,56,41,v\xad\xean hoa  (4) | C\xabng vi\xaan Th\xf1 L\xd6 (3) | v\xad\xean hoa (3) |  Indira- Gandhi (3) | C\xabng vi\xaan Ngh\xdca \xa7\xab (2),V\xad\xean B\xb8ch Th\xb6o H\xb5 N\xe9i | C.vi\xaan  | v\xad\xean hoa | v\xad\xean hoa C\xe6 T\xa9n | c\xabng vi\xaan Mai Xu\xa9n Th\xad\xebng
+DC,11,MSLink,1,1,1891 (1),1891
+DC,11,EntityNum,1,1,1 (1),1
+DC,12,Text,75,55,thi \xae\xcau (9) | s\xa9n th\xd3 thao (8) | Cung Th\xd3 thao Qu\xc7n Ng\xf9a (3) | TT Th\xd3 d\xf4c Th\xd3 thao  (2) |  qu\xcbn Ba \xa7\xd7nh (2), Trung K\xddnh H\xb9 | TT Th\xd3 d\xf4c Th\xd3 thao | s\xa9n b\xe3ng B\xb8ch Vi\xd6t | SV\xa7 B\xb8ch Khoa | s\xa9n b\xe3ng tr\xad\xeang 
+DC,12,MSLink,9,1,0 (9),0
+DC,12,EntityNum,9,1,16667 (9),16667
+DC,13,Text,5,5,l\xa8ng m\xe9 \xa7\xf8c Chi\xaau Nghi  (1) | V\xf2 Th\xde Ng\xe4c Xuy\xd5n (1) | L\xa8ng Ch\xf1 t\xdech H\xe5 Ch\xdd Minh (1) | l\xa8ng Ph\xefng H\xadng (1) | l\xa8ng \xa7\xf8c B\xb5 (1),l\xa8ng Ph\xefng H\xadng | L\xa8ng Ch\xf1 t\xdech H\xe5 Ch\xdd Minh | V\xf2 Th\xde Ng\xe4c Xuy\xd5n | l\xa8ng \xa7\xf8c B\xb5 | l\xa8ng m\xe9 \xa7\xf8c Chi\xaau Nghi 
+DC,14,Text,489,373,ch\xefa (30) | \xae\xd7nh (24) | \xae\xd2n (15) | ch\xefa  (13) | \xae\xd7nh  (12),\xae\xd2n \xa7\xe5ng C\xab | \xa7\xd7nh Ho\xb5ng | mi\xd5u \xa7\xf8c Th\xb8nh \xa7\xc7m | Th\xb8i Ki\xd2u | C\xa9y Du\xe8i
+DC,14,MSLink,18,4,0 (13) | 2332 (3) | 2349 (1) | 1845 (1),2332 | 2349 | 0 | 1845
+DC,14,EntityNum,18,3,16667 (8) | 1 (6) | 8333 (4),16667 | 1 | 8333
+DC,15,Text,912,738,T.H.C.S (23) | M.N (20) | M.N  (13) | T.H (10) | T.H.P.T (6),T.H.P.T chuy\xaan H\xb5 N\xe9i  | TT Gi\xb8o d\xf4c | TT |  B\xb8ch Khoa | T.H.P.T \xa7\xabng Kinh
+DC,15,MSLink,88,9,2394 (45) | 0 (19) | 1845 (8) | 2486 (7) | 2487 (3),2394 | 2402 | 2332 | 2487 | 2092
+DC,15,EntityNum,88,5,1 (69) | 16667 (12) | 8333 (4) | 204 (2) | 22907 (1),22907 | 16667 | 1 | 204 | 8333
+DC,16,Text,17,16,Viettel Post (2) | B\xa7 Ciputra (1) | B\xa7 V\xdcnh Ph\xf3c (1) | B\xadu \xaei\xd6n C\xc7u Gi\xcay (1) | b\xadu \xaei\xd6n Trung T\xa9m 1 (1), Th\xb5nh ph\xe8 H\xb5 N\xe9i  | B\xa7 Trung t\xa9m 1 | B\xa7 Nguy\xd4n Th\xb8i H\xe4c | Viettel Post | B\xa7 Qu\xb8n Th\xb8nh 
+DC,16,MSLink,9,1,2 (9),2
+DC,16,EntityNum,9,1,3568 (9),3568
+DC,17,Text,21,19,Vi\xd6n Khoa h\xe4c  (2) | Th\xf1y L\xeei Vi\xd6t Nam (2) | Viettel (1) | Vi\xd6n C\xabng ngh\xd6 gi\xcay v\xb5  (1) | Vi\xd6n V\xcbt li\xd6u x\xa9y d\xf9ng (1), Cung tr\xdd th\xf8c Th\xb5nh ph\xe8 | vi\xd6n Thu\xfb \xaei\xd6n v\xb5  | Viettel | TT Khoa h\xe4c | TT Nghi\xaan c\xf8u Th\xf1y l\xf9c
+DC,17,MSLink,5,2,2382 (3) | 1845 (2),2382 | 1845
+DC,17,EntityNum,5,1,1 (5),1
+DC,18,Text,77,7,Q.\xae\xe9i (70) | ng\xc7m (2) | B\xe9 t\xad l\xd6nh Qu\xa9n khu 1 (1) | - \xa7o\xb5n V\xa8n C\xabng (1) | tr\xb9m bi\xd5n \xb8p (1),T\xe6ng C\xabng ty 319 | B\xe9 t\xad l\xd6nh Qu\xa9n khu 1 | 110KV Y\xaan Ph\xf4 | tr\xb9m bi\xd5n \xb8p | - \xa7o\xb5n V\xa8n C\xabng
+DC,20,Text,4,4,Bi\xd3u t\xad\xeeng khu \xae\xab th\xde Nam Th\xa8ng Long (1) | v\xb5 \xa7\xb5i phun n\xad\xedc (1) | tr\xb9m x\xf6 l\xdd n\xad\xedc th\xb6i (1) | Th\xb6i DS (1),tr\xb9m x\xf6 l\xdd n\xad\xedc th\xb6i | Bi\xd3u t\xad\xeeng khu \xae\xab th\xde Nam Th\xa8ng Long | Th\xb6i DS | v\xb5 \xa7\xb5i phun n\xad\xedc
+DC,20,MSLink,1,1,0 (1),0
+DC,20,EntityNum,1,1,1 (1),1
+DC,24,Text,1174,14,ng\xc7m (1065) | 22KV (34) | 110KV (32) | 35KV (23) | 220KV (5),110KV | 35KV | ng\xc7m | 1KV | 6KV
+DC,24,MSLink,201,17,0 (125) | 2487 (35) | 2349 (8) | 8867 (8) | 2438 (7),5 | 6779 | 6568 | 2438 | 4006
+DC,24,EntityNum,201,8,8333 (114) | 1 (80) | 3667 (2) | 16667 (1) | 9288 (1),32320 | 3667 | 9288 | 30443 | 1
+DC,25,Text,7,6,V.\xad\xacm (2) | \xa7\xe9i \xad\xacm c\xa9y (1) | Ph\xf3 Th\xad\xeeng (1) | Tr\xb9i Ng\xf9a (1) |  Cty. C\xe6 ph\xc7n T\xad v\xcan (1),V.\xad\xacm | Tr\xb9i Ng\xf9a | \xa7\xe9i \xad\xacm c\xa9y | Ph\xf3 Th\xad\xeeng |  X\xa9y d\xf9ng Buiding
+DC,25,MSLink,4,2,2444 (3) | 1845 (1),2444 | 1845
+DC,25,EntityNum,4,1,1 (4),1
+DC,27,Text,1,1,MS (1),MS
+DC,27,MSLink,1,1,0 (1),0
+DC,27,EntityNum,1,1,3667 (1),3667
+DC,28,Text,3365,2106,DN (618) | UB (106) | Cty. C\xe6 ph\xc7n (46) | CA ph\xad\xeang (32) | Cty. C\xe6 ph\xc7n  (31),Tr\xc7n H\xadng \xa7\xb9o | M\xe9t th\xb5nh vi\xaan Bao b\xd7 | v\xb5 Ki\xd3m \xae\xdenh x\xa9y d\xf9ng | Cty. C\xe6 ph\xc7n X\xa9y d\xf9ng S\xe8 4 Th\xa8ng Long | H\xe9i nh\xb5 b\xb8o Vi\xd6t Nam
+DC,28,MSLink,139,8,0 (127) | 1845 (5) | 2486 (2) | 2507 (1) | 2402 (1),2486 | 2402 | 2507 | 1248 | 2259
+DC,28,EntityNum,139,4,8333 (122) | 1 (12) | 16667 (4) | 3667 (1),8333 | 16667 | 1 | 3667
+DC,29,Text,33,24,CA ph\xad\xeang  (6) | CA (3) | CA ph\xad\xeang (3) | CA ph\xad\xeang Thanh Xu\xa9n Nam (1) | Minh Khai (1),CA ph\xad\xeang Thanh Xu\xa9n B\xbec | Thanh Xu\xa9n Trung | CA ph\xad\xeang Trung V\xa8n | h\xd7nh s\xf9 | Kh\xad\xacng Th\xad\xeeng
+DC,29,MSLink,1140,112,0 (328) | 1 (111) | 805 (97) | 1845 (65) | 2331 (64),2485 | -954402946 | 2758 | 2279 | 2070
+DC,29,EntityNum,1140,361,1 (629) | 65535 (110) | 4 (42) | 21726 (2) | 13498 (1),4961 | 13022 | 31612 | 50115 | 58385
+DC,30,Text,5,5,CA ph\xad\xeang Qu\xb6ng An (1) | CA ph\xad\xeang T\xf8 Li\xaan (1) | CT (1) | C\xac s\xeb Cai nghi\xd6n ma t\xf3y (1) | t\xf9 nguy\xd6n B\xb9ch \xa7\xbbng (1),CT | CA ph\xad\xeang T\xf8 Li\xaan | t\xf9 nguy\xd6n B\xb9ch \xa7\xbbng | CA ph\xad\xeang Qu\xb6ng An | C\xac s\xeb Cai nghi\xd6n ma t\xf3y
+DC,33,Text,107,102,Vi\xd6t Nam (2) | Vi\xd6n Nghi\xaan c\xf8u  (2) | Vi\xd6n th\xf3 y (2) | Vi\xd6n H\xb5n l\xa9m Khoa h\xe4c (2) | v\xb5 X\xb7 h\xe9i Vi\xd6t Nam (2),giao th\xabng v\xcbn t\xb6i | \xae\xdenh x\xa9y d\xf9ng giao th\xabng | v\xb5 Thi\xd5t k\xd5 N\xabng nghi\xd6p | Khoa h\xe4c X\xb7 h\xe9i Vi\xd6t Nam | TT m\xb9ng l\xad\xedi Kh\xdd t\xad\xeeng
+DC,33,MSLink,5,2,2166 (4) | 1845 (1),2166 | 1845
+DC,33,EntityNum,5,1,1 (5),1
+DC,34,Text,348,271,T.Y t\xd5 ph\xad\xeang (16) | T.Y t\xd5 (15) | T.Y t\xd5  (12) | B.V. (8) | H\xb5 N\xe9i (4),B.V. H\xe5ng H\xb5 | Quang Trung |  H\xb9 \xa7\xd7nh | Nhi Trung \xa6\xacng | qu\xcbn \xa7\xe8ng \xa7a
+DC,34,MSLink,9,5,0 (3) | 2393 (3) | 2332 (1) | 1845 (1) | 2486 (1),2486 | 1845 | 0 | 2393 | 2332
+DC,34,EntityNum,9,2,1 (7) | 8333 (2),8333 | 1
+DC,35,Text,154,140,  (4) | NVH ph\xad\xeang (3) | TT. VH Th\xd3 thao  (2) | NVH ph\xad\xeang  (2) | Vi\xd6t Nam (2),TT V\xa8n h\xe3a  | cao t\xc7ng M\xfc S\xacn Tower | N.h\xb8t K\xdech VN | NVH ph\xad\xeang Gi\xb6ng V\xe2 | v\xa8n h\xe3a \xcan \xa7\xe9 
+DC,35,MSLink,5,3,2346 (2) | 0 (2) | 2356 (1),2346 | 0 | 2356
+DC,35,EntityNum,5,2,1 (3) | 8333 (2),1 | 8333
+DC,36,Text,71,64,\xae\xb5i t\xad\xebng ni\xd6m (3) | \xae\xb5i t\xad\xebng ni\xd6m  (2) | \xa7\xb5i t\xad\xebng ni\xd6m li\xd6t s\xdc (2) | t\xad\xeeng \xae\xb5i  (2) | \xae\xb5i t\xad\xebng ni\xd6m li\xd6t s\xfc  (2),Regina Pacis | Bia li\xd6t s\xdc | Bia t\xad\xebng ni\xd6m Anh H\xefng Li\xd6t S\xdc | nh\xb5 t\xad\xebng ni\xd6m  | Th\xb8p B\xf3t
+DC,36,MSLink,9,4,2486 (3) | 0 (2) | 2402 (2) | 2166 (2),0 | 2166 | 2486 | 2402
+DC,36,EntityNum,9,2,1 (7) | 3667 (2),3667 | 1
+DC,37,Text,68,38,BT (25) | B.t\xb5ng (3) | B\xb6o t\xb5ng (3) | Th\xabng tin Li\xaan l\xb9c (2) | B\xb6o t\xb5ng H\xb5 N\xe9i (2),B.t\xb5ng D\xa9n t\xe9c h\xe4c Vi\xd6t Nam | b\xb7i \xae\xd3 xe \xab t\xab | T\xa8ng - Thi\xd5t Gi\xb8p | nh\xa9n d\xa9n | B\xb6o t\xb5ng L\xdech s\xf6
+DC,37,MSLink,4,3,0 (2) | 2486 (1) | 1845 (1),1845 | 0 | 2486
+DC,37,EntityNum,4,2,16667 (2) | 1 (2),1 | 16667
+DC,39,Text,258,135,MS (106) | ch\xee  (6) | ch\xee (6) | si\xaau th\xde  (2) | Qu\xfanh Mai (2),MS | Si\xaau th\xde Minh Hoa | Si\xaau th\xde FiviMax  | si\xaau th\xde Hapro Mart | ch\xee Linh Lang
+DC,39,MSLink,113,3,0 (111) | 2486 (1) | 1845 (1),1845 | 2486 | 0
+DC,39,EntityNum,113,3,3667 (107) | 1 (3) | 8333 (3),3667 | 8333 | 1
+DC,40,Text,938,382,$ (298) | NH th\xad\xacng m\xb9i c\xe6 ph\xc7n (47) | NH Th\xad\xacng m\xb9i C\xe6 ph\xc7n (22) | NH th\xad\xacng m\xb9i c\xe6 ph\xc7n  (13) | NH Th\xad\xacng M\xb9i C\xe6 Ph\xc7n (13),\xa7\xc7u t\xad v\xb5 Ph\xb8t tri\xd3n  | v\xb5 ph\xb8t tri\xd3n n\xabng th\xabn |  \xa7\xabng Nam \xb8 |  Trung Li\xd6t | c\xe6 ph\xc7n
+DC,40,MSLink,8,3,0 (5) | 1845 (2) | 2166 (1),2166 | 0 | 1845
+DC,40,EntityNum,8,2,16667 (4) | 1 (4),16667 | 1
+DC,41,Text,257,134,KS (111) | Nh\xb5 kh\xb8ch (6) | Ks. (5) | Nh\xb5 kh\xb8ch 99 (3) | Ks. Oriental Palace (2),Ks. Lavish Centre Hotel | Ks. Hilton Garden Inn  | Ks.Th\xdenh An | Nh\xb5 kh\xb8ch K9 | Ks. Kh\xa8n Qu\xb5ng \xa7\xe1
+DC,41,MSLink,6,4,0 (2) | 1845 (2) | 1248 (1) | 2486 (1),1248 | 0 | 1845 | 2486
+DC,41,EntityNum,6,2,1 (5) | 8333 (1),8333 | 1
+DC,42,Text,35,28,DTLSVH (5) | di t\xddch c\xb8ch m\xb9ng (2) | kh\xb8ng chi\xd5n (2) | ph\xb8o \xae\xb5i Xu\xa9n T\xb6o (2) | Th\xb5nh Th\xa8ng Long - H\xb5 N\xe9i (1),\xa7\xb5n X\xb7 T\xbec | ph\xad\xeang Ph\xf3 Th\xad\xeeng | Di t\xddch LSVH  | di t\xddch  | DTLSVH
+DC,42,MSLink,1,1,0 (1),0
+DC,42,EntityNum,1,1,8333 (1),8333
+DC,43,Text,198,165,DN (12) | Cty. C\xe6 ph\xc7n (4) | XN (4) | Cty. C\xe6 ph\xc7n  (4) | Nh\xb5 Xu\xcat b\xb6n  (3),Cty. S\xb6n xu\xcat kinh doanh |  c\xe9ng s\xb6n  | n\xad\xedc s\xb9ch | Cty. nu\xabi tr\xe5ng | C\xabng ty 129
+DC,43,MSLink,1,1,4045 (1),4045
+DC,43,EntityNum,1,1,1 (1),1
+DC,44,Text,16,12,Kho (5) | qu\xcbn T\xa9y H\xe5 (1) | qu\xcbn Ba \xa7\xd7nh (1) | kho t\xcbp k\xd5t ph\xd5 li\xd6u (1) | kho l\xadu tr\xf7  (1),Q. Ho\xb5n  Ki\xd5m  | qu\xcbn Ba \xa7\xd7nh | Kho | qu\xcbn \xa7\xe8ng \xa7a | Q. Hai B\xb5 Tr\xadng
+DC,44,MSLink,1,1,1845 (1),1845
+DC,44,EntityNum,1,1,1 (1),1
+DC,45,Text,3735,739,t\xe6 d\xa9n ph\xe8 2 (80) | t\xe6 d\xa9n ph\xe8 1 (79) | t\xe6 d\xa9n ph\xe8 6 (78) | t\xe6 d\xa9n ph\xe8 4 (76) | t\xe6 d\xa9n ph\xe8 8 (75),Ho\xb5ng 8 | Ho\xb5 Ph\xb8t tower | t\xe6 d\xa9n ph\xe8 T\xa9n Xu\xa9n 4 | t\xe6 d\xa9n ph\xe8 18  |  M\xfc thu\xcbt C\xabng nghi\xd6p
+DC,45,MSLink,160,11,4045 (58) | 1845 (29) | 2331 (22) | 0 (15) | 2486 (14),2356 | 1845 | 2332 | 2359 | 4045
+DC,45,EntityNum,160,3,1 (154) | 16667 (4) | 8333 (2),16667 | 8333 | 1
+DC,46,Text,143,110,ph\xad\xeang (15) | Phg. (11) | ph\xad\xeang  (6) |  Phg.  (3) | ph\xad\xeang Xu\xa9n \xa7\xd8nh (2), Phg. Ph\xf3c T\xa9n | ph\xad\xeang Trung V\xa8n |  ph\xad\xeang | V\xdcnh Tuy | Phg. Nh\xa9n Ch\xddnh
+DC,48,Text,103,101,7348 (2) | 2473 (2) | 1349 (1) | 2078 (1) | 2778 (1),4431 | 4334 | 2658 | 8828 | 5531
+DC,48,MSLink,22,1,0 (22),0
+DC,48,EntityNum,22,2,8333 (21) | 16667 (1),16667 | 8333
+DC,49,Text,120,63,t\xe6 d\xa9n ph\xe8 1 (7) | t\xe6 d\xa9n ph\xe8 9 (5) | t\xe6 d\xa9n ph\xe8 6 (5) | t\xe6 d\xa9n ph\xe8 3 (5) | t\xe6 d\xa9n ph\xe8 4 (5),t\xe6 d\xa9n ph\xe8  | t\xe6  d\xa9n ph\xe8 40 | t\xe6 d\xa9n ph\xe8 3  | t\xe6 d\xa9n ph\xe8 25 | t\xe6 d\xa9n ph\xe8 5
+DC,50,Text,155,74,t\xe6 d\xa9n ph\xe8 10 (7) | t\xe6 d\xa9n ph\xe8 5 (7) | t\xe6 d\xa9n ph\xe8 1 (6) | t\xe6 d\xa9n ph\xe8 14 (6) | t\xe6 d\xa9n ph\xe8 4 (6),t\xe6 d\xa9n ph\xe8 Trung 6 |  L\xb9i \xa7\xb5 | t\xe6 d\xa9n ph\xe8 35 | t\xe6 d\xa9n ph\xe8 1 | t\xe6 d\xa9n ph\xe8 11
+DC,50,MSLink,4,1,0 (4),0
+DC,50,EntityNum,4,1,16667 (4),16667
+DC,53,Text,1360,335,\xae\xcat tr\xe8ng (413) | ng\xc7m (179) | \xaeang x\xa9y d\xf9ng (82) | s\xa9n b\xe3ng (79) | c\xabng tr\xd7nh (72),kho v\xcbt t\xad | c\xabng tr\xd7nh Khu h\xe7n h\xeep nh\xb5 \xeb th\xcap t\xc7ng  |  C\xabng ngh\xd6 X\xa9y d\xf9ng | Vinata Towers | s\xa9n
+DC,53,MSLink,47,9,0 (15) | 2359 (13) | 2346 (7) | 2487 (3) | 2166 (3),10971 | 8867 | 2359 | 5 | 2346
+DC,53,EntityNum,47,5,1 (31) | 16667 (13) | 32320 (1) | 53768 (1) | 1128 (1),32320 | 53768 | 1128 | 1 | 16667
+DC,59,Text,12,9,180 (2) | 20 (2) | 170 (2) | 17 (1) | 38 (1),20 | 170 | 32 | 38 | 
+DC,61,Text,3,1,  (3), 
+DC,63,MSLink,5,2,0 (4) | 2092 (1),2092 | 0
+DC,63,EntityNum,5,5,1 (1) | 51234 (1) | 34111 (1) | 14009 (1) | 8160 (1),14009 | 51234 | 34111 | 1 | 8160
+DH,1,Text,1,1,"12,51 (1)","12,51"
+DH,5,Text,1,1,13 (1),13
+DH,7,Text,4,4,"5,22 (1) | 4,33 (1) | 4,92 (1) | 6,14 (1)","4,33 | 5,22 | 6,14 | 4,92"
+DH,8,Text,45784,1189,"6,46 (231) | 6,38 (228) | 6,25 (225) | 6,54 (219) | 6,12 (216)","10,96 | 6,41 | 11,05 | 12,33 | 4,45"
+DH,9,Text,351,275,"6,92 (5) | 6,34 (4) | 6,05 (4) | 6,39 (4) | 6,89 (3)","5,93 | 7,74 | 7,37 | 6,28 | 11,08"
+DH,19,Text,3,3,"5,53 (1) | 6,37 (1) | 5,96 (1)","5,53 | 6,37 | 5,96"
+DH,22,Text,2,1,"0,5 (2)","0,5"
+DH,24,Text,17,7,"1,5 (6) | 1,0 (3) | 2,0 (2) | 2,5 (2) | 1,2 (2)","0,5 | 1,3 | 1,0 | 2,0 | 1,2"
+DH,30,Text,91,15,"3,0 (24) | 4,0 (17) | 2,0 (13) | 2,5 (12) | 3,5 (8)","4,4 | 7,0 | 4.0 | 2,7 | 2,5"
+GT,3,MSLink,10,2,2457 (9) | 2094 (1),2094 | 2457
+GT,3,EntityNum,10,1,1 (10),1
+GT,5,Text,1,1,  (1), 
+GT,5,MSLink,5,3,0 (2) | 2359 (2) | 185139300 (1),0 | 2359 | 185139300
+GT,5,EntityNum,5,4,1 (2) | 17138 (1) | 28277 (1) | 1478 (1),28277 | 17138 | 1478 | 1
+GT,6,MSLink,81,6,1 (71) | 30 (4) | 805 (2) | 2175 (2) | 2171 (1),805 | 2175 | 2171 | 30 | 1
+GT,6,EntityNum,81,4,65535 (71) | 1 (5) | 4 (4) | 61931 (1),61931 | 1 | 4 | 65535
+GT,7,Text,3,3,C\xc7u chui Ph\xf3 Th\xad\xeeng 1 (1) | 35-4 (1) | 2 (1),C\xc7u chui Ph\xf3 Th\xad\xeeng 1 | 2 | 35-4
+GT,10,Text,1,1,D (1),D
+GT,10,MSLink,3629,58,1 (850) | 2210 (689) | 0 (430) | 1845 (214) | 2486 (205),2486 | 1 | 2094 | 4050 | -853922581
+GT,10,EntityNum,3629,381,1 (2400) | 65535 (839) | 4 (9) | 13053 (2) | 11697 (2),1518 | 27413 | 56117 | 600 | 1212
+GT,11,Text,2,2,ga Long Bi\xaan (1) | Ga H\xb5 N\xe9i (1),Ga H\xb5 N\xe9i | ga Long Bi\xaan
+GT,12,Text,18,11,"4,5 (4) | 1,5 (3) | 4,0 (2) | 1,2 (2) | 4,2 (1)","4,2 | 1,5 | 1,2 | 1,4 | 2,5"
+GT,13,MSLink,42,3,0 (39) | 2598 (2) | 6963016 (1),0 | 6963016 | 2598
+GT,13,EntityNum,42,41,1 (2) | 18121 (1) | 2033 (1) | 47665 (1) | 23778 (1),24672 | 12526 | 3049 | 2955 | 64679
+GT,14,Text,4,4,d\xb7y A12 (1) | d\xb7y A11 (1) | d\xb7y A1 (1) | d\xb7y B1 (1),d\xb7y A12 | d\xb7y B1 | d\xb7y A1 | d\xb7y A11
+GT,14,MSLink,4,1,7227 (4),7227
+GT,14,EntityNum,4,1,1 (4),1
+GT,15,MSLink,12569,279,0 (3934) | 10 (1504) | 2092 (1324) | 2759 (1169) | 2486 (765),78 | 556015731 | 2723 | 178503823 | -424987894
+GT,15,EntityNum,12569,2984,1 (8720) | 65535 (384) | 4 (158) | 77 (16) | 13 (9),64483 | 3122 | 60364 | 6243 | 63940
+GT,16,MSLink,3,3,2094 (1) | 0 (1) | 2210 (1),2210 | 2094 | 0
+GT,16,EntityNum,3,2,1 (2) | 65248 (1),1 | 65248
+GT,17,MSLink,5,3,0 (3) | 1845 (1) | 443679739 (1),0 | 1845 | 443679739
+GT,17,EntityNum,5,5,1 (1) | 1831 (1) | 0 (1) | 2922 (1) | 2174 (1),0 | 2922 | 1 | 1831 | 2174
+GT,23,MSLink,9,3,0 (7) | 1248 (1) | 2094 (1),1248 | 2094 | 0
+GT,23,EntityNum,9,8,1 (2) | 61317 (1) | 9239 (1) | 40747 (1) | 13688 (1),61317 | 197 | 1 | 41606 | 40747
+GT,26,Text,86,22,7 nh\xf9a (21) | 6 nh\xf9a (8) | \xa7T 406-5 BT (7) | 8 nh\xf9a (7) | 5 nh\xf9a (7),(17) 15 nh\xf9a | 5 nh\xf9a | 4 nh\xf9a | \xa7T 378-7nh\xf9a | 5 bt
+GT,26,MSLink,3,2,0 (2) | 45 (1),45 | 0
+GT,26,EntityNum,3,3,4 (1) | 33205 (1) | 2187 (1),33205 | 4 | 2187
+GT,27,Text,4,3,b\xb7i \xae\xe7 xe (2) | b\xb7i \xae\xe7 xe  (1) | C\xc7u Gi\xcay (1),b\xb7i \xae\xe7 xe | C\xc7u Gi\xcay | b\xb7i \xae\xe7 xe 
+GT,30,Text,264,33,"0,7 (54) | 1,0 (28) | 2,0 (27) | 5,0 (18) | 1,5 (18)","1,2 | 0,6 | 5,4 | 4,0 | 1,7"
+GT,30,MSLink,97,11,0 (67) | 2331 (10) | 2239 (5) | 2869 (3) | 2003 (3),2869 | 0 | 685763621 | 2239 | 2715
+GT,30,EntityNum,97,29,16667 (42) | 1 (27) | 65535 (2) | 10685 (1) | 1736 (1),22416 | 1825 | 14037 | 1 | 48961
+GT,31,Text,30,8,"-4,7 (6) | 4,5 (4) | 6,0 (4) | 3,0 (4) | 5,4 (4)","3,0 | 6,0 | -6,2 | -4,7 | 4,5"
+GT,31,MSLink,24,2,2239 (16) | 2886 (8),2886 | 2239
+GT,31,EntityNum,24,1,1 (24),1
+GT,32,Text,17,9,"h\xc7m chui Trung H\xdfa (4) | 5 (2) | 700 - 54 (2) | 4,7-14 (2) | 109 (2)","h\xc7m chui Trung H\xdfa | 4,7-14 | 109 | h\xc7m Kim Li\xaan | 19"
+GT,32,MSLink,2,2,-71114444 (1) | 957153678 (1),957153678 | -71114444
+GT,32,EntityNum,2,2,13061 (1) | 62026 (1),62026 | 13061
+GT,35,Text,217,146,  (24) | 30 (9) | c\xc7u (8) | x\xe3m H\xb9 H\xe5i  (4) | 8 (4),28 - 4 | 40-34 | 250-10 | c\xc7u v\xad\xeet \xa4 \xa7\xabng M\xb8c - Nguy\xd4n Kho\xb8i | c\xc7u chui Ph\xf3 Th\xad\xeeng 2
+GT,35,MSLink,15,9,0 (5) | -858926507 (2) | 3062 (2) | 245830936 (1) | 359788316 (1),245830936 | 0 | 121116888 | -528803905 | -858926507
+GT,35,EntityNum,15,14,1 (2) | 16667 (1) | 53313 (1) | 1407 (1) | 17024 (1),41008 | 10384 | 1 | 53313 | 15720
+GT,36,Text,1,1,c\xe8ng Th\xcbp Di\xd6n (1),c\xe8ng Th\xcbp Di\xd6n
+GT,36,MSLink,2,1,475519523 (2),475519523
+GT,36,EntityNum,2,2,12781 (1) | 22525 (1),12781 | 22525
+GT,37,Text,6,5,th\xeai b\xb8o Kinh T\xd5 (2) | b\xd5n \xae\xdf Ng\xe4c Th\xf4y (1) | b\xd5n \xae\xdf B\xbec C\xc7u (1) | b\xb7i \xae\xcbu xe (1) | B\xb7i \xae\xcbu xe (1),b\xb7i \xae\xcbu xe | b\xd5n \xae\xdf Ng\xe4c Th\xf4y | b\xd5n \xae\xdf B\xbec C\xc7u | B\xb7i \xae\xcbu xe | th\xeai b\xb8o Kinh T\xd5
+GT,39,Text,1,1,b\xb7i xe 175 H\xe5ng H\xb5 (1),b\xb7i xe 175 H\xe5ng H\xb5
+GT,43,Text,2,2,b\xb7i \xae\xe7 \xa4 t\xab (1) | \xa7\xd7nh L\xb5ng (1),b\xb7i \xae\xe7 \xa4 t\xab | \xa7\xd7nh L\xb5ng
+GT,44,Text,1,1,"2,5 (1)","2,5"
+GT,44,MSLink,1,1,0 (1),0
+GT,44,EntityNum,1,1,16667 (1),16667
+GT,45,Text,1,1,\xae\xdf C\xab Tr\xabi (1),\xae\xdf C\xab Tr\xabi
+GT,51,Text,2913,1150,ng\xe2 1 (28) | \xae\xad\xeang \xa2u C\xac (23) | ng\xe2 2 (21) | \xae\xad\xeang An D\xad\xacng V\xad\xacng (17) | ng\xe2 12 (17),ng\xe2 164 | ph\xe8 Kim M\xb7 Th\xad\xeeng | ng\xe2 463 | ph\xe8 Nam Ng\xad | ng\xe2 Th\xb8i H\xb5
+GT,51,MSLink,435,28,0 (82) | 2 (82) | 2485 (52) | 1845 (47) | 2231 (26),2094 | 2231 | 1845 | 2482 | 2486
+GT,51,EntityNum,435,3,1 (314) | 35595 (61) | 16667 (60),16667 | 35595 | 1
+GT,53,Text,7,6,\xae\xad\xeang \xaeang l\xb5m (2) | b\xb7i (1) | \xae\xe7 xe (1) | b\xb7i \xae\xe7 xe (1) | b\xb7i xe (1),\xae\xad\xeang \xaeang l\xb5m | b\xb7i xe | b\xb7i \xae\xe7 xe | b\xb7i | \xae\xe7 xe
+GT,54,Text,1,1,46 (1),46
+GT,55,Text,2,2,-4 (1) | 46-11 (1),-4 | 46-11
+GT,55,MSLink,2,1,0 (2),0
+GT,55,EntityNum,2,2,8033 (1) | 1 (1),8033 | 1
+GT,56,Text,2,2,s\xddn (1) | 8 (1),8 | s\xddn
+RG,7,Text,34,23,02Q.2 (4) | 02Q.4 (3) | 02Q.5 (3) | 03Q.1 (2) | 02Q.6 (2),02Q.9 | 02Q.3 | 02Q.7 | 02H.5 | 2Q.6
+RG,10,Text,20,17,03P.1 (3) | 3P.1 (2) | 02Q.5 (1) | 03P.30 (1) | 02P.28 (1),2P.24 | 02P.27 | 03P.1 | 03P.30 | 03P.26
+RG,10,MSLink,3,2,1470 (2) | 0 (1),1470 | 0
+RG,10,EntityNum,3,2,1 (2) | 28155 (1),28155 | 1
+RG,20,Text,5,5,2Q.8 (1) | 02Q.16 (1) | 02Q.5 (1) | 02Q.4 (1) | 02Q.3 (1),2Q.8 | 02Q.16 | 02Q.3 | 02Q.5 | 02Q.4
+TH,2,MSLink,48,12,1912 (10) | 2538 (10) | 54 (9) | 0 (6) | 1 (5),1950 | 1912 | 2075 | -168573859 | 1924
+TH,2,EntityNum,48,10,1 (32) | 65535 (5) | 4 (4) | 30612 (1) | 64536 (1),4322 | 1 | 299 | 65535 | 4
+TH,3,MSLink,6,1,0 (6),0
+TH,3,EntityNum,6,6,34589 (1) | 36005 (1) | 17108 (1) | 4921 (1) | 28096 (1),36005 | 28096 | 34589 | 4921 | 5609
+TH,6,Text,1,1,H\xe5 T\xa9y (1),H\xe5 T\xa9y
+TH,11,MSLink,25,8,0 (12) | 1902 (3) | 1 (3) | 6777 (2) | 2342 (2),1902 | 1 | 2348 | 2342 | 2061
+TH,11,EntityNum,25,14,1 (11) | 65535 (2) | 62591 (1) | 10559 (1) | 52771 (1),11147 | 54347 | 62591 | 17586 | 71
+TH,21,Text,4,4,gi\xd5ng H-33 (1) | gi\xd5ng (1) | H-35 (1) | Gi\xd5ng Ng\xe4c (1),Gi\xd5ng Ng\xe4c | H-35 | gi\xd5ng H-33 | gi\xd5ng
+TH,27,Text,3,3,\xa7. Ho\xb5 B\xd7nh (1) | B\xa7. Phong Lan (1) | \xa7. Th\xe8ng Nh\xcat (1),\xa7. Th\xe8ng Nh\xcat | B\xa7. Phong Lan | \xa7. Ho\xb5 B\xd7nh
+TH,27,MSLink,1,1,2486 (1),2486
+TH,27,EntityNum,1,1,1 (1),1
+TH,30,Text,3,2,"1,0 (2) | 1,5 (1)","1,0 | 1,5"
+TH,37,Text,1,1,"3,0 (1)","3,0"
+TH,37,MSLink,80,22,1 (14) | 0 (13) | 1912 (10) | 2006 (8) | 54 (7),2348 | 1845 | 2486 | 2759 | 2361
+TH,37,EntityNum,80,16,1 (50) | 65535 (13) | 4 (4) | 7020 (1) | 5800 (1),11598 | 4 | 5800 | 27394 | 51
+TH,38,Text,30,17,b\xacm (13) | tr\xb9m b\xacm (2) | tr\xb9m b\xacm t\xa8ng \xb8p  (1) | Tr\xb9m b\xacm \xaei\xd2u h\xdfa tho\xb8t n\xad\xedc (1) | Tho\xb8t n\xad\xedc h\xe5 Gi\xb6ng V\xe2 (1),Long T\xf6u | b\xacm | Th\xb5nh C\xabng | L\xb8ng Trung | tr\xb9m b\xacm
+TH,38,MSLink,7,2,0 (6) | 8718 (1),0 | 8718
+TH,38,EntityNum,7,2,16667 (6) | 1 (1),16667 | 1
+TH,39,MSLink,6,4,0 (3) | 2231 (1) | 2886 (1) | 2003 (1),2003 | 0 | 2231 | 2886
+TH,39,EntityNum,6,4,1 (3) | 58389 (1) | 12437 (1) | 2427 (1),58389 | 1 | 12437 | 2427
+TH,44,Text,194,45,"2,0 (26) | 3,0 (26) | 6,0 (14) | 1,0 (13) | 3,5 (13)","\xaei\xd5m canh \xae\xaa S\xe8 3 | 7,5 | 1,7 | \xa7i\xd5m canh \xae\xaa S\xe8 1 |  Ng\xe4c L\xa9m"
+TH,44,MSLink,4,1,0 (4),0
+TH,44,EntityNum,4,1,16667 (4),16667
+TH,45,Text,26,13,H\xe5 T\xa9y (9) | S\xabng H\xe5ng (3) | \xa7\xc7m Sen (2) | h\xe5 t\xa9y (2) | H\xe5 R\xefa (2),H\xe5 T\xa9y | \xaei\xd5m canh \xae\xaa S\xe8 2 | h\xe5 Thanh Nh\xb5n | h\xe5 Ph\xad\xacng Li\xd6t | h\xe5 \xa7\xc7m S\xdfi
+TH,45,MSLink,1,1,12 (1),12
+TH,45,EntityNum,1,1,46901 (1),46901
+TH,47,Text,27,6,S\xabng H\xe5ng (18) | S\xabng \xa7u\xe8ng (4) | h\xe5 Th\xb5nh C\xabng (2) | s\xabng h\xe5ng (1) | s\xabng T\xab L\xdech (1),s\xabng h\xe5ng | S\xabng H\xe5ng | h\xe5 Th\xb5nh C\xabng | h\xe5 \xa7\xe8ng \xa7a | S\xabng \xa7u\xe8ng
+TH,47,MSLink,9,5,2 (5) | 0 (1) | 5 (1) | 12 (1) | 25 (1),25 | 5 | 12 | 0 | 2
+TH,47,EntityNum,9,5,35595 (5) | 16667 (1) | 5653 (1) | 46901 (1) | 28267 (1),28267 | 5653 | 16667 | 46901 | 35595
+TH,48,Text,125,75,s\xabng T\xab L\xdech (15) | h\xe5 (5) | S\xabng S\xd0t (4) | s\xabng L\xf5 (4) | h\xe5 Qu\xb6ng B\xb8 (4),x\xe3m H\xe5ng |  Ho\xb5n Ki\xd5m | m\xad\xacng \xa7\xabng Vang | h\xe5 Ba M\xc9u | Trung K\xddnh
+TH,48,MSLink,39,9,0 (22) | 5 (5) | 1845 (4) | 2166 (2) | 2231 (2),2 | 12 | 2166 | 5 | 1845
+TH,48,EntityNum,39,7,16667 (22) | 1 (8) | 5653 (5) | 35595 (1) | 46901 (1),28267 | 52555 | 5653 | 16667 | 35595
+TH,52,Text,27,4,\xae\xaa H\xf7u H\xe5ng (16) | \xae\xaa T\xb6 S\xabng \xa7u\xe8ng (5) | \xae\xaa T\xb6 H\xe5ng (4) | \xae\xaa Gia Th\xad\xeeng (2),\xae\xaa H\xf7u H\xe5ng | \xae\xaa Gia Th\xad\xeeng | \xae\xaa T\xb6 S\xabng \xa7u\xe8ng | \xae\xaa T\xb6 H\xe5ng
+TH,53,Text,1,1,b\xd3 b\xaci (1),b\xd3 b\xaci
+TH,62,MSLink,1,1,0 (1),0
+TH,62,EntityNum,1,1,57 (1),57
+TV,1,Text,1,1,D (1),D
+TV,1,MSLink,13,3,0 (11) | 755959669 (1) | 76429297 (1),76429297 | 0 | 755959669
+TV,1,EntityNum,13,13,58061 (1) | 60546 (1) | 17313 (1) | 3858 (1) | 7744 (1),20792 | 58061 | 7848 | 10404 | 2757
+TV,5,Text,1,1,62 (1),62
+TV,29,MSLink,1,1,0 (1),0
+TV,29,EntityNum,1,1,31537 (1),31537
+TV,51,Text,5,1,D (5),D
+TV,53,Text,1,1,t\xb9p (1),t\xb9p

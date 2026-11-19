@@ -1,6 +1,6 @@
 # calc_urban_params 入出力仕様
 
-**最終更新**: 2026-11-11
+**最終更新**: 2026-11-19
 **関連ドキュメント**: [calc_urban_params_guide.md](../calc_urban_params_guide.md)（ハブ・索引）, [calc_urban_params_processing_design.md](calc_urban_params_processing_design.md), [calc_urban_params_cli_verification.md](calc_urban_params_cli_verification.md), [urban_structure_parameters.md](../../01_planning/urban_structure_parameters.md), [available_gis_data.md](../../01_planning/available_gis_data.md)
 **前提知識**: [calc_urban_params_guide.md](../calc_urban_params_guide.md) 1章・3章・4章（本ガイドの位置づけ・用語・スコープ）
 
@@ -96,7 +96,7 @@
 - `整備データ/merge/merge_TV.gpkg`（植生・土地利用。参考在庫であり、付録では使わない）
 
 > DH / TV の利用方法と採否は、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて今後検討する。付録の測量建物置き換えでは使わない。  
-> `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。水域関連のパラメータは採用しておらず、算出対象ではない（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
+> `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。公開水域データとの比較を踏まえて不採用と判定しており（[survey_gis_th_inventory.md](../../03_results/survey_gis_th_inventory.md) 5章）、算出対象ではない（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 ### 5.3 任意入力（衛星指標・LSTラスタ）
 

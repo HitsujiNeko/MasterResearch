@@ -76,7 +76,7 @@ GT（道路）の Level ごとの中身を確かめ、道路密度の算出に�
 
 各図の表示: 黄の塗り = DC Level 5 の面、赤い線 = GBA 建物（DC の図）または OSM 道路（GT の図。実線が車道、点線がその他の道）、色付きの面・線 = それ以外の Level（凡例を参照）、白い枠 = 確認範囲。背景は Esri World Imagery（出典: Esri, Maxar, Earthstar Geographics, and the GIS User Community）で、撮影時期は測量時点（2015〜2017年）より新しい。論文に載せる場合は、Esri の利用条件と出典表記を確かめる（未確認）。
 
-図はヘッドレス PyQGIS で、範囲ごとに切り出して EPSG:4326 に変換したデータから `src/visualization/qgis_figure.py` の `build_gis_figure` で描いた（[qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md)「図の生成手段」）。
+図はヘッドレス PyQGIS で、範囲ごとに切り出して EPSG:4326 に変換したデータから `src/visualization/qgis_figure.py` の `build_gis_figure` で描いた（[qgis_figure_generation.md](../02_methods/qgis_figure_generation.md)「図の生成手段」）。
 
 ### GT-1 旧市街西側の街路と路地
 

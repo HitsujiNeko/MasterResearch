@@ -11,7 +11,7 @@ Python でランナースクリプトを実行し、その中で ``QgsApplicatio
 本モジュールを使う。QGIS-MCP の ``execute_code`` から呼ぶこともできるが、重い描画は
 MCP の応答が打ち切られて QGIS 本体が応答しなくなるため、起動中のプロジェクトを直接
 使う必要がある場合に限る。初期化の手順（ランナーの骨格）・環境変数・注意点は
-``docs/02_methods/qgis_operation_guidelines.md`` の「図の生成手段」を正本とする。
+``docs/02_methods/qgis_figure_generation.md`` の「図の生成手段」を正本とする。
 
 想定する使い方（呼び出し側の責務）:
 
@@ -28,7 +28,8 @@ MCP の応答が打ち切られて QGIS 本体が応答しなくなるため、�
 
 保存機構の注意: ``get_canvas_screenshot`` は画像をインライン返却するのみでファイル
 保存しない。コミット用 PNG は本モジュール（印刷レイアウト export）で生成し、
-``render_map(path=...)`` は使わない（理由は ``qgis_operation_guidelines.md`` の「保存機構」）。
+``render_map(path=...)`` は使わない（理由は ``qgis_data_acquisition_artifacts.md``
+の「保存機構」）。
 """
 
 from __future__ import annotations

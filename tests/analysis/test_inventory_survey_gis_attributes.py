@@ -369,3 +369,78 @@ def test_main_writes_tables_and_summary(survey_dir: Path, tmp_path: Path) -> Non
     assert (dc["n_ulink"], dc["n_ulink_invalid_json"]) == (3, 1)
     assert summary["conditions"]["seed"] == 1
     assert len(summary["provenance"]["inputs"]) == 2
+
+
+def test_count_nonzero_values_ignores_missing() -> None:
+    # 欠損（NaN）は「0 以外」に数えない
+    values = pd.Series([0, 3, np.nan, 5])
+    assert inventory.is_nonzero_value(values).tolist() == [False, True, False, True]
+    assert inventory.count_nonzero_values(values) == 2
+
+
+def test_graphic_group_missing_is_not_counted_as_nonzero() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "Level": [1, 1, 1],
+            "Type": [3, 3, 3],
+            "ColorIndex": [0, 0, 0],
+            "Weight": [0, 0, 0],
+            "Style": [0, 0, 0],
+            "GraphicGroup": [0, np.nan, 7],
+            "Text": [None, None, None],
+            "MSLink": [None, None, None],
+            "EntityNum": [None, None, None],
+            "ULink": [None, None, None],
+        },
+        geometry=[LineString([(BASE_X, BASE_Y), (BASE_X + i + 1, BASE_Y)]) for i in range(3)],
+    )
+    classes = inventory.classify_geometry_types(frame.geometry.geom_type)
+    levels = inventory.summarize_levels(frame, classes)
+    assert levels.loc[0, "n_graphic_group_nonzero"] == 1
+    combinations = inventory.count_style_combinations(frame, classes)
+    assert combinations["n_graphic_group_nonzero"].sum() == 1
+
+
+def test_summarize_sizes_by_level_excludes_empty_and_out_of_extent() -> None:
+    frame = gpd.GeoDataFrame(
+        {"Level": [1, 1, 1]},
+        geometry=[
+            box(BASE_X, BASE_Y, BASE_X + 10, BASE_Y + 10),
+            box(100.0, 100.0, 120.0, 120.0),
+            Polygon(),
+        ],
+    )
+    classes = inventory.classify_geometry_types(frame.geometry.geom_type)
+    locations = inventory.flag_geometry_locations(frame.geometry)
+    row = inventory.summarize_sizes_by_level(frame, classes, locations).iloc[0]
+    assert (row["n_features"], row["n_measured"]) == (3, 1)
+    assert (row["n_out_of_extent"], row["n_empty"]) == (1, 1)
+    # 範囲外の面（400 m²）を除いた 100 m² だけが大きさに入る
+    assert row["size_median"] == pytest.approx(100.0)
+
+
+def test_summarize_ulink_linkages_without_ulink_returns_empty_table() -> None:
+    frame = pd.DataFrame({"Level": [1, 2], "ULink": [None, None]})
+    result = inventory.summarize_ulink_linkages(frame)
+    assert result.empty
+    assert list(result.columns) == ["Level", "linkage_id", "linkage_type", "n_features"]
+
+
+@pytest.mark.parametrize(("top_n", "sample_size"), [(0, 1), (1, 0)])
+def test_run_inventory_rejects_non_positive_counts(
+    survey_dir: Path, tmp_path: Path, top_n: int, sample_size: int
+) -> None:
+    with pytest.raises(ValueError, match="1 以上"):
+        inventory.run_inventory(
+            survey_dir, tmp_path / "out", layers=["DC"], top_n=top_n, sample_size=sample_size
+        )
+
+
+def test_run_inventory_resolves_relative_output_dir(
+    survey_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 相対パスの出力先はプロジェクトルート基準で解決する
+    monkeypatch.setattr(inventory, "PROJECT_ROOT", tmp_path)
+    summary_path = inventory.run_inventory(survey_dir, Path("relative_out"), layers=["DC"])
+    assert summary_path.parent == tmp_path / "relative_out"
+    assert (tmp_path / "relative_out" / "levels.csv").is_file()

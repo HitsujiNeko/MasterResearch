@@ -312,7 +312,7 @@ def summarize_levels(gdf: pd.DataFrame, geometry_classes: pd.Series) -> pd.DataF
             "n_mslink": grouped["MSLink"].count(),
             "n_entitynum": grouped["EntityNum"].count(),
             "n_ulink": grouped["ULink"].count(),
-            "n_graphic_group_nonzero": grouped["GraphicGroup"].apply(lambda s: int((s != 0).sum())),
+            "n_graphic_group_nonzero": grouped["GraphicGroup"].apply(count_nonzero_values),
         }
     )
     table = (
@@ -321,6 +321,32 @@ def summarize_levels(gdf: pd.DataFrame, geometry_classes: pd.Series) -> pd.DataF
         .join(attribute_counts.drop(columns="n_total"))
     )
     return table.reset_index().sort_values("Level", ignore_index=True)
+
+
+def is_nonzero_value(values: pd.Series) -> pd.Series:
+    """値が欠損でなく、かつ 0 でないかを判定する。
+
+    `!= 0` だけでは欠損（NaN）も「0 以外」になるため、欠損を除いて判定する。
+
+    Args:
+        values: 判定する列。
+
+    Returns:
+        行ごとの真偽値。
+    """
+    return values.notna() & (values != 0)
+
+
+def count_nonzero_values(values: pd.Series) -> int:
+    """欠損を除き、0 でない値の件数を数える。
+
+    Args:
+        values: 数える列。
+
+    Returns:
+        欠損でなく 0 でもない値の件数。
+    """
+    return int(is_nonzero_value(values).sum())
 
 
 def count_value_distribution(
@@ -357,7 +383,7 @@ def count_style_combinations(gdf: pd.DataFrame, geometry_classes: pd.Series) -> 
     """
     frame = gdf[["Level", *COMBINATION_COLUMNS]].copy()
     frame.insert(1, "geometry_class", geometry_classes.to_numpy())
-    frame["graphic_group_nonzero"] = (gdf["GraphicGroup"] != 0).astype(int)
+    frame["graphic_group_nonzero"] = is_nonzero_value(gdf["GraphicGroup"]).astype(int)
     keys = ["Level", "geometry_class", *COMBINATION_COLUMNS]
     table = (
         frame.groupby(keys, dropna=False)

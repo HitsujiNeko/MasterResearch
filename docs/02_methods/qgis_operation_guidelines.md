@@ -1,7 +1,7 @@
 # QGIS 運用ガイドライン
 
-**最終更新**: 2026-11-11
-**関連ドキュメント**: [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
+**最終更新**: 2026-11-19
+**関連ドキュメント**: [qgis_figure_generation.md](qgis_figure_generation.md), [qgis_data_acquisition_artifacts.md](qgis_data_acquisition_artifacts.md), [qgis_mcp_usage_guide.md](qgis_mcp_usage_guide.md), [qgis_mcp_setup.md](../setup/qgis_mcp_setup.md), [data_management_guide.md](data_management_guide.md), [CLAUDE.md](../../CLAUDE.md)
 **前提知識**: QGIS MCPのセットアップ完了、CRS・LSTの定義（[CLAUDE.md](../../CLAUDE.md)の用語集）
 
 ---
@@ -9,6 +9,13 @@
 ## 概要
 
 Claude Code経由でQGISを操作する際に守るべきルールを定義する。
+
+本書は QGIS 作業で**常に読む基本ルール**をまとめる。場面別のルールは次の文書に分けており、該当する作業のときに読む。
+
+| 場面 | 文書 |
+|---|---|
+| コミット用の図（PNG）を生成する（ヘッドレス PyQGIS を既定とする。`execute_code` を使う場面の切り分け・ランナーの実行手順を含む） | [qgis_figure_generation.md](qgis_figure_generation.md) |
+| データ取得タスクで、スタイル成果物（`.qml`）やスクリーンショット（視覚的検証記録）を作る | [qgis_data_acquisition_artifacts.md](qgis_data_acquisition_artifacts.md) |
 
 ## QGIS-MCP の既知の制約と回避策
 
@@ -55,7 +62,7 @@ MCPのバージョンと無関係な制約は台帳に載せず、現行の記�
 | `execute_sql` | **採用** | v0.8.0 以前はラスタが1枚でも読み込まれていると全クエリが失敗したが、ラスタ6枚を含む本プロジェクトで`SELECT COUNT(*)`の成功を実測。レイヤー横断の集計・結合を`execute_code`なしで書ける |
 | `batch_commands` | **条件付き採用** | 読み取り操作を1往復にまとめる用途に使う。破壊的ツール（`execute_code` / `remove_layer` / `delete_features` / `set_setting` / `reload_plugin`）はバッチに含められないため、本研究で頻度の高いPyQGIS実行・片付けは個別呼び出しのまま。この除外リストは**上流依存**であり、緩和されたときに再判定する |
 | `get_layer_extent` | **採用（範囲確認のみ）** | 範囲の取得は軽量で有用。地物ゼロのレイヤーでは`{"empty": true}`を返す。ただし`crs`フィールドが空文字を返す実測があるため、**CRS判定には使わない**（[CRS統一方針](#crs統一方針)に従う）。`crs`が空文字を返す点は**上流依存**だが、CRS判定はpyogrio / rasterio側で行う方針のため、上流が修正されても結論は変わらない |
-| `set_raster_style` | **不採用（単バンド疑似カラー用途）** | (1) `color_ramp`はQGISの名前付きランプのみで、任意の値・色・ラベルの組（`20°C=#2166ac` … `50°C=#b2182b`）を指定できず、生成されるのは等間隔アイテム・ラベルは数値のみ (2) `min_value` / `max_value`を明示しても`classificationMin` / `classificationMax`が`nan`になる（Interpolated・Discrete・min/max未指定の3ケースで実測）。**(1)が恒久的な根拠**であり、(2)は上流の実装依存で変わりうるため、再判定は(1)が解消されたときに限る。[ラスター疑似カラースタイル作成時の注意](#ラスター疑似カラースタイル作成時の注意重要)の PyQGIS 手順を正本のまま残す（実行経路は[図の生成手段](#図の生成手段ヘッドレス-pyqgis-を既定とする)に従う）。単バンドグレー・マルチバンドRGB・陰影起伏は疑似カラーほど配色仕様を要求しないため、必要が生じた時点で個別に判断する |
+| `set_raster_style` | **不採用（単バンド疑似カラー用途）** | (1) `color_ramp`はQGISの名前付きランプのみで、任意の値・色・ラベルの組（`20°C=#2166ac` … `50°C=#b2182b`）を指定できず、生成されるのは等間隔アイテム・ラベルは数値のみ (2) `min_value` / `max_value`を明示しても`classificationMin` / `classificationMax`が`nan`になる（Interpolated・Discrete・min/max未指定の3ケースで実測）。**(1)が恒久的な根拠**であり、(2)は上流の実装依存で変わりうるため、再判定は(1)が解消されたときに限る。[ラスター疑似カラースタイル作成時の注意](#ラスター疑似カラースタイル作成時の注意重要)の PyQGIS 手順を正本のまま残す（実行経路は[図の生成手段](qgis_figure_generation.md#図の生成手段ヘッドレス-pyqgis-を既定とする)に従う）。単バンドグレー・マルチバンドRGB・陰影起伏は疑似カラーほど配色仕様を要求しないため、必要が生じた時点で個別に判断する |
 | データベース接続系（`list_connections` / `list_connection_tables` / `add_layer_from_connection` / `import_layer_to_connection` / `execute_connection_sql`） | **不採用（現時点）** | `list_connections`が0件であることを実測。本研究はGeoPackageを保存済み接続として登録せず絶対パスで直接読み込むため、利点がない。接続を登録する運用に変えた場合に再検討する |
 | 編集セッション系（`start_editing` / `commit_edits` / `rollback_edits` / `undo_edits` / `redo_edits` / `update_feature_geometry`） | **不採用（現時点）** | 本研究のGISデータはPython側で生成・加工し、QGISは描画確認に用いる方針のため、QGIS上で地物を編集する場面がない |
 
@@ -112,93 +119,6 @@ qgis/
 - **CRSの判定に`get_layer_crs`の`authid`・`is_geographic`を根拠として使わない**。空文字列・`srsid=0`・`is_geographic=false`を返す事例が実測されている。判定はrasterio / GeoPandas側で行い、QGISは描画確認に限定する（手順は[qgis_mcp_usage_guide.md の「CRSの確認手順」](qgis_mcp_usage_guide.md#crsの確認手順)を参照）
 - ベトナム測量データ（VN-2000）を読み込む場合は、上記の手順でCRSがVN-2000のまま正しく認識されているかを確認し、必要に応じて`transform_coordinates`でEPSG:4326に変換して重ね合わせる。**`merge_*.gpkg` の正本CRSは`EPSG:5897`（VN-2000 / TM-3 zone 482）**である（推定根拠は[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)を参照）
 
-## 図の生成手段（ヘッドレス PyQGIS を既定とする）
-
-コミット用の図（PNG）の生成、すなわちレイヤの読み込み・スタイル設定・印刷レイアウトの書き出しは、**QGIS 本体を起動せずに PyQGIS を動かすヘッドレス実行を既定の手段とする**。QGIS-MCP の`execute_code`は、起動中の QGIS のプロジェクトや画面を直接操作する必要がある場面に限って使う。
-
-### 使い分け
-
-| 場面 | 手段 | 理由 |
-|---|---|---|
-| 図の生成（1 枚でも複数枚でも）・スタイルを当てた PNG の書き出し | **ヘッドレス PyQGIS**（既定） | キャンバスの再描画とレイヤツリーの更新が起きないため速く、ユーザーの QGIS 本体を巻き込まない |
-| 起動中のプロジェクトの構成を変える（Map Theme のレコード編集、レイヤグループの可視性設定など）、起動中のプロジェクトのレイヤにスタイルを当てて`.qml`を作る | `execute_code` | 対象が「いま開いているプロジェクト」やそのレイヤそのものであり、ヘッドレスでは触れない |
-| 起動中のレイヤの状態を軽く確かめる（CRS の WKT・地図単位、件数・範囲など） | `execute_code`（専用ツールで足りるならそちら） | 1 回の呼び出しが数秒で終わる読み取りに限る |
-| 目視確認のための即時表示、Git 管理外の画像（ゼミ資料など） | `get_canvas_screenshot` / `render_map` | コミット用 PNG には使わない（[保存機構](#取得方法構図)を参照） |
-
-**`execute_code`で重い描画をしない**: `execute_code`は QGIS のメインスレッドで動き、MCP の応答は約 60 秒で打ち切られる（2026-08-15 の事象で観察した値。クライアント・サーバーの設定値かは未確認）。打ち切られても QGIS 側は処理を続けるため、繰り返すと QGIS 本体が応答しなくなる（ユーザーのアプリのため、Claude 側で強制終了できない）。2026-08-15 に 300m グリッド（38,235 セル）の主題図 5 枚を作った際、MCP 経由では 1 枚目で 60 秒を超えて QGIS が固まった一方、ヘッドレスでは 5 枚合計 5.3 秒で完了した（起動・終了を含むかは記録がなく未確認。所要時間の記録は本節を正本とする）。`execute_code`は許可プロンプトの対象でもあり（[運用注意](#運用注意)）、図を作るたびに確認を挟むことになる点でもヘッドレスが向く。
-
-### 実行手順
-
-QGIS 同梱の Python（OSGeo4W の`python-qgis-ltr.bat`）でランナースクリプトを実行する。conda 環境`masterresearch`の Python には`qgis.core`が無いため使えない。OSGeo4W には LTR 版（3.44）と最新版（4.0）が併存するが、`qgis/styles/*.qml`は LTR 版で作っているため、同じ LTR 版の Python を使う。
-
-```powershell
-# OSGeo4W のインストール先が既定（C:\OSGeo4W）の場合。<runner> はランナーのパス、
-# <repo_root> はリポジトリ（worktree で作業中なら worktree）のルートに置き換える
-& "C:\OSGeo4W\bin\python-qgis-ltr.bat" <runner>.py <repo_root>
-```
-
-ランナーの骨格は次のとおり。作図そのものは`src/visualization/qgis_figure.py`の関数（`build_gis_figure`等）に任せ、ランナーにはレイヤの読み込みと呼び出しだけを書く。
-
-```python
-import os
-import sys
-from pathlib import Path
-
-# リポジトリルートを第 1 引数で受け取り、先頭に加える（ランナーの置き場所に依存させない）
-REPO_ROOT = Path(sys.argv[1]).resolve()
-sys.path.insert(0, str(REPO_ROOT))
-
-from qgis.core import QgsApplication, QgsProject, QgsRasterLayer, QgsVectorLayer
-
-# 接頭辞パスは python-qgis-ltr.bat が設定する環境変数から取る（絶対パスを書かない）
-QgsApplication.setPrefixPath(os.environ["QGIS_PREFIX_PATH"], True)
-app = QgsApplication([], False)  # 第 2 引数 False で GUI なし
-app.initQgis()
-try:
-    from src.visualization import figure_layout as fl
-    from src.visualization import qgis_figure as qf
-
-    print(qf.__file__)  # 読み込まれたモジュールの場所（worktree で作業中なら必ず確かめる）
-
-    project = QgsProject.instance()
-    roi = QgsVectorLayer(str(roi_path), "ROI", "ogr")
-    dem = QgsRasterLayer(str(raster_path), "FABDEM")
-    # パスの誤りなどで無効なレイヤを渡すと、原因の分かりにくい失敗になるため先に止める
-    if not (roi.isValid() and dem.isValid()):
-        raise ValueError(f"レイヤを読み込めない: roi={roi_path}, raster={raster_path}")
-    project.addMapLayers([roi, dem])
-    dem.loadNamedStyle(str(REPO_ROOT / "qgis/styles/dem_elevation.qml"))
-    qf.style_roi_outline(roi)  # 省略すると ROI の塗りがデータを覆う
-    qf.set_raster_itemized_legend(dem)
-    result = qf.build_gis_figure(
-        "FABDEM", "ROI", "FABDEM v1.2 標高 － Hanoi ROI", str(out_png), legend_kind=fl.LEGEND_ITEMS
-    )
-    print(result)  # 例: {'ok': True, 'path': '...'}
-finally:
-    app.exitQgis()
-```
-
-- レイヤを受け取る`qgis_figure`の公開関数は、いずれも`build_gis_figure`と同じ「レイヤ名 + `project`」で呼べる（例: `qf.style_roi_outline("ROI", project=project)`）。`style_roi_outline` / `filter_paletted_to_present` / `set_raster_itemized_legend`は、上記の骨格のようにレイヤオブジェクトを渡してもよい
-- 衛星画像などの下絵を敷く、または比較用のレイヤを重ねるときは、`build_gis_figure`の`background_layer_names` / `overlay_layer_names`にレイヤ名を渡す。重ね順は上から ROI 枠 → 重ねるレイヤ → 対象データ → 下絵で、凡例には重ねるレイヤと対象データが載る。XYZ タイルの読み込みに失敗しても書き出しは`ok: True`を返すため、出力した図は目視で確かめる
-- `roi_path` / `raster_path` / `out_png`もリポジトリルートと同様に引数や設定から受け取り、研究データの絶対パスをランナーに書かない（[CodingRule.md](CodingRule.md) 7章）
-- タイトルの書式は[取得方法・構図](#取得方法構図)に従う（例は既存の`images/gis_data/dem/dem_fabdem_hanoi.png`と同じタイトルで、書式の`{年}`を省いている。FABDEM の原データの観測期間は 2010〜2015 年にまたがり、年が一つに定まらないため）
-- 複数枚を作る場合は、`initQgis()`から`exitQgis()`までの 1 回の起動の中でループする。起動と終了には数秒かかるため、1 枚ごとに起動し直さない
-- 2026-10-22 の実測: ハノイ ROI と FABDEM の項目凡例つきの図 1 枚が、描画・書き出し 1.2〜2.2 秒、起動・終了込みで約 6.4 秒だった
-
-### 環境変数
-
-`python-qgis-ltr.bat`は内部で OSGeo4W の初期化（`o4w_env.bat`）を呼び、`GDAL_DATA` / `PROJ_LIB` / `PYTHONHOME`を OSGeo4W 側の値に設定し直し、`PYTHONPATH`を空にしてから QGIS の Python パスを加える。`QGIS_PREFIX_PATH`もここで設定される。
-
-- そのため、Claude Code の設定で conda 環境向けに入れている`GDAL_DATA` / `PROJ_LIB`は**引き継がれず、干渉もしない**。呼び出し前に外す必要はない
-- 同じ理由で`PYTHONPATH`経由のリポジトリルートも消える。`src`を import するには、上記の骨格のとおりランナー内で`sys.path`に加える。worktree で作業している場合はメインのチェックアウトではなく worktree のルートを第 1 引数に渡し、`qgis_figure.__file__`を表示して、変更中のモジュールが読み込まれていることを確かめる
-
-### 注意点
-
-- **proj.db の警告**: 実行時に`proj.db contains DATABASE.LAYOUT.VERSION.MINOR = 2 whereas a number >= 4 is expected`という警告が大量に出る。OSGeo4W 同梱の proj.db が古いためで、EPSG:4326 のデータを描く限り図は正しく出力される（2026-10-22 に確認）。ただし**EPSG:5897 のラスタは EPSG:4326 への再投影に失敗し、描画されない**ため、EPSG:5897 のデータ（測量 GIS や、正準グリッドへラスタ化したデータなど）は事前に EPSG:4326 へ再投影してから渡す（事例は[limited_analysis_results.md](../03_results/limited_analysis_results.md)の図の生成。EPSG:5897 のベクタで同じことが起きるかは未確認）。proj.db の状態は`scripts/check_external_deps.py`で確認できる
-- **`The PNG driver does not support update access`**: 書き出し時に出るが、PNG 自体は出力される（同上）
-- **凡例の言語**: ヘッドレスでは QGIS の日本語ロケールが読まれず、自動生成される凡例の文字列だけが英語になる（ラスタのバンド凡例が`バンド 1 (グレー)`ではなく`Band 1 (Gray)`になる）。`build_gis_figure`の凡例タイトル（`凡例`）、レイヤ名、呼び出し側が渡すラベルは渡したとおりに出るため、ベクタ主題図の体裁は変わらない。ラスタ図のバンド凡例が英語になることは許容する（ユーザー判断）
-- **プロジェクトを汚さない**: ヘッドレスの`QgsProject.instance()`はランナー内だけの空のプロジェクトであり、`hanoi.qgz`は読み込まない限り変わらない。`qgis/projects/*.qgz`を`read()`で読み込んで使う場合も、`write()`を呼ばない
-
 ## execute_code / execute_processing の値取得
 
 ### execute_code の戻り値は stdout のみ
@@ -243,7 +163,7 @@ GBA建物データ（約307万件）や測量データ複数レイヤー（数�
 
 ROI固定の単発描画が今回のデータ・ROI・描画方式（`render_map`・印刷レイアウトexport）で完走したのは、描画対象がROI内に限られ、全件の同時描画が発生しないためと考えられる。ただし描画方式・空間インデックス・ジオメトリ異常・メモリ使用量などに依存するため、**同規模データ全般での安全性を保証するものではない**。**外れ値ジオメトリによりレイヤーのextentが破綻するデータ**（測量データでは`測量_DH`・`測量_TH`にX=499,999／Y=999,999付近のダミー座標が記録されている。[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)の座標範囲表を参照）でも、今回はROI内の実データのみが描画され問題は生じなかった。それでもクラッシュ・応答なしが発生する場合は、**ROIをさらに縮小する・レイヤーを分割して個別に描画する・単発描画を複数回に分けて実行する**などの代替策を検討する。
 
-この切り分けは「QGIS がクラッシュするか」の観点の記録であり、図を作る手段の選択は[図の生成手段](#図の生成手段ヘッドレス-pyqgis-を既定とする)に従う。
+この切り分けは「QGIS がクラッシュするか」の観点の記録であり、図を作る手段の選択は[図の生成手段](qgis_figure_generation.md#図の生成手段ヘッドレス-pyqgis-を既定とする)に従う。
 
 **必須の対策**（対話キャンバスで作業する場合）:
 
@@ -289,112 +209,9 @@ QGIS-MCP は「現在開いているプロジェクト」に対して操作す�
 
 **欠損値の扱い**: `numpy.percentile`は入力に`NaN`が含まれると結果へ伝播させる（`NaN`を無視しない）ため、境界値の計算前に`values[np.isfinite(values)]`等で有限値のみへ絞り込む。実測値`0`は欠損ではないため除外してはならない。境界を`QgsRendererRange`で範囲指定すると、値が`NULL`（`NaN`）のセルはどの範囲にも属さず、既定では非表示（透過）になる。これは意図した挙動であり、有効画素なしのセルを可視化上も欠測として扱える。
 
-## データ取得タスクにおけるスタイル成果物（.qml）の扱い
-
-`qgis/projects/*.qgz` は Git 管理外のため、レイヤーグループ・Map Theme・スタイル適用の構成は自動復元されない。**`.qml` が可視化設定を残せる唯一の永続成果物**である。データ取得タスクでは、以下の判定に従ってスタイル（`.qml`）作成の要否を決める。
-
-### スタイル作成要否の判定表
-
-| データ型 | スタイル作成 | 理由 |
-|---|---|---|
-| カテゴリ値ラスタ（LULC 等）・コード値属性ベクタ | **必須** | 凡例なしでは内容判別が不可能 |
-| 連続値ラスタ（人口密度・夜間光・不透水面率 等） | 任意 | 既定ストレッチで判読できる場合は不要 |
-| 単純なポイント/ライン（POI・道路 等） | 不要 | — |
-
-- 既存 `qgis/styles/` は LST・NDVI・NDBI・NDWI・DEM・建物被覆といった指標に加え、カテゴリ値ラスタの `lulc_glc_fcs30d.qml` で構成され、いずれも「凡例に意味があるデータ」である。一方、道路・建物フットプリントの生データ（単純なポイント/ライン）には `.qml` がない。この実態を踏まえた判定である
-- 命名規則は `{カテゴリ}_{データセット}.qml`（英小文字スネークケース）を基本とし、**分類区分がデータセット固有の場合**に用いる（例: `lulc_glc_fcs30d.qml`）
-- **例外**: 連続値ラスタで、複数データセットに同一の分類区分を適用して図を直接比較したい場合は `{カテゴリ}_{指標}.qml`（例: `population_density.qml`）とする。同じ色が同じ値を意味する図になり、データセット間の比較が可能になるため。既存の `dem_elevation.qml`・`lst_colorramp.qml`・`ndvi_classification.qml` もこの形である（`{データセット}` を含むのは分類がデータセット固有の LULC 2件のみ）
-- 保存後は、プロジェクトを閉じて再度開き直し凡例が正しく表示されることを必ず確認する。**ラスタの疑似カラースタイル**は、これに加えて下記「ラスター疑似カラースタイル作成時の注意」の `classificationMin`/`classificationMax` が `nan` 化する破損チェックも実施する（ベクタの分類レンダラには当該項目はない）
-
-### カテゴリ値ラスタの公式配色の確認順序
-
-カテゴリ値ラスタの公式配色は、配布元のメタデータに含まれない場合がある。以下の順序で確認し、**記憶や一般に流布した値で埋めない**。
-
-1. **配布元のメタデータ**を確認する（STAC配信ならコレクションのmetadata、それ以外なら配布元が提供するメタデータファイル）
-2. **ソースラスタに埋め込まれたカラーテーブル**を確認する。COGなら署名付きURLで`rasterio.open()`し、ヘッダーのみ読めば全体をダウンロードせずに実測できる
-3. **データセットの公開ドキュメント**を確認する
-
-Esri LULC（`io-lulc-annual-v02`）では、STACコレクションの`item_assets.data.file:values`がクラス値とラベル（英語）を持つ一方、配色は含まれていなかった。ソースCOGにはGDALカラーテーブルが埋め込まれており、手順2で公式配色を実測できた。
-
-**注意**: 窓読みで保存したサブセットにはカラーテーブルが引き継がれない。ローカルの取得済みファイルを見ても配色は分からないため、ソース側を確認する。
-
-### QGIS プロジェクト（.qgz）への追加は完了条件に含めない
-
-`qgis/projects/*.qgz` は Git 管理外のため、プロジェクトへのレイヤ追加・Map Theme 更新・`save_project()` は**完了条件に含めない**。検証のための一時的なレイヤ追加は行い、プロジェクトに残すかは研究者の判断とする。
-
-理由:
-
-- `.github/ISSUE_TEMPLATE/task.md` は完了条件を「検証可能なチェック項目」と定めるが、ローカルの `.qgz` 状態は PR でレビューできず他環境でも再現しないため、チェック項目として機能しない
-- `save_project()` は他タスクで構築中のレイヤ順・グループ構成・Map Theme を上書きする。並列 worktree 運用では複数タスクが同一プロジェクトを触るため、競合を Git で検知できない
-- 「なぜ `.qml` だけが完了条件なのか」を残さないと、同じ問いが将来再発する
-
-## データ取得タスクにおけるスクリーンショット（視覚的検証記録）の扱い
-
-データ取得タスクでは、取得した空間データを QGIS で ROI と重ねて表示したスクリーンショット（PNG）をリポジトリにコミットする。目的はレビュアー向けエビデンスではなく、**著者自身による視覚的検証**（ROI カバレッジ・CRS ずれ・分布/外れ値の妥当性）と、**成果物の再利用**（進捗報告資料への転用）である。PNG は PR diff に現れてレビュー可能で、Git 管理外の `.qgz` に代わる**永続の視覚記録**になる（PR への画像添付操作は行わない）。
-
-### 対象範囲
-
-| 対象 | 判断 |
-|---|---|
-| 空間データ（ラスタ・ベクタを問わず） | **対象**（検証価値は普遍的なためデータ型で分岐しない） |
-| 非空間データ（統計 CSV 等、地図に載らないもの） | 対象外 |
-
-### 取得方法・構図
-
-コミット用 PNG は再利用ヘルパー `src/visualization/qgis_figure.py`（`build_gis_figure` 等）で生成する。都度 PyQGIS を書かず、体裁を全図で統一するため。呼び出しはヘッドレス実行を既定とする（手順は[図の生成手段](#図の生成手段ヘッドレス-pyqgis-を既定とする)を参照）。手動生成時も以下の構図要件に従う。
-
-**構図要件**:
-
-- **地図フレームは ROI と同じ縦横比で固定**し、ROI が見切れないようにする。凡例が必要な図はフレームを縮めず、ページを縦に伸ばして地図の下に凡例帯を置く
-- **タイトル**（データセット＋ROI）と**スケールバー**（地図フレーム左下隅・枠内）は常時付与する。タイトルは `{データセット} {データ種別} {年} － {ROI}` の書式に統一する（例: `GLC_FCS30D 土地被覆 2022 － Hanoi ROI`）。`build_gis_figure` は `title_text` をそのまま使うため、**書式の統一はヘルパー側では担保されない**
-- **凡例**はデータ型で分岐する:
-  - カテゴリ値ラスタ（LULC 等）・連続値ラスタ（DEM 等）: **必須**（前者は実在クラスに絞り、後者は項目表示にすると判読しやすい）
-    - 実在クラスへの絞り込み（`filter_paletted_to_present`）は、既定ではラスタの NoData 値だけを除き、データセット固有の無効値（例: Esri LULC の Clouds(10)）は実在すれば凡例に残す。残すとサマリー JSON のクラス分布（無効値を除いた有効画素）とクラス数が食い違うため、図ごとにどちらかを選ぶ
-    - 残す場合は、結果ドキュメントに無効値クラスの意味と画素数を明記する（事例は[gis_data_lulc.md](../01_planning/gis_data/gis_data_lulc.md)の Esri LULC のカバレッジ）。除く場合は、取得スクリプトの`FILLED_VALUES`を`filled_values`に渡す（凡例とサマリーのクラスは実用上揃う。サマリーは ROI 内、凡例はラスタ全体で判定するが、取得スクリプトは ROI 外を NoData で埋めるため）。除いたクラスの画素は地図上でも描画されず白抜きになり、NoData・ROI 外と見分けがつかなくなるため、その旨も結果ドキュメントに記す
-  - 単一シンボル（POI・道路・建物フットプリント等）: 不要（タイトルのみ）
-- ROI 基準でズームし、カバレッジ・CRS 整合・分布/外れ値が判読できる構図とする
-- 大規模レイヤは既存のクラッシュ対策（ROI 基準ズーム）に従う
-
-**保存機構**:
-
-- コミット用 PNG は印刷レイアウト export（`build_gis_figure`）で生成し、呼び出しはヘッドレス実行を既定とする（[図の生成手段](#図の生成手段ヘッドレス-pyqgis-を既定とする)を参照）
-- `render_map(path=...)` もファイルを保存できるが、現在のキャンバスを画像化するだけでタイトル・スケールバー・凡例を付けられず、上記の構図要件を満たせない。コミット用 PNG には使わず、ゼミ資料など Git 管理外の画像に限る
-- `get_canvas_screenshot` は画像をインライン返却するのみで**ファイル保存しない**。即時の目視確認用であり、コミット用 PNG の生成には使わない
-
-### 保存先・命名規則
-
-- `images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`（英小文字スネークケース）
-- 例: `images/gis_data/roads/roads_osm_hanoi.png`
-- **算出結果の図**（取得データではなく、分析パイプラインが出力した値を描いたもの）は `images/{パッケージ名}/{パッケージ名}_{列名}_{ROI}_{スケール}.png` とする。例: `images/urban_params/urban_params_build_cov_hanoi_300m.png`。取得データの図と混在させないのは、両者で「何を検証しているか」（データのカバレッジか、算出値の妥当性か）が異なるためである
-- **分析シナリオの検証図**（データセット生成・フィルタ条件の妥当性を確認するために、分析母集団や補完・脱落セルを描いたもの）は `images/{シナリオ名}/{シナリオ名}_{内容}_{ROI}_{スケール}.png` とする。例: `images/limited/limited_pop_filled_hanoi_30m.png`。算出結果の図と同じ型で、パッケージ名の位置にシナリオ名を置く。描く値がパラメータ単位の算出値ではなくシナリオ単位の分析条件であるため、パッケージ名では対応先を示せないことによる
-- 複数枚必要な場合は接尾辞を付す。`_overview` / `_detail`（空間スケールの違い）、`_{年}`（同一データセットの複数年）が該当する
-- **同一タスク内で並べる図は接尾辞の有無を揃える**。年を付ける図と付けない図を混在させず、複数年ある側に合わせて1枚しかないデータセットにも年を付ける。一方が `population_landscan_hanoi_2023.png` なら、もう一方も `population_worldpop_hanoi_2020.png` とし、`population_worldpop_hanoi.png` のまま並べない。年の有無が不揃いだと図どうしの対応関係が読み取りにくくなるため（すべての図が年を持たない場合はそれで揃っているとみなす）
-- `images/` は Git 追跡対象（`.gitignore` に `*.png` 除外はなく、直下 `images/` も除外対象外）
-
-### スクリーンショットと `.qml` の関係（2 軸の整理）
-
-スクリーンショットと `.qml` は目的の異なる別軸であり、両立させる。
-
-| 成果物 | 目的 | 適用条件 |
-|---|---|---|
-| スクリーンショット（PNG） | **検証**（カバレッジ・CRS・分布の目視確認）・進捗資料転用 | 空間データに**普遍**（データ型で分岐しない） |
-| `.qml` | **凡例/シンボロジ**（可視化設定の永続化） | 上記「スタイル作成要否の判定表」でデータ型により条件分岐 |
-
-- 一方の要否が他方を左右することはない。スクショは空間データなら常に作成し、`.qml` は判定表に従う
-- 保存先・命名の定型は `inspect-gis-data`（スクショ取得を担うスキル）に組み込む
-
-### 統計値と図の役割分担（連続値ラスタ）
-
-連続値ラスタでは「**統計値で異常を検出し、図で原因を特定する**」という役割分担が有効である。統計値だけでは異常の所在が分からず、図だけでは異常の有無を見落とすため、両方を突き合わせる。
-
-実例:
-
-- 人口密度ラスタ（WorldPop）の無効画素は、数値上は「ROI内の2.77%」としか分からなかった。図では紅河の本流と西湖がそのまま白く抜けており、水域であることが一目で判別できた（Esri LULC との突合でも83%がWaterと確認）
-- 都心集中の急峻さ（LandScanがWorldPopより急）は、統計値（平均バイアスがほぼ0なのに中央値バイアスが大きく正）だけでは解釈が定まらなかったが、図が裏付けとなった
-
 ## ラスター疑似カラースタイル作成時の注意（重要）
 
-PyQGISの`QgsSingleBandPseudoColorRenderer`を使ってLST・NDVI等のラスターに疑似カラースタイルを設定する場合、**`renderer.setClassificationMin()` / `setClassificationMax()` を色ランプの値域と一致させて必ず明示的に設定すること**。下記の PyQGIS コードは実行経路を問わず同じであり、図の生成ではヘッドレス実行のランナーに、起動中のプロジェクトのレイヤにスタイルを当てて`.qml`を作る場合は`execute_code`に書く（使い分けは[図の生成手段](#図の生成手段ヘッドレス-pyqgis-を既定とする)を参照）。
+PyQGISの`QgsSingleBandPseudoColorRenderer`を使ってLST・NDVI等のラスターに疑似カラースタイルを設定する場合、**`renderer.setClassificationMin()` / `setClassificationMax()` を色ランプの値域と一致させて必ず明示的に設定すること**。下記の PyQGIS コードは実行経路を問わず同じであり、図の生成ではヘッドレス実行のランナーに、起動中のプロジェクトのレイヤにスタイルを当てて`.qml`を作る場合は`execute_code`に書く（使い分けは[図の生成手段](qgis_figure_generation.md#図の生成手段ヘッドレス-pyqgis-を既定とする)を参照）。
 
 **`set_raster_style`では代替できない**: QGIS-MCPの`set_raster_style`（`style_type="singleband_pseudocolor"`）は名前付きカラーランプしか受け付けず、任意の値・色・ラベルの組（`20°C=#2166ac` … `50°C=#b2182b`）を指定できない。さらに`min_value` / `max_value`を明示しても`classificationMin` / `classificationMax`が`nan`になるため、下記の`nan`回避も果たせない。判定の根拠は[新規機能の採否記録](#新規機能の採否記録)を参照。**本節の PyQGIS 手順が正本である。**
 

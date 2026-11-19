@@ -1,8 +1,8 @@
 # 測量 GIS 7 レイヤの属性整理と地図の作成者への問い合わせ事項
 
 **最終更新**: 2026-11-19  
-**作成方法**: `src/analysis/inventory_survey_gis_attributes.py` による 7 レイヤの属性の集計（出力は `data/output/survey_gis_attribute_inventory/`）と、DH・TH・TV の代表地点の目視（研究者と Claude）による。DC・GT の問い合わせ事項は、survey_gis_data_preparation_status.md 2.7.7節の再調査（2026-11-18）を踏まえる。地図履歴書（80 件）の記載は本文を取り出して比べた（4.1節）  
-**関連ドキュメント**: [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md)（整備状況・DC と GT の Level 別確認は 2.7節）, [survey_gis_dh_inventory.md](survey_gis_dh_inventory.md)・[survey_gis_th_inventory.md](survey_gis_th_inventory.md)・[survey_gis_tv_inventory.md](survey_gis_tv_inventory.md)（DH・TH・TV の Level 別確認）, [qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md)（図の生成手段）  
+**作成方法**: `src/analysis/inventory_survey_gis_attributes.py` による 7 レイヤの属性の集計（出力は `data/output/survey_gis_attribute_inventory/`）と、DH・TH・TV の代表地点の目視（研究者と Claude）による。DC・GT の問い合わせ事項は、DC・GT の文書の再調査（2026-11-18）を踏まえる。地図履歴書（80 件）の記載は本文を取り出して比べた（4.1節）  
+**関連ドキュメント**: [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md)（整備状況）, [survey_gis_dc_inventory.md](survey_gis_dc_inventory.md)・[survey_gis_gt_inventory.md](survey_gis_gt_inventory.md)（DC・GT の Level 別確認）, [survey_gis_dh_inventory.md](survey_gis_dh_inventory.md)・[survey_gis_th_inventory.md](survey_gis_th_inventory.md)・[survey_gis_tv_inventory.md](survey_gis_tv_inventory.md)（DH・TH・TV の Level 別確認）, [qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md)（図の生成手段）  
 **節番号の表記**: 「整備状況 2.7節」などは [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md) の節を、文書名のない「4.1節」などは本ドキュメントの節を指す  
 **前提知識**: 測量 GIS は CAD（DGN）由来で、何の地物かは Level（CAD の描画層の番号）から推測するしかない。座標系は EPSG:5897（VN-2000 / TM-3 zone 482）として扱っている
 
@@ -12,7 +12,7 @@
 
 測量 GIS（`data/gis/survey/merge_*.gpkg` の 7 レイヤ: CS・DC・DH・GT・RG・TH・TV）の属性を整理し、**分かっていること・推定（根拠つき）・分かっていないこと**を分けて記録する。そのうえで、指導教員を通じて地図の作成者に尋ねる事項を、相手が手元のデータで照合できる形（レイヤ・Level・列・値の例・図）で一覧にする。
 
-本ドキュメントは 7 レイヤに共通する事項（方法・属性列・CS と RG・分かっていないこと・問い合わせ事項）を扱い、DH・TH・TV の Level 別の推定と目視確認はレイヤ別の文書に分けた。整理と不明点の洗い出しまでを扱う。算出コードの変更、測量 GIS を使う分析は含まない。DC・GT の Level 別の対応表と判定は [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md) 2.7節を正本とし、ここでは再掲しない。
+本ドキュメントは 7 レイヤに共通する事項（方法・属性列・CS と RG・分かっていないこと・問い合わせ事項）を扱い、DC・GT・DH・TH・TV の Level 別の推定と目視確認はレイヤ別の文書に分けた。整理と不明点の洗い出しまでを扱う。算出コードの変更、測量 GIS を使う分析は含まない。DC・GT の Level 別の対応表と判定は [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md) 2.7節を正本とし、ここでは再掲しない。
 
 ---
 
@@ -44,8 +44,8 @@
 照合の結果:
 
 - 地物数は 7 レイヤとも [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md) 2.2節と一致した
-- DC・GT の Level 別件数は、整備状況 2.7節の値（DC の Level 5 の面 409,831 件、GT の Level 15 の線 98,297 件など）とすべて一致した
-- 面積・長さの中央値も、DC の Level 28 の面以外は一致した。DC の Level 28 は、整備状況 2.7節が 3.6 m²、本集計が 5.6 m² である。整備状況 2.7節は空の面（面積 0。567 件）を含めて計算しており、含めると本集計でも 3.59 m² になる。ほかの Level には空の面がほとんどないため、値は変わらない
+- DC・GT の Level 別件数は、DC・GT の文書（各 2章）の値（DC の Level 5 の面 409,831 件、GT の Level 15 の線 98,297 件など）とすべて一致した
+- 面積・長さの中央値も、DC の Level 28 の面以外は一致した。DC の Level 28 は、DC の文書が 3.6 m²、本集計が 5.6 m² である。整備状況 2.7節は空の面（面積 0。567 件）を含めて計算しており、含めると本集計でも 3.59 m² になる。ほかの Level には空の面がほとんどないため、値は変わらない
 
 ### 1.2 DH・TH・TV の目視
 
@@ -83,7 +83,7 @@
   - ID 0: ほぼすべての語が 0 で、中身がない
   - そのほか（20905・31225・24162・32980・90・22247・20223・21436）: 意味は分からない。21436（GT の 1 件）は中身に ASCII の文字列「Round」を含む
 - `EntityNum`・`MSLink` はほとんどが欠損で、値があるのは CS 16%・GT 8% など一部に限られる
-- 線の太さ・線種・色は、DC・GT では Level と組み合わせて意味を持つ場合がある（例: DC の Level 5 の面は色 10・太さ 1。整備状況 2.7.2節）。全組み合わせは `style_combinations.csv` を参照する
+- 線の太さ・線種・色は、DC・GT では Level と組み合わせて意味を持つ場合がある（例: DC の Level 5 の面は色 10・太さ 1。[DC の確認](survey_gis_dc_inventory.md) 2章）。全組み合わせは `style_combinations.csv` を参照する
 
 ---
 
@@ -105,7 +105,7 @@
 
 ### 3.2 Level 別の件数と中身（CS・RG・DC・GT）
 
-DC・GT は整備状況レポート（survey_gis_data_preparation_status.md）の 2.7節（DC は 2.7.2、GT は 2.7.4、再調査は 2.7.7）を参照する。全 Level の件数は `levels.csv` にある。
+DC・GT は [DC の確認](survey_gis_dc_inventory.md)・[GT の確認](survey_gis_gt_inventory.md) を参照する。全 Level の件数は `levels.csv` にある。
 
 **CS（図郭・欄外の注記）**: 23 Level。点（文字）の多くは図の欄外の注記で、図郭の枠・座標の目盛りとともに描かれている。
 
@@ -176,13 +176,13 @@ CS の Level 20 の注記「Khoảng cao đều đường bình độ cơ bản 
 | 全レイヤの `Text` | 非 ASCII の値は UTF-8 として不正である | TCVN3 で書かれている（解読すると意味の通るベトナム語になる） | 文字コード |
 | `EntityNum`・`MSLink`・`ULink` | DC の 34% などが ODBC のリンクを持つ。`ULink` の中身に標高・建物の属性はない（2章） | 外部のデータベースと結び付けて作られた。ID 65 は塗りの色の指定、ID 32047 は図葉ごとの通し番号 | リンク先のデータベースがあるか、その内容（建物の階数・用途など）。ID 32047 の番号が何を指すか |
 | 座標系 | 合成したファイルに CRS がない。地図履歴書は VN-2000・UTM 投影・3° 帯・中央子午線 105°、高さは国家高さ基準 Hòn Dấu とする（4.1節） | EPSG:5897（TM-3 zone 482、縮尺係数 0.9999）。重ね合わせで位置が合う（survey_gis_data_preparation_status.md 2.3節） | 縮尺係数（地図履歴書に記載がない） |
-| 時点 | 撮影・LiDAR は 2015年10月（30 図葉）と 2016年5月（49 図葉）と「2016年」のみ（1 図葉）、現地調査・図化は 2017年（地図履歴書。4.1節） | 欄外の「2017年まで修正」は図化の時点を指す。GBA の建物面積の 18% が DC の面の外にあり、DC にない新しい住宅地がある（整備状況 2.7.7節） | 2017年より後の修正の有無 |
+| 時点 | 撮影・LiDAR は 2015年10月（30 図葉）と 2016年5月（49 図葉）と「2016年」のみ（1 図葉）、現地調査・図化は 2017年（地図履歴書。4.1節） | 欄外の「2017年まで修正」は図化の時点を指す。GBA の建物面積の 18% が DC の面の外にあり、DC にない新しい住宅地がある（[DC の確認](survey_gis_dc_inventory.md) 4.2節） | 2017年より後の修正の有無 |
 | 図葉のそろい方 | 受け取った DGN は各種別 80 ファイル（RG のみ 218-c がなく 79 ファイル）。DC の 251-c は取り込まれている。TV の 11-c は DGN v8 形式で読めず、現在の `merge_TV.gpkg` にも含まれていない（整備状況 2.6節。2026-11-19 確認） | — | DC の 80 ファイルがすべて `merge_DC.gpkg` に取り込まれたか（手元で確かめる） |
 | Level のコード表 | 手元にない（整備状況 2.7.1節）。地図履歴書は割り当ての根拠になる規程の名前を挙げる（4.1節） | 規程（Phụ lục 5b など）で決まっている | 全レイヤの Level の定義。図化した 3 つの事業所で割り当てが同じか |
 | CS | Level 5 が図郭内枠、Level 7 が図郭外枠（整備状況 2.5節） | 2・3・4・9 は図葉番号、16・17 は座標の目盛り、19・20・32・33 は欄外の注記、23・24・46 は行政区域名 | Level 6 などの線の意味 |
 | RG | Level 7 が区、Level 10 が坊の境界（整備状況 2.5節） | 注記の「Q」「P」は区・坊 | 注記の番号の意味。Level 5・20 |
-| DC | Level 5 の面が建物の外形（整備状況 2.7節。研究者判定）。GBA の建物面積のうち、施設などほかの Level の面の中にあるのは 3.7%（整備状況 2.7.7節） | Level 5 以外の面は施設の敷地と記号（整備状況 2.7節）。Level 5 の `Text` の数字は建物の高さか屋上の標高（GBA の高さと順位相関 0.71、地盤を引くと 19〜78 m。整備状況 2.7.7節） | 数字が高さか標高か、どの建物に付けるか。施設の Level で描かれた建物はどれか |
-| GT | 線は道路の両側の縁で、道路密度には使えない（整備状況 2.7節。研究者判定）。面の Level 16・20・17 は OSM の道路から 5 m 以内に 74〜88% があり、道路面積率の候補として保留（整備状況 2.7.7節。研究者判定） | Level 16 は車道、20 は交差点、17 は路地、14 は街区・水域、5 は公園・緑地の面。Level 62 は図葉の境目で形を閉じる線 | 面の各 Level の定義。Level 16 が大きな敷地も塗る理由。線の Level 10 と 15 の違い（線は使わないため問い合わせない） |
+| DC | Level 5 の面が建物の外形（[DC の確認](survey_gis_dc_inventory.md)。研究者判定）。GBA の建物面積のうち、施設などほかの Level の面の中にあるのは 3.7%（[DC の確認](survey_gis_dc_inventory.md) 4.2節） | Level 5 以外の面は施設の敷地と記号（[DC の確認](survey_gis_dc_inventory.md) 2章）。Level 5 の `Text` の数字は建物の高さか屋上の標高（GBA の高さと順位相関 0.71、地盤を引くと 19〜78 m。[DC の確認](survey_gis_dc_inventory.md) 4.1節） | 数字が高さか標高か、どの建物に付けるか。施設の Level で描かれた建物はどれか |
+| GT | 線は道路の両側の縁で、道路密度には使えない（[GT の確認](survey_gis_gt_inventory.md)。研究者判定）。面の Level 16・20・17 は OSM の道路から 5 m 以内に 74〜88% があり、道路面積率の候補として保留（[GT の確認](survey_gis_gt_inventory.md) 3・4章。研究者判定） | Level 16 は車道、20 は交差点、17 は路地、14 は街区・水域、5 は公園・緑地の面。Level 62 は図葉の境目で形を閉じる線 | 面の各 Level の定義。Level 16 が大きな敷地も塗る理由。線の Level 10 と 15 の違い（線は使わないため問い合わせない） |
 | DH | 標高点・等高線の高さの誤差は 0.3 m 未満（地図履歴書。4.1節）。等高線らしい線がない。線の 99% は周長 0.9〜2.5 m の円である。Level 8 の標高値に欠損・数値にできない値・埋め草の値はない。図葉の境目に段差はない（DH の文書 4章） | Level 7 の円の中心が測った地点、Level 8 の点が標高値（m）の注記の位置（2〜12 m ずれる）。地面の標高で、道路の上が約 3 割。Level 24・26 は区画を埋める模様 | 等高線がない理由（CS の注記と地図履歴書は等高線の間隔 1 m とする）。地図履歴書が記す LiDAR の DEM を入手できるか。Level 9 と 8 の違い。Level 24・26・30 の意味と、Level 24・30 の数値の意味 |
 | TH | 西湖が図葉の境目で Level 8 と 6 に分かれる。説明変数の元データとしては不採用（研究者判定。TH の文書 5章） | Level 4・6・8・40 が水面、2・3・11・37 が水域の縁、44 が堤防、24 が砂州の模様 | 同じ種類の水面に複数の Level がある理由。Level 39 の意味（不採用のため問い合わせない） |
 | TV | Level 2 の面の 996 面は完全な重複で、和集合は有効域の約 4 分の 3 を覆う。図葉 11-c（図葉 1 枚分）は取り込めていない | 区画の種類は、中に置いた記号の Level で表す | 記号の各 Level が表す植生・土地利用の種類（Level 32 は草地と畑の両方に並ぶ）。Level 2 の面が重なる理由。Level 5・36・62 の意味 |
@@ -193,7 +193,7 @@ CS の Level 20 の注記「Khoảng cao đều đường bình độ cơ bản 
 
 地図履歴書（4.1節）は、作成時に適用した規程として「Phụ lục 1（現地調査用の地物の分類表）」「Phụ lục 3（地物の分類）」「Phụ lục 5a（地形図の内容と記号）」「Phụ lục 5b（数値地形図の編集内容。付録 B・C）」「Thông tư 55/2014/TT-BTNMT（1:2,000・1:5,000 基盤地理データベースの構造・内容）」などを挙げる（10・11・12 番台の 8 件は Phụ lục を挙げない）。Level・色・線種・注記の割り当てはこれらの規程で決まっているとみられる（未確認）。そこで、**まず割り当て表（5.1節）を 1 つお願いし、それがあれば答えが出る質問（5.2節）は、表がない場合に限って個別に尋ねる**形にした。割り当て表とは関係のない質問は 5.3節にまとめた。座標系・高さの基準・標高点の精度・等高線の間隔は地図履歴書に書かれていたため、尋ねない（4.1節）。
 
-優先度は、付録の測量建物置き換え（DC の建物を使う）と、研究者が採用を検討している DH の標高点、採否を保留した GT の面（道路面積率）と TV の区画（緑地の面積率）に効くものを「研究に効く」、データの理解を助けるものを「あると助かる」とした。不採用と判定したレイヤ（TH）と、使わない GT の線の Level の意味は尋ねない（使わないデータについて相手に手間をかけないため）。施設の Level で描かれた建物（2-4）は、公開建物データ（GBA）の建物面積の 3.7% と少ないため「あると助かる」とした（survey_gis_data_preparation_status.md 2.7.7節）。リンク先のデータベース（3-8）は、`ULink` に属性そのものが入っていないと分かり（2章）、あっても階数などを含む見込みが小さいため「あると助かる」とした。図の番号は、DH・TV の各文書の 3章（[DH](survey_gis_dh_inventory.md)・[TV](survey_gis_tv_inventory.md)）と survey_gis_data_preparation_status.md 2.7.6節・2.7.7節（DC・GT）の図を指す。
+優先度は、付録の測量建物置き換え（DC の建物を使う）と、研究者が採用を検討している DH の標高点、採否を保留した GT の面（道路面積率）と TV の区画（緑地の面積率）に効くものを「研究に効く」、データの理解を助けるものを「あると助かる」とした。不採用と判定したレイヤ（TH）と、使わない GT の線の Level の意味は尋ねない（使わないデータについて相手に手間をかけないため）。施設の Level で描かれた建物（2-4）は、公開建物データ（GBA）の建物面積の 3.7% と少ないため「あると助かる」とした（[DC の確認](survey_gis_dc_inventory.md) 4.2節）。リンク先のデータベース（3-8）は、`ULink` に属性そのものが入っていないと分かり（2章）、あっても階数などを含む見込みが小さいため「あると助かる」とした。図の番号は、DH・TV の各文書の 3章（[DH](survey_gis_dh_inventory.md)・[TV](survey_gis_tv_inventory.md)）と DC・GT の各文書の目視確認の記録（[DC の確認](survey_gis_dc_inventory.md) 6章・[GT の確認](survey_gis_gt_inventory.md) 5章）の図を指す。
 
 ### 5.1 まずお願いしたいもの（割り当て表）
 
@@ -208,7 +208,7 @@ CS の Level 20 の注記「Khoảng cao đều đường bình độ cơ bản 
 | 2-1 | 研究に効く | GT の面の Level 16・20・17・14・5 は何を表すか。とくに Level 16 は車道の路面か、大きな建物の敷地も含むか | GT・Level 16・20・17・14・5（面） | Level 16（5.87 km²）・20・17 の面の 74〜88% が OSM の道路から 5 m 以内にあり、OSM の幹線道路の 84〜94% がその中に入る。Level 16 が大きな建物と敷地を塗る所がある | GT-R1・GT-5・GT-4 |
 | 2-2 | 研究に効く | TV の記号の各 Level（28・41・42・32・35・4・21・31 など）は、どの植生・土地利用を表すか。とくに Level 32 の「v」形の記号は草地か畑か | TV・記号の Level | 区画の種類は中の記号の Level で表しているとみられる。Level 32 は草地・道路の中央分離帯と、帯状の畑の両方に並ぶ | TV-1・TV-2・TV-3 |
 | 2-3 | 研究に効く | DC の Level 5 の文字（数字）は、建物の高さ（m）か、屋上の標高（m）か。どの建物に付けるか（高さの下限など）。数字以外の「E」「DN」「A2」などは何か | DC・Level 5・`Text`（3,708 件。数字として読めるのは 3,401 件） | 27（495 件）・28（412 件）・29（365 件）など。範囲は 7〜230。GBA の建物の高さと順位相関 0.71。地盤の標高（DH の標高点）を引くと 19〜78 m（5〜95%）。階数・番地とは合わない | DC-R1 |
-| 2-4 | あると助かる | 施設（企業・軍・学校・文化施設など）の建物は、Level 5 ではなく施設の Level で描くことがあるか。どの Level か | DC・Level 2・28・53・35・15・18 など | Level 28 の面で建物そのものを描いた例がある。GBA の建物が多く入る Level は 2・28・53・35・15 の順（整備状況 2.7.7節）。GBA の建物面積のうち、Level 5 の外で施設などの Level の面の中にあるのは 3.7%（高さ 20 m 以上では 7.6%） | DC-3・DC-7・DC-R2 |
+| 2-4 | あると助かる | 施設（企業・軍・学校・文化施設など）の建物は、Level 5 ではなく施設の Level で描くことがあるか。どの Level か | DC・Level 2・28・53・35・15・18 など | Level 28 の面で建物そのものを描いた例がある。GBA の建物が多く入る Level は 2・28・53・35・15 の順（[DC の確認](survey_gis_dc_inventory.md) 4.2節）。GBA の建物面積のうち、Level 5 の外で施設などの Level の面の中にあるのは 3.7%（高さ 20 m 以上では 7.6%） | DC-3・DC-7・DC-R2 |
 | 2-5 | あると助かる | DH の Level 9 の標高点は Level 8 と何が違うか。Level 24・26 の小さな円の模様、Level 30 の線と数値は何を表すか | DH・Level 8・9・24・26・30 | Level 9 は近くの Level 8 より上位 10% で 1.4 m 高い。L24 は 8,447 件で数値「1,5」など、L30 は数値「3,0」「4,0」など | DH-1・DH-2・DH-3 |
 | 2-6 | あると助かる | RG の注記（「02Q.2」「03P.1」など）は何を表すか | RG・Level 7・10・20・`Text` | 区・坊の境界の線に添えられている | — |
 

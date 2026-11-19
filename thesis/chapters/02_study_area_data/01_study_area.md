@@ -1,6 +1,6 @@
 <!--
 見出し: 2.1　研究対象地域
-状態: 執筆中
+状態: 初稿
 依拠する正本:
   - docs/01_planning/research_guide.md @ efb1e70ec4
   - docs/02_methods/analysis_workflow.md @ 4b6d28f6d6

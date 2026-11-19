@@ -1,6 +1,6 @@
 <!--
 見出し: 2.2　衛星データと観測の選定
-状態: 執筆中
+状態: 初稿
 依拠する正本:
   - docs/01_planning/research_guide.md @ efb1e70ec4
   - docs/02_methods/observation_selection.md @ 96513000e4

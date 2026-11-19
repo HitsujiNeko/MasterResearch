@@ -217,7 +217,8 @@ BUILDING_HEIGHT_MODES = (
 # 既定は mean。3構成を同一セル上で比較した結果、VIFはいずれも危険水準を大きく下回り
 # （1.72〜1.83）、説明力・重要度・SHAPに区別できる差が無かったため、
 # 「セル内の平均建物高さ」として物理的な意味が直接読める生の観測列を採った
-# （比較の実測値と判断は `docs/03_results/limited_analysis_results.md` を正本とする）。
+# （比較の実測値と判断は
+# `docs/03_results/limited_analysis/limited_analysis_multicollinearity.md` 6.4節を正本とする）。
 # **出力名の省略基準は既定ではなく both という値であり**（`resolve_output_stem` 参照）、
 # この既定変更で既存ランの出力ファイル名は動かない。
 DEFAULT_BUILDING_HEIGHT_MODE = BUILDING_HEIGHT_MODE_MEAN
@@ -245,7 +246,8 @@ WATER_INDEX_MODES = (
 # 解消する（VIF 最大 3.24）一方、mndwi は NDVI・NDBI との共線性が残った（MNDWI は
 # 定義上 NDWI と NDBI からほぼ決まる）。none は pc1 と説明力が同程度で、物理的な意味を
 # 直接読める列だけで構成できるため採った。事前に決めた採用手順（ndwi 維持）から外れた
-# 経緯・根拠と比較の実測値は `docs/03_results/limited_analysis_results.md` を正本とする。
+# 経緯・根拠と比較の実測値は
+# `docs/03_results/limited_analysis/limited_analysis_multicollinearity.md` 6.5節を正本とする。
 # **出力名の省略基準は既定ではなく ndwi という値であり**（`resolve_output_stem` 参照）、
 # この既定変更で既存ランの出力ファイル名は動かない（既定のランには `_wi_none` が付く）。
 DEFAULT_WATER_INDEX_MODE = WATER_INDEX_MODE_NONE
@@ -1293,7 +1295,7 @@ def add_standardized_pc1(
     標準偏差の比」だけに限られる。この差による決定係数の変化は実測でモデル自身の
     数値的なばらつきより小さく、共通モジュールへfold内変換の仕組みを持ち込む
     コストに見合わないと判断した（判断の根拠は
-    `docs/03_results/limited_analysis_results.md` を正本とする）。
+    `docs/03_results/limited_analysis/limited_analysis_multicollinearity.md` 6.4.4節を正本とする）。
 
     **主成分の符号は実装依存で不定なため、`sign_reference_column` に対する寄与が
     正になる向きへ揃える。** 揃えないと合成列の向きが偶発的に反転し、標準化係数・

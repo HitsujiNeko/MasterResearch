@@ -1,7 +1,7 @@
 # ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（衛星データのみ・衛星＋公開GISデータ）
 
 **最終更新**: 2026-11-18  
-**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節・8章・9.1節, [rq2_scale_area_results.md](rq2_scale_area_results.md), [research_guide.md](../01_planning/research_guide.md)  
+**関連ドキュメント**: [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節・8章・9.1節, [rq2_scale_area_results.md](rq2_scale_area_results.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: 衛星データのみ・衛星＋公開GISデータの処理条件（両結果ドキュメントの3節）、Spatial CV のブロック定義、共通評価セルと補正 t 区間（analysis_workflow.md 5.3.3節）  
 **対象RQ**: RQ2（解析範囲による関係の変化）・RQ3（データ制約下での有効性評価）
 
@@ -41,7 +41,7 @@
 
 付録の測量建物置き換え（建物の変数を測量GIS由来に置き換える）は測量GISのある範囲でしか成立しない。一方、既存の衛星データのみ・衛星＋公開GISデータの結果は ROI 全域で得たものであり、そのまま測量建物置き換えと並べると「データの違い」と「範囲の違い」が混ざる。本ドキュメントは、**衛星データのみ・衛星＋公開GISデータを測量GIS範囲に絞って回し直し、同じデータセットから回した全域の結果と比べる**ことで、範囲の違いだけによる差を切り分ける。ここで得た測量GIS範囲の結果は、測量建物置き換えと比較するときの基準になる。
 
-**本ドキュメントは2つの観測の結果を記録する。2〜5章は旧採用の観測 `2023-07-07T03:23:05Z`（032305）、7章は主採用の観測 `2022-09-06T03:23:58Z`（032358）による。** 主採用が変わった経緯は [observation_selection.md](../02_methods/observation_selection.md) 8章にある。**測量建物置き換えと比べる基準は7章の結果とする。** 2〜5章と7章の数値は観測（日時・LST の分布）が異なるため、LST の絶対値・°C の誤差を直接比べない。比べるのは、変数の重要度の順位、LST の標準偏差で割った誤差、全域との差の向きに限る（7.7節）。7章の全域ランは、032358 の全域の主結果（[limited_analysis_results.md](limited_analysis_results.md) 8章・[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章）を再現している（7.2節）。
+**本ドキュメントは2つの観測の結果を記録する。2〜5章は旧採用の観測 `2023-07-07T03:23:05Z`（032305）、7章は主採用の観測 `2022-09-06T03:23:58Z`（032358）による。** 主採用が変わった経緯は [observation_selection.md](../02_methods/observation_selection.md) 8章にある。**測量建物置き換えと比べる基準は7章の結果とする。** 2〜5章と7章の数値は観測（日時・LST の分布）が異なるため、LST の絶対値・°C の誤差を直接比べない。比べるのは、変数の重要度の順位、LST の標準偏差で割った誤差、全域との差の向きに限る（7.7節）。7章の全域ランは、032358 の全域の主結果（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8章・[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章）を再現している（7.2節）。
 
 **本ドキュメントの「測量GIS範囲」の結果は、ハノイ都心部に絞った分析結果である。** 山地・農地・郊外を含む ROI 全域の結果とは、対象とする地域の性格が異なる（4節）。
 
@@ -200,7 +200,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル（`*_sample_100000.csv`。Git 管理外のため、確認には再実行が要る）から求めた。
 
 - **採用構成（ラン13相当）の VIF は、測量GIS範囲で最大 4.90（`NDBI`）** であり、全域（最大 3.24）より上がるが、危険水準（10）には達しない
-- **ラン12相当の `NDVI`・`NDWI` は両範囲とも危険水準である**（全域 32.2・34.5、測量GIS範囲 38.5・44.8）。衛星データのみも同様（全域 26.5・24.8、測量GIS範囲 34.1・31.5）。この2列の係数・寄与を個別に解釈しない方針（[limited_analysis_results.md](limited_analysis_results.md) 6.5節）は、測量GIS範囲でも変わらない
+- **ラン12相当の `NDVI`・`NDWI` は両範囲とも危険水準である**（全域 32.2・34.5、測量GIS範囲 38.5・44.8）。衛星データのみも同様（全域 26.5・24.8、測量GIS範囲 34.1・31.5）。この2列の係数・寄与を個別に解釈しない方針（[limited_analysis_multicollinearity.md](limited_analysis/limited_analysis_multicollinearity.md) 6.5節）は、測量GIS範囲でも変わらない
 - 測量GIS範囲でほぼ一定になる変数（衛星＋公開GISデータのサンプル）:
 
 | 変数 | 全域 標準偏差 | 全域 0の割合 | 測量GIS範囲 標準偏差 | 測量GIS範囲 0の割合 |
@@ -212,7 +212,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 - 被覆率型3列は全域でも0に偏っていたが、測量GIS範囲では非0のセルが 0.3〜1.3% しか残らない。`ELEV_MEAN` は山地を含まないため標準偏差が約20分の1になる
 - 逆に、建物・道路・人口・夜間光は測量GIS範囲で変動が大きくなる（例: `POP_DEN_WORLDPOP2020` の標準偏差 57.9 → 192.0、`LULC_BUILT_COV` の0の割合 71.0% → 29.7%）
-- `LULC_BARE_COV` は両範囲とも定数列として投入から外れている（`dropped_constant_features`）。ハノイROIの GLC_FCS30D に裸地画素が無く全セルで0になるためであり、既存の衛星＋公開GISデータのランと同じ扱いである（[limited_analysis_results.md](limited_analysis_results.md) 3.6節）
+- `LULC_BARE_COV` は両範囲とも定数列として投入から外れている（`dropped_constant_features`）。ハノイROIの GLC_FCS30D に裸地画素が無く全セルで0になるためであり、既存の衛星＋公開GISデータのランと同じ扱いである（[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.6節）
 
 ---
 
@@ -249,7 +249,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 ### 5.5 限界
 
-- **ハノイROI・30m・単一観測（旧採用の 032305）の結果である。** 測量GIS範囲は約100 km² のハノイ都心部1か所であり、他の範囲・都市への一般化はしない。主採用の観測（032358）では全域の R² が大きく変わっており（[limited_analysis_results.md](limited_analysis_results.md) 8.5節）、測量GIS範囲の結果も観測によって変わりうる。主採用の観測での結果は7章にある
+- **ハノイROI・30m・単一観測（旧採用の 032305）の結果である。** 測量GIS範囲は約100 km² のハノイ都心部1か所であり、他の範囲・都市への一般化はしない。主採用の観測（032358）では全域の R² が大きく変わっており（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.5節）、測量GIS範囲の結果も観測によって変わりうる。主採用の観測での結果は7章にある
 - **抽出密度の差が Spatial CV に与える影響は未評価である。** 抽出率は全域で約3%、測量GIS範囲で約90%と異なる（3.4節）。測量GIS範囲では隣接セルがほぼすべてサンプルに入るため、ブロック境界をはさんだ近傍セルが学習側に入る割合も全域より高く、Spatial CV でも境界での情報の漏れが強まりうる。全域でも、別 fold の隣接セルを持つ境界セルは約4%あるが、それが R² をどれだけ押し上げているかは未評価である（[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 4.5節）。測量GIS範囲での割合も測っていない
 - **測量GIS範囲の Spatial CV は24ブロックに依存する。** 判定基準は満たしたが、fold 間のばらつきが大きい（3.5節）
 - **全域と測量GIS範囲は母集団の性格が異なる。** 測量GIS範囲は全域の部分集合だが、土地被覆・標高・人口の分布が大きく異なり（4.4節）、抽出率も異なる（3.4節）。両範囲の差を「範囲の広さ」だけの効果とは読まない
@@ -267,7 +267,7 @@ VIF は結果 JSON の `vif`、標準偏差・0の割合は10万件サンプル�
 
 ## 7. 主採用の観測（2022-09-06）での比較
 
-主採用の観測 `2022-09-06T03:23:58Z`（032358）で、全域と測量GIS範囲の比較を回し直した。2〜5章（032305）と同じ手順に加えて、測量GIS範囲では衛星データのみと衛星＋公開GISデータを**同じセル・同じ分割**で比べる共通評価セルを使った。全域の共通評価セルによる比較は [limited_analysis_results.md](limited_analysis_results.md) 8.6節にあり、本章はその測量GIS範囲版にあたる。
+主採用の観測 `2022-09-06T03:23:58Z`（032358）で、全域と測量GIS範囲の比較を回し直した。2〜5章（032305）と同じ手順に加えて、測量GIS範囲では衛星データのみと衛星＋公開GISデータを**同じセル・同じ分割**で比べる共通評価セルを使った。全域の共通評価セルによる比較は [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節にあり、本章はその測量GIS範囲版にあたる。
 
 ### 7.1 実行内容と数値の正本
 
@@ -364,7 +364,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 
 ### 7.6 衛星データのみと衛星＋公開GISデータの比較（共通評価セル）
 
-通常ランでは、衛星データのみと衛星＋公開GISデータの母数が測量GIS範囲で 902セル食い違い、10万件の標本も fold も別になる。24ブロックしかない測量GIS範囲では fold の組み方で R² が大きく揺れる（7.4節）ため、差に fold の当たり外れが混ざる。そこで、全域（[limited_analysis_results.md](limited_analysis_results.md) 8.6節）と同じ設計で、**両シナリオに共通するセルから評価セルと fold 割り当てを1つに固定した。** 差の向きはすべて **衛星＋公開GISデータ − 衛星データのみ** である（R² は正、RMSE・MAE は負なら衛星＋公開GISデータが良い）。
+通常ランでは、衛星データのみと衛星＋公開GISデータの母数が測量GIS範囲で 902セル食い違い、10万件の標本も fold も別になる。24ブロックしかない測量GIS範囲では fold の組み方で R² が大きく揺れる（7.4節）ため、差に fold の当たり外れが混ざる。そこで、全域（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節）と同じ設計で、**両シナリオに共通するセルから評価セルと fold 割り当てを1つに固定した。** 差の向きはすべて **衛星＋公開GISデータ − 衛星データのみ** である（R² は正、RMSE・MAE は負なら衛星＋公開GISデータが良い）。
 
 #### 7.6.1 共通集合と評価セル
 
@@ -415,7 +415,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 
 #### 7.6.4 全域との比較
 
-全域の値は [limited_analysis_results.md](limited_analysis_results.md) 8.6.4節（同じ観測・同じ設計の20シード反復）による。「÷ LST 標準偏差」は、差を各範囲の共通集合の LST 標準偏差（全域 2.64°C・測量GIS範囲 3.57°C）で割った値である。
+全域の値は [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6.4節（同じ観測・同じ設計の20シード反復）による。「÷ LST 標準偏差」は、差を各範囲の共通集合の LST 標準偏差（全域 2.64°C・測量GIS範囲 3.57°C）で割った値である。
 
 | 範囲 | RF RMSE の差（°C） | ÷ LST 標準偏差 | 線形 RMSE の差（°C） | ÷ LST 標準偏差 | RF R² の差 | 線形 R² の差 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -429,7 +429,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 
 #### 7.6.5 分光指数を揃えた感度分析
 
-7.6.2〜7.6.4節の差には、分光指数の構成の違い（衛星データのみは `NDVI`・`NDBI`・`NDWI` の3変数、衛星＋公開GISデータの採用構成は `NDWI` を除外）も含まれる。そこで全域（[limited_analysis_results.md](limited_analysis_results.md) 8.6.6節）と同じく、衛星＋公開GISデータを `NDWI` を含む構成（水指数 `ndwi`・15変数）で同じ評価セル・同じ分割で実行し、衛星データのみと比べた。**主結果は採用構成どうしの比較（7.6.2〜7.6.4節）のままとし、本節は感度分析として併記する。** 判断の理由は全域の8.6.6節と同じである。
+7.6.2〜7.6.4節の差には、分光指数の構成の違い（衛星データのみは `NDVI`・`NDBI`・`NDWI` の3変数、衛星＋公開GISデータの採用構成は `NDWI` を除外）も含まれる。そこで全域（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6.6節）と同じく、衛星＋公開GISデータを `NDWI` を含む構成（水指数 `ndwi`・15変数）で同じ評価セル・同じ分割で実行し、衛星データのみと比べた。**主結果は採用構成どうしの比較（7.6.2〜7.6.4節）のままとし、本節は感度分析として併記する。** 判断の理由は全域の8.6.6節と同じである。
 
 | 指標（Spatial CV、20シードの平均） | 主結果：採用構成 − 衛星データのみ | 感度分析：`ndwi` − 衛星データのみ（補正 t 区間） | `ndwi` − 採用構成（補正 t 区間） | `ndwi` が良い fold / シード |
 |---|---:|---:|---:|---:|
@@ -481,7 +481,7 @@ RMSE の単位は °C。Spatial CV は5 fold の平均（R² は ± fold 間の�
 - **測量GIS範囲の Spatial CV は24ブロックに依存し、R² は fold の組み方で 0.06 程度動く**（7.4節）。範囲間・ラン間の比較は RMSE で行い、衛星データのみと衛星＋公開GISデータの差は共通評価セル（7.6節）の値を主とする
 - **比較の母集団は、低温で水域寄りの 902セルを含まない**（7.6.1節）。通常ランの衛星データのみの母集団はこれらを含む
 - **抽出密度の差が Spatial CV に与える影響は未評価である**（5.5節と同じ）。測量GIS範囲のサンプルはほぼ全数で、ブロック境界をはさんだ近傍セルが学習側に入りやすい
-- **補正 t 区間の式の確認範囲は全域と同じである**（[limited_analysis_results.md](limited_analysis_results.md) 8.6.5節）
+- **補正 t 区間の式の確認範囲は全域と同じである**（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6.5節）
 
 ### 7.9 検証・来歴の改善後のコードでの再生成
 

@@ -618,7 +618,7 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 | LSTの日付選定 | 主採用は `2022-09-06T03:23:58`、比較用は `2023-07-07T03:23:05`・`2024-11-30T03:23:36` に確定済み（[observation_selection.md](observation_selection.md) 5章・8章） | `2024-11-30` での分析は未実施（同 9.1節） |
 | 公開建物データ | GlobalBuildingAtlas を衛星＋公開GISデータのシナリオの主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM / Geofabrik を主ソースとして衛星＋公開GISデータのシナリオで使用済み | 道路種別と欠測率の QA を続ける |
-| 測量 GIS の意味整理 | `gpkgの確認結果.md` と `DGNファイル内容確定結果.md` で再確認中 | DH / TV の採否を判断する（付録の測量建物置き換えでも使わない。TH は不採用と判定済み） |
+| 測量 GIS の意味整理 | 7 レイヤの属性と Level の中身を整理し、地図の作成者への問い合わせ事項をまとめた（[survey_gis_attribute_inventory.md](../03_results/survey_gis_attribute_inventory.md)。DH・TH・TV はレイヤ別の文書） | DH / TV の採否を判断する（付録の測量建物置き換えでも使わない。TH は不採用と判定済み） |
 | 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み。衛星＋公開GISデータの採用構成は `WorldPop 2020` | LandScan 2版との比較は旧世代のラン（[limited_analysis_results.md](../03_results/limited_analysis_results.md) ラン8・9）のままであり、主採用の観測で測り直す（同 7章） |
 | 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある。衛星＋公開GISデータの採用構成は `VIIRS DNB 2023`（`NTL_MEAN`）を含む | 全解析スケールで実質的な内挿になるため、RQ2 には割り当てない |
 | 訓練・テスト分割 | Spatial CV の設計を決定済み（6.1.1節） | 付録の測量建物置き換えでも同一評価法を維持する |

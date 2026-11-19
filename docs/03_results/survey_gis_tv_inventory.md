@@ -1,6 +1,6 @@
 # 測量 GIS TV（植生・土地利用）の Level 別確認と使える見込み
 
-**最終更新**: 2026-11-18  
+**最終更新**: 2026-11-19  
 **作成方法**: `src/analysis/inventory_survey_gis_attributes.py` による属性の集計（`data/output/survey_gis_attribute_inventory/`）、代表地点の目視（研究者と Claude）、公開土地被覆データ・NDVI・LST との比較と区画への記号の割り当て（一時集計、2026-11-18）による  
 **関連ドキュメント**: [survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md)（共通: 方法・属性列・分かっていないこと・問い合わせ事項）, [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md)（整備状況）, [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md)（土地被覆クラス別面積率 P7・植生被覆率 P8・NDVI P16 の定義）  
 **前提知識**: 測量 GIS は CAD（DGN）由来で、何の地物かは Level（CAD の描画層の番号）から推測するしかない。集計・図の作り方・`Text` の読み方は [survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md) 1章を参照する
@@ -74,7 +74,7 @@ TV が、研究で使っている土地被覆クラス別面積率（P7。元デ
 
 ### 4.1 方法
 
-- **対象**: 測量 GIS 有効域（`data/gis/survey/hanoi_survey_extent.gpkg`）の内側にある TV の地物。Level と形（線・面）の組で 300 件以上あるものに限った。地物ごとに代表点（`representative_point`）を 1 つとった。複数の線で 1 つの記号を描く Level（2章）は、件数が記号の数より多くなる
+- **対象**: 測量 GIS 有効域（`data/gis/survey/hanoi_survey_extent.gpkg`）の内側にある TV の地物。Level と形（線・面）の組で 300 件以上あるものに限った。4.2節の表では、記号ではない区画の面（Level 2・36）・区画の境界の線（Level 1）と、意味の分からない線（Level 5・62）を除いた。TV は図葉 11-c（約 1.25 km²、有効域の約 1.25%）を取り込めていないため、比べた範囲はその分だけ有効域より狭い（整備状況 2.6節）。地物ごとに代表点（`representative_point`）を 1 つとった。複数の線で 1 つの記号を描く Level（2章）は、件数が記号の数より多くなる
 - **土地被覆**: GLC 2022（`data/gis/lulc/glc_fcs30d/glc_fcs30d_hanoi_2022.tif`）と Esri 2022（`data/gis/lulc/esri_10m/esri_lulc_hanoi_2022.tif`）の代表点の位置の画素を、`src/common/lulc_classes.py` の共通クラスに写像した
 - **NDVI・LST**: 分析に使っている観測（2022-09-06）の `data/satellite/indices/2022/INDICES_Landsat8_20220906_032358Z.tif`（第 1 バンド NDVI）と `data/satellite/lst/2022/LST_Landsat8_20220906_032358Z.tif`（°C）を代表点の位置で読んだ
 - **基準**: 有効域の中に無作為に置いた 30,000 点（乱数シード 42）を同じ方法で読んだ
@@ -95,6 +95,8 @@ TV が、研究で使っている土地被覆クラス別面積率（P7。元デ
 | 31（面） | 1,460 | 公園の樹木 | 89.7 | 8.9 | 65.5 | 0.0 | 9.2 | 3.6 | 21.8 |
 | 21（線） | 1,514 | 堤防の法面 | 73.0 | 25.3 | 80.3 | 4.0 | 0.0 | 14.9 | 0.8 |
 | 4（線） | 4,560 | 不明 | 64.1 | 25.0 | 85.3 | 3.8 | 2.0 | 1.4 | 7.5 |
+| 4（面） | 1,717 | 不明 | 41.2 | 54.0 | 92.1 | 1.2 | 1.5 | 1.0 | 4.2 |
+| 35（面） | 805 | 集落 | 29.7 | 67.5 | 97.5 | 0.6 | 0.0 | 0.5 | 1.4 |
 | 3（線） | 306 | 不明 | 88.6 | 11.4 | 61.1 | 0.0 | 38.6 | 0.3 | 0.0 |
 
 - 田畑（Level 41）と集落（Level 35）は、公開データとよく合う
@@ -103,7 +105,7 @@ TV が、研究で使っている土地被覆クラス別面積率（P7。元デ
 
 ### 4.3 Esri が市街地とした所の NDVI と LST
 
-Esri が市街地とした代表点に限って、NDVI と LST を比べた。件数は Level ごとに線と面を合わせて数えた（4.2節は Level と形の組ごと）ため、面もある Level 35・4 では 4.2節の件数より多い。線だけの Level 32 でも、4.2節の割合から求めた数（約 13,447 件）と 1% ほど違う（原因は未確認）。基準は、無作為な点のうち Esri が市街地とした点である。
+Esri が市街地とした代表点に限って、NDVI と LST を比べた。件数は Level ごとに線と面を合わせて数えた（4.2節は Level と形の組ごと）ため、面もある Level 35・4・32 では 4.2節の線の件数より多い。Level 32 も面が 115 件あり、4.2節の割合から求めた数（約 13,447 件）との差（118 件）はほぼこの面の分である。基準は、無作為な点のうち Esri が市街地とした点である。
 
 | 地点 | 件数 | NDVI の中央値 | NDVI 0.4 超の割合 | LST の中央値 |
 |---|---:|---:|---:|---:|

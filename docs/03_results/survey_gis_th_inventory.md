@@ -1,6 +1,6 @@
 # 測量 GIS TH（水系）の Level 別確認と採否の判定
 
-**最終更新**: 2026-11-18  
+**最終更新**: 2026-11-19  
 **作成方法**: `src/analysis/inventory_survey_gis_attributes.py` による属性の集計（`data/output/survey_gis_attribute_inventory/`）、代表地点の目視（研究者と Claude）、公開水域データとの比較（一時集計、2026-11-18）による  
 **関連ドキュメント**: [survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md)（共通: 方法・属性列・分かっていないこと・問い合わせ事項）, [survey_gis_data_preparation_status.md](survey_gis_data_preparation_status.md)（整備状況）, [gis_data_water.md](../01_planning/gis_data/gis_data_water.md)（公開水域データの一致度。比較に使った水域マスク）, [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md)（水域パラメータ P11・P12 の採否）  
 **前提知識**: 測量 GIS は CAD（DGN）由来で、何の地物かは Level（CAD の描画層の番号）から推測するしかない。集計・図の作り方・`Text` の読み方は [survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md) 1章を参照する
@@ -130,7 +130,7 @@ GLC と比べて TH だけが水域とした 3,595 セルの内訳と、その�
 
 ### 4.4 目視（W-1〜4）
 
-範囲は EPSG:4326 の xmin, ymin, xmax, ymax（500 m 四方）。比較のラスタは QGIS が EPSG:5897 として正しく認識しており、geopandas で書き出したベクタで起きた約 220 m のずれ（整備状況レポート 2.7.7節）は生じていない（2026-11-18 にレイヤの座標系を確認）。JRC の欄は、その地点の「TH だけが水域」の Level 6 のセルの出現頻度である。
+範囲は EPSG:4326 の xmin, ymin, xmax, ymax（500 m 四方）。比較のラスタは QGIS が EPSG:5897 として正しく認識しており、geopandas で書き出したベクタで起きた約 220 m のずれ（survey_gis_data_preparation_status.md 2.7.7節）は生じていない（2026-11-18 にレイヤの座標系を確認）。JRC の欄は、その地点の「TH だけが水域」の Level 6 のセルの出現頻度である。
 
 | 地点 | 範囲 | JRC | Claude の所見 |
 |---|---|---|---|

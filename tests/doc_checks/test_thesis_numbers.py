@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
+from src.common.config import PROJECT_ROOT
 from src.doc_checks.thesis_numbers import (
     KIND_LEGACY_ONLY,
     KIND_NOT_IN_SOURCE,
     KIND_SOURCE_UNREADABLE,
+    LEGACY_CHAPTERS,
     check_section_numbers,
     extract_numbers,
     index_source_numbers,
@@ -77,6 +80,21 @@ def _section(
     for path, text in _SPLIT_SOURCES.items():
         _write(tmp_path / path, text)
     return section
+
+
+def test_legacy_chapters_match_repository_files() -> None:
+    """LEGACY_CHAPTERS の各パスが実在し、そのファイルの章見出しが定義と一致する。
+
+    子ファイルの改名・章の移動で定義が古くなると、旧観測の判定が黙って外れるため、
+    実リポジトリのファイルと突き合わせる（章 "0" は冒頭のメタ情報なので見出しを持たない）。
+    """
+    for path, chapters in LEGACY_CHAPTERS.items():
+        source = PROJECT_ROOT / path
+        assert source.is_file(), path
+        headings = set(
+            re.findall(r"^## (\d+)\. ", source.read_text(encoding="utf-8"), flags=re.MULTILINE)
+        )
+        assert headings == set(chapters) - {"0"}, path
 
 
 def test_number_key_ignores_commas_and_trailing_zeros() -> None:

@@ -182,11 +182,11 @@
   },
   "provenance": {
     "script": "src.analysis.inventory_survey_gis_attributes",
-    "executed_at": "2026-11-19T07:14:09.350175+00:00",
+    "executed_at": "2026-11-19T10:59:44.158750+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "9c36f0eb8811413652eaf95c33b0ef8d27ebecaa",
+      "commit": "bc5f8f8dfc0c3e8487614d29c54126ab64b4f2fb",
       "dirty": false
     },
     "code": {
@@ -198,7 +198,7 @@
       "files": [
         {
           "path": "src/analysis/inventory_survey_gis_attributes.py",
-          "sha256": "e5d000bff34c2bd15faa073e61f6caedf5b18b7efdf3c05f0d0d169a9d289e6f"
+          "sha256": "6632d3b733abbc242b57a9c799d8e2c942ffa79be595869650287b77628c8c2f"
         },
         {
           "path": "src/analysis/urban_params/canonical_grid.py",

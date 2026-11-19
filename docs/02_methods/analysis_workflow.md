@@ -475,7 +475,7 @@ RQ3 は、次の順で進めている。
 5. 付録の測量建物置き換えを実行する。**未実施**（余裕があれば実施）
 
 衛星＋公開GISデータの建物データソースは **GlobalBuildingAtlas に確定済み**である（Microsoft 単独では ROI 全域を代表できないため）。Google Open Buildings / OSM `building=*` は比較・妥当性確認の候補として残す。  
-衛星＋公開GISデータの採用構成は、変数セット `both`・建物高さ `mean`・水指数 `none`・土地被覆 GLC・人口 WorldPop2020 である（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8章）。採用構成以外の比較軸を主採用の観測で測り直す作業は残っている（同 7章）。  
+衛星＋公開GISデータの採用構成は、変数セット `both`・建物高さ `mean`・水指数 `none`・土地被覆 GLC・人口 WorldPop2020 である（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8章）。採用構成以外の比較軸を主採用の観測で測り直す作業は残っている（[limited_analysis_legacy_20230707.md](../03_results/limited_analysis/limited_analysis_legacy_20230707.md) 7章）。  
 測量建物置き換えの算出手順と変数セットは未確定である。建物の変数だけを測量GISから算出し、道路は OSM を使う方針だが、現行の `config.py` の `full` は測量GISの道路（`road_gt`）を含み、公開GISのテーブルを含まない。また `build_gba` と `build_dc` は列名が同じため同時には結合できず、建物高さ（GBA）と建物被覆率・棟数密度（測量GIS）を1つのデータセットに入れるには結合方法の変更が要る（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.6節）。
 
 ### 5.3.2 衛星データのみのシナリオの最小評価仕様

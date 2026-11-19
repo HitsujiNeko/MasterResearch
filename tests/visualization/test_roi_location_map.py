@@ -6,12 +6,24 @@
 
 from __future__ import annotations
 
-import pytest
+import math
 
+import geopandas as gpd
+import matplotlib
+import pytest
+from shapely.geometry import box
+
+from src.common.config import HANOI_UTM_CRS
 from src.visualization.roi_location_map import (
     BOUNDARY_ATTRIBUTION,
     CREDIT_MAX_LINE_CHARS,
+    HANOI_STUDY_AREA_OVERLAY,
+    OVERLAY_LEGEND_LABELS,
     PROJECTION_NOTE,
+    MapPoint,
+    StudyAreaOverlay,
+    _draw_overlay,
+    band_geometries,
     credit_lines,
     expand_extent,
     format_latitude,
@@ -222,3 +234,139 @@ def test_credit_lines_fit_within_strip_for_every_provider(provider_name: str) ->
     """
     lines = credit_lines(PROVIDERS[provider_name].attribution)
     assert max(len(line) for line in lines) <= CREDIT_MAX_LINE_CHARS
+
+
+def test_layout_rects_taller_legend_shrinks_inset_only() -> None:
+    """凡例を高くすると、インセットだけが低くなり本図の大きさは変わらない。"""
+    _, _, base = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT)
+    _, _, tall = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT, legend_height_mm=34.0)
+    assert tall["legend"][3] > base["legend"][3]
+    assert tall["inset"][3] < base["inset"][3]
+    assert tall["map"][3] == pytest.approx(base["map"][3])
+
+
+def test_layout_rects_widens_right_column_on_request() -> None:
+    """右カラムの最小幅を広げると、図全体が広がる。"""
+    narrow, _, _ = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT)
+    wide, _, _ = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT, right_column_min_mm=60.0)
+    assert wide > narrow
+
+
+@pytest.mark.parametrize(
+    ("legend_height_mm", "right_column_min_mm"),
+    [(0.0, 28.0), (12.0, 0.0), (90.0, 28.0)],
+)
+def test_layout_rects_rejects_invalid_legend_or_column(
+    legend_height_mm: float, right_column_min_mm: float
+) -> None:
+    """凡例・右カラムの寸法が正でないとき、凡例が高すぎてインセットが置けないときは止める。"""
+    with pytest.raises(ValueError):
+        layout_rects(
+            HANOI_MAP_ASPECT,
+            VIETNAM_INSET_ASPECT,
+            legend_height_mm=legend_height_mm,
+            right_column_min_mm=right_column_min_mm,
+        )
+
+
+def test_band_geometries_have_expected_areas() -> None:
+    """円板と環の面積が、投影座標系で πr² の差に一致する（多角形近似の誤差 0.1% 以内）。"""
+    center = HANOI_STUDY_AREA_OVERLAY.center
+    bands = band_geometries(center, ((0.0, 5.0), (15.0, 25.0))).to_crs(HANOI_UTM_CRS)
+    areas_km2 = bands.area.to_numpy() / 1.0e6
+    assert areas_km2[0] == pytest.approx(math.pi * 5.0**2, rel=1e-3)
+    assert areas_km2[1] == pytest.approx(math.pi * (25.0**2 - 15.0**2), rel=1e-3)
+    assert bands.is_valid.all()
+    assert list(bands["inner_km"]) == [0.0, 15.0]
+    assert list(bands["outer_km"]) == [5.0, 25.0]
+
+
+def test_band_geometries_ring_excludes_center() -> None:
+    """環（内径 > 0）は中心点を含まず、円板は中心点を含む。"""
+    center = MapPoint("c", lon=105.852, lat=21.028)
+    bands = band_geometries(center, ((0.0, 5.0), (15.0, 25.0))).to_crs(HANOI_UTM_CRS)
+    point = (
+        gpd.GeoSeries.from_xy([center.lon], [center.lat], crs="EPSG:4326")
+        .to_crs(HANOI_UTM_CRS)
+        .iloc[0]
+    )
+    assert bands.geometry.iloc[0].contains(point)
+    assert not bands.geometry.iloc[1].contains(point)
+
+
+def test_band_geometries_are_returned_in_web_mercator() -> None:
+    """重ね描きに使うため、Web メルカトルで返す。"""
+    bands = band_geometries(HANOI_STUDY_AREA_OVERLAY.center, ((0.0, 5.0),))
+    assert bands.crs.to_epsg() == 3857
+
+
+@pytest.mark.parametrize("bands_km", [(), ((-1.0, 5.0),), ((5.0, 5.0),), ((10.0, 5.0),)])
+def test_band_geometries_reject_invalid_bands(bands_km: tuple) -> None:
+    """距離帯が空・内径が負・外径が内径以下のときは止める。"""
+    with pytest.raises(ValueError):
+        band_geometries(HANOI_STUDY_AREA_OVERLAY.center, bands_km)
+
+
+def test_study_area_overlay_matches_source_definitions() -> None:
+    """既定の重ね描きの定義が、正本の観測所座標と都心・郊外の定義と一致する。"""
+    stations = {
+        station.label: (station.lon, station.lat) for station in HANOI_STUDY_AREA_OVERLAY.stations
+    }
+    assert stations == {"Noi Bai": (105.807, 21.221), "Ha Dong": (105.767, 20.967)}
+    center = HANOI_STUDY_AREA_OVERLAY.center
+    assert (center.lon, center.lat) == (105.852, 21.028)
+    assert HANOI_STUDY_AREA_OVERLAY.bands_km == ((0.0, 5.0), (15.0, 25.0))
+
+
+def test_overlay_legend_labels_cover_each_overlay_item() -> None:
+    """凡例の文言は重ねる 4 要素（有効域・観測所・中心点・距離帯）に 1 つずつある。"""
+    assert len(OVERLAY_LEGEND_LABELS) == 4
+    assert all(label.strip() for label in OVERLAY_LEGEND_LABELS)
+
+
+def _overlay_with_extent(extent_path) -> StudyAreaOverlay:
+    """既定の観測所・中心点・距離帯に、指定した有効域のファイルを組み合わせる。"""
+    return StudyAreaOverlay(
+        survey_extent_path=extent_path,
+        stations=HANOI_STUDY_AREA_OVERLAY.stations,
+        center=HANOI_STUDY_AREA_OVERLAY.center,
+        bands_km=HANOI_STUDY_AREA_OVERLAY.bands_km,
+    )
+
+
+@pytest.fixture
+def overlay_axes():
+    """ベースマップを使わない、重ね描き用の空の軸を返す。"""
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots()
+    yield axes
+    plt.close(fig)
+
+
+def test_draw_overlay_rejects_missing_extent_file(tmp_path, overlay_axes) -> None:
+    """測量 GIS の有効域のファイルが無いときは止める。"""
+    overlay = _overlay_with_extent(tmp_path / "missing.gpkg")
+    with pytest.raises(FileNotFoundError):
+        _draw_overlay(overlay_axes, overlay, font_pt=9.0)
+
+
+def test_draw_overlay_rejects_extent_without_crs(tmp_path, overlay_axes) -> None:
+    """有効域に座標系が無いときは、推測で補わずに止める（位置のずれを防ぐ）。"""
+    path = tmp_path / "no_crs.gpkg"
+    gpd.GeoDataFrame(geometry=[box(105.78, 20.99, 105.87, 21.09)]).to_file(path)
+    with pytest.raises(ValueError, match="座標系"):
+        _draw_overlay(overlay_axes, _overlay_with_extent(path), font_pt=9.0)
+
+
+def test_draw_overlay_draws_extent_bands_and_points(tmp_path, overlay_axes) -> None:
+    """座標系のある有効域なら、有効域・距離帯・中心点・観測所を描き、観測所名を注記する。"""
+    path = tmp_path / "extent.gpkg"
+    gpd.GeoDataFrame(geometry=[box(105.78, 20.99, 105.87, 21.09)], crs="EPSG:4326").to_file(path)
+    _draw_overlay(overlay_axes, _overlay_with_extent(path), font_pt=9.0)
+    labels = {text.get_text() for text in overlay_axes.texts}
+    assert labels == {station.label for station in HANOI_STUDY_AREA_OVERLAY.stations}
+    # 中心点 1 + 観測所 2 の記号
+    assert len(overlay_axes.lines) == 1 + len(HANOI_STUDY_AREA_OVERLAY.stations)
+    assert overlay_axes.collections  # 有効域・距離帯の面と線

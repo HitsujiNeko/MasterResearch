@@ -1,6 +1,6 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（衛星データのみの構成に公開GISデータを加えたときの説明力と寄与順位の変化を評価する。本ガイドはその基準線となる衛星データのみのシナリオを扱う）
 
@@ -167,7 +167,7 @@ $$
 
 同じことは分光指数でも起きています。NDVI と NDWI はどちらも近赤外の反射を反対の符号で使うため、**定義上強く相関します**（相関 −0.972、VIF 32〜35）。衛星＋公開GISデータのシナリオで両方を投入すると係数は −0.41 と −0.45 で第1・2位になりますが、NDWI を外すと NDVI の係数は +0.01 とほぼ0になります。衛星データのみのシナリオの3変数構成も同じ構造の共線性を持っています。
 
-つまり高VIFのもとでは、**係数の大きさも符号も実際の寄与を表さないこと**があります。係数の大きさや順位を「支配的な変数である」根拠にしてはいけません。実例と対処の詳細は[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.4節（建物高さ）・6.5節（分光指数）を参照してください。
+つまり高VIFのもとでは、**係数の大きさも符号も実際の寄与を表さないこと**があります。係数の大きさや順位を「支配的な変数である」根拠にしてはいけません。実例と対処の詳細は[limited_analysis_multicollinearity.md](../03_results/limited_analysis/limited_analysis_multicollinearity.md) 6.4節（建物高さ）・6.5節（分光指数）を参照してください。
 
 ---
 
@@ -276,7 +276,7 @@ python -m src.analysis.analysis_rq3_satellite_only `
   算出原理が異なるため、ある程度の差は自然です。
 
 - **つまずき3**: VIFが高いと悪いモデルなのか  
-  線形回帰の係数解釈には注意が必要、という警告指標です。予測性能そのものは、共線性を解消してもほとんど変わらないことが実測されています（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.4節）。
+  線形回帰の係数解釈には注意が必要、という警告指標です。予測性能そのものは、共線性を解消してもほとんど変わらないことが実測されています（[limited_analysis_multicollinearity.md](../03_results/limited_analysis/limited_analysis_multicollinearity.md) 6.4節）。
 
 - **つまずき4**: 旧結果ドキュメントと数値が違う  
   集計単位（ピクセル vs セル）・格子・観測日数・Spatial CV方式が異なる別物です。直接比較しないでください（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 0節）。

@@ -1,7 +1,7 @@
 # LST 算出の放射率が NDVI に依存することの感度分析 結果
 
-**最終更新**: 2026-11-13  
-**関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md) 3.9節・8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章, [gee_calc_LST.md](../02_methods/gee_calc_LST.md) 5.2節・8.3節, [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [research_guide.md](../01_planning/research_guide.md)  
+**最終更新**: 2026-11-19  
+**関連ドキュメント**: [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節・[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章, [gee_calc_LST.md](../02_methods/gee_calc_LST.md) 5.2節・8.3節, [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ1（どの説明変数が LST に対して支配的か）。RQ3 の2シナリオの結果を材料に用いる  
 **前提知識**: SMW 法による LST の算出（[gee_calc_LST.md](../02_methods/gee_calc_LST.md)）、共通評価セル・補正 t 区間（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）
 
@@ -11,7 +11,7 @@
 
 本研究の LST は SMW 法（S1 Ermida et al., 2020）で算出しており、地表面放射率を**同じシーンの NDVI から**求めている（FVC = ((NDVI − 0.2)/(0.86 − 0.2))²、ε = 0.99·FVC + (1 − FVC)·ε_bare。[gee_calc_LST.md](../02_methods/gee_calc_LST.md) 5.2節）。説明変数の `NDVI` が目的変数 `LST` の算出式に入るため、RQ1 で NDVI の寄与を論じると、算出式に由来する見かけの結びつきを「植生の効果」として読むおそれがある。
 
-本ドキュメントは、放射率を NDVI に依存させない対照（ASTER GEDv3 の静的な放射率 EM0）で LST を作り直し、モデルの性能と変数の寄与・順位がどう変わるかを調べた結果を記録する。あわせて、旧採用の観測の LST がどの方式で算出されたかを確かめた結果（[limited_analysis_results.md](limited_analysis_results.md) 3.9節の記述の訂正の根拠）を記録する。
+本ドキュメントは、放射率を NDVI に依存させない対照（ASTER GEDv3 の静的な放射率 EM0）で LST を作り直し、モデルの性能と変数の寄与・順位がどう変わるかを調べた結果を記録する。あわせて、旧採用の観測の LST がどの方式で算出されたかを確かめた結果（[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節の記述の訂正の根拠）を記録する。
 
 ### 1.1 EM0 版の位置づけと結果の読み方
 
@@ -52,7 +52,7 @@
 | SMW・EM0 | 500 | 33 | +0.290 °C | 0.180 °C | 2.309 °C |
 | Simple（`ST_B10`） | 500 | 0 | +8.430 °C | 8.440 °C | 16.106 °C |
 
-**032305 の LST は SMW 法・NDVI 由来の放射率で算出されていた。** [limited_analysis_results.md](limited_analysis_results.md) 3.9節の旧記述（`ST_B10` をスケーリングしている）は誤りであり、同節を訂正した。
+**032305 の LST は SMW 法・NDVI 由来の放射率で算出されていた。** [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節の旧記述（`ST_B10` をスケーリングしている）は誤りであり、同節を訂正した。
 
 数値の正本は照合時の出力 `data/output/lst_emissivity_sensitivity/20230707_032305_method_check/method_check_results.json`（コミット 125eb34 の時点。その後削除）である。照合に用いたスクリプトの機能と出力は、照合を終えた時点で取り除いた（結果が週次の陳腐化チェックで要再実行と判定され続けるのを避けるため）。
 
@@ -109,7 +109,7 @@ NDVI 由来の放射率を外すと、NDVI と LST の負の相関は約 4 割�
 
 ### 5.1 実行条件
 
-- 評価セル: `data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv`（10 万件・ブロック 2,700 m・GroupKFold 5 分割）。NDVI 版のラン（[limited_analysis_results.md](limited_analysis_results.md) 8.6節・[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章）と同じセル・同じ fold・同じ乱数シード（42）・同じ決定木本数（300）
+- 評価セル: `data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv`（10 万件・ブロック 2,700 m・GroupKFold 5 分割）。NDVI 版のラン（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節・[satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章）と同じセル・同じ fold・同じ乱数シード（42）・同じ決定木本数（300）
 - 衛星＋公開GISデータは採用構成（変数セット `both`・建物高さ `mean`・水指数 `none`・土地被覆 GLC・人口 WorldPop2020）
 - EM0 版のデータセットは、既存と行数（3,739,454）・列・`cell_id` が一致し、異なるのは `LST` の値だけで、欠測の位置と `LST_VALID_RATIO` は一致する。目的変数の母数も両版で同じである（衛星＋公開GISデータ 3,446,551 セル・衛星データのみ 3,491,872 セル）
 - 差の向きは **EM0 版 − NDVI 版**
@@ -156,7 +156,7 @@ Spatial CV の値は fold 平均、区間は fold ごとの対応のある差の
 | 衛星データのみ | 標準化係数 | −0.2631 | −0.2216 | 負のまま縮小 |
 
 - 衛星＋公開GISデータでは、`NDBI` の平均 |SHAP| が 1.0410 → 0.8248 に下がり、`LULC_BUILT_COV` が 0.3716 → 0.5154 に上がった。両変数の順位（1・2 位）は変わらない
-- 衛星＋公開GISデータの標準化係数の `NDVI` の大きな変化は、`NDVI` が `NDBI`・土地被覆と強く相関すること（VIF。[limited_analysis_results.md](limited_analysis_results.md) 6章）による係数の不安定さを含むと考えられる（推定）
+- 衛星＋公開GISデータの標準化係数の `NDVI` の大きな変化は、`NDVI` が `NDBI`・土地被覆と強く相関すること（VIF。[limited_analysis_multicollinearity.md](limited_analysis/limited_analysis_multicollinearity.md) 6章）による係数の不安定さを含むと考えられる（推定）
 
 ### 5.4 NDVI の SHAP 依存図の比較（目視）
 

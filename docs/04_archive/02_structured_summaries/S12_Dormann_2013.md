@@ -1,6 +1,6 @@
 # S12: Dormann et al. (2013)
 
-**最終更新**: 2026-10-08  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [previous_studies_report.md](../previous_studies_report.md), [limited_analysis_results.md](../../03_results/limited_analysis_results.md), [literature_management_guide.md](../literature_management_guide.md)  
 **前提知識**: 多重共線性、VIF・条件数、一般化線形モデル（GLM）、ランダムフォレスト・ブースティング回帰木、リッジ回帰・LASSO  
 **分析者**: PDF全文精読（原本: `04_pdfs/S12_Dormann_2013.pdf`、20ページ）
@@ -162,7 +162,7 @@
 
 ### 本研究での活用方法
 
-- 考察の根拠: 水指数ブロックで `NDWI` を除外した判断（`limited_analysis_results.md` 6.5.6節）の文献上の裏づけ。事前基準「VIF ≤ 10」の出典（表 1。ただし表 1 自体は Hair et al. 1995 等を整理したもの）
+- 考察の根拠: 水指数ブロックで `NDWI` を除外した判断（`limited_analysis_multicollinearity.md` 6.5.6節）の文献上の裏づけ。事前基準「VIF ≤ 10」の出典（表 1。ただし表 1 自体は Hair et al. 1995 等を整理したもの）
 - 解釈の扱い: 残した `NDVI` を「除外した `NDWI` の役割も含めて代表する変数」と明記する扱いは、本論文の推奨 3（変数名を改めて複数の元変数を代表することを示す）に沿う
 
 ### 具体的な反映候補

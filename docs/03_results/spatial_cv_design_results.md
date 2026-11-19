@@ -1,15 +1,15 @@
 # Spatial CV のブロック設計 分析結果
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [research_guide.md](../01_planning/research_guide.md)  
-**前提知識**: Spatial CV（空間ブロックで学習側と評価側を分ける交差検証）、[limited_analysis_results.md](limited_analysis_results.md) 3.9節の旧測定  
+**前提知識**: Spatial CV（空間ブロックで学習側と評価側を分ける交差検証）、[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節の旧測定  
 **対象RQ**: RQ1〜RQ3 に共通の評価手法
 
 ---
 
 ## 1. 位置づけ
 
-Spatial CV のブロックサイズ 2,700m は、[limited_analysis_results.md](limited_analysis_results.md) 3.9節で「LST の空間自己相関を断ち切れていない」とされていた。ただし、ブロックを広げたときの R² の低下には2つの要因が混ざる。
+Spatial CV のブロックサイズ 2,700m は、[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節で「LST の空間自己相関を断ち切れていない」とされていた。ただし、ブロックを広げたときの R² の低下には2つの要因が混ざる。
 
 - **空間リーク**: 評価セルのすぐ隣に学習セルがあり、空間自己相関で答えを覗ける効果
 - **空間的非定常性**: 保留域が大きな連続地域になり、地域が変われば説明変数と LST の関係自体が変わる効果
@@ -29,7 +29,7 @@ Spatial CV のブロックサイズ 2,700m は、[limited_analysis_results.md](l
 
 | 項目 | 値 |
 |---|---|
-| 母集団（掃引） | 032358 の共通評価セル集合 3,422,216 セル（[limited_analysis_results.md](limited_analysis_results.md) 8.6節と同じ） |
+| 母集団（掃引） | 032358 の共通評価セル集合 3,422,216 セル（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節と同じ） |
 | 標本 | 10万セル、シード 42・43（シードごとに標本・fold を作り直す） |
 | 構成 | 衛星データのみ・衛星＋公開GISデータの採用構成。母集団・フィルタ条件・特徴量は変えていない |
 | ブロックサイズ | 2,700 / 5,400 / 8,100 / 13,500 / 21,600m、5分割の Group K-Fold |

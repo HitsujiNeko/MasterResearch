@@ -119,7 +119,7 @@ GIS データ前処理は、**測量由来 GIS** と **公開 GIS** を分けて
 
 | ファイル | 原因 | 影響 |
 |---------|------|------|
-| F-48-68-(251-c)_2018_DC.dgn | 処理ハング | DCデータの1区画欠落 |
+| F-48-68-(251-c)_2018_DC.dgn | 処理ハング | 処理時点では欠落したが、現在の `merge_DC.gpkg` には含まれることを確認済み（[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) 2.6節） |
 | F-48-80-(11-c)_2018_TV.dgn | DGNv8形式（GDAL非対応） | TVデータの1区画欠落 |
 
 #### 1.2.1 公開 GIS（衛星＋公開GISデータのシナリオ）

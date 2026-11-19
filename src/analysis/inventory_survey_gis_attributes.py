@@ -156,7 +156,9 @@ def read_survey_layer(path: Path) -> gpd.GeoDataFrame:
     Raises:
         ValueError: ファイルが CRS を持っている場合（前提と違うため、付与で上書きしない）。
     """
-    gdf = pyogrio.read_dataframe(path, encoding=TEXT_READ_ENCODING)
+    # 環境変数 PYOGRIO_USE_ARROW=1 でも Arrow 経路（UTF-8 として解釈し不正なバイトで失敗する）に
+    # 切り替わらないよう、latin-1 の指定が効く従来の経路を明示する
+    gdf = pyogrio.read_dataframe(path, encoding=TEXT_READ_ENCODING, use_arrow=False)
     if gdf.crs is not None:
         raise ValueError(
             f"{path.name} は CRS（{gdf.crs.to_string()}）を持っています。"

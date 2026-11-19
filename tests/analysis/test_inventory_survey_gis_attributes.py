@@ -444,3 +444,13 @@ def test_run_inventory_resolves_relative_output_dir(
     summary_path = inventory.run_inventory(survey_dir, Path("relative_out"), layers=["DC"])
     assert summary_path.parent == tmp_path / "relative_out"
     assert (tmp_path / "relative_out" / "levels.csv").is_file()
+
+
+def test_read_survey_layer_ignores_arrow_env(
+    survey_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # PYOGRIO_USE_ARROW=1 の環境でも、UTF-8 として不正なバイト列を失わずに読める
+    monkeypatch.setenv("PYOGRIO_USE_ARROW", "1")
+    gdf = inventory.read_survey_layer(survey_dir / "merge_DC.gpkg")
+    texts = gdf["Text"].dropna()
+    assert any(not inventory.is_valid_utf8(value) for value in texts)

@@ -1,6 +1,6 @@
 # 観測（シーン）選定基準とROIカバー率
 
-**最終更新**: 2026-11-11
+**最終更新**: 2026-11-19
 **関連ドキュメント**: [calc_urban_params_guide.md](calc_urban_params_guide.md), [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md), [gee_calc_LST.md](gee_calc_LST.md), [CodingRule.md](CodingRule.md), [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)
 **前提知識**: ROIと有効カバレッジの違い（本ファイル冒頭の[用語]参照）、Landsat 8 / 9シーン探索の基本フロー（[gee_search_satellite_data.py](../../src/gee/gee_search_satellite_data.py)）
 
@@ -538,7 +538,7 @@ ROI に対する有効画素の割合で比べた。
 
 **主採用を `2023-07-07T03:23:05` から `2022-09-06T03:23:58` に変えたため、主結果を得るには再実行が必要である。**
 主採用の観測での再実行（30m・衛星データのみと衛星＋公開GISデータの採用構成）は実施済みであり、結果は
-[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章・
+[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8章・
 [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章にある。
 比較用の観測（8.5）のうち `2024-11-30` での分析は未実施である。`032305` で実行済みの既存の分析結果は、
 旧採用（比較用の観測の1つ）に基づく結果として有効である。ただし `032305` の結果は衛星指標の作り方で2世代に分かれ
@@ -558,7 +558,7 @@ ROI に対する有効画素の割合で比べた。
 
 | 文書 | 判断 | 理由 |
 |---|---|---|
-| [limited_analysis_results.md](../03_results/limited_analysis_results.md)・[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) | 主採用の結果の章を新設 | 主結果の正本。既存の記録は比較用の観測（旧採用）の結果として残す |
+| [limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md)・[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) | 主採用の結果の章を新設 | 主結果の正本。既存の記録は比較用の観測（旧採用）の結果として残す |
 | [analysis_rq3_satellite_only_guide.md](analysis_rq3_satellite_only_guide.md) | 更新 | 実行例と既定値の記述が旧採用の観測を指していた |
 | [GIS_IDEAS_poster.md](../03_results/GIS_IDEAS_poster.md) | 注記のみ | 提出済みの原稿であり、本文の数値は提出時の記録として変えない |
 | [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) | 主採用の結果の章を新設 | 下記 |

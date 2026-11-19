@@ -1,6 +1,6 @@
 # 都市構造パラメータの採否
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [research_guide.md](research_guide.md), [available_gis_data.md](available_gis_data.md), [calc_urban_params_guide.md](../02_methods/calc_urban_params_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md)  
 **前提知識**: RQ1-RQ3、データシナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）、都市構造パラメータの定義（[research_guide.md](research_guide.md) §5.3）
 
@@ -220,7 +220,7 @@ FVC は NDVI の単調変換として定義されるため、説明変数とし�
 
 P18 の NDWI（緑と近赤外）は、P16 の NDVI（近赤外と赤）と近赤外の反射を反対の符号で使うため、構造的に強く負に相関する（ハノイ・30m で Pearson −0.972）。この共線性への対処として、近赤外を含まない水指数 MNDWI を算出対象に加え、衛星＋公開GISデータのシナリオで水指数の扱い（両方投入・NDWI 除外・主成分化・MNDWI への差し替え）を同一セル上で比較した。
 
-**本節は採否軸（①）の記録であり、モデルに残すかどうか（③）は扱わない**（§1.1）。比較の結果、衛星＋公開GISデータの採用構成は NDWI と MNDWI のどちらもモデルへ投入しない構成（NDWI 除外）となった。MNDWI は NDVI・NDBI とともに同じ4バンドから作られ、定義上その2指数からほぼ決まるため、NDWI の代わりに投入しても共線性は解消しなかった。比較の実測値と判断の経緯は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 6.5節を正本とする。
+**本節は採否軸（①）の記録であり、モデルに残すかどうか（③）は扱わない**（§1.1）。比較の結果、衛星＋公開GISデータの採用構成は NDWI と MNDWI のどちらもモデルへ投入しない構成（NDWI 除外）となった。MNDWI は NDVI・NDBI とともに同じ4バンドから作られ、定義上その2指数からほぼ決まるため、NDWI の代わりに投入しても共線性は解消しなかった。比較の実測値と判断の経緯は [limited_analysis_multicollinearity.md](../03_results/limited_analysis/limited_analysis_multicollinearity.md) 6.5節を正本とする。
 
 P18・P20 はいずれも**採用（算出する）のまま**とする。構成比較・感度分析・他シナリオでの再検討に使うためであり、最終モデルに残らないことは採否の変更理由にならない（§1.2）。
 

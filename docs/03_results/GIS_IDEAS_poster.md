@@ -1,6 +1,6 @@
 # GIS-IDEAS ポスター原稿（Limited シナリオ・日英対訳）
 
-**最終更新**: 2026-10-22  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd), [fig3_limited_workflow.mmd](fig3_limited_workflow.mmd), [observation_selection.md](../02_methods/observation_selection.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: RQ3（データ制約下での有効性評価）の位置づけ、Limited シナリオの分析条件、Spatial CV の読み方
 
@@ -16,7 +16,7 @@
 
 **数値の出所を各パネルに明記する。** 断りのない数値はすべて [limited_analysis_results.md](limited_analysis_results.md) の**ラン1（主結果）**に由来し、節番号を併記する。同ドキュメントおよび `data/output/limited/20230707_032305/` の CSV / JSON に無い数値は書かない。
 
-**本原稿は提出済みであり、旧採用の観測に基づく。** 本文の数値は観測 `2023-07-07T03:23:05Z` の旧世代のラン1（提出時の主結果）によるもので、提出時の記録として変えない。その後、主採用の観測を `2022-09-06T03:23:58Z` に変えた（[observation_selection.md](../02_methods/observation_selection.md) 8章）ため、**ラン1は現在の主結果ではない**。現在の主結果は [limited_analysis_results.md](limited_analysis_results.md) 8章にある。各パネルの「（主結果）」「ラン1」の表記と節番号は提出時のものとして読む。
+**本原稿は提出済みであり、旧採用の観測に基づく。** 本文の数値は観測 `2023-07-07T03:23:05Z` の旧世代のラン1（提出時の主結果）によるもので、提出時の記録として変えない。その後、主採用の観測を `2022-09-06T03:23:58Z` に変えた（[observation_selection.md](../02_methods/observation_selection.md) 8章）ため、**ラン1は現在の主結果ではない**。現在の主結果は [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8章にある。各パネルの「（主結果）」「ラン1」の表記と節番号は提出時のものとして読む。
 
 ### 0.1 テンプレートの実測値
 
@@ -202,7 +202,7 @@ English: Vector data give three kinds of statistic: coverage (share of cell area
 
 **6 点はベクタ由来（建物・道路）とラスタ由来（分光指数・人口・夜間光）の両方から選ぶ。** ベクタが連続的な密度へ変わることを示しつつ、入力の広がりも見せるためである。
 
-> **出所**: 定義は [research_guide.md](../01_planning/research_guide.md) §5.3 と [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) 2 章・3 章（P1〜P18）。処理条件は [limited_analysis_results.md](limited_analysis_results.md) 3.2〜3.6 節。  
+> **出所**: 定義は [research_guide.md](../01_planning/research_guide.md) §5.3 と [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) 2 章・3 章（P1〜P18）。処理条件は [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.2〜3.6 節。  
 > **補足**: 土地被覆の面積率は全行で合計 1.0 になるため参照クラス（農地）を除外し、裸地は定数列として除外される。結果として実効的な説明変数は 15 個になる（同 3.6 節）。
 
 ### パネル 4: Model performance
@@ -245,7 +245,7 @@ English: The built-up signal bottoms out at the low end: the median contribution
 
 **依存プロットの縦軸は外れ値（+5.5 付近の 1 点）に引き伸ばされているが、切らない。** 実質的な構造は −1〜+3 にあり図の上 3 割強が空くが、範囲を切ると「都合の悪い点を隠した」と見えるリスクのほうが大きい。
 
-> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 4.1 節・4.2 節・3.9 節、2 章の台帳（ラン1）。RMSE は摂氏で読む。  
+> **出所**: [limited_analysis_legacy_20230707.md](limited_analysis/limited_analysis_legacy_20230707.md) 4.1 節・4.2 節・[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9 節、[limited_analysis_legacy_20230707.md](limited_analysis/limited_analysis_legacy_20230707.md) 2 章の台帳（ラン1）。RMSE は摂氏で読む。  
 > **依存プロットの数値の出所**: `presentations/poster_assets/shap_values_run1.csv`（Git 管理外）。分析本体は SHAP 値そのものを保存しないため、同一条件で再算出した（7 章）。24 区間の等頻度ビンごとの中央値をとり、その最小 −0.770°C・最大 +2.514°C（振れ幅 3.284°C）を上記に採った。中央値が 0 を横切るのは NDBI −0.226〜−0.205 の区間である。  
 > **注意**: SHAP 値は**予測 LST への寄与**であり、観測 LST の変化量ではない。また、この非線形性をもって「RF が線形モデルを上回る理由」と読ませない（6 章 Q3 のとおり、RF の優位の相当部分は空間自己相関の利用と考えられる）。  
 > **補足**: ブロックを広げると RF の R² は単調に低下する（ランダム分割 0.7954 → 2,700m 0.7596 → 21,600m 0.5461。診断設定・RF 100 本）。線形モデルはほぼ動かず、RF が線形を上回る幅は +0.115 から +0.023 へ縮む。**RF の優位の相当部分は、非線形性の捕捉ではなく空間自己相関の利用である可能性が高い**（同 3.9 節。詳細は 6 章の想定問答 Q3）。
@@ -283,7 +283,7 @@ English: Three ways of asking the same question. Ranking uses SHAP and permutati
 
 **棒グラフは上位 10 変数のみを描く。** 15 個すべてを並べると A1 の紙面で 1 本あたりの高さが足りない。落とす 5 本は樹木被覆率 0.011・湿地被覆率 0.009・建物被覆率 0.007・建物棟数密度 0.005・草地被覆率 0.003 であり、いずれも首位（`NDBI` 0.702）の 2% 未満で本文でも論じない。落としても「少数の変数が大半を占める」という形は残る（最下位に残る道路密度は 0.026）。
 
-> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 5.1 節、`..._feature_importance.csv` / `..._shap_importance.csv`。  
+> **出所**: [limited_analysis_legacy_20230707.md](limited_analysis/limited_analysis_legacy_20230707.md) 5.1 節、`..._feature_importance.csv` / `..._shap_importance.csv`。  
 > **補足**: 不純度ベース重要度は取りうる値が少ない変数で挙動が変わりうる。上位 4 変数の順位は標本を変えても安定するが、第 5・6 位（`NDVI` と `NDWI`）は入れ替わるため、5 位以下の順位差は論じない（同 2.1 節）。
 
 ### パネル 6: Conclusions and limitations
@@ -324,7 +324,7 @@ English: **Next: swap NDWI for the SWIR-based MNDWI to break the NDVI–NDWI col
 
 **枠の外へ出さない。** 当初はパネルの下の白帯へ置いたが、枠外に出ると本文の一部に見えない。パネルを 50mm から 59mm へ広げ、その 9mm はパネル 2（134→128mm）とパネル 3（134→131mm）の余白から回した。**パネル 4・5 の図の大きさは変えていない。**
 
-> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 5.1 節・3.9 節・6.5 節・1.3 節。年代は本原稿 2 章の使用データ一覧表。次の一手は [#268](https://github.com/HitsujiNeko/MasterResearch/issues/268)。  
+> **出所**: [limited_analysis_legacy_20230707.md](limited_analysis/limited_analysis_legacy_20230707.md) 5.1 節・[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9 節・[limited_analysis_multicollinearity.md](limited_analysis/limited_analysis_multicollinearity.md) 6.5 節・[limited_analysis_results.md](limited_analysis_results.md) 1.3 節。年代は本原稿 2 章の使用データ一覧表。次の一手は [#268](https://github.com/HitsujiNeko/MasterResearch/issues/268)。  
 > **補足**: 0m 補完セルと「被覆率・棟数密度がともに 0 のセル」の一致率は **100.000000%** である。この従属は VIF では検出できない（`BUILD_H_MEAN` の VIF は 1.72）。線形従属ではなく「ゼロか否か」の水準で生じているためである（同 3.9 節）。
 
 ---
@@ -459,7 +459,7 @@ English: Both are dominated by the near-infrared band with opposite signs, givin
 日本語: **ランダムフォレストに限れば分光指数が上回るが、線形モデルでは向きが逆転する。** Spectral は NDVI・NDBI・NDWI、Coverage は土地被覆クラス別面積率を指し、どちらも共通ベース（建物・道路・人口・夜間光・標高）を含む。RF では spectral 0.747 > coverage 0.674、線形では coverage 0.611 > spectral 0.594 であり、**モデルを指定せずに「どちらが効く」とは言えない**。両方を入れた both が RF・線形とも最良である。3 ランは同一のセル・標本・ブロックを用いている。  
 English: **For the random forest the spectral indices win, but the ordering reverses for the linear model.** Spectral = NDVI, NDBI, NDWI; coverage = land-cover class fractions; both variants also carry the common base of building, road, population, night-light and elevation variables. The RF gives spectral 0.747 > coverage 0.674, while the linear model gives coverage 0.611 > spectral 0.594, so **the claim cannot be made without naming the model**. Using both is best under either model. The three runs share identical cells, samples and blocks.
 
-> **出所**: [limited_analysis_results.md](limited_analysis_results.md) 4.3 節・5.3 節・5.4 節、2 章の台帳（ラン1・3・4）。
+> **出所**: [limited_analysis_legacy_20230707.md](limited_analysis/limited_analysis_legacy_20230707.md) 4.3 節・5.3 節・5.4 節、2 章の台帳（ラン1・3・4）。
 
 ---
 

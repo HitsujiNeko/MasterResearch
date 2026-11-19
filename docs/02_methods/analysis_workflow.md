@@ -22,15 +22,14 @@
 2. 衛星＋公開GISデータ（`limited`）: 衛星指標 + 公開 GIS。主軸
 3. 測量建物置き換え（`full`）: 衛星＋公開GISデータの建物の変数を測量由来 GIS から算出したものに置き換える。付録（余裕があれば実施）
 
-このうち、**主軸の2シナリオは、主採用の観測 `2022-09-06T03:23:58`・30m で完了している**（衛星＋公開GISデータは採用構成のみ）。結果は [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章、[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章、全域と測量GIS範囲の比較は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章にある。採用観測の根拠は [observation_selection.md](observation_selection.md) 5章・8章を正本とする。  
+このうち、**主軸の2シナリオは、主採用の観測 `2022-09-06T03:23:58`・30m で完了している**（衛星＋公開GISデータは採用構成のみ）。結果は [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章、[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8章、全域と測量GIS範囲の比較は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章にある。採用観測の根拠は [observation_selection.md](observation_selection.md) 5章・8章を正本とする。  
 RQ2 のグリッド解像度（30 / 90 / 300m）と分析対象範囲の比較も、同じ観測で主軸の2シナリオについて実施済みである（[rq2_scale_area_results.md](../03_results/rq2_scale_area_results.md)）。  
 **付録の測量建物置き換えは未実施**である。
 
 残る主な作業（優先順位と進捗は GitHub Issues / Project を正本とする）:
 
-1. 主軸の2シナリオで分光指数の扱いを揃えるかを判断する（「未確定事項・今後の検討課題」）。
-2. 比較用の観測 `2024-11-30T03:23:36` で分析する（在庫の指標に MNDWI が無いため、先に再エクスポートする）。
-3. 余裕があれば、付録の測量建物置き換えを実行する（測量由来 GIS の Level 別の確認は完了。[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) 2.7節）。
+1. 比較用の観測 `2024-11-30T03:23:36` で分析する（在庫の指標に MNDWI が無いため、先に再エクスポートする）。
+2. 余裕があれば、付録の測量建物置き換えを実行する（測量由来 GIS の Level 別の確認は完了。[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) 2.7節）。
 
 現在の主要実装:
 
@@ -453,7 +452,7 @@ LST分布の説明力と変数の寄与順位がどの程度変わるかを評�
 
 > 主軸の2シナリオは、全域（ROI の解析対象域）と都心部（測量GISの有効域）の両方で比較する（5.2節の分析対象範囲の軸。[research_guide.md](../01_planning/research_guide.md) 6.1節）。測量建物置き換えは測量GISの有効域でしか成立しないため、都心部で衛星＋公開GISデータと比べる。
 > 測量GISは比較の基準（正解）には据えない。測量GISから算出できるのは建物の2変数に限られ、測量の時点も主採用の観測と 5〜7 年ずれるためである（[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) 2.7節）。
-> 主軸の2シナリオでは分光指数の扱いが揃っておらず、現状の差は公開GISを加えた効果だけとしては読めない（「未確定事項・今後の検討課題」）。
+> 主軸の2シナリオでは分光指数の扱いが異なる（衛星データのみは `NDWI` を含む3変数、衛星＋公開GISデータの採用構成は `NDWI` を除外）。**主結果は採用構成どうしの比較とし**、水域を表す変数として `LULC_WATER_COV` を用い、`NDWI` を除外したこと（`NDWI` 除外による性能低下を許容した判断。[limited_analysis_multicollinearity.md](../03_results/limited_analysis/limited_analysis_multicollinearity.md) 6.5節）も公開GISを加えた効果の一部として読む。両変数の情報の代替関係は検証していない。分光指数を揃えた比較（衛星＋公開GISデータを `NDWI` を含む構成で実行）は感度分析として併記した（全域は [limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.6.6節、都心部は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節）。衛星データのみを2変数に揃える比較は行わない（同 8.6.6節）。
 > ただし測量GIS有効域はレイヤ共通の範囲であり、レイヤ別の欠け（DC の図葉1枚の欠落など）は反映しない。この欠けを付録の比較でどう扱うかは未決である（[survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md)）。
 
 **公開GISデータ取得**:
@@ -470,13 +469,13 @@ LST分布の説明力と変数の寄与順位がどの程度変わるかを評�
 RQ3 は、次の順で進めている。
 
 1. 衛星データのみの基準線を、主採用の観測で固定する。**完了**
-2. 衛星＋公開GISデータのために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。**完了**（GBA の有効カバレッジそのものの検証は未実施。[limited_analysis_results.md](../03_results/limited_analysis_results.md) 7章）
+2. 衛星＋公開GISデータのために OSM 道路と GlobalBuildingAtlas を前処理し、利用可能範囲と QA 条件を整理する。**完了**（GBA の有効カバレッジそのものの検証は未実施。[limited_analysis_legacy_20230707.md](../03_results/limited_analysis/limited_analysis_legacy_20230707.md) 7章）
 3. `urban_params` パッケージを公開 GIS / 測量 GIS の両方に対応できる設計へ揃える。公開 GIS での算出は**完了**し、測量 GIS での算出の確認が残る。
 4. 衛星＋公開GISデータを実行する。**完了**（主採用の観測・30m・採用構成）
 5. 付録の測量建物置き換えを実行する。**未実施**（余裕があれば実施）
 
 衛星＋公開GISデータの建物データソースは **GlobalBuildingAtlas に確定済み**である（Microsoft 単独では ROI 全域を代表できないため）。Google Open Buildings / OSM `building=*` は比較・妥当性確認の候補として残す。  
-衛星＋公開GISデータの採用構成は、変数セット `both`・建物高さ `mean`・水指数 `none`・土地被覆 GLC・人口 WorldPop2020 である（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8章）。採用構成以外の比較軸を主採用の観測で測り直す作業は残っている（同 7章）。  
+衛星＋公開GISデータの採用構成は、変数セット `both`・建物高さ `mean`・水指数 `none`・土地被覆 GLC・人口 WorldPop2020 である（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8章）。採用構成以外の比較軸を主採用の観測で測り直す作業は残っている（[limited_analysis_legacy_20230707.md](../03_results/limited_analysis/limited_analysis_legacy_20230707.md) 7章）。  
 測量建物置き換えの算出手順と変数セットは未確定である。建物の変数だけを測量GISから算出し、道路は OSM を使う方針だが、現行の `config.py` の `full` は測量GISの道路（`road_gt`）を含み、公開GISのテーブルを含まない。また `build_gba` と `build_dc` は列名が同じため同時には結合できず、建物高さ（GBA）と建物被覆率・棟数密度（測量GIS）を1つのデータセットに入れるには結合方法の変更が要る（[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.6節）。
 
 ### 5.3.2 衛星データのみのシナリオの最小評価仕様
@@ -490,12 +489,12 @@ RQ3 は、次の順で進めている。
 | 出力 | モデル指標 JSON、特徴量重要度 CSV、比較図 |
 
 この最小仕様は既に実施済みであり、主採用の観測での結果を [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章に記録している。  
-衛星＋公開GISデータとの差は共通評価セルで測定済みである（全域は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6節、測量GIS範囲は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6節）。ただし分光指数の扱いがシナリオ間で揃っていないため、この差は公開GISを加えた効果だけではない（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.5節）。  
+衛星＋公開GISデータとの差は共通評価セルで測定済みである（全域は [limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.6節、測量GIS範囲は [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6節）。分光指数の扱いはシナリオ間で異なるが、主結果はこのまま採用構成どうしの比較とし、分光指数を揃えた比較は感度分析として併記した（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.6.6節）。  
 付録の測量建物置き換えは測量GISの有効域でしか成立しないため、測量GIS範囲での衛星＋公開GISデータの結果と比べて差を評価する。
 
 ### 5.3.3 共通評価セル集合（シナリオ間比較の標本統制）
 
-シナリオごとに有効条件（フィルタ）が違うため、各スクリプトを既定のまま実行すると母数が数万セル食い違い、10万件の標本は事実上別物になる（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 2.1節）。そのままでは、シナリオ間の差に「変数の違いの効果」と「母集団の違いの効果」が混ざる。そこで、**全シナリオに共通する評価セルと fold 割り当てを1つに固定し、同じセル・同じ分割で評価する**。
+シナリオごとに有効条件（フィルタ）が違うため、各スクリプトを既定のまま実行すると母数が数万セル食い違い、10万件の標本は事実上別物になる（[limited_analysis_legacy_20230707.md](../03_results/limited_analysis/limited_analysis_legacy_20230707.md) 2.1節）。そのままでは、シナリオ間の差に「変数の違いの効果」と「母集団の違いの効果」が混ざる。そこで、**全シナリオに共通する評価セルと fold 割り当てを1つに固定し、同じセル・同じ分割で評価する**。
 
 **定義**: 次の4構成の有効母集団の積（共通部分）を評価用の母集団とする。有効条件は各分析スクリプトの関数（`build_valid_population`）をそのまま呼んで求め、条件を書き直さない。
 
@@ -539,10 +538,11 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 - 差は fold ごとの対応のある差（比較側 − 基準側。シナリオ比較では衛星＋公開GISデータ − 衛星データのみで、結果 JSON の `difference_direction` には `Limited − Satellite Only` と出力される）とする。比較スクリプト（`compare_common_evaluation.py`）は、両者の評価セルの内容ダイジェスト・乱数シード・決定木本数・ランダム分割の行数、または fold ごとの学習行数・テスト行数が一致しない場合は停止する。`--output-path` の名前は `_results.json` で終わる必要がある（差の CSV は末尾を `_folds.csv` に替えた名前で隣に置くため）。ランダム分割はテスト集合が1つで区間を作れないため、差の点推定だけを出す
 - fold どうしは学習データを共有していて独立ではないため、素朴な t 区間は狭く出すぎる。**補正 t 区間（corrected resampled t）を主とし**、素朴な t 区間は参考として併記する。差の平均の分散を `(1/J + ρ)·s²`、自由度を `J − 1` とする。J は差の個数（単発は分割数の5、反復は分割数 × シード数）、ρ は全分割の「テスト行数 ÷ 学習行数」の平均、s² は J 個の差の標本分散（不偏分散）である。単発は Nadeau & Bengio (2003)、反復は Bouckaert & Frank (2004) の補正による。**R パッケージ correctR の `resampled_ttest`・`repkfold_ttest` と統計量・p 値が一致することをテストで確認し、補正係数は原典の本文と照合した**（Bouckaert & Frank (2004) は著者版、Nadeau & Bengio は同名の会議版。2003 年の雑誌版は未確認）。単発の k-fold 用の `kfold_ttest` は参照に使っていない。反復数の引数 n を J とすると、コードの係数が同パッケージの説明文と異なるためで（k = n = 5 で 0.5 と 0.45）、本研究の係数は原典と説明文に一致する。なお、原典は学習行数・テスト行数を一定としており、fold ごとに行数が異なる GroupKFold で比の平均を ρ に使うのは本研究の近似である。反復の自由度 `J − 1` は、原典の補正後の統計量の箇所に記述がなく、correctR の実装と補正前の統計量の記述に合わせた
 - 反復（`repeat_common_evaluation.py`）は、共通集合からシードを変えて標本を抽出し直し、両シナリオの Spatial CV だけを回す（シードは標本抽出と RF の乱数の両方に使う）。シードごとに標本自体が入れ替わるため、反復の区間には分割の違いだけでなく標本の違いも含まれる。同じデータの分割し直しを想定する Bouckaert & Frank の設定とは異なる。シードごとの途中結果を保存し、中断しても続きから再開できる。途中結果を再利用するのは、標本の内容ダイジェストと実行条件（木の本数・分割数・衛星＋公開GISデータの構成と投入列・衛星データのみの投入列・来歴と同じ範囲（`src/common/` 全体を含む）のコードのダイジェスト・両データセットの SHA-256・Python と主要ライブラリのバージョン）がどちらも一致する場合だけで、どれかが違えば違うキーを表示してそのシードを計算し直す。実行条件の記録が無い途中結果は再利用しない
+- 反復の衛星＋公開GISデータ側の構成は分析スクリプトの既定値（採用構成）を使い、**水指数だけは `--water-index` で切り替えられる**（分析スクリプトの `--water-index` と同じ値）。分光指数を衛星データのみと揃えた感度分析のための引数である。`none` 以外の値では、結果（`repeated_comparison_{CSV の stem}_wi_{構成}_*`）と途中結果の保存先（`repeat_{CSV の stem}_wi_{構成}/`）に接尾辞を付け、採用構成の結果を上書きしない。接尾辞は既定値ではなく `none` という値を基準に付ける（既定を変えても既存の出力名が動かないようにするため）。分析スクリプトの全工程ランは `--water-index ndwi --evaluation-cells {CSV}` で実行し、比較スクリプトには `--limited-results`（`ndwi` のランの結果 JSON）と `--output-path`（評価セルの CSV と同じディレクトリの `scenario_comparison_{CSV の stem}_wi_ndwi_results.json`）を明示する。共通集合は作り直さない（衛星＋公開GISデータの非NULL要求は水指数の構成に依らず `NDVI`・`NDBI`・`NDWI`・`MNDWI` の4列で、有効母集団が変わらないため）
 
 **構成の追加**: Esri 版・測量建物置き換え（`full`）は未対応である（032358 の Esri 版データセットが未生成・`full` のスクリプトが無いため）。測量GIS範囲は構成ではなく分析対象範囲として指定する（上記）。構成を加える場合は、その構成の有効母集団を求める関数を同じ形で用意し、積に加えて評価セルを作り直す（評価セルが変わるため、既存の比較はすべて再実行になる）。
 
-結果は [limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6節を正本とする。
+結果は [limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.6節を正本とする。
 
 ---
 
@@ -619,11 +619,11 @@ python -m src.analysis.compare_common_evaluation --evaluation-cells {上記 CSV}
 | 公開建物データ | GlobalBuildingAtlas を衛星＋公開GISデータのシナリオの主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM / Geofabrik を主ソースとして衛星＋公開GISデータのシナリオで使用済み | 道路種別と欠測率の QA を続ける |
 | 測量 GIS の意味整理 | 7 レイヤの属性と Level の中身を整理し、地図の作成者への問い合わせ事項をまとめた（[survey_gis_attribute_inventory.md](../03_results/survey_gis_attribute_inventory.md)。DH・TH・TV はレイヤ別の文書） | DH / TV の採否を判断する（付録の測量建物置き換えでも使わない。TH は不採用と判定済み） |
-| 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み。衛星＋公開GISデータの採用構成は `WorldPop 2020` | LandScan 2版との比較は旧世代のラン（[limited_analysis_results.md](../03_results/limited_analysis_results.md) ラン8・9）のままであり、主採用の観測で測り直す（同 7章） |
+| 人口密度データ | `WorldPop 2020` / `LandScan 2020` / `LandScan 2023` の3版を入力として確定し、算出も実装済み（2026-08-20）。解像度と解析スケールの関係も RQ2 の割当基準として整理済み。衛星＋公開GISデータの採用構成は `WorldPop 2020` | LandScan 2版との比較は旧世代のラン（[limited_analysis_legacy_20230707.md](../03_results/limited_analysis/limited_analysis_legacy_20230707.md) ラン8・9）のままであり、主採用の観測で測り直す（同 7章） |
 | 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある。衛星＋公開GISデータの採用構成は `VIIRS DNB 2023`（`NTL_MEAN`）を含む | 全解析スケールで実質的な内挿になるため、RQ2 には割り当てない |
 | 訓練・テスト分割 | Spatial CV の設計を決定済み（6.1.1節） | 付録の測量建物置き換えでも同一評価法を維持する |
-| 主軸2シナリオの分光指数の扱い | 衛星データのみは `NDVI`・`NDBI`・`NDWI` の3変数のまま、衛星＋公開GISデータの採用構成は水指数 `none`（`NDWI` を除外）で、揃っていない。共通評価セルで測った差は公開GISを加えた効果だけではない（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.6.5節） | 主軸の比較の前提として、衛星データのみでも水指数の構成比較を行うか、変数の定義をシナリオ間で揃えるかを判断する（[research_guide.md](../01_planning/research_guide.md) §7） |
-| 季節変動の扱い | 主採用と `2023-07-07` は雨季、`2024-11-30` は乾季。雨季の2観測の比較は実施済み（[limited_analysis_results.md](../03_results/limited_analysis_results.md) 8.5節） | 乾季の `2024-11-30` で分析し、季節による結果の違いを確かめる |
+| 主軸2シナリオの分光指数の扱い | **判断済み（2026-11-18）**。衛星データのみは `NDVI`・`NDBI`・`NDWI` の3変数、衛星＋公開GISデータの採用構成は水指数 `none`（`NDWI` を除外）のまま、主結果は採用構成どうしの比較とする。分光指数を揃えた比較（衛星＋公開GISデータを `ndwi` で実行）は感度分析として併記した。衛星データのみを2変数に揃える案は採らない（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.6.6節・[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節） | 感度分析は 30m のみで行った。90m・300m（RQ2）でも同じ構成の違いを含むが、30m の結果で主結果の解釈が変わらなかったため実施していない |
+| 季節変動の扱い | 主採用と `2023-07-07` は雨季、`2024-11-30` は乾季。雨季の2観測の比較は実施済み（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.5節） | 乾季の `2024-11-30` で分析し、季節による結果の違いを確かめる |
 
 ---
 

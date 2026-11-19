@@ -15,8 +15,11 @@ Bouckaert & Frank の想定（同じデータの分割し直し）とは異な�
 **シードは標本抽出と RF の `random_state` の両方に使う**（分析スクリプトの
 `--random-state` が両方を変えるのと揃える）。特徴量の処理（投入列・主成分化・
 分散0の列の除外）は Limited のスクリプトの関数をそのまま呼び、書き直さない。
-Limited の構成（変数セット・建物高さ・水指数・人口ソース）と RF の本数は、
-Limited のスクリプトの既定値（採用構成）を使う。
+Limited の構成（変数セット・建物高さ・人口ソース）と RF の本数は、Limited の
+スクリプトの既定値（採用構成）を使う。**水指数の構成だけは `--water-index` で
+切り替えられる**（分光指数を Satellite Only と揃えた感度分析のため。既定は採用構成）。
+採用構成以外の水指数で回した結果は、出力名に `_wi_{構成}` を付けて採用構成の結果と
+分ける（`resolve_output_suffix` 参照）。
 
 保存済みの評価セル（主シードの1本）と同じシードの標本は、内容ダイジェストが一致する
 ことを確かめる（共通集合の求め直しと抽出が保存時と同じであることの検査）。
@@ -94,6 +97,11 @@ REPEAT_WATCH_PATHS = (
 )
 # シードごとの完了印に記録する実行条件のキー。再開時にすべて一致したときだけ途中結果を使う。
 RUN_CONDITIONS_KEY = "run_conditions"
+# 出力名に水指数の接尾辞を付けない構成。`--water-index` を加える前の出力（採用構成 `none` で
+# 生成済み）の名前を保つための値であり、Limited の既定値とは独立に固定する。既定値を基準に
+# すると、既定を変えた瞬間に既存の出力と名前が入れ替わって上書きするためである
+# （`analysis_rq3_limited.resolve_output_stem` と同じ考え方）。
+UNSUFFIXED_WATER_INDEX_MODE = limited.WATER_INDEX_MODE_NONE
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -103,7 +111,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         argv: 引数リスト（`None` なら `sys.argv` を使う）。
     Returns:
         解析結果。`output_dir` は未指定なら評価セルと同じディレクトリの
-        `repeat_{CSV の stem}` にする。
+        `repeat_{CSV の stem}{水指数の接尾辞}` にする。
     """
     parser = argparse.ArgumentParser(
         description="共通評価セル集合から複数シードで標本を抽出し直し、Spatial CV を反復する"
@@ -122,6 +130,16 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         default=_LIMITED_DEFAULTS.rf_trees,
         help="RF の決定木本数（既定は分析スクリプトの既定値）",
     )
+    parser.add_argument(
+        "--water-index",
+        choices=limited.WATER_INDEX_MODES,
+        default=_LIMITED_DEFAULTS.water_index,
+        help=(
+            "Limited の分光指数ブロックの水指数の構成（分析スクリプトの --water-index と同じ）。"
+            f"既定は分析スクリプトの既定値（採用構成 {_LIMITED_DEFAULTS.water_index}）。"
+            f"{UNSUFFIXED_WATER_INDEX_MODE} 以外では出力名に _wi_{{構成}} を付ける。"
+        ),
+    )
     parser.add_argument("--output-dir", type=Path, default=None, help="途中結果の保存先")
     args = parser.parse_args(argv)
     if args.n_seeds < 2:
@@ -129,8 +147,31 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             f"--n-seeds は2以上にしてください（シード間の変動を求めるため）: {args.n_seeds}"
         )
     if args.output_dir is None:
-        args.output_dir = args.evaluation_cells.with_name(f"repeat_{args.evaluation_cells.stem}")
+        args.output_dir = args.evaluation_cells.with_name(
+            f"repeat_{args.evaluation_cells.stem}{resolve_output_suffix(args.water_index)}"
+        )
     return args
+
+
+def resolve_output_suffix(water_index_mode: str) -> str:
+    """水指数の構成から、出力名（結果・途中結果の保存先）の接尾辞を求める。
+
+    `UNSUFFIXED_WATER_INDEX_MODE`（採用構成 `none`）のときは付けず、それ以外は
+    `_wi_{構成}` を付ける。採用構成の既存の出力名を変えずに、感度分析の結果を
+    同じディレクトリへ上書きせずに置くためである。
+
+    Args:
+        water_index_mode: `limited.WATER_INDEX_MODES` のいずれか。
+    Returns:
+        接尾辞（付けない場合は空文字列）。
+    Raises:
+        ValueError: `water_index_mode` が対応外の場合。
+    """
+    if water_index_mode not in limited.WATER_INDEX_MODES:
+        raise ValueError(f"対応していない水指数の構成です: {water_index_mode}")
+    if water_index_mode == UNSUFFIXED_WATER_INDEX_MODE:
+        return ""
+    return f"_wi_{water_index_mode}"
 
 
 def resolve_seeds(first_seed: int, n_seeds: int) -> list[int]:
@@ -145,9 +186,15 @@ def resolve_seeds(first_seed: int, n_seeds: int) -> list[int]:
     return list(range(first_seed, first_seed + n_seeds))
 
 
-def resolve_limited_feature_columns() -> list[str]:
-    """Limited の採用構成（スクリプトの既定値）で投入する説明変数の列名を求める。
+def resolve_limited_feature_columns(
+    water_index_mode: str = _LIMITED_DEFAULTS.water_index,
+) -> list[str]:
+    """Limited で投入する説明変数の列名を求める。
 
+    水指数以外の軸（変数セット・人口ソース・建物高さ）はスクリプトの既定値（採用構成）を使う。
+
+    Args:
+        water_index_mode: 水指数の構成。既定は Limited のスクリプトの既定値（採用構成）。
     Returns:
         `limited.resolve_feature_columns` の戻り値。
     """
@@ -155,21 +202,24 @@ def resolve_limited_feature_columns() -> list[str]:
         _LIMITED_DEFAULTS.variable_set,
         _LIMITED_DEFAULTS.population_source,
         _LIMITED_DEFAULTS.building_height,
-        _LIMITED_DEFAULTS.water_index,
+        water_index_mode,
     )
 
 
 def prepare_limited_sample(
-    sampled: pd.DataFrame, feature_columns: Sequence[str]
+    sampled: pd.DataFrame,
+    feature_columns: Sequence[str],
+    water_index_mode: str = _LIMITED_DEFAULTS.water_index,
 ) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Limited の標本に、分析スクリプトと同じ特徴量の処理を施す。
 
-    主成分化（採用構成が主成分を使う場合）と分散0の列の除外を、Limited の
+    主成分化（構成が主成分を使う場合）と分散0の列の除外を、Limited の
     スクリプトの関数で行う（`main()` と同じ順序）。
 
     Args:
         sampled: 有効母集団から選んだ標本。
         feature_columns: 投入候補の列（`resolve_limited_feature_columns`）。
+        water_index_mode: 水指数の構成（`feature_columns` を求めたときと同じ値）。
     Returns:
         （処理後の標本, 投入した列, 除外した列）のタプル。
     Raises:
@@ -177,7 +227,7 @@ def prepare_limited_sample(
     """
     if _LIMITED_DEFAULTS.building_height == limited.BUILDING_HEIGHT_MODE_PC1:
         sampled, _ = limited.add_building_height_pc1(sampled)
-    if _LIMITED_DEFAULTS.water_index == limited.WATER_INDEX_MODE_PC1:
+    if water_index_mode == limited.WATER_INDEX_MODE_PC1:
         sampled, _ = limited.add_vegetation_water_pc1(sampled)
     kept, dropped = limited.drop_constant_features(sampled, feature_columns)
     if len(kept) < 2:
@@ -204,16 +254,20 @@ def seed_paths(output_dir: Path, seed: int) -> dict[str, Path]:
     }
 
 
-def build_limited_configuration() -> dict[str, Any]:
-    """Limited の採用構成（スクリプトの既定値）を、結果・実行条件に記録する形で返す。
+def build_limited_configuration(
+    water_index_mode: str = _LIMITED_DEFAULTS.water_index,
+) -> dict[str, Any]:
+    """Limited の構成を、結果・実行条件に記録する形で返す。
 
+    Args:
+        water_index_mode: 水指数の構成。既定は Limited のスクリプトの既定値（採用構成）。
     Returns:
         変数セット・建物高さ構成・水指数構成・人口ソースの辞書。
     """
     return {
         "variable_set": _LIMITED_DEFAULTS.variable_set,
         "building_height_mode": _LIMITED_DEFAULTS.building_height,
-        "water_index_mode": _LIMITED_DEFAULTS.water_index,
+        "water_index_mode": water_index_mode,
         "population_sources": list(_LIMITED_DEFAULTS.population_source),
     }
 
@@ -277,6 +331,7 @@ def build_run_conditions(
     limited_feature_columns: Sequence[str],
     code_digest: str | None,
     dataset_hashes: Mapping[str, str],
+    water_index_mode: str = _LIMITED_DEFAULTS.water_index,
 ) -> dict[str, Any]:
     """シードの途中結果を再利用してよいかを判定するための実行条件を組み立てる。
 
@@ -292,13 +347,14 @@ def build_run_conditions(
         limited_feature_columns: Limited の投入候補の列。
         code_digest: `compute_code_digest` の戻り値。
         dataset_hashes: `compute_dataset_hashes` の戻り値。
+        water_index_mode: Limited の水指数の構成。
     Returns:
         実行条件の辞書（JSON に保存できる値のみ）。
     """
     return {
         "rf_trees": int(rf_trees),
         "cv_splits": int(cv_splits),
-        "limited_configuration": build_limited_configuration(),
+        "limited_configuration": build_limited_configuration(water_index_mode),
         "limited_feature_columns": list(limited_feature_columns),
         "satellite_only_features": list(satellite_only.FEATURE_COLUMNS),
         "code_digest": code_digest,
@@ -365,6 +421,7 @@ def run_seed(
     limited_feature_columns: Sequence[str],
     cv_splits: int,
     rf_trees: int,
+    water_index_mode: str = _LIMITED_DEFAULTS.water_index,
 ) -> dict[str, Any]:
     """1つのシードについて、両シナリオの Spatial CV を同じ標本・同じ fold で回す。
 
@@ -375,6 +432,7 @@ def run_seed(
         limited_feature_columns: Limited の投入候補の列。
         cv_splits: 分割数。
         rf_trees: RF の決定木本数。
+        water_index_mode: Limited の水指数の構成（`limited_feature_columns` と同じ値）。
     Returns:
         `satellite_only`・`limited` の fold 別指標と、投入列・除外列の辞書。
     """
@@ -394,7 +452,9 @@ def run_seed(
         folds=folds,
     )
     limited_sample, kept, dropped = prepare_limited_sample(
-        select_evaluation_rows(populations["limited"], cells), limited_feature_columns
+        select_evaluation_rows(populations["limited"], cells),
+        limited_feature_columns,
+        water_index_mode,
     )
     _, limited_folds = run_spatial_cv_models(
         limited_sample,
@@ -536,7 +596,8 @@ def main(argv: list[str] | None = None) -> None:
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     seeds = resolve_seeds(args.first_seed, args.n_seeds)
-    limited_feature_columns = resolve_limited_feature_columns()
+    limited_feature_columns = resolve_limited_feature_columns(args.water_index)
+    print(f"Limited の水指数の構成: {args.water_index}（投入候補: {limited_feature_columns}）")
     print("途中結果の再利用判定のため、コードと両データセットのハッシュを求めます。")
     dataset_paths = resolve_dataset_paths(metadata)
     dataset_hashes = compute_dataset_hashes(metadata)
@@ -546,6 +607,7 @@ def main(argv: list[str] | None = None) -> None:
         limited_feature_columns,
         compute_code_digest(),
         dataset_hashes,
+        args.water_index,
     )
 
     common_cell_ids, populations = build_populations(evaluation_set)
@@ -580,6 +642,7 @@ def main(argv: list[str] | None = None) -> None:
                 limited_feature_columns,
                 metadata["cv_splits"],
                 args.rf_trees,
+                args.water_index,
             )
             paths = seed_paths(output_dir, seed)
             outcome["satellite_only"].to_csv(paths["satellite_only"], index=False)
@@ -615,7 +678,7 @@ def main(argv: list[str] | None = None) -> None:
 
     fold_table = pd.concat(fold_frames, ignore_index=True)
     differences = pd.concat(difference_frames, ignore_index=True)
-    stem = cells_path.stem
+    stem = f"{cells_path.stem}{resolve_output_suffix(args.water_index)}"
     folds_csv = cells_path.with_name(f"repeated_comparison_{stem}_folds.csv")
     differences_csv = cells_path.with_name(f"repeated_comparison_{stem}_differences.csv")
     fold_table.to_csv(folds_csv, index=False)
@@ -634,7 +697,7 @@ def main(argv: list[str] | None = None) -> None:
         "cv_splits": metadata["cv_splits"],
         "sample_size": metadata["sample_size"],
         "rf_trees": args.rf_trees,
-        "limited_configuration": build_limited_configuration(),
+        "limited_configuration": build_limited_configuration(args.water_index),
         "satellite_only_features": list(satellite_only.FEATURE_COLUMNS),
         "seed_records": seed_records,
         "seed_variation": summarize_seed_variation(fold_table),

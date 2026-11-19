@@ -17,7 +17,7 @@
 | [satellite_only_analysis_results.md](satellite_only_analysis_results.md)（旧ピクセル経路・3観測日） | 集計単位（Landsatピクセル 対 正準グリッドのセル）・格子・観測日数・Spatial CV の定義。格子が一致しないため、セル単位の対応づけによる差分評価もできない（[calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節） |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md)（同一経路・観測032329） | 観測。処理条件は同一だが母数が異なり、そこから抽出される10万件も別物である |
 
-[衛星＋公開GISデータ](limited_analysis_results.md) とは観測・格子・経路・ブロック定義が一致する。**主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した**（衛星＋公開GISデータ側8.6節）。分光指数の扱いはシナリオ間で異なるが、主結果は採用構成どうしの比較とし、分光指数を揃えた比較を感度分析として併記した（衛星＋公開GISデータ側8.6.6節）。032305 の比較は母数も揃っていない参考比較にとどまる（衛星＋公開GISデータ側6.7節）。シナリオ間比較の数値は衛星＋公開GISデータ側を正本とし、本ドキュメントに重複させない。
+[衛星＋公開GISデータ](limited_analysis_results.md) とは観測・格子・経路・ブロック定義が一致する。**主採用の観測 032358 では、両シナリオに共通する評価セルと fold で比較した**（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md)8.6節）。分光指数の扱いはシナリオ間で異なるが、主結果は採用構成どうしの比較とし、分光指数を揃えた比較を感度分析として併記した（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md)8.6.6節）。032305 の比較は母数も揃っていない参考比較にとどまる（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_multicollinearity.md)6.7節）。シナリオ間比較の数値は衛星＋公開GISデータ側を正本とし、本ドキュメントに重複させない。
 
 ---
 
@@ -289,7 +289,7 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 - **処理条件**: 3.2〜3.4節と同じである（`IN_ANALYSIS_AREA == 1`・`LST_VALID_RATIO >= 0.5`・10万件・乱数シード42・RF 300本・ブロック 2,700m・5分割）。3.4節の注記と異なり、本章のランでは乱数シード・木の本数を含む実行パラメータが `results.json` の `run_parameters` に記録されている
 - **来歴**: `results.json` の `provenance.git.dirty` は `false` である。生成後に共通評価セルの機能（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節）を加えて共通モジュールと分析スクリプトを変えたため、陳腐化チェック（`scripts/check_result_staleness.py`）では「要再実行（コード変更）」と判定される。ただし、引数を指定しない場合の挙動は変えておらず、再実行はしていない。既定の引数での再実行（出力先だけを一時ディレクトリに変えたもの）で、標本の `cell_id` と Spatial CV の fold 別指標・ランダム分割の指標が本章の結果と完全に一致することを確かめた
 
-生成コマンド（データセットは `.gitignore` 対象・再生成可能。指標・LST テーブルの生成は衛星＋公開GISデータ側 8.1節と共通）:
+生成コマンド（データセットは `.gitignore` 対象・再生成可能。指標・LST テーブルの生成は[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.1節と共通）:
 
 ```bash
 python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario satellite_only --tables idx_20220906_032358 lst_20220906_032358 --name satellite_only_20220906_032358
@@ -320,7 +320,7 @@ python -m src.analysis.analysis_rq3_satellite_only --dataset-path data/output/da
 
 - 非空ブロック数（10万件サンプル後）は 509 である
 - ランダム分割から Spatial CV への低下は RF −0.007・線形 −0.003 と小さい。**4.2節と同じく、この小ささを空間自己相関による過大評価が無い根拠として読まない。** Spatial CV の値は同一ROI内・空間的に近い場所への内挿性能として読む
-- fold 別の R² は RF で 0.729〜0.773 である。fold間sd は標本で大きく動くため（衛星＋公開GISデータ側 2.1節）、032305 との差としては読まない
+- fold 別の R² は RF で 0.729〜0.773 である。fold間sd は標本で大きく動くため（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_legacy_20230707.md) 2.1節）、032305 との差としては読まない
 
 ### 7.4 変数重要度
 
@@ -339,7 +339,7 @@ python -m src.analysis.analysis_rq3_satellite_only --dataset-path data/output/da
 
 **比較相手の妥当性**:
 
-- 比較相手は `mask_survey` を追加で結合したデータセットによるが、本章は結合しないデータセットによる。衛星＋公開GISデータでは、同じ結合をした全域ランと結合しないラン13 の結果が完全に一致した（衛星＋公開GISデータ側 8.5節）。全域（`--analysis-area roi`）では `mask_survey` の結合は結果を変えないため、新世代の全域ランとして比べてよい
+- 比較相手は `mask_survey` を追加で結合したデータセットによるが、本章は結合しないデータセットによる。衛星＋公開GISデータでは、同じ結合をした全域ランと結合しないラン13 の結果が完全に一致した（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.5節）。全域（`--analysis-area roi`）では `mask_survey` の結合は結果を変えないため、新世代の全域ランとして比べてよい
 - 比較相手は陳腐化チェックで「要再実行（コード変更）」と判定される。生成はクリーンなコミットで行われており、生成後に変わったのは、結果ファイルの保存と来歴の記録を担う `src/common/summary.py` と、`src/analysis/analysis_rq3_satellite_only.py` の既定の入力・出力先の定数（主採用の観測への切り替え）だけである。いずれも引数を明示した実行の数値の計算には関わらないため、比較相手として使う
 
 **比べる量と比べない量**: LST の絶対値と RMSE・MAE（°C）は比べない（[observation_selection.md](../02_methods/observation_selection.md) 8.5節）。R²、RMSE を各観測の LST の標準偏差で割った値、変数重要度の順位を比べる。**SHAP 平均絶対値は LST と同じ単位（°C）を持つため、値の大きさを比べるときは各観測の LST の標準偏差で割る。**
@@ -356,10 +356,10 @@ python -m src.analysis.analysis_rq3_satellite_only --dataset-path data/output/da
 | SHAP の順位 | `NDBI` 1.394・`NDWI` 0.346・`NDVI` 0.298 | `NDBI` 1.021・`NDVI` 0.490・`NDWI` 0.437 | 第2・3位が入れ替わり |
 | Permutation の順位 | `NDBI`・`NDWI`・`NDVI` | 同じ順位 | 順位は不変 |
 
-差の読み方は衛星＋公開GISデータ側 8.5節と同じ物差し（R² の標本変動 0.003程度・SHAP の変動 0.1程度、LST の標準偏差で割って 0.04程度。母集団が異なるため下限として扱う）による。この物差しは衛星＋公開GISデータ（15変数）で測ったものであり、説明変数が3つの本シナリオへ当てはめるのは外挿である。
+差の読み方は[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.5節と同じ物差し（R² の標本変動 0.003程度・SHAP の変動 0.1程度、LST の標準偏差で割って 0.04程度。母集団が異なるため下限として扱う）による。この物差しは衛星＋公開GISデータ（15変数）で測ったものであり、説明変数が3つの本シナリオへ当てはめるのは外挿である。
 
 - **R² の差（+0.11〜+0.20）は標本変動をはるかに超える。** 上がり幅は衛星＋公開GISデータ（+0.06〜+0.12）より大きく、とくに線形モデルで大きい
 - **NDBI の首位は、どの指標でも、どちらの観測でも変わらない。** 1つの指標の選び方や観測の選び方に依存しない
-- **第2・3位（`NDVI` と `NDWI`）の順位は読まない。** SHAP では入れ替わったが、両者の差を各観測の LST の標準偏差で割ると 032358 で 0.018、032305 で 0.021 であり、SHAP の変動幅（衛星＋公開GISデータ側 8.5節と同じく、標準偏差で割って 0.04程度）より小さい。Permutation・RF Importance ではどちらの観測でも `NDWI` が第2位である。両者は VIF が危険水準を超える共線な組でもある（7.4節）
+- **第2・3位（`NDVI` と `NDWI`）の順位は読まない。** SHAP では入れ替わったが、両者の差を各観測の LST の標準偏差で割ると 032358 で 0.018、032305 で 0.021 であり、SHAP の変動幅（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.5節と同じく、標準偏差で割って 0.04程度）より小さい。Permutation・RF Importance ではどちらの観測でも `NDWI` が第2位である。両者は VIF が危険水準を超える共線な組でもある（7.4節）
 
-**R² が上がった理由は切り分けていない。** 衛星＋公開GISデータ側 8.5節と同じく、母集団の違い（最終母数 +174,612セル・脱落が集中していたブロックの解消）と観測条件の違い（都心と郊外の LST 差が大きい観測）が重なっている。**「主採用の観測では R² が高い」ことを手法の性能の向上として読まない。** 衛星データのみは説明変数が分光指数のみで、`NDVI` と LST の算出式の上の依存（6章「LST の放射率と NDVI の依存」）の影響を最も強く受けるシナリオであることにも留意する。
+**R² が上がった理由は切り分けていない。** [衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.5節と同じく、母集団の違い（最終母数 +174,612セル・脱落が集中していたブロックの解消）と観測条件の違い（都心と郊外の LST 差が大きい観測）が重なっている。**「主採用の観測では R² が高い」ことを手法の性能の向上として読まない。** 衛星データのみは説明変数が分光指数のみで、`NDVI` と LST の算出式の上の依存（6章「LST の放射率と NDVI の依存」）の影響を最も強く受けるシナリオであることにも留意する。

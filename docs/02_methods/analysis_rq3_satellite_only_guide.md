@@ -1,6 +1,6 @@
 # analysis_rq3_satellite_only.py 解説書（統計初心者向け）
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md), [limited_analysis_results.md](../03_results/limited_analysis_results.md), [survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md), [calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節  
 **前提知識**: RQ3の目的（衛星データのみの構成に公開GISデータを加えたときの説明力と寄与順位の変化を評価する。本ガイドはその基準線となる衛星データのみのシナリオを扱う）
 

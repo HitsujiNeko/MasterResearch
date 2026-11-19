@@ -1,6 +1,6 @@
 # S12: Dormann et al. (2013)
 
-**最終更新**: 2026-10-08  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [previous_studies_report.md](../previous_studies_report.md), [limited_analysis_results.md](../../03_results/limited_analysis_results.md), [literature_management_guide.md](../literature_management_guide.md)  
 **前提知識**: 多重共線性、VIF・条件数、一般化線形モデル（GLM）、ランダムフォレスト・ブースティング回帰木、リッジ回帰・LASSO  
 **分析者**: PDF全文精読（原本: `04_pdfs/S12_Dormann_2013.pdf`、20ページ）

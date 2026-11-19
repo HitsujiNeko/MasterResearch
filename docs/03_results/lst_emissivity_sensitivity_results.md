@@ -1,6 +1,6 @@
 # LST 算出の放射率が NDVI に依存することの感度分析 結果
 
-**最終更新**: 2026-11-13  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節・[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md) 7章, [gee_calc_LST.md](../02_methods/gee_calc_LST.md) 5.2節・8.3節, [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ1（どの説明変数が LST に対して支配的か）。RQ3 の2シナリオの結果を材料に用いる  
 **前提知識**: SMW 法による LST の算出（[gee_calc_LST.md](../02_methods/gee_calc_LST.md)）、共通評価セル・補正 t 区間（[analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節）

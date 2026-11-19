@@ -1,6 +1,6 @@
 # Spatial CV のブロック設計 分析結果
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [limited_analysis_results.md](limited_analysis_results.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: Spatial CV（空間ブロックで学習側と評価側を分ける交差検証）、[limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節の旧測定  
 **対象RQ**: RQ1〜RQ3 に共通の評価手法

@@ -1,6 +1,6 @@
 # Limited シナリオ 分析結果（観測 20230707_032329・アーカイブ）
 
-**最終更新**: 2026-09-02  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [limited_analysis_results.md](../03_results/limited_analysis_results.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 

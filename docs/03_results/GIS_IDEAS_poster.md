@@ -1,6 +1,6 @@
 # GIS-IDEAS ポスター原稿（Limited シナリオ・日英対訳）
 
-**最終更新**: 2026-10-22  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [fig4_limited_workflow_poster.mmd](fig4_limited_workflow_poster.mmd), [fig3_limited_workflow.mmd](fig3_limited_workflow.mmd), [observation_selection.md](../02_methods/observation_selection.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: RQ3（データ制約下での有効性評価）の位置づけ、Limited シナリオの分析条件、Spatial CV の読み方
 

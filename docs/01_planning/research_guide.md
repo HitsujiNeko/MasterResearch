@@ -1,6 +1,6 @@
 # 研究計画書
 
-**最終更新**: 2026-11-18  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [urban_structure_parameters.md](urban_structure_parameters.md), [available_gis_data.md](available_gis_data.md), [previous_studies_report.md](../04_archive/previous_studies_report.md), [CLAUDE.md](../../CLAUDE.md)  
 **前提知識**: LST・ROI・データシナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義（[CLAUDE.md](../../CLAUDE.md) 最小用語集）
 

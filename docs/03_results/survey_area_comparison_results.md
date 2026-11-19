@@ -1,6 +1,6 @@
 # ハノイ都心部（測量GIS範囲）と全域の分析結果の比較（衛星データのみ・衛星＋公開GISデータ）
 
-**最終更新**: 2026-11-18  
+**最終更新**: 2026-11-19  
 **関連ドキュメント**: [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8章, [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [analysis_workflow.md](../02_methods/analysis_workflow.md) 5.3.3節, [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.6節, [calc_urban_params_cli_verification.md](../02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 11.8節, [observation_selection.md](../02_methods/observation_selection.md) 7.6節・8章・9.1節, [rq2_scale_area_results.md](rq2_scale_area_results.md), [research_guide.md](../01_planning/research_guide.md)  
 **前提知識**: 衛星データのみ・衛星＋公開GISデータの処理条件（両結果ドキュメントの3節）、Spatial CV のブロック定義、共通評価セルと補正 t 区間（analysis_workflow.md 5.3.3節）  
 **対象RQ**: RQ2（解析範囲による関係の変化）・RQ3（データ制約下での有効性評価）

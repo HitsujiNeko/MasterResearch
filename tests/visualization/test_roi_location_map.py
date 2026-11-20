@@ -14,6 +14,7 @@ import pytest
 from shapely.geometry import box
 
 from src.common.config import HANOI_UTM_CRS
+from src.visualization import roi_location_map
 from src.visualization.roi_location_map import (
     BOUNDARY_ATTRIBUTION,
     CREDIT_MAX_LINE_CHARS,
@@ -397,3 +398,51 @@ def test_draw_overlay_stations_draws_points_bands_and_labels(overlay_axes) -> No
     # 中心点 1 + 観測所 2 の記号
     assert len(overlay_axes.lines) == 1 + len(HANOI_STATIONS_OVERLAY.stations)
     assert overlay_axes.collections  # 距離帯の面と線
+
+
+@pytest.fixture
+def captured_build(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """``build_roi_location_map`` を差し替え、CLI が渡した引数を記録する（描画・通信をしない）。"""
+    calls: dict = {}
+
+    def fake_build(**kwargs):
+        calls.update(kwargs)
+        return kwargs["output_path"]
+
+    monkeypatch.setattr(roi_location_map, "build_roi_location_map", fake_build)
+    return calls
+
+
+def test_main_without_overlay_passes_none(tmp_path, captured_build) -> None:
+    """``--overlay`` を付けなければ、従来どおり重ね描きなしで描く。"""
+    assert roi_location_map.main(["--output", str(tmp_path / "a.png")]) == 0
+    assert captured_build["overlay"] is None
+
+
+def test_main_selects_overlay_preset(tmp_path, captured_build) -> None:
+    """``--overlay stations`` は観測所と距離帯の既定値を渡す。"""
+    roi_location_map.main(["--output", str(tmp_path / "a.png"), "--overlay", "stations"])
+    assert captured_build["overlay"] == HANOI_STATIONS_OVERLAY
+
+
+def test_main_replaces_survey_extent_path(tmp_path, captured_build) -> None:
+    """``--overlay survey`` と ``--survey-extent`` を併せると、有効域のパスだけを差し替える。"""
+    extent = tmp_path / "extent.gpkg"
+    roi_location_map.main(
+        ["--output", str(tmp_path / "a.png"), "--overlay", "survey", "--survey-extent", str(extent)]
+    )
+    assert captured_build["overlay"].survey_extent_path == extent
+    assert captured_build["overlay"].stations == ()
+
+
+@pytest.mark.parametrize("overlay_args", [[], ["--overlay", "stations"]])
+def test_main_rejects_survey_extent_without_survey_overlay(
+    tmp_path, captured_build, overlay_args: list[str]
+) -> None:
+    """有効域を重ねない指定で ``--survey-extent`` を渡すと、引数の誤りとして止める。"""
+    with pytest.raises(SystemExit) as excinfo:
+        roi_location_map.main(
+            ["--output", str(tmp_path / "a.png"), *overlay_args, "--survey-extent", "x.gpkg"]
+        )
+    assert excinfo.value.code == 2
+    assert not captured_build

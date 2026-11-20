@@ -887,11 +887,15 @@ def build_roi_location_map(
         保存した PNG のパス。
 
     Raises:
-        FileNotFoundError: 入力ベクタが存在しないとき。
+        FileNotFoundError: 入力ベクタ（重ねる測量 GIS の有効域を含む）が存在しないとき。
         KeyError: ``provider_name`` が未定義のとき。
-        ValueError: 出力幅・解像度が正でないとき。
+        ValueError: 出力幅・解像度が正でないとき、重ねる測量 GIS の有効域に座標系が無いとき。
     """
-    for path in (roi_path, country_path):
+    # 測量 GIS の有効域も、ネットワークからタイルを取得する前に有無を確かめる
+    input_paths = [roi_path, country_path]
+    if overlay is not None and overlay.survey_extent_path is not None:
+        input_paths.append(overlay.survey_extent_path)
+    for path in input_paths:
         if not path.exists():
             raise FileNotFoundError(f"入力ファイルが見つかりません: {path}")
     if provider_name not in xyz_tiles.PROVIDERS:

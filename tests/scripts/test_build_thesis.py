@@ -356,7 +356,6 @@ class TestMain:
         assert "打ち切りました" in capsys.readouterr().err
 
 
-@requires_pandoc
 class TestAddSpaceAfterTables:
     """表の直後の本文段落に空きを入れる後処理のテスト（pandoc 不要）。"""
 
@@ -434,6 +433,7 @@ class TestAddSpaceAfterTables:
             target.add_space_after_tables_in_docx(tmp_path / "missing.docx")
 
 
+@requires_pandoc
 class TestBuildWithPandoc:
     """pandoc と pandoc-crossref による実際の docx 生成のテスト。"""
 

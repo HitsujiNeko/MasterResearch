@@ -397,10 +397,14 @@ def add_space_after_tables_in_docx(docx: Path, before_lines: int = SPACE_AFTER_T
     )
     contents["word/document.xml"] = updated.encode("utf-8")
     temporary = docx.with_name(docx.name + ".tmp")
-    with zipfile.ZipFile(temporary, "w") as archive:
-        for info in infos:
-            archive.writestr(info, contents[info.filename])
-    temporary.replace(docx)
+    try:
+        with zipfile.ZipFile(temporary, "w") as archive:
+            for info in infos:
+                archive.writestr(info, contents[info.filename])
+        temporary.replace(docx)
+    finally:
+        # 書き出しや置き換えに失敗した場合に、一時ファイルを残さない
+        temporary.unlink(missing_ok=True)
     return count
 
 

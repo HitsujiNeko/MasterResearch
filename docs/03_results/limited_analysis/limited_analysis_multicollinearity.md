@@ -1,6 +1,6 @@
 # 衛星＋公開GISデータのシナリオ 分析結果：多重共線性と解釈上の注意
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-20  
 **関連ドキュメント**: [limited_analysis_results.md](../limited_analysis_results.md)（ハブ・索引）, [limited_analysis_main_20220906.md](limited_analysis_main_20220906.md), [limited_analysis_legacy_20230707.md](limited_analysis_legacy_20230707.md), [limited_analysis_processing.md](limited_analysis_processing.md), [analysis_workflow.md](../../02_methods/analysis_workflow.md), [research_guide.md](../../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](../satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](../survey_area_comparison_results.md), [spatial_cv_design_results.md](../spatial_cv_design_results.md), [observation_selection.md](../../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](../lst_emissivity_sensitivity_results.md)  
 **前提知識**: [limited_analysis_results.md](../limited_analysis_results.md) 1章（位置づけ・数値の正本・現行の定義・データセットの世代）、[limited_analysis_legacy_20230707.md](limited_analysis_legacy_20230707.md) 2章（台帳のラン番号）、[limited_analysis_processing.md](limited_analysis_processing.md) 3.9節（モデル前提の精査）  
 **対象RQ**: RQ3（データ制約下での有効性評価）
@@ -229,7 +229,7 @@ RF の不純度ベース重要度（括弧内は順位。首位はいずれの�
 | `MNDWI` を `NDVI`・`NDBI` で線形回帰した R² | 0.968（VIF 換算 31.2） |
 | `NDWI` を `NDVI`・`NDBI` で線形回帰した R² | 0.960（VIF 換算 24.9） |
 
-**セル平均でも恒等式はほぼ厳密に成り立ち**、ラン15 の VIF（`MNDWI` 34.53）は定義から予想される水準である。ラン12 で `NDWI` を外すと失われる成分（6.5.2節の R² の低下を担う成分）も、この恒等式からは「緑/赤の比」と読める。**水域そのものの信号ではない**点が、採否の判断に効いた（6.5.6節）。
+**セル平均でも恒等式はほぼ厳密に成り立ち**、ラン15 の VIF（`MNDWI` 34.53）は定義から予想される水準である。ラン12 で `NDWI` を外すと失われる成分（6.5.2節の R² の低下を担う成分）も、この恒等式からは「緑/赤の比」として表せる。ただし、恒等式が示すのはこの成分を緑/赤の比として書けることまでであり、**その成分が水域の情報を含まないことは示さない（未検証）**。採否の判断（6.5.6節）では、この成分を水域そのものの信号ではないと読んだ。
 
 #### 6.5.5 事前に決めた採用基準との照合
 
@@ -255,7 +255,7 @@ RF の不純度ベース重要度（括弧内は順位。首位はいずれの�
 
 **採用は `none`（`NDWI` を除外）とし、`--water-index` の既定値とした**（研究者判断）。事前の手順から外れたため、根拠を記録する。
 
-1. **基準3の前提が成り立たなかった。** 基準3は「`NDWI` を外すと水域の情報が失われる」ことを懸念していた。しかし6.5.4節の恒等式と実測から、`NDWI` が `NDVI`・`NDBI` と重ならない成分は「緑/赤の比」であり、水域そのものの信号ではない。水域の情報は `LULC_WATER_COV` が別の列として担っており、共線性を解消した構成で冷却側の線形効果を担うのもこの列である（6.5.3節）
+1. **基準3の前提が成り立たないと判断した。** 基準3は「`NDWI` を外すと水域の情報が失われる」ことを懸念していた。しかし6.5.4節の恒等式と実測から、`NDWI` が `NDVI`・`NDBI` と重ならない成分は「緑/赤の比」として表せ、水域そのものの信号ではないと判断した（**この成分が水域の情報を含まないことは未検証である**。6.5.4節）。水域の情報は `LULC_WATER_COV` が別の列として担っており、共線性を解消した構成で冷却側の線形効果を担うのもこの列である（6.5.3節）
 2. **基準2の物差しには文献上の裏づけが無い。** 0.003 は本研究で実測した標本変動であり、許容幅を示す文献は見つからなかった。低下は fold 間で一貫しており偶然ではないが、大きさは 0.004〜0.012 で、SHAP 上位4変数の順位も変わらない
 3. **研究の目的（RQ1: どの変数が支配的か）に照らすと `ndwi` の弱点のほうが重い。** `ndwi` では `NDVI`・`NDWI` の標準化係数が共線性のアーティファクトになっており（6.5.3節）、相関した変数どうしでは RF の重要度が分け合われ（S16。6.5.7節）、本研究でも `ndwi` 構成で `NDVI`・`NDWI` の RF 重要度と SHAP が分け合われていた（6.5.2節）。`NDVI` と `NDWI` の寄与を個別に読めないことは、RQ1 で知りたいことそのものを損なう
 4. **事前の除外は、共線性への対処法を扱う方法論の文献（S12・S13）が推奨する扱いの一つである**（6.5.7節）。ただし LST 研究での扱いは一定しておらず、両方を残した例（S6・S15）も、同じモデルに入れなかった例（S14）もある

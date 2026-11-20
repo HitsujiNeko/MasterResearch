@@ -461,11 +461,11 @@
   ],
   "provenance": {
     "script": "src.analysis.compare_water_index_variants",
-    "executed_at": "2026-11-20T01:57:16.130489+00:00",
+    "executed_at": "2026-11-20T06:37:52.825524+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "50f9d59368934ff33a1c310063e18681f54f77d5",
+      "commit": "b6521b8021d4277e6fb44891e705dc2021468b7f",
       "dirty": false
     },
     "code": {
@@ -483,7 +483,7 @@
         },
         {
           "path": "src/analysis/compare_water_index_variants.py",
-          "sha256": "8af15cf7fa2a42c7e70fcbfa240b1a8ea9fd4a51de8258683b0921365e489082"
+          "sha256": "ce8dc2e93168e8ebbf15bb9153ed27878795f23e4a9f6cd0e9432ac1ebfe544e"
         },
         {
           "path": "src/analysis/repeat_common_evaluation.py",

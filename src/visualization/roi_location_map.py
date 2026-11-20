@@ -17,12 +17,23 @@
 CLI として実行できる::
 
     python -m src.visualization.roi_location_map --output presentations/ROI.png
+
+``--overlay`` を付けると、修士論文の図として ROI の上に要素を重ねて描く。
+``survey`` は測量 GIS の有効域（都心部）、``stations`` は気温の観測所と、観測の選定に
+用いた都心と郊外の距離帯（ホアンキエム湖からの距離）を重ねる::
+
+    python -m src.visualization.roi_location_map --overlay survey \\
+        --output thesis/figures/roi_survey_map.png --width-mm 150 --dpi 300
+    python -m src.visualization.roi_location_map --overlay stations \\
+        --output thesis/figures/stations_map.png --width-mm 150 --dpi 300
 """
 
 from __future__ import annotations
 
 import argparse
 import math
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import geopandas as gpd
@@ -31,8 +42,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import patheffects
 from matplotlib.lines import Line2D
-from matplotlib.patches import PathPatch, Rectangle
+from matplotlib.patches import Patch, PathPatch, Rectangle
 from matplotlib.path import Path as MplPath
+from pyproj import CRS
 from shapely.geometry import box
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
@@ -100,6 +112,250 @@ _CREDIT_FONT_RATIO = 0.90
 # 表記帯の幅の 76.8% を占めた（1 字あたり約 1.35%）。帯の幅の 95% を上限とみなすと
 # 70 字となる。これを超える出典表記のプロバイダを追加すると、行が帯からはみ出す。
 CREDIT_MAX_LINE_CHARS = 70
+
+# 研究対象地域の図で重ねる要素の配色。ROI（緑）と区別できる色を選ぶ。
+SURVEY_EXTENT_COLOR = "#2b83ba"
+BAND_COLOR = "#e66101"
+STATION_COLOR = "#b2182b"
+
+# 重ね描きの凡例 1 項目あたりに足す凡例パネルの高さと、右カラムの最小幅（mm）。
+# 凡例の文言は 2 行に分けるものがあるため、1 項目を 2 行分として見積もる。
+_OVERLAY_LEGEND_ROW_MM = 5.5
+_OVERLAY_RIGHT_COLUMN_MIN_MM = 36.0
+
+# 測量 GIS の有効域（都心部）の既定パス。
+DEFAULT_SURVEY_EXTENT_PATH = PROJECT_ROOT / "data" / "gis" / "survey" / "hanoi_survey_extent.gpkg"
+
+
+@dataclass(frozen=True)
+class MapPoint:
+    """図に記号と名前を描く地点。
+
+    Attributes:
+        label: 図に描く名前。
+        lon: 経度（度、WGS84）。
+        lat: 緯度（度、WGS84）。
+    """
+
+    label: str
+    lon: float
+    lat: float
+
+
+@dataclass(frozen=True)
+class StudyAreaOverlay:
+    """研究対象地域の図で、ROI の上に重ねる要素の定義。
+
+    各要素は省略でき、指定したものだけを描く。
+
+    Attributes:
+        survey_extent_path: 測量 GIS の有効域（都心部）のベクタファイル。``None`` で描かない。
+        stations: 気温の観測所。
+        center: 距離帯の中心点。``None`` で描かない。
+        bands_km: 中心からの距離帯（内径 km, 外径 km）の並び。内径 0 は円板を表す。
+
+    Raises:
+        ValueError: 重ねる要素が 1 つもないとき、距離帯があるのに中心点がないとき。
+    """
+
+    survey_extent_path: Path | None = None
+    stations: tuple[MapPoint, ...] = ()
+    center: MapPoint | None = None
+    bands_km: tuple[tuple[float, float], ...] = ()
+
+    def __post_init__(self) -> None:
+        """要素の組み合わせを検査する。"""
+        if self.survey_extent_path is None and not self.stations and self.center is None:
+            raise ValueError("重ねる要素が 1 つも指定されていません。")
+        if self.bands_km and self.center is None:
+            raise ValueError("距離帯を描くには中心点が必要です。")
+
+
+# ハノイの研究対象地域の図の既定値（CLI の ``--overlay`` で選ぶ）。
+# survey: 測量 GIS の有効域（都心部）。
+# stations: 観測所と距離帯。観測所の座標は NOAA ISD の観測所一覧（isd-history.csv）の値で、
+# docs/03_results/observation_air_temperature_comparison.md 2章を正本とする。
+# 中心点（ホアンキエム湖）と距離帯（都心 0〜5 km・郊外 15〜25 km）は、観測の選定で
+# 都心と郊外の LST 差を求めた定義であり、
+# docs/02_methods/observation_selection.md 8.2節を正本とする。
+HANOI_SURVEY_OVERLAY = StudyAreaOverlay(survey_extent_path=DEFAULT_SURVEY_EXTENT_PATH)
+HANOI_STATIONS_OVERLAY = StudyAreaOverlay(
+    stations=(
+        MapPoint("Noi Bai", lon=105.807, lat=21.221),
+        MapPoint("Ha Dong", lon=105.767, lat=20.967),
+    ),
+    center=MapPoint("Hoan Kiem Lake", lon=105.852, lat=21.028),
+    bands_km=((0.0, 5.0), (15.0, 25.0)),
+)
+OVERLAY_PRESETS = {"survey": HANOI_SURVEY_OVERLAY, "stations": HANOI_STATIONS_OVERLAY}
+
+# 重ね描きの凡例の固定の文言。右カラムに収めるため 2 行に分ける。中心点と距離帯の文言は
+# 設定（中心点の名前・距離帯）から作る（:func:`overlay_legend_labels`）
+OVERLAY_LEGEND_LABELS = {
+    "survey": "Survey GIS extent\n(city centre)",
+    "stations": "Weather station\n(ISD)",
+}
+
+
+def bands_legend_label(bands_km: Sequence[tuple[float, float]], center_label: str) -> str:
+    """距離帯の凡例の文言を、距離帯と中心点の名前から作る。
+
+    例: ``((0, 5), (15, 25))`` と ``"Hoan Kiem Lake"`` から
+    ``"0–5 km and 15–25 km\\nfrom Hoan Kiem Lake"``。
+
+    Args:
+        bands_km: （内径 km, 外径 km）の並び。
+        center_label: 中心点の名前。
+
+    Returns:
+        凡例の文言（距離帯と中心点の間で改行する）。
+
+    Raises:
+        ValueError: 距離帯が空のとき。
+    """
+    if not bands_km:
+        raise ValueError("距離帯が指定されていません。")
+    ranges = [f"{inner:g}–{outer:g} km" for inner, outer in bands_km]
+    joined = ranges[0] if len(ranges) == 1 else ", ".join(ranges[:-1]) + " and " + ranges[-1]
+    return f"{joined}\nfrom {center_label}"
+
+
+def overlay_legend_labels(overlay: StudyAreaOverlay) -> list[str]:
+    """重ね描きの凡例の文言を、:func:`overlay_legend_keys` の順に返す。
+
+    中心点は設定の名前を、距離帯は設定の距離帯から作った文言を使う（中心点や距離帯を
+    変えたときに、凡例だけが既定値のまま残らないようにするため）。
+
+    Args:
+        overlay: 重ねる要素の定義。
+
+    Returns:
+        凡例の文言の並び。
+    """
+    labels = []
+    for key in overlay_legend_keys(overlay):
+        if key == "center" and overlay.center is not None:
+            labels.append(overlay.center.label)
+        elif key == "bands" and overlay.center is not None:
+            labels.append(bands_legend_label(overlay.bands_km, overlay.center.label))
+        else:
+            labels.append(OVERLAY_LEGEND_LABELS[key])
+    return labels
+
+
+def overlay_legend_keys(overlay: StudyAreaOverlay) -> list[str]:
+    """重ね描きの凡例に載せる項目を、凡例の行の順に返す。
+
+    指定された要素だけを載せる（描かない要素を凡例に出さない）。
+
+    Args:
+        overlay: 重ねる要素の定義。
+
+    Returns:
+        凡例の項目のキー（``survey``・``stations``・``center``・``bands``）の並び。
+    """
+    keys = []
+    if overlay.survey_extent_path is not None:
+        keys.append("survey")
+    if overlay.stations:
+        keys.append("stations")
+    if overlay.center is not None:
+        keys.append("center")
+    if overlay.bands_km:
+        keys.append("bands")
+    return keys
+
+
+def overlay_legend_height_mm(item_count: int) -> float:
+    """重ね描きの凡例の項目数から、凡例パネルの高さ（mm）を求める。
+
+    Args:
+        item_count: 重ね描きの凡例の項目数（ROI の行は含めない）。
+
+    Returns:
+        凡例パネルの高さ（mm）。ROI の行の分（既定の高さ）に項目ごとの高さを足す。
+
+    Raises:
+        ValueError: 項目数が負のとき。
+    """
+    if item_count < 0:
+        raise ValueError(f"凡例の項目数が負です: {item_count}")
+    return _LEGEND_HEIGHT_MM + _OVERLAY_LEGEND_ROW_MM * item_count
+
+
+def _require_metric_projected_crs(crs_text: str) -> None:
+    """座標系が、メートル単位の投影座標系であることを確かめる。
+
+    フィート単位などの投影座標系をそのまま使うと、km をメートルに換算した半径が
+    別の長さとして解釈され、距離帯の大きさがずれる。単位の換算はせず、受け付けない。
+
+    Args:
+        crs_text: 座標系の指定（``"EPSG:32648"`` など）。
+
+    Raises:
+        ValueError: 投影座標系でないとき、いずれかの軸の単位がメートルでないとき。
+    """
+    crs = CRS.from_user_input(crs_text)
+    if not crs.is_projected:
+        raise ValueError(f"距離を測る座標系は投影座標系にしてください: {crs_text}")
+    units = {axis.unit_name for axis in crs.axis_info}
+    if not units <= {"metre", "meter"}:
+        raise ValueError(
+            f"距離を測る座標系の単位はメートルにしてください: {crs_text}（単位: {sorted(units)}）"
+        )
+
+
+def band_geometries(
+    center: MapPoint,
+    bands_km: Sequence[tuple[float, float]],
+    projected_crs: str = HANOI_UTM_CRS,
+) -> gpd.GeoDataFrame:
+    """中心点からの距離帯を多角形にして、Web メルカトルで返す。
+
+    距離は投影座標系（既定は UTM 48N）で測る。観測の選定で都心と郊外を区分したときと
+    同じ測り方にそろえるためである。内径が 0 の帯は円板、それ以外は穴のあいた環になる。
+
+    Args:
+        center: 距離帯の中心点。
+        bands_km: （内径 km, 外径 km）の並び。
+        projected_crs: 距離を測る投影座標系。座標の単位はメートルに限る（半径を km から
+            メートルへ換算して buffer するため）。
+
+    Returns:
+        列 ``inner_km``・``outer_km`` と距離帯の多角形を持つ GeoDataFrame（EPSG:3857）。
+
+    Raises:
+        ValueError: 距離帯が空のとき、内径が負のとき、外径が内径以下のとき、
+            ``projected_crs`` が投影座標系でないとき、座標の単位がメートルでないとき。
+    """
+    _require_metric_projected_crs(projected_crs)
+    if not bands_km:
+        raise ValueError("距離帯が指定されていません。")
+    for inner, outer in bands_km:
+        if inner < 0 or outer <= inner:
+            raise ValueError(f"距離帯の内径・外径が不正です: ({inner}, {outer})")
+
+    point = (
+        gpd.GeoSeries.from_xy([center.lon], [center.lat], crs="EPSG:4326")
+        .to_crs(projected_crs)
+        .iloc[0]
+    )
+    geometries = []
+    for inner, outer in bands_km:
+        # 円の近似の分割数を増やし、面積の誤差を小さくする（128 で 0.01% 未満）。
+        disk = point.buffer(outer * 1000.0, quad_segs=128)
+        if inner > 0:
+            disk = disk.difference(point.buffer(inner * 1000.0, quad_segs=128))
+        geometries.append(disk)
+    bands = gpd.GeoDataFrame(
+        {
+            "inner_km": [inner for inner, _ in bands_km],
+            "outer_km": [outer for _, outer in bands_km],
+        },
+        geometry=geometries,
+        crs=projected_crs,
+    )
+    return bands.to_crs(WEB_MERCATOR_CRS)
 
 
 def nice_scalebar_length_km(map_width_km: float) -> int:
@@ -204,32 +460,45 @@ def expand_extent(
 
 
 def layout_rects(
-    map_aspect: float, inset_aspect: float
+    map_aspect: float,
+    inset_aspect: float,
+    legend_height_mm: float = _LEGEND_HEIGHT_MM,
+    right_column_min_mm: float = _RIGHT_COLUMN_MIN_MM,
 ) -> tuple[float, float, dict[str, tuple[float, float, float, float]]]:
     """図全体の寸法と各軸の矩形（figure 座標）を計算する。
 
     本図とインセットは縦横比が入力データで決まるため、高さを固定して幅を導く。
-    右カラムはインセットの幅と凡例の必要幅の大きい方を採る。
+    右カラムはインセットの幅と凡例の必要幅の大きい方を採る。凡例を高くすると、
+    そのぶんインセットが低く（小さく）なる。
 
     Args:
         map_aspect: 本図の 高さ/幅。
         inset_aspect: インセットの 高さ/幅。
+        legend_height_mm: 凡例パネルの高さ（mm）。
+        right_column_min_mm: 右カラムの最小幅（mm）。凡例の文言が長いときに広げる。
 
     Returns:
         ``(図の幅mm, 図の高さmm, 軸名 -> (left, bottom, width, height) の辞書)``。
         矩形は figure 座標（0-1）。
 
     Raises:
-        ValueError: 縦横比が正でないとき。
+        ValueError: 縦横比が正でないとき、凡例の高さ・右カラムの最小幅が正でないとき、
+            凡例が高すぎてインセットを置く高さが残らないとき。
     """
     if map_aspect <= 0 or inset_aspect <= 0:
         raise ValueError(f"縦横比が正ではありません: map={map_aspect}, inset={inset_aspect}")
+    if legend_height_mm <= 0 or right_column_min_mm <= 0:
+        raise ValueError(
+            f"凡例の高さ・右カラムの幅が正ではありません: {legend_height_mm}, {right_column_min_mm}"
+        )
 
     map_h = _MAP_HEIGHT_MM
     map_w = map_h / map_aspect
-    inset_h = map_h - _INSET_GAP_MM - _LEGEND_HEIGHT_MM
+    inset_h = map_h - _INSET_GAP_MM - legend_height_mm
+    if inset_h <= 0:
+        raise ValueError(f"凡例が高すぎてインセットを置けません: {legend_height_mm} mm")
     inset_w = inset_h / inset_aspect
-    right_w = max(inset_w, _RIGHT_COLUMN_MIN_MM)
+    right_w = max(inset_w, right_column_min_mm)
 
     fig_w = _MARGIN_MM + _TICK_GUTTER_LEFT_MM + map_w + _COLUMN_GAP_MM + right_w + _MARGIN_MM
     fig_h = _MARGIN_MM + _CREDIT_STRIP_MM + _TICK_GUTTER_BOTTOM_MM + map_h + _MARGIN_MM
@@ -251,7 +520,7 @@ def layout_rects(
             inset_w,
             inset_h,
         ),
-        "legend": _to_fraction(right_left, map_bottom, right_w, _LEGEND_HEIGHT_MM),
+        "legend": _to_fraction(right_left, map_bottom, right_w, legend_height_mm),
         "credit": _to_fraction(_MARGIN_MM, _MARGIN_MM, fig_w - 2.0 * _MARGIN_MM, _CREDIT_STRIP_MM),
     }
     return fig_w, fig_h, rects
@@ -451,21 +720,135 @@ def _draw_inset(
     )
 
 
-def _draw_legend_panel(axes: plt.Axes, font_pt: float, roi_area_km2: float | None) -> None:
+def _draw_overlay(axes: plt.Axes, overlay: StudyAreaOverlay, font_pt: float) -> None:
+    """本図に、指定された要素（測量 GIS の有効域・距離帯・中心点・観測所）を重ねて描く。
+
+    Args:
+        axes: 本図の軸（Web メルカトル）。
+        overlay: 重ねる要素の定義。
+        font_pt: 文字サイズ（pt）。
+
+    Raises:
+        FileNotFoundError: 測量 GIS の有効域のファイルが存在しないとき。
+        ValueError: 測量 GIS の有効域に座標系が無いとき。
+    """
+    if overlay.survey_extent_path is not None:
+        _draw_survey_extent(axes, overlay.survey_extent_path)
+    if overlay.bands_km and overlay.center is not None:
+        bands = band_geometries(overlay.center, overlay.bands_km)
+        bands.plot(ax=axes, facecolor=BAND_COLOR, edgecolor="none", alpha=0.10, zorder=3)
+        bands.boundary.plot(ax=axes, color=BAND_COLOR, linewidth=0.8, linestyle="--", zorder=3)
+    if overlay.center is not None:
+        center_x, center_y = xyz_tiles.lonlat_to_mercator(overlay.center.lon, overlay.center.lat)
+        axes.plot(center_x, center_y, marker="*", color="black", markersize=font_pt * 0.9, zorder=5)
+    for station in overlay.stations:
+        x, y = xyz_tiles.lonlat_to_mercator(station.lon, station.lat)
+        axes.plot(
+            x,
+            y,
+            marker="^",
+            color=STATION_COLOR,
+            markeredgecolor="white",
+            markeredgewidth=0.5,
+            markersize=font_pt * 0.75,
+            zorder=5,
+        )
+        axes.annotate(
+            station.label,
+            xy=(x, y),
+            xytext=(4, 3),
+            textcoords="offset points",
+            fontsize=font_pt * 0.75,
+            color=STATION_COLOR,
+            fontweight="bold",
+            zorder=6,
+            path_effects=_halo(),
+        )
+
+
+def _draw_survey_extent(axes: plt.Axes, extent_path: Path) -> None:
+    """本図に測量 GIS の有効域を塗りつぶして描く。
+
+    Args:
+        axes: 本図の軸（Web メルカトル）。
+        extent_path: 測量 GIS の有効域のベクタファイル。
+
+    Raises:
+        FileNotFoundError: ファイルが存在しないとき。
+        ValueError: 座標系が無いとき。
+    """
+    if not extent_path.exists():
+        raise FileNotFoundError(f"測量 GIS の有効域のファイルが見つかりません: {extent_path}")
+    survey = gpd.read_file(extent_path)
+    if survey.crs is None:
+        # 座標系が無いまま変換すると位置がずれるため、推測で補わずに止める。
+        raise ValueError(f"測量 GIS の有効域に座標系がありません: {extent_path}")
+    survey.to_crs(WEB_MERCATOR_CRS).plot(
+        ax=axes,
+        facecolor=SURVEY_EXTENT_COLOR,
+        edgecolor=SURVEY_EXTENT_COLOR,
+        alpha=0.35,
+        linewidth=0.8,
+        zorder=4,
+    )
+
+
+def _overlay_legend_handles(overlay: StudyAreaOverlay) -> list:
+    """重ね描きの凡例の記号を、:func:`overlay_legend_keys` の順に返す。
+
+    Args:
+        overlay: 重ねる要素の定義。
+
+    Returns:
+        ``legend`` に渡すハンドルのリスト。
+    """
+    labels = dict(zip(overlay_legend_keys(overlay), overlay_legend_labels(overlay)))
+    handle_by_key = {
+        "survey": lambda label: Patch(
+            facecolor=SURVEY_EXTENT_COLOR, edgecolor=SURVEY_EXTENT_COLOR, alpha=0.35, label=label
+        ),
+        "stations": lambda label: Line2D(
+            [0],
+            [0],
+            marker="^",
+            color=STATION_COLOR,
+            linestyle="none",
+            markeredgecolor="white",
+            label=label,
+        ),
+        "center": lambda label: Line2D(
+            [0], [0], marker="*", color="black", linestyle="none", label=label
+        ),
+        "bands": lambda label: Line2D(
+            [0], [0], color=BAND_COLOR, linewidth=0.8, linestyle="--", label=label
+        ),
+    }
+    return [handle_by_key[key](label) for key, label in labels.items()]
+
+
+def _draw_legend_panel(
+    axes: plt.Axes,
+    font_pt: float,
+    roi_area_km2: float | None,
+    overlay: StudyAreaOverlay | None = None,
+) -> None:
     """右下に凡例を描く。
 
     Args:
         axes: 凡例パネルの軸。
         font_pt: 文字サイズ（pt）。
         roi_area_km2: ROI 面積（km²）。``None`` なら面積行を出さない。
+        overlay: 重ねる要素の定義。指定すると、その要素の凡例も載せる。
     """
     axes.set_axis_off()
     axes.set_xlim(0.0, 1.0)
     axes.set_ylim(0.0, 1.0)
 
-    handle = Line2D([0], [0], color=ROI_EDGE_COLOR, linewidth=1.6, label="Hanoi ROI")
+    handles = [Line2D([0], [0], color=ROI_EDGE_COLOR, linewidth=1.6, label="Hanoi ROI")]
+    if overlay is not None:
+        handles.extend(_overlay_legend_handles(overlay))
     axes.legend(
-        handles=[handle],
+        handles=handles,
         loc="upper left",
         bbox_to_anchor=(0.0, 1.0),
         frameon=False,
@@ -547,8 +930,13 @@ def build_roi_location_map(
     dim_outside: bool = True,
     light_tone: bool = True,
     cache_dir: Path | None = None,
+    overlay: StudyAreaOverlay | None = None,
 ) -> Path:
     """ROI 位置図を生成して PNG として保存する。
+
+    ``overlay`` を渡すと、研究対象地域の図として、指定した要素（測量 GIS の有効域・
+    距離帯・観測所）を重ねて描く。このとき凡例の ROI 面積の行は出さない（面積は図から算出せず、
+    本文で正本の値を示すため）。
 
     Args:
         output_path: 出力 PNG のパス。親ディレクトリは自動作成する。
@@ -561,16 +949,21 @@ def build_roi_location_map(
         dim_outside: ROI の外側を白く薄める（ROI を目立たせる）か。
         light_tone: ベースマップを淡色調へ落とすか。
         cache_dir: タイルキャッシュのルート。``None`` で既定値。
+        overlay: 重ねる要素の定義。``None`` なら従来どおり ROI だけを描く。
 
     Returns:
         保存した PNG のパス。
 
     Raises:
-        FileNotFoundError: 入力ベクタが存在しないとき。
+        FileNotFoundError: 入力ベクタ（重ねる測量 GIS の有効域を含む）が存在しないとき。
         KeyError: ``provider_name`` が未定義のとき。
-        ValueError: 出力幅・解像度が正でないとき。
+        ValueError: 出力幅・解像度が正でないとき、重ねる測量 GIS の有効域に座標系が無いとき。
     """
-    for path in (roi_path, country_path):
+    # 測量 GIS の有効域も、ネットワークからタイルを取得する前に有無を確かめる
+    input_paths = [roi_path, country_path]
+    if overlay is not None and overlay.survey_extent_path is not None:
+        input_paths.append(overlay.survey_extent_path)
+    for path in input_paths:
         if not path.exists():
             raise FileNotFoundError(f"入力ファイルが見つかりません: {path}")
     if provider_name not in xyz_tiles.PROVIDERS:
@@ -591,7 +984,15 @@ def build_roi_location_map(
     country_bounds = expand_extent(tuple(country.total_bounds), 0.04)
     inset_aspect = (country_bounds[3] - country_bounds[1]) / (country_bounds[2] - country_bounds[0])
 
-    layout_w_mm, layout_h_mm, rects = layout_rects(map_aspect, inset_aspect)
+    if overlay is None:
+        layout_w_mm, layout_h_mm, rects = layout_rects(map_aspect, inset_aspect)
+    else:
+        layout_w_mm, layout_h_mm, rects = layout_rects(
+            map_aspect,
+            inset_aspect,
+            legend_height_mm=overlay_legend_height_mm(len(overlay_legend_keys(overlay))),
+            right_column_min_mm=_OVERLAY_RIGHT_COLUMN_MIN_MM,
+        )
     fig_w_in = width_mm / 25.4
     fig_h_in = fig_w_in * layout_h_mm / layout_w_mm
     # レイアウト基準幅からの拡大率。文字サイズを出力幅に追随させる。
@@ -624,6 +1025,11 @@ def build_roi_location_map(
             ax=axes, facecolor="white", edgecolor="none", alpha=0.45, zorder=2
         )
     roi.boundary.plot(ax=axes, color=ROI_EDGE_COLOR, linewidth=1.6, zorder=3)
+    if overlay is not None:
+        _draw_overlay(axes, overlay, font_pt)
+        # 距離帯が ROI の外へはみ出しても、本図の範囲は ROI に合わせたまま保つ。
+        axes.set_xlim(x_min, x_max)
+        axes.set_ylim(y_min, y_max)
 
     _apply_graticule(axes, font_pt)
     _draw_north_arrow(axes, font_pt)
@@ -633,8 +1039,8 @@ def build_roi_location_map(
     _draw_inset(fig.add_axes(rects["inset"]), country, roi, font_pt)
 
     # ROI 面積は投影座標系で測る。メルカトル座標のまま測ると大きく外れる。
-    roi_area_km2 = float(roi.to_crs(HANOI_UTM_CRS).area.sum()) / 1.0e6
-    _draw_legend_panel(fig.add_axes(rects["legend"]), font_pt, roi_area_km2)
+    roi_area_km2 = float(roi.to_crs(HANOI_UTM_CRS).area.sum()) / 1.0e6 if overlay is None else None
+    _draw_legend_panel(fig.add_axes(rects["legend"]), font_pt, roi_area_km2, overlay=overlay)
     _draw_credit_strip(fig.add_axes(rects["credit"]), provider.attribution, font_pt)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -675,7 +1081,25 @@ def main(argv: list[str] | None = None) -> int:
         "--no-dim-outside", action="store_true", help="ROI 外側を薄める処理を行わない"
     )
     parser.add_argument("--no-light-tone", action="store_true", help="ベースマップを淡色調にしない")
+    parser.add_argument(
+        "--overlay",
+        choices=sorted(OVERLAY_PRESETS),
+        default=None,
+        help="ROI の上に重ねる要素（survey: 測量 GIS の有効域、stations: 観測所と距離帯）",
+    )
+    parser.add_argument(
+        "--survey-extent",
+        type=Path,
+        default=None,
+        help="測量 GIS の有効域のベクタ（--overlay survey のときだけ使う。省略時は既定のパス）",
+    )
     args = parser.parse_args(argv)
+
+    overlay = OVERLAY_PRESETS[args.overlay] if args.overlay is not None else None
+    if args.survey_extent is not None:
+        if overlay is None or overlay.survey_extent_path is None:
+            parser.error("--survey-extent は --overlay survey と併せて指定してください。")
+        overlay = replace(overlay, survey_extent_path=args.survey_extent)
 
     mpl.use("Agg")
     path = build_roi_location_map(
@@ -687,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
         dpi=args.dpi,
         dim_outside=not args.no_dim_outside,
         light_tone=not args.no_light_tone,
+        overlay=overlay,
     )
     print(f"出力しました: {path}")
     return 0

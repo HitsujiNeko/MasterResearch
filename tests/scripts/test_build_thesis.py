@@ -356,6 +356,83 @@ class TestMain:
         assert "打ち切りました" in capsys.readouterr().err
 
 
+class TestAddSpaceAfterTables:
+    """表の直後の本文段落に空きを入れる後処理のテスト（pandoc 不要）。"""
+
+    @staticmethod
+    def _xml(next_paragraph_ppr: str) -> str:
+        return (
+            "<w:body><w:tbl><w:tr /></w:tbl>"
+            f"<w:p><w:pPr>{next_paragraph_ppr}</w:pPr><w:r><w:t>本文</w:t></w:r></w:p></w:body>"
+        )
+
+    @pytest.mark.parametrize("style", ["BodyText", "FirstParagraph"])
+    def test_inserts_spacing_after_pstyle_of_body_paragraph(self, style: str) -> None:
+        """表に続く本文の段落には、段落スタイルの直後に段落前の空きを入れる。"""
+        updated = target.add_space_after_tables(self._xml(f'<w:pStyle w:val="{style}" />'))
+        assert f'<w:pStyle w:val="{style}" /><w:spacing w:beforeLines="100" />' in updated
+
+    @pytest.mark.parametrize("style", ["TableCaption", "Heading2", "Compact"])
+    def test_leaves_non_body_paragraphs(self, style: str) -> None:
+        """見出し・表題など本文以外の段落（スタイルで空きを持つもの）は変えない。"""
+        xml = self._xml(f'<w:pStyle w:val="{style}" />')
+        assert target.add_space_after_tables(xml) == xml
+
+    @pytest.mark.parametrize(
+        "rest", ['<w:spacing w:before="120" />', "<w:keepNext />", "<w:pageBreakBefore />"]
+    )
+    def test_leaves_paragraph_with_preceding_properties(self, rest: str) -> None:
+        """すでに空きの指定がある段落や、spacing より前に置く要素を持つ段落は変えない。"""
+        xml = self._xml(f'<w:pStyle w:val="BodyText" />{rest}')
+        assert target.add_space_after_tables(xml) == xml
+
+    def test_skips_bookmarks_between_table_and_paragraph(self) -> None:
+        """表と段落の間に表の番号の目印（bookmark）があっても空きを入れる。"""
+        xml = (
+            '<w:tbl><w:tr /></w:tbl>\n<w:bookmarkEnd w:id="9" />\n'
+            '<w:p><w:pPr><w:pStyle w:val="BodyText" /></w:pPr></w:p>'
+        )
+        assert 'w:beforeLines="100"' in target.add_space_after_tables(xml)
+
+    def test_only_paragraphs_right_after_tables(self) -> None:
+        """表の直後ではない本文の段落は変えない。"""
+        xml = '<w:p><w:pPr><w:pStyle w:val="BodyText" /></w:pPr></w:p>' + self._xml(
+            '<w:pStyle w:val="BodyText" />'
+        )
+        updated = target.add_space_after_tables(xml)
+        assert updated.count("w:beforeLines") == 1
+        assert updated.startswith('<w:p><w:pPr><w:pStyle w:val="BodyText" /></w:pPr></w:p>')
+
+    def test_uses_given_space_and_rejects_negative(self) -> None:
+        """空きの量は引数で変えられ、負の値は止める。"""
+        xml = self._xml('<w:pStyle w:val="BodyText" />')
+        assert 'w:beforeLines="50"' in target.add_space_after_tables(xml, before_lines=50)
+        with pytest.raises(ValueError):
+            target.add_space_after_tables(xml, before_lines=-1)
+
+    def test_docx_roundtrip_keeps_other_parts(self, tmp_path: Path) -> None:
+        """docx を書き戻しても、document.xml 以外のパーツと並びは変わらない。"""
+        docx = tmp_path / "a.docx"
+        with zipfile.ZipFile(docx, "w") as archive:
+            archive.writestr("[Content_Types].xml", "<Types />")
+            archive.writestr("word/document.xml", self._xml('<w:pStyle w:val="BodyText" />'))
+            archive.writestr("word/styles.xml", "<w:styles />")
+        assert target.add_space_after_tables_in_docx(docx) == 1
+        with zipfile.ZipFile(docx) as archive:
+            assert archive.namelist() == [
+                "[Content_Types].xml",
+                "word/document.xml",
+                "word/styles.xml",
+            ]
+            assert archive.read("word/styles.xml") == b"<w:styles />"
+            assert b'w:beforeLines="100"' in archive.read("word/document.xml")
+
+    def test_docx_missing_raises(self, tmp_path: Path) -> None:
+        """docx が無いときは止める。"""
+        with pytest.raises(FileNotFoundError):
+            target.add_space_after_tables_in_docx(tmp_path / "missing.docx")
+
+
 @requires_pandoc
 class TestBuildWithPandoc:
     """pandoc と pandoc-crossref による実際の docx 生成のテスト。"""
@@ -389,7 +466,8 @@ class TestBuildWithPandoc:
             "@fig:a と @tbl:a を参照する．\n\n"
             "![図の題目](figures/a.png){#fig:a}\n\n"
             "| 変数 | 単位 |\n|---|---|\n| LST | °C |\n\n"
-            ": 表の題目 {#tbl:a}\n",
+            ": 表の題目 {#tbl:a}\n\n"
+            "表の後の本文．\n",
         )
         output = tmp_path / "out.docx"
         warnings = target.build_docx(
@@ -408,6 +486,10 @@ class TestBuildWithPandoc:
         # 図題は図（drawing）の後、表題は表（w:tbl）の前に置かれる
         assert document.index("<w:drawing>") < document.index("図の題目")
         assert document.index("表の題目") < document.index("<w:tbl>")
+        # 表の後の段落には空きが入る（後処理。表の前・図の前後はスタイルで付く）
+        after_table = document[document.index("</w:tbl>") :]
+        next_paragraph = after_table[: after_table.index("</w:p>")]
+        assert '<w:spacing w:beforeLines="100" />' in next_paragraph
 
     def test_reports_undefined_reference_as_warning(self, tmp_path: Path) -> None:
         """未定義の参照が警告として返る（--strict が失敗にできる前提の確認）。"""

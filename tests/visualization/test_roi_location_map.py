@@ -6,12 +6,27 @@
 
 from __future__ import annotations
 
-import pytest
+import math
 
+import geopandas as gpd
+import matplotlib
+import pytest
+from shapely.geometry import box
+
+from src.common.config import HANOI_UTM_CRS
+from src.visualization import roi_location_map
 from src.visualization.roi_location_map import (
     BOUNDARY_ATTRIBUTION,
     CREDIT_MAX_LINE_CHARS,
+    HANOI_STATIONS_OVERLAY,
+    HANOI_SURVEY_OVERLAY,
+    OVERLAY_LEGEND_LABELS,
     PROJECTION_NOTE,
+    MapPoint,
+    StudyAreaOverlay,
+    _draw_overlay,
+    band_geometries,
+    bands_legend_label,
     credit_lines,
     expand_extent,
     format_latitude,
@@ -19,6 +34,9 @@ from src.visualization.roi_location_map import (
     graticule_ticks,
     layout_rects,
     nice_scalebar_length_km,
+    overlay_legend_height_mm,
+    overlay_legend_keys,
+    overlay_legend_labels,
 )
 from src.visualization.xyz_tiles import PROVIDERS
 
@@ -222,3 +240,245 @@ def test_credit_lines_fit_within_strip_for_every_provider(provider_name: str) ->
     """
     lines = credit_lines(PROVIDERS[provider_name].attribution)
     assert max(len(line) for line in lines) <= CREDIT_MAX_LINE_CHARS
+
+
+def test_layout_rects_taller_legend_shrinks_inset_only() -> None:
+    """凡例を高くすると、インセットだけが低くなり本図の大きさは変わらない。"""
+    _, _, base = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT)
+    _, _, tall = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT, legend_height_mm=34.0)
+    assert tall["legend"][3] > base["legend"][3]
+    assert tall["inset"][3] < base["inset"][3]
+    assert tall["map"][3] == pytest.approx(base["map"][3])
+
+
+def test_layout_rects_widens_right_column_on_request() -> None:
+    """右カラムの最小幅を広げると、図全体が広がる。"""
+    narrow, _, _ = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT)
+    wide, _, _ = layout_rects(HANOI_MAP_ASPECT, VIETNAM_INSET_ASPECT, right_column_min_mm=60.0)
+    assert wide > narrow
+
+
+@pytest.mark.parametrize(
+    ("legend_height_mm", "right_column_min_mm"),
+    [(0.0, 28.0), (12.0, 0.0), (90.0, 28.0)],
+)
+def test_layout_rects_rejects_invalid_legend_or_column(
+    legend_height_mm: float, right_column_min_mm: float
+) -> None:
+    """凡例・右カラムの寸法が正でないとき、凡例が高すぎてインセットが置けないときは止める。"""
+    with pytest.raises(ValueError):
+        layout_rects(
+            HANOI_MAP_ASPECT,
+            VIETNAM_INSET_ASPECT,
+            legend_height_mm=legend_height_mm,
+            right_column_min_mm=right_column_min_mm,
+        )
+
+
+def test_band_geometries_have_expected_areas() -> None:
+    """円板と環の面積が、投影座標系で πr² の差に一致する（多角形近似の誤差 0.1% 以内）。"""
+    center = HANOI_STATIONS_OVERLAY.center
+    bands = band_geometries(center, ((0.0, 5.0), (15.0, 25.0))).to_crs(HANOI_UTM_CRS)
+    areas_km2 = bands.area.to_numpy() / 1.0e6
+    assert areas_km2[0] == pytest.approx(math.pi * 5.0**2, rel=1e-3)
+    assert areas_km2[1] == pytest.approx(math.pi * (25.0**2 - 15.0**2), rel=1e-3)
+    assert bands.is_valid.all()
+    assert list(bands["inner_km"]) == [0.0, 15.0]
+    assert list(bands["outer_km"]) == [5.0, 25.0]
+
+
+def test_band_geometries_ring_excludes_center() -> None:
+    """環（内径 > 0）は中心点を含まず、円板は中心点を含む。"""
+    center = MapPoint("c", lon=105.852, lat=21.028)
+    bands = band_geometries(center, ((0.0, 5.0), (15.0, 25.0))).to_crs(HANOI_UTM_CRS)
+    point = (
+        gpd.GeoSeries.from_xy([center.lon], [center.lat], crs="EPSG:4326")
+        .to_crs(HANOI_UTM_CRS)
+        .iloc[0]
+    )
+    assert bands.geometry.iloc[0].contains(point)
+    assert not bands.geometry.iloc[1].contains(point)
+
+
+def test_band_geometries_are_returned_in_web_mercator() -> None:
+    """重ね描きに使うため、Web メルカトルで返す。"""
+    bands = band_geometries(HANOI_STATIONS_OVERLAY.center, ((0.0, 5.0),))
+    assert bands.crs.to_epsg() == 3857
+
+
+@pytest.mark.parametrize("bands_km", [(), ((-1.0, 5.0),), ((5.0, 5.0),), ((10.0, 5.0),)])
+def test_band_geometries_reject_invalid_bands(bands_km: tuple) -> None:
+    """距離帯が空・内径が負・外径が内径以下のときは止める。"""
+    with pytest.raises(ValueError):
+        band_geometries(HANOI_STATIONS_OVERLAY.center, bands_km)
+
+
+@pytest.mark.parametrize(
+    "crs_text",
+    [
+        "EPSG:4326",  # 地理座標系（単位は度）
+        "EPSG:2263",  # 米国の州平面座標系（単位は US フィート）
+    ],
+)
+def test_band_geometries_reject_non_metric_crs(crs_text: str) -> None:
+    """投影座標系でない、または単位がメートルでない座標系では止める（半径がずれるため）。"""
+    with pytest.raises(ValueError):
+        band_geometries(HANOI_STATIONS_OVERLAY.center, ((0.0, 5.0),), projected_crs=crs_text)
+
+
+def test_study_area_overlay_matches_source_definitions() -> None:
+    """既定の重ね描きの定義が、正本の観測所座標と都心・郊外の定義と一致する。"""
+    stations = {
+        station.label: (station.lon, station.lat) for station in HANOI_STATIONS_OVERLAY.stations
+    }
+    assert stations == {"Noi Bai": (105.807, 21.221), "Ha Dong": (105.767, 20.967)}
+    center = HANOI_STATIONS_OVERLAY.center
+    assert (center.lon, center.lat) == (105.852, 21.028)
+    assert HANOI_STATIONS_OVERLAY.bands_km == ((0.0, 5.0), (15.0, 25.0))
+
+
+def test_survey_overlay_points_to_default_extent() -> None:
+    """有効域の既定値は、測量 GIS の有効域のファイルだけを重ねる。"""
+    assert HANOI_SURVEY_OVERLAY.survey_extent_path is not None
+    assert HANOI_SURVEY_OVERLAY.survey_extent_path.name == "hanoi_survey_extent.gpkg"
+    assert HANOI_SURVEY_OVERLAY.stations == ()
+    assert HANOI_SURVEY_OVERLAY.center is None
+
+
+def test_overlay_legend_keys_follow_given_elements() -> None:
+    """凡例には指定した要素だけが、決まった順に載る。"""
+    assert overlay_legend_keys(HANOI_SURVEY_OVERLAY) == ["survey"]
+    assert overlay_legend_keys(HANOI_STATIONS_OVERLAY) == ["stations", "center", "bands"]
+    assert set(OVERLAY_LEGEND_LABELS) == {"survey", "stations"}
+    assert all(label.strip() for label in OVERLAY_LEGEND_LABELS.values())
+
+
+def test_overlay_legend_labels_follow_center_and_bands() -> None:
+    """中心点と距離帯の凡例は、設定の名前と距離帯から作る（既定値のまま残らない）。"""
+    assert overlay_legend_labels(HANOI_STATIONS_OVERLAY) == [
+        "Weather station\n(ISD)",
+        "Hoan Kiem Lake",
+        "0–5 km and 15–25 km\nfrom Hoan Kiem Lake",
+    ]
+    custom = StudyAreaOverlay(
+        center=MapPoint("Reference point", 105.80, 21.00), bands_km=((0.0, 10.0),)
+    )
+    assert overlay_legend_labels(custom) == ["Reference point", "0–10 km\nfrom Reference point"]
+
+
+def test_bands_legend_label_joins_three_or_more_bands() -> None:
+    """距離帯が 3 つ以上ならカンマでつなぎ、最後だけ and でつなぐ。空なら止める。"""
+    label = bands_legend_label(((0.0, 1.0), (2.0, 3.5), (5.0, 8.0)), "c")
+    assert label == "0–1 km, 2–3.5 km and 5–8 km\nfrom c"
+    with pytest.raises(ValueError):
+        bands_legend_label((), "c")
+
+
+def test_overlay_legend_height_grows_with_items() -> None:
+    """凡例の項目が多いほど凡例パネルを高くし、項目がなければ既定の高さになる。"""
+    assert overlay_legend_height_mm(0) == pytest.approx(12.0)
+    assert overlay_legend_height_mm(3) > overlay_legend_height_mm(1)
+    with pytest.raises(ValueError):
+        overlay_legend_height_mm(-1)
+
+
+def test_study_area_overlay_rejects_empty_or_bands_without_center() -> None:
+    """重ねる要素がないとき、距離帯があるのに中心点がないときは作れない。"""
+    with pytest.raises(ValueError):
+        StudyAreaOverlay()
+    with pytest.raises(ValueError):
+        StudyAreaOverlay(stations=HANOI_STATIONS_OVERLAY.stations, bands_km=((0.0, 5.0),))
+
+
+@pytest.fixture
+def overlay_axes():
+    """ベースマップを使わない、重ね描き用の空の軸を返す。"""
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots()
+    yield axes
+    plt.close(fig)
+
+
+def test_draw_overlay_rejects_missing_extent_file(tmp_path, overlay_axes) -> None:
+    """測量 GIS の有効域のファイルが無いときは止める。"""
+    overlay = StudyAreaOverlay(survey_extent_path=tmp_path / "missing.gpkg")
+    with pytest.raises(FileNotFoundError):
+        _draw_overlay(overlay_axes, overlay, font_pt=9.0)
+
+
+def test_draw_overlay_rejects_extent_without_crs(tmp_path, overlay_axes) -> None:
+    """有効域に座標系が無いときは、推測で補わずに止める（位置のずれを防ぐ）。"""
+    path = tmp_path / "no_crs.gpkg"
+    gpd.GeoDataFrame(geometry=[box(105.78, 20.99, 105.87, 21.09)]).to_file(path)
+    with pytest.raises(ValueError, match="座標系"):
+        _draw_overlay(overlay_axes, StudyAreaOverlay(survey_extent_path=path), font_pt=9.0)
+
+
+def test_draw_overlay_survey_only_draws_no_points(tmp_path, overlay_axes) -> None:
+    """有効域だけを指定したときは、有効域の面だけを描き、記号や注記は描かない。"""
+    path = tmp_path / "extent.gpkg"
+    gpd.GeoDataFrame(geometry=[box(105.78, 20.99, 105.87, 21.09)], crs="EPSG:4326").to_file(path)
+    _draw_overlay(overlay_axes, StudyAreaOverlay(survey_extent_path=path), font_pt=9.0)
+    assert overlay_axes.collections
+    assert not overlay_axes.lines
+    assert not overlay_axes.texts
+
+
+def test_draw_overlay_stations_draws_points_bands_and_labels(overlay_axes) -> None:
+    """観測所の既定値では、距離帯・中心点・観測所を描き、観測所名を注記する。"""
+    _draw_overlay(overlay_axes, HANOI_STATIONS_OVERLAY, font_pt=9.0)
+    labels = {text.get_text() for text in overlay_axes.texts}
+    assert labels == {station.label for station in HANOI_STATIONS_OVERLAY.stations}
+    # 中心点 1 + 観測所 2 の記号
+    assert len(overlay_axes.lines) == 1 + len(HANOI_STATIONS_OVERLAY.stations)
+    assert overlay_axes.collections  # 距離帯の面と線
+
+
+@pytest.fixture
+def captured_build(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """``build_roi_location_map`` を差し替え、CLI が渡した引数を記録する（描画・通信をしない）。"""
+    calls: dict = {}
+
+    def fake_build(**kwargs):
+        calls.update(kwargs)
+        return kwargs["output_path"]
+
+    monkeypatch.setattr(roi_location_map, "build_roi_location_map", fake_build)
+    return calls
+
+
+def test_main_without_overlay_passes_none(tmp_path, captured_build) -> None:
+    """``--overlay`` を付けなければ、従来どおり重ね描きなしで描く。"""
+    assert roi_location_map.main(["--output", str(tmp_path / "a.png")]) == 0
+    assert captured_build["overlay"] is None
+
+
+def test_main_selects_overlay_preset(tmp_path, captured_build) -> None:
+    """``--overlay stations`` は観測所と距離帯の既定値を渡す。"""
+    roi_location_map.main(["--output", str(tmp_path / "a.png"), "--overlay", "stations"])
+    assert captured_build["overlay"] == HANOI_STATIONS_OVERLAY
+
+
+def test_main_replaces_survey_extent_path(tmp_path, captured_build) -> None:
+    """``--overlay survey`` と ``--survey-extent`` を併せると、有効域のパスだけを差し替える。"""
+    extent = tmp_path / "extent.gpkg"
+    roi_location_map.main(
+        ["--output", str(tmp_path / "a.png"), "--overlay", "survey", "--survey-extent", str(extent)]
+    )
+    assert captured_build["overlay"].survey_extent_path == extent
+    assert captured_build["overlay"].stations == ()
+
+
+@pytest.mark.parametrize("overlay_args", [[], ["--overlay", "stations"]])
+def test_main_rejects_survey_extent_without_survey_overlay(
+    tmp_path, captured_build, overlay_args: list[str]
+) -> None:
+    """有効域を重ねない指定で ``--survey-extent`` を渡すと、引数の誤りとして止める。"""
+    with pytest.raises(SystemExit) as excinfo:
+        roi_location_map.main(
+            ["--output", str(tmp_path / "a.png"), *overlay_args, "--survey-extent", "x.gpkg"]
+        )
+    assert excinfo.value.code == 2
+    assert not captured_build

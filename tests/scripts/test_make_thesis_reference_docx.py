@@ -232,6 +232,15 @@ class TestCommittedTemplate:
         assert '<w:sz w:val="22" />' in table
         assert "<w:tblBorders>" in table
 
+    def test_figures_and_tables_are_spaced_from_body(self) -> None:
+        """図の前・図題の後・表題の前に 1 行の空きを置き、本文と詰めない。"""
+        styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
+        assert 'w:beforeLines="100"' in _style(styles, "CaptionedFigure")
+        assert 'w:afterLines="100"' in _style(styles, "ImageCaption")
+        assert 'w:beforeLines="100"' in _style(styles, "TableCaption")
+        # 図と図題が離れないよう、図の段落は次段落と同じページに置く（従来どおり）
+        assert "<w:keepNext />" in _style(styles, "CaptionedFigure")
+
     def test_cover_sizes(self) -> None:
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         assert '<w:sz w:val="48" />' in _style(styles, "Title")

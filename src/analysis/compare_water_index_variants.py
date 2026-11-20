@@ -16,12 +16,14 @@
 差と区間の計算は `src.common.cv_paired_comparison`、シードごとの差の分布は
 `repeat_common_evaluation.summarize_seed_differences` をそのまま使い、書き直さない。
 
-比べる前に、2つの反復が同じ評価セル・シード・分割数・標本数・木の本数で、水指数以外の
-Limited の構成が同じであることを確かめ、違えば止める（単発は
+比べる前に、2つの反復が同じ評価セル・分析対象範囲・共通集合の母数・シード・シードごとの
+標本（内容ダイジェスト）・分割数・標本数・木の本数で、水指数以外の Limited の構成が同じで
+あることを確かめ、違えば止める。単発の全工程ランの評価セルが反復の主シードの標本と同じで
+あることも確かめる（単発は
 `compare_common_evaluation.validate_same_evaluation` で同じ評価セル・乱数シード・木の本数で
 あることを、`validate_full_run_pair` で水指数以外の構成が同じであることを確かめる）。
 あわせて、結果文書が述べている一致（2つの反復の Satellite Only 側の fold 別指標の一致、
-反復の主シードと全工程ランの fold 別指標の一致）を検査して記録する。
+反復の主シードと全工程ランの fold 別指標の一致）を検査して記録し、成り立たなければ警告する。
 
 入力・出力のパスは評価セル CSV と水指数の構成から名前の規則で求める（評価セルと同じ
 ディレクトリ）。出力名は `water_index_comparison_{CSV の stem}_wi_{構成}_*` とする。
@@ -31,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -71,11 +74,22 @@ SATELLITE_ONLY_SCENARIO = "satellite_only"
 LIMITED_SCENARIO = "limited"
 SCENARIO_COLUMN = "scenario"
 # 反復の2つの結果で一致を求める項目（水指数以外の条件）。
-REPEATED_SHARED_KEYS = ("evaluation_cells", "analysis_area", "seeds", "cv_splits", "sample_size")
+REPEATED_SHARED_KEYS = (
+    "evaluation_cells",
+    "analysis_area",
+    "common_size",
+    "seeds",
+    "cv_splits",
+    "sample_size",
+)
 REPEATED_RUN_KEYS = ("rf_trees",)
+# 反復の結果 JSON で、シードごとの標本の内容ダイジェストを持つ項目。
+SEED_RECORDS_KEY = "seed_records"
 # Limited の構成のうち、水指数以外で一致を求める項目。
 LIMITED_SHARED_CONFIGURATION_KEYS = ("variable_set", "building_height_mode", "population_sources")
-# 監視するコード。結果に直接効く関数を呼んでいる2つのスクリプト。
+# 監視するコード。結果に直接効く関数を呼んでいる2つのスクリプト。`analysis_rq3_limited.py`・
+# `build_common_evaluation_set.py` からは水指数の構成名の定数と既定の評価セルのパスだけを使い、
+# 値の計算には効かないため監視しない（分析スクリプトの変更のたびに陳腐化と判定しないため）。
 WATCH_PATHS = (
     "src/analysis/repeat_common_evaluation.py",
     "src/analysis/compare_common_evaluation.py",
@@ -196,6 +210,10 @@ def validate_repeated_pair(
     for key in (*REPEATED_SHARED_KEYS, *REPEATED_RUN_KEYS):
         if reference.get(key) != variant.get(key):
             mismatched[key] = (reference.get(key), variant.get(key))
+    reference_digests = seed_digests(reference)
+    variant_digests = seed_digests(variant)
+    if reference_digests != variant_digests:
+        mismatched[f"{SEED_RECORDS_KEY}.digest"] = (reference_digests, variant_digests)
     mismatched.update(
         find_configuration_mismatches(
             reference.get("limited_configuration", {}),
@@ -206,6 +224,80 @@ def validate_repeated_pair(
     )
     if mismatched:
         raise ValueError(f"2つの反復が水指数の構成以外でも違います: {mismatched}")
+
+
+def seed_digests(repeated_result: Mapping[str, Any]) -> dict[int, str]:
+    """反復の結果 JSON から、シードごとの標本の内容ダイジェストを取り出す。
+
+    Args:
+        repeated_result: 反復の結果 JSON（`seed_records` に `seed`・`digest` を持つ）。
+    Returns:
+        シード → ダイジェストの辞書。
+    Raises:
+        ValueError: `seed_records` が無い、またはダイジェストを持たない記録がある場合
+            （標本の一致を確かめられないため）。
+    """
+    records = repeated_result.get(SEED_RECORDS_KEY)
+    if not records or any("digest" not in record for record in records):
+        raise ValueError(
+            f"反復の結果に {SEED_RECORDS_KEY} の標本ダイジェストがありません。"
+            "2つの反復が同じ標本で回ったことを確かめられません。"
+        )
+    return {int(record[SEED_COLUMN]): str(record["digest"]) for record in records}
+
+
+def validate_single_matches_repeated(
+    full_run_result: Mapping[str, Any], repeated_result: Mapping[str, Any]
+) -> None:
+    """単発の全工程ランの評価セルが、反復の主シードの標本と同じであることを確かめる。
+
+    反復は主シードの標本が保存済みの評価セルと一致することを確かめてから回るため、
+    全工程ランの評価セルのダイジェストと、反復の主シードの標本のダイジェストを比べる。
+
+    Args:
+        full_run_result: Limited の全工程ランの結果 JSON（`evaluation_cells.digest` と
+            `run_parameters.random_state` を持つ）。
+        repeated_result: 反復の結果 JSON。
+    Returns:
+        None
+    Raises:
+        ValueError: 反復に全工程ランの乱数シードが含まれない場合、またはダイジェストが
+            一致しない場合。
+    """
+    main_seed = int(full_run_result["run_parameters"]["random_state"])
+    digests = seed_digests(repeated_result)
+    if main_seed not in digests:
+        raise ValueError(f"反復のシードに全工程ランの乱数シード {main_seed} が含まれません。")
+    full_run_digest = full_run_result["evaluation_cells"]["digest"]
+    if digests[main_seed] != full_run_digest:
+        raise ValueError(
+            "単発の全工程ランの評価セルが、反復の主シードの標本と一致しません"
+            f"（全工程ラン {full_run_digest}、反復 {digests[main_seed]}）。"
+        )
+
+
+def warn_failed_checks(checks: Mapping[str, Any], prefix: str = "") -> list[str]:
+    """一致の検査で False になった項目を警告として表示し、項目名を返す。
+
+    Args:
+        checks: 検査名 → 真偽値（または検査名 → 真偽値の辞書）の辞書。
+        prefix: 入れ子の検査名に付ける接頭辞。
+    Returns:
+        False になった検査名の一覧。
+    """
+    failed: list[str] = []
+    for name, value in checks.items():
+        if isinstance(value, Mapping):
+            failed.extend(warn_failed_checks(value, prefix=f"{prefix}{name}."))
+        elif not value:
+            failed.append(f"{prefix}{name}")
+    if failed and not prefix:
+        warnings.warn(
+            f"一致の検査が成り立ちませんでした: {failed}。入力の取り違えがないか確認してください。",
+            UserWarning,
+            stacklevel=2,
+        )
+    return failed
 
 
 def validate_full_run_pair(
@@ -509,6 +601,7 @@ def main(argv: list[str] | None = None) -> None:
     validate_full_run_pair(
         limited_results["reference"], limited_results["variant"], args.water_index
     )
+    validate_single_matches_repeated(limited_results["reference"], results["repeated_reference"])
     full_run_folds_paths = {
         role: resolve_recorded_path(result["spatial_cv"]["outputs"]["fold_metrics_csv"])
         for role, result in limited_results.items()
@@ -533,6 +626,7 @@ def main(argv: list[str] | None = None) -> None:
             },
         }
     )
+    warn_failed_checks(checks)
 
     for key in ("repeated_folds", "single_folds"):
         output_paths[key].parent.mkdir(parents=True, exist_ok=True)

@@ -33,6 +33,9 @@ CELLS_NAME = "evaluation_cells_seed42.csv"
 SEEDS = (42, 43)
 TRAIN_SIZES = (70, 60, 70)
 TEST_SIZES = (30, 40, 30)
+# シードごとの標本の内容ダイジェスト（主シード 42 は全工程ランの評価セルと同じ "abc"）。
+SEED_DIGESTS = {42: "abc", 43: "def"}
+SEED_RECORDS = [{"seed": seed, "digest": digest} for seed, digest in SEED_DIGESTS.items()]
 # fold ごとの基準の値（構成・シードごとにずらす）。
 BASE_VALUES = np.array([0.50, 0.60, 0.70])
 
@@ -86,7 +89,9 @@ def _write_inputs(tmp_path: Path, variant_mode: str = "ndwi") -> Path:
             {
                 "evaluation_cells": str(cells_path),
                 "analysis_area": "full",
+                "common_size": 1000,
                 "seeds": list(SEEDS),
+                "seed_records": SEED_RECORDS,
                 "cv_splits": 3,
                 "sample_size": 100,
                 "rf_trees": 300,
@@ -227,7 +232,9 @@ class TestValidateRepeatedPair:
         base = {
             "evaluation_cells": "cells.csv",
             "analysis_area": "full",
+            "common_size": 1000,
             "seeds": [42, 43],
+            "seed_records": SEED_RECORDS,
             "cv_splits": 5,
             "sample_size": 100,
             "rf_trees": 300,
@@ -260,6 +267,30 @@ class TestValidateRepeatedPair:
         variant[key] = value
 
         with pytest.raises(ValueError, match=key):
+            validate_repeated_pair(reference, variant, "ndwi")
+
+    def test_rejects_different_common_size(self) -> None:
+        """共通集合の母数が違えば止める。"""
+        reference, variant = self._pair()
+        variant["common_size"] = 999
+
+        with pytest.raises(ValueError, match="common_size"):
+            validate_repeated_pair(reference, variant, "ndwi")
+
+    def test_rejects_different_seed_samples(self) -> None:
+        """シードごとの標本のダイジェストが違えば（別の標本で回った反復）止める。"""
+        reference, variant = self._pair()
+        variant["seed_records"] = [{"seed": 42, "digest": "abc"}, {"seed": 43, "digest": "zzz"}]
+
+        with pytest.raises(ValueError, match="seed_records"):
+            validate_repeated_pair(reference, variant, "ndwi")
+
+    def test_rejects_missing_seed_records(self) -> None:
+        """標本のダイジェストの記録が無ければ、一致を確かめられないため止める。"""
+        reference, variant = self._pair()
+        del variant["seed_records"]
+
+        with pytest.raises(ValueError, match="標本ダイジェスト"):
             validate_repeated_pair(reference, variant, "ndwi")
 
     def test_rejects_other_limited_configuration(self) -> None:
@@ -334,14 +365,15 @@ class TestMain:
         assert set(WATCH_PATHS) <= set(result["provenance"]["code"]["watch_paths"])
 
     def test_records_mismatch_of_satellite_only_folds(self, tmp_path: Path) -> None:
-        """2つの反復の Satellite Only 側が違えば、止めずに検査結果を False で記録する。"""
+        """2つの反復の Satellite Only 側が違えば、止めずに False で記録し、警告する。"""
         cells_path = _write_inputs(tmp_path)
         folds_csv = tmp_path / "repeated_variant_folds.csv"
         table = pd.read_csv(folds_csv)
         table.loc[table["scenario"] == "satellite_only", "rf_r2"] += 1e-6
         table.to_csv(folds_csv, index=False)
 
-        main(["--evaluation-cells", str(cells_path)])
+        with pytest.warns(UserWarning, match="repeated_satellite_only_folds_identical"):
+            main(["--evaluation-cells", str(cells_path)])
 
         result = json.loads(
             resolve_output_paths(cells_path, "ndwi")["results"].read_text(encoding="utf-8")
@@ -349,14 +381,15 @@ class TestMain:
         assert result["consistency_checks"]["repeated_satellite_only_folds_identical"] is False
 
     def test_records_mismatch_of_full_run(self, tmp_path: Path) -> None:
-        """反復の主シードと全工程ランの fold 別指標が違えば、False で記録する。"""
+        """反復の主シードと全工程ランの fold 別指標が違えば、False で記録し、警告する。"""
         cells_path = _write_inputs(tmp_path)
         full_run_csv = tmp_path / "limited_variant_spatial_cv_folds.csv"
         folds = pd.read_csv(full_run_csv)
         folds["rf_rmse"] += 1e-6
         folds.to_csv(full_run_csv, index=False)
 
-        main(["--evaluation-cells", str(cells_path)])
+        with pytest.warns(UserWarning, match="repeated_main_seed_matches_full_run.variant"):
+            main(["--evaluation-cells", str(cells_path)])
 
         result = json.loads(
             resolve_output_paths(cells_path, "ndwi")["results"].read_text(encoding="utf-8")
@@ -392,6 +425,18 @@ class TestMain:
         _write_json(limited_result, data)
 
         with pytest.raises(ValueError, match=key):
+            main(["--evaluation-cells", str(cells_path)])
+
+    def test_stops_when_full_runs_differ_from_repeated_sample(self, tmp_path: Path) -> None:
+        """単発の全工程ランの評価セルが、反復の主シードの標本と違えば止める。"""
+        cells_path = _write_inputs(tmp_path)
+        for role in ("reference", "variant"):
+            limited_result = tmp_path / f"limited_{role}_results.json"
+            data = json.loads(limited_result.read_text(encoding="utf-8"))
+            data["evaluation_cells"]["digest"] = "xyz"
+            _write_json(limited_result, data)
+
+        with pytest.raises(ValueError, match="反復の主シードの標本と一致しません"):
             main(["--evaluation-cells", str(cells_path)])
 
     def test_stops_when_input_missing(self, tmp_path: Path) -> None:

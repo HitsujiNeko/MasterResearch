@@ -249,21 +249,28 @@ def seed_digests(repeated_result: Mapping[str, Any]) -> dict[int, str]:
 def validate_single_matches_repeated(
     full_run_result: Mapping[str, Any], repeated_result: Mapping[str, Any]
 ) -> None:
-    """単発の全工程ランの評価セルが、反復の主シードの標本と同じであることを確かめる。
+    """単発の全工程ランが、反復の主シードと同じ標本・同じ木の本数であることを確かめる。
 
     反復は主シードの標本が保存済みの評価セルと一致することを確かめてから回るため、
     全工程ランの評価セルのダイジェストと、反復の主シードの標本のダイジェストを比べる。
+    木の本数は結果 JSON に反復の値を1つだけ記録するため、単発でも同じであることを求める。
 
     Args:
         full_run_result: Limited の全工程ランの結果 JSON（`evaluation_cells.digest` と
-            `run_parameters.random_state` を持つ）。
-        repeated_result: 反復の結果 JSON。
+            `run_parameters.random_state`・`run_parameters.rf_trees` を持つ）。
+        repeated_result: 反復の結果 JSON（`rf_trees` を持つ）。
     Returns:
         None
     Raises:
-        ValueError: 反復に全工程ランの乱数シードが含まれない場合、またはダイジェストが
-            一致しない場合。
+        ValueError: 木の本数が違う場合、反復に全工程ランの乱数シードが含まれない場合、
+            またはダイジェストが一致しない場合。
     """
+    full_run_trees = full_run_result["run_parameters"]["rf_trees"]
+    if full_run_trees != repeated_result.get("rf_trees"):
+        raise ValueError(
+            "単発の全工程ランと反復の RF の木の本数が違います"
+            f"（全工程ラン {full_run_trees}、反復 {repeated_result.get('rf_trees')}）。"
+        )
     main_seed = int(full_run_result["run_parameters"]["random_state"])
     digests = seed_digests(repeated_result)
     if main_seed not in digests:

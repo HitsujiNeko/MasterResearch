@@ -462,15 +462,29 @@ class TestMain:
 class TestValidateSingleMatchesRepeated:
     """validate_single_matches_repeated のテスト。"""
 
+    @staticmethod
+    def _full_run(random_state: int = 42, rf_trees: int = 300) -> dict[str, Any]:
+        """全工程ランの結果 JSON（照合に使う項目だけ）を作る。"""
+        return {
+            "run_parameters": {"random_state": random_state, "rf_trees": rf_trees},
+            "evaluation_cells": {"digest": "abc"},
+        }
+
+    @staticmethod
+    def _repeated(rf_trees: int = 300) -> dict[str, Any]:
+        """反復の結果 JSON（照合に使う項目だけ）を作る。"""
+        return {"rf_trees": rf_trees, "seed_records": _seed_records()}
+
     def test_rejects_main_seed_missing_from_repeated(self) -> None:
         """反復のシードに全工程ランの乱数シードが無ければ止める。"""
-        full_run = {"run_parameters": {"random_state": 7}, "evaluation_cells": {"digest": "abc"}}
-
         with pytest.raises(ValueError, match="乱数シード 7"):
-            validate_single_matches_repeated(full_run, {"seed_records": _seed_records()})
+            validate_single_matches_repeated(self._full_run(random_state=7), self._repeated())
+
+    def test_rejects_different_rf_trees(self) -> None:
+        """全工程ランと反復の木の本数が違えば（区間の条件が揃わない）止める。"""
+        with pytest.raises(ValueError, match="木の本数"):
+            validate_single_matches_repeated(self._full_run(rf_trees=100), self._repeated())
 
     def test_accepts_matching_main_seed_sample(self) -> None:
-        """全工程ランの評価セルが反復の主シードの標本と同じなら通す。"""
-        full_run = {"run_parameters": {"random_state": 42}, "evaluation_cells": {"digest": "abc"}}
-
-        validate_single_matches_repeated(full_run, {"seed_records": _seed_records()})
+        """全工程ランの評価セル・木の本数が反復と同じなら通す。"""
+        validate_single_matches_repeated(self._full_run(), self._repeated())

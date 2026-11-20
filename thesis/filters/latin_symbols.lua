@@ -25,6 +25,22 @@ local LATIN_SYMBOLS = {
   [0x00B1] = true, -- ± PLUS-MINUS SIGN
   [0x00D7] = true, -- × MULTIPLICATION SIGN
 }
+-- 対象の記号の UTF-8 の文字列（記号を含まない Str を早く見分けるため）
+local LATIN_SYMBOL_STRINGS = {}
+for code in pairs(LATIN_SYMBOLS) do
+  LATIN_SYMBOL_STRINGS[#LATIN_SYMBOL_STRINGS + 1] = utf8.char(code)
+end
+
+--- 文字列が対象の記号を 1 つでも含むかを返す。
+local function contains_latin_symbol(text)
+  for _, symbol in ipairs(LATIN_SYMBOL_STRINGS) do
+    if text:find(symbol, 1, true) then
+      return true
+    end
+  end
+  return false
+end
+
 -- 文字スタイルの名前（reference.docx のスタイル名と一致させる）
 local SERIF_STYLE = "Latin Symbol"
 local SANS_STYLE = "Latin Symbol Sans"
@@ -32,13 +48,14 @@ local SANS_STYLE = "Latin Symbol Sans"
 --- 文字列の対象の記号を 1 文字ずつ、指定した文字スタイルの Span に分けた Inline の列を返す。
 --- 対象の記号を含まない場合は nil を返す（要素を変えない）。
 local function split_latin_symbols(text, style)
+  if not contains_latin_symbol(text) then
+    return nil
+  end
   local inlines = pandoc.Inlines({})
   -- 記号以外の文字をためておき、記号の前でまとめて Str にする
   local pending = {}
-  local found = false
   for _, code in utf8.codes(text) do
     if LATIN_SYMBOLS[code] then
-      found = true
       if #pending > 0 then
         inlines:insert(pandoc.Str(table.concat(pending)))
         pending = {}
@@ -47,9 +64,6 @@ local function split_latin_symbols(text, style)
     else
       pending[#pending + 1] = utf8.char(code)
     end
-  end
-  if not found then
-    return nil
   end
   if #pending > 0 then
     inlines:insert(pandoc.Str(table.concat(pending)))

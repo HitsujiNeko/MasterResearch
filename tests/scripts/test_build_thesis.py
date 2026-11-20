@@ -323,6 +323,21 @@ class TestLatinSymbolsFilter:
             ("body/Table/Note", "Latin Symbol", "°"),
         ]
 
+    @pytest.mark.parametrize(
+        "markdown",
+        [
+            "# 見出し °C[^1]\n\n[^1]: 見出しの脚注 °C\n",
+            "![図題 °C[^1]](a.png)\n\n[^1]: 図題の脚注 °C\n",
+        ],
+        ids=["heading", "figure"],
+    )
+    def test_footnote_in_heading_or_figure_uses_serif_style(self, markdown: str) -> None:
+        """見出し・図題の中の脚注の本文も明朝の文脈（Latin Symbol）、外側は Latin Symbol Sans。"""
+        spans = _latin_symbol_spans(self._run(markdown)["blocks"])
+        assert ("body/Note", "Latin Symbol", "°") in spans
+        assert ("body", "Latin Symbol Sans", "°") in spans
+        assert {style for _, style, _ in spans} == {"Latin Symbol", "Latin Symbol Sans"}
+
     def test_document_with_degree_sign_only_in_code_is_unchanged(self) -> None:
         """「°」がコードの中にしか無い文書は、フィルタの有無で AST が変わらない。"""
         markdown = "# 見出し\n\n本文 30 度．`°C` はコード．\n"

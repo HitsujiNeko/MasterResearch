@@ -411,7 +411,7 @@ def layout_rects(
         矩形は figure 座標（0-1）。
 
     Raises:
-        ValueError: 縦横比が正でないとき、凡例の高さが正でないとき、
+        ValueError: 縦横比が正でないとき、凡例の高さ・右カラムの最小幅が正でないとき、
             凡例が高すぎてインセットを置く高さが残らないとき。
     """
     if map_aspect <= 0 or inset_aspect <= 0:

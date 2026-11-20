@@ -305,6 +305,10 @@ def build_docx(
             .bib の引用キーが衝突する場合。
         subprocess.CalledProcessError: pandoc が異常終了した場合（標準エラーを含む）。
         subprocess.TimeoutExpired: pandoc の実行が上限秒数を超えた場合。
+        KeyError: 表の後の空きを入れる後処理で、生成した docx に ``word/document.xml`` が
+            無い場合。
+        zipfile.BadZipFile: 表の後の空きを入れる後処理で、生成した docx を zip として
+            読めない場合。
     """
     for path in (metadata_file, reference_docx, csl_file, extra_bibliography):
         if not path.is_file():

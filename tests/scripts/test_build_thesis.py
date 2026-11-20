@@ -10,6 +10,7 @@ Word（COM）による目次更新・PDF 化はテストしない（手動の目
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import stat
@@ -192,9 +193,171 @@ def test_build_pandoc_command_runs_crossref_before_citeproc(tmp_path: Path) -> N
     assert command.index("--filter=crossref") < command.index("--citeproc")
 
 
-@pytest.mark.parametrize("missing", ["metadata_file", "csl_file", "extra_bibliography"])
+def test_build_pandoc_command_runs_lua_filters_after_crossref_and_citeproc(
+    tmp_path: Path,
+) -> None:
+    """Lua フィルタは crossref と citeproc の後に指定順で適用する（表題・参考文献も対象）。"""
+    first, second = tmp_path / "a.lua", tmp_path / "b.lua"
+    command = target.build_pandoc_command(
+        "pandoc",
+        "crossref",
+        [tmp_path / "a.md"],
+        tmp_path / "out.docx",
+        tmp_path / "meta.yaml",
+        tmp_path / "ref.docx",
+        [tmp_path],
+        [tmp_path / "gen.bib"],
+        tmp_path / "style.csl",
+        (first, second),
+    )
+    crossref = command.index("--filter=crossref")
+    lua_first = command.index(f"--lua-filter={first}")
+    lua_second = command.index(f"--lua-filter={second}")
+    assert crossref < command.index("--citeproc") < lua_first < lua_second
+
+
+def test_build_pandoc_command_without_lua_filters(tmp_path: Path) -> None:
+    """Lua フィルタを指定しなければ --lua-filter を付けない。"""
+    command = target.build_pandoc_command(
+        "pandoc",
+        "crossref",
+        [tmp_path / "a.md"],
+        tmp_path / "out.docx",
+        tmp_path / "meta.yaml",
+        tmp_path / "ref.docx",
+        [tmp_path],
+        [tmp_path / "gen.bib"],
+        tmp_path / "style.csl",
+    )
+    assert not [arg for arg in command if arg.startswith("--lua-filter")]
+
+
+def test_latin_symbols_filter_exists() -> None:
+    """既定の欧文の記号の Lua フィルタがリポジトリにある（build_docx が既定で渡す）。"""
+    assert target.LATIN_SYMBOLS_FILTER.is_file()
+
+
+def _latin_symbol_spans(node: object, context: str = "body") -> list[tuple[str, str, str]]:
+    """pandoc の JSON の AST から、custom-style 付きの Span を（文脈・スタイル名・文字列）で集める。
+
+    文脈は、Span を含む表（Table）・脚注（Note）を「/」でつないで表す（例: ``body/Table/Note``）。
+    """
+    spans: list[tuple[str, str, str]] = []
+    if isinstance(node, list):
+        for child in node:
+            spans.extend(_latin_symbol_spans(child, context))
+    elif isinstance(node, dict):
+        kind = node.get("t")
+        if kind == "Span":
+            attributes = dict(node["c"][0][2])
+            if "custom-style" in attributes:
+                text = "".join(item.get("c", "") for item in node["c"][1] if item["t"] == "Str")
+                spans.append((context, attributes["custom-style"], text))
+        if kind in ("Table", "Note"):
+            context = f"{context}/{kind}"
+        for child in node.values():
+            spans.extend(_latin_symbol_spans(child, context))
+    return spans
+
+
+@pytest.mark.skipif(TOOLS is None, reason="pandoc が必要")
+class TestLatinSymbolsFilter:
+    """欧文の記号を文字スタイル付きの Span に分ける Lua フィルタ単体のテスト（pandoc の AST）。"""
+
+    @staticmethod
+    def _run(markdown: str) -> dict:
+        """md に Lua フィルタを適用した pandoc の JSON の AST を返す。"""
+        pandoc, _ = TOOLS
+        result = subprocess.run(
+            [pandoc, "--from=markdown", "--to=json", f"--lua-filter={target.LATIN_SYMBOLS_FILTER}"],
+            input=markdown,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        return json.loads(result.stdout)
+
+    def test_splits_consecutive_trailing_and_lone_signs(self) -> None:
+        """「°」の連続・Str の末尾・「°」だけの Str をそれぞれ 1 文字ずつ分け、他の文字は残す。"""
+        document = self._run("連続 °°C と末尾の と°\n\n°\n")
+        spans = _latin_symbol_spans(document["blocks"])
+        assert spans == [("body", "Latin Symbol", "°")] * 4
+        strings = [item["c"] for item in document["blocks"][0]["c"] if item["t"] == "Str"]
+        assert strings == ["連続", "C", "と末尾の", "と"]
+
+    def test_splits_minus_plus_minus_and_multiplication_signs(self) -> None:
+        """「−」「±」「×」も分け、本文は Latin Symbol・表は Latin Symbol Sans にする。"""
+        document = self._run(
+            "相関は −0.991，平均 ± 6 倍，3 × 3 画素．\n\n| LST − 気温（°C） |\n|---|\n| −20 °C |\n"
+        )
+        assert _latin_symbol_spans(document["blocks"]) == [
+            ("body", "Latin Symbol", "−"),
+            ("body", "Latin Symbol", "±"),
+            ("body", "Latin Symbol", "×"),
+            ("body/Table", "Latin Symbol Sans", "−"),
+            ("body/Table", "Latin Symbol Sans", "°"),
+            ("body/Table", "Latin Symbol Sans", "−"),
+            ("body/Table", "Latin Symbol Sans", "°"),
+        ]
+
+    def test_similar_characters_are_not_split(self) -> None:
+        """対象外の似た文字（ハイフン・全角マイナス・ダッシュ・波ダッシュ・上付き 2）は分けない。"""
+        document = self._run("a-b，－1，Köppen–Geiger，—，1〜2，km²．\n")
+        assert _latin_symbol_spans(document["blocks"]) == []
+
+    def test_title_in_metadata_uses_serif_style(self) -> None:
+        """表紙の題目（メタデータ）の「°」も分ける（表紙は明朝の文脈）。"""
+        document = self._run("---\ntitle: 題目 30 °C\n---\n\n本文\n")
+        assert _latin_symbol_spans(document["meta"]) == [("body", "Latin Symbol", "°")]
+
+    def test_footnote_in_table_uses_serif_style(self) -> None:
+        """表の中の脚注の本文は、明朝の脚注スタイルで描かれるため Latin Symbol にする。"""
+        document = self._run(
+            "| 項目[^1] | 気温（°C） |\n|---|---|\n| a | −20 °C |\n\n[^1]: 表の脚注 °C\n"
+        )
+        assert sorted(_latin_symbol_spans(document["blocks"])) == [
+            ("body/Table", "Latin Symbol Sans", "°"),
+            ("body/Table", "Latin Symbol Sans", "°"),
+            ("body/Table", "Latin Symbol Sans", "−"),
+            ("body/Table/Note", "Latin Symbol", "°"),
+        ]
+
+    @pytest.mark.parametrize(
+        "markdown",
+        [
+            "# 見出し °C[^1]\n\n[^1]: 見出しの脚注 °C\n",
+            "![図題 °C[^1]](a.png)\n\n[^1]: 図題の脚注 °C\n",
+        ],
+        ids=["heading", "figure"],
+    )
+    def test_footnote_in_heading_or_figure_uses_serif_style(self, markdown: str) -> None:
+        """見出し・図題の中の脚注の本文も明朝の文脈（Latin Symbol）、外側は Latin Symbol Sans。"""
+        spans = _latin_symbol_spans(self._run(markdown)["blocks"])
+        assert ("body/Note", "Latin Symbol", "°") in spans
+        assert ("body", "Latin Symbol Sans", "°") in spans
+        assert {style for _, style, _ in spans} == {"Latin Symbol", "Latin Symbol Sans"}
+
+    def test_document_with_degree_sign_only_in_code_is_unchanged(self) -> None:
+        """「°」がコードの中にしか無い文書は、フィルタの有無で AST が変わらない。"""
+        markdown = "# 見出し\n\n本文 30 度．`°C` はコード．\n"
+        pandoc, _ = TOOLS
+        plain = subprocess.run(
+            [pandoc, "--from=markdown", "--to=json"],
+            input=markdown,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert self._run(markdown) == json.loads(plain.stdout)
+
+
+@pytest.mark.parametrize(
+    "missing", ["metadata_file", "csl_file", "extra_bibliography", "latin_symbols_filter"]
+)
 def test_build_docx_requires_input_files(tmp_path: Path, missing: str) -> None:
-    """metadata・CSL・手書きの .bib のいずれかが無ければ pandoc を呼ぶ前に失敗する。"""
+    """metadata・CSL・手書きの .bib・Lua フィルタのいずれかが無ければ pandoc を呼ぶ前に失敗する。"""
     _touch(tmp_path / "chapters" / "01" / "00.md", "# 第1章")
     with pytest.raises(FileNotFoundError, match="ファイルがありません"):
         target.build_docx(
@@ -545,6 +708,91 @@ class TestBuildWithPandoc:
         )
         # 題名は DOI へのハイパーリンクにしない（metadata.yaml の link-bibliography）
         assert "<w:hyperlink" not in document
+
+    def test_latin_symbols_use_latin_font_character_styles(self, tmp_path: Path) -> None:
+        """記号は単独のランに分かれ、明朝の文脈は LatinSymbol・ゴシックの文脈は LatinSymbolSans。
+
+        和文フォントの「°」「−」「±」「×」は全角幅で「°C」が空いたり幅が揃わなかったりするため、
+        Lua フィルタで欧文フォントの文字スタイルに分ける。本文の段落の文字列は変わらず、
+        コードの中の記号は分けない。
+        """
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _write_png(tmp_path / "figures" / "a.png")
+        body = "気温は 34.0 °C，乾季の（°C）である．差は −0.5，平均 ± 6 倍，3 × 3 画素．"
+        _touch(
+            chapters / "01_intro" / "00_chapter.md",
+            "# 第1章　気温 30 °C\n\n"
+            f"{body}`t °C` は分けない．\n\n"
+            "| 項目 | 気温（°C） |\n|---|---|\n| LST − 気温 | −20 °C |\n\n"
+            ": 表題 °C {#tbl:a}\n\n"
+            "![図題 °C](figures/a.png){#fig:a}\n",
+        )
+        output = tmp_path / "out.docx"
+        target.build_docx(
+            chapters, output, pandoc=pandoc, crossref=crossref, resource_paths=(tmp_path,)
+        )
+        document = _document_xml(output)
+        assert f"{body}t °C は分けない．" in _paragraph_texts(document)
+
+        symbols = "°−±×"
+        styles_by_context: dict[str, list[tuple[str | None, str]]] = {"body": [], "sans": []}
+        code_runs = []
+        tables = re.findall(r"<w:tbl>.*?</w:tbl>", document, re.S)
+        outside_tables = re.sub(r"<w:tbl>.*?</w:tbl>", "", document, flags=re.S)
+        contexts = [("sans", table) for table in tables] + [("body", outside_tables)]
+        for context, xml in contexts:
+            for paragraph in re.findall(r"<w:p[ >].*?</w:p>", xml, re.S):
+                paragraph_style = re.search(r'<w:pStyle w:val="([^"]+)"', paragraph)
+                gothic = paragraph_style and paragraph_style.group(1).startswith(
+                    ("Heading", "TableCaption", "ImageCaption")
+                )
+                for run in re.findall(r"<w:r>.*?</w:r>", paragraph, re.S):
+                    text = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", run))
+                    if not any(symbol in text for symbol in symbols):
+                        continue
+                    run_style = re.search(r'<w:rStyle w:val="([^"]+)"', run)
+                    run_style = run_style.group(1) if run_style else None
+                    if run_style == "VerbatimChar":
+                        code_runs.append(text)
+                        continue
+                    assert text in symbols, f"記号が単独のランに分かれていない: {text!r}"
+                    key = "sans" if context == "sans" or gothic else "body"
+                    styles_by_context[key].append((run_style, text))
+        # 本文の 5 件（°°−±×）
+        assert styles_by_context["body"] == [("LatinSymbol", text) for text in "°°−±×"]
+        # 見出し・表見出し・表のセル（− と −°）・表題・図題の 7 件（出現順は文書の並び順）
+        assert sorted(styles_by_context["sans"]) == sorted(
+            ("LatinSymbolSans", text) for text in "°°−−°°°"
+        )
+        assert code_runs == ["t °C"]
+
+    def test_degree_sign_in_bibliography_uses_serif_style(self, tmp_path: Path) -> None:
+        """citeproc が作る参考文献リストの「°」も LatinSymbol に分ける（citeproc の後に適用）。"""
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _touch(chapters / "01_intro" / "00_chapter.md", "# 第1章\n\n引用する[@heat_note]．\n")
+        _touch(chapters / "90_back" / "02_references.md", "# 参考文献\n\n::: {#refs}\n:::\n")
+        extra = _touch(
+            tmp_path / "extra.bib",
+            "@misc{heat_note,\n  author = {Doe, John},\n"
+            "  title = {Surface heat above 40 °C},\n  year = {2020}\n}\n",
+        )
+        output = tmp_path / "out.docx"
+        warnings = target.build_docx(
+            chapters, output, pandoc=pandoc, crossref=crossref, extra_bibliography=extra
+        )
+        assert warnings == ""
+        document = _document_xml(output)
+        assert any("Surface heat above 40 °C" in text for text in _paragraph_texts(document))
+        degree_runs = [
+            run
+            for run in re.findall(r"<w:r>.*?</w:r>", document, re.S)
+            if "°" in "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", run))
+        ]
+        assert len(degree_runs) == 1
+        assert '<w:rStyle w:val="LatinSymbol" />' in degree_runs[0]
+        assert re.search(r"<w:t[^>]*>°</w:t>", degree_runs[0])
 
     def test_reports_unknown_citation_as_warning(self, tmp_path: Path) -> None:
         """文献 DB にも手書きの .bib にも無い引用キーは警告になる（--strict で失敗にできる）。"""

@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-20  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [spatial_cv_design_results.md](../03_results/spatial_cv_design_results.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -163,16 +163,18 @@ LST と GIS データでは空間範囲が異なる。この非対称性を理�
 | **GISデータ（公開）** | ROI全体または取得範囲全体 | OSM / GlobalBuildingAtlas など。データごとに有効範囲が異なる |
 | **衛星指標**（NDVI等） | LSTと同一（ROI全体） | GEEで同時算出 |
 
-#### 2.2.1 実測BBox（2026-03-03）
+#### 2.2.1 実測BBox（2026-11-20）
 
-`src/analysis/analyze_spatial_extents.py` により、ROI（行政区画）とGIS（測量）データの空間範囲を確認した。
-出力: `data/output/spatial_extent_report.json`
+`src/analysis/analyze_spatial_extents.py` により、ROI（行政区画）とGIS（測量）データの空間範囲を確認した（出力: `data/output/spatial_extent_report.json`）。測量GISの範囲は 2026-11-20 に測り直した。座標系を EPSG:5897 として各地物を geopandas で EPSG:4326 に変換し、その全体の範囲をとった値である。
 
 | 対象 | BBox（minLon, minLat, maxLon, maxLat） | 解釈 |
 |------|----------------------------------------|------|
 | ROI（Hà Nội） | [105.2881, 20.5645, 106.0201, 21.3852] | 行政区画としてのハノイ全域 |
-| GIS（RG: merge_RG.gpkg をその場でWGS84換算） | [105.7834, 20.9949, 105.8668, 21.0991] | 測量図幅（中心部）の代表的範囲（分析の主要対象域） |
-| GIS（CS: merge_CS.gpkg をその場でWGS84換算） | [105.7831, 20.9939, 105.8671, 21.1000] | 上と整合（中心部範囲） |
+| GIS（RG: merge_RG.gpkg を EPSG:5897 として WGS84 に換算） | [105.7831, 20.9886, 105.8665, 21.0928] | 測量図幅（中心部）の代表的範囲（分析の主要対象域） |
+| GIS（CS: merge_CS.gpkg を EPSG:5897 として WGS84 に換算） | [105.7828, 20.9876, 105.8668, 21.0937] | 上と整合（中心部範囲）。図郭内枠より外側の地物も含むため、RG よりわずかに広い |
+| 測量GIS有効域（`data/gis/survey/hanoi_survey_extent.gpkg`、EPSG:5897 を WGS84 に換算） | [105.7831, 20.9886, 105.8665, 21.0928] | CS の図郭内枠（80図葉）の和集合。約 99.9 km²。RG の範囲と一致する |
+
+> **旧値について**: 2026-03-03 に記録した RG・CS の範囲（RG [105.7834, 20.9949, 105.8668, 21.0991]、CS [105.7831, 20.9939, 105.8671, 21.1000]）は、測量GISの座標系を EPSG:3405 とみなして換算した値である。同じ変換を再現すると小数4桁まで一致した。正しい座標系 EPSG:5897 が確定する前の測定であり、緯度が約 0.006 度（約 0.7 km）北にずれていた。なお `spatial_extent_report.json`（2026-05-15 生成）の値は EPSG:5897 によるが、投影座標の範囲の四隅を換算する方式のため、上表より小数4桁目でわずかに広い。
 
 **注意（重要）**:
 

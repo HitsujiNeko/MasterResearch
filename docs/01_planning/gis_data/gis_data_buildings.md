@@ -1,6 +1,6 @@
 # 建物データの調査・評価
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-20  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、都市構造パラメータの定義、分析シナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義
 
@@ -157,12 +157,13 @@ GBA はフットプリントと建物高さで**元データの年代が異な�
 論文・学位論文で本データを使用する場合は、以下の論文を引用する。
 
 ```bibtex
-Zhu, X. X. et al.: GlobalBuildingAtlas: A global LoD1 building model,
-Earth Syst. Sci. Data, 17, 6647–6670,
+Zhu, X. X., Chen, S., Zhang, F., Shi, Y., and Wang, Y.:
+GlobalBuildingAtlas: an open global and complete dataset of building polygons,
+heights and LoD1 3D models, Earth Syst. Sci. Data, 17(12), 6647–6668,
 https://doi.org/10.5194/essd-17-6647-2025, 2025.
 ```
 
-> **注意**: 著者リストの正式表記は論文ページ（<https://essd.copernicus.org/articles/17/6647/2025/>）で確認すること。上記の `Zhu, X. X. et al.` は略記であり、投稿規程に合わせて正確な著者リストを使うこと。
+> **注意**: 上記の題名・巻号・ページ・著者は、Crossref の登録内容（DOI `10.5194/essd-17-6647-2025`）で確認した値である（2026-11-20）。論文ページ: <https://essd.copernicus.org/articles/17/6647/2025/>。
 
 CC BY-NC 4.0 ライセンスの帰属表示要件として、論文本文またはデータセクションに以下のような記述を含めること：
 

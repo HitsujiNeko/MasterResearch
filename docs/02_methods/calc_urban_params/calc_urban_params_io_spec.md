@@ -95,7 +95,7 @@
 - `整備データ/merge/merge_TH.gpkg` または `merge_DH.gpkg`（水系・標高関連。参考在庫であり、付録では使わない）
 - `整備データ/merge/merge_TV.gpkg`（植生・土地利用。参考在庫であり、付録では使わない）
 
-> DH / TV の利用方法と採否は、`gpkgの確認結果.md` と `DGNファイル内容確定結果.md` を踏まえて今後検討する。付録の測量建物置き換えでは使わない。  
+> DH / TV の利用方法と採否は、[DH の確認](../../03_results/survey_gis_dh_inventory.md)・[TV の確認](../../03_results/survey_gis_tv_inventory.md) を踏まえて今後検討する。付録の測量建物置き換えでは使わない。  
 > `merge_TH.gpkg`（水系）はデータの棚卸しとして掲げるにとどめる。公開水域データとの比較を踏まえて不採用と判定しており（[survey_gis_th_inventory.md](../../03_results/survey_gis_th_inventory.md) 5章）、算出対象ではない（[calc_urban_params_guide.md](../calc_urban_params_guide.md) 1.1節）。
 
 ### 5.3 任意入力（衛星指標・LSTラスタ）

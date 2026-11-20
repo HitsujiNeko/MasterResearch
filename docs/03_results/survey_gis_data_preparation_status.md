@@ -1,7 +1,7 @@
 # 測量由来 GIS データ整備状況レポート
 
 **最終更新**: 2026-11-19  
-**作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、`gpkgの確認結果.md`、`DGNファイル内容確定結果.md` の確認メモをもとに整理。DC・GT の Level 別確認（2.7節）は、集計と QGIS での目視（研究者と Claude）による。DC・GT の詳細は [survey_gis_dc_inventory.md](survey_gis_dc_inventory.md)・[survey_gis_gt_inventory.md](survey_gis_gt_inventory.md) に移した  
+**作成方法**: `src/analysis/analyze_data_status.py` の自動分析結果と、QGIS での目視による確認をもとに整理。DC・GT の Level 別確認（2.7節）は、集計と QGIS での目視（研究者と Claude）による。DC・GT の詳細は [survey_gis_dc_inventory.md](survey_gis_dc_inventory.md)・[survey_gis_gt_inventory.md](survey_gis_gt_inventory.md) に移した  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [analysis_workflow.md](../02_methods/analysis_workflow.md), [CodingRule.md](../02_methods/CodingRule.md), [qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md), [survey_gis_attribute_inventory.md](survey_gis_attribute_inventory.md)（属性整理・問い合わせ事項。DH・TH・TV はレイヤ別の文書）
 
 ---
@@ -116,7 +116,7 @@ EPSG:5897を仮定してWGS84へ変換した結果：
 
 ### 2.5 レイヤ意味の確認結果
 
-`DGNファイル内容確定結果.md` と `gpkgの確認結果.md` を踏まえた現時点の整理は以下の通り。
+レイヤ別の確認（[属性の整理](survey_gis_attribute_inventory.md)と各レイヤの確認文書）を踏まえた現時点の整理は以下の通り。
 
 | 略語 | 現時点の理解 | 利用方針（付録の測量建物置き換えで使うのは DC のみ。TH は不採用、DH・TV の採否は未決） |
 |------|------|------|
@@ -291,7 +291,7 @@ DC・GT の変数対応は確定した（2.7節）。TH は不採用と判定し
 - ~~欠落図葉の影響範囲を地図で確認する~~ → 完了。DC の 251-c は現在の `merge_DC.gpkg` に含まれており（DC の全図葉がそろっているかは未確認）、DC が極端に少ない北端中央の図葉は 219-b だった（2.6節）。219-b で DC が少ない理由は未確認
 - レイヤ別の欠けを有効カバレッジとしてどう扱うかを決める（測量 GIS 有効域はレイヤ共通の範囲であり、レイヤ別の欠けは反映しない）。DC は 251-c の取り込みを確認したが全図葉の確認は残っており、TV は 11-c が欠けていることを確認した（2.6節）
 - 測量 GIS 有効域に絞った衛星データのみ / 衛星＋公開GISデータは実行済み（[survey_area_comparison_results.md](survey_area_comparison_results.md) 7章）。測量建物置き換えの実行後に、測量建物置き換えと同じセル集合で比較する
-- `gpkgの確認結果.md`・`DGNファイル内容確定結果.md` を根拠に、`DH` / `TV` の利用方法を整理する（付録では使わない。採否は今後の課題。TH は不採用）
+- [DH の確認](survey_gis_dh_inventory.md)・[TV の確認](survey_gis_tv_inventory.md) を根拠に、`DH` / `TV` の利用方法を整理する（付録では使わない。採否は今後の課題。TH は不採用）
 - `DH` の標高点利用方法を比較する
 - `TV` の土地利用分類がそのまま緑地率に使えるか確認する（区画の中の記号はほぼ 1 種類にそろうことを確認した。記号の意味と、区画とみなさない面の扱いが残る。[TV の確認](survey_gis_tv_inventory.md) 5・6章）
 
@@ -339,8 +339,6 @@ DC・GT の変数対応は確定した（2.7節）。TH は不採用と判定し
 
 ### 補助メモ
 
-- [gpkgの確認結果.md](../../gpkgの確認結果.md)
-- [DGNファイル内容確定結果.md](../../DGNファイル内容確定結果.md)
 - 図葉ごとの地図履歴書: `整備データ/docs/`（80件。多くは `*_LL.doc`。ベトナム語。リポジトリ外）
 
 ---

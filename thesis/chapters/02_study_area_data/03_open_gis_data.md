@@ -24,7 +24,7 @@
 
 : 衛星＋公開GISデータのシナリオで用いる公開 GIS データ {#tbl:open_gis_data}
 
-GIS データの時点は，2020 年（人口）から 2026 年（道路）までばらつき，主採用の観測（2022 年）と一致するのは土地被覆だけである．この時点のずれは，結果を解釈する際の制約となる．各データから変数を算出する方法と，データごとの有効域の扱いは第3章で述べる．
+GIS データの時点は，2020 年（人口）から 2026 年（道路）までばらつき，時点が主採用の観測（2022 年）と確実に一致するのは土地被覆だけである．この時点のずれは，結果を解釈する際の制約となる．各データから変数を算出する方法と，データごとの有効域の扱いは第3章で述べる．
 
 **道路**には OpenStreetMap を用いる．OpenStreetMap は利用者の編集によって作られるため，完全性と精度には地域差がある．ハノイは比較的整備が進んでいるが，車線数や路面の材質などの属性は入力率が低いため，属性に依存する指標には用いない．ROI 内の道路は 194,485 本，総延長は 33,668.1 km であり（@fig:osm_roads），本数の 51.6% を住宅地の道路（総延長 18,077.0 km）が占める．道路密度の算出には，このうち幹線道路・一般の車道・サービス道路の中心線だけを用い，歩道や自転車道，農道や工事中の道路は除く．
 
@@ -34,11 +34,11 @@ GIS データの時点は，2020 年（人口）から 2026 年（道路）ま�
 
 ![GBA の建物の輪郭](images/gis_data/buildings/buildings_gba_hanoi.png){#fig:gba_buildings width=60%}
 
-**標高**には FABDEM を用いる（@fig:fabdem）．FABDEM は，Copernicus DEM から建物と森林による高さの偏りを機械学習で除いた，地表面に近い標高データ（準 DTM）である．ハノイ都心の一部（約 8 km × 11 km）を覆う 10 m の標高データ（BSHorizon DEM）と比べた結果，比べた 4 つの公開標高データのうち誤差が最も小さく（RMSE 3.88 m，MAE 3.20 m），相関が最も高かった（相関係数 0.603．他の 3 つは 0.45〜0.48）ため採用した．ただし，偏りを除いた後も BSHorizon DEM より平均で約 3 m 高く，高密度の樹冠や急峻な地形では補正の残差が残る．高さの基準は EGM2008 であり，0 m は平均海面と一致しない．FABDEM の利用条件に従い，次の帰属表示を記す．FABDEM is produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.
+**標高**には FABDEM を用いる（@fig:fabdem）．FABDEM は，Copernicus DEM から建物と森林による高さの偏りを機械学習で除いた，地表面に近い標高データ（準 DTM）である．ハノイ中心市街地の一部（約 8 km × 11 km）を覆う 10 m の標高データ（BSHorizon DEM）と比べた結果，比べた 4 つの公開標高データのうち誤差が最も小さく（RMSE 3.88 m，MAE 3.20 m），相関が最も高かった（相関係数 0.603．他の 3 つは 0.45〜0.48）ため採用した．ただし，偏りを除いた後も BSHorizon DEM より平均で約 3 m 高く，高密度の樹冠や急峻な地形では補正の残差が残る．高さの基準は EGM2008 であり，0 m は平均海面と一致しない．FABDEM の利用条件に従い，次の帰属表示を記す．FABDEM is produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.
 
 ![FABDEM の標高](images/gis_data/dem/dem_fabdem_hanoi.png){#fig:fabdem width=60%}
 
-**土地被覆**には GLC_FCS30D を用いる（@fig:glc_fcs30d）．GLC_FCS30D は Landsat の時系列から作られた土地被覆図であり，35 の詳細なクラスを持つ．解像度が分析グリッドの最小単位（30 m）と一致し，主採用の観測と同じ 2022 年の図を使える．ROI 内に欠測はなく，15 のクラスが現れる．ROI では，灌漑農地が 51.80%，不透水面が 19.99%，天水農地が 13.75%，密な常緑広葉樹林が 6.38%，水域が 5.50% を占める．不透水面は都心に集まり，郊外は農地が大半を占める．なお，年ごとの図を比べると，不透水面の割合は 2018 年の 20.68% から 2022 年の 19.99% へ減っており，分類が年によって揺らいでいる可能性がある．
+**土地被覆**には GLC_FCS30D を用いる（@fig:glc_fcs30d）．GLC_FCS30D は Landsat の時系列から作られた土地被覆図であり，35 の詳細なクラスを持つ．解像度が分析グリッドの最小単位（30 m）と一致し，主採用の観測と同じ 2022 年の図を使える．ROI 内に欠測はなく，15 のクラスが現れる．ROI では，灌漑農地が 51.80%，不透水面が 19.99%，天水農地が 13.75%，密な常緑広葉樹林が 6.38%，水域が 5.50% を占める．不透水面は中心市街地に集まり，郊外は農地が大半を占める．なお，年ごとの図を比べると，不透水面の割合は 2018 年の 20.68% から 2022 年の 19.99% へ減っており，分類が年によって揺らいでいる可能性がある．
 
 ![GLC_FCS30D の土地被覆（2022 年）](images/gis_data/lulc/lulc_glc_fcs30d_hanoi.png){#fig:glc_fcs30d width=60%}
 
@@ -46,7 +46,7 @@ GIS データの時点は，2020 年（人口）から 2026 年（道路）ま�
 
 ![WorldPop の人口密度（2020 年）](images/gis_data/population/population_worldpop_hanoi_2020.png){#fig:worldpop width=60%}
 
-**夜間光**には，Suomi NPP 衛星の VIIRS Day/Night Band（DNB）による夜間光の年次合成（V2.2．米国海洋大気庁が提供し，Colorado School of Mines の Earth Observation Group が処理したもの）を用いる（@fig:viirs_dnb）．2023 年の合成を用い，ROI 内に欠測はない．年次合成の元になる雲のない観測は，ROI 内の画素あたり 51〜96 回ある．放射輝度（nW·cm⁻²·sr⁻¹）の中央値は 2.717，95 パーセンタイルは 21.348，最大値は 96.100 であり，都心でも値の飽和は認められない．画素は約 460 m で分析に用いるどのグリッドよりも粗く，セルの値は実質的に内挿になる．
+**夜間光**には，Suomi NPP 衛星の VIIRS Day/Night Band（DNB）による夜間光の年次合成（V2.2．米国海洋大気庁が提供し，Colorado School of Mines の Earth Observation Group が処理したもの）を用いる（@fig:viirs_dnb）．2023 年の合成を用い，ROI 内に欠測はない．年次合成の元になる雲のない観測は，ROI 内の画素あたり 51〜96 回ある．放射輝度（nW·cm⁻²·sr⁻¹）の中央値は 2.717，95 パーセンタイルは 21.348，最大値は 96.100 であり，中心市街地でも値の飽和は認められない．画素は約 460 m で分析に用いるどのグリッドよりも粗く，セルの値は実質的に内挿になる．
 
 ![VIIRS DNB の夜間光（2023 年の年次合成）](images/gis_data/nighttime_lights/nighttime_lights_viirs_dnb_hanoi_2023.png){#fig:viirs_dnb width=60%}
 

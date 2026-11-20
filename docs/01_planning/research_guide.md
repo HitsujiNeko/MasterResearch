@@ -430,7 +430,7 @@ Predicting surface urban heat island intensity and its drivers using machine lea
 * [available_gis_data.md](available_gis_data.md) - 公開GISデータの評価・採用データ一覧
 * [gis_data/](gis_data/) - カテゴリ別の候補比較・採用判断・解像度・ライセンス・カバレッジ（10ファイル）
 * [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md) - 測量由来GISの整備状況
-* [DGNファイル内容確定結果.md](../../DGNファイル内容確定結果.md) - 研究に使用可能なベクタデータの内容確認結果
+* [survey_gis_attribute_inventory.md](../03_results/survey_gis_attribute_inventory.md) - 測量GIS 7レイヤの属性整理と問い合わせ事項
 
 **分析結果**：
 

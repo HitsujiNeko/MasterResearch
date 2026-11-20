@@ -1,0 +1,684 @@
+{
+  "description": "Limited の水指数の構成どうしの性能差（同じ評価セル・同じ fold での対応のある差）。保存済みの fold 別指標から求め、モデルは回し直していない。",
+  "difference_direction": "Limited(ndwi) − Limited(none)",
+  "water_index": {
+    "reference": "none",
+    "variant": "ndwi"
+  },
+  "inputs": {
+    "repeated_reference": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_results.json",
+    "single_reference": "data/output/common_evaluation/20220906_032358/scenario_comparison_evaluation_cells_seed42_results.json",
+    "repeated_variant": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_wi_ndwi_results.json",
+    "single_variant": "data/output/common_evaluation/20220906_032358/scenario_comparison_evaluation_cells_seed42_wi_ndwi_results.json",
+    "single_reference_limited_results": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+    "single_variant_limited_results": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_evaluation_cells_seed42_results.json"
+  },
+  "evaluation_cells": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",
+  "analysis_area": "roi",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61
+  ],
+  "main_seed": 42,
+  "cv_splits": 5,
+  "sample_size": 100000,
+  "rf_trees": 300,
+  "repeated": {
+    "repeated_kfold": {
+      "test_train_ratio": 0.2500000001250003,
+      "metrics": {
+        "linear_r2": {
+          "n_splits": 100,
+          "mean_difference": 0.00011851310729980468,
+          "sd_difference": 0.0006123028215908033,
+          "degrees_of_freedom": 99,
+          "t_quantile": 1.984216951586417,
+          "confidence": 0.95,
+          "test_train_ratio": 0.2500000001250003,
+          "correction_factor": 0.2600000001250003,
+          "naive": {
+            "standard_error": 6.123028215908033e-05,
+            "lower": -2.9810565106618632e-06,
+            "upper": 0.00024000727111027123
+          },
+          "corrected": {
+            "standard_error": 0.00031221440362699446,
+            "lower": -0.0005009880049063214,
+            "upper": 0.0007380142195059307
+          }
+        },
+        "linear_rmse": {
+          "n_splits": 100,
+          "mean_difference": -0.0002946466096498646,
+          "sd_difference": 0.0016560537088762285,
+          "degrees_of_freedom": 99,
+          "t_quantile": 1.984216951586417,
+          "confidence": 0.95,
+          "test_train_ratio": 0.2500000001250003,
+          "correction_factor": 0.2600000001250003,
+          "naive": {
+            "standard_error": 0.00016560537088762287,
+            "lower": -0.0006232435938388416,
+            "upper": 3.395037453911244e-05
+          },
+          "corrected": {
+            "standard_error": 0.0008444250179147467,
+            "lower": -0.001970169044539969,
+            "upper": 0.0013808758252402396
+          }
+        },
+        "linear_mae": {
+          "n_splits": 100,
+          "mean_difference": 0.0005311334133148116,
+          "sd_difference": 0.00116755369776316,
+          "degrees_of_freedom": 99,
+          "t_quantile": 1.984216951586417,
+          "confidence": 0.95,
+          "test_train_ratio": 0.2500000001250003,
+          "correction_factor": 0.2600000001250003,
+          "naive": {
+            "standard_error": 0.000116755369776316,
+            "lower": 0.0002994654294159049,
+            "upper": 0.0007628013972137182
+          },
+          "corrected": {
+            "standard_error": 0.000595337908949287,
+            "lower": -0.0006501461575443745,
+            "upper": 0.0017124129841739975
+          }
+        },
+        "rf_r2": {
+          "n_splits": 100,
+          "mean_difference": 0.0022860827973633724,
+          "sd_difference": 0.0008368059090287419,
+          "degrees_of_freedom": 99,
+          "t_quantile": 1.984216951586417,
+          "confidence": 0.95,
+          "test_train_ratio": 0.2500000001250003,
+          "correction_factor": 0.2600000001250003,
+          "naive": {
+            "standard_error": 8.36805909028742e-05,
+            "lower": 0.002120042350375121,
+            "upper": 0.0024521232443516236
+          },
+          "corrected": {
+            "standard_error": 0.00042668896602530005,
+            "lower": 0.0014394393179210912,
+            "upper": 0.0031327262768056537
+          }
+        },
+        "rf_rmse": {
+          "n_splits": 100,
+          "mean_difference": -0.007491467711511593,
+          "sd_difference": 0.0027125251074644344,
+          "degrees_of_freedom": 99,
+          "t_quantile": 1.984216951586417,
+          "confidence": 0.95,
+          "test_train_ratio": 0.2500000001250003,
+          "correction_factor": 0.2600000001250003,
+          "naive": {
+            "standard_error": 0.00027125251074644344,
+            "lower": -0.008029691541495063,
+            "upper": -0.006953243881528123
+          },
+          "corrected": {
+            "standard_error": 0.0013831218457396337,
+            "lower": -0.010235881523937666,
+            "upper": -0.004747053899085518
+          }
+        },
+        "rf_mae": {
+          "n_splits": 100,
+          "mean_difference": -0.0058767216974858075,
+          "sd_difference": 0.0015855256681256023,
+          "degrees_of_freedom": 99,
+          "t_quantile": 1.984216951586417,
+          "confidence": 0.95,
+          "test_train_ratio": 0.2500000001250003,
+          "correction_factor": 0.2600000001250003,
+          "naive": {
+            "standard_error": 0.00015855256681256025,
+            "lower": -0.006191324388272828,
+            "upper": -0.005562119006698787
+          },
+          "corrected": {
+            "standard_error": 0.0008084626323018109,
+            "lower": -0.007480886957223237,
+            "upper": -0.004272556437748378
+          }
+        }
+      },
+      "note": "J = 分割数 × シード数 の fold ごとの差から求めた補正 t 区間。反復の結果と同じく、シードごとに標本自体を抽出し直しているため、区間には標本の違いも含まれる。"
+    },
+    "seed_differences": {
+      "linear_r2": {
+        "mean": 0.0001185131072998047,
+        "sd": 0.00014020184447600628,
+        "p2.5": -0.00014726966619491575,
+        "p97.5": 0.0003383752703666687
+      },
+      "linear_rmse": {
+        "mean": -0.0002946466096498645,
+        "sd": 0.0003808390228267033,
+        "p2.5": -0.0008496526963398865,
+        "p97.5": 0.0004245880771038811
+      },
+      "linear_mae": {
+        "mean": 0.0005311334133148115,
+        "sd": 0.00017718031759613573,
+        "p2.5": 0.00028840571641918834,
+        "p97.5": 0.0008538764715194478
+      },
+      "rf_r2": {
+        "mean": 0.0022860827973633724,
+        "sd": 0.0004284125125672194,
+        "p2.5": 0.0018039119870435555,
+        "p97.5": 0.0032365166909382554
+      },
+      "rf_rmse": {
+        "mean": -0.007491467711511593,
+        "sd": 0.0013831101522161987,
+        "p2.5": -0.010581402357040722,
+        "p97.5": -0.005945524130423221
+      },
+      "rf_mae": {
+        "mean": -0.005876721697485808,
+        "sd": 0.0006617563764455827,
+        "p2.5": -0.0072364050197245375,
+        "p97.5": -0.004860184965520683
+      }
+    },
+    "variant_better": {
+      "folds": {
+        "linear_r2": {
+          "n_variant_better": 62,
+          "n_total": 100
+        },
+        "linear_rmse": {
+          "n_variant_better": 62,
+          "n_total": 100
+        },
+        "linear_mae": {
+          "n_variant_better": 40,
+          "n_total": 100
+        },
+        "rf_r2": {
+          "n_variant_better": 100,
+          "n_total": 100
+        },
+        "rf_rmse": {
+          "n_variant_better": 100,
+          "n_total": 100
+        },
+        "rf_mae": {
+          "n_variant_better": 100,
+          "n_total": 100
+        }
+      },
+      "seeds": {
+        "linear_r2": {
+          "n_variant_better": 18,
+          "n_total": 20
+        },
+        "linear_rmse": {
+          "n_variant_better": 17,
+          "n_total": 20
+        },
+        "linear_mae": {
+          "n_variant_better": 0,
+          "n_total": 20
+        },
+        "rf_r2": {
+          "n_variant_better": 20,
+          "n_total": 20
+        },
+        "rf_rmse": {
+          "n_variant_better": 20,
+          "n_total": 20
+        },
+        "rf_mae": {
+          "n_variant_better": 20,
+          "n_total": 20
+        }
+      }
+    },
+    "relative_size": {
+      "linear_r2": {
+        "ratio_to_main_difference": 0.0016044200112276805,
+        "ratio_to_seed_sd": 0.8453034818674349
+      },
+      "linear_rmse": {
+        "ratio_to_main_difference": 0.0015739249759650375,
+        "ratio_to_seed_sd": 0.7736775697587595
+      },
+      "linear_mae": {
+        "ratio_to_main_difference": -0.003889951768289369,
+        "ratio_to_seed_sd": 2.997699860350602
+      },
+      "rf_r2": {
+        "ratio_to_main_difference": 0.026551924060320916,
+        "ratio_to_seed_sd": 5.336171867773536
+      },
+      "rf_rmse": {
+        "ratio_to_main_difference": 0.029776955214083873,
+        "ratio_to_seed_sd": 5.416392685360447
+      },
+      "rf_mae": {
+        "ratio_to_main_difference": 0.02889728292532446,
+        "ratio_to_seed_sd": 8.880491230097064
+      }
+    }
+  },
+  "single": {
+    "spatial_cv": {
+      "test_train_ratio": 0.25000000007812495,
+      "metrics": {
+        "linear_r2": {
+          "n_splits": 5,
+          "mean_difference": 5.3715705871582034e-05,
+          "sd_difference": 0.0005536077263332251,
+          "degrees_of_freedom": 4,
+          "t_quantile": 2.7764451051977934,
+          "confidence": 0.95,
+          "test_train_ratio": 0.25000000007812495,
+          "correction_factor": 0.45000000007812496,
+          "naive": {
+            "standard_error": 0.0002475809017900383,
+            "lower": -0.0006336790770438255,
+            "upper": 0.0007411104887869896
+          },
+          "corrected": {
+            "standard_error": 0.0003713713527172946,
+            "lower": -0.0009773764685910339,
+            "upper": 0.001084807880334198
+          }
+        },
+        "linear_rmse": {
+          "n_splits": 5,
+          "mean_difference": -0.00013411924393849083,
+          "sd_difference": 0.0015178670134859188,
+          "degrees_of_freedom": 4,
+          "t_quantile": 2.7764451051977934,
+          "confidence": 0.95,
+          "test_train_ratio": 0.25000000007812495,
+          "correction_factor": 0.45000000007812496,
+          "naive": {
+            "standard_error": 0.0006788107645918208,
+            "lower": -0.0020188000686450235,
+            "upper": 0.0017505615807680418
+          },
+          "corrected": {
+            "standard_error": 0.001018216146976118,
+            "lower": -0.002961140481243691,
+            "upper": 0.0026929019933667094
+          }
+        },
+        "linear_mae": {
+          "n_splits": 5,
+          "mean_difference": 0.0005883932113647239,
+          "sd_difference": 0.0009246934774438775,
+          "degrees_of_freedom": 4,
+          "t_quantile": 2.7764451051977934,
+          "confidence": 0.95,
+          "test_train_ratio": 0.25000000007812495,
+          "correction_factor": 0.45000000007812496,
+          "naive": {
+            "standard_error": 0.0004135354947830357,
+            "lower": -0.0005597653889511832,
+            "upper": 0.001736551811680631
+          },
+          "corrected": {
+            "standard_error": 0.0006203032422283992,
+            "lower": -0.0011338446892586364,
+            "upper": 0.0023106311119880842
+          }
+        },
+        "rf_r2": {
+          "n_splits": 5,
+          "mean_difference": 0.0022629879595539304,
+          "sd_difference": 0.00026544889494402145,
+          "degrees_of_freedom": 4,
+          "t_quantile": 2.7764451051977934,
+          "confidence": 0.95,
+          "test_train_ratio": 0.25000000007812495,
+          "correction_factor": 0.45000000007812496,
+          "naive": {
+            "standard_error": 0.00011871235472940644,
+            "lower": 0.0019333896233389657,
+            "upper": 0.002592586295768895
+          },
+          "corrected": {
+            "standard_error": 0.00017806853210956697,
+            "lower": 0.001768590455188567,
+            "upper": 0.002757385463919294
+          }
+        },
+        "rf_rmse": {
+          "n_splits": 5,
+          "mean_difference": -0.007502848185746647,
+          "sd_difference": 0.001100177685510332,
+          "degrees_of_freedom": 4,
+          "t_quantile": 2.7764451051977934,
+          "confidence": 0.95,
+          "test_train_ratio": 0.25000000007812495,
+          "correction_factor": 0.45000000007812496,
+          "naive": {
+            "standard_error": 0.0004920144184258976,
+            "lower": -0.008868899209471969,
+            "upper": -0.006136797162021325
+          },
+          "corrected": {
+            "standard_error": 0.0007380216277029106,
+            "lower": -0.0095519247215125,
+            "upper": -0.005453771649980793
+          }
+        },
+        "rf_mae": {
+          "n_splits": 5,
+          "mean_difference": -0.0061834127268217244,
+          "sd_difference": 0.001830976889191977,
+          "degrees_of_freedom": 4,
+          "t_quantile": 2.7764451051977934,
+          "confidence": 0.95,
+          "test_train_ratio": 0.25000000007812495,
+          "correction_factor": 0.45000000007812496,
+          "naive": {
+            "standard_error": 0.000818837757892872,
+            "lower": -0.008456870811674524,
+            "upper": -0.003909954641968924
+          },
+          "corrected": {
+            "standard_error": 0.0012282566369459275,
+            "lower": -0.009593599854396949,
+            "upper": -0.0027732255992465008
+          }
+        }
+      }
+    },
+    "variant_better": {
+      "folds": {
+        "linear_r2": {
+          "n_variant_better": 3,
+          "n_total": 5
+        },
+        "linear_rmse": {
+          "n_variant_better": 3,
+          "n_total": 5
+        },
+        "linear_mae": {
+          "n_variant_better": 1,
+          "n_total": 5
+        },
+        "rf_r2": {
+          "n_variant_better": 5,
+          "n_total": 5
+        },
+        "rf_rmse": {
+          "n_variant_better": 5,
+          "n_total": 5
+        },
+        "rf_mae": {
+          "n_variant_better": 5,
+          "n_total": 5
+        }
+      }
+    }
+  },
+  "consistency_checks": {
+    "repeated_satellite_only_folds_identical": true,
+    "single_satellite_only_results_identical": true,
+    "repeated_main_seed_matches_full_run": {
+      "reference": true,
+      "variant": true
+    }
+  },
+  "outputs": {
+    "repeated_folds_csv": "data/output/common_evaluation/20220906_032358/water_index_comparison_evaluation_cells_seed42_wi_ndwi_repeated_folds.csv",
+    "single_folds_csv": "data/output/common_evaluation/20220906_032358/water_index_comparison_evaluation_cells_seed42_wi_ndwi_single_folds.csv"
+  },
+  "notes": [
+    "relative_size.ratio_to_main_difference は、構成どうしの差の平均を、採用構成の反復の主結果の差（Limited − Satellite Only のシードごとの差の平均）で割った値。",
+    "relative_size.ratio_to_seed_sd は、構成どうしの差の平均の絶対値を、そのシード間の sd で割った値。",
+    "variant_better は R² では差が正、RMSE・MAE では差が負の数で、差が0の行は数えない。"
+  ],
+  "provenance": {
+    "script": "src.analysis.compare_water_index_variants",
+    "executed_at": "2026-11-20T01:57:16.130489+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "git": {
+      "commit": "50f9d59368934ff33a1c310063e18681f54f77d5",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/compare_water_index_variants.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/repeat_common_evaluation.py",
+        "src/analysis/compare_common_evaluation.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/compare_common_evaluation.py",
+          "sha256": "e3be383c431efe95480fb90337ae075a5ca2f9582822bdccc7710dd8f772c28e"
+        },
+        {
+          "path": "src/analysis/compare_water_index_variants.py",
+          "sha256": "8af15cf7fa2a42c7e70fcbfa240b1a8ea9fd4a51de8258683b0921365e489082"
+        },
+        {
+          "path": "src/analysis/repeat_common_evaluation.py",
+          "sha256": "448b81a8e808cc14407559a5222b10e31a400288d6e77d46f79bb0d1b57a8989"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_results.json",
+        "sha256": "87cd92d5dd4b08555c275d3e7163524d7b00ac7c0c2bdfcb0d48cfdc172b0a8f"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/scenario_comparison_evaluation_cells_seed42_results.json",
+        "sha256": "3ba9eb25016b8ad3ad154a851cbec765070d94699f9d6307c1473fe077358174"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_wi_ndwi_results.json",
+        "sha256": "62f2664f8a437d4f5cf701ba3ca455ee44971e44747df4f7ef015b3ebb4511fc"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/scenario_comparison_evaluation_cells_seed42_wi_ndwi_results.json",
+        "sha256": "f60042604cea248abbbc8916b28d35ab6f9e6fed474eb9c27ce51e96614e2639"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_folds.csv",
+        "sha256": "d6e9bfbc85b579e76e0744191dbc2a83cdcbf21da53a00fdb0ee241ceccfde47"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_wi_ndwi_folds.csv",
+        "sha256": "87b89edc82e2793a974486c8910ca9be834e64eea127a9a541d9b1cbb289e815"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "dfca5a792c7371aa4ba5ad29f4eafe2603992b4baa64c9163affa94588432b06"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_evaluation_cells_seed42_results.json",
+        "sha256": "02dfce3681794049fc13a1ecb34f64624920aec87420b56aa75ed5cbdcb707cd"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "439e9de5ed0d25d4f3f76fce401eb63e6cab224bbeb7dbddeaafcd2076ad4544"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_common_evaluation/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "71196137abf2ae1caa7067126fbe464985708af86ab1475af660e1d2db2e1765"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358/evaluation_cells_seed42.csv",
+        "sha256": "194b6f5d208599152ffdb92f5925b2dc532aac9640371e0ff4ec9237db7b025d"
+      }
+    ]
+  }
+}

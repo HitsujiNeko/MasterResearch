@@ -1,6 +1,6 @@
 # 衛星＋公開GISデータのシナリオ 分析結果：主採用の観測（2022-09-06）の結果
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-20  
 **関連ドキュメント**: [limited_analysis_results.md](../limited_analysis_results.md)（ハブ・索引）, [limited_analysis_legacy_20230707.md](limited_analysis_legacy_20230707.md), [limited_analysis_processing.md](limited_analysis_processing.md), [limited_analysis_multicollinearity.md](limited_analysis_multicollinearity.md), [analysis_workflow.md](../../02_methods/analysis_workflow.md), [research_guide.md](../../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](../satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](../survey_area_comparison_results.md), [spatial_cv_design_results.md](../spatial_cv_design_results.md), [observation_selection.md](../../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](../lst_emissivity_sensitivity_results.md)  
 **前提知識**: [limited_analysis_results.md](../limited_analysis_results.md) 1章（位置づけ・数値の正本・現行の定義・データセットの世代）、[limited_analysis_processing.md](limited_analysis_processing.md) 3章（ラン間で共通の処理条件）  
 **対象RQ**: RQ3（データ制約下での有効性評価）
@@ -126,11 +126,11 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 | 両シナリオの全工程ラン（シード42） | `data/output/satellite_only_cellbased/20220906_032358_common_evaluation/`・`data/output/limited/20220906_032358_common_evaluation/`（出力名の末尾が `_evaluation_cells_seed42`。衛星＋公開GISデータの採用構成は `_both_bh_mean_wi_none_evaluation_cells_seed42`） |
 | 単発の比較（fold ごとの差・区間・ランダム分割の点推定） | `data/output/common_evaluation/20220906_032358/scenario_comparison_evaluation_cells_seed42_results.json`・`_folds.csv` |
 | 20シードの反復 | `data/output/common_evaluation/20220906_032358/repeated_comparison_evaluation_cells_seed42_results.json`・`_folds.csv`・`_differences.csv`（シードごとの途中結果は `repeat_evaluation_cells_seed42/`） |
-| 分光指数を揃えた感度分析（`ndwi`・8.6.6節） | 全工程ランは `data/output/limited/20220906_032358_common_evaluation/` の出力名の末尾が `_both_bh_mean_evaluation_cells_seed42`（`_wi_` が付かない）。単発の比較と反復は、上の2行のファイル名の `evaluation_cells_seed42` の後に `_wi_ndwi` が付く（途中結果は `repeat_evaluation_cells_seed42_wi_ndwi/`） |
+| 分光指数を揃えた感度分析（`ndwi`・8.6.6節） | 全工程ランは `data/output/limited/20220906_032358_common_evaluation/` の出力名の末尾が `_both_bh_mean_evaluation_cells_seed42`（`_wi_` が付かない）。単発の比較と反復は、上の2行のファイル名の `evaluation_cells_seed42` の後に `_wi_ndwi` が付く（途中結果は `repeat_evaluation_cells_seed42_wi_ndwi/`）。`ndwi` − 採用構成の差（反復・単発）は `data/output/common_evaluation/20220906_032358/water_index_comparison_evaluation_cells_seed42_wi_ndwi_results.json`・`_repeated_folds.csv`・`_single_folds.csv` |
 
-いずれも `provenance.git.dirty` は `false` で記録されている。生成コマンドは [analysis_workflow.md](../../02_methods/analysis_workflow.md) 5.3.3節のとおりである（表の1〜4行目は引数がすべて既定値。5行目の感度分析の引数は同節）。20シードの反復は1シードあたり約13分（2シナリオの Spatial CV）かかった。
+いずれも `provenance.git.dirty` は `false` で記録されている。生成コマンドは [analysis_workflow.md](../../02_methods/analysis_workflow.md) 5.3.3節のとおりである（表の1〜4行目は引数がすべて既定値。5行目の感度分析の引数は同節。`ndwi` − 採用構成の差は、保存済みの反復・単発の比較の結果から `compare_water_index_variants.py` で求めた）。20シードの反復は1シードあたり約13分（2シナリオの Spatial CV）かかった。
 
-**2026-11-01 に、評価セルと比較・反復の検証・来歴を強化した後のコードで、上の表の1〜4行目（全工程ランは2シナリオ分で、結果 JSON は計5件）をすべて再生成した（5行目の感度分析は 2026-11-18 の生成）。**数値は再生成前と一致した。評価セル・両シナリオの全工程ラン（標本・fold 別指標・特徴量重要度・SHAP 重要度・相関）・単発の比較・反復のシードごとの fold 別指標は完全一致である。反復の集計値（差の平均・sd・区間・パーセンタイル）だけは最大 4.2e-16 ずれた。途中で中断したため13シードを途中結果の CSV から読み直しており、CSV の読み込みの丸め（最下位ビット）が残ったためである。本節の表の値（小数第3〜4位）には影響しない。SHAP の summary 図・dependence 図は描画の乱数（点の順序・ジッター）によりバイト単位では一致しないが、SHAP 値は一致している。
+**2026-11-01 に、評価セルと比較・反復の検証・来歴を強化した後のコードで、上の表の1〜4行目（全工程ランは2シナリオ分で、結果 JSON は計5件）をすべて再生成した（5行目の感度分析は 2026-11-18 の生成。そのうち `ndwi` − 採用構成の差のファイルは 2026-11-20 の生成で、文書の値は生成前に一時的な集計で求めていた値と小数第4位まで一致した）。**数値は再生成前と一致した。評価セル・両シナリオの全工程ラン（標本・fold 別指標・特徴量重要度・SHAP 重要度・相関）・単発の比較・反復のシードごとの fold 別指標は完全一致である。反復の集計値（差の平均・sd・区間・パーセンタイル）だけは最大 4.2e-16 ずれた。途中で中断したため13シードを途中結果の CSV から読み直しており、CSV の読み込みの丸め（最下位ビット）が残ったためである。本節の表の値（小数第3〜4位）には影響しない。SHAP の summary 図・dependence 図は描画の乱数（点の順序・ジッター）によりバイト単位では一致しないが、SHAP 値は一致している。
 
 **共通評価セルの全工程ランは、8.3節の主結果とは別の標本による。** 衛星＋公開GISデータの単独の性能は8.3節を主結果とし、本節の数値はシナリオ間の比較にだけ使う。
 
@@ -217,8 +217,8 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 | RF R² | +0.0861 | +0.0884 [+0.0815, +0.0952] | +0.0023 [+0.0014, +0.0031] | 100/100・20/20 |
 | 線形 R² | +0.0739 | +0.0740 [+0.0580, +0.0900] | +0.0001 [−0.0005, +0.0007] | 62/100・18/20 |
 
-- 区間の求め方は8.6.4節と同じである（J = 100・自由度99）。`ndwi` − 採用構成の差は、2つの反復の `_folds.csv` にある衛星＋公開GISデータ側の fold 別指標どうしの差から同じ方法で求めた。この差は結果ファイルとしては保存していない
-- 2つの反復の衛星データのみ側の fold 別指標は完全に一致した。`ndwi` の反復のシード42の fold 別指標は、`ndwi` の全工程ランと完全に一致した
+- 区間の求め方は8.6.4節と同じである（J = 100・自由度99）。`ndwi` − 採用構成の差は、2つの反復の `_folds.csv` にある衛星＋公開GISデータ側の fold 別指標どうしの差から同じ方法で求めた。この列（区間・良い fold とシードの数）と下の単発の `ndwi` − 採用構成の値は `water_index_comparison_evaluation_cells_seed42_wi_ndwi_results.json`（8.6.1節）の `repeated`・`single` から転記した。それ以外の列は2つの反復の結果 JSON による
+- 2つの反復の衛星データのみ側の fold 別指標は完全に一致した。`ndwi` の反復のシード42の fold 別指標は、`ndwi` の全工程ランと完全に一致した（同じ結果 JSON の `consistency_checks`）
 - **分光指数を揃えても、衛星＋公開GISデータと衛星データのみの差はほとんど変わらない。** 100個の fold すべてで衛星＋公開GISデータが上回る点も同じである
 - **RF では `ndwi` の構成のほうが良く**（RMSE で 0.0075°C・R² で 0.0023。100個の fold すべてで `ndwi` が良い）、主結果の差は「わずかに控えめな見積もり」と読める。差の大きさは主結果の差の約3%である。`ndwi` − 採用構成のシードごとの差（5 fold の平均）の sd は 0.0014°C で、差はその約5倍あり、標本の違いでは説明できない。`NDWI` を外すと RF の R² が 0.004〜0.012 下がった水指数の構成比較（6.5節。旧採用の観測）と同じ向きである
 - **線形モデルでは違いがない**（区間は0をはさみ、`ndwi` が良い fold は 62/100）
@@ -239,5 +239,5 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 **範囲と限界**:
 
 - 感度分析は 30m のみで行った。90m・300m（RQ2・[rq2_scale_area_results.md](../rq2_scale_area_results.md)）でも同じ構成の違いを含むが、30m で主結果の読み方が変わらなかったため実施していない
-- 数値の正本は8.6.1節の表のとおりである。`ndwi` の全工程ランは `data/output/limited/20220906_032358_common_evaluation/` の出力名の末尾が `_both_bh_mean_evaluation_cells_seed42`（`_wi_` が付かない）のファイル、単発の比較と反復は `data/output/common_evaluation/20220906_032358/` の出力名に `_wi_ndwi` が付くファイルである。いずれも `provenance.git.dirty` は `false` で記録されている
+- 数値の正本は8.6.1節の表のとおりである。`ndwi` の全工程ランは `data/output/limited/20220906_032358_common_evaluation/` の出力名の末尾が `_both_bh_mean_evaluation_cells_seed42`（`_wi_` が付かない）のファイル、単発の比較と反復は `data/output/common_evaluation/20220906_032358/` の出力名に `_wi_ndwi` が付くファイル、`ndwi` − 採用構成の差は同じディレクトリの `water_index_comparison_` で始まるファイルである。いずれも `provenance.git.dirty` は `false` で記録されている
 - 反復スクリプトに水指数の引数を加えたため、採用構成の反復の結果（全域・都心部の `repeated_comparison_evaluation_cells_seed42_results.json`）は陳腐化チェックで「要再実行（コード変更）」と判定される。引数を指定しない場合の挙動（採用構成・出力名）は変えておらず、テストで確かめたため再実行していない。8.1節と同じ扱いである。全域の採用構成の評価セル・単発の比較・反復は、それより前の共通モジュールの変更でも「要再実行（コード変更）」と判定されていた

@@ -44,6 +44,7 @@ from matplotlib import patheffects
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, PathPatch, Rectangle
 from matplotlib.path import Path as MplPath
+from pyproj import CRS
 from shapely.geometry import box
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
@@ -237,6 +238,28 @@ def overlay_legend_height_mm(item_count: int) -> float:
     return _LEGEND_HEIGHT_MM + _OVERLAY_LEGEND_ROW_MM * item_count
 
 
+def _require_metric_projected_crs(crs_text: str) -> None:
+    """座標系が、メートル単位の投影座標系であることを確かめる。
+
+    フィート単位などの投影座標系をそのまま使うと、km をメートルに換算した半径が
+    別の長さとして解釈され、距離帯の大きさがずれる。単位の換算はせず、受け付けない。
+
+    Args:
+        crs_text: 座標系の指定（``"EPSG:32648"`` など）。
+
+    Raises:
+        ValueError: 投影座標系でないとき、いずれかの軸の単位がメートルでないとき。
+    """
+    crs = CRS.from_user_input(crs_text)
+    if not crs.is_projected:
+        raise ValueError(f"距離を測る座標系は投影座標系にしてください: {crs_text}")
+    units = {axis.unit_name for axis in crs.axis_info}
+    if not units <= {"metre", "meter"}:
+        raise ValueError(
+            f"距離を測る座標系の単位はメートルにしてください: {crs_text}（単位: {sorted(units)}）"
+        )
+
+
 def band_geometries(
     center: MapPoint,
     bands_km: Sequence[tuple[float, float]],
@@ -250,14 +273,17 @@ def band_geometries(
     Args:
         center: 距離帯の中心点。
         bands_km: （内径 km, 外径 km）の並び。
-        projected_crs: 距離を測る投影座標系。
+        projected_crs: 距離を測る投影座標系。座標の単位はメートルに限る（半径を km から
+            メートルへ換算して buffer するため）。
 
     Returns:
         列 ``inner_km``・``outer_km`` と距離帯の多角形を持つ GeoDataFrame（EPSG:3857）。
 
     Raises:
-        ValueError: 距離帯が空のとき、内径が負のとき、外径が内径以下のとき。
+        ValueError: 距離帯が空のとき、内径が負のとき、外径が内径以下のとき、
+            ``projected_crs`` が投影座標系でないとき、座標の単位がメートルでないとき。
     """
+    _require_metric_projected_crs(projected_crs)
     if not bands_km:
         raise ValueError("距離帯が指定されていません。")
     for inner, outer in bands_km:

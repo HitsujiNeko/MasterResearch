@@ -311,6 +311,19 @@ def test_band_geometries_reject_invalid_bands(bands_km: tuple) -> None:
         band_geometries(HANOI_STATIONS_OVERLAY.center, bands_km)
 
 
+@pytest.mark.parametrize(
+    "crs_text",
+    [
+        "EPSG:4326",  # 地理座標系（単位は度）
+        "EPSG:2263",  # 米国の州平面座標系（単位は US フィート）
+    ],
+)
+def test_band_geometries_reject_non_metric_crs(crs_text: str) -> None:
+    """投影座標系でない、または単位がメートルでない座標系では止める（半径がずれるため）。"""
+    with pytest.raises(ValueError):
+        band_geometries(HANOI_STATIONS_OVERLAY.center, ((0.0, 5.0),), projected_crs=crs_text)
+
+
 def test_study_area_overlay_matches_source_definitions() -> None:
     """既定の重ね描きの定義が、正本の観測所座標と都心・郊外の定義と一致する。"""
     stations = {

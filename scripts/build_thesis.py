@@ -13,8 +13,9 @@
 Word の表スタイルでは付けられないため。図の前後・表題の前の空きは reference.docx の
 スタイルで付けている）。
 
-本文・表の「°」は、Lua フィルタ ``thesis/filters/degree_sign.lua`` で欧文フォントの文字スタイル
-（reference.docx に定義）に分ける。和文フォントの「°」は全角幅で、「°C」が空いて見えるため。
+原稿中の「°」（本文・表・見出し・図表題・参考文献など）は、Lua フィルタ
+``thesis/filters/degree_sign.lua`` で欧文フォントの文字スタイル（reference.docx に定義）に
+分ける。和文フォントの「°」は全角幅で、「°C」が空いて見えるため。
 
 ``--pdf`` を付けると、Word（COM）で docx を開いて目次と相互参照を更新し、docx を上書き
 保存したうえで PDF も書き出す（目視確認用。Windows かつ Word がある環境のみ）。pandoc が

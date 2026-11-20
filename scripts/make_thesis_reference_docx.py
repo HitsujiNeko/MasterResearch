@@ -44,12 +44,13 @@ FONT_MINCHO = "ＭＳ 明朝"
 FONT_GOTHIC = "ＭＳ ゴシック"
 FONT_LATIN = "Times New Roman"
 FONT_TABLE = "游ゴシック"
-# 「°」（U+00B0）だけを描く欧文フォント。ＭＳ 明朝・ＭＳ ゴシック・游ゴシックの「°」は全角幅で、
-# 「°C」が「° C」のように空いて見えるため（卒業論文の値ではなく修士論文で加えた値）。
-# 明朝の文脈（本文等）は本文の欧文フォント、ゴシックの文脈（表・見出し・図表題）はゴシック体の
-# 欧文フォントにする。thesis/filters/degree_sign.lua が「°」をこれらの文字スタイルに分ける
-FONT_DEGREE_SIGN_SERIF = FONT_LATIN
-FONT_DEGREE_SIGN_SANS = "Arial"
+# 欧文の記号（「°」「−」「±」「×」）だけを描く欧文フォント。これらは和文フォントでは全角幅で、
+# 「°C」が「° C」のように空いたり記号の幅が揃わなかったりするため（卒業論文の値ではなく
+# 修士論文で加えた値）。明朝の文脈（本文等）は本文の欧文フォント、ゴシックの文脈（表・見出し・
+# 図表題）はゴシック体の欧文フォントにする。thesis/filters/latin_symbols.lua が記号を
+# これらの文字スタイルに分ける
+FONT_LATIN_SYMBOL_SERIF = FONT_LATIN
+FONT_LATIN_SYMBOL_SANS = "Arial"
 SIZE_BODY = 21  # 10.5 pt
 SIZE_TABLE = 22  # 11 pt
 SIZE_FOOTNOTE = 18  # 9 pt
@@ -153,12 +154,12 @@ def _paragraph_style(
     return "".join(parts)
 
 
-def _degree_sign_style(style_id: str, name: str, font: str) -> str:
-    """「°」用の文字スタイルを返す。
+def _latin_symbol_style(style_id: str, name: str, font: str) -> str:
+    """欧文の記号（「°」「−」「±」「×」）用の文字スタイルを返す。
 
     和文（eastAsia）を含む全スロットに同じ欧文フォントを指定する。pandoc が日本語を含む
     ランに付ける ``w:hint="eastAsia"`` で和文スロットが選ばれても、表スタイルで欧文スロットが
-    游ゴシックでも、「°」が欧文フォントの字形で描かれるようにするため。文字スタイルは段落・
+    游ゴシックでも、記号が欧文フォントの字形で描かれるようにするため。文字スタイルは段落・
     表スタイルより優先される。
     """
     return (
@@ -326,10 +327,11 @@ STYLES: dict[str, str] = {
         "</w:style>"
     ),
     "Footer": _paragraph_style("Footer", "footer", ppr='<w:jc w:val="center" />'),
-    # 「°」の文字スタイル（名前は thesis/filters/degree_sign.lua の custom-style と一致させる）
-    "DegreeSign": _degree_sign_style("DegreeSign", "Degree Sign", FONT_DEGREE_SIGN_SERIF),
-    "DegreeSignSans": _degree_sign_style(
-        "DegreeSignSans", "Degree Sign Sans", FONT_DEGREE_SIGN_SANS
+    # 欧文の記号の文字スタイル（名前は thesis/filters/latin_symbols.lua の custom-style と
+    # 一致させる）
+    "LatinSymbol": _latin_symbol_style("LatinSymbol", "Latin Symbol", FONT_LATIN_SYMBOL_SERIF),
+    "LatinSymbolSans": _latin_symbol_style(
+        "LatinSymbolSans", "Latin Symbol Sans", FONT_LATIN_SYMBOL_SANS
     ),
 }
 

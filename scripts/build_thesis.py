@@ -13,9 +13,10 @@
 Word の表スタイルでは付けられないため。図の前後・表題の前の空きは reference.docx の
 スタイルで付けている）。
 
-原稿中の「°」（本文・表・見出し・図表題・参考文献など）は、Lua フィルタ
-``thesis/filters/degree_sign.lua`` で欧文フォントの文字スタイル（reference.docx に定義）に
-分ける。和文フォントの「°」は全角幅で、「°C」が空いて見えるため。
+原稿中の欧文の記号「°」「−」「±」「×」（本文・表・見出し・図表題・参考文献など）は、
+Lua フィルタ ``thesis/filters/latin_symbols.lua`` で欧文フォントの文字スタイル
+（reference.docx に定義）に分ける。和文フォントではこれらが全角幅になり、「°C」が空いて
+見えたり記号の幅が揃わなかったりするため。
 
 ``--pdf`` を付けると、Word（COM）で docx を開いて目次と相互参照を更新し、docx を上書き
 保存したうえで PDF も書き出す（目視確認用。Windows かつ Word がある環境のみ）。pandoc が
@@ -51,8 +52,8 @@ METADATA_FILE = THESIS_DIR / "metadata.yaml"
 REFERENCE_DOCX = THESIS_DIR / "templates" / "reference.docx"
 CSL_FILE = THESIS_DIR / "templates" / "thesis-ja.csl"
 EXTRA_BIBLIOGRAPHY = THESIS_DIR / "references" / "extra.bib"
-# 「°」を欧文フォントの文字スタイルに分ける Lua フィルタ
-DEGREE_SIGN_FILTER = THESIS_DIR / "filters" / "degree_sign.lua"
+# 欧文の記号（「°」「−」「±」「×」）を欧文フォントの文字スタイルに分ける Lua フィルタ
+LATIN_SYMBOLS_FILTER = THESIS_DIR / "filters" / "latin_symbols.lua"
 # 文献 DB から生成する .bib のファイル名（出力 docx と同じディレクトリに置く）
 GENERATED_BIBLIOGRAPHY_NAME = "references.bib"
 DEFAULT_OUTPUT = THESIS_DIR / "build" / "thesis.docx"
@@ -300,7 +301,7 @@ def build_docx(
     resource_paths: Sequence[Path] = (THESIS_DIR, REPO_ROOT),
     csl_file: Path = CSL_FILE,
     extra_bibliography: Path = EXTRA_BIBLIOGRAPHY,
-    degree_sign_filter: Path = DEGREE_SIGN_FILTER,
+    latin_symbols_filter: Path = LATIN_SYMBOLS_FILTER,
 ) -> str:
     """章・節の md を結合して docx を生成する。
 
@@ -322,7 +323,7 @@ def build_docx(
         zipfile.BadZipFile: 表の後の空きを入れる後処理で、生成した docx を zip として
             読めない場合。
     """
-    for path in (metadata_file, reference_docx, csl_file, extra_bibliography, degree_sign_filter):
+    for path in (metadata_file, reference_docx, csl_file, extra_bibliography, latin_symbols_filter):
         if not path.is_file():
             raise FileNotFoundError(f"ファイルがありません: {path}")
     inputs = collect_chapter_files(chapters_dir)
@@ -340,7 +341,7 @@ def build_docx(
         resource_paths,
         (generated_bibliography, extra_bibliography),
         csl_file,
-        (degree_sign_filter,),
+        (latin_symbols_filter,),
     )
     result = subprocess.run(
         command,

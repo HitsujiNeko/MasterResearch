@@ -52,6 +52,10 @@ SIZE_COVER_OTHER = 36  # 18 pt
 # 節・項以下の見出しの段落前の空き（卒業論文の値ではなく修士論文で加えた値）。
 # 1/100 行単位で、100 は Word の「段落前: 1 行」（行グリッド 1 行分）にあたる
 HEADING_SPACE_BEFORE_LINES = 100
+# 図表と本文の間の空き（1/100 行単位。100 で 1 行）。図の前・図題の後・表題の前に置く。
+# 表の後の空きはスタイルでは付けられないため、ビルド時に表の直後の本文段落へ同じ値を入れる
+# （scripts/build_thesis.py）。卒業論文の値ではなく修士論文で加えた値
+FLOAT_SPACE_LINES = 100
 
 # A4 縦、余白 上35／下30／左30／右30 mm（卒業論文の本文の節の値）
 SECTION_PROPERTIES = (
@@ -243,19 +247,33 @@ STYLES: dict[str, str] = {
     **{f"Heading{level}": _heading_style(level) for level in range(1, 10)},
     "Caption": _paragraph_style("Caption", "Caption", ppr=CAPTION_PPR, rpr=CAPTION_RPR),
     # 表題は表の上（pandoc の出力順）。表と離れないよう次段落と同じページに置く
+    # 表題の前（本文との間）に空きを置く
     "TableCaption": _paragraph_style(
-        "TableCaption", "Table Caption", based_on="Caption", ppr="<w:keepNext />", custom=True
+        "TableCaption",
+        "Table Caption",
+        based_on="Caption",
+        ppr=f'<w:keepNext /><w:spacing w:beforeLines="{FLOAT_SPACE_LINES}" />',
+        custom=True,
     ),
+    # 図題は図の下。図題の後（本文との間）に空きを置く
     "ImageCaption": _paragraph_style(
-        "ImageCaption", "Image Caption", based_on="Caption", custom=True
+        "ImageCaption",
+        "Image Caption",
+        based_on="Caption",
+        ppr=f'<w:spacing w:afterLines="{FLOAT_SPACE_LINES}" />',
+        custom=True,
     ),
-    # 図の段落: 中央揃え。図と図題（図の下）が離れないよう次段落と同じページに置く
+    # 図の段落: 中央揃え。図と図題（図の下）が離れないよう次段落と同じページに置き、
+    # 図の前（本文との間）に空きを置く
     "Figure": _paragraph_style("Figure", "Figure", ppr='<w:jc w:val="center" />', custom=True),
     "CaptionedFigure": _paragraph_style(
         "CaptionedFigure",
         "Captioned Figure",
         based_on="Figure",
-        ppr='<w:keepNext /><w:jc w:val="center" />',
+        ppr=(
+            f'<w:keepNext /><w:spacing w:beforeLines="{FLOAT_SPACE_LINES}" />'
+            '<w:jc w:val="center" />'
+        ),
         custom=True,
     ),
     "FootnoteText": _paragraph_style(

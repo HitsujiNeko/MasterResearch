@@ -9,6 +9,10 @@
 ``references.bib``）、文献 DB 未登録の文献を手書きした ``thesis/references/extra.bib`` と
 合わせて渡す。書式は ``thesis/templates/thesis-ja.csl``（卒業論文に準拠した番号順）に従う。
 
+生成した docx は、表の直後の本文段落の前に空きを入れる後処理をする（表の後の空きは
+Word の表スタイルでは付けられないため。図の前後・表題の前の空きは reference.docx の
+スタイルで付けている）。
+
 ``--pdf`` を付けると、Word（COM）で docx を開いて目次と相互参照を更新し、docx を上書き
 保存したうえで PDF も書き出す（目視確認用。Windows かつ Word がある環境のみ）。pandoc が
 出力する目次は Word のフィールドであり、Word で更新するまでページ番号が入らないため。
@@ -31,6 +35,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from collections.abc import Sequence
 from pathlib import Path
 from types import ModuleType
@@ -54,6 +59,26 @@ WORD_TIMEOUT_SECONDS = 300
 
 # pandoc（pandoc-crossref フィルタを含む）の実行の上限秒数。応答しない場合に打ち切るため
 PANDOC_TIMEOUT_SECONDS = 300
+
+# 表の後（本文との間）の空き（1/100 行単位。100 で 1 行）。reference.docx の図表の空き
+# （scripts/make_thesis_reference_docx.py の FLOAT_SPACE_LINES）と同じ値にする
+SPACE_AFTER_TABLE_LINES = 100
+# 表の直後に来たときに空きを入れる本文の段落スタイル（pandoc の本文の段落）
+BODY_PARAGRAPH_STYLES = ("BodyText", "FirstParagraph")
+# 表の終わりと、直後の段落の書式の先頭（段落スタイルの指定まで）。表と段落の間には
+# pandoc-crossref の表の番号の目印（w:bookmarkEnd 等）が入ることがあるため、読み飛ばす
+_PARAGRAPH_AFTER_TABLE = re.compile(
+    r"(</w:tbl>(?:\s*<w:bookmark(?:Start|End)\b[^>]*/>)*"
+    r'\s*<w:p(?:\s[^>]*)?>\s*<w:pPr>\s*<w:pStyle w:val="([^"]+)"\s*/>)'
+)
+# 段落書式で w:spacing より前に置く要素（OOXML の CT_PPrBase の順序）。これらが段落スタイルの
+# 直後にある段落には、要素の順序を崩さないよう空きを入れない（pandoc の本文の段落には現れない）
+_PPR_BEFORE_SPACING = re.compile(
+    r"\s*<w:(keepNext|keepLines|pageBreakBefore|framePr|widowControl|numPr|"
+    r"suppressLineNumbers|pBdr|shd|tabs|suppressAutoHyphens|kinsoku|wordWrap|"
+    r"overflowPunct|topLinePunct|autoSpaceDE|autoSpaceDN|bidi|adjustRightInd|"
+    r"snapToGrid|spacing)\b"
+)
 
 # 文献 DB の論文の引用キー（S 番号）の形。手書きの .bib では使わない
 RESERVED_KEY_PATTERN = re.compile(r"^S\d+$")
@@ -308,7 +333,75 @@ def build_docx(
         encoding="utf-8",
         timeout=PANDOC_TIMEOUT_SECONDS,
     )
+    add_space_after_tables_in_docx(output)
     return result.stderr
+
+
+def add_space_after_tables(document_xml: str, before_lines: int = SPACE_AFTER_TABLE_LINES) -> str:
+    """表の直後の本文段落に、段落前の空きを入れる。
+
+    Word の表スタイルには表の後の空きを指定できないため、表に続く本文の段落の側に
+    ``w:spacing w:beforeLines`` を直接書き込む。対象は段落スタイルが
+    :data:`BODY_PARAGRAPH_STYLES` の段落に限る（見出し・表題など、スタイルで前の空きを
+    持つ段落は変えない）。すでに空きの指定がある段落や、要素の順序を崩すおそれのある
+    段落も変えない。
+
+    Args:
+        document_xml: docx の ``word/document.xml`` の内容。
+        before_lines: 段落前の空き（1/100 行単位）。
+
+    Returns:
+        空きを入れた ``word/document.xml`` の内容。
+
+    Raises:
+        ValueError: 空きが負のとき。
+    """
+    if before_lines < 0:
+        raise ValueError(f"空きが負です: {before_lines}")
+
+    def _insert(match: re.Match[str]) -> str:
+        if match.group(2) not in BODY_PARAGRAPH_STYLES:
+            return match.group(0)
+        if _PPR_BEFORE_SPACING.match(document_xml, match.end()):
+            return match.group(0)
+        return match.group(1) + f'<w:spacing w:beforeLines="{before_lines}" />'
+
+    return _PARAGRAPH_AFTER_TABLE.sub(_insert, document_xml)
+
+
+def add_space_after_tables_in_docx(docx: Path, before_lines: int = SPACE_AFTER_TABLE_LINES) -> int:
+    """docx の表の直後の本文段落に空きを入れ、同じパスへ書き戻す。
+
+    ``word/document.xml`` 以外のパーツは、順序と圧縮方式を保ったまま写す。
+
+    Args:
+        docx: 対象の docx。
+        before_lines: 段落前の空き（1/100 行単位）。
+
+    Returns:
+        空きを入れた段落の数。
+
+    Raises:
+        FileNotFoundError: docx が無い場合。
+        KeyError: docx に ``word/document.xml`` が無い場合。
+    """
+    if not docx.is_file():
+        raise FileNotFoundError(f"ファイルがありません: {docx}")
+    with zipfile.ZipFile(docx) as archive:
+        infos = archive.infolist()
+        contents = {info.filename: archive.read(info.filename) for info in infos}
+    document_xml = contents["word/document.xml"].decode("utf-8")
+    updated = add_space_after_tables(document_xml, before_lines)
+    count = updated.count(f'<w:spacing w:beforeLines="{before_lines}" />') - document_xml.count(
+        f'<w:spacing w:beforeLines="{before_lines}" />'
+    )
+    contents["word/document.xml"] = updated.encode("utf-8")
+    temporary = docx.with_name(docx.name + ".tmp")
+    with zipfile.ZipFile(temporary, "w") as archive:
+        for info in infos:
+            archive.writestr(info, contents[info.filename])
+    temporary.replace(docx)
+    return count
 
 
 def export_pdf_with_word(docx: Path, pdf: Path) -> None:

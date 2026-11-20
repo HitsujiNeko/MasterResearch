@@ -2,7 +2,7 @@
 見出し: 2.3　公開GISデータ
 状態: 初稿
 依拠する正本:
-  - docs/01_planning/available_gis_data.md @ b215285e88
+  - docs/01_planning/available_gis_data.md @ b3e64b0219
   - docs/01_planning/urban_structure_parameters.md @ d3016a99cd
   - docs/01_planning/gis_data/ @ 58a227611f
 -->

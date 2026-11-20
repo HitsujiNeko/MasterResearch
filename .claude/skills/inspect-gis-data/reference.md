@@ -134,14 +134,14 @@ SKILL.md 本文から参照する詳細（提示フォーマット・チェッ�
 ### スクリーンショットの保存先・命名規則
 
 データ取得タスクの検証としてスクリーンショットをコミットする場合の定型。目的・対象範囲の詳細は
-[qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を正本とする。
+[qgis_data_acquisition_artifacts.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_data_acquisition_artifacts.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を正本とする。
 
 | 項目 | 定型 |
 |---|---|
 | 保存先パス | `images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`（英小文字スネークケース） |
 | 例 | `images/gis_data/roads/roads_osm_hanoi.png` |
 | 複数枚 | `_overview` / `_detail` 等の接尾辞を付す |
-| 取得方法 | 再利用ヘルパー `build_gis_figure`（印刷レイアウト export）をヘッドレス PyQGIS で呼ぶ（手順は [qgis_operation_guidelines.md の「図の生成手段」](../../../docs/02_methods/qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）。`render_map(path=)` はタイトル・スケールバー・凡例を付けられないため Git 管理外の画像に限る。`get_canvas_screenshot` はファイル保存不可の目視用 |
+| 取得方法 | 再利用ヘルパー `build_gis_figure`（印刷レイアウト export）をヘッドレス PyQGIS で呼ぶ（手順は [qgis_figure_generation.md の「図の生成手段」](../../../docs/02_methods/qgis_figure_generation.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）。`render_map(path=)` はタイトル・スケールバー・凡例を付けられないため Git 管理外の画像に限る。`get_canvas_screenshot` はファイル保存不可の目視用 |
 | 構図 | 地図フレームは ROI 比率で固定（見切れ防止）。タイトル・スケールバーは常時、凡例はラスタに付す（単一シンボルはタイトルのみ）。ROI 基準でカバレッジ・CRS 整合・分布/外れ値が判読できること |
 | 対象範囲 | 空間データ（ラスタ・ベクタ）全般。非空間データ（統計 CSV 等）は対象外 |
 

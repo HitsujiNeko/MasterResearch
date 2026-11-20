@@ -49,7 +49,7 @@
 
 ### 1.2 DH・TH・TV の目視
 
-主な Level が集まる地点を 400 m 四方のマスの集計で選び、各レイヤ 3 地点の図を作った（確認範囲は 500 m 四方）。図は、範囲ごとに切り出して EPSG:4326 に変換したデータから、ヘッドレス PyQGIS で `src/visualization/qgis_figure.py` の `build_gis_figure` を使って描いた（[qgis_operation_guidelines.md](../02_methods/qgis_operation_guidelines.md)「図の生成手段」）。作図スクリプトはリポジトリに残していない。
+主な Level が集まる地点を 400 m 四方のマスの集計で選び、各レイヤ 3 地点の図を作った（確認範囲は 500 m 四方）。図は、範囲ごとに切り出して EPSG:4326 に変換したデータから、ヘッドレス PyQGIS で `src/visualization/qgis_figure.py` の `build_gis_figure` を使って描いた（[qgis_figure_generation.md](../02_methods/qgis_figure_generation.md)「図の生成手段」）。作図スクリプトはリポジトリに残していない。
 
 各図の表示: 色付きの点・線・面 = Level（凡例を参照。同じ図の中では、同じ Level は点・線・面で同じ色）、灰色 = それ以外の Level、白い枠 = 確認範囲。背景は Esri World Imagery（出典: Esri, Maxar, Earthstar Geographics, and the GIS User Community）で、撮影時期は測量時点（2015〜2017年）より新しい。
 

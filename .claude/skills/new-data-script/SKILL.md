@@ -58,12 +58,12 @@ scaffold構成・検証チェックリスト・参照実装の対応は [referen
 
 ### Step 6: 試行実行と検証
 
-QGIS（QGIS-MCP・ヘッドレス PyQGIS）を使う工程（下記 3〜5）に入る前に、**[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) と [qgis_mcp_usage_guide.md](../../../docs/02_methods/qgis_mcp_usage_guide.md) を読み込む**（スタイル作成の注意・クロスチェック手順・各ツールの落とし穴・検証時のプロジェクト衛生を含む）。
+QGIS（QGIS-MCP・ヘッドレス PyQGIS）を使う工程（下記 3〜5）に入る前に、**[qgis_operation_guidelines.md](../../../docs/02_methods/qgis_operation_guidelines.md) と [qgis_mcp_usage_guide.md](../../../docs/02_methods/qgis_mcp_usage_guide.md) を読み込む**（スタイル作成の注意・クロスチェック手順・各ツールの落とし穴・検証時のプロジェクト衛生を含む）。あわせて、図の生成（工程 4）では [qgis_figure_generation.md](../../../docs/02_methods/qgis_figure_generation.md)、`.qml`・スクリーンショット（工程 3〜4）では [qgis_data_acquisition_artifacts.md](../../../docs/02_methods/qgis_data_acquisition_artifacts.md) も読む。
 
 1. **小範囲bbox**(ROIの一部)で試行実行し、動作を確認する
 2. [reference.md](reference.md) の検証チェックリスト(CRS・件数・カバレッジ・値域・欠損)を実施する
-3. スタイル(`.qml`)作成の要否を [qgis_operation_guidelines.md の判定表](../../../docs/02_methods/qgis_operation_guidelines.md#スタイル作成要否の判定表)で判定する。**必須と判定された場合は QGIS 表示の有無に関わらず**分類スタイルを適用し `qgis/styles/{カテゴリ}_{データセット}.qml` に保存する。保存後は同ガイドラインの確認手順(プロジェクトを開き直して凡例を確認)を実施する
-4. **取得した空間データを ROI と重ねた QGIS スクリーンショットを取得・保存する**。再利用ヘルパー `src/visualization/qgis_figure.py`（`build_gis_figure`）をヘッドレス PyQGIS で呼び出して（手順は [qgis_operation_guidelines.md の「図の生成手段」](../../../docs/02_methods/qgis_operation_guidelines.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）タイトル・スケールバー・凡例つきの PNG を生成し、`images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png` に保存する（構図要件・保存機構・命名・`.qml` との2軸関係は [qgis_operation_guidelines.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照。空間データ全般が対象で、非空間データは対象外）
+3. スタイル(`.qml`)作成の要否を [qgis_data_acquisition_artifacts.md の判定表](../../../docs/02_methods/qgis_data_acquisition_artifacts.md#スタイル作成要否の判定表)で判定する。**必須と判定された場合は QGIS 表示の有無に関わらず**分類スタイルを適用し `qgis/styles/{カテゴリ}_{データセット}.qml` に保存する。保存後は同ガイドラインの確認手順(プロジェクトを開き直して凡例を確認)を実施する
+4. **取得した空間データを ROI と重ねた QGIS スクリーンショットを取得・保存する**。再利用ヘルパー `src/visualization/qgis_figure.py`（`build_gis_figure`）をヘッドレス PyQGIS で呼び出して（手順は [qgis_figure_generation.md の「図の生成手段」](../../../docs/02_methods/qgis_figure_generation.md#図の生成手段ヘッドレス-pyqgis-を既定とする)）タイトル・スケールバー・凡例つきの PNG を生成し、`images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png` に保存する（構図要件・保存機構・命名・`.qml` との2軸関係は [qgis_data_acquisition_artifacts.md の「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_data_acquisition_artifacts.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)を参照。空間データ全般が対象で、非空間データは対象外）
 5. ベクタ集計値の妥当性検証が必要な場合は、QGIS MCP 突合を提案する。実施する場合は [qgis_operation_guidelines.md のクロスチェック定型手順](../../../docs/02_methods/qgis_operation_guidelines.md#python-自前実装と-qgis-ネイティブアルゴリズムの突合クロスチェック)に従う(同一入力を QGIS ネイティブアルゴリズムに渡し、結果を実ファイル出力のうえ突き合わせる)
 6. 検証結果の数値は実行出力から転記し、Issue コメントまたは PR 本文に記録する
 
@@ -72,8 +72,8 @@ QGIS（QGIS-MCP・ヘッドレス PyQGIS）を使う工程（下記 3〜5）に�
 1. `docs/01_planning/gis_data/gis_data_{カテゴリ}.md` に取得結果(件数・カバレッジ・注意点)を追記する
 2. `docs/02_methods/CodingRule.md` の「実装前後チェックリスト」を完了する
 3. 成果物: 取得スクリプト・テスト・サマリーJSON・調査ドキュメント追記。
-   - **空間データを取得した場合は QGIS スクリーンショット（`images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`。複数枚の場合のみ `_overview` / `_detail` 等の接尾辞を許可）を必須成果物に含める**（データ型で分岐しない。非空間データは対象外 — [「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_operation_guidelines.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)参照）
-   - 判定表で**必須と判定されるデータ型**では `qgis/styles/{カテゴリ}_{データセット}.qml` を必須成果物に含める(任意判定で作成した場合も同様に含める。`.qgz` は完了条件に含めない — [判定表の後段](../../../docs/02_methods/qgis_operation_guidelines.md#qgis-プロジェクトqgzへの追加は完了条件に含めない)参照)
+   - **空間データを取得した場合は QGIS スクリーンショット（`images/gis_data/{カテゴリ}/{カテゴリ}_{データセット}_{ROI}.png`。複数枚の場合のみ `_overview` / `_detail` 等の接尾辞を許可）を必須成果物に含める**（データ型で分岐しない。非空間データは対象外 — [「スクリーンショット（視覚的検証記録）の扱い」](../../../docs/02_methods/qgis_data_acquisition_artifacts.md#データ取得タスクにおけるスクリーンショット視覚的検証記録の扱い)参照）
+   - 判定表で**必須と判定されるデータ型**では `qgis/styles/{カテゴリ}_{データセット}.qml` を必須成果物に含める(任意判定で作成した場合も同様に含める。`.qgz` は完了条件に含めない — [判定表の後段](../../../docs/02_methods/qgis_data_acquisition_artifacts.md#qgis-プロジェクトqgzへの追加は完了条件に含めない)参照)
 4. `ruff check` / `ruff format`・markdownlint を実行し、セルフレビュー(`/self-review`)の所見つきレビューを提示のうえ、ユーザー承認後にコミットする
    - データ取得スクリプトは変更区分 R に該当するため、従来どおりコミット単位のセルフレビューと承認ゲート②を適用する（区分の定義は [task-workflow.md「変更区分（唯一の定義）」](../../../.github/task-workflow.md#変更区分唯一の定義) を参照）
 

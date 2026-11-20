@@ -1,6 +1,6 @@
 # 衛星データのみの分析結果（cell_id結合経路）
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-20  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -191,7 +191,7 @@ python -m src.analysis.build_dataset --city hanoi --scale 30 --scenario satellit
 
 random split から Spatial CV への変化は RF `0.6376 → 0.6297`（-0.008）、線形 `0.4828 → 0.4767`（-0.006）である。
 
-**この低下の小ささを「空間自己相関による過大評価が無い」根拠として読んではならない。** [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節の実測では、LST のセミバリアンスは 2,700m 地点で全体分散の69%にとどまり、sill に達するのは15〜30kmである。またブロックを広げると R² は単調に低下する。**目的変数とブロック定義は本シナリオと共通であるため、同じ制約がかかる。** 低下が小さいのは過大評価が無いからではなく、ブロックが小さく学習側と評価側が空間的に近いままであるためと解釈する。本シナリオのブロックサイズ感度は、主採用の観測で [spatial_cv_design_results.md](spatial_cv_design_results.md) に測定した（共通評価セル・2シード平均の RF で 2,700m が 0.751、13,500m が 0.727、21,600m が 0.715）。本節の値は遡及修正せず、この読み方の注意に留める。
+**この低下の小ささを「空間自己相関による過大評価が無い」根拠として読んではならない。** [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md) 3.9節の実測（衛星＋公開GISデータ・同じ観測 032305）では、LST のセミバリアンスは 2,700m 地点で全体分散の69%にとどまり、sill に達するのは15〜30kmである。またブロックを広げると R² は単調に低下する。**目的変数（LST）とブロック定義は本シナリオと共通であるため、2,700m のブロックでは LST の空間自己相関を断ち切れていないという制約は本シナリオにもかかる。** ただし、本シナリオで低下が小さい原因を切り分けた測定は無い。ブロックが小さく学習側と評価側が空間的に近いままであることは原因の候補だが、それが低下の小ささをどこまで説明するかは確かめていない。本シナリオのブロックサイズ感度は、主採用の観測で [spatial_cv_design_results.md](spatial_cv_design_results.md) に測定した（共通評価セル・2シード平均の RF で 2,700m が 0.751、13,500m が 0.727、21,600m が 0.715）。本節の値は遡及修正せず、この読み方の注意に留める。
 
 fold別の値は `*_spatial_cv_folds.csv` にある。RF の R² は fold 1〜3 が 0.583〜0.620、fold 4・5 が 0.681・0.673 と二分され、線形も同じ向きに分かれる（fold 1〜3 が 0.442〜0.449、fold 4・5 が 0.522・0.523）。**両モデルで同じ fold が高いことから、これはモデルの性質ではなく fold の地域差による。** fold間sd（RF 0.040）はこの偏りを反映している。
 
@@ -287,7 +287,7 @@ NDVI・NDWI の VIF（26.83・25.15）は慣例的な危険水準（VIF > 10）�
 - **出力先**: `data/output/satellite_only_cellbased/20220906_032358/`（接頭辞 `dataset_satellite_only_20220906_032358_hanoi_30m`）。数値の正本は1.1節と同じ種別のファイルである
 - **データセット**: 現行の手順（新世代: ROI でクリップ済み・MNDWI 列あり）で作った指標テーブルから生成した。MNDWI 列はデータセットに含まれるが、説明変数・フィルタ列には使わない（3.2節と同じ）
 - **処理条件**: 3.2〜3.4節と同じである（`IN_ANALYSIS_AREA == 1`・`LST_VALID_RATIO >= 0.5`・10万件・乱数シード42・RF 300本・ブロック 2,700m・5分割）。3.4節の注記と異なり、本章のランでは乱数シード・木の本数を含む実行パラメータが `results.json` の `run_parameters` に記録されている
-- **来歴**: `results.json` の `provenance.git.dirty` は `false` である。生成後に共通評価セルの機能（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節）を加えて共通モジュールと分析スクリプトを変えたため、陳腐化チェック（`scripts/check_result_staleness.py`）では「要再実行（コード変更）」と判定される。ただし、引数を指定しない場合の挙動は変えておらず、再実行はしていない。既定の引数での再実行（出力先だけを一時ディレクトリに変えたもの）で、標本の `cell_id` と Spatial CV の fold 別指標・ランダム分割の指標が本章の結果と完全に一致することを確かめた
+- **来歴**: `results.json` の `provenance.git.dirty` は `false` である。生成後に共通評価セルの機能（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節）を加えて共通モジュールと分析スクリプトを変えたため、陳腐化チェック（`scripts/check_result_staleness.py`）では「要再実行（コード変更）」と判定される。ただし、引数を指定しない場合の挙動は変えていないため、**上の出力先にある追跡対象の結果は再生成していない**（ファイルは生成時のまま）。挙動が変わっていないことの確認として、既定の引数で出力先だけを一時ディレクトリに変えて再実行し、その一時出力の標本の `cell_id` と Spatial CV の fold 別指標・ランダム分割の指標が、本章の結果と完全に一致することを確かめた
 
 生成コマンド（データセットは `.gitignore` 対象・再生成可能。指標・LST テーブルの生成は[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.1節と共通）:
 

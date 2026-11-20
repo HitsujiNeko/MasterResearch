@@ -10,6 +10,7 @@ Word（COM）による目次更新・PDF 化はテストしない（手動の目
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import stat
@@ -192,10 +193,10 @@ def test_build_pandoc_command_runs_crossref_before_citeproc(tmp_path: Path) -> N
     assert command.index("--filter=crossref") < command.index("--citeproc")
 
 
-def test_build_pandoc_command_runs_lua_filters_between_crossref_and_citeproc(
+def test_build_pandoc_command_runs_lua_filters_after_crossref_and_citeproc(
     tmp_path: Path,
 ) -> None:
-    """Lua フィルタは crossref の後（表題・図題も対象）、citeproc の前に指定順で適用する。"""
+    """Lua フィルタは crossref と citeproc の後に指定順で適用する（表題・参考文献も対象）。"""
     first, second = tmp_path / "a.lua", tmp_path / "b.lua"
     command = target.build_pandoc_command(
         "pandoc",
@@ -212,7 +213,7 @@ def test_build_pandoc_command_runs_lua_filters_between_crossref_and_citeproc(
     crossref = command.index("--filter=crossref")
     lua_first = command.index(f"--lua-filter={first}")
     lua_second = command.index(f"--lua-filter={second}")
-    assert crossref < lua_first < lua_second < command.index("--citeproc")
+    assert crossref < command.index("--citeproc") < lua_first < lua_second
 
 
 def test_build_pandoc_command_without_lua_filters(tmp_path: Path) -> None:
@@ -231,9 +232,89 @@ def test_build_pandoc_command_without_lua_filters(tmp_path: Path) -> None:
     assert not [arg for arg in command if arg.startswith("--lua-filter")]
 
 
-def test_degree_sign_filter_is_tracked() -> None:
+def test_degree_sign_filter_exists() -> None:
     """既定の「°」の Lua フィルタがリポジトリにある（build_docx が既定で渡す）。"""
     assert target.DEGREE_SIGN_FILTER.is_file()
+
+
+def _degree_sign_spans(node: object, context: str = "body") -> list[tuple[str, str, str]]:
+    """pandoc の JSON の AST から、custom-style 付きの Span を（文脈・スタイル名・文字列）で集める。
+
+    文脈は、Span を含む表（Table）・脚注（Note）を「/」でつないで表す（例: ``body/Table/Note``）。
+    """
+    spans: list[tuple[str, str, str]] = []
+    if isinstance(node, list):
+        for child in node:
+            spans.extend(_degree_sign_spans(child, context))
+    elif isinstance(node, dict):
+        kind = node.get("t")
+        if kind == "Span":
+            attributes = dict(node["c"][0][2])
+            if "custom-style" in attributes:
+                text = "".join(item.get("c", "") for item in node["c"][1] if item["t"] == "Str")
+                spans.append((context, attributes["custom-style"], text))
+        if kind in ("Table", "Note"):
+            context = f"{context}/{kind}"
+        for child in node.values():
+            spans.extend(_degree_sign_spans(child, context))
+    return spans
+
+
+@pytest.mark.skipif(TOOLS is None, reason="pandoc が必要")
+class TestDegreeSignFilter:
+    """「°」を文字スタイル付きの Span に分ける Lua フィルタ単体のテスト（pandoc の AST で確認）。"""
+
+    @staticmethod
+    def _run(markdown: str) -> dict:
+        """md に Lua フィルタを適用した pandoc の JSON の AST を返す。"""
+        pandoc, _ = TOOLS
+        result = subprocess.run(
+            [pandoc, "--from=markdown", "--to=json", f"--lua-filter={target.DEGREE_SIGN_FILTER}"],
+            input=markdown,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        return json.loads(result.stdout)
+
+    def test_splits_consecutive_trailing_and_lone_signs(self) -> None:
+        """「°」の連続・Str の末尾・「°」だけの Str をそれぞれ 1 文字ずつ分け、他の文字は残す。"""
+        document = self._run("連続 °°C と末尾の と°\n\n°\n")
+        spans = _degree_sign_spans(document["blocks"])
+        assert spans == [("body", "Degree Sign", "°")] * 4
+        strings = [item["c"] for item in document["blocks"][0]["c"] if item["t"] == "Str"]
+        assert strings == ["連続", "C", "と末尾の", "と"]
+
+    def test_title_in_metadata_uses_serif_style(self) -> None:
+        """表紙の題目（メタデータ）の「°」も分ける（表紙は明朝の文脈）。"""
+        document = self._run("---\ntitle: 題目 30 °C\n---\n\n本文\n")
+        assert _degree_sign_spans(document["meta"]) == [("body", "Degree Sign", "°")]
+
+    def test_footnote_in_table_uses_serif_style(self) -> None:
+        """表の中の脚注の本文は、明朝の脚注スタイルで描かれるため Degree Sign にする。"""
+        document = self._run(
+            "| 項目[^1] | 気温（°C） |\n|---|---|\n| a | −20 °C |\n\n[^1]: 表の脚注 °C\n"
+        )
+        assert sorted(_degree_sign_spans(document["blocks"])) == [
+            ("body/Table", "Degree Sign Sans", "°"),
+            ("body/Table", "Degree Sign Sans", "°"),
+            ("body/Table/Note", "Degree Sign", "°"),
+        ]
+
+    def test_document_with_degree_sign_only_in_code_is_unchanged(self) -> None:
+        """「°」がコードの中にしか無い文書は、フィルタの有無で AST が変わらない。"""
+        markdown = "# 見出し\n\n本文 30 度．`°C` はコード．\n"
+        pandoc, _ = TOOLS
+        plain = subprocess.run(
+            [pandoc, "--from=markdown", "--to=json"],
+            input=markdown,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert self._run(markdown) == json.loads(plain.stdout)
 
 
 @pytest.mark.parametrize(
@@ -643,6 +724,33 @@ class TestBuildWithPandoc:
         assert styles_by_context["body"] == ["DegreeSign"] * 2
         assert styles_by_context["sans"] == ["DegreeSignSans"] * 5
         assert code_runs == ["t °C"]
+
+    def test_degree_sign_in_bibliography_uses_serif_style(self, tmp_path: Path) -> None:
+        """citeproc が作る参考文献リストの「°」も DegreeSign に分ける（citeproc の後に適用）。"""
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _touch(chapters / "01_intro" / "00_chapter.md", "# 第1章\n\n引用する[@heat_note]．\n")
+        _touch(chapters / "90_back" / "02_references.md", "# 参考文献\n\n::: {#refs}\n:::\n")
+        extra = _touch(
+            tmp_path / "extra.bib",
+            "@misc{heat_note,\n  author = {Doe, John},\n"
+            "  title = {Surface heat above 40 °C},\n  year = {2020}\n}\n",
+        )
+        output = tmp_path / "out.docx"
+        warnings = target.build_docx(
+            chapters, output, pandoc=pandoc, crossref=crossref, extra_bibliography=extra
+        )
+        assert warnings == ""
+        document = _document_xml(output)
+        assert any("Surface heat above 40 °C" in text for text in _paragraph_texts(document))
+        degree_runs = [
+            run
+            for run in re.findall(r"<w:r>.*?</w:r>", document, re.S)
+            if "°" in "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", run))
+        ]
+        assert len(degree_runs) == 1
+        assert '<w:rStyle w:val="DegreeSign" />' in degree_runs[0]
+        assert re.search(r"<w:t[^>]*>°</w:t>", degree_runs[0])
 
     def test_reports_unknown_citation_as_warning(self, tmp_path: Path) -> None:
         """文献 DB にも手書きの .bib にも無い引用キーは警告になる（--strict で失敗にできる）。"""

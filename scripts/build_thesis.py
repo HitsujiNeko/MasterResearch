@@ -251,8 +251,8 @@ def build_pandoc_command(
     """md → docx の pandoc コマンドを組み立てる。
 
     pandoc-crossref は citeproc より先に適用する（``@fig:`` 等を引用と誤認させないため）。
-    Lua フィルタは pandoc-crossref の後・citeproc の前に、指定した順で適用する（crossref が
-    付ける図表番号や表題も処理の対象にするため）。
+    Lua フィルタは pandoc-crossref と citeproc の後に、指定した順で適用する（crossref が
+    付ける図表番号・表題と、citeproc が作る参考文献リストも処理の対象にするため）。
 
     Args:
         pandoc: pandoc のパス。
@@ -275,8 +275,8 @@ def build_pandoc_command(
         "--from=markdown",
         "--to=docx",
         f"--filter={crossref}",
-        *(f"--lua-filter={path}" for path in lua_filters),
         "--citeproc",
+        *(f"--lua-filter={path}" for path in lua_filters),
         *(f"--bibliography={path}" for path in bibliographies),
         f"--csl={csl_file}",
         f"--metadata-file={metadata_file}",

@@ -7,11 +7,13 @@
 hint の有無によらず全角になる。そこで「°」だけを、和文・欧文の全スロットに欧文フォントを
 指定した文字スタイル（reference.docx に定義。scripts/make_thesis_reference_docx.py）で描く。
 
-- 明朝の文脈（本文・脚注・参考文献など）: 文字スタイル「Degree Sign」
-- ゴシックの文脈（表・見出し・図。表題・図題を含む）: 文字スタイル「Degree Sign Sans」
+- 明朝の文脈（本文・脚注・参考文献・表紙など）: 文字スタイル「Degree Sign」
+- ゴシックの文脈（表・見出し・図。表題・図題を含む）: 文字スタイル「Degree Sign Sans」。
+  ただし、その中の脚注の本文は明朝の文脈として扱う
 
 コード（Code・CodeBlock）・数式・生の XML は Str でないため変えない。
-scripts/build_thesis.py が pandoc-crossref の後・citeproc の前に適用する。
+scripts/build_thesis.py が pandoc-crossref と citeproc の後に適用する（crossref が付ける
+図表番号・表題と、citeproc が作る参考文献リストも対象にするため）。
 ]]
 
 -- 分ける文字（U+00B0 DEGREE SIGN）
@@ -45,24 +47,34 @@ local function split_degree_sign(text, style)
   return inlines
 end
 
---- Str の「°」を指定した文字スタイルに分けるフィルタを返す。
-local function degree_sign_filter(style)
-  return {
-    Str = function(str)
-      -- 分けた後の Span の中の「°」を再び分けないよう、子は走査しない
-      return split_degree_sign(str.text, style), false
-    end,
-  }
+--- Str の「°」を指定した文字スタイルに分ける関数を返す。
+local function split_str_with(style)
+  return function(str)
+    -- 分けた後の Span の中の「°」を再び分けないよう、子は走査しない
+    return split_degree_sign(str.text, style), false
+  end
 end
 
-local sans_filter = degree_sign_filter(SANS_STYLE)
+-- 明朝の文脈のフィルタ（脚注の本文にも使う）
+local serif_filter = {
+  traverse = "topdown",
+  Str = split_str_with(SERIF_STYLE),
+}
 
---- ゴシックの文脈の要素（表・見出し・図）は配下をすべて Sans にし、外側の走査を止める。
+-- ゴシックの文脈のフィルタ。脚注は本文が明朝の脚注スタイルで描かれるため、明朝の文脈に戻す。
+-- 親（脚注）を先に処理するため、上から下へ走査する
+local sans_filter = {
+  traverse = "topdown",
+  Note = function(note)
+    return note:walk(serif_filter), false
+  end,
+  Str = split_str_with(SANS_STYLE),
+}
+
+--- ゴシックの文脈の要素（表・見出し・図）は配下を Sans にし、外側の走査を止める。
 local function apply_sans(element)
   return element:walk(sans_filter), false
 end
-
-local serif_filter = degree_sign_filter(SERIF_STYLE)
 
 return {
   {

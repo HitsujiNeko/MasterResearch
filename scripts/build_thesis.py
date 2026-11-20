@@ -13,6 +13,9 @@
 Word の表スタイルでは付けられないため。図の前後・表題の前の空きは reference.docx の
 スタイルで付けている）。
 
+本文・表の「°」は、Lua フィルタ ``thesis/filters/degree_sign.lua`` で欧文フォントの文字スタイル
+（reference.docx に定義）に分ける。和文フォントの「°」は全角幅で、「°C」が空いて見えるため。
+
 ``--pdf`` を付けると、Word（COM）で docx を開いて目次と相互参照を更新し、docx を上書き
 保存したうえで PDF も書き出す（目視確認用。Windows かつ Word がある環境のみ）。pandoc が
 出力する目次は Word のフィールドであり、Word で更新するまでページ番号が入らないため。
@@ -47,6 +50,8 @@ METADATA_FILE = THESIS_DIR / "metadata.yaml"
 REFERENCE_DOCX = THESIS_DIR / "templates" / "reference.docx"
 CSL_FILE = THESIS_DIR / "templates" / "thesis-ja.csl"
 EXTRA_BIBLIOGRAPHY = THESIS_DIR / "references" / "extra.bib"
+# 「°」を欧文フォントの文字スタイルに分ける Lua フィルタ
+DEGREE_SIGN_FILTER = THESIS_DIR / "filters" / "degree_sign.lua"
 # 文献 DB から生成する .bib のファイル名（出力 docx と同じディレクトリに置く）
 GENERATED_BIBLIOGRAPHY_NAME = "references.bib"
 DEFAULT_OUTPUT = THESIS_DIR / "build" / "thesis.docx"
@@ -241,10 +246,13 @@ def build_pandoc_command(
     resource_paths: Sequence[Path],
     bibliographies: Sequence[Path],
     csl_file: Path,
+    lua_filters: Sequence[Path] = (),
 ) -> list[str]:
     """md → docx の pandoc コマンドを組み立てる。
 
     pandoc-crossref は citeproc より先に適用する（``@fig:`` 等を引用と誤認させないため）。
+    Lua フィルタは pandoc-crossref の後・citeproc の前に、指定した順で適用する（crossref が
+    付ける図表番号や表題も処理の対象にするため）。
 
     Args:
         pandoc: pandoc のパス。
@@ -256,6 +264,7 @@ def build_pandoc_command(
         resource_paths: 図のパスを解決する基準ディレクトリ（先頭から順に探す）。
         bibliographies: 引用に使う .bib（文献 DB の生成分と手書き分）。
         csl_file: 引用・参考文献の書式（CSL）。
+        lua_filters: 適用する Lua フィルタ。
 
     Returns:
         subprocess に渡す引数リスト。
@@ -266,6 +275,7 @@ def build_pandoc_command(
         "--from=markdown",
         "--to=docx",
         f"--filter={crossref}",
+        *(f"--lua-filter={path}" for path in lua_filters),
         "--citeproc",
         *(f"--bibliography={path}" for path in bibliographies),
         f"--csl={csl_file}",
@@ -289,6 +299,7 @@ def build_docx(
     resource_paths: Sequence[Path] = (THESIS_DIR, REPO_ROOT),
     csl_file: Path = CSL_FILE,
     extra_bibliography: Path = EXTRA_BIBLIOGRAPHY,
+    degree_sign_filter: Path = DEGREE_SIGN_FILTER,
 ) -> str:
     """章・節の md を結合して docx を生成する。
 
@@ -310,7 +321,7 @@ def build_docx(
         zipfile.BadZipFile: 表の後の空きを入れる後処理で、生成した docx を zip として
             読めない場合。
     """
-    for path in (metadata_file, reference_docx, csl_file, extra_bibliography):
+    for path in (metadata_file, reference_docx, csl_file, extra_bibliography, degree_sign_filter):
         if not path.is_file():
             raise FileNotFoundError(f"ファイルがありません: {path}")
     inputs = collect_chapter_files(chapters_dir)
@@ -328,6 +339,7 @@ def build_docx(
         resource_paths,
         (generated_bibliography, extra_bibliography),
         csl_file,
+        (degree_sign_filter,),
     )
     result = subprocess.run(
         command,

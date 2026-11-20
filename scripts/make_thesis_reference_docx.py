@@ -44,6 +44,12 @@ FONT_MINCHO = "ＭＳ 明朝"
 FONT_GOTHIC = "ＭＳ ゴシック"
 FONT_LATIN = "Times New Roman"
 FONT_TABLE = "游ゴシック"
+# 「°」（U+00B0）だけを描く欧文フォント。ＭＳ 明朝・ＭＳ ゴシック・游ゴシックの「°」は全角幅で、
+# 「°C」が「° C」のように空いて見えるため（卒業論文の値ではなく修士論文で加えた値）。
+# 明朝の文脈（本文等）は本文の欧文フォント、ゴシックの文脈（表・見出し・図表題）はゴシック体の
+# 欧文フォントにする。thesis/filters/degree_sign.lua が「°」をこれらの文字スタイルに分ける
+FONT_DEGREE_SIGN_SERIF = FONT_LATIN
+FONT_DEGREE_SIGN_SANS = "Arial"
 SIZE_BODY = 21  # 10.5 pt
 SIZE_TABLE = 22  # 11 pt
 SIZE_FOOTNOTE = 18  # 9 pt
@@ -145,6 +151,22 @@ def _paragraph_style(
         parts.append(f"<w:rPr>{rpr}</w:rPr>")
     parts.append("</w:style>")
     return "".join(parts)
+
+
+def _degree_sign_style(style_id: str, name: str, font: str) -> str:
+    """「°」用の文字スタイルを返す。
+
+    和文（eastAsia）を含む全スロットに同じ欧文フォントを指定する。pandoc が日本語を含む
+    ランに付ける ``w:hint="eastAsia"`` で和文スロットが選ばれても、表スタイルで欧文スロットが
+    游ゴシックでも、「°」が欧文フォントの字形で描かれるようにするため。文字スタイルは段落・
+    表スタイルより優先される。
+    """
+    return (
+        f'<w:style w:type="character" w:customStyle="1" w:styleId="{style_id}">'
+        f'<w:name w:val="{name}" /><w:basedOn w:val="DefaultParagraphFont" /><w:qFormat />'
+        f'<w:rPr><w:rFonts w:ascii="{font}" w:hAnsi="{font}" w:eastAsia="{font}" w:cs="{font}" />'
+        "</w:rPr></w:style>"
+    )
 
 
 def _heading_style(level: int) -> str:
@@ -304,6 +326,11 @@ STYLES: dict[str, str] = {
         "</w:style>"
     ),
     "Footer": _paragraph_style("Footer", "footer", ppr='<w:jc w:val="center" />'),
+    # 「°」の文字スタイル（名前は thesis/filters/degree_sign.lua の custom-style と一致させる）
+    "DegreeSign": _degree_sign_style("DegreeSign", "Degree Sign", FONT_DEGREE_SIGN_SERIF),
+    "DegreeSignSans": _degree_sign_style(
+        "DegreeSignSans", "Degree Sign Sans", FONT_DEGREE_SIGN_SANS
+    ),
 }
 
 

@@ -192,9 +192,55 @@ def test_build_pandoc_command_runs_crossref_before_citeproc(tmp_path: Path) -> N
     assert command.index("--filter=crossref") < command.index("--citeproc")
 
 
-@pytest.mark.parametrize("missing", ["metadata_file", "csl_file", "extra_bibliography"])
+def test_build_pandoc_command_runs_lua_filters_between_crossref_and_citeproc(
+    tmp_path: Path,
+) -> None:
+    """Lua フィルタは crossref の後（表題・図題も対象）、citeproc の前に指定順で適用する。"""
+    first, second = tmp_path / "a.lua", tmp_path / "b.lua"
+    command = target.build_pandoc_command(
+        "pandoc",
+        "crossref",
+        [tmp_path / "a.md"],
+        tmp_path / "out.docx",
+        tmp_path / "meta.yaml",
+        tmp_path / "ref.docx",
+        [tmp_path],
+        [tmp_path / "gen.bib"],
+        tmp_path / "style.csl",
+        (first, second),
+    )
+    crossref = command.index("--filter=crossref")
+    lua_first = command.index(f"--lua-filter={first}")
+    lua_second = command.index(f"--lua-filter={second}")
+    assert crossref < lua_first < lua_second < command.index("--citeproc")
+
+
+def test_build_pandoc_command_without_lua_filters(tmp_path: Path) -> None:
+    """Lua フィルタを指定しなければ --lua-filter を付けない。"""
+    command = target.build_pandoc_command(
+        "pandoc",
+        "crossref",
+        [tmp_path / "a.md"],
+        tmp_path / "out.docx",
+        tmp_path / "meta.yaml",
+        tmp_path / "ref.docx",
+        [tmp_path],
+        [tmp_path / "gen.bib"],
+        tmp_path / "style.csl",
+    )
+    assert not [arg for arg in command if arg.startswith("--lua-filter")]
+
+
+def test_degree_sign_filter_is_tracked() -> None:
+    """既定の「°」の Lua フィルタがリポジトリにある（build_docx が既定で渡す）。"""
+    assert target.DEGREE_SIGN_FILTER.is_file()
+
+
+@pytest.mark.parametrize(
+    "missing", ["metadata_file", "csl_file", "extra_bibliography", "degree_sign_filter"]
+)
 def test_build_docx_requires_input_files(tmp_path: Path, missing: str) -> None:
-    """metadata・CSL・手書きの .bib のいずれかが無ければ pandoc を呼ぶ前に失敗する。"""
+    """metadata・CSL・手書きの .bib・Lua フィルタのいずれかが無ければ pandoc を呼ぶ前に失敗する。"""
     _touch(tmp_path / "chapters" / "01" / "00.md", "# 第1章")
     with pytest.raises(FileNotFoundError, match="ファイルがありません"):
         target.build_docx(
@@ -545,6 +591,58 @@ class TestBuildWithPandoc:
         )
         # 題名は DOI へのハイパーリンクにしない（metadata.yaml の link-bibliography）
         assert "<w:hyperlink" not in document
+
+    def test_degree_sign_uses_latin_font_character_styles(self, tmp_path: Path) -> None:
+        """「°」は単独のランに分かれ、明朝の文脈は DegreeSign・ゴシックの文脈は DegreeSignSans。
+
+        和文フォントの「°」は全角幅で「°C」が空いて見えるため、Lua フィルタで欧文フォントの
+        文字スタイルに分ける。本文の段落の文字列は変わらず、コードの中の「°」は分けない。
+        """
+        pandoc, crossref = TOOLS
+        chapters = tmp_path / "chapters"
+        _write_png(tmp_path / "figures" / "a.png")
+        _touch(
+            chapters / "01_intro" / "00_chapter.md",
+            "# 第1章　気温 30 °C\n\n"
+            "気温は 34.0 °C，乾季の（°C）である．`t °C` は分けない．\n\n"
+            "| 項目 | 気温（°C） |\n|---|---|\n| 最小値 | −20 °C |\n\n"
+            ": 表題 °C {#tbl:a}\n\n"
+            "![図題 °C](figures/a.png){#fig:a}\n",
+        )
+        output = tmp_path / "out.docx"
+        target.build_docx(
+            chapters, output, pandoc=pandoc, crossref=crossref, resource_paths=(tmp_path,)
+        )
+        document = _document_xml(output)
+        assert "気温は 34.0 °C，乾季の（°C）である．t °C は分けない．" in _paragraph_texts(document)
+
+        styles_by_context: dict[str, list[str | None]] = {"body": [], "sans": []}
+        code_runs = []
+        tables = re.findall(r"<w:tbl>.*?</w:tbl>", document, re.S)
+        outside_tables = re.sub(r"<w:tbl>.*?</w:tbl>", "", document, flags=re.S)
+        contexts = [("sans", table) for table in tables] + [("body", outside_tables)]
+        for context, xml in contexts:
+            for paragraph in re.findall(r"<w:p[ >].*?</w:p>", xml, re.S):
+                paragraph_style = re.search(r'<w:pStyle w:val="([^"]+)"', paragraph)
+                gothic = paragraph_style and paragraph_style.group(1).startswith(
+                    ("Heading", "TableCaption", "ImageCaption")
+                )
+                for run in re.findall(r"<w:r>.*?</w:r>", paragraph, re.S):
+                    text = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", run))
+                    if "°" not in text:
+                        continue
+                    run_style = re.search(r'<w:rStyle w:val="([^"]+)"', run)
+                    run_style = run_style.group(1) if run_style else None
+                    if run_style == "VerbatimChar":
+                        code_runs.append(text)
+                        continue
+                    assert text == "°", f"「°」が単独のランに分かれていない: {text!r}"
+                    key = "sans" if context == "sans" or gothic else "body"
+                    styles_by_context[key].append(run_style)
+        # 本文 2 件、見出し・表見出し・表のセル・表題・図題の 5 件
+        assert styles_by_context["body"] == ["DegreeSign"] * 2
+        assert styles_by_context["sans"] == ["DegreeSignSans"] * 5
+        assert code_runs == ["t °C"]
 
     def test_reports_unknown_citation_as_warning(self, tmp_path: Path) -> None:
         """文献 DB にも手書きの .bib にも無い引用キーは警告になる（--strict で失敗にできる）。"""

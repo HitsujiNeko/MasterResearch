@@ -241,6 +241,39 @@ class TestCommittedTemplate:
         # 図と図題が離れないよう、図の段落は次段落と同じページに置く（従来どおり）
         assert "<w:keepNext />" in _style(styles, "CaptionedFigure")
 
+    @pytest.mark.parametrize(
+        ("style_id", "name", "font"),
+        [
+            ("DegreeSign", "Degree Sign", "Times New Roman"),
+            ("DegreeSignSans", "Degree Sign Sans", "Arial"),
+        ],
+    )
+    def test_degree_sign_styles_use_latin_font_in_every_slot(
+        self, style_id: str, name: str, font: str
+    ) -> None:
+        """「°」の文字スタイルは和文スロットを含む全スロットが欧文フォントである。
+
+        和文フォント（ＭＳ 明朝・游ゴシック等）の「°」は全角幅で「°C」が空いて見えるため、
+        w:hint="eastAsia" で和文スロットが選ばれても欧文フォントで描かれるようにする。
+        """
+        style = _style(_read_part(TEMPLATE_PATH, "word/styles.xml"), style_id)
+        assert 'w:type="character"' in style
+        assert f'<w:name w:val="{name}" />' in style
+        for slot in ("ascii", "hAnsi", "eastAsia", "cs"):
+            assert f'w:{slot}="{font}"' in style, slot
+
+    def test_degree_sign_style_names_match_lua_filter(self) -> None:
+        """Lua フィルタの custom-style の名前が、雛形の文字スタイルの名前と一致する。
+
+        一致しないと pandoc が雛形に無いスタイルを新たに作り、欧文フォントが効かない。
+        """
+        lua = (REPO_ROOT / "thesis" / "filters" / "degree_sign.lua").read_text(encoding="utf-8")
+        styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
+        names = re.findall(r'local \w+_STYLE = "([^"]+)"', lua)
+        assert sorted(names) == ["Degree Sign", "Degree Sign Sans"]
+        for name in names:
+            assert f'<w:name w:val="{name}" />' in styles
+
     def test_cover_sizes(self) -> None:
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         assert '<w:sz w:val="48" />' in _style(styles, "Title")

@@ -8,6 +8,7 @@ fold 別指標 CSV を一時ディレクトリに合成し、差の向き・数�
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ from src.analysis.compare_water_index_variants import (
     resolve_input_paths,
     resolve_output_paths,
     validate_repeated_pair,
+    validate_single_matches_repeated,
 )
 from src.common.cv_paired_comparison import FOLD_METRIC_COLUMNS, summarize_metric_differences
 
@@ -35,7 +37,13 @@ TRAIN_SIZES = (70, 60, 70)
 TEST_SIZES = (30, 40, 30)
 # シードごとの標本の内容ダイジェスト（主シード 42 は全工程ランの評価セルと同じ "abc"）。
 SEED_DIGESTS = {42: "abc", 43: "def"}
-SEED_RECORDS = [{"seed": seed, "digest": digest} for seed, digest in SEED_DIGESTS.items()]
+
+
+def _seed_records() -> list[dict[str, Any]]:
+    """シードごとの標本の記録を、呼ぶたびに新しいリストとして作る（結果どうしで共有しない）。"""
+    return [{"seed": seed, "digest": digest} for seed, digest in SEED_DIGESTS.items()]
+
+
 # fold ごとの基準の値（構成・シードごとにずらす）。
 BASE_VALUES = np.array([0.50, 0.60, 0.70])
 
@@ -91,7 +99,7 @@ def _write_inputs(tmp_path: Path, variant_mode: str = "ndwi") -> Path:
                 "analysis_area": "full",
                 "common_size": 1000,
                 "seeds": list(SEEDS),
-                "seed_records": SEED_RECORDS,
+                "seed_records": _seed_records(),
                 "cv_splits": 3,
                 "sample_size": 100,
                 "rf_trees": 300,
@@ -234,7 +242,7 @@ class TestValidateRepeatedPair:
             "analysis_area": "full",
             "common_size": 1000,
             "seeds": [42, 43],
-            "seed_records": SEED_RECORDS,
+            "seed_records": _seed_records(),
             "cv_splits": 5,
             "sample_size": 100,
             "rf_trees": 300,
@@ -316,7 +324,10 @@ class TestMain:
         """反復・単発の差と区間・良い fold/シードの数・一致の検査・来歴を保存する。"""
         cells_path = _write_inputs(tmp_path)
 
-        main(["--evaluation-cells", str(cells_path)])
+        # 一致の検査がすべて成り立つ入力では警告を出さない
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            main(["--evaluation-cells", str(cells_path)])
 
         output_paths = resolve_output_paths(cells_path, "ndwi")
         result = json.loads(output_paths["results"].read_text(encoding="utf-8"))
@@ -446,3 +457,20 @@ class TestMain:
 
         with pytest.raises(FileNotFoundError):
             main(["--evaluation-cells", str(cells_path)])
+
+
+class TestValidateSingleMatchesRepeated:
+    """validate_single_matches_repeated のテスト。"""
+
+    def test_rejects_main_seed_missing_from_repeated(self) -> None:
+        """反復のシードに全工程ランの乱数シードが無ければ止める。"""
+        full_run = {"run_parameters": {"random_state": 7}, "evaluation_cells": {"digest": "abc"}}
+
+        with pytest.raises(ValueError, match="乱数シード 7"):
+            validate_single_matches_repeated(full_run, {"seed_records": _seed_records()})
+
+    def test_accepts_matching_main_seed_sample(self) -> None:
+        """全工程ランの評価セルが反復の主シードの標本と同じなら通す。"""
+        full_run = {"run_parameters": {"random_state": 42}, "evaluation_cells": {"digest": "abc"}}
+
+        validate_single_matches_repeated(full_run, {"seed_records": _seed_records()})

@@ -26,6 +26,7 @@ from src.visualization.roi_location_map import (
     StudyAreaOverlay,
     _draw_overlay,
     band_geometries,
+    bands_legend_label,
     credit_lines,
     expand_extent,
     format_latitude,
@@ -35,6 +36,7 @@ from src.visualization.roi_location_map import (
     nice_scalebar_length_km,
     overlay_legend_height_mm,
     overlay_legend_keys,
+    overlay_legend_labels,
 )
 from src.visualization.xyz_tiles import PROVIDERS
 
@@ -347,8 +349,29 @@ def test_overlay_legend_keys_follow_given_elements() -> None:
     """凡例には指定した要素だけが、決まった順に載る。"""
     assert overlay_legend_keys(HANOI_SURVEY_OVERLAY) == ["survey"]
     assert overlay_legend_keys(HANOI_STATIONS_OVERLAY) == ["stations", "center", "bands"]
-    assert set(OVERLAY_LEGEND_LABELS) == {"survey", "stations", "center", "bands"}
+    assert set(OVERLAY_LEGEND_LABELS) == {"survey", "stations"}
     assert all(label.strip() for label in OVERLAY_LEGEND_LABELS.values())
+
+
+def test_overlay_legend_labels_follow_center_and_bands() -> None:
+    """中心点と距離帯の凡例は、設定の名前と距離帯から作る（既定値のまま残らない）。"""
+    assert overlay_legend_labels(HANOI_STATIONS_OVERLAY) == [
+        "Weather station\n(ISD)",
+        "Hoan Kiem Lake",
+        "0–5 km and 15–25 km\nfrom Hoan Kiem Lake",
+    ]
+    custom = StudyAreaOverlay(
+        center=MapPoint("Reference point", 105.80, 21.00), bands_km=((0.0, 10.0),)
+    )
+    assert overlay_legend_labels(custom) == ["Reference point", "0–10 km\nfrom Reference point"]
+
+
+def test_bands_legend_label_joins_three_or_more_bands() -> None:
+    """距離帯が 3 つ以上ならカンマでつなぎ、最後だけ and でつなぐ。空なら止める。"""
+    label = bands_legend_label(((0.0, 1.0), (2.0, 3.5), (5.0, 8.0)), "c")
+    assert label == "0–1 km, 2–3.5 km and 5–8 km\nfrom c"
+    with pytest.raises(ValueError):
+        bands_legend_label((), "c")
 
 
 def test_overlay_legend_height_grows_with_items() -> None:

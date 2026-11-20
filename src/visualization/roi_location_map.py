@@ -189,13 +189,58 @@ HANOI_STATIONS_OVERLAY = StudyAreaOverlay(
 )
 OVERLAY_PRESETS = {"survey": HANOI_SURVEY_OVERLAY, "stations": HANOI_STATIONS_OVERLAY}
 
-# 重ね描きの凡例の文言。右カラムに収めるため 2 行に分ける。
+# 重ね描きの凡例の固定の文言。右カラムに収めるため 2 行に分ける。中心点と距離帯の文言は
+# 設定（中心点の名前・距離帯）から作る（:func:`overlay_legend_labels`）
 OVERLAY_LEGEND_LABELS = {
     "survey": "Survey GIS extent\n(city centre)",
     "stations": "Weather station\n(ISD)",
-    "center": "Hoan Kiem Lake",
-    "bands": "0–5 km and 15–25 km\nfrom the lake",
 }
+
+
+def bands_legend_label(bands_km: Sequence[tuple[float, float]], center_label: str) -> str:
+    """距離帯の凡例の文言を、距離帯と中心点の名前から作る。
+
+    例: ``((0, 5), (15, 25))`` と ``"Hoan Kiem Lake"`` から
+    ``"0–5 km and 15–25 km\\nfrom Hoan Kiem Lake"``。
+
+    Args:
+        bands_km: （内径 km, 外径 km）の並び。
+        center_label: 中心点の名前。
+
+    Returns:
+        凡例の文言（距離帯と中心点の間で改行する）。
+
+    Raises:
+        ValueError: 距離帯が空のとき。
+    """
+    if not bands_km:
+        raise ValueError("距離帯が指定されていません。")
+    ranges = [f"{inner:g}–{outer:g} km" for inner, outer in bands_km]
+    joined = ranges[0] if len(ranges) == 1 else ", ".join(ranges[:-1]) + " and " + ranges[-1]
+    return f"{joined}\nfrom {center_label}"
+
+
+def overlay_legend_labels(overlay: StudyAreaOverlay) -> list[str]:
+    """重ね描きの凡例の文言を、:func:`overlay_legend_keys` の順に返す。
+
+    中心点は設定の名前を、距離帯は設定の距離帯から作った文言を使う（中心点や距離帯を
+    変えたときに、凡例だけが既定値のまま残らないようにするため）。
+
+    Args:
+        overlay: 重ねる要素の定義。
+
+    Returns:
+        凡例の文言の並び。
+    """
+    labels = []
+    for key in overlay_legend_keys(overlay):
+        if key == "center" and overlay.center is not None:
+            labels.append(overlay.center.label)
+        elif key == "bands" and overlay.center is not None:
+            labels.append(bands_legend_label(overlay.bands_km, overlay.center.label))
+        else:
+            labels.append(OVERLAY_LEGEND_LABELS[key])
+    return labels
 
 
 def overlay_legend_keys(overlay: StudyAreaOverlay) -> list[str]:
@@ -207,7 +252,7 @@ def overlay_legend_keys(overlay: StudyAreaOverlay) -> list[str]:
         overlay: 重ねる要素の定義。
 
     Returns:
-        :data:`OVERLAY_LEGEND_LABELS` のキーの並び。
+        凡例の項目のキー（``survey``・``stations``・``center``・``bands``）の並び。
     """
     keys = []
     if overlay.survey_extent_path is not None:
@@ -757,31 +802,28 @@ def _overlay_legend_handles(overlay: StudyAreaOverlay) -> list:
     Returns:
         ``legend`` に渡すハンドルのリスト。
     """
-    labels = OVERLAY_LEGEND_LABELS
+    labels = dict(zip(overlay_legend_keys(overlay), overlay_legend_labels(overlay)))
     handle_by_key = {
-        "survey": Patch(
-            facecolor=SURVEY_EXTENT_COLOR,
-            edgecolor=SURVEY_EXTENT_COLOR,
-            alpha=0.35,
-            label=labels["survey"],
+        "survey": lambda label: Patch(
+            facecolor=SURVEY_EXTENT_COLOR, edgecolor=SURVEY_EXTENT_COLOR, alpha=0.35, label=label
         ),
-        "stations": Line2D(
+        "stations": lambda label: Line2D(
             [0],
             [0],
             marker="^",
             color=STATION_COLOR,
             linestyle="none",
             markeredgecolor="white",
-            label=labels["stations"],
+            label=label,
         ),
-        "center": Line2D(
-            [0], [0], marker="*", color="black", linestyle="none", label=labels["center"]
+        "center": lambda label: Line2D(
+            [0], [0], marker="*", color="black", linestyle="none", label=label
         ),
-        "bands": Line2D(
-            [0], [0], color=BAND_COLOR, linewidth=0.8, linestyle="--", label=labels["bands"]
+        "bands": lambda label: Line2D(
+            [0], [0], color=BAND_COLOR, linewidth=0.8, linestyle="--", label=label
         ),
     }
-    return [handle_by_key[key] for key in overlay_legend_keys(overlay)]
+    return [handle_by_key[key](label) for key, label in labels.items()]
 
 
 def _draw_legend_panel(

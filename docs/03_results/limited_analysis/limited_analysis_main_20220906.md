@@ -1,6 +1,6 @@
 # 衛星＋公開GISデータのシナリオ 分析結果：主採用の観測（2022-09-06）の結果
 
-**最終更新**: 2026-11-20  
+**最終更新**: 2026-11-21  
 **関連ドキュメント**: [limited_analysis_results.md](../limited_analysis_results.md)（ハブ・索引）, [limited_analysis_legacy_20230707.md](limited_analysis_legacy_20230707.md), [limited_analysis_processing.md](limited_analysis_processing.md), [limited_analysis_multicollinearity.md](limited_analysis_multicollinearity.md), [analysis_workflow.md](../../02_methods/analysis_workflow.md), [research_guide.md](../../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](../satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](../survey_area_comparison_results.md), [spatial_cv_design_results.md](../spatial_cv_design_results.md), [observation_selection.md](../../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](../lst_emissivity_sensitivity_results.md)  
 **前提知識**: [limited_analysis_results.md](../limited_analysis_results.md) 1章（位置づけ・数値の正本・現行の定義・データセットの世代）、[limited_analysis_processing.md](limited_analysis_processing.md) 3章（ラン間で共通の処理条件）  
 **対象RQ**: RQ3（データ制約下での有効性評価）
@@ -107,6 +107,8 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 - **観測条件の違い**: 都心と郊外の LST 差は 032358 で +2.94°C（標準偏差比 1.10）、032305 で +2.02°C（同 0.79）であり（[observation_selection.md](../../02_methods/observation_selection.md) 8.4節）、都市構造との関係が強く出やすい観測である可能性がある（**推定**）。同ドキュメント8.5節のとおり、この差を主採用の根拠に使うことは循環的な選び方に間接的に近づくため、**「主採用の観測では R² が高い」ことを手法の性能の向上として読まない**
 
 切り分けには、2観測に共通するセルへ限定した評価が要る（7節）。
+
+乾季の比較用の観測 `2024-11-30T03:23:36` を加えた3観測の比較は [observation_comparison_results.md](../observation_comparison_results.md) にある。
 
 ### 8.6 衛星データのみとの比較（共通評価セル）
 

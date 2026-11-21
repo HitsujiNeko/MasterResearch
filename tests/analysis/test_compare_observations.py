@@ -55,7 +55,8 @@ def _make_result(
     analysis_area: str = "roi",
     block_size_m: int = 2700,
     random_state: int = 42,
-    observation: str = "obs0",
+    observation: str = "20220906_032358",
+    lst_valid_ratio_threshold: float = 0.5,
 ) -> dict[str, Any]:
     """集計に必要な項目だけを持つ合成の results.json の内容を作る。
 
@@ -67,6 +68,7 @@ def _make_result(
         "dataset_path": f"data/output/datasets/dataset_x_{observation}_hanoi_30m.gpkg",
         "scenario": scenario,
         "analysis_area": analysis_area,
+        "lst_valid_ratio_threshold": lst_valid_ratio_threshold,
         "sample_size": 800,
         "features": list(shap_values),
         "run_parameters": {**RUN_PARAMETERS, "random_state": random_state},
@@ -167,24 +169,55 @@ def test_validate_run_rejects_runs_outside_the_comparison(
 ) -> None:
     """シナリオ違い・全域以外・共通評価セル・採用構成以外のランを拒む。"""
     with pytest.raises(ValueError, match=message):
-        validate_run(RunSpec("obs0", scenario, Path("r.json")), result)
+        validate_run(RunSpec("20220906_032358", scenario, Path("r.json")), result)
 
 
 def test_validate_run_rejects_mismatched_observation() -> None:
-    """指定した観測が入力データセットのパスに無ければ（観測の取り違え）拒む。"""
-    with pytest.raises(ValueError, match="観測の識別子（obs1）"):
-        validate_run(RunSpec("obs1", "limited", Path("r.json")), _make_result(observation="obs0"))
-    with pytest.raises(ValueError, match="観測の識別子"):
+    """データセットのファイル名の観測が指定と違えば（観測の取り違え）拒む。"""
+    with pytest.raises(ValueError, match="識別子（20220906_032358）が指定（20230707_032305）"):
         validate_run(
-            RunSpec("obs0", "limited", Path("r.json")),
+            RunSpec("20230707_032305", "limited", Path("r.json")),
+            _make_result(observation="20220906_032358"),
+        )
+    with pytest.raises(ValueError, match="識別子（なし）"):
+        validate_run(
+            RunSpec("20220906_032358", "limited", Path("r.json")),
             {k: v for k, v in _make_result().items() if k != "dataset_path"},
+        )
+
+
+@pytest.mark.parametrize(
+    "dataset_name",
+    [
+        "dataset_limited_20230707_032305_hanoi_30m.gpkg",
+        "dataset_limited_masksurvey_20230707_032305_hanoi_30m.gpkg",
+    ],
+)
+def test_validate_run_accepts_default_and_masksurvey_dataset_names(dataset_name: str) -> None:
+    """既定の名前と masksurvey を含む名前のどちらからも観測を読み取る（Windows 区切りも可）。"""
+    for prefix in ("data/output/datasets/", "data\\output\\datasets\\"):
+        validate_run(
+            RunSpec("20230707_032305", "limited", Path("r.json")),
+            {**_make_result(), "dataset_path": prefix + dataset_name},
+        )
+
+
+def test_validate_run_ignores_observation_only_in_parent_directory() -> None:
+    """親ディレクトリにだけ指定の観測がある場合は一致とみなさない。"""
+    dataset_path = (
+        "data/output/datasets/20220906_032358/dataset_limited_20241130_032336_hanoi_30m.gpkg"
+    )
+    with pytest.raises(ValueError, match="識別子（20241130_032336）が指定（20220906_032358）"):
+        validate_run(
+            RunSpec("20220906_032358", "limited", Path("r.json")),
+            {**_make_result(), "dataset_path": dataset_path},
         )
 
 
 def test_validate_run_accepts_satellite_only_without_limited_config() -> None:
     """Satellite Only には Limited の構成の項目が無くてよい。"""
     validate_run(
-        RunSpec("obs0", "satellite_only", Path("r.json")),
+        RunSpec("20220906_032358", "satellite_only", Path("r.json")),
         _make_result(scenario="Satellite Only"),
     )
 
@@ -199,6 +232,17 @@ def test_validate_shared_conditions_reports_differing_keys() -> None:
     with pytest.raises(ValueError, match="block_size_m, random_state"):
         validate_shared_conditions(
             specs, [_make_result(), _make_result(block_size_m=13500, random_state=0)]
+        )
+
+
+def test_validate_shared_conditions_includes_lst_valid_ratio_threshold() -> None:
+    """LST の有効率の閾値（run_parameters の外に記録）だけが違うランも拒む。"""
+    specs = [RunSpec("a", "limited", Path("a.json")), RunSpec("b", "limited", Path("b.json"))]
+    same = validate_shared_conditions(specs, [_make_result(), _make_result()])
+    assert same["lst_valid_ratio_threshold"] == pytest.approx(0.5)
+    with pytest.raises(ValueError, match="lst_valid_ratio_threshold"):
+        validate_shared_conditions(
+            specs, [_make_result(), _make_result(lst_valid_ratio_threshold=0.8)]
         )
 
 
@@ -250,10 +294,10 @@ def test_rank_features_rejects_mismatched_features() -> None:
 def test_build_tables_and_scenario_diff(tmp_path: Path) -> None:
     """2観測 × 2シナリオの表を作り、シナリオ間の差を観測ごとに求める。"""
     specs = [
-        _spec(tmp_path, "obs1", "satellite_only", cv_rf_r2=0.7, population=1200),
-        _spec(tmp_path, "obs1", "limited", cv_rf_r2=0.8, population=1000),
-        _spec(tmp_path, "obs2", "satellite_only", cv_rf_r2=0.6),
-        _spec(tmp_path, "obs2", "limited", cv_rf_r2=0.75),
+        _spec(tmp_path, "20230707_032305", "satellite_only", cv_rf_r2=0.7, population=1200),
+        _spec(tmp_path, "20230707_032305", "limited", cv_rf_r2=0.8, population=1000),
+        _spec(tmp_path, "20241130_032336", "satellite_only", cv_rf_r2=0.6),
+        _spec(tmp_path, "20241130_032336", "limited", cv_rf_r2=0.75),
     ]
     metrics, feature_ranks, conditions = build_tables(specs)
     assert len(metrics) == 4
@@ -261,25 +305,31 @@ def test_build_tables_and_scenario_diff(tmp_path: Path) -> None:
     assert conditions["rf_trees"] == 300
 
     diff = build_scenario_diff(metrics).set_index("observation")
-    assert diff.loc["obs1", "cv_rf_r2_mean_limited_minus_satellite_only"] == pytest.approx(0.1)
-    assert diff.loc["obs1", "population_limited_minus_satellite_only"] == -200
-    assert diff.loc["obs2", "cv_rf_r2_mean_limited_minus_satellite_only"] == pytest.approx(0.15)
+    assert diff.loc[
+        "20230707_032305", "cv_rf_r2_mean_limited_minus_satellite_only"
+    ] == pytest.approx(0.1)
+    assert diff.loc["20230707_032305", "population_limited_minus_satellite_only"] == -200
+    assert diff.loc[
+        "20241130_032336", "cv_rf_r2_mean_limited_minus_satellite_only"
+    ] == pytest.approx(0.15)
 
 
 def test_build_tables_rejects_feature_set_mismatch_within_scenario(tmp_path: Path) -> None:
     """同じシナリオで観測により説明変数が違えば（定数列の除外の違いなど）拒む。"""
     two_features = {"A": 1.0, "B": 0.5}
     specs = [
-        _spec(tmp_path, "obs1", "limited"),
+        _spec(tmp_path, "20230707_032305", "limited"),
         _spec(
             tmp_path,
-            "obs2",
+            "20241130_032336",
             "limited",
             mean_abs_shap=two_features,
             permutation={"A": 0.3, "B": 0.4},
         ),
     ]
-    with pytest.raises(ValueError, match=r"limited の説明変数が obs1 と一致しません（C）"):
+    with pytest.raises(
+        ValueError, match=r"limited の説明変数が 20230707_032305 と一致しません（C）"
+    ):
         build_tables(specs)
 
 
@@ -288,12 +338,12 @@ def test_build_tables_allows_different_features_across_scenarios(tmp_path: Path)
     specs = [
         _spec(
             tmp_path,
-            "obs1",
+            "20230707_032305",
             "satellite_only",
             mean_abs_shap={"A": 1.0},
             permutation={"A": 0.3},
         ),
-        _spec(tmp_path, "obs1", "limited"),
+        _spec(tmp_path, "20230707_032305", "limited"),
     ]
     metrics, _, _ = build_tables(specs)
     assert metrics["n_features"].tolist() == [1, 3]
@@ -302,12 +352,12 @@ def test_build_tables_allows_different_features_across_scenarios(tmp_path: Path)
 def test_build_scenario_diff_skips_observation_without_both_scenarios(tmp_path: Path) -> None:
     """片方のシナリオしか無い観測は差を求めない。"""
     specs = [
-        _spec(tmp_path, "obs1", "satellite_only"),
-        _spec(tmp_path, "obs1", "limited"),
-        _spec(tmp_path, "obs2", "limited"),
+        _spec(tmp_path, "20230707_032305", "satellite_only"),
+        _spec(tmp_path, "20230707_032305", "limited"),
+        _spec(tmp_path, "20241130_032336", "limited"),
     ]
     metrics, _, _ = build_tables(specs)
-    assert build_scenario_diff(metrics)["observation"].tolist() == ["obs1"]
+    assert build_scenario_diff(metrics)["observation"].tolist() == ["20230707_032305"]
 
 
 def test_widen_feature_ranks_orders_observations_and_marks_missing() -> None:
@@ -322,18 +372,23 @@ def test_widen_feature_ranks_orders_observations_and_marks_missing() -> None:
             "permutation_rank": rank,
         }
         for obs, feature, rank in (
-            ("obs2", "A", 2),
-            ("obs2", "B", 1),
-            ("obs1", "A", 1),
-            ("obs1", "B", 2),
-            ("obs1", "C", 3),
+            ("20241130_032336", "A", 2),
+            ("20241130_032336", "B", 1),
+            ("20230707_032305", "A", 1),
+            ("20230707_032305", "B", 2),
+            ("20230707_032305", "C", 3),
         )
     ]
-    wide = widen_feature_ranks(pd.DataFrame(rows), ["obs1", "obs2"])
-    assert list(wide.columns[:4]) == ["scenario", "feature", "shap_rank_obs1", "shap_rank_obs2"]
+    wide = widen_feature_ranks(pd.DataFrame(rows), ["20230707_032305", "20241130_032336"])
+    assert list(wide.columns[:4]) == [
+        "scenario",
+        "feature",
+        "shap_rank_20230707_032305",
+        "shap_rank_20241130_032336",
+    ]
     assert wide["feature"].tolist() == ["A", "B", "C"]
-    assert pd.isna(wide.set_index("feature").loc["C", "shap_rank_obs2"])
-    assert str(wide["shap_rank_obs1"].dtype) == "Int64"
+    assert pd.isna(wide.set_index("feature").loc["C", "shap_rank_20241130_032336"])
+    assert str(wide["shap_rank_20230707_032305"].dtype) == "Int64"
 
 
 def test_main_writes_outputs_with_provenance(tmp_path: Path) -> None:

@@ -19,10 +19,10 @@ SHAP ÷ LST の標準偏差）をそろえて書き出す。分析そのもの�
       °C の値は転記の確認のために出力に残す
     - シナリオ間の差は、母数（最終母数のセル）がシナリオで異なるため参考値とする
     - 次のいずれかに当てはまるランがあれば集計しない: 観測の識別子が ``YYYYMMDD_HHMMSS`` の
-      形式でない、または入力データセットのパスに含まれない（観測の取り違え）／シナリオ名の
-      不一致／全域以外／共通評価セルのラン／Limited が採用構成でない／実行条件
-      （``run_parameters``・ブロック長・分割数）が全ランで一致しない／同じシナリオの中で
-      説明変数の集合が観測間で一致しない
+      形式でない、または入力データセットのファイル名の識別子と一致しない（観測の取り違え）／
+      シナリオ名の不一致／全域以外／共通評価セルのラン／Limited が採用構成でない／実行条件
+      （``run_parameters``・LST の有効率の閾値・ブロック長・分割数）が全ランで一致しない／
+      同じシナリオの中で説明変数の集合が観測間で一致しない
 
 実行例::
 
@@ -217,22 +217,26 @@ def build_run_specs(run_args: Sequence[Sequence[str]] | None) -> list[RunSpec]:
 def validate_run(spec: RunSpec, result: Mapping[str, Any]) -> None:
     """1ランが比較の前提（観測・シナリオ・全域・採用構成）を満たすかを確かめる。
 
-    観測は、results.json に記録された入力データセットのパスに観測の識別子が
-    含まれるかで照合する（データセット名は観測日時を含む命名のため）。
+    観測は、results.json に記録された入力データセットのファイル名から観測の識別子を
+    取り出して照合する（データセット名は ``dataset_{シナリオ}[_masksurvey]_{観測}_...`` と
+    観測日時を含む命名のため）。親ディレクトリ名は見ない（ディレクトリにだけ別の観測の
+    識別子がある場合に誤って一致させないため）。
 
     Args:
         spec: ランの指定。
         result: results.json の内容。
     Raises:
-        ValueError: 入力データセットのパスに観測の識別子が無い場合、シナリオ名が指定と
-            合わない場合、分析対象範囲が全域でない場合、共通評価セルで回したランの場合、
-            または Limited が採用構成でない場合。
+        ValueError: 入力データセットのファイル名の観測の識別子が指定と一致しない場合、
+            シナリオ名が指定と合わない場合、分析対象範囲が全域でない場合、共通評価セルで
+            回したランの場合、または Limited が採用構成でない場合。
     """
     dataset_path = str(result.get("dataset_path", ""))
-    if spec.observation not in dataset_path:
+    dataset_name = dataset_path.replace("\\", "/").rsplit("/", 1)[-1]
+    found = OBSERVATION_PATTERN.findall(dataset_name)
+    if found != [spec.observation]:
         raise ValueError(
-            f"観測の識別子（{spec.observation}）が入力データセットのパスに含まれません: "
-            f"{dataset_path}（{spec.results_path}）"
+            f"入力データセットのファイル名の観測の識別子（{', '.join(found) or 'なし'}）が"
+            f"指定（{spec.observation}）と一致しません: {dataset_path}（{spec.results_path}）"
         )
     expected_label = SCENARIO_LABELS[spec.scenario]
     if result.get("scenario") != expected_label:
@@ -262,10 +266,13 @@ def extract_shared_conditions(result: Mapping[str, Any]) -> dict[str, Any]:
     Args:
         result: results.json の内容。
     Returns:
-        ``run_parameters`` の全項目と、Spatial CV のブロック長・分割数。
+        ``run_parameters`` の全項目、LST の有効率の閾値、Spatial CV のブロック長・分割数。
+        閾値は ``run_parameters`` ではなく結果のトップレベルに記録されているため、
+        別に取り出す（閾値が違うと母数と R² が変わるため）。
     """
     spatial_cv = result["spatial_cv"]
     conditions = dict(result["run_parameters"])
+    conditions["lst_valid_ratio_threshold"] = float(result["lst_valid_ratio_threshold"])
     conditions["block_size_m"] = int(spatial_cv["block_definition"]["block_size_m"])
     conditions["cv_splits"] = int(spatial_cv["cv_splits"])
     return conditions

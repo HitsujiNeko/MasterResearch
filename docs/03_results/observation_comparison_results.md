@@ -52,7 +52,12 @@ python -m src.analysis.compare_observations
 | 032336 の衛星＋公開GISデータ | `data/output/limited/20241130_032336/`（接頭辞 `dataset_limited_20241130_032336_hanoi_30m_both_bh_mean_wi_none`） |
 | 3 観測の比較の集計 | `data/output/observation_comparison/`（`observation_metrics.csv`・`observation_feature_ranks.csv`・`observation_feature_ranks_wide.csv`・`observation_scenario_diff.csv`・`observation_comparison_results.json`） |
 
-本ドキュメントの数値は上の集計結果から転記した。集計は [compare_observations.py](../../src/analysis/compare_observations.py) が行い、6本のランの実行条件（`run_parameters`・ブロック長・分割数）が一致すること、分析対象範囲が全域であること、衛星＋公開GISデータが採用構成であることを確かめてから集計する。
+本ドキュメントの数値は上の集計結果から転記した。集計は [compare_observations.py](../../src/analysis/compare_observations.py) が行い、次の点を確かめてから集計する。
+
+- 観測の識別子が `YYYYMMDD_HHMMSS` の形式で、各ランの入力データセットのパスに含まれること（観測の取り違えを防ぐ）
+- シナリオ名が一致し、分析対象範囲が全域で、共通評価セルのランでないこと。衛星＋公開GISデータは採用構成であること
+- 6本のランの実行条件（`run_parameters`・ブロック長・分割数）が一致すること
+- 同じシナリオの中で、説明変数の集合が観測間で一致すること（分散0の列の除外が観測で違うと、変数の数が違うランの順位を並べることになるため）
 
 **比較に使ったラン**:
 
@@ -108,9 +113,9 @@ Spatial CV の RF R² の fold 間の標準偏差は、衛星データのみで 
 | 7 | — | `BUILD_DEN` 0.023 |
 
 - **`NDBI` がどちらのシナリオでも首位である。** Permutation 重要度（ランダム分割のテストデータでの R² の低下量）でも首位で、衛星＋公開GISデータの第2位も SHAP と同じ `ELEV_MEAN` である
-- 衛星＋公開GISデータの第2位 `ELEV_MEAN` と第3位 `NTL_MEAN` の SHAP ÷ LST の標準偏差の差（0.030）は、SHAP の変動幅（0.04程度。4.1節）より小さい。ただし Permutation 重要度では差が大きい（0.199 と 0.061）ため、`ELEV_MEAN` を第2位として扱う
+- 衛星＋公開GISデータの第2位 `ELEV_MEAN` と第3位 `NTL_MEAN` の SHAP ÷ LST の標準偏差の差（0.030）は、SHAP の変動幅（0.04程度。4.1節）より小さい。ただし Permutation 重要度では差が大きく（0.199 と 0.061）、`ELEV_MEAN` は Permutation で3観測とも第2位である（4.4節）。このため `ELEV_MEAN` を第2位として扱う。Permutation 重要度の標本変動は測っていない
 - 衛星＋公開GISデータの第3・4位（`NTL_MEAN` と `NDVI`）は Permutation では順位が逆になる。SHAP ÷ LST の標準偏差の差は 0.024 で、SHAP の変動幅より小さいため、この2変数の順位は読まない
-- 衛星＋公開GISデータの第5位以下は順位を解釈しない。第5〜7位の SHAP ÷ LST の標準偏差（0.034・0.024・0.023）は隣どうしの差が 0.010・0.001 で、SHAP の変動幅で区別できない。第8位以下（`LULC_WATER_COV` 以下の7変数）は値自体が 0.016 以下である
+- **衛星＋公開GISデータで順位として読むのは第2位までとし、第3位以下の順位は解釈しない。** 第4位 `NDVI` と第5位 `POP_DEN_WORLDPOP2020` の差（0.042）も SHAP の変動幅と同程度で、第3・4位の組と第5位以下を分ける根拠は弱い。第5〜7位（0.034・0.024・0.023）は隣どうしの差が 0.010・0.001 で、第8位以下（`LULC_WATER_COV` 以下の7変数）は値自体が 0.016 以下である
 
 ---
 
@@ -179,7 +184,7 @@ Spatial CV の RF R² の fold 間の標準偏差は、衛星データのみで 
 | RF の RMSE ÷ LST の標準偏差（Spatial CV） | −0.102 | −0.107 | −0.069 |
 | 最終母数 | −45,321 | −42,603 | −46,055 |
 
-RMSE ÷ LST の標準偏差は、各シナリオの最終母数の標準偏差で割った値の差である。分母はシナリオでわずかに違う（032336 で衛星データのみ 2.024°C、衛星＋公開GISデータ 2.015°C）。
+RMSE ÷ LST の標準偏差は、各シナリオの最終母数の LST の標準偏差で割った値の差である。分母はシナリオでわずかに違う（衛星データのみ ／ 衛星＋公開GISデータの順に、032358 で 2.652 ／ 2.639°C、032305 で 2.518 ／ 2.500°C、032336 で 2.024 ／ 2.015°C）。
 
 **この差は参考値であり、RQ3 の上乗せ効果の推定には使わない。** 2つのシナリオは最終母数が4万セル余り違い、評価するセルと fold が一致しない。032358 では両シナリオに共通する評価セルと fold で比べた結果が主結果である（[limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) 8.6節）が、032305 と 032336 では共通評価セルでの比較を行っていない。この表で言えるのは、3観測とも衛星＋公開GISデータの R² が衛星データのみを上回るという向きまでである。
 

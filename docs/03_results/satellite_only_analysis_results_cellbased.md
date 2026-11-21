@@ -1,6 +1,6 @@
 # 衛星データのみの分析結果（cell_id結合経路）
 
-**最終更新**: 2026-11-20  
+**最終更新**: 2026-11-21  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -363,3 +363,5 @@ python -m src.analysis.analysis_rq3_satellite_only --dataset-path data/output/da
 - **第2・3位（`NDVI` と `NDWI`）の順位は読まない。** SHAP では入れ替わったが、両者の差を各観測の LST の標準偏差で割ると 032358 で 0.018、032305 で 0.021 であり、SHAP の変動幅（[衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.5節と同じく、標準偏差で割って 0.04程度）より小さい。Permutation・RF Importance ではどちらの観測でも `NDWI` が第2位である。両者は VIF が危険水準を超える共線な組でもある（7.4節）
 
 **R² が上がった理由は切り分けていない。** [衛星＋公開GISデータ側](limited_analysis/limited_analysis_main_20220906.md) 8.5節と同じく、母集団の違い（最終母数 +174,612セル・脱落が集中していたブロックの解消）と観測条件の違い（都心と郊外の LST 差が大きい観測）が重なっている。**「主採用の観測では R² が高い」ことを手法の性能の向上として読まない。** 衛星データのみは説明変数が分光指数のみで、`NDVI` と LST の算出式の上の依存（6章「LST の放射率と NDVI の依存」）の影響を最も強く受けるシナリオであることにも留意する。
+
+乾季の比較用の観測 `2024-11-30T03:23:36` を加えた3観測の比較は [observation_comparison_results.md](observation_comparison_results.md) にある。

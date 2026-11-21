@@ -1,7 +1,7 @@
 # 観測（シーン）選定基準とROIカバー率
 
-**最終更新**: 2026-11-19
-**関連ドキュメント**: [calc_urban_params_guide.md](calc_urban_params_guide.md), [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md), [gee_calc_LST.md](gee_calc_LST.md), [CodingRule.md](CodingRule.md), [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)
+**最終更新**: 2026-11-21
+**関連ドキュメント**: [calc_urban_params_guide.md](calc_urban_params_guide.md), [satellite_only_analysis_results.md](../03_results/satellite_only_analysis_results.md), [observation_comparison_results.md](../03_results/observation_comparison_results.md), [gee_calc_LST.md](gee_calc_LST.md), [CodingRule.md](CodingRule.md), [gis_data_buildings.md](../01_planning/gis_data/gis_data_buildings.md)
 **前提知識**: ROIと有効カバレッジの違い（本ファイル冒頭の[用語]参照）、Landsat 8 / 9シーン探索の基本フロー（[gee_search_satellite_data.py](../../src/gee/gee_search_satellite_data.py)）
 
 ---
@@ -126,7 +126,7 @@ ROIの約半分しか覆っておらず、実効ROIカバー率は12位（52.3%�
 | 季節 | 9月（雨季）。既存の衛星データのみ・衛星＋公開GISデータの分析結果（7月）と季節がそろう |
 | 値の妥当性 | 平均 ± 6σ を超える画素は 0.013%（埋立地・中州の砂地・工場の屋根と、原因未確認の川岸1か所）で、合否基準（0.1%以下）に合格（8.4） |
 | ラスタ | `data/satellite/lst/2022/LST_Landsat8_20220906_032358Z.tif`, `data/satellite/indices/2022/INDICES_Landsat8_20220906_032358Z.tif` |
-| 比較用の観測 | `2023-07-07T03:23:05`（旧採用・雨季）、`2024-11-30T03:23:36`（乾季）。ラスタは `data/satellite/{lst,indices}/2023/` に在庫（`2024-11-30` の指標は MNDWI が無く、分析前に再エクスポートが要る。9.1） |
+| 比較用の観測 | `2023-07-07T03:23:05`（旧採用・雨季）、`2024-11-30T03:23:36`（乾季）。ラスタは `data/satellite/{lst,indices}/2023/` に在庫。`2024-11-30` は在庫の指標に MNDWI が無いため再エクスポートし、分析には `data/satellite/{lst,indices}/2024/` の版を使う（8.4・9.1） |
 
 **旧採用（2026-10-21 まで）**: `2023-07-07T03:23:05` 単独（実効ROIカバー率 88.7%、2023–2024年の132件で3位）。
 既存の分析結果はこの観測に基づく。主採用の変更に伴う再実行の要否は9章に記す。
@@ -436,7 +436,7 @@ ROI に対する有効画素の割合で比べた。
 |---|---|---:|---|---|
 | `2022-09-06T03:23:58` | 93.51% ／ 93.49% | 93.53% | 平均・最小・標準偏差は一致、最大は 52.86 ／ 52.87°C | `data/satellite/{lst,indices}/2022/`（今回エクスポート） |
 | `2023-07-07T03:23:05` | 89.37% ／ 89.35% | 88.74% | 一致（小数第3位まで） | `data/satellite/{lst,indices}/2023/`（在庫） |
-| `2024-11-30T03:23:36` | 93.97% ／ 93.94% | 93.97% | 一致（小数第3位まで） | `data/satellite/{lst,indices}/2023/`（在庫） |
+| `2024-11-30T03:23:36` | 93.97% ／ 93.94% | 93.97% | 一致（小数第3位まで） | `data/satellite/{lst,indices}/2023/`（在庫）。分析用に `2024/` へ再エクスポート（下記） |
 
 差はいずれも 0.03 pt 以内で、6章の実績（0.56 pt）を参考に決めた許容差（1 pt）に収まる。`2024-11-30T03:23:36` は
 7.6 の footprint の変化の対象だが、在庫の GeoTIFF は現在の探索結果と整合した。在庫の観測日時のフォルダ（`2023/`）と
@@ -445,7 +445,10 @@ ROI に対する有効画素の割合で比べた。
 指標の GeoTIFF のバンド構成は、`2022-09-06`（今回エクスポート）と `2023-07-07`（在庫）が4バンド（NDVI・NDBI・NDWI・MNDWI）、
 `2024-11-30`（在庫）だけが3バンド（NDVI・NDBI・NDWI）である。`2023-07-07` は MNDWI を加えるために作り直している
 （[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）。都市構造パラメータの
-算出と衛星＋公開GISデータの分析は4つの指標を前提とするため、`2024-11-30` で分析するには指標の再エクスポートが要る（9.1）。
+算出と衛星＋公開GISデータの分析は4つの指標を前提とするため、`2024-11-30` は LST・指標を再エクスポートし、
+`data/satellite/{lst,indices}/2024/` に置いた（在庫の `2023/` は既存の参照のため残した）。再エクスポートした指標は4バンドで、
+ROI 内の有効画素率は LST・指標とも 93.97%（探索結果との差 0.03 pt）、LST と指標の共通する3バンドは在庫の版と画素単位で一致した
+（[observation_comparison_results.md](../03_results/observation_comparison_results.md) 2.1節）。
 
 **合否**: GEE 上の集計（[gee_check_lst_cloud_mask.py](../../src/gee/gee_check_lst_cloud_mask.py)、3件を指定）では、
 3件とも現在の雲マスクで -20°C 未満の画素は0画素で、統計量は探索結果CSVと一致した。GeoTIFF で平均 ± 6σ を数えた結果は次の通りで、
@@ -492,6 +495,9 @@ ROI に対する有効画素の割合で比べた。
   （観測日時の完全一致による強制エクスポート。同日のもう1シーン `2022-09-06T03:24:22` は対象外。1回の実行で1観測だけを指定する。
   Drive のフォルダは `LST_hanoi_2022to2024`・`INDICES_hanoi_2022to2024`、エクスポート名は `LST_Landsat8_20220906_032358Z`・
   `INDICES_Landsat8_20220906_032358Z`。Drive から手動でダウンロードして配置した）
+- `2024-11-30` の再エクスポート: 上と同じコマンドで `--target-observation-datetimes 2024-11-30T03:23:36` を指定した
+  （同日のもう1シーン `2024-11-30T03:24:00` は対象外。エクスポート名は `LST_Landsat8_20241130_032336Z`・
+  `INDICES_Landsat8_20241130_032336Z`。Drive から手動でダウンロードして `2024/` に配置した）
 - GeoTIFF の集計方法: ROI のシェープファイルを GeoTIFF の格子にラスタ化し（画素中心が ROI 内の画素）、有効な（NaN でない）画素で
   平均・標準偏差・外れ画素を求めた。外れ画素は 8 近傍の連結成分にまとめて位置を出した。都心と郊外の距離は画素中心から
   中心点まで EPSG:32648 で測った。集計と作図に使ったスクリプトはリポジトリに保存していない
@@ -512,7 +518,9 @@ ROI に対する有効画素の割合で比べた。
 
 - LST の絶対値と標準偏差は観測（季節）で系統的に違うため、比べるのは変数の重要度の順位や、LST の標準偏差で割った誤差などの相対的な量とする
   （8.2 で「標準偏差を季節をまたいで比べない」としたのは標準偏差そのものの大小の比較であり、各観測の誤差を自らの標準偏差で正規化することとは別である）
-- `2024-11-30` には、野焼き・火災と推定される高温画素（8.4）が含まれる
+- `2024-11-30` には、野焼き・火災と推定される高温画素（8.4）が含まれる。分析では除外せずにそのまま使う
+  （他の2観測と同じく外れ画素を除く処理をしない。研究者の決定・2026-11-21。標本に入った数は
+  [observation_comparison_results.md](../03_results/observation_comparison_results.md) 6章）
 - 観測年が 2022・2023・2024 年と異なり、都市構造データ（建物・土地被覆・人口）の時点とのずれが観測ごとに違う
 
 **都心と郊外の差を根拠に使うことの限界**: 8.2 ではこの差を「季節に左右されにくい目安」として導入したが、8.4 の結果は雨季 +2.02〜+2.94°C・
@@ -540,7 +548,8 @@ ROI に対する有効画素の割合で比べた。
 主採用の観測での再実行（30m・衛星データのみと衛星＋公開GISデータの採用構成）は実施済みであり、結果は
 [limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8章・
 [satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 7章にある。
-比較用の観測（8.5）のうち `2024-11-30` での分析は未実施である。`032305` で実行済みの既存の分析結果は、
+比較用の観測（8.5）のうち `2024-11-30` での分析も実施済みであり、3観測の結果の比較は
+[observation_comparison_results.md](../03_results/observation_comparison_results.md) にある。`032305` で実行済みの既存の分析結果は、
 旧採用（比較用の観測の1つ）に基づく結果として有効である。ただし `032305` の結果は衛星指標の作り方で2世代に分かれ
 （[limited_analysis_results.md](../03_results/limited_analysis_results.md) 1.4節）、世代をまたいだ数値は直接比べない。
 新しい主採用は現行の手順（新世代: ROI でクリップ済み・MNDWI あり）で実行するため、比較に使えるのは新世代のラン
@@ -552,7 +561,7 @@ ROI に対する有効画素の割合で比べた。
 | データセット構築 | 要 | 衛星データのみ・衛星＋公開GISデータの gpkg（`dataset_*_20220906_032358_hanoi_30m.gpkg`） | 実施済み |
 | 分析 | 要 | [analysis_rq3_limited.py](../../src/analysis/analysis_rq3_limited.py)・[analysis_rq3_satellite_only.py](../../src/analysis/analysis_rq3_satellite_only.py)（既定の入力パスと出力先は `20220906_032358` に切り替え済み） | 実施済み（衛星＋公開GISデータは採用構成のみ） |
 | 測量GIS範囲での比較 | 要 | `mask_survey` を結合したデータセットで、衛星データのみと衛星＋公開GISデータの採用構成を全域・測量GIS範囲で実行し、測量GIS範囲では共通評価セルで比較する | 実施済み（[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7章。衛星＋公開GISデータは採用構成のみ） |
-| 比較用の観測 | `2024-11-30` を新たに実行 | `2024-11-30T03:23:36`。在庫の指標 GeoTIFF に MNDWI が無いため、先に指標を再エクスポートする（8.4）。`2023-07-07` は `032305` で実行済みの新世代のランを使える（旧世代のランは比較に使わない） | 未実施 |
+| 比較用の観測 | `2024-11-30` を新たに実行 | `2024-11-30T03:23:36`。在庫の指標 GeoTIFF に MNDWI が無いため、先に指標を再エクスポートする（8.4）。`2023-07-07` は `032305` で実行済みの新世代のランを使える（旧世代のランは比較に使わない） | 実施済み（30m・衛星データのみと衛星＋公開GISデータの採用構成。高温画素は除外していない。3観測の比較は [observation_comparison_results.md](../03_results/observation_comparison_results.md)） |
 
 主結果を新しい観測に差し替える際に追従の要否を判断した文書と、その判断は次の通りである（いずれも旧採用の観測を前提に書かれていた）。
 

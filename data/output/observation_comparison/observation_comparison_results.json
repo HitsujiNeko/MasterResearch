@@ -280,11 +280,11 @@
   },
   "provenance": {
     "script": "src.analysis.compare_observations",
-    "executed_at": "2026-11-21T12:36:18.456258+00:00",
+    "executed_at": "2026-11-21T13:06:00.529562+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "81bd8ab3b3b7bfc0765fbf76303bfc04f890a729",
+      "commit": "05176a044e088a70f2f78c95840cb9d9d98e3b1b",
       "dirty": false
     },
     "code": {
@@ -297,7 +297,7 @@
       "files": [
         {
           "path": "src/analysis/compare_observations.py",
-          "sha256": "d5995764819b3781edc43d30e78962629cbccfba4f08a2f9563f5ff60c563090"
+          "sha256": "f8717021deb7961e4608935c108a72677a79c8e10e609d260a8508b14fabb767"
         },
         {
           "path": "src/analysis/summarize_rq2_scale_area.py",

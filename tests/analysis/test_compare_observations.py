@@ -137,12 +137,20 @@ def test_default_runs_cover_three_observations_and_both_scenarios() -> None:
 
 def test_build_run_specs_resolves_relative_paths_and_rejects_duplicates() -> None:
     """相対パスはプロジェクトルート基準に解決し、重複・未知のシナリオは拒む。"""
-    specs = build_run_specs([["20220906_032358", "limited", "data/x.json"]])
+    obs = "20220906_032358"
+    specs = build_run_specs([[obs, "limited", "data/x.json"]])
     assert specs[0].results_path == PROJECT_ROOT / "data" / "x.json"
     with pytest.raises(ValueError, match="重複"):
-        build_run_specs([["o", "limited", "a.json"], ["o", "limited", "b.json"]])
+        build_run_specs([[obs, "limited", "a.json"], [obs, "limited", "b.json"]])
     with pytest.raises(ValueError, match="未知のシナリオ"):
-        build_run_specs([["o", "full", "a.json"]])
+        build_run_specs([[obs, "full", "a.json"]])
+
+
+@pytest.mark.parametrize("observation", ["20220906", "", "20220906_03235", "x20220906_032358"])
+def test_build_run_specs_rejects_malformed_observation(observation: str) -> None:
+    """途中までの識別子・空文字など、YYYYMMDD_HHMMSS でない観測の指定を拒む。"""
+    with pytest.raises(ValueError, match="YYYYMMDD_HHMMSS"):
+        build_run_specs([[observation, "limited", "a.json"]])
 
 
 @pytest.mark.parametrize(
@@ -331,7 +339,8 @@ def test_widen_feature_ranks_orders_observations_and_marks_missing() -> None:
 def test_main_writes_outputs_with_provenance(tmp_path: Path) -> None:
     """CSV 4種と、実行条件・比べる量の約束・来歴を記録した JSON を保存する。"""
     runs: list[str] = []
-    for obs in ("obs1", "obs2"):
+    observations = ("20220906_032358", "20241130_032336")
+    for obs in observations:
         for scenario in ("satellite_only", "limited"):
             spec = _spec(tmp_path, obs, scenario)
             runs += ["--run", obs, scenario, str(spec.results_path)]
@@ -346,7 +355,7 @@ def test_main_writes_outputs_with_provenance(tmp_path: Path) -> None:
     ):
         assert (output_dir / name).is_file()
     saved = json.loads((output_dir / RESULTS_FILENAME).read_text(encoding="utf-8"))
-    assert saved["observations"] == ["obs1", "obs2"]
+    assert saved["observations"] == list(observations)
     assert saved["n_runs"] == 4
     assert saved["shared_conditions"]["block_size_m"] == 2700
     assert "°C の RMSE・MAE・平均絶対 SHAP" in saved["comparison_rules"]["do_not_compare"]

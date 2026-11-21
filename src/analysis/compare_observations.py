@@ -18,7 +18,11 @@ SHAP ÷ LST の標準偏差）をそろえて書き出す。分析そのもの�
     - 観測が違うと LST の分布が違うため、LST の絶対値と °C の誤差・SHAP は観測間で比べない。
       °C の値は転記の確認のために出力に残す
     - シナリオ間の差は、母数（最終母数のセル）がシナリオで異なるため参考値とする
-    - 実行条件（``run_parameters``・ブロック長・分割数）が全ランで一致しない場合は集計しない
+    - 次のいずれかに当てはまるランがあれば集計しない: 観測の識別子が ``YYYYMMDD_HHMMSS`` の
+      形式でない、または入力データセットのパスに含まれない（観測の取り違え）／シナリオ名の
+      不一致／全域以外／共通評価セルのラン／Limited が採用構成でない／実行条件
+      （``run_parameters``・ブロック長・分割数）が全ランで一致しない／同じシナリオの中で
+      説明変数の集合が観測間で一致しない
 
 実行例::
 
@@ -28,6 +32,7 @@ SHAP ÷ LST の標準偏差）をそろえて書き出す。分析そのもの�
 from __future__ import annotations
 
 import argparse
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,6 +55,8 @@ SCRIPT_NAME = "src.analysis.compare_observations"
 
 # 比較する分析対象範囲（全域）
 EXPECTED_ANALYSIS_AREA = "roi"
+# 観測の識別子の形式（YYYYMMDD_HHMMSS）。部分一致の照合で途中までの識別子が通らないようにする
+OBSERVATION_PATTERN = re.compile(r"\d{8}_\d{6}")
 METRICS_FILENAME = "observation_metrics.csv"
 FEATURES_FILENAME = "observation_feature_ranks.csv"
 FEATURES_WIDE_FILENAME = "observation_feature_ranks_wide.csv"
@@ -178,8 +185,8 @@ def build_run_specs(run_args: Sequence[Sequence[str]] | None) -> list[RunSpec]:
     Returns:
         ランの一覧。
     Raises:
-        ValueError: シナリオ名が ``SCENARIO_LABELS`` に無い場合、または観測とシナリオの
-            組が重複する場合。
+        ValueError: 観測の識別子が ``YYYYMMDD_HHMMSS`` の形式でない場合、シナリオ名が
+            ``SCENARIO_LABELS`` に無い場合、または観測とシナリオの組が重複する場合。
     """
     if run_args is None:
         specs = list(DEFAULT_RUNS)
@@ -188,6 +195,10 @@ def build_run_specs(run_args: Sequence[Sequence[str]] | None) -> list[RunSpec]:
     resolved: list[RunSpec] = []
     seen: set[tuple[str, str]] = set()
     for spec in specs:
+        if not OBSERVATION_PATTERN.fullmatch(spec.observation):
+            raise ValueError(
+                f"観測の識別子は YYYYMMDD_HHMMSS の形式で指定してください: {spec.observation!r}"
+            )
         if spec.scenario not in SCENARIO_LABELS:
             raise ValueError(
                 f"未知のシナリオです: {spec.scenario}（{', '.join(SCENARIO_LABELS)} のいずれか）"

@@ -15,6 +15,7 @@
     "random_split_test_fraction": 0.2,
     "rf_min_samples_leaf": 5,
     "permutation_n_repeats": 10,
+    "lst_valid_ratio_threshold": 0.5,
     "block_size_m": 2700,
     "cv_splits": 5
   },
@@ -280,11 +281,11 @@
   },
   "provenance": {
     "script": "src.analysis.compare_observations",
-    "executed_at": "2026-11-21T13:50:56.024806+00:00",
+    "executed_at": "2026-11-21T14:09:22.789191+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26200-SP0",
     "git": {
-      "commit": "15d801699d6ec12c55125fdd5f893d6024cf02f3",
+      "commit": "706ba0e7ed48099bfa92323d0154524a0d29cfb5",
       "dirty": false
     },
     "code": {
@@ -297,7 +298,7 @@
       "files": [
         {
           "path": "src/analysis/compare_observations.py",
-          "sha256": "a8c00cc8df3d6baf82c6199db3df5a5b7d2f0cd2a42a66e4edee0358106236c7"
+          "sha256": "85540eb7919d7d571d13802ecdd9c00f75569942cb7e565795cc483ffb14a7ab"
         },
         {
           "path": "src/analysis/summarize_rq2_scale_area.py",

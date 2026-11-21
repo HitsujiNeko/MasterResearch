@@ -55,11 +55,16 @@ def _make_result(
     analysis_area: str = "roi",
     block_size_m: int = 2700,
     random_state: int = 42,
+    observation: str = "obs0",
 ) -> dict[str, Any]:
-    """集計に必要な項目だけを持つ合成の results.json の内容を作る。"""
+    """集計に必要な項目だけを持つ合成の results.json の内容を作る。
+
+    入力データセットのパスには、実際の命名と同じく観測の識別子を含める。
+    """
     shap_values = mean_abs_shap or {"A": 1.0, "B": 0.5, "C": 0.1}
     permutation_values = permutation or {"A": 0.3, "B": 0.4, "C": -0.01}
     result: dict[str, Any] = {
+        "dataset_path": f"data/output/datasets/dataset_x_{observation}_hanoi_30m.gpkg",
         "scenario": scenario,
         "analysis_area": analysis_area,
         "sample_size": 800,
@@ -112,7 +117,7 @@ def _spec(tmp_path: Path, observation: str, scenario: str, **kwargs: Any) -> Run
     label = "Limited" if scenario == "limited" else "Satellite Only"
     path = _write(
         tmp_path / observation / f"{scenario}_results.json",
-        _make_result(scenario=label, **kwargs),
+        _make_result(scenario=label, observation=observation, **kwargs),
     )
     return RunSpec(observation, scenario, path)
 
@@ -154,13 +159,24 @@ def test_validate_run_rejects_runs_outside_the_comparison(
 ) -> None:
     """シナリオ違い・全域以外・共通評価セル・採用構成以外のランを拒む。"""
     with pytest.raises(ValueError, match=message):
-        validate_run(RunSpec("o", scenario, Path("r.json")), result)
+        validate_run(RunSpec("obs0", scenario, Path("r.json")), result)
+
+
+def test_validate_run_rejects_mismatched_observation() -> None:
+    """指定した観測が入力データセットのパスに無ければ（観測の取り違え）拒む。"""
+    with pytest.raises(ValueError, match="観測の識別子（obs1）"):
+        validate_run(RunSpec("obs1", "limited", Path("r.json")), _make_result(observation="obs0"))
+    with pytest.raises(ValueError, match="観測の識別子"):
+        validate_run(
+            RunSpec("obs0", "limited", Path("r.json")),
+            {k: v for k, v in _make_result().items() if k != "dataset_path"},
+        )
 
 
 def test_validate_run_accepts_satellite_only_without_limited_config() -> None:
     """Satellite Only には Limited の構成の項目が無くてよい。"""
     validate_run(
-        RunSpec("o", "satellite_only", Path("r.json")),
+        RunSpec("obs0", "satellite_only", Path("r.json")),
         _make_result(scenario="Satellite Only"),
     )
 
@@ -240,6 +256,39 @@ def test_build_tables_and_scenario_diff(tmp_path: Path) -> None:
     assert diff.loc["obs1", "cv_rf_r2_mean_limited_minus_satellite_only"] == pytest.approx(0.1)
     assert diff.loc["obs1", "population_limited_minus_satellite_only"] == -200
     assert diff.loc["obs2", "cv_rf_r2_mean_limited_minus_satellite_only"] == pytest.approx(0.15)
+
+
+def test_build_tables_rejects_feature_set_mismatch_within_scenario(tmp_path: Path) -> None:
+    """同じシナリオで観測により説明変数が違えば（定数列の除外の違いなど）拒む。"""
+    two_features = {"A": 1.0, "B": 0.5}
+    specs = [
+        _spec(tmp_path, "obs1", "limited"),
+        _spec(
+            tmp_path,
+            "obs2",
+            "limited",
+            mean_abs_shap=two_features,
+            permutation={"A": 0.3, "B": 0.4},
+        ),
+    ]
+    with pytest.raises(ValueError, match=r"limited の説明変数が obs1 と一致しません（C）"):
+        build_tables(specs)
+
+
+def test_build_tables_allows_different_features_across_scenarios(tmp_path: Path) -> None:
+    """シナリオが違えば説明変数の集合は違ってよい。"""
+    specs = [
+        _spec(
+            tmp_path,
+            "obs1",
+            "satellite_only",
+            mean_abs_shap={"A": 1.0},
+            permutation={"A": 0.3},
+        ),
+        _spec(tmp_path, "obs1", "limited"),
+    ]
+    metrics, _, _ = build_tables(specs)
+    assert metrics["n_features"].tolist() == [1, 3]
 
 
 def test_build_scenario_diff_skips_observation_without_both_scenarios(tmp_path: Path) -> None:

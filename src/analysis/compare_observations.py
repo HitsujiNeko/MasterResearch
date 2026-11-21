@@ -204,15 +204,25 @@ def build_run_specs(run_args: Sequence[Sequence[str]] | None) -> list[RunSpec]:
 
 
 def validate_run(spec: RunSpec, result: Mapping[str, Any]) -> None:
-    """1ランが比較の前提（シナリオ・全域・採用構成）を満たすかを確かめる。
+    """1ランが比較の前提（観測・シナリオ・全域・採用構成）を満たすかを確かめる。
+
+    観測は、results.json に記録された入力データセットのパスに観測の識別子が
+    含まれるかで照合する（データセット名は観測日時を含む命名のため）。
 
     Args:
         spec: ランの指定。
         result: results.json の内容。
     Raises:
-        ValueError: シナリオ名が指定と合わない場合、分析対象範囲が全域でない場合、
-            共通評価セルで回したランの場合、または Limited が採用構成でない場合。
+        ValueError: 入力データセットのパスに観測の識別子が無い場合、シナリオ名が指定と
+            合わない場合、分析対象範囲が全域でない場合、共通評価セルで回したランの場合、
+            または Limited が採用構成でない場合。
     """
+    dataset_path = str(result.get("dataset_path", ""))
+    if spec.observation not in dataset_path:
+        raise ValueError(
+            f"観測の識別子（{spec.observation}）が入力データセットのパスに含まれません: "
+            f"{dataset_path}（{spec.results_path}）"
+        )
     expected_label = SCENARIO_LABELS[spec.scenario]
     if result.get("scenario") != expected_label:
         raise ValueError(
@@ -372,6 +382,33 @@ def rank_features(result: Mapping[str, Any], lst_std: float) -> pd.DataFrame:
     return shap_frame[columns]
 
 
+def validate_feature_sets(specs: Sequence[RunSpec], results: Sequence[Mapping[str, Any]]) -> None:
+    """同じシナリオの中で、観測をまたいで説明変数の集合が一致することを確かめる。
+
+    分散0の列の除外は観測ごとに決まるため、変数の数が観測で変わりうる。変数の数が
+    違うランどうしの順位は並べて比べられないため、集計の前に止める。
+
+    Args:
+        specs: ランの指定。
+        results: 各ランの results.json の内容（``specs`` と同じ順）。
+    Raises:
+        ValueError: 同じシナリオで説明変数の集合が先頭のランと一致しないランがある場合。
+    """
+    baselines: dict[str, tuple[RunSpec, set[str]]] = {}
+    for spec, result in zip(specs, results, strict=True):
+        features = set(result["features"])
+        if spec.scenario not in baselines:
+            baselines[spec.scenario] = (spec, features)
+            continue
+        base_spec, base_features = baselines[spec.scenario]
+        if features != base_features:
+            differing = sorted(features ^ base_features)
+            raise ValueError(
+                f"{spec.scenario} の説明変数が {base_spec.observation} と一致しません"
+                f"（{', '.join(differing)}）: {spec.results_path}"
+            )
+
+
 def build_tables(
     specs: Sequence[RunSpec],
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
@@ -382,12 +419,14 @@ def build_tables(
     Returns:
         性能表、変数別の順位表、実行条件。
     Raises:
-        ValueError: 前提を満たさないランがある場合、または実行条件が一致しない場合。
+        ValueError: 前提を満たさないランがある場合、実行条件が一致しない場合、または
+            同じシナリオで説明変数の集合が観測間で一致しない場合。
     """
     results = [load_json(spec.results_path) for spec in specs]
     for spec, result in zip(specs, results, strict=True):
         validate_run(spec, result)
     shared_conditions = validate_shared_conditions(specs, results)
+    validate_feature_sets(specs, results)
 
     metric_rows: list[dict[str, Any]] = []
     feature_frames: list[pd.DataFrame] = []

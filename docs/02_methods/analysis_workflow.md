@@ -353,7 +353,7 @@ GIS 列は衛星＋公開GISデータ・測量建物置き換えの実装時に�
 | チェック項目 | 方法 | 閾値 |
 |------------|------|------|
 | 雲マスク | LSTのNaN除去 | NaN を欠損として扱う |
-| LST異常値 | 外れ値除去 | IQR法 or 15–65°C範囲外を除外 |
+| LST異常値 | 外れ値除去 | 現行のセル単位の経路では値の範囲による除外は行わない（15–65°C・指標 ±1.1 の範囲外の除外は削除済みの旧経路のみ。[calc_urban_params_io_spec.md](calc_urban_params/calc_urban_params_io_spec.md) 6.7節）。異常値は観測の選定時に画素単位で確認する（[observation_selection.md](observation_selection.md)） |
 | 説明変数の欠損 | 欠損率確認 | 欠損 > 20%の変数は除外検討 |
 | 多重共線性 | VIF計算 | VIF > 10の変数は除外検討 |
 
@@ -486,7 +486,7 @@ RQ3 は、次の順で進めている。
 |------|------|
 | 説明変数 | `NDVI`, `NDBI`, `NDWI` |
 | 目的変数 | `LST` |
-| 品質管理 | NaN 除外、LST を 15–65°C に制限、指標値を -1.1〜1.1 に制限 |
+| 品質管理 | `IN_ANALYSIS_AREA == 1`・`LST`/`NDVI`/`NDBI`/`NDWI` が非NULL・`LST_VALID_RATIO >= 0.5`（[satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) 3.2節）。LST 15–65°C・指標 ±1.1 の範囲による除外は削除済みの旧経路のみで、現行の経路では行わない |
 | ベースラインモデル | MLR, Random Forest |
 | 出力 | モデル指標 JSON、特徴量重要度 CSV、比較図 |
 

@@ -3,7 +3,7 @@
 状態: 初稿
 依拠する正本:
   - docs/03_results/spatial_cv_design_results.md @ 8f171b7531
-  - docs/02_methods/analysis_workflow.md @ 58c8af485c
+  - docs/02_methods/analysis_workflow.md @ de440e50e1
   - docs/03_results/satellite_only_analysis_results_cellbased.md @ 264f0f7067
 -->
 

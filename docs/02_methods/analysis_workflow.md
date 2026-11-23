@@ -610,7 +610,7 @@ python -m src.analysis.compare_water_index_variants --evaluation-cells data/outp
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
 | **Phase 5** | 衛星＋公開GISデータのシナリオ比較（RQ3。主軸） | `analysis_rq3_limited.py` など（分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 5** | 測量建物置き換えの比較（RQ3。付録・余裕があれば実施） | `analysis_rq3_full.py` など | 🟢 後 |
-| **Phase 6** | RQ1 本分析 | 専用スクリプトは作らない。RQ1 は衛星＋公開GISデータの 30 m・全域の主結果（Spatial CV つきの MLR・RF・SHAP。5.1節・6.1.1節）で評価する（2026-11-23 決定） | ✅ 方針確定 |
+| **Phase 6** | RQ1 本分析 | 専用スクリプトは作らない。RQ1 は衛星＋公開GISデータの 30 m・全域の主結果で評価する（説明力は Spatial CV の MLR・RF、寄与の順位は無作為分割で学習した RF の SHAP。5.1節・6.1.1節。2026-11-23 決定） | ✅ 方針確定 |
 | **Phase 6** | RQ2 本分析（主軸の2シナリオ。解像度 × 分析対象範囲） | `analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py` の `--scale`・`--analysis-area` で実行し、`src/analysis/summarize_rq2_scale_area.py` で集計 | ✅ 完了（2026-11-11） |
 | **Phase 6** | 可視化・図表作成 | `visualize_*.py` | 🟢 後 |
 

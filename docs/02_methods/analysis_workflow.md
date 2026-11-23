@@ -1,6 +1,6 @@
 # 分析ワークフロー仕様書
 
-**最終更新**: 2026-11-20  
+**最終更新**: 2026-11-23  
 **関連ドキュメント**: [research_guide.md](../01_planning/research_guide.md), [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md), [calc_urban_params_guide.md](calc_urban_params_guide.md), [available_gis_data.md](../01_planning/available_gis_data.md), [survey_gis_data_preparation_status.md](../03_results/survey_gis_data_preparation_status.md), [spatial_cv_design_results.md](../03_results/spatial_cv_design_results.md), [CodingRule.md](CodingRule.md)  
 **前提知識**: RQ1–RQ3の理解（research_guide.md § 3–5 参照）
 
@@ -610,7 +610,7 @@ python -m src.analysis.compare_water_index_variants --evaluation-cells data/outp
 | **Phase 4** | データセット結合・品質管理（空間範囲マスク含む、LST含む） | `build_dataset.py` | ✅ 完了 |
 | **Phase 5** | 衛星＋公開GISデータのシナリオ比較（RQ3。主軸） | `analysis_rq3_limited.py` など（分析対象範囲の指定は表下の注記） | ✅ 完了 |
 | **Phase 5** | 測量建物置き換えの比較（RQ3。付録・余裕があれば実施） | `analysis_rq3_full.py` など | 🟢 後 |
-| **Phase 6** | RQ1 本分析 | `analysis_rq1.py` | 🟢 後 |
+| **Phase 6** | RQ1 本分析 | 専用スクリプトは作らない。RQ1 は衛星＋公開GISデータの 30 m・全域の主結果（Spatial CV つきの MLR・RF・SHAP。5.1節・6.1.1節）で評価する（2026-11-23 決定） | ✅ 方針確定 |
 | **Phase 6** | RQ2 本分析（主軸の2シナリオ。解像度 × 分析対象範囲） | `analysis_rq3_satellite_only.py`・`analysis_rq3_limited.py` の `--scale`・`--analysis-area` で実行し、`src/analysis/summarize_rq2_scale_area.py` で集計 | ✅ 完了（2026-11-11） |
 | **Phase 6** | 可視化・図表作成 | `visualize_*.py` | 🟢 後 |
 
@@ -623,7 +623,7 @@ python -m src.analysis.compare_water_index_variants --evaluation-cells data/outp
 | 事項 | 現状 | 検討方向 |
 |------|------|---------|
 | 対象都市のROI確定 | ハノイROIは確認済み。対象はハノイ1都市に限ると決定済み（2026-10-25） | 他都市への拡張は本研究の範囲外とする（[research_guide.md](../01_planning/research_guide.md) §4.2 第四） |
-| LSTの日付選定 | 主採用は `2022-09-06T03:23:58`、比較用は `2023-07-07T03:23:05`・`2024-11-30T03:23:36` に確定済み（[observation_selection.md](observation_selection.md) 5章・8章） | `2024-11-30` での分析は未実施（同 9.1節） |
+| LSTの日付選定 | 主採用は `2022-09-06T03:23:58`、比較用は `2023-07-07T03:23:05`・`2024-11-30T03:23:36` に確定済み（[observation_selection.md](observation_selection.md) 5章・8章） | `2024-11-30` での分析は実施済み。3 観測の比較は [observation_comparison_results.md](../03_results/observation_comparison_results.md) を正本とする |
 | 公開建物データ | GlobalBuildingAtlas を衛星＋公開GISデータのシナリオの主ソースとして採用確定・取得済み。Microsoft は保留確定 | 比較候補（Google Open Buildings / OSM）との妥当性確認をどこまで行うかを判断する |
 | 公開道路データ | OSM / Geofabrik を主ソースとして衛星＋公開GISデータのシナリオで使用済み | 道路種別と欠測率の QA を続ける |
 | 測量 GIS の意味整理 | 7 レイヤの属性と Level の中身を整理し、地図の作成者への問い合わせ事項をまとめた（[survey_gis_attribute_inventory.md](../03_results/survey_gis_attribute_inventory.md)。DH・TH・TV はレイヤ別の文書） | DH / TV の採否を判断する（付録の測量建物置き換えでも使わない。TH は不採用と判定済み） |
@@ -631,7 +631,7 @@ python -m src.analysis.compare_water_index_variants --evaluation-cells data/outp
 | 夜間光データ | `VIIRS DNB 2023`（主候補）/ `Black Marble VNP46A4 2023`（副候補）を入力として確定し、算出も実装済み（2026-08-20）。主バンド同士の相関は Pearson r = 0.976 で差し替え関係にある。衛星＋公開GISデータの採用構成は `VIIRS DNB 2023`（`NTL_MEAN`）を含む | 全解析スケールで実質的な内挿になるため、RQ2 には割り当てない |
 | 訓練・テスト分割 | Spatial CV の設計を決定済み（6.1.1節） | 付録の測量建物置き換えでも同一評価法を維持する |
 | 主軸2シナリオの分光指数の扱い | **判断済み（2026-11-18）**。衛星データのみは `NDVI`・`NDBI`・`NDWI` の3変数、衛星＋公開GISデータの採用構成は水指数 `none`（`NDWI` を除外）のまま、主結果は採用構成どうしの比較とする。分光指数を揃えた比較（衛星＋公開GISデータを `ndwi` で実行）は感度分析として併記した。衛星データのみを2変数に揃える案は採らない（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.6.6節・[survey_area_comparison_results.md](../03_results/survey_area_comparison_results.md) 7.6.5節） | 感度分析は 30m のみで行った。90m・300m（RQ2）でも同じ構成の違いを含むが、30m の結果で主結果の解釈が変わらなかったため実施していない |
-| 季節変動の扱い | 主採用と `2023-07-07` は雨季、`2024-11-30` は乾季。雨季の2観測の比較は実施済み（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.5節） | 乾季の `2024-11-30` で分析し、季節による結果の違いを確かめる |
+| 季節変動の扱い | 主採用と `2023-07-07` は雨季、`2024-11-30` は乾季。雨季の2観測の比較は実施済み（[limited_analysis_main_20220906.md](../03_results/limited_analysis/limited_analysis_main_20220906.md) 8.5節） | 乾季の `2024-11-30` での分析は実施済み。季節による結果の違いは [observation_comparison_results.md](../03_results/observation_comparison_results.md) を正本とする |
 
 ---
 

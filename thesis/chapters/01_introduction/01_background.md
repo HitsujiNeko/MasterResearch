@@ -2,7 +2,7 @@
 見出し: 1.1　研究背景
 状態: 初稿
 依拠する正本:
-  - docs/01_planning/research_guide.md @ f0f4b039a5
+  - docs/01_planning/research_guide.md @ 241bde1f37
 -->
 
 ## 1.1　研究背景

@@ -2,10 +2,10 @@
 見出し: 2.4　データの3層構造とシナリオ
 状態: 初稿
 依拠する正本:
-  - docs/01_planning/research_guide.md @ efb1e70ec4
+  - docs/01_planning/research_guide.md @ 241bde1f37
   - docs/01_planning/urban_structure_parameters.md @ d3016a99cd
-  - docs/03_results/survey_gis_data_preparation_status.md @ 9e302d7e8c
-  - docs/03_results/survey_gis_attribute_inventory.md @ 5977e27123
+  - docs/03_results/survey_gis_data_preparation_status.md @ ce2ba4090a
+  - docs/03_results/survey_gis_attribute_inventory.md @ 9352237169
 -->
 
 ## 2.4　データの3層構造とシナリオ

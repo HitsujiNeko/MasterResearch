@@ -503,3 +503,167 @@ def test_run_target_refuses_non_empty_output_dir(project: Path, tmp_path: Path) 
     assert "空ではない" in report.error
     assert calls == []
     assert leftover.is_file()
+
+
+# --- 別の作業ツリーの入力（--data-root・inputs）と来歴の差 ---
+
+
+@pytest.mark.parametrize(
+    ("inputs", "message"),
+    [
+        ("data/x.gpkg", "空でない文字列のリスト"),
+        ([""], "空でない文字列のリスト"),
+        (["C:/data/x.gpkg"], "プロジェクト相対"),
+        (["../x.gpkg"], "プロジェクト相対"),
+        (["data/y.gpkg"], "`args` にありません"),
+        (["data/x.gpkg", "data/x.gpkg"], "重複"),
+    ],
+    ids=["not_list", "empty", "absolute", "parent", "not_in_args", "duplicate"],
+)
+def test_parse_target_rejects_invalid_inputs(inputs: object, message: str) -> None:
+    """`inputs` の型・絶対パス・`..`・`args` に無い値・重複を拒否する。"""
+    entry = _config_entry(args=["--dataset", "data/x.gpkg"], inputs=inputs)
+    with pytest.raises(ValueError, match=message):
+        target.parse_target(entry, 0)
+
+
+def test_parse_target_reads_inputs() -> None:
+    """`inputs` を読み込み、省略時は空とする。"""
+    entry = _config_entry(args=["--dataset", "data/x.gpkg"], inputs=["data/x.gpkg"])
+    assert target.parse_target(entry, 0).inputs == ("data/x.gpkg",)
+    assert target.parse_target(_config_entry(), 0).inputs == ()
+
+
+def test_build_command_replaces_inputs(tmp_path: Path) -> None:
+    """`args` の値が入力と完全に一致するものだけを置き換える（オプション名などは触らない）。"""
+    item = _target(args=("--dataset", "data/x.gpkg", "--note", "data/x.gpkg.bak"))
+    resolved = tmp_path / "data" / "x.gpkg"
+    command = target.build_command(item, tmp_path / "out", {"data/x.gpkg": resolved})
+    assert command[3:7] == ["--dataset", str(resolved), "--note", "data/x.gpkg.bak"]
+
+
+def test_run_target_reads_inputs_from_data_root(project: Path, tmp_path: Path) -> None:
+    """入力は基準ディレクトリの下の絶対パスで渡し、再実行はプロジェクトルートで行う。"""
+    data_root = tmp_path / "main_checkout"
+    dataset = data_root / "data" / "x.gpkg"
+    dataset.parent.mkdir(parents=True)
+    dataset.write_bytes(b"gpkg")
+    commands: list[list[str]] = []
+
+    def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        commands.append(command)
+        assert kwargs["cwd"] == project
+        # ダミーの分析は --dataset を受け付けないため、照合に使う結果だけを書き出す
+        output_dir = Path(command[command.index("--output-dir") + 1])
+        (output_dir / "fake_results.json").write_text(json.dumps(REFERENCE), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    item = _target(args=("--dataset", "data/x.gpkg"), inputs=("data/x.gpkg",))
+    report = target.run_target(item, tmp_path / "work", project, 120, runner, data_root)
+    assert report.status == target.STATUS_MATCH, report.error
+    assert commands[0][4] == str(dataset.resolve())
+
+
+def test_run_target_fails_on_missing_input(project: Path, tmp_path: Path) -> None:
+    """入力が基準ディレクトリの下に無ければ、再実行せずに入力欠落の実行失敗とする。"""
+    calls: list[object] = []
+
+    def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    item = _target(args=("--dataset", "data/x.gpkg"), inputs=("data/x.gpkg",))
+    report = target.run_target(item, tmp_path / "work", project, 120, runner, tmp_path)
+    assert report.status == target.STATUS_ERROR
+    assert report.error.startswith("入力欠落")
+    assert "data/x.gpkg" in report.error
+    assert calls == []
+
+
+def test_validate_work_dir_protects_data_root_output(tmp_path: Path) -> None:
+    """入力の基準ディレクトリの data/output/ の内側も出力先として拒否する。"""
+    project_root = tmp_path / "worktree"
+    data_root = tmp_path / "main"
+    target.validate_work_dir(tmp_path / "work", project_root, data_root)
+    with pytest.raises(ValueError, match="data/output"):
+        target.validate_work_dir(data_root / "data" / "output" / "x", project_root, data_root)
+
+
+def _provenance(inputs: list[dict[str, str]], files: list[dict[str, str]]) -> dict[str, object]:
+    """来歴だけを持つ結果 JSON を作る。"""
+    return {"provenance": {"inputs": inputs, "code": {"files": files}}}
+
+
+def test_compare_inputs_matches_by_file_name() -> None:
+    """入力はファイル名で対応付け、記録されたパスの違い（相対・絶対）は差にしない。"""
+    reference = _provenance(
+        [{"path": "data/x.gpkg", "sha256": "a" * 64}, {"path": "data/c.csv", "sha256": "c"}], []
+    )
+    rerun = _provenance(
+        [
+            {"path": "C:/main/data/x.gpkg", "sha256": "a" * 64},
+            {"path": "data/c.csv", "sha256": "d"},
+        ],
+        [],
+    )
+    assert target.compare_inputs(reference, rerun) == {"c.csv": {"reference": "c", "rerun": "d"}}
+    assert target.compare_inputs(reference, {"provenance": {}}) is None
+    assert target.compare_inputs({}, rerun) is None
+
+
+def test_compare_code_lists_changed_added_and_removed_files() -> None:
+    """コードのハッシュの変更・追加・削除を差として返し、記録が無ければ比較不能とする。"""
+    reference = _provenance(
+        [], [{"path": "src/a.py", "sha256": "1"}, {"path": "src/b.py", "sha256": "2"}]
+    )
+    rerun = _provenance(
+        [], [{"path": "src/a.py", "sha256": "1"}, {"path": "src/c.py", "sha256": "3"}]
+    )
+    assert target.compare_code(reference, rerun) == {
+        "src/b.py": {"reference": "2", "rerun": None},
+        "src/c.py": {"reference": None, "rerun": "3"},
+    }
+    assert target.compare_code(reference, reference) == {}
+    assert target.compare_code(reference, {"provenance": {"code": {"files": "x"}}}) is None
+
+
+def test_markdown_report_lists_provenance_differences_and_truncates() -> None:
+    """来歴の差（入力・コード）を載せ、多い不一致・差は先頭だけにして件数を添える。"""
+    report = target.TargetReport(name="a", module="m", status=target.STATUS_MISMATCH)
+    report.mismatches = [
+        {"key": f"k{i}", "reference": 1, "rerun": 2, "reason": "値が違う"} for i in range(35)
+    ]
+    report.package_differences = {}
+    report.input_differences = None
+    report.code_differences = {
+        f"src/f{i}.py": {"reference": "a" * 64, "rerun": None} for i in range(12)
+    }
+    markdown = target.format_markdown_report([report], target.dt.datetime(2026, 11, 26))
+    assert "| `k29` |" in markdown
+    assert "| `k30` |" not in markdown
+    assert "ほか 5 件" in markdown
+    assert "- ライブラリ版の差: なし" in markdown
+    assert "- 入力の差（SHA-256）: 比較不能" in markdown
+    assert "- コードの差（ファイルハッシュ）: 12 件（src/f0.py aaaaaaaaaaaa → なし" in markdown
+    assert "ほか 2 件）" in markdown
+
+
+def test_main_uses_data_root(
+    project: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`--data-root` の入力を使い、無い基準ディレクトリは開始前に拒否する。"""
+    data_root = tmp_path / "main_checkout"
+    (data_root / "data").mkdir(parents=True)
+    (data_root / "data" / "x.txt").write_text("x", encoding="utf-8")
+    config = _write_config(
+        project, [_config_entry(args=["--value", "data/x.txt"], inputs=["data/x.txt"])]
+    )
+    monkeypatch.setattr(target, "PROJECT_ROOT", project)
+    base = ["--all", "--config", str(config), "--output-json", "out/r.json"]
+    # ダミーの分析は --value を数値として読むため、入力が渡れば引数エラーで実行失敗になる。
+    # 入力欠落で止まらずに再実行まで進んだことを、失敗の理由で確かめる
+    assert target.main([*base, "--data-root", str(data_root)]) == target.EXIT_FAILURE
+    data = json.loads((project / "out" / "r.json").read_text(encoding="utf-8"))
+    assert "終了コード" in data["targets"][0]["error"]
+    assert data["data_root"] == data_root.resolve().as_posix()
+    assert target.main([*base, "--data-root", str(tmp_path / "none")]) == target.EXIT_FAILURE

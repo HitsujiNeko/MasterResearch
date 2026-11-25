@@ -667,3 +667,68 @@ def test_main_uses_data_root(
     assert "終了コード" in data["targets"][0]["error"]
     assert data["data_root"] == data_root.resolve().as_posix()
     assert target.main([*base, "--data-root", str(tmp_path / "none")]) == target.EXIT_FAILURE
+
+
+# --- リポジトリの設定ファイルと保存済み結果の記録の突き合わせ ---
+
+# 引数で明示しなくてよい分析スクリプトのオプション（出力先は本スクリプトが付ける。
+# 残りは真偽値のフラグで、保存済み結果の記録と一致することを別に確かめる）
+_IMPLICIT_OPTIONS = frozenset({"output_dir", "diagnose_only", "require_valid_gis_mask"})
+
+
+def _shipped_targets() -> list[object]:
+    """リポジトリの設定ファイルの全構成を読み込む。"""
+    return target.load_targets(REPO_ROOT / "scripts" / "reproducibility_targets.json")
+
+
+@pytest.mark.parametrize("item", _shipped_targets(), ids=lambda item: item.name)
+def test_shipped_config_matches_recorded_settings(item: object) -> None:
+    """各構成の引数を分析スクリプトのパーサで解釈すると、保存済み結果に記録された設定と一致し、
+    既定値に頼る引数が無い（既定値を変えても対象構成がずれないようにするため）。"""
+    import importlib
+
+    reference = json.loads((REPO_ROOT / item.reference_results).read_text(encoding="utf-8-sig"))
+    assert reference["provenance"]["script"] == item.module
+    module = importlib.import_module(item.module)
+    namespace = module.parse_arguments([*item.args, "--output-dir", "unused"])
+    values = vars(namespace)
+    evaluation_cells = reference.get("evaluation_cells")
+    # 評価セルを使わない通常ランでは、--evaluation-cells を付けないこと自体が設定である
+    allowed = _IMPLICIT_OPTIONS if evaluation_cells else _IMPLICIT_OPTIONS | {"evaluation_cells"}
+    implicit = sorted(
+        f"--{key.replace('_', '-')}"
+        for key in values
+        if key not in allowed and f"--{key.replace('_', '-')}" not in item.args
+    )
+    assert implicit == [], f"既定値に頼っている引数: {implicit}"
+
+    run_parameters = reference["run_parameters"]
+    args = list(item.args)
+    assert args[args.index("--dataset-path") + 1] == reference["dataset_path"]
+    assert list(item.inputs) == [reference["dataset_path"]]
+    assert values["scale"] == run_parameters["scale_m"]
+    assert values["sample_size"] == run_parameters["requested_sample_size"]
+    assert values["random_state"] == run_parameters["random_state"]
+    assert values["rf_trees"] == run_parameters["rf_trees"]
+    assert values["shap_sample_size"] == run_parameters["requested_shap_sample_size"]
+    assert values["shap_background_size"] == run_parameters["requested_shap_background_size"]
+    assert values["cv_splits"] == reference["spatial_cv"]["cv_splits"]
+    assert values["block_size_m"] == reference["spatial_cv"]["block_definition"]["block_size_m"]
+    assert values["lst_valid_ratio_threshold"] == reference["lst_valid_ratio_threshold"]
+    assert values["analysis_area"] == reference["analysis_area"]
+    assert values.get("diagnose_only", False) is False
+    if evaluation_cells:
+        assert args[args.index("--evaluation-cells") + 1] == evaluation_cells["path"]
+        assert "evaluation_cells" in item.compare_keys
+    else:
+        assert values["evaluation_cells"] is None
+    if reference["scenario"] == "Limited":
+        assert values["variable_set"] == reference["variable_set"]
+        assert values["building_height"] == reference["building_height_mode"]
+        assert values["water_index"] == reference["water_index_mode"]
+        assert values["population_source"] == reference["population_sources"]
+        assert values["require_valid_gis_mask"] == reference["require_valid_gis_mask"]
+    # 論文の結論に使う SHAP の順位・母数・実行条件も照合する
+    for key in ("shap", "filter_dropout", "run_parameters", *target.DEFAULT_COMPARE_KEYS):
+        assert key in item.compare_keys
+        assert key in reference

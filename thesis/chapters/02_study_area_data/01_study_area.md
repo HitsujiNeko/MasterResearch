@@ -2,11 +2,11 @@
 見出し: 2.1　研究対象地域
 状態: 初稿
 依拠する正本:
-  - docs/01_planning/research_guide.md @ efb1e70ec4
-  - docs/02_methods/analysis_workflow.md @ 4b6d28f6d6
+  - docs/01_planning/research_guide.md @ 241bde1f37
+  - docs/02_methods/analysis_workflow.md @ d00576657b
   - docs/01_planning/gis_data/gis_data_population.md @ 03aa9ef16e
-  - docs/03_results/survey_area_comparison_results.md @ e5795a635c
-  - docs/03_results/survey_gis_data_preparation_status.md @ 9e302d7e8c
+  - docs/03_results/survey_area_comparison_results.md @ 1a5ba8f0b4
+  - docs/03_results/survey_gis_data_preparation_status.md @ ce2ba4090a
   - docs/02_methods/calc_urban_params/calc_urban_params_cli_verification.md @ 264c26d332
 -->
 

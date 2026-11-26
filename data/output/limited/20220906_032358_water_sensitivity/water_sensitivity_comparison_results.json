@@ -2458,11 +2458,11 @@
   },
   "provenance": {
     "script": "src.analysis.compare_water_sensitivity",
-    "executed_at": "2026-11-25T23:50:17.243548+00:00",
+    "executed_at": "2026-11-26T05:19:17.631685+00:00",
     "python_version": "3.11.15",
     "platform": "Windows-10-10.0.26300-SP0",
     "git": {
-      "commit": "8ec4c0772beb17906fd69907e77d854efc54c98a",
+      "commit": "3e38a99bb732d561c1d5334bf67c6518e2f878a7",
       "dirty": false
     },
     "code": {
@@ -2481,7 +2481,7 @@
         },
         {
           "path": "src/analysis/compare_water_sensitivity.py",
-          "sha256": "1f5c1b1309bff5bfb503e1a63979c5069e105d62c2daae04d8478ce883a86780"
+          "sha256": "ff59e0d6e7ed21b398fb351fa18c855132fe2edf2e6b29a254fb21a4617404eb"
         },
         {
           "path": "src/analysis/compare_water_sources.py",

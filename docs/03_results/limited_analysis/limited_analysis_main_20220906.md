@@ -1,7 +1,7 @@
 # 衛星＋公開GISデータのシナリオ 分析結果：主採用の観測（2022-09-06）の結果
 
-**最終更新**: 2026-11-21  
-**関連ドキュメント**: [limited_analysis_results.md](../limited_analysis_results.md)（ハブ・索引）, [limited_analysis_legacy_20230707.md](limited_analysis_legacy_20230707.md), [limited_analysis_processing.md](limited_analysis_processing.md), [limited_analysis_multicollinearity.md](limited_analysis_multicollinearity.md), [analysis_workflow.md](../../02_methods/analysis_workflow.md), [research_guide.md](../../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](../satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](../survey_area_comparison_results.md), [spatial_cv_design_results.md](../spatial_cv_design_results.md), [observation_selection.md](../../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](../lst_emissivity_sensitivity_results.md)  
+**最終更新**: 2026-11-26  
+**関連ドキュメント**: [limited_analysis_results.md](../limited_analysis_results.md)（ハブ・索引）, [limited_analysis_legacy_20230707.md](limited_analysis_legacy_20230707.md), [limited_analysis_processing.md](limited_analysis_processing.md), [limited_analysis_multicollinearity.md](limited_analysis_multicollinearity.md), [analysis_workflow.md](../../02_methods/analysis_workflow.md), [research_guide.md](../../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](../satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](../survey_area_comparison_results.md), [spatial_cv_design_results.md](../spatial_cv_design_results.md), [observation_selection.md](../../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](../lst_emissivity_sensitivity_results.md), [gis_data_water.md](../../01_planning/gis_data/gis_data_water.md)  
 **前提知識**: [limited_analysis_results.md](../limited_analysis_results.md) 1章（位置づけ・数値の正本・現行の定義・データセットの世代）、[limited_analysis_processing.md](limited_analysis_processing.md) 3章（ラン間で共通の処理条件）  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -245,3 +245,120 @@ python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/
 - 感度分析は 30m のみで行った。90m・300m（RQ2・[rq2_scale_area_results.md](../rq2_scale_area_results.md)）でも同じ構成の違いを含むが、30m で主結果の読み方が変わらなかったため実施していない
 - 数値の正本は8.6.1節の表のとおりである。`ndwi` の全工程ランは `data/output/limited/20220906_032358_common_evaluation/` の出力名の末尾が `_both_bh_mean_evaluation_cells_seed42`（`_wi_` が付かない）のファイル、単発の比較と反復は `data/output/common_evaluation/20220906_032358/` の出力名に `_wi_ndwi` が付くファイル、`ndwi` − 採用構成の差は同じディレクトリの `water_index_comparison_` で始まるファイルである。いずれも `provenance.git.dirty` は `false` で記録されている
 - 反復スクリプトに水指数の引数を加えたため、採用構成の反復の結果（全域・都心部の `repeated_comparison_evaluation_cells_seed42_results.json`）は陳腐化チェックで「要再実行（コード変更）」と判定される。引数を指定しない場合の挙動（採用構成・出力名）は変えておらず、テストで確かめたため再実行していない。8.1節と同じ扱いである。全域の採用構成の評価セル・単発の比較・反復は、それより前の共通モジュールの変更でも「要再実行（コード変更）」と判定されていた
+
+### 8.7 水域率の元データを JRC に差し替えた感度分析
+
+`LULC_WATER_COV` の値は元データの選び方に敏感である。水域の面積はデータと定義によって GLC の 0.24〜2.08 倍まで変わる（[gis_data_water.md](../../01_planning/gis_data/gis_data_water.md) 7章）。同7.7節の方針では、元データは GLC_FCS30D のまま継続し、水域率を JRC Global Surface Water（以下 JRC）に差し替えた感度分析を加えることにした。本節はその結果である。**どの水域データも真値ではない。そのため、性能の優劣ではなく、結論（性能・変数の寄与の順位・水域の係数の符号）が元データを変えても保たれるかを見る。**
+
+#### 8.7.1 方法と数値の正本
+
+- **差し替えた候補**: 次の3つである。どれも [gis_data_water.md](../../01_planning/gis_data/gis_data_water.md) 7.1節と同じ定義・同じ集約関数・同じ正準グリッドで、30m セルの水域面積率にした。有効画素率が 0.5 未満のセルは欠測とした
+  - **JRC 月次 2021-09**（`water` が 2 の画素）。JRC の収録は2021年までである。観測日（2022-09-06）とは暦月がそろうが、年は1年ずれる
+  - **JRC Occurrence 50% 以上**。Occurrence の主とする閾値
+  - **JRC Occurrence 25% 以上**。閾値の感度として加えた
+- **差し替える列**: `LULC_WATER_COV` だけを差し替えた。**他の土地被覆6列は、次の2通りで作った（研究者判断、2026-11-26）**
+  - **据え置き（主）**: 6列は GLC のまま残す。差し替えの影響を水域の列だけに限れる。その代わり、水域と他のクラスを二重に数えるセルができる（8.7.2節）
+  - **正規化（副）**: 6列を互いの比を保ったまま伸縮し、和を「1 − 水域率」に戻す。GLC で6列の和が0のセル（GLC では全面が水域）は、残りをすべて参照クラスの農地に回す
+- **共通セル**: GLC と JRC の3候補がすべて有効なセルに限った（8.7.3節）。共通セルの外では、派生データセットの水域の列を欠測にした。こうして、6つの版の有効母集団をそろえた
+- **人口の補完**: WorldPop の水域セルの0補完（`LULC_WATER_COV >= 0.9` で判定）は、GLC による判定のまま据え置いた（研究者判断、2026-11-26）。差し替えの影響を水域の列に限るためである。JRC で判定し直した場合との食い違いは 8.7.2節に記録した
+- **実行**: 6つの版（3候補 × 据え置き・正規化）と GLC 版を、8.1節と同じ設定で実行した。共通評価セル（`--evaluation-cells`）も加え、すべての版を同じ評価セル・同じ fold で評価した。評価セルは、8.6.1節と同じ手順（`build_common_evaluation_set.py`）で、衛星データのみのデータセットと JRC 月次・据え置き版のデータセットから作った。JRC の6つの版は欠測の位置が同じなので、どの版から作っても同じ評価セルになる。GLC 版も同じ評価セルで実行し直したので、8.6節の GLC 版の数値とは評価セルが異なる
+- **比較**: 差の向きは **JRC 版 − GLC 版** とした。Spatial CV の fold ごとの対応のある差と補正 t 区間は、8.6.3節と同じ方法で求めた（J = 5・自由度4・補正係数 0.45）。変数の寄与の比較には、4つの指標を使った（SHAP 平均絶対値・Permutation Importance・RF Importance（不純度）・線形回帰の標準化係数）。それぞれ、上位5変数の一致と、全変数の順位の Spearman 相関を見た
+- **水域率の係数の元の単位**: 水域率が 0.1 増えたときの LST の変化（°C）で示した。標準化係数 × 学習データの LST の標準偏差 ÷ 学習データの水域率の標準偏差 × 0.1 で求めた（標準偏差は母標準偏差。学習データはランダム分割を同じシードで再現した）
+- **数値の正本**
+
+| 内容 | ファイル |
+|---|---|
+| 派生データセットの要約（候補ごとの水域の量・GLC との一致・二重計上・人口補完の食い違い・正規化の集計・共通セル） | `data/output/limited/20220906_032358_water_sensitivity/water_sensitivity_datasets_results.json` |
+| 評価セルと共通集合のメタデータ | `data/output/common_evaluation/20220906_032358_water_sensitivity/evaluation_cells_seed42.csv`・`evaluation_cells_seed42_results.json` |
+| 7版の全工程ラン（シード42） | `data/output/limited/20220906_032358_water/`（出力名は `dataset_limited_20220906_032358_{版}_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_*`。`{版}` は GLC 版では空、JRC 版では `waterjrcmonthly`・`waterjrcocc50`・`waterjrcocc25` で、正規化版はその末尾に `norm` が付く） |
+| GLC 版との比較（評価指標・fold ごとの差と区間・変数の寄与と順位・水域の係数） | `data/output/limited/20220906_032358_water_sensitivity/water_sensitivity_comparison_results.json`・`_metrics.csv`・`_importance.csv`・`_folds.csv` |
+
+全工程ランの出力先は、要約・比較の出力先とは別の短い名前にした。Windows のパス長の上限（260文字）を超えないようにするためである。いずれの結果も `provenance.git.dirty` は `false` で記録されている。派生データセットは `data/output/datasets/` にあり、`.gitignore` の対象で、下のコマンドで作り直せる。全工程ランは1版あたり約17分かかった。
+
+生成コマンド（`{版}` は上の表のとおり。正規化版を含めて7回実行する）:
+
+```bash
+python -m src.analysis.build_water_sensitivity_datasets
+python -m src.analysis.build_common_evaluation_set --satellite-only-dataset data/output/datasets/dataset_satellite_only_20220906_032358_hanoi_30m.gpkg --limited-dataset data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m.gpkg --output-dir data/output/common_evaluation/20220906_032358_water_sensitivity
+python -m src.analysis.analysis_rq3_limited --dataset-path data/output/datasets/dataset_limited_20220906_032358_{版}_hanoi_30m.gpkg --output-dir data/output/limited/20220906_032358_water --scale 30 --random-state 42 --sample-size 100000 --block-size-m 2700 --cv-splits 5 --rf-trees 300 --variable-set both --building-height mean --population-source worldpop2020 --water-index none --evaluation-cells data/output/common_evaluation/20220906_032358_water_sensitivity/evaluation_cells_seed42.csv
+python -m src.analysis.compare_water_sensitivity --baseline {GLC 版の results.json} --variant jrc_monthly {JRC 月次・据え置き版の results.json} --variant jrc_occ50 {…} --variant jrc_occ25 {…} --variant jrc_monthly_norm {…} --variant jrc_occ50_norm {…} --variant jrc_occ25_norm {…}
+```
+
+GLC 版のデータセットパスは `dataset_limited_20220906_032358_hanoi_30m.gpkg` である（`{版}_` の部分が無い）。
+
+#### 8.7.2 差し替えた水域率と構成データの扱い
+
+共通セル（3,456,232セル）での水域の量と GLC との一致:
+
+| 元データ | 水域セル（水域率 0.5 以上） | 水域面積（km²） | 水域率の平均 | GLC との相関（Pearson） |
+|---|---:|---:|---:|---:|
+| GLC（基準） | 185,218 | 166.7 | 0.0545 | — |
+| JRC 月次 2021-09 | 193,157 | 173.8 | 0.0572 | 0.748 |
+| JRC Occurrence 50% 以上 | 136,023 | 122.4 | 0.0395 | 0.711 |
+| JRC Occurrence 25% 以上 | 209,389 | 188.5 | 0.0614 | 0.722 |
+
+**据え置き版の二重計上**: 6列を GLC のまま残すと、JRC が水域とし GLC が別のクラスとした部分が二重に数えられる。この量を、暗黙の農地率（GLC の農地率 + GLC の水域率 − 差し替え後の水域率。モデルでは農地を参照クラスとして除外するため、農地率はこの式で決まる）が負になるセルで数えた。
+
+| 候補 | 暗黙の農地率が負のセル | 共通セルに占める割合 | JRC の水域セルに占める割合 | うち GLC で湿地が最大のセル |
+|---|---:|---:|---:|---:|
+| JRC 月次 | 49,774 | 1.44% | 22.1% | 69.8% |
+| JRC Occurrence 50% | 40,271 | 1.17% | 26.3% | 74.6% |
+| JRC Occurrence 25% | 75,826 | 2.19% | 33.4% | 72.0% |
+
+- **二重計上の大半は GLC の「湿地」との重なりである。** JRC が水域とし、GLC が湿地としたセルでは、水域率と湿地率がともに大きくなる。GLC の湿地と他のデータの水域の境界が揺れるという [gis_data_water.md](../../01_planning/gis_data/gis_data_water.md) 7章の所見と同じ向きである
+- **正規化版の副作用**（この項目だけは、共通セル（分析対象域の外の6セルを含む 3,456,238セル）での集計。平均は表示の桁では変わらない。件数は最大6の差がありうる（分析対象域の中での数え直しは未確認））: GLC で全面が水域のセルのうち、JRC の水域率が1未満のセルでは、残りがすべて農地に回る。こうしたセルは 25,932（月次）・31,968（Occurrence 50%）・21,426（同 25%）あり、農地に回った割合の平均は 0.60・0.80・0.65 である。湿地率の平均は 0.0177（GLC）から 0.0104・0.0116・0.0037 に下がる。正規化版には、GLC にも JRC にもない構成が含まれる
+
+**人口の補完の食い違い**（WorldPop2020、分析対象域の共通セル 3,456,232セル。共通セルから外れたセルは含まない）: 元の欠測は 82,616セルで、GLC の判定で0補完されたのは 56,457セルである。JRC の水域率で判定し直すと、補完されるセルは 61,049（月次）・65,226（Occurrence 50%）・69,914（同 25%）になる。GLC だけが補完するセルは 3,489・2,669・1,111、JRC だけが補完するセルは 8,081・11,438・14,568 である。本節ではこの判定を変えていないため、補完の判定を変えた場合の影響は確かめていない（8.7.5節）。
+
+#### 8.7.3 共通セルと評価セル
+
+- **JRC 月次は欠測（観測なし）が多い。** 分析対象域の 3,736,107セルのうち、有効なセルは GLC が 3,735,527、JRC 月次が 3,456,292、JRC Occurrence が 3,729,249 である。共通セルは 3,456,232 で、GLC で有効なセルのうち 279,295セルが比較の母集団（共通セル・評価セル）から外れた
+- **外れたセルはやや暑く、水域が多い。** 外れたセルの平均は、LST が 32.70°C（共通セル 32.17°C）、GLC の水域率が 0.065（同 0.054）、`NDVI` が 0.486（同 0.551）である。本節の比較の母集団は、外れたセルの分だけこの方向に偏っている
+- **評価セル**: 共通集合は 3,166,828セルである（8.6節の 3,422,216セルより 255,388セル少ない）。衛星＋公開GISデータの有効母集団は JRC 版が 3,189,410（6版で共通）、GLC 版が 3,446,551 である。GLC 版のデータセットには共通セルのマスクをかけていないため、件数が違う。ただし、評価に使うセルは7版とも同じである。評価セルの作り方は8.6.1節と同じで、衛星データのみ・LandScan の有効条件も重なる。評価セルは10万件・非空ブロック 501・fold ごとのテスト行数 19,999〜20,001 である
+- 7版の結果で、評価セルの digest・学習データの LST の標準偏差（2.6226°C）・説明変数（14変数。`LULC_BARE_COV` は7版とも分散0で除外）が一致することを確かめた
+- 評価セルのメタデータ（`evaluation_cells_seed42_results.json`）の衛星＋公開GISデータ側の集計は、JRC 月次・据え置き版のデータセットによる。8.6.2節の表とは水域の列の元データが違うため、値を比べない
+
+#### 8.7.4 結果
+
+**モデル性能**（Spatial CV・5 fold の平均。GLC 版は RF R² 0.8371・線形 R² 0.7656・RF RMSE 1.0569°C・線形 RMSE 1.2674°C）:
+
+| 版 | RF R² の差 [補正 t 区間] | 線形 R² の差 [補正 t 区間] | RF RMSE の差（°C） [補正 t 区間] | 線形 RMSE の差（°C） [補正 t 区間] |
+|---|---:|---:|---:|---:|
+| JRC 月次 | +0.0001 [−0.0002, +0.0004] | +0.0024 [−0.0036, +0.0085] | −0.0003 [−0.0013, +0.0008] | −0.0065 [−0.0222, +0.0092] |
+| JRC Occurrence 50% | +0.0000 [−0.0005, +0.0005] | +0.0014 [−0.0089, +0.0116] | −0.0001 [−0.0017, +0.0015] | −0.0040 [−0.0308, +0.0227] |
+| JRC Occurrence 25% | +0.0008 [−0.0005, +0.0022] | +0.0010 [−0.0016, +0.0035] | −0.0027 [−0.0069, +0.0016] | −0.0027 [−0.0094, +0.0040] |
+| JRC 月次・正規化 | −0.0010 [−0.0030, +0.0009] | +0.0015 [−0.0034, +0.0064] | +0.0032 [−0.0029, +0.0093] | −0.0040 [−0.0167, +0.0088] |
+| JRC Occurrence 50%・正規化 | −0.0007 [−0.0032, +0.0017] | +0.0016 [−0.0101, +0.0134] | +0.0023 [−0.0054, +0.0100] | −0.0048 [−0.0357, +0.0261] |
+| JRC Occurrence 25%・正規化 | +0.0003 [−0.0019, +0.0025] | −0.0014 [−0.0065, +0.0036] | −0.0010 [−0.0079, +0.0060] | +0.0037 [−0.0096, +0.0169] |
+
+- **性能の差は、どの版でも R² で 0.003 未満、RMSE で 0.007°C 未満であり、R²・RMSE の補正 t 区間はすべて0をはさむ。** 衛星データのみとの差（8.6.3節。RF R² +0.087）に比べて1桁以上（30分の1以下）小さい
+- 表に載せていない MAE では、線形回帰の MAE で次の2つの版の区間が0を含まない: JRC Occurrence 25%（−0.0044°C [−0.0078, −0.0009]）、同・正規化（−0.0034°C [−0.0057, −0.0010]）。この2つの版の差は 0.005°C 未満と小さい（値は比較 JSON の `spatial_cv_paired`）
+- ランダム分割の差（点推定のみ）も、R² で −0.0012〜+0.0025 にとどまった
+
+**水域の係数と寄与**（シード42の全工程ラン）:
+
+| 版 | 評価セルの水域率の平均 | GLC との相関（評価セル） | 水域の標準化係数 | 水域率 +0.1 あたりの LST | 湿地の標準化係数 | 水域の SHAP 平均絶対値（順位） | 水域の線形係数の順位 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| GLC（基準） | 0.0531 | — | −0.118 | −0.15°C | −0.009 | 0.019（9位） | 3位 |
+| JRC 月次 | 0.0545 | 0.773 | −0.146 | −0.18°C | +0.020 | 0.033（8位） | 3位 |
+| JRC Occurrence 50% | 0.0367 | 0.748 | −0.126 | −0.18°C | +0.019 | 0.028（8位） | 3位 |
+| JRC Occurrence 25% | 0.0570 | 0.753 | −0.131 | −0.15°C | +0.047 | 0.022（8位） | 3位 |
+| JRC 月次・正規化 | 0.0545 | 0.773 | −0.141 | −0.17°C | +0.010 | 0.032（8位） | 3位 |
+| JRC Occurrence 50%・正規化 | 0.0367 | 0.748 | −0.130 | −0.19°C | −0.021 | 0.028（8位） | 3位 |
+| JRC Occurrence 25%・正規化 | 0.0570 | 0.753 | −0.108 | −0.13°C | −0.006 | 0.025（8位） | 4位 |
+
+- **水域の係数は、6つの版すべてで GLC 版と同じく負である。** 標準化係数は −0.108〜−0.146（GLC −0.118）で、水域率 +0.1 あたりの LST の変化は −0.13〜−0.19°C（GLC −0.15°C）である。符号は元データによらず保たれる。大きさは、水域率 +0.1 あたりの LST の変化で GLC 版の 0.87〜1.26 倍（標準化係数どうしでは 0.91〜1.23 倍）の幅で動く
+- **据え置き版では、湿地の係数が負から正（+0.019〜+0.047）に変わる。** 正規化版では、湿地の係数は0に近い（−0.021〜+0.010）。据え置き版では二重計上（8.7.2節）によって水域と湿地の列が同時に大きくなるセルがある。湿地の係数がその分を打ち消している可能性がある（**推定**）。このため、据え置き版の水域の係数は湿地の係数と合わせて読む
+- **変数の寄与の上位5変数は、4つの指標・6つの版のすべてで顔ぶれが GLC 版と同じである。** 順序も、JRC Occurrence 25%・正規化版の2つの指標を除いて同じだった。その2つでは、Permutation Importance で `LULC_BUILT_COV` と `ELEV_MEAN`（2位と3位）が、線形係数で `LULC_WATER_COV` と `ELEV_MEAN`（3位と4位）が入れ替わった。全変数の順位の Spearman 相関は、据え置き版で 0.877 以上、正規化版で 0.859 以上である
+- 水域の SHAP 平均絶対値は、GLC 版の 0.019 から JRC 版の 0.022〜0.033 に上がり、順位は9位から8位になった。ただし値は首位の `NDBI`（約 0.93）の 4% 未満と小さい。2.1節の物差しでは、第5位以下の順位は標本で動きうる。この差は解釈しない
+
+#### 8.7.5 読み方と限界
+
+- **水域率の元データを JRC の3候補に替えても、性能・上位の変数の顔ぶれ・水域の係数の符号は変わらなかった。** 比べた範囲（3候補・30m・全域・シード42）では大きな変化は見られず、衛星＋公開GISデータのシナリオの主結果は、水域データの選択（GLC の水域の不確かさ）に比較的頑健と考えられる。ただし、性能が同等であることを検定したものではない（区間が0をはさむことは同等性を示さない）。90m・300m（RQ2）と都心部では確かめていない。主結果は方針どおり GLC 版（8.1〜8.6節）のままとする
+- **水域の係数の大きさは、元データによって動く。** 水域率 +0.1 あたりの LST の変化は GLC 版の 0.87〜1.26 倍の範囲で動くため、1つの値ではなく −0.13〜−0.19°C の幅として扱う。据え置き版では湿地の係数と合わせて読む
+- **単発（シード42）の比較だけである。** 区間が表すのは分割の違いによる変動だけで、標本の違いは含まない（8.6.3節）。性能の差は2.1節の標本変動（独立な2標本で 0.01程度）より小さいため、20シードの反復は行っていない
+- **共通セルから外れた 279,295セル（やや暑く、水域が多い）を含まない。** JRC 月次の欠測のためである。外れたセルを含めた場合の結果は確かめていない
+- **正規化版は、GLC にも JRC にもない構成を含む**（8.7.2節）。正規化版は、据え置き版の二重計上の影響を確かめるための副の版として読む
+- **人口の補完の判定は GLC のままである。** 判定を JRC に合わせると、JRC だけが新たに補完するセルが最大 14,568 ある。逆に GLC だけが補完するセルも 1,111〜3,489 あるため、補完されるセルの総数の増加は最大 13,457（56,457 → 69,914）である（8.7.2節）。その影響は確かめていない
+- JRC 月次は2021年9月のデータであり、観測日（2022年9月）とは年がずれる。JRC の収録が2021年までのためである
+- 感度分析は 30m・全域だけで行った。90m・300m（RQ2）と都心部（測量GIS範囲）では行っていない

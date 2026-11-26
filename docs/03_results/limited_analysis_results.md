@@ -1,6 +1,6 @@
 # 衛星＋公開GISデータのシナリオ 分析結果
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-26  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [satellite_only_analysis_results_cellbased.md](satellite_only_analysis_results_cellbased.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [observation_selection.md](../02_methods/observation_selection.md), [lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md), [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md), [limited_analysis_legacy_20230707.md](limited_analysis/limited_analysis_legacy_20230707.md), [limited_analysis_processing.md](limited_analysis/limited_analysis_processing.md), [limited_analysis_multicollinearity.md](limited_analysis/limited_analysis_multicollinearity.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -81,6 +81,12 @@
 | 8.6.4 20シードの反復 | シード 42〜61 の20シードの反復 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
 | 8.6.5 読み方と限界 | 比較結果の読み方と限界 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
 | 8.6.6 分光指数を揃えた感度分析 | 分光指数を揃えた感度分析（`NDWI` を含む構成との比較） | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
+| 8.7 水域率の元データを JRC に差し替えた感度分析 | `LULC_WATER_COV` を JRC Global Surface Water 由来に差し替えた感度分析 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
+| 8.7.1 方法と数値の正本 | 差し替えた候補・構成データと人口補完の扱い・評価の設計と数値の正本 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
+| 8.7.2 差し替えた水域率と構成データの扱い | 候補ごとの水域の量、据え置き版の二重計上、正規化版の副作用、人口補完の食い違い | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
+| 8.7.3 共通セルと評価セル | JRC 月次の欠測による共通セルと、共通セルから外れたセルの性格 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
+| 8.7.4 結果 | GLC 版との性能の差、水域の係数と寄与、変数の順位 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
+| 8.7.5 読み方と限界 | 感度分析の結果の読み方と限界 | [limited_analysis_main_20220906.md](limited_analysis/limited_analysis_main_20220906.md) |
 
 ---
 
@@ -105,7 +111,7 @@ RQ3 では衛星データのみと衛星＋公開GISデータの2シナリオを
 | 全結果の要約（母数・除外列・診断範囲を含む） | `{接頭辞}_results.json` |
 | fold別評価値 | `{接頭辞}_spatial_cv_folds.csv` |
 
-いずれも `data/output/limited/20230707_032305/` に置き、Git管理下にある（サンプルCSV `*_sample_*.csv` のみ管理外）。**8章（主採用の観測）の出力は `data/output/limited/20220906_032358/` に置く。** 8.6節（衛星データのみとの比較）の出力は、共通評価セルと比較・反復の結果を `data/output/common_evaluation/20220906_032358/` に、共通評価セルでの衛星＋公開GISデータの全工程ランを `data/output/limited/20220906_032358_common_evaluation/` に置く。また、**ラン12〜15（水指数ブロックの構成比較）だけは `data/output/limited/20230707_032305_water_index/` に置く。** データセットの世代が異なり（1.4節）、同じ出力接頭辞のラン1の出力を上書きしないためである。
+いずれも `data/output/limited/20230707_032305/` に置き、Git管理下にある（サンプルCSV `*_sample_*.csv` のみ管理外）。**8章（主採用の観測）の出力は `data/output/limited/20220906_032358/` に置く。** 8.6節（衛星データのみとの比較）の出力は、共通評価セルと比較・反復の結果を `data/output/common_evaluation/20220906_032358/` に、共通評価セルでの衛星＋公開GISデータの全工程ランを `data/output/limited/20220906_032358_common_evaluation/` に置く。8.7節（水域率の感度分析）の出力は、派生データセットの要約と GLC 版との比較を `data/output/limited/20220906_032358_water_sensitivity/` に、評価セルを `data/output/common_evaluation/20220906_032358_water_sensitivity/` に、7版の全工程ランを `data/output/limited/20220906_032358_water/` に置く。また、**ラン12〜15（水指数ブロックの構成比較）だけは `data/output/limited/20230707_032305_water_index/` に置く。** データセットの世代が異なり（1.4節）、同じ出力接頭辞のラン1の出力を上書きしないためである。
 
 **測量GIS範囲と全域の比較（ラン12・13 の構成を `mask_survey` 結合データセットで回し直したもの）は `data/output/limited/20230707_032305_area_comparison/` に置く。** 本ドキュメントの台帳には含めず、結果と解釈は [survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは、ラン12・13 の母数・サンプル・Spatial CV の R² を再現している（同ドキュメント3.3節）。
 

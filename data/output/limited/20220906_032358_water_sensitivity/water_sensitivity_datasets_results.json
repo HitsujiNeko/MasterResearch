@@ -1,0 +1,683 @@
+{
+  "description": "水域率を JRC GSW 由来に差し替えた感度分析用データセットの要約",
+  "settings": {
+    "min_valid_ratio": 0.5,
+    "water_fraction_threshold": 0.5,
+    "water_dominant_threshold": 0.9,
+    "composition": {
+      "fixed": "水域以外の LULC_*_COV は GLC のまま据え置く（主）",
+      "normalized": "水域以外の LULC_*_COV を、比を保って和が 1 - 水域率になるよう伸縮する（副）"
+    },
+    "population_fill": "GLC の水域率による判定のまま据え置く",
+    "scope": "IN_ANALYSIS_AREA == 1 のセル（LST の有効性は問わない）"
+  },
+  "common_cells": {
+    "in_area_cells": 3736107,
+    "glc_valid_cells": 3735527,
+    "common_cells": 3456232,
+    "profile_common": {
+      "cells": 3456232,
+      "means": {
+        "LST": 32.1692568890902,
+        "NDVI": 0.5511008496414822,
+        "BUILD_COV": 0.07822372427184124,
+        "LULC_WATER_COV": 0.05448044939760589
+      },
+      "missing_counts": {
+        "LST": 226045,
+        "NDVI": 225288,
+        "BUILD_COV": 0,
+        "LULC_WATER_COV": 0
+      }
+    },
+    "profile_excluded": {
+      "cells": 279295,
+      "means": {
+        "LST": 32.696098784504585,
+        "NDVI": 0.48628452445551984,
+        "BUILD_COV": 0.08248506825091229,
+        "LULC_WATER_COV": 0.065348073966909
+      },
+      "missing_counts": {
+        "LST": 15700,
+        "NDVI": 15671,
+        "BUILD_COV": 0,
+        "LULC_WATER_COV": 0
+      }
+    }
+  },
+  "glc": {
+    "in_area": {
+      "cells": 3736107,
+      "valid_cells": 3735527,
+      "compared_cells": 3735527,
+      "water_cells": 203232,
+      "water_area_km2": 182.9088,
+      "mean": 0.055292991564770924,
+      "std": 0.21226277428647664,
+      "zero_cell_ratio": 0.9180560065554338,
+      "one_cell_ratio": 0.033855196335082036,
+      "pearson_with_glc": 1.0,
+      "mean_difference_from_glc": 0.0,
+      "mean_absolute_difference_from_glc": 0.0,
+      "unchanged_cell_ratio": 1.0
+    },
+    "common": {
+      "cells": 3456232,
+      "valid_cells": 3456232,
+      "compared_cells": 3456232,
+      "water_cells": 185218,
+      "water_area_km2": 166.6962,
+      "mean": 0.05448044939760589,
+      "std": 0.2111057373508036,
+      "zero_cell_ratio": 0.919670612389446,
+      "one_cell_ratio": 0.03379576371030649,
+      "pearson_with_glc": 0.9999999999857564,
+      "mean_difference_from_glc": 0.0,
+      "mean_absolute_difference_from_glc": 0.0,
+      "unchanged_cell_ratio": 1.0
+    }
+  },
+  "candidates": {
+    "jrc_monthly": {
+      "label": "JRC 月次 2021-09",
+      "in_area": {
+        "cells": 3736107,
+        "valid_cells": 3456292,
+        "compared_cells": 3456232,
+        "water_cells": 193182,
+        "water_area_km2": 173.8638,
+        "mean": 0.057187653815493726,
+        "std": 0.21804051168436958,
+        "zero_cell_ratio": 0.9181547997935324,
+        "one_cell_ratio": 0.0392459186767555,
+        "pearson_with_glc": 0.7479365390707201,
+        "mean_difference_from_glc": 0.002707204417887813,
+        "mean_absolute_difference_from_glc": 0.03359908129974266,
+        "unchanged_cell_ratio": 0.920743746368878
+      },
+      "common": {
+        "cells": 3456232,
+        "valid_cells": 3456232,
+        "compared_cells": 3456232,
+        "water_cells": 193157,
+        "water_area_km2": 173.8413,
+        "mean": 0.057187653815493726,
+        "std": 0.21804051168436958,
+        "zero_cell_ratio": 0.9181547997935324,
+        "one_cell_ratio": 0.0392459186767555,
+        "pearson_with_glc": 0.7479365390707201,
+        "mean_difference_from_glc": 0.002707204417887813,
+        "mean_absolute_difference_from_glc": 0.03359908129974266,
+        "unchanged_cell_ratio": 0.920743746368878
+      },
+      "composition_overlap": {
+        "definition": "暗黙の農地率 = 農地率(GLC) + 水域率(GLC) - 水域率(差し替え後)",
+        "tolerance": 1e-06,
+        "cells": 3456232,
+        "negative_cells": 49774,
+        "negative_cell_ratio": 0.014401232324681908,
+        "minimum": -1.0,
+        "negative_mean": -0.5879719022085834,
+        "water_cells": 193157,
+        "negative_water_cells": 42635,
+        "negative_ratio_in_water_cells": 0.22072718048012757,
+        "negative_cells_by_glc_dominant_class": {
+          "LULC_WATER_COV": 10227,
+          "LULC_TREE_COV": 570,
+          "LULC_CROP_COV": 2034,
+          "LULC_BUILT_COV": 2053,
+          "LULC_RANGE_COV": 162,
+          "LULC_WETLAND_COV": 34728,
+          "LULC_BARE_COV": 0
+        },
+        "glc_only_water_cells": 53165,
+        "replaced_only_water_cells": 61104,
+        "replaced_only_water_cells_by_glc_dominant_class": {
+          "LULC_WATER_COV": 236,
+          "LULC_TREE_COV": 198,
+          "LULC_CROP_COV": 30474,
+          "LULC_BUILT_COV": 592,
+          "LULC_RANGE_COV": 125,
+          "LULC_WETLAND_COV": 29479,
+          "LULC_BARE_COV": 0
+        }
+      },
+      "population_fill": {
+        "WORLDPOP2020": {
+          "originally_missing_cells": 82616,
+          "glc_filled_cells": 56457,
+          "replaced_filled_cells": 61049,
+          "glc_only_filled_cells": 3489,
+          "replaced_only_filled_cells": 8081
+        },
+        "LANDSCAN2020": {
+          "originally_missing_cells": 45848,
+          "glc_filled_cells": 8102,
+          "replaced_filled_cells": 10420,
+          "glc_only_filled_cells": 390,
+          "replaced_only_filled_cells": 2708
+        },
+        "LANDSCAN2023": {
+          "originally_missing_cells": 45848,
+          "glc_filled_cells": 8102,
+          "replaced_filled_cells": 10420,
+          "glc_only_filled_cells": 390,
+          "replaced_only_filled_cells": 2708
+        }
+      },
+      "normalization": {
+        "cells": 3456238,
+        "remainder_to_crop_cells": 25932,
+        "remainder_to_crop_mean": 0.6029087326601866,
+        "max_abs_deviation_from_one": 4.470348358154297e-08,
+        "column_means_glc": {
+          "LULC_WATER_COV": 0.0544806441519323,
+          "LULC_TREE_COV": 0.07012982608767461,
+          "LULC_CROP_COV": 0.6564450813182816,
+          "LULC_BUILT_COV": 0.19624080169543442,
+          "LULC_RANGE_COV": 0.00499218999218468,
+          "LULC_WETLAND_COV": 0.017711456795059217,
+          "LULC_BARE_COV": 0.0
+        },
+        "column_means_normalized": {
+          "LULC_WATER_COV": 0.05718813320206291,
+          "LULC_TREE_COV": 0.07026029874893953,
+          "LULC_CROP_COV": 0.6607632387216513,
+          "LULC_BUILT_COV": 0.19641801466903447,
+          "LULC_RANGE_COV": 0.004965171748783203,
+          "LULC_WETLAND_COV": 0.010405142906807534,
+          "LULC_BARE_COV": 0.0
+        }
+      }
+    },
+    "jrc_occ50": {
+      "label": "JRC Occurrence 50% 以上",
+      "in_area": {
+        "cells": 3736107,
+        "valid_cells": 3729249,
+        "compared_cells": 3729186,
+        "water_cells": 145371,
+        "water_area_km2": 130.8339,
+        "mean": 0.03919477330676105,
+        "std": 0.1885760080109868,
+        "zero_cell_ratio": 0.9533050912451135,
+        "one_cell_ratio": 0.03285489112101139,
+        "pearson_with_glc": 0.7055013252562985,
+        "mean_difference_from_glc": -0.015812438203854716,
+        "mean_absolute_difference_from_glc": 0.032478381228762766,
+        "unchanged_cell_ratio": 0.9346583946201664
+      },
+      "common": {
+        "cells": 3456232,
+        "valid_cells": 3456232,
+        "compared_cells": 3456232,
+        "water_cells": 136023,
+        "water_area_km2": 122.4207,
+        "mean": 0.039532373089949266,
+        "std": 0.18976941711724948,
+        "zero_cell_ratio": 0.9534571174620222,
+        "one_cell_ratio": 0.03357992171821799,
+        "pearson_with_glc": 0.710817365338491,
+        "mean_difference_from_glc": -0.014948076307656655,
+        "mean_absolute_difference_from_glc": 0.03173821844560905,
+        "unchanged_cell_ratio": 0.9365323276909652
+      },
+      "composition_overlap": {
+        "definition": "暗黙の農地率 = 農地率(GLC) + 水域率(GLC) - 水域率(差し替え後)",
+        "tolerance": 1e-06,
+        "cells": 3456232,
+        "negative_cells": 40271,
+        "negative_cell_ratio": 0.01165170625120073,
+        "minimum": -1.0,
+        "negative_mean": -0.6473458183295068,
+        "water_cells": 136023,
+        "negative_water_cells": 35759,
+        "negative_ratio_in_water_cells": 0.26288936429868476,
+        "negative_cells_by_glc_dominant_class": {
+          "LULC_WATER_COV": 8929,
+          "LULC_TREE_COV": 69,
+          "LULC_CROP_COV": 287,
+          "LULC_BUILT_COV": 925,
+          "LULC_RANGE_COV": 27,
+          "LULC_WETLAND_COV": 30034,
+          "LULC_BARE_COV": 0
+        },
+        "glc_only_water_cells": 78283,
+        "replaced_only_water_cells": 29088,
+        "replaced_only_water_cells_by_glc_dominant_class": {
+          "LULC_WATER_COV": 126,
+          "LULC_TREE_COV": 10,
+          "LULC_CROP_COV": 2405,
+          "LULC_BUILT_COV": 302,
+          "LULC_RANGE_COV": 13,
+          "LULC_WETLAND_COV": 26232,
+          "LULC_BARE_COV": 0
+        }
+      },
+      "population_fill": {
+        "WORLDPOP2020": {
+          "originally_missing_cells": 82616,
+          "glc_filled_cells": 56457,
+          "replaced_filled_cells": 65226,
+          "glc_only_filled_cells": 2669,
+          "replaced_only_filled_cells": 11438
+        },
+        "LANDSCAN2020": {
+          "originally_missing_cells": 45848,
+          "glc_filled_cells": 8102,
+          "replaced_filled_cells": 10663,
+          "glc_only_filled_cells": 429,
+          "replaced_only_filled_cells": 2990
+        },
+        "LANDSCAN2023": {
+          "originally_missing_cells": 45848,
+          "glc_filled_cells": 8102,
+          "replaced_filled_cells": 10663,
+          "glc_only_filled_cells": 429,
+          "replaced_only_filled_cells": 2990
+        }
+      },
+      "normalization": {
+        "cells": 3456238,
+        "remainder_to_crop_cells": 31968,
+        "remainder_to_crop_mean": 0.7980037854513885,
+        "max_abs_deviation_from_one": 4.470348358154297e-08,
+        "column_means_glc": {
+          "LULC_WATER_COV": 0.0544806441519323,
+          "LULC_TREE_COV": 0.07012982608767461,
+          "LULC_CROP_COV": 0.6564450813182816,
+          "LULC_BUILT_COV": 0.19624080169543442,
+          "LULC_RANGE_COV": 0.00499218999218468,
+          "LULC_WETLAND_COV": 0.017711456795059217,
+          "LULC_BARE_COV": 0.0
+        },
+        "column_means_normalized": {
+          "LULC_WATER_COV": 0.039532883125936794,
+          "LULC_TREE_COV": 0.07042018269644623,
+          "LULC_CROP_COV": 0.676803298363743,
+          "LULC_BUILT_COV": 0.19665383627587657,
+          "LULC_RANGE_COV": 0.005018057857146674,
+          "LULC_WETLAND_COV": 0.011571741681704443,
+          "LULC_BARE_COV": 0.0
+        }
+      }
+    },
+    "jrc_occ25": {
+      "label": "JRC Occurrence 25% 以上",
+      "in_area": {
+        "cells": 3736107,
+        "valid_cells": 3729249,
+        "compared_cells": 3729186,
+        "water_cells": 226942,
+        "water_area_km2": 204.2478,
+        "mean": 0.06166505077401271,
+        "std": 0.22947956942985284,
+        "zero_cell_ratio": 0.9188678172662882,
+        "one_cell_ratio": 0.0464374799218918,
+        "pearson_with_glc": 0.718267516136663,
+        "mean_difference_from_glc": 0.006657839263396969,
+        "mean_absolute_difference_from_glc": 0.03738599039714049,
+        "unchanged_cell_ratio": 0.9211704645464185
+      },
+      "common": {
+        "cells": 3456232,
+        "valid_cells": 3456232,
+        "compared_cells": 3456232,
+        "water_cells": 209389,
+        "water_area_km2": 188.4501,
+        "mean": 0.061368915926960095,
+        "std": 0.22947386290840988,
+        "zero_cell_ratio": 0.9200079740017453,
+        "one_cell_ratio": 0.04691756803362737,
+        "pearson_with_glc": 0.7218290359130941,
+        "mean_difference_from_glc": 0.006888466529354201,
+        "mean_absolute_difference_from_glc": 0.03664338803746258,
+        "unchanged_cell_ratio": 0.9233876661057475
+      },
+      "composition_overlap": {
+        "definition": "暗黙の農地率 = 農地率(GLC) + 水域率(GLC) - 水域率(差し替え後)",
+        "tolerance": 1e-06,
+        "cells": 3456232,
+        "negative_cells": 75826,
+        "negative_cell_ratio": 0.021938920766892963,
+        "minimum": -1.0,
+        "negative_mean": -0.6654155938521393,
+        "water_cells": 209389,
+        "negative_water_cells": 69987,
+        "negative_ratio_in_water_cells": 0.3342439192125661,
+        "negative_cells_by_glc_dominant_class": {
+          "LULC_WATER_COV": 13553,
+          "LULC_TREE_COV": 515,
+          "LULC_CROP_COV": 3451,
+          "LULC_BUILT_COV": 3498,
+          "LULC_RANGE_COV": 207,
+          "LULC_WETLAND_COV": 54602,
+          "LULC_BARE_COV": 0
+        },
+        "glc_only_water_cells": 51096,
+        "replaced_only_water_cells": 75267,
+        "replaced_only_water_cells_by_glc_dominant_class": {
+          "LULC_WATER_COV": 398,
+          "LULC_TREE_COV": 133,
+          "LULC_CROP_COV": 21850,
+          "LULC_BUILT_COV": 1576,
+          "LULC_RANGE_COV": 162,
+          "LULC_WETLAND_COV": 51148,
+          "LULC_BARE_COV": 0
+        }
+      },
+      "population_fill": {
+        "WORLDPOP2020": {
+          "originally_missing_cells": 82616,
+          "glc_filled_cells": 56457,
+          "replaced_filled_cells": 69914,
+          "glc_only_filled_cells": 1111,
+          "replaced_only_filled_cells": 14568
+        },
+        "LANDSCAN2020": {
+          "originally_missing_cells": 45848,
+          "glc_filled_cells": 8102,
+          "replaced_filled_cells": 11965,
+          "glc_only_filled_cells": 232,
+          "replaced_only_filled_cells": 4095
+        },
+        "LANDSCAN2023": {
+          "originally_missing_cells": 45848,
+          "glc_filled_cells": 8102,
+          "replaced_filled_cells": 11965,
+          "glc_only_filled_cells": 232,
+          "replaced_only_filled_cells": 4095
+        }
+      },
+      "normalization": {
+        "cells": 3456238,
+        "remainder_to_crop_cells": 21426,
+        "remainder_to_crop_mean": 0.6465995324543445,
+        "max_abs_deviation_from_one": 4.470348358154297e-08,
+        "column_means_glc": {
+          "LULC_WATER_COV": 0.0544806441519323,
+          "LULC_TREE_COV": 0.07012982608767461,
+          "LULC_CROP_COV": 0.6564450813182816,
+          "LULC_BUILT_COV": 0.19624080169543442,
+          "LULC_RANGE_COV": 0.00499218999218468,
+          "LULC_WETLAND_COV": 0.017711456795059217,
+          "LULC_BARE_COV": 0.0
+        },
+        "column_means_normalized": {
+          "LULC_WATER_COV": 0.0613695027771471,
+          "LULC_TREE_COV": 0.0702875033860243,
+          "LULC_CROP_COV": 0.663680949388052,
+          "LULC_BUILT_COV": 0.19604687963877218,
+          "LULC_RANGE_COV": 0.004953866079903274,
+          "LULC_WETLAND_COV": 0.0036612987247862513,
+          "LULC_BARE_COV": 0.0
+        }
+      }
+    }
+  },
+  "outputs": {
+    "datasets": {
+      "jrc_monthly_fixed": {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m.gpkg",
+        "sha256": "8bb6e97508575a02e0bec6af0e0358fa0f15d1dd4b2a6a4960955557281704ba"
+      },
+      "jrc_monthly_normalized": {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthlynorm_hanoi_30m.gpkg",
+        "sha256": "5004716033fc1fb78f92f29c4a249b0b0bf77267e35aecc8a4468cdfa5ec917c"
+      },
+      "jrc_occ50_fixed": {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc50_hanoi_30m.gpkg",
+        "sha256": "ad7f412e108104b73565a86aa78f482739ec2efb98fcb83a8521a21af6203be9"
+      },
+      "jrc_occ50_normalized": {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc50norm_hanoi_30m.gpkg",
+        "sha256": "599984835c8485ecc0287c0f373ff27d0608531dac976ba9b248462e1eb2f638"
+      },
+      "jrc_occ25_fixed": {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc25_hanoi_30m.gpkg",
+        "sha256": "eae782e1e661e059710a83677853080924645b08345008f80c3887235435e804"
+      },
+      "jrc_occ25_normalized": {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc25norm_hanoi_30m.gpkg",
+        "sha256": "4b4fb2374a6fa89a1ab28088857f55e0f20021e63a380d1e4de9ff33d207519c"
+      }
+    },
+    "summary": "data/output/limited/20220906_032358_water_sensitivity/water_sensitivity_datasets_results.json"
+  },
+  "provenance": {
+    "script": "src.analysis.build_water_sensitivity_datasets",
+    "executed_at": "2026-11-25T21:15:53.556488+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "git": {
+      "commit": "8ec4c0772beb17906fd69907e77d854efc54c98a",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/build_water_sensitivity_datasets.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/compare_water_sources.py",
+        "src/analysis/build_dataset.py",
+        "src/analysis/mask_agreement.py",
+        "src/analysis/compare_lulc_esri_glc.py",
+        "src/analysis/urban_params/params/raster.py",
+        "src/analysis/urban_params/params/lulc.py",
+        "src/analysis/urban_params/tables.py",
+        "src/analysis/urban_params/grid.py",
+        "src/analysis/urban_params/io.py",
+        "src/analysis/urban_params/config.py",
+        "src/preprocessing/fetch_jrc_gsw_hanoi.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/build_dataset.py",
+          "sha256": "6b1b82edf9a696ef86d063d0aa881c3e2921ea2bea9ee4345d4d40e60669b7dd"
+        },
+        {
+          "path": "src/analysis/build_water_sensitivity_datasets.py",
+          "sha256": "e9550124426ba3b4064eb437a9c25b1cdc9bc2056257f79738d6797fd3102d17"
+        },
+        {
+          "path": "src/analysis/compare_lulc_esri_glc.py",
+          "sha256": "a391e5224412dc39fcde48cdb6b227eb1f0393ac601fa5a8ac9e0fbf14d2607f"
+        },
+        {
+          "path": "src/analysis/compare_water_sources.py",
+          "sha256": "fb3882e8f94d4bb00bc920cf8b0552fb654c776b4e20a16cbbd1426223667b7d"
+        },
+        {
+          "path": "src/analysis/mask_agreement.py",
+          "sha256": "17aecba01baaae45d06d8b9bc46e76f400f2610d3346c43df44557814a8740dd"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/analysis/urban_params/config.py",
+          "sha256": "26ac0bcb2d67a790a337ed8e31053753d94ed89dbebe8f327fdf0a8142c9279c"
+        },
+        {
+          "path": "src/analysis/urban_params/grid.py",
+          "sha256": "adebe4d55314e3c5036e4969f849f94a8e528a581f1c77ef2a41638a936ad6e2"
+        },
+        {
+          "path": "src/analysis/urban_params/io.py",
+          "sha256": "9d7e6fa31bb6c14e58c0bd6fdb76623d5f06d822ff93a89b1fb84c53304859a6"
+        },
+        {
+          "path": "src/analysis/urban_params/params/lulc.py",
+          "sha256": "83d307cfd26cb03d8d70c782a545c293d7a54d3cf92aee12a7a4f9a9f8b08e7d"
+        },
+        {
+          "path": "src/analysis/urban_params/params/raster.py",
+          "sha256": "8d98030b96f8cef4e30459d355c5630b653dba9c1d8e5ce62b9b1f34f466f54d"
+        },
+        {
+          "path": "src/analysis/urban_params/tables.py",
+          "sha256": "8fdfd3af4374f911ccdc5d094750ceb4b72faf3f563043f63831f56cde62f38b"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        },
+        {
+          "path": "src/preprocessing/fetch_jrc_gsw_hanoi.py",
+          "sha256": "89871ed43cd3e5f4f7837c9b21bcbdc8f797cdad801bf30021f018a6ea2baee3"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+      },
+      {
+        "path": "data/gis/water/jrc_gsw/jrc_gsw_hanoi_y2021_m202109.tif",
+        "sha256": "05494ab7b238bef21fc3ef3315bd81bd882a5c79a9e6edd9b9e8a889d61bb8a3"
+      },
+      {
+        "path": "data/gis/boundaries/hanoi/hanoi_ROI_EPSG4326.shp",
+        "sha256": "e2fbdaa4d2577113a36d4f24a2b9a73d293eefe1fc674b04bc4ac43a991572a5"
+      }
+    ]
+  }
+}

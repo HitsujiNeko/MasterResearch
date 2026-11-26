@@ -11,8 +11,18 @@
 - `module`: 実行するモジュール（例: `src.analysis.analysis_rq3_limited`）
 - `args`: `--output-dir` 以外の CLI 引数のリスト（出力先は本スクリプトが指定する）
 - `reference_results`: 照合する保存済み結果 JSON（プロジェクト相対）
+- `inputs`（任意）: git 管理外の入力ファイル（データセットの GeoPackage 等）のプロジェクト
+  相対パスのリスト。各要素は `args` にそのままの文字列で現れる必要がある。再実行の前に
+  入力の基準ディレクトリ（`--data-root`。既定はプロジェクトルート）の下にあるかを確かめ、
+  無ければ再実行せずに実行失敗とする。`args` の該当する値は、基準ディレクトリの下の
+  絶対パスに置き換えて渡す
 - `compare_keys`（任意）: 照合するトップレベルのキー。既定は `DEFAULT_COMPARE_KEYS`
 - `abs_tolerance`・`rel_tolerance`（任意）: 数値の許容誤差（`math.isclose` に渡す）
+
+`--data-root` は、git 管理外の入力が別の作業ツリーにある場合（例: `origin/main` の
+一時的な worktree で実行し、入力は普段使っているチェックアウトから読む）に指定する。
+入力は読み取りだけに使い、保存済み結果（`reference_results`）とコードは実行している
+作業ツリーのものを使う。
 
 照合の規則:
 
@@ -25,22 +35,42 @@
 - 出力ファイルの一覧（`outputs`）とパス類（キー名が `_path` で終わるもの）は、
   出力先によって必ず変わるため照合しない
 
-安全のため、再実行の出力先（`--work-dir`）が `data/output/` の内側なら拒否する
-（保存済み結果の上書きを防ぐため）。`--work-dir` を省略した場合は一時ディレクトリを作り、
-終了時に削除する（`--keep-work-dir` で残せる）。構成ごとの出力先（`{work_dir}/{構成名}/`）が
-空でなければ、前回の結果と取り違えないよう、その構成は再実行せずに実行失敗とする。
+不一致の原因を切り分ける手がかりとして、保存済み結果と再実行結果の来歴（`provenance`）
+から、ライブラリ版の差・入力ファイルの SHA-256 の差（ファイル名で対応付けるため、1回の実行に
+同じ名前の入力が複数ある構成は対象にしない）・コードの
+ファイルハッシュの差（`provenance.code.files`）を構成ごとに報告する。どちらかの来歴に
+記録が無ければ「比較不能」とする。これらは記録の差を示すだけで、不一致の原因を判定しない。
+
+安全のため、再実行の出力先（`--work-dir`）がプロジェクトルートまたは入力の基準ディレクトリの
+`data/output/` の内側なら拒否する（保存済み結果の上書きを防ぐため）。`--work-dir` を
+省略した場合は一時ディレクトリを作り、終了時に削除する（`--keep-work-dir` で残せる）。
+構成ごとの出力先（`{work_dir}/{構成名}/`）が空でなければ、前回の結果と取り違えないよう、
+その構成は再実行せずに実行失敗とする。
+
+Windows では、長いパスを許可する OS の設定が無効だとパスは 259 文字までに限られる。
+分析スクリプトの出力名は長い（構成名と合わせて 180 文字前後になるものがある）ため、
+`--work-dir` は短い場所にする（省略時の一時ディレクトリなら収まる）。保存済み結果に
+記録された出力ファイル名から長さを見積もり、上限を超える構成は再実行せずに実行失敗とする
+（図の保存まで進んでから落ちるのを防ぐため）。保存済み結果やコードを読む作業ツリー自体も、
+深い場所に置くと同じ上限に当たる。
 
 子プロセス（分析スクリプト）は本スクリプトの環境変数をそのまま引き継ぐ。Windows の conda
 環境では、回帰・ランダムフォレストなど BLAS を使う処理のために、環境の `Library\\bin` 等が
 `PATH` に含まれている必要がある（含まれていないと子プロセスが異常終了する）。
 
-終了コード: 0=全構成が一致／1=実行できない（設定の不正・再実行の失敗・結果の欠落・
-照合した値が0件・構成ごとの出力先が空でない）／2=不一致がある
+終了コード: 0=全構成が一致／1=実行できない（設定の不正・入力の欠落・再実行の失敗・
+結果の欠落・照合した値が0件・構成ごとの出力先が空でない・出力のパスが長さの上限を
+超える）／2=不一致がある
+
+Markdown の報告は公開の Issue に載せることがあるため、再実行の出力先・入力の基準
+ディレクトリ・プロジェクトルート・利用者のホームの絶対パスを置き換え用の表記に替えて
+出力する（JSON の出力はそのまま）。
 
 実行はプロジェクトルートから行う（`src` パッケージを import するため）。
 
 ```sh
 python -m scripts.check_reproducibility --all --output-md reproducibility.md
+python -m scripts.check_reproducibility --all --data-root {入力のある作業ツリー} --output-md r.md
 ```
 """
 
@@ -58,7 +88,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from src.common.config import PROJECT_ROOT
@@ -97,8 +127,17 @@ _IGNORED_KEY_SUFFIX = "_path"
 # 失敗時に表示するログ末尾の行数
 _LOG_TAIL_LINES = 20
 
+# Markdown に載せる不一致の行数・来歴の差の件数の上限（報告 Issue のコメントが長くなりすぎ
+# ないようにする。全件は JSON の出力に残る）
+_MAX_MISMATCH_ROWS = 30
+_MAX_DIFFERENCE_ITEMS = 10
+
 # 保存済み結果の置き場所（再実行の出力先として拒否する範囲）
 _PROTECTED_OUTPUT_DIR = Path("data") / "output"
+
+# Windows のパスの長さの上限（終端の NUL を含めて 260 文字。長いパスを許可する OS の設定が
+# 無効な環境では、分析スクリプトが図・CSV の保存で失敗する）
+_WINDOWS_MAX_PATH_LENGTH = 259
 
 # 判定結果の区分
 STATUS_MATCH = "match"
@@ -124,6 +163,7 @@ class ReproducibilityTarget:
         compare_keys: 照合するトップレベルのキー。
         abs_tolerance: 数値の絶対許容誤差。
         rel_tolerance: 数値の相対許容誤差。
+        inputs: git 管理外の入力ファイル（プロジェクト相対。`args` に同じ文字列で現れる）。
     """
 
     name: str
@@ -133,6 +173,7 @@ class ReproducibilityTarget:
     compare_keys: tuple[str, ...] = DEFAULT_COMPARE_KEYS
     abs_tolerance: float = DEFAULT_ABS_TOLERANCE
     rel_tolerance: float = DEFAULT_REL_TOLERANCE
+    inputs: tuple[str, ...] = ()
 
 
 @dataclass
@@ -146,7 +187,9 @@ class TargetReport:
         elapsed_seconds: 再実行の所要時間（秒。実行していなければ None）。
         compared_count: 照合した葉の数。
         mismatches: 不一致の一覧。
-        package_differences: ライブラリ版の差（保存済み側に来歴が無ければ None）。
+        package_differences: ライブラリ版の差（どちらかに来歴の記録が無ければ None）。
+        input_differences: 入力ファイルの SHA-256 の差（どちらかに記録が無ければ None）。
+        code_differences: コードのファイルハッシュの差（どちらかに記録が無ければ None）。
         error: 実行失敗の説明。
         log_path: 再実行のログファイル。
     """
@@ -158,6 +201,8 @@ class TargetReport:
     compared_count: int = 0
     mismatches: list[dict[str, Any]] = field(default_factory=list)
     package_differences: dict[str, dict[str, Any]] | None = None
+    input_differences: dict[str, dict[str, Any]] | None = None
+    code_differences: dict[str, dict[str, Any]] | None = None
     error: str | None = None
     log_path: str | None = None
 
@@ -171,6 +216,8 @@ class TargetReport:
             "compared_count": self.compared_count,
             "mismatches": self.mismatches,
             "package_differences": self.package_differences,
+            "input_differences": self.input_differences,
+            "code_differences": self.code_differences,
             "error": self.error,
             "log_path": self.log_path,
         }
@@ -226,6 +273,7 @@ def parse_target(entry: object, index: int) -> ReproducibilityTarget:
         or not all(isinstance(key, str) and key for key in compare_keys)
     ):
         raise ValueError(f"{label}: `compare_keys` は空でない文字列のリストで指定してください")
+    inputs = _parse_inputs(entry.get("inputs", []), args, label)
     return ReproducibilityTarget(
         name=name,
         module=_require_str(entry, "module", label),
@@ -234,7 +282,38 @@ def parse_target(entry: object, index: int) -> ReproducibilityTarget:
         compare_keys=tuple(compare_keys),
         abs_tolerance=_optional_tolerance(entry, "abs_tolerance", DEFAULT_ABS_TOLERANCE, label),
         rel_tolerance=_optional_tolerance(entry, "rel_tolerance", DEFAULT_REL_TOLERANCE, label),
+        inputs=inputs,
     )
+
+
+def _parse_inputs(value: object, args: list[str], label: str) -> tuple[str, ...]:
+    """設定の `inputs` を検証して取り出す。
+
+    Args:
+        value: `inputs` の値。
+        args: 同じ構成の `args`。
+        label: エラーメッセージ用の構成の表示名。
+    Returns:
+        入力ファイルのプロジェクト相対パス。
+    Raises:
+        ValueError: 文字列のリストでない・絶対パスや `..` を含む・重複する・`args` に現れない場合。
+    """
+    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+        raise ValueError(f"{label}: `inputs` は空でない文字列のリストで指定してください")
+    for item in value:
+        # 実行する OS によらず同じ判定にするため、Windows と POSIX の両方の解釈で調べる
+        # （POSIX では `C:/x` が、Windows では `/x` が相対パスとして扱われてしまうため）
+        forms = (PureWindowsPath(item), PurePosixPath(item))
+        if any(form.anchor or ".." in form.parts for form in forms):
+            # 入力の基準ディレクトリの外を指せないようにする
+            raise ValueError(
+                f"{label}: `inputs` はプロジェクト相対のパスで指定してください（`..` 不可）: {item}"
+            )
+        if item not in args:
+            raise ValueError(f"{label}: `inputs` の {item} が `args` にありません")
+    if len(set(value)) != len(value):
+        raise ValueError(f"{label}: `inputs` に重複があります")
+    return tuple(value)
 
 
 def load_targets(config_path: Path) -> list[ReproducibilityTarget]:
@@ -282,22 +361,89 @@ def select_targets(
     return [target for target in targets if target.name in names]
 
 
-def validate_work_dir(work_dir: Path, project_root: Path) -> None:
+def validate_work_dir(work_dir: Path, project_root: Path, data_root: Path | None = None) -> None:
     """再実行の出力先が保存済み結果の置き場所（`data/output/`）の内側でないか確かめる。
 
     Args:
         work_dir: 出力先。
         project_root: プロジェクトルート。
+        data_root: 入力の基準ディレクトリ（その `data/output/` も保護する）。None なら
+            プロジェクトルートだけを確かめる。
     Raises:
-        ValueError: 出力先が `data/output/` と同じか、その内側の場合。
+        ValueError: 出力先がいずれかの `data/output/` と同じか、その内側の場合。
     """
-    protected = (project_root / _PROTECTED_OUTPUT_DIR).resolve()
     resolved = work_dir.resolve()
-    if resolved == protected or resolved.is_relative_to(protected):
-        raise ValueError(
-            f"再実行の出力先に {_PROTECTED_OUTPUT_DIR.as_posix()}/ の内側は指定できません"
-            f"（保存済み結果の上書きを防ぐため）: {resolved}"
-        )
+    roots = [project_root] if data_root is None else [project_root, data_root]
+    for root in roots:
+        protected = (root / _PROTECTED_OUTPUT_DIR).resolve()
+        if resolved == protected or resolved.is_relative_to(protected):
+            raise ValueError(
+                f"再実行の出力先に {_PROTECTED_OUTPUT_DIR.as_posix()}/ の内側は指定できません"
+                f"（保存済み結果の上書きを防ぐため）: {resolved}"
+            )
+
+
+def _output_file_names(value: object, inside_outputs: bool = False) -> list[str]:
+    """結果 JSON の `outputs` の下に記録された出力ファイル名を集める。"""
+    if isinstance(value, dict):
+        return [
+            name
+            for key, child in value.items()
+            for name in _output_file_names(child, inside_outputs or key == "outputs")
+        ]
+    if isinstance(value, list):
+        return [name for child in value for name in _output_file_names(child, inside_outputs)]
+    if inside_outputs and isinstance(value, str):
+        return [Path(value).name]
+    return []
+
+
+def check_output_path_length(
+    output_dir: Path, reference: dict[str, Any], max_length: int
+) -> str | None:
+    """再実行の出力のパスが長さの上限に収まるかを、保存済み結果の出力ファイル名から見積もる。
+
+    再実行の出力ファイル名は保存済み結果と同じ規則で決まるため、保存済み結果の `outputs` に
+    記録された最も長いファイル名を、構成ごとの出力先の下に置いた長さで判定する。
+    長時間の再実行の最後（図の保存）で落ちるのを、実行前に防ぐためのもの。
+
+    Args:
+        output_dir: 構成ごとの出力先。
+        reference: 保存済み結果 JSON の内容。
+        max_length: パスの長さの上限（文字数）。
+    Returns:
+        上限を超える場合はその説明、収まる（または出力の記録が無い）場合は None。
+    """
+    names = _output_file_names(reference)
+    if not names:
+        return None
+    longest = max(names, key=len)
+    length = len(str(output_dir.resolve() / longest))
+    if length <= max_length:
+        return None
+    return (
+        f"出力のパスが {length} 文字になり、上限 {max_length} 文字を超える"
+        f"（最長の出力名: {longest}）。--work-dir を短い場所にするか、省略して既定の"
+        "一時ディレクトリを使う"
+    )
+
+
+def resolve_inputs(target: ReproducibilityTarget, data_root: Path) -> dict[str, Path]:
+    """構成の git 管理外の入力を、入力の基準ディレクトリの下で解決する。
+
+    Args:
+        target: 対象構成。
+        data_root: 入力の基準ディレクトリ。
+    Returns:
+        設定に書いたパス → 基準ディレクトリの下の絶対パス。
+    Raises:
+        FileNotFoundError: 基準ディレクトリの下に無い入力がある場合（無いものをすべて列挙する）。
+    """
+    resolved = {item: (data_root / item).resolve() for item in target.inputs}
+    missing = [item for item, path in resolved.items() if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(f"入力ファイルが {data_root} の下にありません: {missing}")
+    return resolved
 
 
 def flatten_values(value: object, prefix: str = "") -> dict[str, object]:
@@ -422,27 +568,100 @@ def compare_packages(
         packages = provenance.get("packages") if isinstance(provenance, dict) else None
         return packages if isinstance(packages, dict) else None
 
-    reference_packages = packages_of(reference)
-    rerun_packages = packages_of(rerun)
-    if reference_packages is None or rerun_packages is None:
+    return _diff_mappings(packages_of(reference), packages_of(rerun))
+
+
+def _diff_mappings(
+    reference: dict[str, Any] | None, rerun: dict[str, Any] | None
+) -> dict[str, dict[str, Any]] | None:
+    """2つの対応表（名前 → 値）の違う名前を返す（どちらかが None なら None）。"""
+    if reference is None or rerun is None:
         return None
     return {
-        name: {"reference": reference_packages.get(name), "rerun": rerun_packages.get(name)}
-        for name in sorted(reference_packages.keys() | rerun_packages.keys())
-        if reference_packages.get(name) != rerun_packages.get(name)
+        name: {"reference": reference.get(name), "rerun": rerun.get(name)}
+        for name in sorted(reference.keys() | rerun.keys())
+        if reference.get(name) != rerun.get(name)
     }
 
 
-def build_command(target: ReproducibilityTarget, output_dir: Path) -> list[str]:
+def _provenance_records(data: dict[str, Any], key: str) -> list[dict[str, Any]] | None:
+    """来歴の記録のリスト（`inputs` や `code.files`）を取り出す（無ければ None）。"""
+    provenance = data.get("provenance")
+    if not isinstance(provenance, dict):
+        return None
+    container: object = provenance
+    for part in key.split("."):
+        container = container.get(part) if isinstance(container, dict) else None
+    if not isinstance(container, list) or not all(
+        isinstance(record, dict) and isinstance(record.get("path"), str) for record in container
+    ):
+        return None
+    return container
+
+
+def compare_inputs(
+    reference: dict[str, Any], rerun: dict[str, Any]
+) -> dict[str, dict[str, Any]] | None:
+    """保存済み結果と再実行結果の来歴に記録された入力ファイルの SHA-256 の差を返す。
+
+    入力の基準ディレクトリを変えると記録されるパスが変わる（別の作業ツリーの入力は
+    絶対パスで記録される）ため、ファイル名で対応付ける。
+
+    Args:
+        reference: 保存済み結果 JSON の内容。
+        rerun: 再実行結果 JSON の内容。
+    Returns:
+        SHA-256 が違う（または片方にしかない）ファイル名 → `reference`・`rerun` の値。
+        どちらかに入力の記録が無ければ None。
+    """
+
+    def hashes_of(data: dict[str, Any]) -> dict[str, Any] | None:
+        records = _provenance_records(data, "inputs")
+        if records is None:
+            return None
+        return {Path(record["path"]).name: record.get("sha256") for record in records}
+
+    return _diff_mappings(hashes_of(reference), hashes_of(rerun))
+
+
+def compare_code(
+    reference: dict[str, Any], rerun: dict[str, Any]
+) -> dict[str, dict[str, Any]] | None:
+    """保存済み結果と再実行結果の来歴に記録されたコードのファイルハッシュの差を返す。
+
+    Args:
+        reference: 保存済み結果 JSON の内容。
+        rerun: 再実行結果 JSON の内容。
+    Returns:
+        ハッシュが違う（または片方にしかない）ファイル（プロジェクト相対）→ `reference`・
+        `rerun` の値。どちらかにコードのハッシュの記録が無ければ None。
+    """
+
+    def hashes_of(data: dict[str, Any]) -> dict[str, Any] | None:
+        records = _provenance_records(data, "code.files")
+        if records is None:
+            return None
+        return {record["path"]: record.get("sha256") for record in records}
+
+    return _diff_mappings(hashes_of(reference), hashes_of(rerun))
+
+
+def build_command(
+    target: ReproducibilityTarget, output_dir: Path, input_paths: dict[str, Path] | None = None
+) -> list[str]:
     """再実行のコマンドを組み立てる（現在の Python で `-m` 実行する）。
 
     Args:
         target: 対象構成。
         output_dir: 再実行の出力先。
+        input_paths: 入力の置き換え（設定に書いたパス → 渡すパス）。`args` の値が
+            キーと完全に一致するものだけを置き換える。
     Returns:
         コマンドの引数リスト。
     """
-    return [sys.executable, "-m", target.module, *target.args, "--output-dir", str(output_dir)]
+    replacements = input_paths or {}
+    args = [str(replacements[arg]) if arg in replacements else arg for arg in target.args]
+    return [sys.executable, "-m", target.module, *args, "--output-dir", str(output_dir)]
 
 
 def find_rerun_result(output_dir: Path) -> Path:
@@ -479,6 +698,8 @@ def run_target(
     project_root: Path,
     timeout_seconds: float,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    data_root: Path | None = None,
+    max_path_length: int | None = (_WINDOWS_MAX_PATH_LENGTH if sys.platform == "win32" else None),
 ) -> TargetReport:
     """対象構成を再実行し、保存済み結果と照合する。
 
@@ -490,6 +711,10 @@ def run_target(
         project_root: 子プロセスの作業ディレクトリ・保存済み結果の基準。
         timeout_seconds: 待ち時間の上限（秒）。
         runner: 子プロセスの実行関数（テストで差し替える）。
+        data_root: git 管理外の入力（`target.inputs`）の基準ディレクトリ。None なら
+            プロジェクトルート。
+        max_path_length: 出力のパスの長さの上限（`check_output_path_length`）。既定は
+            Windows では `_WINDOWS_MAX_PATH_LENGTH`、それ以外では None（判定しない）。
     Returns:
         照合結果。
     """
@@ -500,8 +725,19 @@ def run_target(
     except (OSError, ValueError) as exc:
         report.error = f"保存済み結果を読めない: {target.reference_results}（{exc}）"
         return report
+    try:
+        input_paths = resolve_inputs(target, project_root if data_root is None else data_root)
+    except FileNotFoundError as exc:
+        # 入力が無いまま再実行すると、時間をかけずに落ちるか別の入力で動いてしまうため止める
+        report.error = f"入力欠落: {exc}"
+        return report
 
     output_dir = work_dir / target.name
+    if max_path_length is not None:
+        too_long = check_output_path_length(output_dir, reference, max_path_length)
+        if too_long:
+            report.error = too_long
+            return report
     if output_dir.is_dir() and any(output_dir.iterdir()):
         # 前回の結果が残っていると取り違えるおそれがあるため、消さずに止める
         report.error = (
@@ -515,7 +751,7 @@ def run_target(
     try:
         with log_path.open("w", encoding="utf-8") as log_file:
             completed = runner(
-                build_command(target, output_dir),
+                build_command(target, output_dir, input_paths),
                 cwd=project_root,
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
@@ -544,6 +780,8 @@ def run_target(
         return report
     report.compared_count, report.mismatches = compare_results(reference, rerun, target)
     report.package_differences = compare_packages(reference, rerun)
+    report.input_differences = compare_inputs(reference, rerun)
+    report.code_differences = compare_code(reference, rerun)
     if report.compared_count == 0:
         report.error = (
             f"照合した値が0件（照合キー {list(target.compare_keys)} が結果 JSON に無いか、"
@@ -593,19 +831,94 @@ def format_markdown_report(reports: list[TargetReport], checked_at: dt.datetime)
             lines.extend(
                 f"| `{item['key']}` | {_format_value(item['reference'])} "
                 f"| {_format_value(item['rerun'])} | {item['reason']} |"
-                for item in report.mismatches
+                for item in report.mismatches[:_MAX_MISMATCH_ROWS]
             )
-        if report.package_differences is None:
-            lines.append("- ライブラリ版の差: 比較不能（来歴にライブラリ版の記録が無い）")
-        elif report.package_differences:
-            differences = "、".join(
-                f"{name} {versions['reference']} → {versions['rerun']}"
-                for name, versions in report.package_differences.items()
+            omitted = len(report.mismatches) - _MAX_MISMATCH_ROWS
+            if omitted > 0:
+                lines.append(f"\nほか {omitted} 件（`--output-json` の出力に全件がある）\n")
+        lines.append(
+            _format_differences(
+                "ライブラリ版の差",
+                report.package_differences,
+                "来歴にライブラリ版の記録が無い",
+                lambda value: "なし" if value is None else str(value),
             )
-            lines.append(f"- ライブラリ版の差: {differences}")
-        else:
-            lines.append("- ライブラリ版の差: なし")
+        )
+        lines.append(
+            _format_differences(
+                "入力の差（SHA-256）",
+                report.input_differences,
+                "来歴に入力の記録が無い",
+                _short_hash,
+            )
+        )
+        lines.append(
+            _format_differences(
+                "コードの差（ファイルハッシュ）",
+                report.code_differences,
+                "来歴にコードのハッシュの記録が無い",
+                _short_hash,
+            )
+        )
     return "\n".join(lines) + "\n"
+
+
+def _short_hash(value: object) -> str:
+    """ハッシュ値を表示用に先頭12文字へ縮める（記録が無ければ「なし」）。"""
+    return "なし" if value is None else str(value)[:12]
+
+
+def _format_differences(
+    label: str,
+    differences: dict[str, dict[str, Any]] | None,
+    unavailable_reason: str,
+    format_value: Callable[[object], str],
+) -> str:
+    """来歴の差を Markdown の1行にする（多い場合は先頭だけを載せて件数を添える）。
+
+    Args:
+        label: 項目名。
+        differences: 名前 → `reference`・`rerun` の値（None は比較不能）。
+        unavailable_reason: 比較不能の理由。
+        format_value: 値の表示形式。
+    Returns:
+        Markdown の箇条書きの1行。
+    """
+    if differences is None:
+        return f"- {label}: 比較不能（{unavailable_reason}）"
+    if not differences:
+        return f"- {label}: なし"
+    items = [
+        f"{name} {format_value(values['reference'])} → {format_value(values['rerun'])}"
+        for name, values in list(differences.items())[:_MAX_DIFFERENCE_ITEMS]
+    ]
+    omitted = len(differences) - _MAX_DIFFERENCE_ITEMS
+    suffix = f"、ほか {omitted} 件" if omitted > 0 else ""
+    return f"- {label}: {len(differences)} 件（" + "、".join(items) + f"{suffix}）"
+
+
+def mask_local_paths(text: str, replacements: list[tuple[PurePath, str]]) -> str:
+    """本文中のローカルの絶対パスを、置き換え用の表記に替える。
+
+    Markdown の報告は公開リポジトリの Issue に載せることがあるため、利用者名などを含む
+    PC 内のパスを出さないようにする。区切り（`\\` と `/`）と大文字小文字の違いは同じパスとみなし、
+    名前の途中で切れる一致（`C:/data` に対する `C:/data2` など）は置き換えない。
+
+    Args:
+        text: 置き換える本文。
+        replacements: （パス, 置き換え後の表記）の組。深いパスが先に置き換わるよう並べ替える。
+    Returns:
+        置き換えた本文。
+    """
+    ordered = sorted(replacements, key=lambda pair: len(pair[0].parts), reverse=True)
+    for path, label in ordered:
+        parts = [part.rstrip("\\/") for part in path.parts]
+        parts = [part for part in parts if part]
+        if not parts:
+            continue
+        pattern = r"[\\/]+".join(re.escape(part) for part in parts) + r"(?![\w.-])"
+        text = re.sub(pattern, lambda _match: label, text, flags=re.IGNORECASE)
+    return text
 
 
 def decide_exit_code(reports: list[TargetReport]) -> int:
@@ -648,6 +961,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="再実行の出力先（data/output/ の内側は不可）。省略時は一時ディレクトリ",
     )
     parser.add_argument(
+        "--data-root",
+        default=None,
+        help=(
+            "git 管理外の入力（設定の inputs）の基準ディレクトリ。省略時はプロジェクトルート。"
+            "入力は読み取りだけに使う"
+        ),
+    )
+    parser.add_argument(
         "--keep-work-dir",
         action="store_true",
         help="--work-dir 省略時に作った一時ディレクトリを終了後も残す",
@@ -683,9 +1004,12 @@ def main(argv: list[str] | None = None) -> int:
         targets = select_targets(
             load_targets(_resolve(args.config, project_root)), args.target or [], args.all
         )
+        data_root = _resolve(args.data_root, project_root) if args.data_root else project_root
+        if not data_root.is_dir():
+            raise ValueError(f"入力の基準ディレクトリがありません: {data_root}")
         if args.work_dir:
             work_dir = _resolve(args.work_dir, project_root)
-            validate_work_dir(work_dir, project_root)
+            validate_work_dir(work_dir, project_root, data_root)
             created_temp = False
         else:
             work_dir = Path(tempfile.mkdtemp(prefix="reproducibility_"))
@@ -699,7 +1023,7 @@ def main(argv: list[str] | None = None) -> int:
         work_dir.mkdir(parents=True, exist_ok=True)
         for index, target in enumerate(targets, start=1):
             print(f"[{index}/{len(targets)}] {target.name} を再実行します…", file=sys.stderr)
-            report = run_target(target, work_dir, project_root, args.timeout)
+            report = run_target(target, work_dir, project_root, args.timeout, data_root=data_root)
             elapsed = "-" if report.elapsed_seconds is None else f"{report.elapsed_seconds:.1f} 秒"
             print(
                 f"[{index}/{len(targets)}] {target.name}: {STATUS_LABELS[report.status]}"
@@ -717,11 +1041,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"再実行の出力先: {work_dir}", file=sys.stderr)
 
     checked_at = dt.datetime.now(dt.timezone.utc)
-    markdown = format_markdown_report(reports, checked_at)
+    # 深いパスから順に置き換える（出力先は利用者のホームの下にあることが多いため）
+    markdown = mask_local_paths(
+        format_markdown_report(reports, checked_at),
+        [
+            (work_dir, "{再実行の出力先}"),
+            (data_root, "{入力の基準ディレクトリ}"),
+            (project_root, "{プロジェクトルート}"),
+            (Path.home(), "~"),
+        ],
+    )
     if args.output_json:
         data = {
             "checked_at": checked_at.isoformat(),
             "work_dir": to_project_relative_string(work_dir, project_root),
+            "data_root": to_project_relative_string(data_root, project_root),
             "targets": [report.to_dict() for report in reports],
         }
         prepare_output_path(Path(args.output_json), project_root).write_text(

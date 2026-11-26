@@ -36,7 +36,8 @@
   出力先によって必ず変わるため照合しない
 
 不一致の原因を切り分ける手がかりとして、保存済み結果と再実行結果の来歴（`provenance`）
-から、ライブラリ版の差・入力ファイルの SHA-256 の差（ファイル名で対応付ける）・コードの
+から、ライブラリ版の差・入力ファイルの SHA-256 の差（ファイル名で対応付けるため、1回の実行に
+同じ名前の入力が複数ある構成は対象にしない）・コードの
 ファイルハッシュの差（`provenance.code.files`）を構成ごとに報告する。どちらかの来歴に
 記録が無ければ「比較不能」とする。これらは記録の差を示すだけで、不一致の原因を判定しない。
 
@@ -58,7 +59,12 @@ Windows では、長いパスを許可する OS の設定が無効だとパス�
 `PATH` に含まれている必要がある（含まれていないと子プロセスが異常終了する）。
 
 終了コード: 0=全構成が一致／1=実行できない（設定の不正・入力の欠落・再実行の失敗・
-結果の欠落・照合した値が0件・構成ごとの出力先が空でない）／2=不一致がある
+結果の欠落・照合した値が0件・構成ごとの出力先が空でない・出力のパスが長さの上限を
+超える）／2=不一致がある
+
+Markdown の報告は公開の Issue に載せることがあるため、再実行の出力先・入力の基準
+ディレクトリ・プロジェクトルート・利用者のホームの絶対パスを置き換え用の表記に替えて
+出力する（JSON の出力はそのまま）。
 
 実行はプロジェクトルートから行う（`src` パッケージを import するため）。
 
@@ -82,7 +88,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from src.common.config import PROJECT_ROOT
@@ -295,8 +301,10 @@ def _parse_inputs(value: object, args: list[str], label: str) -> tuple[str, ...]
     if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
         raise ValueError(f"{label}: `inputs` は空でない文字列のリストで指定してください")
     for item in value:
-        path = Path(item)
-        if path.is_absolute() or path.drive or ".." in path.parts:
+        # 実行する OS によらず同じ判定にするため、Windows と POSIX の両方の解釈で調べる
+        # （POSIX では `C:/x` が、Windows では `/x` が相対パスとして扱われてしまうため）
+        forms = (PureWindowsPath(item), PurePosixPath(item))
+        if any(form.anchor or ".." in form.parts for form in forms):
             # 入力の基準ディレクトリの外を指せないようにする
             raise ValueError(
                 f"{label}: `inputs` はプロジェクト相対のパスで指定してください（`..` 不可）: {item}"
@@ -833,7 +841,7 @@ def format_markdown_report(reports: list[TargetReport], checked_at: dt.datetime)
                 "ライブラリ版の差",
                 report.package_differences,
                 "来歴にライブラリ版の記録が無い",
-                lambda value: str(value),
+                lambda value: "なし" if value is None else str(value),
             )
         )
         lines.append(
@@ -887,6 +895,30 @@ def _format_differences(
     omitted = len(differences) - _MAX_DIFFERENCE_ITEMS
     suffix = f"、ほか {omitted} 件" if omitted > 0 else ""
     return f"- {label}: {len(differences)} 件（" + "、".join(items) + f"{suffix}）"
+
+
+def mask_local_paths(text: str, replacements: list[tuple[PurePath, str]]) -> str:
+    """本文中のローカルの絶対パスを、置き換え用の表記に替える。
+
+    Markdown の報告は公開リポジトリの Issue に載せることがあるため、利用者名などを含む
+    PC 内のパスを出さないようにする。区切り（`\\` と `/`）と大文字小文字の違いは同じパスとみなし、
+    名前の途中で切れる一致（`C:/data` に対する `C:/data2` など）は置き換えない。
+
+    Args:
+        text: 置き換える本文。
+        replacements: （パス, 置き換え後の表記）の組。深いパスが先に置き換わるよう並べ替える。
+    Returns:
+        置き換えた本文。
+    """
+    ordered = sorted(replacements, key=lambda pair: len(pair[0].parts), reverse=True)
+    for path, label in ordered:
+        parts = [part.rstrip("\\/") for part in path.parts]
+        parts = [part for part in parts if part]
+        if not parts:
+            continue
+        pattern = r"[\\/]+".join(re.escape(part) for part in parts) + r"(?![\w.-])"
+        text = re.sub(pattern, lambda _match: label, text, flags=re.IGNORECASE)
+    return text
 
 
 def decide_exit_code(reports: list[TargetReport]) -> int:
@@ -1009,7 +1041,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"再実行の出力先: {work_dir}", file=sys.stderr)
 
     checked_at = dt.datetime.now(dt.timezone.utc)
-    markdown = format_markdown_report(reports, checked_at)
+    # 深いパスから順に置き換える（出力先は利用者のホームの下にあることが多いため）
+    markdown = mask_local_paths(
+        format_markdown_report(reports, checked_at),
+        [
+            (work_dir, "{再実行の出力先}"),
+            (data_root, "{入力の基準ディレクトリ}"),
+            (project_root, "{プロジェクトルート}"),
+            (Path.home(), "~"),
+        ],
+    )
     if args.output_json:
         data = {
             "checked_at": checked_at.isoformat(),

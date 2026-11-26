@@ -514,11 +514,22 @@ def test_run_target_refuses_non_empty_output_dir(project: Path, tmp_path: Path) 
         ("data/x.gpkg", "空でない文字列のリスト"),
         ([""], "空でない文字列のリスト"),
         (["C:/data/x.gpkg"], "プロジェクト相対"),
+        (["/data/x.gpkg"], "プロジェクト相対"),
+        ([r"data\..\x.gpkg"], "プロジェクト相対"),
         (["../x.gpkg"], "プロジェクト相対"),
         (["data/y.gpkg"], "`args` にありません"),
         (["data/x.gpkg", "data/x.gpkg"], "重複"),
     ],
-    ids=["not_list", "empty", "absolute", "parent", "not_in_args", "duplicate"],
+    ids=[
+        "not_list",
+        "empty",
+        "absolute_drive",
+        "absolute_root",
+        "parent_backslash",
+        "parent",
+        "not_in_args",
+        "duplicate",
+    ],
 )
 def test_parse_target_rejects_invalid_inputs(inputs: object, message: str) -> None:
     """`inputs` の型・絶対パス・`..`・`args` に無い値・重複を拒否する。"""
@@ -633,7 +644,7 @@ def test_markdown_report_lists_provenance_differences_and_truncates() -> None:
     report.mismatches = [
         {"key": f"k{i}", "reference": 1, "rerun": 2, "reason": "値が違う"} for i in range(35)
     ]
-    report.package_differences = {}
+    report.package_differences = {"statsmodels": {"reference": None, "rerun": "0.15.0"}}
     report.input_differences = None
     report.code_differences = {
         f"src/f{i}.py": {"reference": "a" * 64, "rerun": None} for i in range(12)
@@ -642,10 +653,23 @@ def test_markdown_report_lists_provenance_differences_and_truncates() -> None:
     assert "| `k29` |" in markdown
     assert "| `k30` |" not in markdown
     assert "ほか 5 件" in markdown
-    assert "- ライブラリ版の差: なし" in markdown
+    # 記録の無い値は、ライブラリ版もハッシュも「なし」と表示する
+    assert "- ライブラリ版の差: 1 件（statsmodels なし → 0.15.0）" in markdown
     assert "- 入力の差（SHA-256）: 比較不能" in markdown
     assert "- コードの差（ファイルハッシュ）: 12 件（src/f0.py aaaaaaaaaaaa → なし" in markdown
     assert "ほか 2 件）" in markdown
+
+
+def test_mask_local_paths_replaces_both_separators_and_deepest_first() -> None:
+    """区切りや大文字小文字が違っても置き換え、深いパスを先に、名前の途中では置き換えない。"""
+    home = target.PureWindowsPath("C:/Users/me")
+    work = target.PureWindowsPath("C:/Users/me/AppData/Local/Temp/rep_1")
+    text = (
+        r"出力 C:\Users\me\AppData\Local\Temp\rep_1\a.log、"
+        "環境 c:/users/ME/miniconda3/python.exe、別人 C:/Users/me2/x"
+    )
+    masked = target.mask_local_paths(text, [(home, "~"), (work, "{出力}")])
+    assert masked == r"出力 {出力}\a.log、環境 ~/miniconda3/python.exe、別人 C:/Users/me2/x"
 
 
 def test_main_uses_data_root(
@@ -662,10 +686,17 @@ def test_main_uses_data_root(
     base = ["--all", "--config", str(config), "--output-json", "out/r.json"]
     # ダミーの分析は --value を数値として読むため、入力が渡れば引数エラーで実行失敗になる。
     # 入力欠落で止まらずに再実行まで進んだことを、失敗の理由で確かめる
-    assert target.main([*base, "--data-root", str(data_root)]) == target.EXIT_FAILURE
+    assert (
+        target.main([*base, "--data-root", str(data_root), "--output-md", "out/r.md"])
+        == target.EXIT_FAILURE
+    )
     data = json.loads((project / "out" / "r.json").read_text(encoding="utf-8"))
     assert "終了コード" in data["targets"][0]["error"]
     assert data["data_root"] == data_root.resolve().as_posix()
+    # 公開の Issue に載せる Markdown には、入力の基準ディレクトリの絶対パスを出さない
+    markdown = (project / "out" / "r.md").read_text(encoding="utf-8")
+    assert "{入力の基準ディレクトリ}" in markdown
+    assert data_root.resolve().as_posix().lower() not in markdown.replace("\\", "/").lower()
     assert target.main([*base, "--data-root", str(tmp_path / "none")]) == target.EXIT_FAILURE
 
 

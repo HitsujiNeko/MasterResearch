@@ -113,6 +113,8 @@ RQ3 では衛星データのみと衛星＋公開GISデータの2シナリオを
 
 いずれも `data/output/limited/20230707_032305/` に置き、Git管理下にある（サンプルCSV `*_sample_*.csv` のみ管理外）。**8章（主採用の観測）の出力は `data/output/limited/20220906_032358/` に置く。** 8.6節（衛星データのみとの比較）の出力は、共通評価セルと比較・反復の結果を `data/output/common_evaluation/20220906_032358/` に、共通評価セルでの衛星＋公開GISデータの全工程ランを `data/output/limited/20220906_032358_common_evaluation/` に置く。8.7節（水域率の感度分析）の出力は、派生データセットの要約と GLC 版との比較を `data/output/limited/20220906_032358_water_sensitivity/` に、評価セルを `data/output/common_evaluation/20220906_032358_water_sensitivity/` に、7版の全工程ランを `data/output/limited/20220906_032358_water/` に置く。また、**ラン12〜15（水指数ブロックの構成比較）だけは `data/output/limited/20230707_032305_water_index/` に置く。** データセットの世代が異なり（1.4節）、同じ出力接頭辞のラン1の出力を上書きしないためである。
 
+**ラン1〜11 の `{接頭辞}_results.json`（`data/output/limited/20230707_032305/` の11件）は、結果JSONに来歴（`provenance`）を付ける前に生成した過去の結果であり、来歴を持たない。** 生成時のコード・入力を結果JSONからは遡れない。旧世代のデータセットは現行のスクリプトでは再実行できないため（1.4節）、作り直さずに記録時点の結果として残す。陳腐化検出では `scripts/legacy_results.json` に登録し、「過去の結果」として扱う（扱いの方針は [data_management_guide.md](../02_methods/data_management_guide.md) 7.5節）。
+
 **測量GIS範囲と全域の比較（ラン12・13 の構成を `mask_survey` 結合データセットで回し直したもの）は `data/output/limited/20230707_032305_area_comparison/` に置く。** 本ドキュメントの台帳には含めず、結果と解釈は [survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは、ラン12・13 の母数・サンプル・Spatial CV の R² を再現している（同ドキュメント3.3節）。
 
 ### 1.2 現行の定義（建物高さ・人口・夜間光）

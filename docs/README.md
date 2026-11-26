@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-26  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -106,7 +106,7 @@ docs/
 | [satellite_only_analysis_results.md](03_results/satellite_only_analysis_results.md) | 衛星データのみの分析結果（旧経路・ピクセル単位） | 3観測日のベースライン、Spatial CV、SHAP、今後の比較方針 | （2026-04-21時点のスクリプトによる記録。`analysis_rq3_satellite_only.py` はcell_id結合経路へ書き換え済みのため再現不可） |
 | [satellite_only_analysis_results_cellbased.md](03_results/satellite_only_analysis_results_cellbased.md) | 衛星データのみの分析結果（cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 分光指数3変数のベースライン。主結果は主採用の観測による7章（母数・モデル性能・変数重要度と、旧採用の観測との相対量の比較）。1〜6章は旧採用の観測による記録で、フィルタ脱落の診断（母数のファネル・脱落の空間的な集中）、物理的に等間隔なブロックによるSpatial CV、SHAP、ブロック境界の残差リークの実測を含む。衛星＋公開GISデータと同一観測・同一格子であり、シナリオ間比較は `limited_analysis_main_20220906.md` 8.6節・`limited_analysis_multicollinearity.md` 6.7節が正本 | `src/analysis/analysis_rq3_satellite_only.py` |
 | [limited_analysis_results.md](03_results/limited_analysis_results.md) | 衛星＋公開GISデータのシナリオ分析結果（ハブ・索引。cell_id結合・主採用の観測20220906_032358／旧採用の観測20230707_032305） | 位置づけ（主結果は8章、2〜7章は旧採用の観測による記録）、数値の正本（フル表は貼らず CSV/JSON を数値の正本とする）、建物高さ・人口・夜間光の現行の定義、結果の一般化可能性の限界、衛星指標の再生成（MNDWI 追加・ROI クリップ）によるデータセットの世代の区別。**2〜8章は `limited_analysis/` 配下の4ファイルへ分割済み**（章・節番号は分割前のまま）であり、節ごとの収録先は本ファイルの索引を参照 | `src/analysis/analysis_rq3_limited.py` |
-| [limited_analysis_main_20220906.md](03_results/limited_analysis/limited_analysis_main_20220906.md) | 衛星＋公開GISデータの主結果（主採用の観測20220906_032358・8章） | 主採用の観測で採用構成を実行した結果。母数とフィルタ脱落・モデル性能・変数重要度、旧採用の観測（ラン13）との相対量の比較、共通評価セルでの衛星データのみとの比較（fold ごとの対応のある差・補正 t 区間・20シードの反復・分光指数を揃えた感度分析） | `src/analysis/analysis_rq3_limited.py` |
+| [limited_analysis_main_20220906.md](03_results/limited_analysis/limited_analysis_main_20220906.md) | 衛星＋公開GISデータの主結果（主採用の観測20220906_032358・8章） | 主採用の観測で採用構成を実行した結果。母数とフィルタ脱落・モデル性能・変数重要度、旧採用の観測（ラン13）との相対量の比較、共通評価セルでの衛星データのみとの比較（fold ごとの対応のある差・補正 t 区間・20シードの反復・分光指数を揃えた感度分析）、水域率の元データを JRC に差し替えた感度分析 | `src/analysis/analysis_rq3_limited.py`・`src/analysis/build_water_sensitivity_datasets.py`・`src/analysis/compare_water_sensitivity.py` |
 | [limited_analysis_legacy_20230707.md](03_results/limited_analysis/limited_analysis_legacy_20230707.md) | 衛星＋公開GISデータの旧採用の観測の台帳と結果（20230707_032305・2・4・5・7章） | 単一観測15ランの台帳（1ラン=1行）と標本統制の可否（比較してよい組み合わせ・標本変動の実測）、ランごとのモデル性能、変数重要度（変数セット軸 spectral/coverage/both・人口ソース軸・土地被覆ソース軸の比較、S10 の再現性、符号の解釈）、今後の研究の方向性 | `src/analysis/analysis_rq3_limited.py` |
 | [limited_analysis_processing.md](03_results/limited_analysis/limited_analysis_processing.md) | 衛星＋公開GISデータのラン間で共通の処理条件と診断（3章。処理条件は8章にも共通、診断・実測は旧採用の観測20230707_032305 による） | ROI・格子・観測、建物高さ列の補完、品質管理（フィルタ条件）、サンプリング、モデル設定、出力ファイル、フィルタ脱落と欠損値処理の診断（母数のファネル・水域被覆の偏り）、分析実行前のモデル前提の精査、衛星指標の再生成（MNDWI の追加）の手順と検証 | `src/analysis/analysis_rq3_limited.py` |
 | [limited_analysis_multicollinearity.md](03_results/limited_analysis/limited_analysis_multicollinearity.md) | 衛星＋公開GISデータの多重共線性と解釈上の注意（6章。旧採用の観測20230707_032305 による記録） | VIF 一覧、想定した共線構造との突き合わせ、人口3版の相関、建物高さ構成軸（both/mean/max/pc1）・水指数構成軸（ndwi/none/pc1/mndwi）の比較と採用構成の根拠（事前基準からの逸脱の経緯・先行研究との位置づけを含む）、VALID_GIS_MASK を課さなかった判断、衛星データのみとの参考比較 | `src/analysis/analysis_rq3_limited.py` |

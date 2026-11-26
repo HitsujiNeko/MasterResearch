@@ -106,20 +106,22 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 
 プレースホルダは、2章の冒頭の2つに加えて、`{masterresearch 環境のルート}`（conda 環境のディレクトリを Git Bash の形式で書いたもの。例の形: `/c/Users/{ユーザー}/miniconda3/envs/masterresearch`）を使う。`{リポジトリのルート}` は区切りを `/` にして書く（Bash の文字列の中で `\` が崩れないようにするため）。
 
+一時的な作業ツリーは `{リポジトリのルート}/.claude/worktrees/monthly-reproducibility` に置き、再実行の出力先は既定の一時ディレクトリ（`%TEMP%eproducibility_…`）にする。長いパスを許可する OS の設定が無効な環境では、パスは 259 文字までに限られ、分析の出力名・追跡しているファイル名はそれぞれ 200 文字前後になる。セッションのスクラッチパッドのような深い場所に置くと、保存済み結果を読めない・図を保存できないためである（2026-11-26 の試し実行で、スクラッチパッドの下の出力先では図の保存が失敗した）。
+
 ```text
 リポジトリ {リポジトリのルート} で分析の再現性チェックを**月次自動実行**として実行する（担当者不在のため、ユーザーへの確認は行わない）。分析スクリプトを一時的な出力先で再実行して保存済みの結果と照合し、結果を報告 Issue にコメントする。全構成で2時間以上かかる。
 
-以下では Bash ツールを使う。{作業領域} は、このセッションのスクラッチパッドの下に作る reproducibility フォルダ（区切りは /）とする。
+以下では Bash ツールを使う。{作業領域} は、このセッションのスクラッチパッドの下に作る reproducibility フォルダ（区切りは /）とし、実行ログと照合結果だけを置く。{作業ツリー} は {リポジトリのルート}/.claude/worktrees/monthly-reproducibility とする（パスの長さの上限に当たらないよう、深い場所に置かない）。
 
 手順:
 1. 作業ディレクトリを {リポジトリのルート} にし、git fetch origin main を実行する。失敗した場合は以降を行わず、エラーを報告して終了する。
-2. git worktree add --detach "{作業領域}/worktree" origin/main で origin/main の一時的な作業ツリーを作る（{リポジトリのルート} のチェックアウトは切り替えない・pull しない）。cd "{作業領域}/worktree" && git rev-parse --short HEAD でコミットを控える。作業ツリーの scripts/reproducibility_targets.json に "inputs" という文字列が無い場合は、再実行せず「origin/main の再現性チェックが入力の基準ディレクトリに未対応のため見送った」と報告し、手順 7 の後片付けだけを行って終了する。
+2. {作業ツリー} が既にある場合（前回の実行が途中で止まった残り）は、先に git worktree remove "{作業ツリー}" で消す。消せない場合は --force を使わず、以降を行わずに報告して終了する。続けて git worktree add --detach "{作業ツリー}" origin/main で origin/main の一時的な作業ツリーを作る（{リポジトリのルート} のチェックアウトは切り替えない・pull しない）。cd "{作業ツリー}" && git rev-parse --short HEAD でコミットを控える。作業ツリーの scripts/reproducibility_targets.json に "inputs" という文字列が無い場合は、再実行せず「origin/main の再現性チェックが入力の基準ディレクトリに未対応のため見送った」と報告し、手順 7 の後片付けだけを行って終了する。
 3. 次のコマンドを Bash ツールの run_in_background で実行する（2時間以上かかるため。終わると通知されるので、途中でポーリングしない）:
-   cd "{作業領域}/worktree" && export PATH="{masterresearch 環境のルート}:{masterresearch 環境のルート}/Library/mingw-w64/bin:{masterresearch 環境のルート}/Library/usr/bin:{masterresearch 環境のルート}/Library/bin:{masterresearch 環境のルート}/Scripts:{masterresearch 環境のルート}/bin:$PATH" && PYTHONPATH="$(pwd -W)" PYTHONUTF8=1 "{masterresearch 環境のルート}/python.exe" -m scripts.check_reproducibility --all --data-root "{リポジトリのルート}" --work-dir "{作業領域}/work" --output-json "{作業領域}/result.json" --output-md "{作業領域}/result.md" > "{作業領域}/run.log" 2>&1; echo "exit=$?" >> "{作業領域}/run.log"
+   cd "{作業ツリー}" && export PATH="{masterresearch 環境のルート}:{masterresearch 環境のルート}/Library/mingw-w64/bin:{masterresearch 環境のルート}/Library/usr/bin:{masterresearch 環境のルート}/Library/bin:{masterresearch 環境のルート}/Scripts:{masterresearch 環境のルート}/bin:$PATH" && PYTHONPATH="$(pwd -W)" PYTHONUTF8=1 "{masterresearch 環境のルート}/python.exe" -m scripts.check_reproducibility --all --data-root "{リポジトリのルート}" --keep-work-dir --output-json "{作業領域}/result.json" --output-md "{作業領域}/result.md" > "{作業領域}/run.log" 2>&1; echo "exit=$?" >> "{作業領域}/run.log"
 4. 終わったら run.log の末尾の exit= の値で判定する。0=全構成が一致、2=不一致がある、1=実行できない構成がある（設定の不正・入力の欠落・再実行の失敗など）。result.md が無い場合は、run.log の末尾30行を報告に使う。
 5. 報告 Issue を特定する: gh issue list --state open --label analysis --limit 100 --json number,title の出力を一時ファイルに保存して UTF-8 で読み、タイトルが「analysis: 分析の再現性チェック 月次レポート」と完全に一致する Issue を使う（複数あれば番号の最も小さいもの）。gh が失敗した場合は書き込まずに終了し、エラーを報告する（報告 Issue を重複して作らないため）。無い場合に限り、タイトルを上記、ラベルを analysis、本文を「scripts/check_reproducibility.py を月次で実行した照合結果を、毎月コメントで追記する。対象構成は scripts/reproducibility_targets.json、定期実行の設定は .github/scheduled-tasks.md を参照。このIssueは定期実行（monthly-reproducibility-check）により作成されました。」として gh issue create で作る。
 6. コメント本文を一時ファイルに書き、gh issue comment {番号} --body-file で投稿する。本文は、1行目に「## {実行日（YYYY-MM-DD）} の再現性チェック」、続けて「- 実行したコード: origin/main {手順 2 のコミット}」「- 判定: {全構成が一致／不一致あり／実行できない構成あり}（終了コード {値}）」を置き、その後に result.md の内容（無ければ run.log の末尾30行をコードブロックで）をそのまま続ける。終了コードが 0 以外の場合は、末尾に「不一致・失敗の原因（コード・入力・ライブラリ版・非決定性のどれか）は、この報告では判定していない。各構成の来歴の差（入力・コード・ライブラリ版）を手がかりに切り分ける。」と添える。
-7. 後片付け: cd {リポジトリのルート} && git worktree remove "{作業領域}/worktree" を実行する。失敗した場合は --force を使わず、作業ツリーが残った旨とエラーを報告に含める。{作業領域}/work（構成ごとのログと再実行の出力）は消さない。
+7. 後片付け: cd {リポジトリのルート} && git worktree remove "{作業ツリー}" を実行する。失敗した場合は --force を使わず、作業ツリーが残った旨とエラーを報告に含める。再実行の出力先（run.log の「再実行の出力先:」の行にある一時ディレクトリ。構成ごとのログと再実行の出力）は消さず、そのパスを報告に含める。
 8. 終了コードが 0 以外の場合に限り、PushNotification ツールが使えれば「再現性チェック: {判定}（コメントの URL）」を1行で通知する。
 9. 次の操作は行わない: {リポジトリのルート} のブランチの切り替え・pull、data/output/ や docs/ の変更、リポジトリへのコミット・push、報告 Issue へのコメント（と初回の作成）以外の GitHub への書き込み。
 10. 完了したら、投稿したコメントの URL、判定、構成ごとの判定の件数、合計の所要時間を報告する。失敗した場合は、どの手順で何のエラーが出たかを具体的に報告する。
@@ -145,7 +147,7 @@ Skill ツールを使って `check-docs-consistency` スキルを呼び出す。
 - 定期実行は `{リポジトリのルート}` に**その時点でチェックアウトされているブランチ**のスキル・スクリプトで動く（`main` そのものではない）。作業ブランチがチェックアウトされたままだと、古い手順や作業中の手順で動いてしまう。そのため `monthly-*` の2件と `weekly-result-staleness-check` は、冒頭で `main` 以外なら実行を見送るようにしている（見送った旨は実行履歴に残る）。手順を変えた場合は、変更を merge したうえで `{リポジトリのルート}` の `main` を最新にするまで反映されない
 - `weekly-docs-consistency-check`・`weekly-digest` の2件にはこの確認を入れていない（既存の設定のまま）
 - `monthly-reproducibility-check` は上の2つの型と違い、`{リポジトリのルート}` のブランチに関係なく `origin/main` の一時的な作業ツリーで動く（2.6節）。そのため、手順を変えた場合も merge すれば次回から反映される（`{リポジトリのルート}` の `main` を最新にする必要は無い）。一方で、git 管理外の入力は `{リポジトリのルート}` のものを読むため、入力のデータセットを作り直した場合は `{リポジトリのルート}` に置いた時点で次回の照合に使われる（作り直した入力で保存済み結果と照合することになり、入力の差として報告される）
-- `monthly-reproducibility-check` は約2時間かかる。実行中にアプリを閉じたり PC がスリープしたりすると止まりうる（スリープ中の挙動は**未確認**）。止まった場合は作業ツリーが {作業領域} に残るため、`git worktree list` で確認して `git worktree remove` で消す。採用構成・採用観測・保存済み結果を変えたときは、`scripts/reproducibility_targets.json` の対象構成も直す（テストが、各構成の引数と保存済み結果に記録された設定の一致を確かめる）
+- `monthly-reproducibility-check` は約2時間かかる。実行中にアプリを閉じたり PC がスリープしたりすると止まりうる（スリープ中の挙動は**未確認**）。止まった場合は作業ツリー（`{リポジトリのルート}/.claude/worktrees/monthly-reproducibility`）が残るが、次回の実行が最初に消す。再実行の出力先（`%TEMP%eproducibility_…`）は毎回残るため、不要になったら手で消す。採用構成・採用観測・保存済み結果を変えたときは、`scripts/reproducibility_targets.json` の対象構成も直す（テストが、各構成の引数と保存済み結果に記録された設定の一致を確かめる）
 - Earthdata トークンの有効期限が切れていなくても、LAADS DAAC からの取得にはプロダクトごとのデータ利用許諾への同意が別に必要である。同意していない場合も「リダイレクト先で 401」となり失効と症状が似るため、ヘルスチェックが OK でも取得に失敗したら同意状況を確認する
 - 実行時の権限モードは、登録したセッションのモードではなく **Claude Code の既定のモード**になることがあり、その場合はツールの承認待ちで止まりうる。登録後にアプリのスケジュール欄から一度「今すぐ実行」して必要なツールを承認しておくと、承認内容がタスクに保存され、以後の実行で自動適用される
 - PushNotification がスケジュールタスクの実行セッションで使えるかは**未確認**である。使えない場合でも、実行結果はアプリのスケジュールタスクの実行履歴から確認できる

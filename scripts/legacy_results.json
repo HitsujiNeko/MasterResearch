@@ -1,0 +1,66 @@
+{
+  "description": "来歴（provenance）を付ける前に生成し、再実行しないと決めた分析結果の登録。scripts/check_result_staleness.py は、来歴が無くここに載っている結果を「過去の結果（legacy）」として判定する。来歴を持つ結果は、ここに載っていても通常どおり判定する。登録はファイル単位とし、結果 JSON 自体は書き換えない。扱いの方針は docs/02_methods/data_management_guide.md 7.5節を参照。",
+  "groups": [
+    {
+      "id": "A",
+      "reason": "旧採用の観測 2023-07-07T03:23:05Z の旧世代の結果。比較用の観測の結果として結果文書に残す",
+      "references": [
+        "docs/03_results/limited_analysis_results.md",
+        "docs/03_results/limited_analysis/limited_analysis_legacy_20230707.md",
+        "docs/03_results/satellite_only_analysis_results_cellbased.md",
+        "docs/03_results/GIS_IDEAS_poster.md"
+      ],
+      "paths": [
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_bh_max_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_bh_mean_gismask_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_bh_mean_pop_landscan2020_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_bh_mean_pop_landscan2023_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_bh_mean_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_bh_pc1_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_both_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_coverage_bh_mean_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_20230707_032305_hanoi_30m_spectral_bh_mean_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_esri_20230707_032305_hanoi_30m_both_bh_mean_results.json",
+        "data/output/limited/20230707_032305/dataset_limited_esri_20230707_032305_hanoi_30m_coverage_bh_mean_results.json",
+        "data/output/satellite_only_cellbased/20230707_032305/dataset_satellite_only_20230707_032305_hanoi_30m_results.json"
+      ]
+    },
+    {
+      "id": "B",
+      "reason": "観測 2023-07-07T03:23:29Z の結果。アーカイブ済みの文書の記録の根拠として残す",
+      "references": [
+        "docs/04_archive/limited_analysis_results_20230707_032329.md",
+        "docs/04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md"
+      ],
+      "paths": [
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_bh_max_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_bh_mean_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_bh_pc1_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_gismask_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2020_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_pop_landscan2023_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_both_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_coverage_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_gismask_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_20230707_032329_hanoi_30m_spectral_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_esri_20230707_032329_hanoi_30m_both_results.json",
+        "data/output/limited/20230707_032329/dataset_limited_esri_20230707_032329_hanoi_30m_coverage_results.json",
+        "data/output/satellite_only_cellbased/20230707_032329/dataset_satellite_only_20230707_032329_hanoi_30m_results.json"
+      ]
+    },
+    {
+      "id": "C",
+      "reason": "旧来の画素単位の経路による衛星データのみの結果（3 観測日）。旧実装の記録として残す",
+      "references": [
+        "docs/03_results/satellite_only_analysis_results.md",
+        "docs/03_results/GIS_IDEAS_abstract.md"
+      ],
+      "paths": [
+        "data/output/satellite_only/20230707_032329Z/satellite_only_20230707_20230707_032329Z_results.json",
+        "data/output/satellite_only/20230723_032309Z/satellite_only_20230723_20230723_032309Z_results.json",
+        "data/output/satellite_only/20241130_032336Z/satellite_only_20241130_20241130_032336Z_results.json"
+      ]
+    }
+  ]
+}

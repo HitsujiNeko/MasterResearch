@@ -58,7 +58,7 @@ from src.common.paths import (
     resolve_relative_to_project_root,
     to_project_relative_string,
 )
-from src.common.summary import build_provenance, save_summary
+from src.common.summary import build_provenance, compute_file_sha256, save_summary
 
 SCRIPT_NAME = "src.analysis.compare_water_sensitivity"
 # 比較の定義は `src/common/` の外にもあるため監視に加える
@@ -107,6 +107,39 @@ def build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def validate_dataset_hash(result: dict[str, Any], dataset_path: Path) -> None:
+    """読み直すデータセットが、ランの実行時（学習時）と同じファイルであることを確かめる。
+
+    評価セル CSV の digest はセルの並びだけを表し、水域率の値を含まない。同じパスへ
+    別の水域率でデータセットを作り直すと、水域率の標準偏差だけが変わり、元の単位の
+    係数が黙って誤る。そのため、ランの来歴（`provenance.inputs`）に記録された
+    SHA-256 と、現在のファイルの SHA-256 を照合する。
+
+    Args:
+        result: 評価セルを使ったランの results.json。
+        dataset_path: 読み直すデータセットの絶対パス。
+
+    Raises:
+        ValueError: ランの来歴にデータセットのハッシュが無い場合、または一致しない場合。
+    """
+    target_path = dataset_path.resolve()
+    recorded = [
+        record.get("sha256")
+        for record in result.get("provenance", {}).get("inputs", [])
+        if resolve_recorded_path(str(record.get("path", ""))).resolve() == target_path
+    ]
+    if not recorded or recorded[0] is None:
+        raise ValueError(
+            f"ランの来歴にデータセットのハッシュが記録されていません: {dataset_path.name}"
+        )
+    current = compute_file_sha256(dataset_path)
+    if current != recorded[0]:
+        raise ValueError(
+            f"データセットがランの実行時と異なります: {dataset_path.name}"
+            f"（現在: {current[:12]}、ラン: {str(recorded[0])[:12]}）"
+        )
+
+
 def load_evaluation_values(result: dict[str, Any]) -> tuple[pd.DataFrame, list[Path]]:
     """評価セルの水域率と LST を、評価セルの行順で読む。
 
@@ -117,10 +150,11 @@ def load_evaluation_values(result: dict[str, Any]) -> tuple[pd.DataFrame, list[P
         (`cell_id`・水域率・LST の表, 読み込んだ入力ファイルのパス)。
 
     Raises:
-        ValueError: 評価セル CSV がランの記録と異なる場合、評価セルがデータセットに無い場合、
-            または水域率・LST に欠測がある場合。
+        ValueError: データセットまたは評価セル CSV がランの記録と異なる場合、評価セルが
+            データセットに無い場合、または水域率・LST に欠測がある場合。
     """
     dataset_path = resolve_existing_path(resolve_recorded_path(str(result["dataset_path"])))
+    validate_dataset_hash(result, dataset_path)
     cells_path = resolve_existing_path(
         resolve_recorded_path(get_nested(result, ("evaluation_cells", "path")))
     )

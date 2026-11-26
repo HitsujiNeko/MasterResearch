@@ -28,6 +28,7 @@ from src.common.evaluation_cells import (
     resolve_metadata_path,
 )
 from src.common.regression_models import fit_linear_regression
+from src.common.summary import compute_file_sha256
 
 N_CELLS = 200
 RANDOM_STATE = 42
@@ -118,6 +119,9 @@ def build_run(
         },
         "shap": {"mean_abs_shap": importance},
         "filter_dropout": {"target_distribution": {"after": {"mean": 32.0}}},
+        "provenance": {
+            "inputs": [{"path": str(dataset_path), "sha256": compute_file_sha256(dataset_path)}]
+        },
     }
     result.update(overrides)
     result_path = tmp_path / f"{name}_results.json"
@@ -204,9 +208,32 @@ def test_rejects_missing_water(tmp_path: Path) -> None:
     dataset = build_dataset()
     _, result = build_run(tmp_path, "glc", dataset)
     dataset.loc[0, "LULC_WATER_COV"] = np.nan
-    pyogrio.write_dataframe(dataset, tmp_path / "glc.gpkg", layer="glc", driver="GPKG")
+    dataset_path = tmp_path / "glc.gpkg"
+    pyogrio.write_dataframe(dataset, dataset_path, layer="glc", driver="GPKG")
+    # 欠測の検査だけを見るため、書き直したファイルのハッシュを記録に合わせる
+    result["provenance"]["inputs"][0]["sha256"] = compute_file_sha256(dataset_path)
 
     with pytest.raises(ValueError, match="1 件で水域率または LST"):
+        target.load_evaluation_values(result)
+
+
+def test_rejects_dataset_changed_after_run(tmp_path: Path) -> None:
+    """同じパスへ水域率を変えて作り直したデータセットは拒否する（評価セルの digest は通る）。"""
+    dataset = build_dataset()
+    _, result = build_run(tmp_path, "glc", dataset)
+    dataset["LULC_WATER_COV"] = dataset["LULC_WATER_COV"] * 0.5
+    pyogrio.write_dataframe(dataset, tmp_path / "glc.gpkg", layer="glc", driver="GPKG")
+
+    with pytest.raises(ValueError, match="データセットがランの実行時と異なります"):
+        target.load_evaluation_values(result)
+
+
+def test_rejects_run_without_dataset_hash(tmp_path: Path) -> None:
+    """ランの来歴にデータセットのハッシュが無ければ停止する。"""
+    _, result = build_run(tmp_path, "glc", build_dataset())
+    result["provenance"]["inputs"] = [{"path": "data/output/other.gpkg", "sha256": "x"}]
+
+    with pytest.raises(ValueError, match="ハッシュが記録されていません"):
         target.load_evaluation_values(result)
 
 

@@ -732,3 +732,37 @@ def test_shipped_config_matches_recorded_settings(item: object) -> None:
     for key in ("shap", "filter_dropout", "run_parameters", *target.DEFAULT_COMPARE_KEYS):
         assert key in item.compare_keys
         assert key in reference
+
+
+# --- 出力のパスの長さ（Windows の上限） ---
+
+
+def test_check_output_path_length_uses_longest_recorded_output(tmp_path: Path) -> None:
+    """保存済み結果の outputs（入れ子を含む）で最も長いファイル名を出力先の下に置いて判定する。"""
+    reference = {
+        "outputs": {"csv": "data/output/a/short.csv"},
+        "shap": {"outputs": {"png": {"X": "data/output/a/" + "n" * 80 + ".png"}}},
+        "dataset_path": "data/" + "p" * 300 + ".gpkg",
+    }
+    output_dir = tmp_path / "work" / "target"
+    length = len(str(output_dir.resolve() / ("n" * 80 + ".png")))
+    assert target.check_output_path_length(output_dir, reference, length) is None
+    message = target.check_output_path_length(output_dir, reference, length - 1)
+    assert message is not None and "上限" in message and "n" * 80 in message
+    assert target.check_output_path_length(output_dir, {"sample_size": 1}, 10) is None
+
+
+def test_run_target_refuses_too_long_output_path(project: Path, tmp_path: Path) -> None:
+    """出力のパスが上限を超える構成は、再実行せずに実行失敗とする。"""
+    calls: list[object] = []
+
+    def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    report = target.run_target(
+        _target(), tmp_path / "work", project, 120, runner, max_path_length=10
+    )
+    assert report.status == target.STATUS_ERROR
+    assert "上限 10 文字" in report.error
+    assert calls == []

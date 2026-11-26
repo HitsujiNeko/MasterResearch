@@ -46,6 +46,13 @@
 構成ごとの出力先（`{work_dir}/{構成名}/`）が空でなければ、前回の結果と取り違えないよう、
 その構成は再実行せずに実行失敗とする。
 
+Windows では、長いパスを許可する OS の設定が無効だとパスは 259 文字までに限られる。
+分析スクリプトの出力名は長い（構成名と合わせて 180 文字前後になるものがある）ため、
+`--work-dir` は短い場所にする（省略時の一時ディレクトリなら収まる）。保存済み結果に
+記録された出力ファイル名から長さを見積もり、上限を超える構成は再実行せずに実行失敗とする
+（図の保存まで進んでから落ちるのを防ぐため）。保存済み結果やコードを読む作業ツリー自体も、
+深い場所に置くと同じ上限に当たる。
+
 子プロセス（分析スクリプト）は本スクリプトの環境変数をそのまま引き継ぐ。Windows の conda
 環境では、回帰・ランダムフォレストなど BLAS を使う処理のために、環境の `Library\\bin` 等が
 `PATH` に含まれている必要がある（含まれていないと子プロセスが異常終了する）。
@@ -121,6 +128,10 @@ _MAX_DIFFERENCE_ITEMS = 10
 
 # 保存済み結果の置き場所（再実行の出力先として拒否する範囲）
 _PROTECTED_OUTPUT_DIR = Path("data") / "output"
+
+# Windows のパスの長さの上限（終端の NUL を含めて 260 文字。長いパスを許可する OS の設定が
+# 無効な環境では、分析スクリプトが図・CSV の保存で失敗する）
+_WINDOWS_MAX_PATH_LENGTH = 259
 
 # 判定結果の区分
 STATUS_MATCH = "match"
@@ -362,6 +373,51 @@ def validate_work_dir(work_dir: Path, project_root: Path, data_root: Path | None
                 f"再実行の出力先に {_PROTECTED_OUTPUT_DIR.as_posix()}/ の内側は指定できません"
                 f"（保存済み結果の上書きを防ぐため）: {resolved}"
             )
+
+
+def _output_file_names(value: object, inside_outputs: bool = False) -> list[str]:
+    """結果 JSON の `outputs` の下に記録された出力ファイル名を集める。"""
+    if isinstance(value, dict):
+        return [
+            name
+            for key, child in value.items()
+            for name in _output_file_names(child, inside_outputs or key == "outputs")
+        ]
+    if isinstance(value, list):
+        return [name for child in value for name in _output_file_names(child, inside_outputs)]
+    if inside_outputs and isinstance(value, str):
+        return [Path(value).name]
+    return []
+
+
+def check_output_path_length(
+    output_dir: Path, reference: dict[str, Any], max_length: int
+) -> str | None:
+    """再実行の出力のパスが長さの上限に収まるかを、保存済み結果の出力ファイル名から見積もる。
+
+    再実行の出力ファイル名は保存済み結果と同じ規則で決まるため、保存済み結果の `outputs` に
+    記録された最も長いファイル名を、構成ごとの出力先の下に置いた長さで判定する。
+    長時間の再実行の最後（図の保存）で落ちるのを、実行前に防ぐためのもの。
+
+    Args:
+        output_dir: 構成ごとの出力先。
+        reference: 保存済み結果 JSON の内容。
+        max_length: パスの長さの上限（文字数）。
+    Returns:
+        上限を超える場合はその説明、収まる（または出力の記録が無い）場合は None。
+    """
+    names = _output_file_names(reference)
+    if not names:
+        return None
+    longest = max(names, key=len)
+    length = len(str(output_dir.resolve() / longest))
+    if length <= max_length:
+        return None
+    return (
+        f"出力のパスが {length} 文字になり、上限 {max_length} 文字を超える"
+        f"（最長の出力名: {longest}）。--work-dir を短い場所にするか、省略して既定の"
+        "一時ディレクトリを使う"
+    )
 
 
 def resolve_inputs(target: ReproducibilityTarget, data_root: Path) -> dict[str, Path]:
@@ -635,6 +691,7 @@ def run_target(
     timeout_seconds: float,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     data_root: Path | None = None,
+    max_path_length: int | None = (_WINDOWS_MAX_PATH_LENGTH if sys.platform == "win32" else None),
 ) -> TargetReport:
     """対象構成を再実行し、保存済み結果と照合する。
 
@@ -648,6 +705,8 @@ def run_target(
         runner: 子プロセスの実行関数（テストで差し替える）。
         data_root: git 管理外の入力（`target.inputs`）の基準ディレクトリ。None なら
             プロジェクトルート。
+        max_path_length: 出力のパスの長さの上限（`check_output_path_length`）。既定は
+            Windows では `_WINDOWS_MAX_PATH_LENGTH`、それ以外では None（判定しない）。
     Returns:
         照合結果。
     """
@@ -666,6 +725,11 @@ def run_target(
         return report
 
     output_dir = work_dir / target.name
+    if max_path_length is not None:
+        too_long = check_output_path_length(output_dir, reference, max_path_length)
+        if too_long:
+            report.error = too_long
+            return report
     if output_dir.is_dir() and any(output_dir.iterdir()):
         # 前回の結果が残っていると取り違えるおそれがあるため、消さずに止める
         report.error = (

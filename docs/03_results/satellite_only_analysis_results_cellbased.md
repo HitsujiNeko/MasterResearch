@@ -1,6 +1,6 @@
 # 衛星データのみの分析結果（cell_id結合経路）
 
-**最終更新**: 2026-11-21  
+**最終更新**: 2026-11-26  
 **関連ドキュメント**: [limited_analysis_results.md](limited_analysis_results.md), [survey_area_comparison_results.md](survey_area_comparison_results.md), [spatial_cv_design_results.md](spatial_cv_design_results.md), [satellite_only_analysis_results.md](satellite_only_analysis_results.md), [satellite_only_analysis_results_cellbased_20230707_032329.md](../04_archive/satellite_only_analysis_results_cellbased_20230707_032329.md), [analysis_rq3_satellite_only_guide.md](../02_methods/analysis_rq3_satellite_only_guide.md), [calc_urban_params_io_spec.md](../02_methods/calc_urban_params/calc_urban_params_io_spec.md) 6.7節, [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [lst_emissivity_sensitivity_results.md](lst_emissivity_sensitivity_results.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -39,6 +39,8 @@ RQ3 では衛星データのみと衛星＋公開GISデータの2シナリオを
 | fold別評価値 | `{接頭辞}_spatial_cv_folds.csv` |
 
 接頭辞は `dataset_satellite_only_20230707_032305_hanoi_30m`、配置は `data/output/satellite_only_cellbased/20230707_032305/` である。**7章（主採用の観測）は接頭辞 `dataset_satellite_only_20220906_032358_hanoi_30m`、配置は `data/output/satellite_only_cellbased/20220906_032358/` である。**
+
+**1〜6章の `{接頭辞}_results.json`（`data/output/satellite_only_cellbased/20230707_032305/` の1件）は、結果JSONに来歴（`provenance`）を付ける前に生成した過去の結果であり、来歴を持たない。** 生成時のコード・入力を結果JSONからは遡れない。旧世代の指標による記録時点の結果として、再実行せずに残す。陳腐化検出では `scripts/legacy_results.json` に登録し、「過去の結果」として扱う（扱いの方針は [data_management_guide.md](../02_methods/data_management_guide.md) 7.5節）。
 
 測量GIS範囲と全域の比較（新世代の指標から作り直したデータセットによる）は `data/output/satellite_only_cellbased/20230707_032305_area_comparison/` に置き、[survey_area_comparison_results.md](survey_area_comparison_results.md) を正本とする。同ディレクトリの全域ランは1〜6章の数値（旧世代の指標）と世代が異なるため、1〜6章とは直接比較しない（3.1節）。一方、7章（主採用の観測）の比較相手には、この新世代の全域ランを使う（7.5節）。
 

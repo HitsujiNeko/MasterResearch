@@ -1,6 +1,6 @@
 # 衛星データのみの分析結果
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-26  
 **関連ドキュメント**: [analysis_workflow.md](../02_methods/analysis_workflow.md), [research_guide.md](../01_planning/research_guide.md), [GIS_IDEAS_abstract.md](GIS_IDEAS_abstract.md), [observation_selection.md](../02_methods/observation_selection.md)  
 **対象RQ**: RQ3（データ制約下での有効性評価）
 
@@ -93,6 +93,8 @@
 - `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_model_comparison.png`
 - `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_spatial_cv.png`
 - `data/output/satellite_only/<obs_key>/satellite_only_<date>_<obs_key>_shap_summary.png`
+
+**3観測日の `_results.json`（`032329Z`・`032309Z`・`032336Z` の各1件）は、結果JSONに来歴（`provenance`）を付ける前に生成した過去の結果であり、来歴を持たない。** 生成時のコード・入力を結果JSONからは遡れない。旧来の画素単位の経路による記録時点の結果として、再実行せずに残す。陳腐化検出では `scripts/legacy_results.json` に登録し、「過去の結果」として扱う（扱いの方針は [data_management_guide.md](../02_methods/data_management_guide.md) 7.5節）。
 
 観測日比較の要約:
 

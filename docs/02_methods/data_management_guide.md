@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-26  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -235,6 +235,15 @@ JSON として再生成できるインベントリスクリプトを用意して
 | `src.analysis.compare_common_evaluation` | `scenario_comparison_*_results.json` |
 | `src.analysis.repeat_common_evaluation` | `repeated_comparison_*_results.json` |
 | `src.analysis.diagnose_spatial_cv_design` | `lst_semivariogram_results.json`、`spatial_cv_sweep_results.json` |
+
+- **来歴なしの過去の結果**: 付与前に生成し、再実行しないと決めた結果JSONは、`scripts/legacy_results.json` に
+  ファイル単位で登録する（群ごとに理由と参照文書を記す）。陳腐化検出（`scripts/check_result_staleness.py`）は、
+  来歴が無く登録されている結果を「過去の結果」（`legacy`）と判定し、報告 Issue で問題として扱わない。
+  これにより、新たに生じた来歴なし（来歴の付与漏れ）と区別できる。結果JSON自体には来歴や印を後から書き込まない
+  （生成時の記録という意味を保つため）。来歴を持つ結果は登録されていても通常どおり判定し、登録の誤り
+  （結果ファイルが無い・過去の結果として扱えない）は警告として出す。登録を増やすのは、結果文書で過去の結果として
+  残すと決めた場合に限る。ディレクトリ単位で登録しないのは、同じディレクトリに後から来歴なしの結果が増えたときに
+  見逃さないためである
 
 - **追加の監視パス**: 共通評価セルの生成（`src.analysis.build_common_evaluation_set`）・比較
   （`src.analysis.compare_common_evaluation`）・反復（`src.analysis.repeat_common_evaluation`）・Spatial CV の診断

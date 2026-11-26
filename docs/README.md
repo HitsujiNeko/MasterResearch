@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-11-19  
+**最終更新**: 2026-11-26  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -239,7 +239,7 @@ docs/
 
 - [ ] 週次: 全ドキュメントの整合性チェック（`/check-docs-consistency` skillを使用）
 - [ ] 週次: 分析結果の陳腐化検出（`/check-result-staleness` skillを使用。来歴を現在の入力・コードと照合し、要再実行の結果を報告 Issue にまとめる）
-- [ ] 月次: 外部依存のヘルスチェック・文献探索（`/paper-scout` の月次自動実行）。週次・月次の定期実行の設定と登録手順は [scheduled-tasks.md](../.github/scheduled-tasks.md) を正本とする
+- [ ] 月次: 外部依存のヘルスチェック・文献探索（`/paper-scout` の月次自動実行）・分析の再現性チェック（`scripts/check_reproducibility.py` で採用構成を再実行し、保存済み結果と照合する）。週次・月次の定期実行の設定と登録手順は [scheduled-tasks.md](../.github/scheduled-tasks.md) を正本とする
 - [ ] 研究フェーズ移行時: ドキュメント構成の見直し
 - [ ] 論文投稿前: 全ドキュメントの整合性確認
 

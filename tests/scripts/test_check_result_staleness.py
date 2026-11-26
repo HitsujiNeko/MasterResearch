@@ -1176,6 +1176,14 @@ def _registry(*paths: str) -> dict[str, object]:
     return {path: target.LegacyEntry(group="A", reason="旧世代の結果") for path in paths}
 
 
+def _not_found_warning(path: str) -> str:
+    """登録されているが走査対象の結果ファイルとして見つからない場合の警告文を作る。"""
+    return (
+        "登録されているが走査対象の結果ファイルとして見つからない（ファイルが無い、"
+        f"または名前が *_results.json でない）: {path}"
+    )
+
+
 def test_legacy_when_registered_without_provenance(repo: Path) -> None:
     """来歴なしで登録されている結果は過去の結果とし、群と理由を残す。"""
     path = _write_result(repo, "old_results.json", {"sample_size": 1})
@@ -1277,7 +1285,7 @@ def test_check_legacy_registry_warns_registration_errors() -> None:
     assert warnings == [
         "登録されているが過去の結果として扱わなかった（来歴がある、または JSON を"
         "解釈できない。分類: 最新）: data/output/b_results.json",
-        "登録されているが結果ファイルが無い: data/output/missing_results.json",
+        _not_found_warning("data/output/missing_results.json"),
     ]
 
 
@@ -1285,7 +1293,7 @@ def test_check_legacy_registry_project_root_scan_checks_all() -> None:
     """走査先がプロジェクトルートなら、すべての登録についてファイルの有無を確かめる。"""
     registry = _registry("data/other/outside_results.json")
     assert target.check_legacy_registry(registry, [], ".") == [
-        "登録されているが結果ファイルが無い: data/other/outside_results.json"
+        _not_found_warning("data/other/outside_results.json")
     ]
 
 
@@ -1327,13 +1335,13 @@ def test_markdown_report_folds_legacy_and_lists_warnings() -> None:
         "abc123",
         "data/output",
         target.dt.datetime(2026, 11, 26),
-        ["登録されているが結果ファイルが無い: data/output/x_results.json"],
+        [_not_found_warning("data/output/x_results.json")],
     )
     markdown = target.format_markdown_report(report)
     assert "<details><summary>過去の結果（1 件）</summary>" in markdown
     assert "- `data/output/a_results.json`: 登録済み（群 A: 旧世代の結果）" in markdown
     assert "### 過去の結果の登録の警告（1 件）" in markdown
-    assert "- 登録されているが結果ファイルが無い: data/output/x_results.json" in markdown
+    assert f"- {_not_found_warning('data/output/x_results.json')}" in markdown
 
 
 def test_main_uses_default_legacy_config(
@@ -1355,9 +1363,23 @@ def test_main_uses_default_legacy_config(
         LEGACY_REL: target.STATUS_LEGACY,
     }
     assert report["counts"][target.STATUS_LEGACY] == 1
-    expected_warning = "登録されているが結果ファイルが無い: data/output/analysis/gone_results.json"
+    expected_warning = _not_found_warning("data/output/analysis/gone_results.json")
     assert report["warnings"] == [expected_warning]
     assert f"警告: {expected_warning}" in capsys.readouterr().err
+
+
+def test_main_warns_registered_file_outside_results_glob(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """実在しても名前が `*_results.json` でない登録は、走査対象に見つからないと警告する。"""
+    summary_rel = "data/output/analysis/old_summary.json"
+    (repo / summary_rel).parent.mkdir(parents=True, exist_ok=True)
+    (repo / summary_rel).write_text("{}", encoding="utf-8")
+    _write_legacy_config(repo / target.DEFAULT_LEGACY_CONFIG, [_legacy_group([summary_rel])])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    assert target.main(["--output-json", "out/staleness.json"]) == target.EXIT_REPORT_WRITTEN
+    report = json.loads((repo / "out" / "staleness.json").read_text(encoding="utf-8"))
+    assert report["warnings"] == [_not_found_warning(summary_rel)]
 
 
 def test_main_without_default_legacy_config_registers_nothing(

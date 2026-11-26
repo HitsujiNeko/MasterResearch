@@ -16,15 +16,16 @@
    のコードに差分がある。`git.dirty` が真の場合や、
    差分を判定する手がかり（コードのハッシュ・記録コミット）が無い場合も、生成時のコードを
    確かめられないためここに含める
-5. 過去の結果（`legacy`）: `provenance` が無く、過去の結果の登録ファイル
+5. 過去の結果（`legacy`）: `provenance` が無い・辞書でなく、過去の結果の登録ファイル
    （既定は `scripts/legacy_results.json`）にファイル単位で載っている。来歴を付ける前に
    生成し、再実行しないと決めた結果を、新たに生じた来歴なしと分けるための分類で、
    報告モードでは問題として扱わない。来歴を持つ結果は、登録されていても通常どおり
    判定する（登録によって陳腐化を見逃さないため）
 6. 最新（`up_to_date`）: 上記のいずれにも当たらない
 
-登録ファイルに載っているのに走査先に結果ファイルが無い、または過去の結果として扱えない
-（来歴を持つ・JSON を解釈できない）場合は、登録の誤りとして警告を出す（判定結果の JSON・
+登録ファイルに載っているのに走査対象の結果ファイルとして見つからない（ファイルが無い、
+または名前が `*_results.json` でない）、または過去の結果として扱えない（来歴を持つ・
+JSON を解釈できない）場合は、登録の誤りとして警告を出す（判定結果の JSON・
 Markdown と標準エラー出力。終了コードは変えない）。登録ファイルの形式は
 `load_legacy_registry` を参照。
 
@@ -86,8 +87,10 @@ HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わ�
 - 1: 判定できない（git の `HEAD` を取得できない・走査先が無い・過去の結果の登録ファイルを
   読めない）、報告 Issue の保存ファイルを読めない（空・不正な JSON・マーカーが無い）、
   または報告モードを `main` 以外のブランチで実行した。報告モードでは何も書き出さない。
-  登録ファイルは、既定のパスに無い場合だけ登録なしとして続行し、`--legacy-config` で
-  指定したパスに無い場合・形式が不正な場合は止める
+  登録ファイルについては、既定のパス（`scripts/legacy_results.json`）に無い場合だけ
+  登録なしとして続行する。`--legacy-config` で指定したパスに無い場合は止める。
+  形式が不正な場合は、既定のパス・指定したパスを問わず止める（週次の定期実行もこの理由で
+  止まりうる）
 - 3: 報告モードで書き込む内容が無い（問題なしで報告 Issue も無い・前回から差分なし）
 - 4: 報告モードで前回の問題がすべて解消した（解消一覧を書き出した。スキルは追記後に close する）
 
@@ -768,9 +771,12 @@ def load_legacy_registry(config_path: Path) -> dict[str, LegacyEntry]:
 def check_legacy_registry(
     registry: dict[str, LegacyEntry], results: list[StalenessResult], results_root: str
 ) -> list[str]:
-    """登録の誤り（ファイルが無い・過去の結果として扱えない）を警告文にする。
+    """登録の誤り（走査対象の結果ファイルとして見つからない・過去の結果として扱えない）を
+    警告文にする。
 
-    `--results-root` で走査先を絞った場合に偽の警告を出さないよう、ファイルが無いことの
+    照合の相手は走査で見つかった結果ファイル（`RESULTS_GLOB` に合うもの）だけのため、
+    ファイルが実在しても名前が `*_results.json` でなければ「見つからない」になる。
+    `--results-root` で走査先を絞った場合に偽の警告を出さないよう、見つからないことの
     警告は走査先の配下にある登録だけを対象とする。
 
     Args:
@@ -786,7 +792,10 @@ def check_legacy_registry(
         result = by_path.get(path)
         if result is None:
             if results_root == "." or is_under_paths(path, (results_root,)):
-                warnings.append(f"登録されているが結果ファイルが無い: {path}")
+                warnings.append(
+                    "登録されているが走査対象の結果ファイルとして見つからない（ファイルが無い、"
+                    f"または名前が *_results.json でない）: {path}"
+                )
         elif result.status != STATUS_LEGACY:
             warnings.append(
                 "登録されているが過去の結果として扱わなかった（来歴がある、または JSON を"
@@ -1227,7 +1236,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=None,
         help=(
             "過去の結果の登録ファイル（省略時は scripts/legacy_results.json。"
-            "既定のパスに無ければ登録なしとして判定する）"
+            "既定のパスに無ければ登録なしとして判定する。形式が不正なら既定のパスでも止める）"
         ),
     )
     parser.add_argument("--output-json", default=None, help="判定結果（JSON）の出力先")

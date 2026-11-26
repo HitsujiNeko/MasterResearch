@@ -121,7 +121,7 @@ def _input_entry(sha256: str | None = None) -> dict[str, str]:
     return {"path": INPUT_REL, "sha256": sha256 or _sha256(b"dataset-v1")}
 
 
-# --- 5分類 ---
+# --- 6分類 ---
 
 
 def test_up_to_date_when_inputs_and_code_unchanged(repo: Path) -> None:
@@ -1184,9 +1184,14 @@ def _not_found_warning(path: str) -> str:
     )
 
 
-def test_legacy_when_registered_without_provenance(repo: Path) -> None:
-    """来歴なしで登録されている結果は過去の結果とし、群と理由を残す。"""
-    path = _write_result(repo, "old_results.json", {"sample_size": 1})
+@pytest.mark.parametrize(
+    "content",
+    [{"sample_size": 1}, {"provenance": None}, {"provenance": "text"}],
+    ids=["missing", "null", "not_dict"],
+)
+def test_legacy_when_registered_without_provenance(repo: Path, content: object) -> None:
+    """来歴が無い・辞書でない結果が登録されていれば過去の結果とし、群と理由を残す。"""
+    path = _write_result(repo, "old_results.json", content)
     result = _check(repo, path, legacy_registry=_registry(LEGACY_REL))
     assert result.status == target.STATUS_LEGACY
     assert result.reasons == {

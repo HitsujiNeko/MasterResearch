@@ -1152,3 +1152,286 @@ def test_main_report_mode_outside_git_reports_head_failure(
     err = capsys.readouterr().err
     assert "HEAD を取得できない" in err
     assert "detached HEAD" not in err
+
+
+# --- 過去の結果（来歴なしのまま残すと決めた結果）の登録 ---
+
+LEGACY_REL = "data/output/analysis/old_results.json"
+
+
+def _write_legacy_config(path: Path, groups: object) -> Path:
+    """過去の結果の登録ファイルを書き出す。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"groups": groups}, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _legacy_group(paths: list[str], group_id: str = "A") -> dict[str, object]:
+    """登録ファイルの群を1つ作る。"""
+    return {"id": group_id, "reason": "旧世代の結果", "references": ["doc.md"], "paths": paths}
+
+
+def _registry(*paths: str) -> dict[str, object]:
+    """群 A として登録した過去の結果の登録を作る。"""
+    return {path: target.LegacyEntry(group="A", reason="旧世代の結果") for path in paths}
+
+
+def test_legacy_when_registered_without_provenance(repo: Path) -> None:
+    """来歴なしで登録されている結果は過去の結果とし、群と理由を残す。"""
+    path = _write_result(repo, "old_results.json", {"sample_size": 1})
+    result = _check(repo, path, legacy_registry=_registry(LEGACY_REL))
+    assert result.status == target.STATUS_LEGACY
+    assert result.reasons == {
+        target.STATUS_LEGACY: ["来歴なしの過去の結果として登録済み（群 A: 旧世代の結果）"]
+    }
+
+
+def test_unregistered_result_without_provenance_stays_no_provenance(repo: Path) -> None:
+    """同じディレクトリでも、登録されていない来歴なしの結果は来歴なしのままにする。"""
+    path = _write_result(repo, "new_results.json", {"sample_size": 1})
+    result = _check(repo, path, legacy_registry=_registry(LEGACY_REL))
+    assert result.status == target.STATUS_NO_PROVENANCE
+
+
+def test_registered_result_with_provenance_is_judged_normally(repo: Path) -> None:
+    """来歴を持つ結果は、登録されていても通常どおり判定する（陳腐化を見逃さない）。"""
+    commit = _git(repo, "rev-parse", "HEAD")
+    (repo / "src" / "analysis" / "run_model.py").write_text("VERSION = 2\n", encoding="utf-8")
+    _commit_all(repo, "change script")
+    path = _write_result(
+        repo, "old_results.json", {"provenance": _provenance(commit, inputs=[_input_entry()])}
+    )
+    result = _check(repo, path, legacy_registry=_registry(LEGACY_REL))
+    assert result.status == target.STATUS_STALE_CODE
+    assert target.STATUS_LEGACY not in result.reasons
+
+
+def test_registered_invalid_json_stays_no_provenance(repo: Path) -> None:
+    """登録されていても、JSON を解釈できない結果は過去の結果にしない。"""
+    path = _write_result(repo, "old_results.json", "{not json")
+    result = _check(repo, path, legacy_registry=_registry(LEGACY_REL))
+    assert result.status == target.STATUS_NO_PROVENANCE
+
+
+def test_load_legacy_registry_normalizes_paths(tmp_path: Path) -> None:
+    """登録パスは `/` 区切り・先頭の `./` なしにそろえ、群ごとの理由を引けるようにする。"""
+    config = _write_legacy_config(
+        tmp_path / "legacy.json",
+        [
+            _legacy_group(["./data\\output\\a_results.json"]),
+            _legacy_group(["data/output/b_results.json"], group_id="B"),
+        ],
+    )
+    registry = target.load_legacy_registry(config)
+    assert registry == {
+        "data/output/a_results.json": target.LegacyEntry(group="A", reason="旧世代の結果"),
+        "data/output/b_results.json": target.LegacyEntry(group="B", reason="旧世代の結果"),
+    }
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{not json",
+        json.dumps(["list"]),
+        json.dumps({"groups": "text"}),
+        json.dumps({"groups": ["text"]}),
+        json.dumps({"groups": [{"id": "", "reason": "r", "paths": ["a"]}]}),
+        json.dumps({"groups": [{"id": "A", "paths": ["a"]}]}),
+        json.dumps({"groups": [{"id": "A", "reason": "r", "paths": []}]}),
+        json.dumps({"groups": [{"id": "A", "reason": "r", "paths": [""]}]}),
+        json.dumps({"groups": [{"id": "A", "reason": "r", "paths": ["a", "./a"]}]}),
+    ],
+    ids=[
+        "invalid_json",
+        "not_object",
+        "groups_not_list",
+        "group_not_object",
+        "empty_id",
+        "missing_reason",
+        "empty_paths",
+        "empty_path",
+        "duplicate_path",
+    ],
+)
+def test_load_legacy_registry_rejects_malformed_file(tmp_path: Path, content: str) -> None:
+    """形式が不正な登録ファイルは推測で読まずに例外にする。"""
+    config = tmp_path / "legacy.json"
+    config.write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError):
+        target.load_legacy_registry(config)
+
+
+def test_check_legacy_registry_warns_registration_errors() -> None:
+    """登録の誤り（ファイルが無い・過去の結果として扱えない）だけを警告にする。"""
+    legacy = target.StalenessResult(path="data/output/a_results.json")
+    legacy.add_reason(target.STATUS_LEGACY, "登録済み")
+    with_provenance = target.StalenessResult(path="data/output/b_results.json")
+    registry = _registry(
+        "data/output/a_results.json",
+        "data/output/b_results.json",
+        "data/output/missing_results.json",
+        "data/other/outside_results.json",
+    )
+    warnings = target.check_legacy_registry(registry, [legacy, with_provenance], "data/output")
+    assert warnings == [
+        "登録されているが過去の結果として扱わなかった（来歴がある、または JSON を"
+        "解釈できない。分類: 最新）: data/output/b_results.json",
+        "登録されているが結果ファイルが無い: data/output/missing_results.json",
+    ]
+
+
+def test_check_legacy_registry_project_root_scan_checks_all() -> None:
+    """走査先がプロジェクトルートなら、すべての登録についてファイルの有無を確かめる。"""
+    registry = _registry("data/other/outside_results.json")
+    assert target.check_legacy_registry(registry, [], ".") == [
+        "登録されているが結果ファイルが無い: data/other/outside_results.json"
+    ]
+
+
+def test_problem_state_excludes_legacy() -> None:
+    """過去の結果は報告 Issue の問題（マーカー）に載せない。"""
+    report = _report(
+        {
+            "a": target.STATUS_LEGACY,
+            "b": target.STATUS_UP_TO_DATE,
+            "c": target.STATUS_NO_PROVENANCE,
+        }
+    )
+    assert target.problem_state(report) == {"c": target.STATUS_NO_PROVENANCE}
+
+
+def test_build_report_text_legacy_registration_resolves_no_provenance() -> None:
+    """前回「来歴なし」だった結果が登録されると、差分コメントで「解消」になる。"""
+    report = _report({"a": target.STATUS_LEGACY, "b": target.STATUS_STALE_CODE})
+    previous = {"a": target.STATUS_NO_PROVENANCE, "b": target.STATUS_STALE_CODE}
+    exit_code, text = target.build_report_text(report, previous, RUN_DATE)
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    assert "- `a`（前回: 来歴なし）" in text
+    assert "過去の結果 1" in text
+    assert target.extract_latest_state([text]) == {"b": target.STATUS_STALE_CODE}
+
+
+def test_build_report_text_only_legacy_writes_no_new_issue() -> None:
+    """過去の結果しか無ければ、報告 Issue を新規起票しない。"""
+    report = _report({"a": target.STATUS_LEGACY})
+    assert target.build_report_text(report, None, RUN_DATE) == (target.EXIT_NO_CHANGE, None)
+
+
+def test_markdown_report_folds_legacy_and_lists_warnings() -> None:
+    """Markdown では過去の結果を理由つきで折りたたみ、登録の警告を載せる。"""
+    legacy = target.StalenessResult(path="data/output/a_results.json")
+    legacy.add_reason(target.STATUS_LEGACY, "登録済み（群 A: 旧世代の結果）")
+    report = target.build_report_data(
+        [legacy],
+        "abc123",
+        "data/output",
+        target.dt.datetime(2026, 11, 26),
+        ["登録されているが結果ファイルが無い: data/output/x_results.json"],
+    )
+    markdown = target.format_markdown_report(report)
+    assert "<details><summary>過去の結果（1 件）</summary>" in markdown
+    assert "- `data/output/a_results.json`: 登録済み（群 A: 旧世代の結果）" in markdown
+    assert "### 過去の結果の登録の警告（1 件）" in markdown
+    assert "- 登録されているが結果ファイルが無い: data/output/x_results.json" in markdown
+
+
+def test_main_uses_default_legacy_config(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """既定の登録ファイルを読み、登録の誤りを JSON と標準エラー出力に警告する。"""
+    _write_result(repo, "old_results.json", {"sample_size": 1})
+    _write_result(repo, "new_results.json", {"sample_size": 1})
+    _write_legacy_config(
+        repo / target.DEFAULT_LEGACY_CONFIG,
+        [_legacy_group([LEGACY_REL, "data/output/analysis/gone_results.json"])],
+    )
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    assert target.main(["--output-json", "out/staleness.json"]) == target.EXIT_REPORT_WRITTEN
+    report = json.loads((repo / "out" / "staleness.json").read_text(encoding="utf-8"))
+    statuses = {entry["path"]: entry["status"] for entry in report["results"]}
+    assert statuses == {
+        "data/output/analysis/new_results.json": target.STATUS_NO_PROVENANCE,
+        LEGACY_REL: target.STATUS_LEGACY,
+    }
+    assert report["counts"][target.STATUS_LEGACY] == 1
+    expected_warning = "登録されているが結果ファイルが無い: data/output/analysis/gone_results.json"
+    assert report["warnings"] == [expected_warning]
+    assert f"警告: {expected_warning}" in capsys.readouterr().err
+
+
+def test_main_without_default_legacy_config_registers_nothing(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """既定の登録ファイルが無ければ、登録なしとして判定する。"""
+    _write_result(repo, "old_results.json", {"sample_size": 1})
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    assert target.main(["--output-json", "out/staleness.json"]) == target.EXIT_REPORT_WRITTEN
+    report = json.loads((repo / "out" / "staleness.json").read_text(encoding="utf-8"))
+    assert [entry["status"] for entry in report["results"]] == [target.STATUS_NO_PROVENANCE]
+    assert report["warnings"] == []
+
+
+def test_main_uses_explicit_legacy_config(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`--legacy-config` で指定した登録ファイルを使う。"""
+    _write_result(repo, "old_results.json", {"sample_size": 1})
+    config = _write_legacy_config(tmp_path / "custom.json", [_legacy_group([LEGACY_REL])])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    exit_code = target.main(["--output-json", "out/staleness.json", "--legacy-config", str(config)])
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    report = json.loads((repo / "out" / "staleness.json").read_text(encoding="utf-8"))
+    assert [entry["status"] for entry in report["results"]] == [target.STATUS_LEGACY]
+
+
+@pytest.mark.parametrize("problem", ["missing", "malformed"])
+def test_main_fails_when_legacy_config_unreadable(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    problem: str,
+) -> None:
+    """指定した登録ファイルが無い・不正なら、判定に進まず終了コード1を返す。"""
+    config = tmp_path / "legacy.json"
+    if problem == "malformed":
+        config.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    _forbid_scan(monkeypatch, "登録ファイルを読めないまま判定に進んではいけない")
+    exit_code = target.main(["--output-json", "out/staleness.json", "--legacy-config", str(config)])
+    assert exit_code == target.EXIT_FAILURE
+    assert not (repo / "out").exists()
+    assert "登録ファイルを読めませんでした" in capsys.readouterr().err
+
+
+def test_main_fails_when_default_legacy_config_malformed(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """既定の登録ファイルがあって形式が不正なら、登録なしとせず終了コード1を返す。"""
+    config = repo / target.DEFAULT_LEGACY_CONFIG
+    config.parent.mkdir(parents=True)
+    config.write_text(json.dumps({"groups": "text"}), encoding="utf-8")
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    _forbid_scan(monkeypatch, "登録ファイルを読めないまま判定に進んではいけない")
+    assert target.main([]) == target.EXIT_FAILURE
+
+
+def test_main_report_mode_resolves_registered_no_provenance(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """報告モード: 前回「来歴なし」の結果を登録すると、解消として差分コメントを書き出す。"""
+    _write_result(repo, "old_results.json", {"sample_size": 1})
+    _write_result(repo, "new_results.json", {"sample_size": 1})
+    _write_legacy_config(repo / target.DEFAULT_LEGACY_CONFIG, [_legacy_group([LEGACY_REL])])
+    new_rel = "data/output/analysis/new_results.json"
+    previous = target.format_state_marker(
+        {LEGACY_REL: target.STATUS_NO_PROVENANCE, new_rel: target.STATUS_NO_PROVENANCE}
+    )
+    issue_path = _issue_json(tmp_path, previous, [])
+    monkeypatch.setattr(target, "PROJECT_ROOT", repo)
+    exit_code = target.main([*_ALL_OUTPUT_ARGS, "--previous-issue-json", str(issue_path)])
+    assert exit_code == target.EXIT_REPORT_WRITTEN
+    text = (repo / "out" / "report.md").read_text(encoding="utf-8")
+    assert f"- `{LEGACY_REL}`（前回: 来歴なし）" in text
+    assert target.extract_latest_state([text]) == {new_rel: target.STATUS_NO_PROVENANCE}

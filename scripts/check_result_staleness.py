@@ -1,11 +1,12 @@
 """分析結果の陳腐化検出。
 
 `data/output/**/*_results.json` を走査し、各結果ファイルの来歴（`provenance`）を
-現在の入力ファイル・コードと照らし合わせて、次の5分類のいずれかに判定する。
+現在の入力ファイル・コードと照らし合わせて、次の6分類のいずれかに判定する。
 該当した理由はすべて `reasons` に残し、上に書いた分類ほど優先して主分類とする。
 
 1. 来歴なし（`no_provenance`）: `provenance` が無い・辞書でない。結果 JSON 自体を
-   解釈できない場合も、来歴を確認できないためここに含める
+   解釈できない場合も、来歴を確認できないためここに含める（過去の結果の登録ファイルに
+   載っている場合でも、JSON を解釈できなければここに含める）
 2. 入力欠落（`input_missing`）: `provenance.inputs[].path` のファイルが無い
    （入力の記録にパスが無い場合を含む）
 3. 要再実行・入力変更（`stale_input`）: 入力ファイルの SHA-256 が記録値と一致しない
@@ -15,7 +16,17 @@
    のコードに差分がある。`git.dirty` が真の場合や、
    差分を判定する手がかり（コードのハッシュ・記録コミット）が無い場合も、生成時のコードを
    確かめられないためここに含める
-5. 最新（`up_to_date`）: 上記のいずれにも当たらない
+5. 過去の結果（`legacy`）: `provenance` が無く、過去の結果の登録ファイル
+   （既定は `scripts/legacy_results.json`）にファイル単位で載っている。来歴を付ける前に
+   生成し、再実行しないと決めた結果を、新たに生じた来歴なしと分けるための分類で、
+   報告モードでは問題として扱わない。来歴を持つ結果は、登録されていても通常どおり
+   判定する（登録によって陳腐化を見逃さないため）
+6. 最新（`up_to_date`）: 上記のいずれにも当たらない
+
+登録ファイルに載っているのに走査先に結果ファイルが無い、または過去の結果として扱えない
+（来歴を持つ・JSON を解釈できない）場合は、登録の誤りとして警告を出す（判定結果の JSON・
+Markdown と標準エラー出力。終了コードは変えない）。登録ファイルの形式は
+`load_legacy_registry` を参照。
 
 コードの差分は、来歴にコードのファイルハッシュ（`provenance.code`）があれば、それと
 `HEAD` の木にあるファイルの内容（改行を LF にそろえる）のハッシュを比べて判定する
@@ -66,15 +77,17 @@ HEAD -- {監視パス}` の木の比較で判定する（祖先関係を問わ�
 - `--previous-issue-json` あり: 報告 Issue（`gh issue view {番号} --json body,comments` の
   保存ファイル）の本文とコメントに埋め込んだ不可視マーカー
   ``<!-- result-staleness-state: パス=分類 ... -->`` のうち最新のものから前回の問題
-  （最新以外の結果）を復元し、新規・解消・分類変化・継続を記した差分コメントを書き出す。
+  （最新・過去の結果以外の結果）を復元し、新規・解消・分類変化・継続を記した差分コメントを書き出す。
   報告 Issue 自体を前回状態の正本とし、ローカルに状態ファイルを持たない
 
 終了コード:
 
 - 0: 判定を出力した（報告モードでは、新規起票の本文または差分コメントを書き出した）
-- 1: 判定できない（git の `HEAD` を取得できない・走査先が無い）、報告 Issue の
-  保存ファイルを読めない（空・不正な JSON・マーカーが無い）、または報告モードを `main` 以外の
-  ブランチで実行した。報告モードでは何も書き出さない
+- 1: 判定できない（git の `HEAD` を取得できない・走査先が無い・過去の結果の登録ファイルを
+  読めない）、報告 Issue の保存ファイルを読めない（空・不正な JSON・マーカーが無い）、
+  または報告モードを `main` 以外のブランチで実行した。報告モードでは何も書き出さない。
+  登録ファイルは、既定のパスに無い場合だけ登録なしとして続行し、`--legacy-config` で
+  指定したパスに無い場合・形式が不正な場合は止める
 - 3: 報告モードで書き込む内容が無い（問題なしで報告 Issue も無い・前回から差分なし）
 - 4: 報告モードで前回の問題がすべて解消した（解消一覧を書き出した。スキルは追記後に close する）
 
@@ -129,6 +142,7 @@ STATUS_NO_PROVENANCE = "no_provenance"
 STATUS_INPUT_MISSING = "input_missing"
 STATUS_STALE_INPUT = "stale_input"
 STATUS_STALE_CODE = "stale_code"
+STATUS_LEGACY = "legacy"
 STATUS_UP_TO_DATE = "up_to_date"
 
 STATUS_ORDER: tuple[str, ...] = (
@@ -136,6 +150,7 @@ STATUS_ORDER: tuple[str, ...] = (
     STATUS_INPUT_MISSING,
     STATUS_STALE_INPUT,
     STATUS_STALE_CODE,
+    STATUS_LEGACY,
     STATUS_UP_TO_DATE,
 )
 
@@ -144,12 +159,19 @@ STATUS_LABELS: dict[str, str] = {
     STATUS_INPUT_MISSING: "入力欠落",
     STATUS_STALE_INPUT: "要再実行（入力変更）",
     STATUS_STALE_CODE: "要再実行（コード変更）",
+    STATUS_LEGACY: "過去の結果",
     STATUS_UP_TO_DATE: "最新",
 }
+
+# 対応が不要で、報告 Issue の問題一覧・マーカーに載せない分類
+NON_PROBLEM_STATUSES: frozenset[str] = frozenset({STATUS_LEGACY, STATUS_UP_TO_DATE})
 
 # 走査する結果ファイルの既定の置き場所とファイル名のパターン
 DEFAULT_RESULTS_ROOT = Path("data") / "output"
 RESULTS_GLOB = "**/*_results.json"
+
+# 過去の結果（来歴なしのまま残すと決めた結果）の登録ファイルの既定のパス
+DEFAULT_LEGACY_CONFIG = Path("scripts") / "legacy_results.json"
 
 # 生成スクリプトに加えて常に監視するパス。来歴にハッシュを記録する範囲と一致させるため、
 # 定義は来歴の生成側（`src.common.summary.CODE_WATCH_PATHS`）に置く
@@ -669,6 +691,110 @@ def check_code(
         )
 
 
+@dataclass(frozen=True)
+class LegacyEntry:
+    """過去の結果の登録1件（登録ファイルの群の情報）。
+
+    Attributes:
+        group: 群の識別子（例: `A`）。
+        reason: 来歴なしのまま残す理由。
+    """
+
+    group: str
+    reason: str
+
+
+def _require_text(value: object, label: str) -> str:
+    """登録ファイルの値が空でない文字列であることを確かめて返す。
+
+    Args:
+        value: 確かめる値。
+        label: エラーメッセージに使う項目名。
+    Returns:
+        確かめた文字列。
+    Raises:
+        ValueError: 空でない文字列でない場合。
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"過去の結果の登録ファイルの {label} が空でない文字列ではありません")
+    return value
+
+
+def load_legacy_registry(config_path: Path) -> dict[str, LegacyEntry]:
+    """過去の結果の登録ファイルを読み、結果パスから登録内容を引けるようにする。
+
+    形式（`groups` の各要素の `id`・`reason`・`paths` は必須。他のキーは説明用で読まない）:
+
+    ```json
+    {"groups": [{"id": "A", "reason": "...", "references": ["..."],
+                 "paths": ["data/output/.../x_results.json"]}]}
+    ```
+
+    パスはプロジェクト相対で、判定結果の `path` と同じ形（`/` 区切り）にそろえて比べる。
+    ディレクトリではなくファイル単位で登録するのは、同じディレクトリに後から来歴なしの
+    結果が増えた場合に、それを過去の結果に紛れ込ませないためである。
+
+    Args:
+        config_path: 登録ファイルのパス。
+    Returns:
+        結果パス → 登録内容。
+    Raises:
+        OSError: ファイルを読めない場合。
+        ValueError: JSON として不正・形式が違う・同じパスが重複している場合。
+    """
+    data = json.loads(config_path.read_text(encoding="utf-8-sig"))
+    groups = data.get("groups") if isinstance(data, dict) else None
+    if not isinstance(groups, list):
+        raise ValueError("過去の結果の登録ファイルに groups のリストがありません")
+    registry: dict[str, LegacyEntry] = {}
+    for group in groups:
+        if not isinstance(group, dict):
+            raise ValueError("過去の結果の登録ファイルの groups の要素がオブジェクトではありません")
+        entry = LegacyEntry(
+            group=_require_text(group.get("id"), "id"),
+            reason=_require_text(group.get("reason"), "reason"),
+        )
+        paths = group.get("paths")
+        if not isinstance(paths, list) or not paths:
+            raise ValueError(f"群 {entry.group} の paths が空でないリストではありません")
+        for raw_path in paths:
+            path = normalize_watch_path(_require_text(raw_path, "paths の要素"))
+            if path in registry:
+                raise ValueError(f"過去の結果の登録が重複しています: {path}")
+            registry[path] = entry
+    return registry
+
+
+def check_legacy_registry(
+    registry: dict[str, LegacyEntry], results: list[StalenessResult], results_root: str
+) -> list[str]:
+    """登録の誤り（ファイルが無い・過去の結果として扱えない）を警告文にする。
+
+    `--results-root` で走査先を絞った場合に偽の警告を出さないよう、ファイルが無いことの
+    警告は走査先の配下にある登録だけを対象とする。
+
+    Args:
+        registry: `load_legacy_registry` の戻り値。
+        results: 判定結果の一覧。
+        results_root: 走査先（プロジェクト相対。プロジェクトルートそのものなら `.`）。
+    Returns:
+        警告文の一覧（登録パス順）。
+    """
+    by_path = {result.path: result for result in results}
+    warnings: list[str] = []
+    for path in sorted(registry):
+        result = by_path.get(path)
+        if result is None:
+            if results_root == "." or is_under_paths(path, (results_root,)):
+                warnings.append(f"登録されているが結果ファイルが無い: {path}")
+        elif result.status != STATUS_LEGACY:
+            warnings.append(
+                "登録されているが過去の結果として扱わなかった（来歴がある、または JSON を"
+                f"解釈できない。分類: {STATUS_LABELS[result.status]}）: {path}"
+            )
+    return warnings
+
+
 def check_result_file(
     result_path: Path,
     project_root: Path,
@@ -676,6 +802,7 @@ def check_result_file(
     git: GitRepository,
     hash_cache: dict[Path, str],
     extra_watch_paths: tuple[str, ...] = (),
+    legacy_registry: dict[str, LegacyEntry] | None = None,
 ) -> StalenessResult:
     """結果ファイル1件を判定する。
 
@@ -686,6 +813,8 @@ def check_result_file(
         git: git 操作。
         hash_cache: ハッシュの保持先。
         extra_watch_paths: 既定に加えて監視するパス。
+        legacy_registry: 過去の結果の登録（`load_legacy_registry` の戻り値）。
+            来歴が無い結果のうち、ここに載っているものだけを過去の結果とする。
     Returns:
         判定結果。
     """
@@ -697,7 +826,14 @@ def check_result_file(
         return result
     provenance = data.get("provenance") if isinstance(data, dict) else None
     if not isinstance(provenance, dict):
-        result.add_reason(STATUS_NO_PROVENANCE, "来歴（provenance）が記録されていない")
+        legacy = (legacy_registry or {}).get(result.path)
+        if legacy is None:
+            result.add_reason(STATUS_NO_PROVENANCE, "来歴（provenance）が記録されていない")
+        else:
+            result.add_reason(
+                STATUS_LEGACY,
+                f"来歴なしの過去の結果として登録済み（群 {legacy.group}: {legacy.reason}）",
+            )
         return result
     check_inputs(result, provenance.get("inputs"), data_root, hash_cache)
     check_code(result, provenance, git, extra_watch_paths)
@@ -734,6 +870,7 @@ def build_report_data(
     head_commit: str,
     results_root: str,
     checked_at: dt.datetime,
+    warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     """機械可読の判定結果（JSON 出力の内容）を組み立てる。
 
@@ -742,6 +879,7 @@ def build_report_data(
         head_commit: 判定の基準にした `HEAD` のコミット。
         results_root: 走査先（プロジェクト相対）。
         checked_at: 判定した日時。
+        warnings: 過去の結果の登録の誤りの警告（`check_legacy_registry` の戻り値）。
     Returns:
         JSON に書き出す辞書。
     """
@@ -750,6 +888,7 @@ def build_report_data(
         "head_commit": head_commit,
         "results_root": results_root,
         "counts": count_by_status(results),
+        "warnings": list(warnings or []),
         "results": [result.to_dict() for result in results],
     }
 
@@ -774,6 +913,10 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         "|---|---:|",
     ]
     lines.extend(f"| {STATUS_LABELS[status]} | {counts[status]} |" for status in STATUS_ORDER)
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(["", f"### 過去の結果の登録の警告（{len(warnings)} 件）", ""])
+        lines.extend(f"- {warning}" for warning in warnings)
     for status in STATUS_ORDER:
         entries = [entry for entry in report["results"] if entry["status"] == status]
         if not entries:
@@ -785,6 +928,14 @@ def format_markdown_report(report: dict[str, Any]) -> str:
             lines.extend(f"- `{entry['path']}`" for entry in entries)
             lines.extend(["", "</details>"])
             continue
+        if status == STATUS_LEGACY:
+            # 過去の結果も対応は不要だが、どの群として登録したかを読めるよう理由を添える
+            lines.extend(["", f"<details><summary>{heading}</summary>", ""])
+            for entry in entries:
+                reasons = "／".join(item["reason"] for item in entry["reasons"])
+                lines.append(f"- `{entry['path']}`: {reasons}")
+            lines.extend(["", "</details>"])
+            continue
         lines.extend(["", f"### {heading}", ""])
         for entry in entries:
             reasons = "／".join(item["reason"] for item in entry["reasons"])
@@ -794,11 +945,12 @@ def format_markdown_report(report: dict[str, Any]) -> str:
 
 @dataclass
 class StateDiff:
-    """前回と今回の問題（最新以外の結果）の差分。
+    """前回と今回の問題（最新・過去の結果以外の結果）の差分。
 
     Attributes:
         new: 今回新たに問題になった結果（パス → 今回の分類）。
-        resolved: 前回は問題で、今回は最新になった・無くなった結果（パス → 前回の分類）。
+        resolved: 前回は問題で、今回は最新・過去の結果になった・無くなった結果
+            （パス → 前回の分類）。
         changed: 問題のまま分類が変わった結果（パス → (前回の分類, 今回の分類)）。
         continuing: 同じ分類のまま残っている結果（パス → 分類）。
     """
@@ -815,7 +967,10 @@ class StateDiff:
 
 
 def problem_state(report: dict[str, Any]) -> dict[str, str]:
-    """判定結果から問題（最新以外）の状態を取り出す。
+    """判定結果から問題（最新・過去の結果以外）の状態を取り出す。
+
+    過去の結果を除くのは、来歴なしのまま残すと決めた結果を報告 Issue で問題として
+    数え続けないためである（前回「来歴なし」だった結果が登録されると「解消」になる）。
 
     Args:
         report: `build_report_data` の戻り値。
@@ -825,7 +980,7 @@ def problem_state(report: dict[str, Any]) -> dict[str, str]:
     return {
         entry["path"]: entry["status"]
         for entry in report["results"]
-        if entry["status"] != STATUS_UP_TO_DATE
+        if entry["status"] not in NON_PROBLEM_STATUSES
     }
 
 
@@ -1067,6 +1222,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=[],
         help="生成スクリプトと既定の監視パスに加えて差分を監視するパス（複数指定可）",
     )
+    parser.add_argument(
+        "--legacy-config",
+        default=None,
+        help=(
+            "過去の結果の登録ファイル（省略時は scripts/legacy_results.json。"
+            "既定のパスに無ければ登録なしとして判定する）"
+        ),
+    )
     parser.add_argument("--output-json", default=None, help="判定結果（JSON）の出力先")
     parser.add_argument(
         "--output-md", default=None, help="判定結果（Markdown）の出力先。省略時は標準出力"
@@ -1091,6 +1254,29 @@ def _resolve(value: str, project_root: Path) -> Path:
     """相対パスをプロジェクトルート基準で解決する。"""
     path = Path(value)
     return path if path.is_absolute() else project_root / path
+
+
+def _load_legacy_registry_for_cli(value: str | None, project_root: Path) -> dict[str, LegacyEntry]:
+    """CLI の指定から過去の結果の登録を読む。
+
+    既定のパスに登録ファイルが無い場合だけ登録なしとする。明示したパスに無い場合は
+    指定の誤り（綴りの違いなど）とみなし、登録が黙って無視されないよう例外にする。
+
+    Args:
+        value: `--legacy-config` の値（省略時は None）。
+        project_root: 相対パスの基準。
+    Returns:
+        結果パス → 登録内容。
+    Raises:
+        OSError: 登録ファイルを読めない場合。
+        ValueError: 登録ファイルの形式が不正な場合。
+    """
+    if value is None:
+        default_path = project_root / DEFAULT_LEGACY_CONFIG
+        if not default_path.is_file():
+            return {}
+        return load_legacy_registry(default_path)
+    return load_legacy_registry(_resolve(value, project_root))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1132,18 +1318,31 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as exc:
             print(f"報告 Issue を読めませんでした: {exc}", file=sys.stderr)
             return EXIT_FAILURE
+    try:
+        # 報告 Issue と同じく、大容量の入力のハッシュ計算より先に読む
+        legacy_registry = _load_legacy_registry_for_cli(args.legacy_config, project_root)
+    except (OSError, ValueError) as exc:
+        print(f"過去の結果の登録ファイルを読めませんでした: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
 
     hash_cache: dict[Path, str] = {}
     extra_watch_paths = tuple(args.extra_watch_path)
     results = [
-        check_result_file(path, project_root, data_root, git, hash_cache, extra_watch_paths)
+        check_result_file(
+            path, project_root, data_root, git, hash_cache, extra_watch_paths, legacy_registry
+        )
         for path in find_result_files(results_root)
     ]
+    results_root_label = to_project_relative_string(results_root, project_root)
+    warnings = check_legacy_registry(legacy_registry, results, results_root_label)
+    for warning in warnings:
+        print(f"警告: {warning}", file=sys.stderr)
     report = build_report_data(
         results,
         head_commit,
-        to_project_relative_string(results_root, project_root),
+        results_root_label,
         dt.datetime.now(dt.timezone.utc),
+        warnings,
     )
     markdown = format_markdown_report(report)
     if args.output_json:

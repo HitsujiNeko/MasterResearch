@@ -1,0 +1,2734 @@
+{
+  "description": "水域率の元データだけが異なる分析ランの比較（同じ評価セル・同じ fold）。",
+  "difference_direction": "JRC 版 − GLC 版",
+  "water_effects": {
+    "glc": {
+      "evaluation_cells": {
+        "mean": 0.05305279349317862,
+        "zero_cell_ratio": 0.92338,
+        "water_cell_ratio": 0.05214
+      },
+      "train_std": {
+        "water": 0.21026218136671615,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.019452683257985444,
+          "rank": 9,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.0032904083933435135,
+          "rank": 9,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.001490712727916281,
+          "rank": 12,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.1182766780257225,
+          "rank": 3,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.1182766780257225,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.14752861705393136,
+        "increment": 0.1,
+        "wetland_standardized": -0.008926654234528542
+      }
+    },
+    "jrc_monthly": {
+      "evaluation_cells": {
+        "mean": 0.05449597180417695,
+        "zero_cell_ratio": 0.92214,
+        "water_cell_ratio": 0.05347,
+        "pearson_with_glc": 0.7729677707397751
+      },
+      "train_std": {
+        "water": 0.2135966301441989,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.03285132154192212,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.004760638073240275,
+          "rank": 9,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.0019778021538962584,
+          "rank": 10,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.14569398760795593,
+          "rank": 3,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.14569398760795593,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.17888978912290243,
+        "increment": 0.1,
+        "wetland_standardized": 0.02031155675649643,
+        "same_sign_as_baseline": true
+      }
+    },
+    "jrc_occ50": {
+      "evaluation_cells": {
+        "mean": 0.03670175160509345,
+        "zero_cell_ratio": 0.95712,
+        "water_cell_ratio": 0.03649,
+        "pearson_with_glc": 0.7483973532080317
+      },
+      "train_std": {
+        "water": 0.1838391030824239,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.02802563448735501,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.005651979429902076,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.0034502538926076604,
+          "rank": 10,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.12636569142341614,
+          "rank": 3,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.12636569142341614,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.18027255095317712,
+        "increment": 0.1,
+        "wetland_standardized": 0.01902858354151249,
+        "same_sign_as_baseline": true
+      }
+    },
+    "jrc_occ25": {
+      "evaluation_cells": {
+        "mean": 0.05698389088855503,
+        "zero_cell_ratio": 0.92504,
+        "water_cell_ratio": 0.05607,
+        "pearson_with_glc": 0.7532430859418061
+      },
+      "train_std": {
+        "water": 0.22125590854380656,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.02209062449628242,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.005497278236854119,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.0033016756080345463,
+          "rank": 10,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.13062883913516998,
+          "rank": 3,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.13062883913516998,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.1548397669595913,
+        "increment": 0.1,
+        "wetland_standardized": 0.04706133157014847,
+        "same_sign_as_baseline": true
+      }
+    },
+    "jrc_monthly_norm": {
+      "evaluation_cells": {
+        "mean": 0.05449597180417695,
+        "zero_cell_ratio": 0.92214,
+        "water_cell_ratio": 0.05347,
+        "pearson_with_glc": 0.7729677707397751
+      },
+      "train_std": {
+        "water": 0.2135966301441989,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.03242710933390365,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.004631450093005906,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.001843486789196597,
+          "rank": 9,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.14092200994491577,
+          "rank": 3,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.14092200994491577,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.17303053513544528,
+        "increment": 0.1,
+        "wetland_standardized": 0.009706982411444187,
+        "same_sign_as_baseline": true
+      }
+    },
+    "jrc_occ50_norm": {
+      "evaluation_cells": {
+        "mean": 0.03670175160509345,
+        "zero_cell_ratio": 0.95712,
+        "water_cell_ratio": 0.03649,
+        "pearson_with_glc": 0.7483973532080317
+      },
+      "train_std": {
+        "water": 0.1838391030824239,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.028279160430895647,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.009440256785099299,
+          "rank": 7,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.005201794289673075,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.13005699217319489,
+          "rank": 3,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.13005699217319489,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.1855385388570322,
+        "increment": 0.1,
+        "wetland_standardized": -0.02128543332219124,
+        "same_sign_as_baseline": true
+      }
+    },
+    "jrc_occ25_norm": {
+      "evaluation_cells": {
+        "mean": 0.05698389088855503,
+        "zero_cell_ratio": 0.92504,
+        "water_cell_ratio": 0.05607,
+        "pearson_with_glc": 0.7532430859418061
+      },
+      "train_std": {
+        "water": 0.22125590854380656,
+        "lst": 2.6226378144496456
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "value": 0.024552374759281077,
+          "rank": 8,
+          "feature_count": 14
+        },
+        "rf_permutation_importance": {
+          "value": 0.015136707611654688,
+          "rank": 7,
+          "feature_count": 14
+        },
+        "rf_impurity_importance": {
+          "value": 0.00659217791699125,
+          "rank": 7,
+          "feature_count": 14
+        },
+        "lr_standardized_coefficient": {
+          "value": -0.10816815495491028,
+          "rank": 4,
+          "feature_count": 14
+        }
+      },
+      "coefficient": {
+        "standardized": -0.10816815495491028,
+        "sign": -1,
+        "lst_change_c_per_increment": -0.1282161888335874,
+        "increment": 0.1,
+        "wetland_standardized": -0.006164601072669029,
+        "same_sign_as_baseline": true
+      }
+    }
+  },
+  "comparisons": {
+    "jrc_monthly": {
+      "baseline_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "variant_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "baseline_dataset": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+      "variant_dataset": "data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m.gpkg",
+      "evaluation_cells_digest": "9f8f8a08b3d635e36f3a366abc8433c97e3da2cefcf880e733f62812fc12bfe8",
+      "features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "metrics": [
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "r2",
+          "baseline": 0.763859212398529,
+          "variant": 0.7663530707359314,
+          "difference": 0.0024938583374023438
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "rmse",
+          "baseline": 1.2694874917338497,
+          "variant": 1.262766211363916,
+          "difference": -0.006721280369933691
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "mae",
+          "baseline": 0.9538536071777344,
+          "variant": 0.9497085213661194,
+          "difference": -0.00414508581161499
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "r2_mean",
+          "baseline": 0.7655656933784485,
+          "variant": 0.7680152893066406,
+          "difference": 0.002449595928192161
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "rmse_mean",
+          "baseline": 1.2673861727241857,
+          "variant": 1.2608934911411602,
+          "difference": -0.006492681583025517
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "mae_mean",
+          "baseline": 0.9551532149314881,
+          "variant": 0.9505933880805969,
+          "difference": -0.00455982685089118
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "r2",
+          "baseline": 0.8577728289060936,
+          "variant": 0.857699429450679,
+          "difference": -7.339945541462445e-05
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "rmse",
+          "baseline": 0.9852222407388259,
+          "variant": 0.9854764307359837,
+          "difference": 0.00025418999715776103
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "mae",
+          "baseline": 0.7301016797020222,
+          "variant": 0.729935091462646,
+          "difference": -0.0001665882393762086
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "r2_mean",
+          "baseline": 0.8370554452377142,
+          "variant": 0.8371368536281887,
+          "difference": 8.14083904744356e-05
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "rmse_mean",
+          "baseline": 1.0568962429306035,
+          "variant": 1.0566320741567883,
+          "difference": -0.00026416877381518766
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "mae_mean",
+          "baseline": 0.7855226590161726,
+          "variant": 0.7850194071796134,
+          "difference": -0.0005032518365591931
+        }
+      ],
+      "spatial_cv_paired": {
+        "test_train_ratio": 0.250000000078125,
+        "metrics": {
+          "linear_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.0024495959281921388,
+            "sd_difference": 0.0032685628952712313,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0014617457645119997,
+              "lower": -0.001608860944730809,
+              "upper": 0.006508052801115086
+            },
+            "corrected": {
+              "standard_error": 0.0021926186469583314,
+              "lower": -0.003638089381720729,
+              "upper": 0.008537281238105007
+            }
+          },
+          "linear_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.006492681583025339,
+            "sd_difference": 0.008440774141000928,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0037748289524000937,
+              "lower": -0.016973286950875494,
+              "upper": 0.003987923784824816
+            },
+            "corrected": {
+              "standard_error": 0.005662243429091655,
+              "lower": -0.022213589636165234,
+              "upper": 0.009228226470114554
+            }
+          },
+          "linear_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.004559826850891091,
+            "sd_difference": 0.0028285897778891674,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.001264983804764242,
+              "lower": -0.008071984943783252,
+              "upper": -0.0010476687579989308
+            },
+            "corrected": {
+              "standard_error": 0.0018974757073110745,
+              "lower": -0.009828063990686645,
+              "upper": 0.0007084102889044624
+            }
+          },
+          "rf_r2": {
+            "n_splits": 5,
+            "mean_difference": 8.14083904744134e-05,
+            "sd_difference": 0.0001699853599937985,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 7.601976402518133e-05,
+              "lower": -0.0001296563112515926,
+              "upper": 0.0002924730922004194
+            },
+            "corrected": {
+              "standard_error": 0.00011402964604767041,
+              "lower": -0.000235188662142078,
+              "upper": 0.0003980054430909048
+            }
+          },
+          "rf_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.00026416877381518766,
+            "sd_difference": 0.0005470304833591584,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.00024463946931112913,
+              "lower": -0.000943396830922258,
+              "upper": 0.00041505928329188264
+            },
+            "corrected": {
+              "standard_error": 0.0003669592039985478,
+              "lower": -0.0012830108595642343,
+              "upper": 0.0007546733119338589
+            }
+          },
+          "rf_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.0005032518365592819,
+            "sd_difference": 0.00048090142459881606,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.00021506565517588844,
+              "lower": -0.001100369822168534,
+              "upper": 9.386614904997002e-05
+            },
+            "corrected": {
+              "standard_error": 0.000322598482791836,
+              "lower": -0.0013989288150509098,
+              "upper": 0.0003924251419323458
+            }
+          }
+        }
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9956043956043955,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_permutation_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 1.0,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_impurity_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "lr_standardized_coefficient": {
+          "rank_by_abs": true,
+          "spearman_rank_correlation": 0.9208791208791209,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        }
+      },
+      "target_distribution": {
+        "baseline": {
+          "count": 3446551,
+          "mean": 32.220760345458984,
+          "std": 2.639376401901245,
+          "min": 23.136768341064453,
+          "p1": 27.04914951324463,
+          "p25": 30.378103256225586,
+          "p50": 31.79777717590332,
+          "p75": 33.6953010559082,
+          "p99": 39.216773986816406,
+          "max": 52.8521728515625
+        },
+        "variant": {
+          "count": 3189410,
+          "mean": 32.179325103759766,
+          "std": 2.6277334690093994,
+          "min": 23.136768341064453,
+          "p1": 27.025749702453613,
+          "p25": 30.354822635650635,
+          "p50": 31.766383171081543,
+          "p75": 33.62746047973633,
+          "p99": 39.187552070617684,
+          "max": 52.8521728515625
+        }
+      }
+    },
+    "jrc_occ50": {
+      "baseline_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "variant_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc50_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "baseline_dataset": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+      "variant_dataset": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc50_hanoi_30m.gpkg",
+      "evaluation_cells_digest": "9f8f8a08b3d635e36f3a366abc8433c97e3da2cefcf880e733f62812fc12bfe8",
+      "features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "metrics": [
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "r2",
+          "baseline": 0.763859212398529,
+          "variant": 0.7662578821182251,
+          "difference": 0.002398669719696045
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "rmse",
+          "baseline": 1.2694874917338497,
+          "variant": 1.2630234341414373,
+          "difference": -0.00646405759241242
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "mae",
+          "baseline": 0.9538536071777344,
+          "variant": 0.943683385848999,
+          "difference": -0.010170221328735352
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "r2_mean",
+          "baseline": 0.7655656933784485,
+          "variant": 0.7669321417808532,
+          "difference": 0.0013664484024047407
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "rmse_mean",
+          "baseline": 1.2673861727241857,
+          "variant": 1.2633686389306238,
+          "difference": -0.004017533793561956
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "mae_mean",
+          "baseline": 0.9551532149314881,
+          "variant": 0.9470324754714966,
+          "difference": -0.008120739459991477
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "r2",
+          "baseline": 0.8577728289060936,
+          "variant": 0.8575925789964152,
+          "difference": -0.00018024990967846488
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "rmse",
+          "baseline": 0.9852222407388259,
+          "variant": 0.985846347893323,
+          "difference": 0.0006241071544971222
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "mae",
+          "baseline": 0.7301016797020222,
+          "variant": 0.7301210240816234,
+          "difference": 1.9344379601160533e-05
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "r2_mean",
+          "baseline": 0.8370554452377142,
+          "variant": 0.8370713202159876,
+          "difference": 1.5874978273378026e-05
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "rmse_mean",
+          "baseline": 1.0568962429306035,
+          "variant": 1.0568302882926788,
+          "difference": -6.595463792469225e-05
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "mae_mean",
+          "baseline": 0.7855226590161726,
+          "variant": 0.7846940782932893,
+          "difference": -0.0008285807228832764
+        }
+      ],
+      "spatial_cv_paired": {
+        "test_train_ratio": 0.250000000078125,
+        "metrics": {
+          "linear_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.0013664484024047852,
+            "sd_difference": 0.005510141289890947,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0024642100979649063,
+              "lower": -0.005475295662268854,
+              "upper": 0.008208192467078424
+            },
+            "corrected": {
+              "standard_error": 0.0036963151472682206,
+              "lower": -0.008896167695496527,
+              "upper": 0.011629064500306098
+            }
+          },
+          "linear_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.004017533793561912,
+            "sd_difference": 0.01436926178698211,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.00642612922843642,
+              "lower": -0.021859328835222683,
+              "upper": 0.013824261248098862
+            },
+            "corrected": {
+              "standard_error": 0.009639193843491366,
+              "lower": -0.03078022635837622,
+              "upper": 0.022745158771252397
+            }
+          },
+          "linear_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.008120739459991366,
+            "sd_difference": 0.008029121739735919,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0035907324019341775,
+              "lower": -0.018090210861416628,
+              "upper": 0.0018487319414338971
+            },
+            "corrected": {
+              "standard_error": 0.00538609860336881,
+              "lower": -0.023074946563427373,
+              "upper": 0.006833467643444639
+            }
+          },
+          "rf_r2": {
+            "n_splits": 5,
+            "mean_difference": 1.5874978273378026e-05,
+            "sd_difference": 0.0002685918595701065,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0001201179312403671,
+              "lower": -0.0003176258639654243,
+              "upper": 0.00034937582051218036
+            },
+            "corrected": {
+              "standard_error": 0.00018017689687619104,
+              "lower": -0.0004843762851282501,
+              "upper": 0.0005161262416750062
+            }
+          },
+          "rf_rmse": {
+            "n_splits": 5,
+            "mean_difference": -6.595463792486988e-05,
+            "sd_difference": 0.0008579267437649313,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.00038367650375468603,
+              "lower": -0.0011312113887539707,
+              "upper": 0.000999302112904231
+            },
+            "corrected": {
+              "standard_error": 0.000575514755681987,
+              "lower": -0.0016638397643072265,
+              "upper": 0.0015319304884574868
+            }
+          },
+          "rf_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.0008285807228834319,
+            "sd_difference": 0.0005863775244218431,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.00026223600101705683,
+              "lower": -0.001556664584313883,
+              "upper": -0.00010049686145298094
+            },
+            "corrected": {
+              "standard_error": 0.0003933540015597306,
+              "lower": -0.001920706515123911,
+              "upper": 0.00026354506935704724
+            }
+          }
+        }
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9956043956043955,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_permutation_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_impurity_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "lr_standardized_coefficient": {
+          "rank_by_abs": true,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        }
+      },
+      "target_distribution": {
+        "baseline": {
+          "count": 3446551,
+          "mean": 32.220760345458984,
+          "std": 2.639376401901245,
+          "min": 23.136768341064453,
+          "p1": 27.04914951324463,
+          "p25": 30.378103256225586,
+          "p50": 31.79777717590332,
+          "p75": 33.6953010559082,
+          "p99": 39.216773986816406,
+          "max": 52.8521728515625
+        },
+        "variant": {
+          "count": 3189410,
+          "mean": 32.179325103759766,
+          "std": 2.6277334690093994,
+          "min": 23.136768341064453,
+          "p1": 27.025749702453613,
+          "p25": 30.354822635650635,
+          "p50": 31.766383171081543,
+          "p75": 33.62746047973633,
+          "p99": 39.187552070617684,
+          "max": 52.8521728515625
+        }
+      }
+    },
+    "jrc_occ25": {
+      "baseline_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "variant_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc25_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "baseline_dataset": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+      "variant_dataset": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc25_hanoi_30m.gpkg",
+      "evaluation_cells_digest": "9f8f8a08b3d635e36f3a366abc8433c97e3da2cefcf880e733f62812fc12bfe8",
+      "features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "metrics": [
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "r2",
+          "baseline": 0.763859212398529,
+          "variant": 0.7654940485954285,
+          "difference": 0.001634836196899414
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "rmse",
+          "baseline": 1.2694874917338497,
+          "variant": 1.2650854585451867,
+          "difference": -0.004402033188662946
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "mae",
+          "baseline": 0.9538536071777344,
+          "variant": 0.9491381645202637,
+          "difference": -0.004715442657470703
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "r2_mean",
+          "baseline": 0.7655656933784485,
+          "variant": 0.7665292382240295,
+          "difference": 0.0009635448455810325
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "rmse_mean",
+          "baseline": 1.2673861727241857,
+          "variant": 1.2647249916633565,
+          "difference": -0.002661181060829243
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "mae_mean",
+          "baseline": 0.9551532149314881,
+          "variant": 0.9507970452308655,
+          "difference": -0.004356169700622581
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "r2",
+          "baseline": 0.8577728289060936,
+          "variant": 0.8580564631730832,
+          "difference": 0.00028363426698951866
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "rmse",
+          "baseline": 0.9852222407388259,
+          "variant": 0.9842393686068901,
+          "difference": -0.0009828721319358191
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "mae",
+          "baseline": 0.7301016797020222,
+          "variant": 0.7293670297371132,
+          "difference": -0.0007346499649090177
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "r2_mean",
+          "baseline": 0.8370554452377142,
+          "variant": 0.8378870366403429,
+          "difference": 0.000831591402628673
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "rmse_mean",
+          "baseline": 1.0568962429306035,
+          "variant": 1.0542338675323442,
+          "difference": -0.002662375398259309
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "mae_mean",
+          "baseline": 0.7855226590161726,
+          "variant": 0.7839727121683188,
+          "difference": -0.0015499468478538114
+        }
+      ],
+      "spatial_cv_paired": {
+        "test_train_ratio": 0.250000000078125,
+        "metrics": {
+          "linear_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.0009635448455810547,
+            "sd_difference": 0.0013677665404103277,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0006116837923414412,
+              "lower": -0.0007347616255941632,
+              "upper": 0.0026618513167562725
+            },
+            "corrected": {
+              "standard_error": 0.0009175256885918081,
+              "lower": -0.001583914861402906,
+              "upper": 0.0035110045525650153
+            }
+          },
+          "linear_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.002661181060829243,
+            "sd_difference": 0.003601627885323317,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0016106969562483507,
+              "lower": -0.007133192740961961,
+              "upper": 0.001810830619303475
+            },
+            "corrected": {
+              "standard_error": 0.0024160454345822525,
+              "lower": -0.009369198581610613,
+              "upper": 0.0040468364599521274
+            }
+          },
+          "linear_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.004356169700622492,
+            "sd_difference": 0.0018486536869741334,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0008267430621859559,
+              "lower": -0.006651576428884925,
+              "upper": -0.00206076297236006
+            },
+            "corrected": {
+              "standard_error": 0.0012401145933865828,
+              "lower": -0.007799279793315022,
+              "upper": -0.0009130596079299628
+            }
+          },
+          "rf_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.0008315914026287396,
+            "sd_difference": 0.0007186091547414703,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0003213717838511186,
+              "lower": -6.0679713593381874e-05,
+              "upper": 0.0017238625188508612
+            },
+            "corrected": {
+              "standard_error": 0.0004820576758185232,
+              "lower": -0.0005068152718206238,
+              "upper": 0.002169998077078103
+            }
+          },
+          "rf_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.002662375398259176,
+            "sd_difference": 0.002273696104023787,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.001016827809754724,
+              "lower": -0.005485541993481673,
+              "upper": 0.00016079119696332106
+            },
+            "corrected": {
+              "standard_error": 0.0015252417147644858,
+              "lower": -0.006897125291460521,
+              "upper": 0.0015723744949421698
+            }
+          },
+          "rf_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.001549946847853967,
+            "sd_difference": 0.0008705374808996003,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0003893161968505862,
+              "lower": -0.0026308618969739976,
+              "upper": -0.0004690317987339364
+            },
+            "corrected": {
+              "standard_error": 0.0005839742953265716,
+              "lower": -0.0031713194216747573,
+              "upper": 7.142572596682351e-05
+            }
+          }
+        }
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9956043956043955,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_permutation_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_impurity_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "lr_standardized_coefficient": {
+          "rank_by_abs": true,
+          "spearman_rank_correlation": 0.8769230769230769,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        }
+      },
+      "target_distribution": {
+        "baseline": {
+          "count": 3446551,
+          "mean": 32.220760345458984,
+          "std": 2.639376401901245,
+          "min": 23.136768341064453,
+          "p1": 27.04914951324463,
+          "p25": 30.378103256225586,
+          "p50": 31.79777717590332,
+          "p75": 33.6953010559082,
+          "p99": 39.216773986816406,
+          "max": 52.8521728515625
+        },
+        "variant": {
+          "count": 3189410,
+          "mean": 32.179325103759766,
+          "std": 2.6277334690093994,
+          "min": 23.136768341064453,
+          "p1": 27.025749702453613,
+          "p25": 30.354822635650635,
+          "p50": 31.766383171081543,
+          "p75": 33.62746047973633,
+          "p99": 39.187552070617684,
+          "max": 52.8521728515625
+        }
+      }
+    },
+    "jrc_monthly_norm": {
+      "baseline_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "variant_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcmonthlynorm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "baseline_dataset": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+      "variant_dataset": "data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthlynorm_hanoi_30m.gpkg",
+      "evaluation_cells_digest": "9f8f8a08b3d635e36f3a366abc8433c97e3da2cefcf880e733f62812fc12bfe8",
+      "features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "metrics": [
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "r2",
+          "baseline": 0.763859212398529,
+          "variant": 0.7658979892730713,
+          "difference": 0.0020387768745422363
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "rmse",
+          "baseline": 1.2694874917338497,
+          "variant": 1.2639954991260502,
+          "difference": -0.005491992607799423
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "mae",
+          "baseline": 0.9538536071777344,
+          "variant": 0.9494584798812866,
+          "difference": -0.004395127296447754
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "r2_mean",
+          "baseline": 0.7655656933784485,
+          "variant": 0.7670660018920898,
+          "difference": 0.0015003085136413574
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "rmse_mean",
+          "baseline": 1.2673861727241857,
+          "variant": 1.2634119524443939,
+          "difference": -0.003974220279791885
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "mae_mean",
+          "baseline": 0.9551532149314881,
+          "variant": 0.9511262655258179,
+          "difference": -0.004026949405670166
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "r2",
+          "baseline": 0.8577728289060936,
+          "variant": 0.8565786175843129,
+          "difference": -0.0011942113217807693
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "rmse",
+          "baseline": 0.9852222407388259,
+          "variant": 0.9893498068856622,
+          "difference": 0.004127566146836292
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "mae",
+          "baseline": 0.7301016797020222,
+          "variant": 0.730645138492628,
+          "difference": 0.0005434587906057997
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "r2_mean",
+          "baseline": 0.8370554452377142,
+          "variant": 0.8360434750519701,
+          "difference": -0.001011970185744171
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "rmse_mean",
+          "baseline": 1.0568962429306035,
+          "variant": 1.06011380188254,
+          "difference": 0.003217558951936539
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "mae_mean",
+          "baseline": 0.7855226590161726,
+          "variant": 0.7862052749694001,
+          "difference": 0.0006826159532274945
+        }
+      ],
+      "spatial_cv_paired": {
+        "test_train_ratio": 0.250000000078125,
+        "metrics": {
+          "linear_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.0015003085136413574,
+            "sd_difference": 0.002644546881099101,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0011826773191645286,
+              "lower": -0.0017833301401814464,
+              "upper": 0.004783947167464161
+            },
+            "corrected": {
+              "standard_error": 0.0017740159789007876,
+              "lower": -0.003425149467520406,
+              "upper": 0.006425766494803121
+            }
+          },
+          "linear_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.003974220279791885,
+            "sd_difference": 0.006846348870505784,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0030617802944259676,
+              "lower": -0.012475085191441922,
+              "upper": 0.004526644631858152
+            },
+            "corrected": {
+              "standard_error": 0.004592670442037621,
+              "lower": -0.016725517648373822,
+              "upper": 0.008777077088790055
+            }
+          },
+          "linear_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.0040269494056701435,
+            "sd_difference": 0.002872995807632986,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0012848427849878532,
+              "lower": -0.007594244866998369,
+              "upper": -0.00045965394434191757
+            },
+            "corrected": {
+              "standard_error": 0.001927264177649077,
+              "lower": -0.009377892598126974,
+              "upper": 0.0013239937867866869
+            }
+          },
+          "rf_r2": {
+            "n_splits": 5,
+            "mean_difference": -0.0010119701857441489,
+            "sd_difference": 0.001041170480804586,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0004656255942490388,
+              "lower": -0.0023047540877517065,
+              "upper": 0.0002808137162634088
+            },
+            "corrected": {
+              "standard_error": 0.0006984383914341866,
+              "lower": -0.0029511460389238164,
+              "upper": 0.0009272056674355189
+            }
+          },
+          "rf_rmse": {
+            "n_splits": 5,
+            "mean_difference": 0.003217558951936672,
+            "sd_difference": 0.0032679521726469633,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0014614726410513478,
+              "lower": -0.0008401396086908344,
+              "upper": 0.007275257512564179
+            },
+            "corrected": {
+              "standard_error": 0.002192208961767318,
+              "lower": -0.002868988889532934,
+              "upper": 0.009304106793406278
+            }
+          },
+          "rf_mae": {
+            "n_splits": 5,
+            "mean_difference": 0.0006826159532273834,
+            "sd_difference": 0.0008613216278134896,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.00038519474205634725,
+              "lower": -0.00038685610290288856,
+              "upper": 0.0017520880093576554
+            },
+            "corrected": {
+              "standard_error": 0.0005777921131346765,
+              "lower": -0.0009215921311072788,
+              "upper": 0.0022868240375620457
+            }
+          }
+        }
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9956043956043955,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_permutation_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9868131868131869,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_impurity_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9648351648351648,
+          "top_k": 5,
+          "baseline_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "lr_standardized_coefficient": {
+          "rank_by_abs": true,
+          "spearman_rank_correlation": 0.9296703296703297,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        }
+      },
+      "target_distribution": {
+        "baseline": {
+          "count": 3446551,
+          "mean": 32.220760345458984,
+          "std": 2.639376401901245,
+          "min": 23.136768341064453,
+          "p1": 27.04914951324463,
+          "p25": 30.378103256225586,
+          "p50": 31.79777717590332,
+          "p75": 33.6953010559082,
+          "p99": 39.216773986816406,
+          "max": 52.8521728515625
+        },
+        "variant": {
+          "count": 3189410,
+          "mean": 32.179325103759766,
+          "std": 2.6277334690093994,
+          "min": 23.136768341064453,
+          "p1": 27.025749702453613,
+          "p25": 30.354822635650635,
+          "p50": 31.766383171081543,
+          "p75": 33.62746047973633,
+          "p99": 39.187552070617684,
+          "max": 52.8521728515625
+        }
+      }
+    },
+    "jrc_occ50_norm": {
+      "baseline_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "variant_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc50norm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "baseline_dataset": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+      "variant_dataset": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc50norm_hanoi_30m.gpkg",
+      "evaluation_cells_digest": "9f8f8a08b3d635e36f3a366abc8433c97e3da2cefcf880e733f62812fc12bfe8",
+      "features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "metrics": [
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "r2",
+          "baseline": 0.763859212398529,
+          "variant": 0.7659057378768921,
+          "difference": 0.002046525478363037
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "rmse",
+          "baseline": 1.2694874917338497,
+          "variant": 1.263974561803501,
+          "difference": -0.005512929930348687
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "mae",
+          "baseline": 0.9538536071777344,
+          "variant": 0.9425695538520813,
+          "difference": -0.011284053325653076
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "r2_mean",
+          "baseline": 0.7655656933784485,
+          "variant": 0.7671790003776551,
+          "difference": 0.0016133069992065874
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "rmse_mean",
+          "baseline": 1.2673861727241857,
+          "variant": 1.262572794502476,
+          "difference": -0.0048133782217096854
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "mae_mean",
+          "baseline": 0.9551532149314881,
+          "variant": 0.9453533291816711,
+          "difference": -0.009799885749816939
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "r2",
+          "baseline": 0.8577728289060936,
+          "variant": 0.856795000601333,
+          "difference": -0.000977828304760675
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "rmse",
+          "baseline": 0.9852222407388259,
+          "variant": 0.9886031981872004,
+          "difference": 0.003380957448374522
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "mae",
+          "baseline": 0.7301016797020222,
+          "variant": 0.730499832895908,
+          "difference": 0.0003981531938858085
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "r2_mean",
+          "baseline": 0.8370554452377142,
+          "variant": 0.8363322820113783,
+          "difference": -0.0007231632263359211
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "rmse_mean",
+          "baseline": 1.0568962429306035,
+          "variant": 1.059177636468123,
+          "difference": 0.0022813935375194383
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "mae_mean",
+          "baseline": 0.7855226590161726,
+          "variant": 0.7852158299898523,
+          "difference": -0.00030682902632028775
+        }
+      ],
+      "spatial_cv_paired": {
+        "test_train_ratio": 0.250000000078125,
+        "metrics": {
+          "linear_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.001613306999206543,
+            "sd_difference": 0.006304745489737935,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.002819567899177845,
+              "lower": -0.0062150684932386095,
+              "upper": 0.009441682491651695
+            },
+            "corrected": {
+              "standard_error": 0.004229351849133899,
+              "lower": -0.010129256240480507,
+              "upper": 0.013355870238893591
+            }
+          },
+          "linear_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.004813378221709641,
+            "sd_difference": 0.016582964168041333,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.007416127029636733,
+              "lower": -0.0254038478126696,
+              "upper": 0.015777091369250318
+            },
+            "corrected": {
+              "standard_error": 0.011124190545420742,
+              "lower": -0.035699082610830636,
+              "upper": 0.026072326167411352
+            }
+          },
+          "linear_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.009799885749816828,
+            "sd_difference": 0.00895524518257496,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.004004907396683024,
+              "lower": -0.02091929128810785,
+              "upper": 0.001319519788474192
+            },
+            "corrected": {
+              "standard_error": 0.00600736109554601,
+              "lower": -0.0264789940587012,
+              "upper": 0.006879222559067543
+            }
+          },
+          "rf_r2": {
+            "n_splits": 5,
+            "mean_difference": -0.0007231632263358545,
+            "sd_difference": 0.0013158073296796642,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0005884469268912411,
+              "lower": -0.002356953816171725,
+              "upper": 0.0009106273635000157
+            },
+            "corrected": {
+              "standard_error": 0.0008826703904134825,
+              "lower": -0.003173849111302393,
+              "upper": 0.001727522658630684
+            }
+          },
+          "rf_rmse": {
+            "n_splits": 5,
+            "mean_difference": 0.002281393537519305,
+            "sd_difference": 0.004119542966607452,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.001842315621913082,
+              "lower": -0.0028336946531706997,
+              "upper": 0.0073964817282093104
+            },
+            "corrected": {
+              "standard_error": 0.002763473433109508,
+              "lower": -0.00539123874918173,
+              "upper": 0.009954025824220341
+            }
+          },
+          "rf_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.00030682902632030997,
+            "sd_difference": 0.0006148665988965012,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0002749767024453348,
+              "lower": -0.0010702867458680897,
+              "upper": 0.00045662869322746983
+            },
+            "corrected": {
+              "standard_error": 0.0004124650537038065,
+              "lower": -0.0014520156057413885,
+              "upper": 0.0008383575531007685
+            }
+          }
+        }
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9912087912087912,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_permutation_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9824175824175824,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_impurity_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9076923076923077,
+          "top_k": 5,
+          "baseline_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "lr_standardized_coefficient": {
+          "rank_by_abs": true,
+          "spearman_rank_correlation": 0.9736263736263736,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        }
+      },
+      "target_distribution": {
+        "baseline": {
+          "count": 3446551,
+          "mean": 32.220760345458984,
+          "std": 2.639376401901245,
+          "min": 23.136768341064453,
+          "p1": 27.04914951324463,
+          "p25": 30.378103256225586,
+          "p50": 31.79777717590332,
+          "p75": 33.6953010559082,
+          "p99": 39.216773986816406,
+          "max": 52.8521728515625
+        },
+        "variant": {
+          "count": 3189410,
+          "mean": 32.179325103759766,
+          "std": 2.6277334690093994,
+          "min": 23.136768341064453,
+          "p1": 27.025749702453613,
+          "p25": 30.354822635650635,
+          "p50": 31.766383171081543,
+          "p75": 33.62746047973633,
+          "p99": 39.187552070617684,
+          "max": 52.8521728515625
+        }
+      }
+    },
+    "jrc_occ25_norm": {
+      "baseline_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "variant_results": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc25norm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+      "baseline_dataset": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+      "variant_dataset": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc25norm_hanoi_30m.gpkg",
+      "evaluation_cells_digest": "9f8f8a08b3d635e36f3a366abc8433c97e3da2cefcf880e733f62812fc12bfe8",
+      "features": [
+        "BUILD_COV",
+        "BUILD_DEN",
+        "BUILD_H_MEAN",
+        "ROAD_DEN",
+        "ELEV_MEAN",
+        "POP_DEN_WORLDPOP2020",
+        "NTL_MEAN",
+        "NDVI",
+        "NDBI",
+        "LULC_WATER_COV",
+        "LULC_TREE_COV",
+        "LULC_BUILT_COV",
+        "LULC_RANGE_COV",
+        "LULC_WETLAND_COV"
+      ],
+      "metrics": [
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "r2",
+          "baseline": 0.763859212398529,
+          "variant": 0.7630978226661682,
+          "difference": -0.0007613897323608398
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "rmse",
+          "baseline": 1.2694874917338497,
+          "variant": 1.271532517794771,
+          "difference": 0.0020450260609212734
+        },
+        {
+          "evaluation": "random_split",
+          "model": "linear_regression",
+          "metric": "mae",
+          "baseline": 0.9538536071777344,
+          "variant": 0.949607789516449,
+          "difference": -0.0042458176612854
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "r2_mean",
+          "baseline": 0.7655656933784485,
+          "variant": 0.7641226053237915,
+          "difference": -0.0014430880546569824
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "rmse_mean",
+          "baseline": 1.2673861727241857,
+          "variant": 1.2710629366972483,
+          "difference": 0.0036767639730626023
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "linear_regression",
+          "metric": "mae_mean",
+          "baseline": 0.9551532149314881,
+          "variant": 0.951791501045227,
+          "difference": -0.003361713886261053
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "r2",
+          "baseline": 0.8577728289060936,
+          "variant": 0.857660270098981,
+          "difference": -0.00011255880711258381
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "rmse",
+          "baseline": 0.9852222407388259,
+          "variant": 0.9856120168529001,
+          "difference": 0.0003897761140742029
+        },
+        {
+          "evaluation": "random_split",
+          "model": "random_forest",
+          "metric": "mae",
+          "baseline": 0.7301016797020222,
+          "variant": 0.7293417649751545,
+          "difference": -0.0007599147268677608
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "r2_mean",
+          "baseline": 0.8370554452377142,
+          "variant": 0.8373668179237501,
+          "difference": 0.0003113726860358712
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "rmse_mean",
+          "baseline": 1.0568962429306035,
+          "variant": 1.055938254975513,
+          "difference": -0.0009579879550905002
+        },
+        {
+          "evaluation": "spatial_cv",
+          "model": "random_forest",
+          "metric": "mae_mean",
+          "baseline": 0.7855226590161726,
+          "variant": 0.7845376145930973,
+          "difference": -0.000985044423075232
+        }
+      ],
+      "spatial_cv_paired": {
+        "test_train_ratio": 0.250000000078125,
+        "metrics": {
+          "linear_r2": {
+            "n_splits": 5,
+            "mean_difference": -0.0014430880546569824,
+            "sd_difference": 0.002715486392480821,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0012144024331125578,
+              "lower": -0.0048148097458126345,
+              "upper": 0.0019286336364986697
+            },
+            "corrected": {
+              "standard_error": 0.0018216036498269622,
+              "lower": -0.0065006705918294865,
+              "upper": 0.0036144944825155217
+            }
+          },
+          "linear_rmse": {
+            "n_splits": 5,
+            "mean_difference": 0.0036767639730626023,
+            "sd_difference": 0.007121989342443541,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.003185050460946557,
+              "lower": -0.005166353789040441,
+              "upper": 0.012519881735165645
+            },
+            "corrected": {
+              "standard_error": 0.004777575691834556,
+              "lower": -0.009587912671243412,
+              "upper": 0.016941440617368617
+            }
+          },
+          "linear_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.003361713886260875,
+            "sd_difference": 0.001268315905248001,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0005672081162157425,
+              "lower": -0.004936536084156534,
+              "upper": -0.0017868916883652158
+            },
+            "corrected": {
+              "standard_error": 0.0008508121743974691,
+              "lower": -0.00572394718330942,
+              "upper": -0.000999480589212331
+            }
+          },
+          "rf_r2": {
+            "n_splits": 5,
+            "mean_difference": 0.0003113726860358712,
+            "sd_difference": 0.001165527656529778,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.000521239813931322,
+              "lower": -0.0011358210439879565,
+              "upper": 0.0017585664160596989
+            },
+            "corrected": {
+              "standard_error": 0.0007818597209648529,
+              "lower": -0.001859417909188307,
+              "upper": 0.0024821632812600494
+            }
+          },
+          "rf_rmse": {
+            "n_splits": 5,
+            "mean_difference": -0.0009579879550905002,
+            "sd_difference": 0.003718147290081822,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0016628060181959167,
+              "lower": -0.005574677585203986,
+              "upper": 0.0036587016750229857
+            },
+            "corrected": {
+              "standard_error": 0.0024942090275103866,
+              "lower": -0.007883022400861861,
+              "upper": 0.0059670464906808615
+            }
+          },
+          "rf_mae": {
+            "n_splits": 5,
+            "mean_difference": -0.000985044423075232,
+            "sd_difference": 0.0010595765185199364,
+            "degrees_of_freedom": 4,
+            "t_quantile": 2.7764451051977934,
+            "confidence": 0.95,
+            "test_train_ratio": 0.250000000078125,
+            "correction_factor": 0.450000000078125,
+            "naive": {
+              "standard_error": 0.0004738570245546285,
+              "lower": -0.002300682439463521,
+              "upper": 0.000330593593313057
+            },
+            "corrected": {
+              "standard_error": 0.000710785536893643,
+              "lower": -0.0029585014478289724,
+              "upper": 0.0009884126016785084
+            }
+          }
+        }
+      },
+      "importance": {
+        "shap_mean_abs": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.9692307692307693,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020",
+            "NDVI"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "rf_permutation_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.8681318681318682,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "NDBI",
+            "ELEV_MEAN",
+            "LULC_BUILT_COV",
+            "NDVI",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": false,
+          "top_same_set": true
+        },
+        "rf_impurity_importance": {
+          "rank_by_abs": false,
+          "spearman_rank_correlation": 0.8593406593406594,
+          "top_k": 5,
+          "baseline_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "variant_top": [
+            "LULC_BUILT_COV",
+            "NDBI",
+            "NDVI",
+            "ELEV_MEAN",
+            "POP_DEN_WORLDPOP2020"
+          ],
+          "top_same_order": true,
+          "top_same_set": true
+        },
+        "lr_standardized_coefficient": {
+          "rank_by_abs": true,
+          "spearman_rank_correlation": 0.9956043956043955,
+          "top_k": 5,
+          "baseline_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "LULC_WATER_COV",
+            "ELEV_MEAN",
+            "NTL_MEAN"
+          ],
+          "variant_top": [
+            "NDBI",
+            "LULC_BUILT_COV",
+            "ELEV_MEAN",
+            "LULC_WATER_COV",
+            "NTL_MEAN"
+          ],
+          "top_same_order": false,
+          "top_same_set": true
+        }
+      },
+      "target_distribution": {
+        "baseline": {
+          "count": 3446551,
+          "mean": 32.220760345458984,
+          "std": 2.639376401901245,
+          "min": 23.136768341064453,
+          "p1": 27.04914951324463,
+          "p25": 30.378103256225586,
+          "p50": 31.79777717590332,
+          "p75": 33.6953010559082,
+          "p99": 39.216773986816406,
+          "max": 52.8521728515625
+        },
+        "variant": {
+          "count": 3189410,
+          "mean": 32.179325103759766,
+          "std": 2.6277334690093994,
+          "min": 23.136768341064453,
+          "p1": 27.025749702453613,
+          "p25": 30.354822635650635,
+          "p50": 31.766383171081543,
+          "p75": 33.62746047973633,
+          "p99": 39.187552070617684,
+          "max": 52.8521728515625
+        }
+      }
+    }
+  },
+  "notes": [
+    "どの水域データも真値ではないため、性能の優劣ではなく結論（順位・符号）の頑健性を見る。",
+    "他の土地被覆 6 列の扱い（据え置き・正規化）は派生データセットによる。据え置きでは水域と他クラス（主に湿地）の二重計上が生じるため、水域と湿地の係数を合わせて読む。",
+    "元の単位の係数は、標準化係数 × LST の標準偏差 ÷ 水域率の標準偏差（学習データ・母標準偏差）で求めた。",
+    "target_distribution は評価セルではなく各データセットの有効母集団の分布で、GLC 版と JRC 版で母数が異なる。"
+  ],
+  "outputs": {
+    "metrics_csv": "data/output/limited/20220906_032358_water_sensitivity/water_sensitivity_comparison_metrics.csv",
+    "importance_csv": "data/output/limited/20220906_032358_water_sensitivity/water_sensitivity_comparison_importance.csv",
+    "folds_csv": "data/output/limited/20220906_032358_water_sensitivity/water_sensitivity_comparison_folds.csv"
+  },
+  "provenance": {
+    "script": "src.analysis.compare_water_sensitivity",
+    "executed_at": "2026-11-25T23:50:17.243548+00:00",
+    "python_version": "3.11.15",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "git": {
+      "commit": "8ec4c0772beb17906fd69907e77d854efc54c98a",
+      "dirty": false
+    },
+    "code": {
+      "watch_paths": [
+        "src/analysis/compare_water_sensitivity.py",
+        "src/common",
+        "src/analysis/urban_params/canonical_grid.py",
+        "src/analysis/lst_emissivity_sensitivity.py",
+        "src/analysis/compare_common_evaluation.py",
+        "src/analysis/compare_water_sources.py"
+      ],
+      "files": [
+        {
+          "path": "src/analysis/compare_common_evaluation.py",
+          "sha256": "e3be383c431efe95480fb90337ae075a5ca2f9582822bdccc7710dd8f772c28e"
+        },
+        {
+          "path": "src/analysis/compare_water_sensitivity.py",
+          "sha256": "1f5c1b1309bff5bfb503e1a63979c5069e105d62c2daae04d8478ce883a86780"
+        },
+        {
+          "path": "src/analysis/compare_water_sources.py",
+          "sha256": "fb3882e8f94d4bb00bc920cf8b0552fb654c776b4e20a16cbbd1426223667b7d"
+        },
+        {
+          "path": "src/analysis/lst_emissivity_sensitivity.py",
+          "sha256": "429f51eb142aab069ce32064f29d0285e7e04c7368ee502c50aaf95f9ea2989e"
+        },
+        {
+          "path": "src/analysis/urban_params/canonical_grid.py",
+          "sha256": "4fef2c2f86ada7e63bed7d7847d2fc6bcb0c582f8f8777a89fbd275ff4ee9b60"
+        },
+        {
+          "path": "src/common/__init__.py",
+          "sha256": "fcafc3f7af68130e9d75ab5f0477e718f8724ef543e0b4665e0e46d0a4001825"
+        },
+        {
+          "path": "src/common/analysis_dataset.py",
+          "sha256": "bdddc9835be12b6dbb4db03eb2cc65ebc2f248068cb87375fa62abbbd1a85806"
+        },
+        {
+          "path": "src/common/analysis_plots.py",
+          "sha256": "4004fa79ad1205aad51931e4a47d149b86a8d225c5cedf03dd85a4b3184513d2"
+        },
+        {
+          "path": "src/common/analysis_runs.py",
+          "sha256": "0630a624dea648b9191bba6c4b4d4860affd1a7858c2b69dfb970a2bd4e70794"
+        },
+        {
+          "path": "src/common/array_lookup.py",
+          "sha256": "b48824767dfad6e1ef909335d4dbeb240e3d5bd007ef404605a0bca5c065033a"
+        },
+        {
+          "path": "src/common/config.py",
+          "sha256": "f0422f3d03c88bb4faeb30843b22fd0006f90dadbd4b7688d873d8601a13a51b"
+        },
+        {
+          "path": "src/common/cv_paired_comparison.py",
+          "sha256": "f89c156fb9ea219fc028c9d20e700a7397bfed55e2a745da76a25be8a3553905"
+        },
+        {
+          "path": "src/common/env_file.py",
+          "sha256": "73b3ab00b46f35d63afbc10fa7f5f8e466ef86130b102a49d7f53af40bb7ab98"
+        },
+        {
+          "path": "src/common/evaluation_cells.py",
+          "sha256": "50ac9aae040566e187ff8b870365d337e1c2092730b53a91cce75c1107e2cdde"
+        },
+        {
+          "path": "src/common/gdal_tools.py",
+          "sha256": "c38f4bbaf5c4e87d8f2c2f236d7428b7a576c09e64058273aac3f5c9d73e7bd4"
+        },
+        {
+          "path": "src/common/gee.py",
+          "sha256": "be928a1058b24d4b0e940c3877d4c5cc1a4d38c8f0283c9d30058b0a8f3b4dd4"
+        },
+        {
+          "path": "src/common/gee_raster.py",
+          "sha256": "19fbae04a1e5ae00a4d3c1d3ef7888063c5d94accf36616a21f0249f04fefc6a"
+        },
+        {
+          "path": "src/common/geo_metadata.py",
+          "sha256": "5a4a21ee1ec05261bb58ba2b18f976ddcf2fbc898c5af2503ae9919d29d981e2"
+        },
+        {
+          "path": "src/common/geopackage.py",
+          "sha256": "ec6ac9c7f3cc82c22616e3520e3d6c51b0acf5cbaad5a16889c7d0446dd4bb5e"
+        },
+        {
+          "path": "src/common/http_fetch.py",
+          "sha256": "8a6b51619d5bb27a4580b1d7f8d879db6ad6bb84e5acd28e6c58d3798291522b"
+        },
+        {
+          "path": "src/common/lulc_classes.py",
+          "sha256": "7fec3eead8dc6d4f79bba843e154a6f00e6c9d44313ae922940def69c8b0ac8c"
+        },
+        {
+          "path": "src/common/model_metrics.py",
+          "sha256": "0df25c384203ef29a9ee28864418d7beba9b742523a929231cfd3367df70e237"
+        },
+        {
+          "path": "src/common/paired_stats.py",
+          "sha256": "b2befef86a1d57aef35fc6ced4f4b97dc10a03792af7fe10221d9ae41ff57cd7"
+        },
+        {
+          "path": "src/common/paths.py",
+          "sha256": "790b3d49ac70bbba8a9842159c18f655d018aed9d5a5182bb88a698991464fd7"
+        },
+        {
+          "path": "src/common/raster_area.py",
+          "sha256": "1e155a11f6f43be2f0b0c5de2938087597acbdfcc96b3a1ef801b978487e6a29"
+        },
+        {
+          "path": "src/common/raster_classes.py",
+          "sha256": "7351e66837ea46d8e1f08d73acd4c416677fbc250462f2a59d68f239cd909b36"
+        },
+        {
+          "path": "src/common/raster_grid.py",
+          "sha256": "abe72e4cb3df72f36466e43b7afa176bb0b15ae7878674a9f9d0de2721f69791"
+        },
+        {
+          "path": "src/common/raster_stats.py",
+          "sha256": "7026e8034df3ccbc597c717478720f27587216a5b4ef73ef38bf9d83b91deb4e"
+        },
+        {
+          "path": "src/common/regression_models.py",
+          "sha256": "d1a33476a29dd44c8759b2ea3b0d355de7207f774e78910da97eb58f6aabef13"
+        },
+        {
+          "path": "src/common/residual_autocorrelation.py",
+          "sha256": "ff381822f6e11cd4db5f176c2b6124089a7bcc0b47bd075d9c231850ce32ac99"
+        },
+        {
+          "path": "src/common/roi.py",
+          "sha256": "69cd9c1fb1fd3550b371e03c0419713e27293e1f37e0a9b0acff94fde4e26dc4"
+        },
+        {
+          "path": "src/common/run_parameters.py",
+          "sha256": "bbe171020c05b2a618a3149408409c4f9d63b1e21cab8db57e2b37f5ce7ad558"
+        },
+        {
+          "path": "src/common/semivariogram.py",
+          "sha256": "5dea1ec80b3eb611b24075ccc5f96236a43947caf1195cb01be2c7b145ce81ea"
+        },
+        {
+          "path": "src/common/shap_report.py",
+          "sha256": "11a80b8a1b027b4b70a3c659051b21e7a7d1388ffc543685f149008eeb2b967f"
+        },
+        {
+          "path": "src/common/spatial_cv.py",
+          "sha256": "9b11787fc5b15449a9895b76f2ece33489ce41eb5ceead9301dc9fad2799debe"
+        },
+        {
+          "path": "src/common/spatial_points.py",
+          "sha256": "ba519494f533202a098bedace04d5ae65f14f1c96d45d4d500f4ef11ca5bf597"
+        },
+        {
+          "path": "src/common/summary.py",
+          "sha256": "a66c3fb970482790bbdac3fda72cdc65cb293b9c4f2ec529a55e19abf2f926a2"
+        }
+      ]
+    },
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.9.0",
+      "shap": "0.48.0",
+      "geopandas": "1.0.1",
+      "rasterio": "1.4.3",
+      "shapely": "2.1.1",
+      "pyproj": "3.7.2",
+      "pyogrio": "0.11.0"
+    },
+    "inputs": [
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_hanoi_30m.gpkg",
+        "sha256": "4c19aab0cc89943ef87d2d267774aa907a6fc30333aab09d67452f6f3092eef7"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358_water_sensitivity/evaluation_cells_seed42.csv",
+        "sha256": "1406c2cace1de7ec6073ccefada6d960f2af9db995f6180a5e9b5a0c7a2079f2"
+      },
+      {
+        "path": "data/output/common_evaluation/20220906_032358_water_sensitivity/evaluation_cells_seed42_results.json",
+        "sha256": "eadee5b86bcd363746377a9d8965710f364e45302cde2e72fd766abe07018e99"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "eea11f22f99d99bb0f0c7b5aa4579c45d326f4fdd1c4b3d1e26e4625bf2dc408"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "0ce501d6722ae15f0c9646bf191518282f8c8f566fa3e6e1e8c24041717c9b52"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "9879af00c216e9e0fc35a29ef125d61e62fa30a7b16ef3b813989502b527b987"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "217864f176d99c06392776a2dd94c168a1328d9a061923e1ab44628f9ff94f34"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthly_hanoi_30m.gpkg",
+        "sha256": "8bb6e97508575a02e0bec6af0e0358fa0f15d1dd4b2a6a4960955557281704ba"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc50_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "26af0d082c138c0a55cdfc6c0d37d18690a3cedc0ba1cfcdf7acb3220dbb8758"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc50_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "1fdf565db947ef372ede6bf726c47c82dc3f364645affd2c4e5eac8ad1975d67"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc50_hanoi_30m.gpkg",
+        "sha256": "ad7f412e108104b73565a86aa78f482739ec2efb98fcb83a8521a21af6203be9"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc25_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "9eb31f86ce658fc1cdab6064bca534ee5c1ae35125af13c8561a09eaf4aedfa3"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc25_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "e96dfe322adeaea13e3a9d07170331fb3e08d9343f5cdb20882a1526787a0b9f"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc25_hanoi_30m.gpkg",
+        "sha256": "eae782e1e661e059710a83677853080924645b08345008f80c3887235435e804"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcmonthlynorm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "bee6faf74723fd4d77b8e4292d825868d571799fcf7bfcf1d751a948cfc3a9d4"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcmonthlynorm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "6f4a47c067585f864213d97b2a048edc2cad44efa8cb25e0759c39e5f0033e2e"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcmonthlynorm_hanoi_30m.gpkg",
+        "sha256": "5004716033fc1fb78f92f29c4a249b0b0bf77267e35aecc8a4468cdfa5ec917c"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc50norm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "ba7be8a0dfab0bedc0e6f48022d6cf8e5ace456d8565baaac1ae5691c53df857"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc50norm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "ef76194ef897e9fd08010a468a0e284780f536deb02bc534b0bface596917284"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc50norm_hanoi_30m.gpkg",
+        "sha256": "599984835c8485ecc0287c0f373ff27d0608531dac976ba9b248462e1eb2f638"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc25norm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_results.json",
+        "sha256": "e94cb265c1adea62984941a298f1b63c007d2d75e8cace6fa8b8277c3bafa0f1"
+      },
+      {
+        "path": "data/output/limited/20220906_032358_water/dataset_limited_20220906_032358_waterjrcocc25norm_hanoi_30m_both_bh_mean_wi_none_evaluation_cells_seed42_spatial_cv_folds.csv",
+        "sha256": "078d8bc04de579b81f19571a27adb8adda3b491854464ddff995668492948275"
+      },
+      {
+        "path": "data/output/datasets/dataset_limited_20220906_032358_waterjrcocc25norm_hanoi_30m.gpkg",
+        "sha256": "4b4fb2374a6fa89a1ab28088857f55e0f20021e63a380d1e4de9ff33d207519c"
+      }
+    ]
+  }
+}

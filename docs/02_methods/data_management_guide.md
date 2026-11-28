@@ -105,7 +105,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
 | 未加工のソースデータ | `data/gis/raw/` | geofabrik PBF |
 | 軽量な設定・テキスト | `data/input/` | 設定 CSV, テキスト |
 | 分析結果・ログ | `data/output/` | 正準グリッド・パラメータテーブル・分析用データセット（GeoPackage）, JSON レポート, ログ |
-| BSHorizon関連データ | `data/BSHorizon/` | 入力CSV, 設定YAML, 出力TXT |
+| BSHorizon関連データ | `data/BSHorizon/` | 入力CSV, 設定YAML（サンプルは `docs/04_archive/code/bs_horizon/config/` に退避）, 出力TXT |
 
 ---
 

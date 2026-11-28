@@ -144,7 +144,7 @@ python -m src.analysis.analyze_spatial_extents
 
 都市構造パラメータは `src/analysis/urban_params/` パッケージで算出する。ここでは動作確認として、軽いパラメータセット（ROI の解析対象域フラグ `mask_roi`）を 300m の 1 スケールだけ算出する。
 
-正準グリッド（`data/output/grid/grid_hanoi.gpkg`）が無い場合は、先に生成する（既定のスケール 30・90・300m をまとめて作る）。既にある場合は、上書きせずエラーで止まるため、この手順は飛ばす。
+正準グリッド（`data/output/grid/grid_hanoi.gpkg`）が無い場合は、先に生成する（既定のスケール 30・90・300m をまとめて作る。30m はセル数が多く、時間がかかる場合がある）。既にある場合は、上書きせずエラーで止まるため、この手順は飛ばす。
 
 ```powershell
 python -m src.analysis.urban_params.canonical_grid --city hanoi

@@ -9,17 +9,16 @@ Geofabrik Vietnam extract から Hanoi ROI の道路ラインを抽出する。
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from src.common.config import PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.gdal_tools import find_gdal_toolset
+from src.common.summary import save_summary
 
 DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "gis" / "raw" / "vietnam-260408.osm.pbf"
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "roads" / "hanoi_osm_roads.gpkg"
 DEFAULT_SUMMARY_PATH = (
     PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads_summary.json"
@@ -46,7 +45,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--roi-path",
         type=Path,
-        default=DEFAULT_ROI_PATH,
+        default=DEFAULT_HANOI_ROI_PATH,
         help="ROI の Shapefile パス。",
     )
     parser.add_argument(
@@ -184,12 +183,6 @@ def build_summary(
         "feature_count": feature_count,
         "file_size_mb": file_size_mb,
     }
-
-
-def save_summary(summary: dict[str, Any], summary_path: Path) -> None:
-    """サマリー JSON を保存する。"""
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def run(

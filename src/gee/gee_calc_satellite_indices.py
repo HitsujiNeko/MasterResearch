@@ -17,7 +17,7 @@
 2. 指標バンドを含むGeoTIFF（Google Driveへ出力）
 
 設計方針:
-- 認証、設定読込、ROI読込、Driveフォルダ命名は gee_calc_LST.py を再利用する
+- 設定読込、ROI読込、Driveフォルダ命名は gee_calc_LST.py を、認証は src/common/gee.py を再利用する
 - LST側の安定実装に依存しつつ、指標算出の責務のみ本ファイルに分離する
 """
 
@@ -38,8 +38,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from src.common.config import PROJECT_ROOT
+from src.common.gee import authenticate_gee
 from src.gee.gee_calc_LST import (
-    authenticate_gee,
     build_drive_export_folder,
     build_export_description,
     load_config,

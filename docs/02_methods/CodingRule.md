@@ -114,7 +114,7 @@ def calculate_mean(values: list[float]) -> float:
 - `logging.basicConfig` などのログの設定（[5.3](#53-ログと標準出力)）
 - ファイルの読み書き・ネットワーク接続・時間のかかる計算
 
-**例外**: `matplotlib.use("Agg")`（画面の無い環境でも描画できるようにする設定）は、コマンドとして実行する描画スクリプトと、テストの `conftest.py` に限り、最上位に書いてよい。`src/common/` など他から import されるモジュールでは設定せず、呼び出し側に任せる。すべての import の後に置き、理由をコメントに書く。`matplotlib.pyplot` を import した後に呼んでも切り替わるため import の前に置く必要は無く、`# noqa: E402`（import がファイルの先頭にない）は付けない。
+**例外**: `matplotlib.use("Agg")`（画面の無い環境でも描画できるようにする設定）は、コマンドとして実行する描画スクリプトと、テストの `conftest.py` に限り、最上位に書いてよい。`src/common/` など他から import されるモジュールでは設定せず、呼び出し側に任せる。コマンドとして実行し、かつ他からも import されるスクリプトは、`main()` の中で設定する。最上位に置くときは、すべての import の後に置き、理由をコメントに書く。`matplotlib.pyplot` を import した後に呼んでも切り替わるため import の前に置く必要は無く、`# noqa: E402`（import がファイルの先頭にない）は付けない。
 
 ### 5.3 ログと標準出力
 

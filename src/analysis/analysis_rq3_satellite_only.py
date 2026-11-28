@@ -15,16 +15,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
+import pandas as pd
 
-from src.common.config import PROJECT_ROOT
-
-matplotlib.use("Agg")
-
-# matplotlib のバックエンド指定後に import するため、E402 を許容する
-import pandas as pd  # noqa: E402
-
-from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402
-from src.common.analysis_dataset import (  # noqa: E402
+from src.analysis.urban_params.canonical_grid import assign_canonical_blocks
+from src.common.analysis_dataset import (
     ANALYSIS_AREA_ROI,
     ANALYSIS_AREAS,
     DEFAULT_REQUIRED_MASK_COLUMNS,
@@ -39,18 +33,19 @@ from src.common.analysis_dataset import (  # noqa: E402
     sample_dataset,
     summarize_filter_dropout,
 )
-from src.common.analysis_plots import (  # noqa: E402
+from src.common.analysis_plots import (
     save_feature_importance_plot,
     save_model_comparison_plot,
     save_spatial_cv_plot,
 )
-from src.common.analysis_runs import (  # noqa: E402
+from src.common.analysis_runs import (
     build_plot_label,
     run_random_split_models,
     run_spatial_cv_models,
     validate_scale_matches_dataset,
 )
-from src.common.evaluation_cells import (  # noqa: E402
+from src.common.config import PROJECT_ROOT
+from src.common.evaluation_cells import (
     build_evaluation_record,
     evaluation_input_paths,
     load_evaluation_set_for_run,
@@ -59,18 +54,18 @@ from src.common.evaluation_cells import (  # noqa: E402
     resolve_evaluation_output_stem,
     select_evaluation_rows,
 )
-from src.common.model_metrics import (  # noqa: E402
+from src.common.model_metrics import (
     EXTRA_PROVENANCE_PACKAGES as MODEL_METRICS_EXTRA_PROVENANCE_PACKAGES,
 )
-from src.common.model_metrics import (  # noqa: E402
+from src.common.model_metrics import (
     compute_vif,
     sanitize_vif_for_json,
 )
-from src.common.paths import to_project_relative_string  # noqa: E402
-from src.common.run_parameters import build_run_parameters_from_args  # noqa: E402
-from src.common.shap_report import compute_shap_outputs  # noqa: E402
-from src.common.spatial_cv import split_by_spatial_blocks  # noqa: E402
-from src.common.summary import (  # noqa: E402
+from src.common.paths import to_project_relative_string
+from src.common.run_parameters import build_run_parameters_from_args
+from src.common.shap_report import compute_shap_outputs
+from src.common.spatial_cv import split_by_spatial_blocks
+from src.common.summary import (
     DEFAULT_PROVENANCE_PACKAGES,
     build_provenance,
     save_summary,
@@ -393,6 +388,8 @@ def main() -> None:
     Returns:
         None
     """
+    # 画面の無い環境でも図を保存できるよう、描画のバックエンドを Agg にする
+    matplotlib.use("Agg")
     args = parse_arguments()
     args.dataset_path = args.dataset_path.resolve()
     args.output_dir = args.output_dir.resolve()

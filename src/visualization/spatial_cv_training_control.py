@@ -20,10 +20,12 @@ import argparse
 from pathlib import Path
 
 import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
 
+# 画面の無い環境でも図を保存できるよう、描画のバックエンドを Agg にする
+# （コマンドとして実行する描画スクリプトなので、最上位で設定してよい）
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import pandas as pd  # noqa: E402
 
 SCENARIOS = ("satellite_only", "limited")
 MODELS = ("linear", "rf")

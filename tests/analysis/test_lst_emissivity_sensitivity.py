@@ -18,6 +18,7 @@ from affine import Affine
 from rasterio.crs import CRS
 
 import src.analysis.lst_emissivity_sensitivity as sensitivity
+from src.common import paired_stats
 
 TRANSFORM = Affine(0.5, 0.0, 100.0, 0.0, -0.5, 20.0)
 
@@ -168,6 +169,25 @@ def test_pearson_on_common_matches_numpy_and_handles_constant() -> None:
     assert sensitivity.pearson_on_common(x, y)["r"] == pytest.approx(expected)
     assert sensitivity.pearson_on_common(x, y)["count"] == 3
     assert sensitivity.pearson_on_common(np.ones(3), np.arange(3.0))["r"] is None
+
+
+@pytest.mark.parametrize(
+    ("x", "y", "expected_count"),
+    [
+        (np.array([np.nan, 1.0]), np.array([2.0, np.nan]), 0),
+        (np.array([0.5, np.nan]), np.array([30.0, 29.0]), 1),
+    ],
+)
+def test_pearson_on_common_returns_none_for_fewer_than_two_pixels(
+    x: np.ndarray, y: np.ndarray, expected_count: int
+) -> None:
+    """共通の有効画素が 0 件・1 件なら、例外を出さずに r を None にする。"""
+    assert sensitivity.pearson_on_common(x, y) == {"r": None, "count": expected_count}
+
+
+def test_pearson_on_common_uses_common_function() -> None:
+    """相関の計算は共通関数に任せる。"""
+    assert sensitivity.build_paired_statistics is paired_stats.build_paired_statistics
 
 
 def test_summarize_by_ndvi_class_assigns_boundaries() -> None:

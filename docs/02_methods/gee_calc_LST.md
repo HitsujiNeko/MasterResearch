@@ -63,10 +63,10 @@ Python 側では [`src/gee/gee_calc_LST.py`](../../src/gee/gee_calc_LST.py) と 
 
 ### 2.2 ROI Shapefile
 
-現行の `main()` は `load_roi_from_shapefile()` を使用し、  
-`TinhThanh == 'Hà Nội'` のジオメトリを抽出する前提で実装されている。  
-一方で、`load_roi_from_shapefile_jp()` もソース内に残っており、こちらは `N03_001 == '大阪府'` を前提としている。  
-別の地域や属性を使う場合は、使用する関数とフィルタ条件の見直しが必要。
+現行の `main()` は `load_roi_from_shapefile()` で ROI を読み込む。  
+この関数は特定の属性列に依存せず、Shapefile 内の地物をすべて使う（複数の地物は 1 つの ROI に統合する）。  
+CRS が EPSG:4326 でない場合は EPSG:4326 へ再投影し、CRS が未定義の場合はエラーにする。  
+特定の行政区画だけを使う場合は、その区画だけを含む Shapefile を用意する。
 
 ---
 

@@ -22,7 +22,6 @@ from src.visualization.xyz_tiles import (
     _decode_tile,
     _load_tile,
     apply_light_tone,
-    count_tiles,
     lonlat_to_mercator,
     mercator_to_lonlat,
     mosaic_extent,
@@ -135,11 +134,6 @@ def test_mosaic_extent_of_whole_world_is_world() -> None:
     assert mosaic_extent((0, 0, 0, 0), 0) == pytest.approx(
         (-ORIGIN_SHIFT, -ORIGIN_SHIFT, ORIGIN_SHIFT, ORIGIN_SHIFT)
     )
-
-
-def test_count_tiles_multiplies_both_sides() -> None:
-    """枚数は縦横の枚数の積になる。"""
-    assert count_tiles((3, 5, 6, 9)) == 4 * 5
 
 
 def test_providers_declare_attribution() -> None:

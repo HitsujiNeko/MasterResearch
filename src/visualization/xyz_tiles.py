@@ -215,19 +215,6 @@ def mosaic_extent(tiles: tuple[int, int, int, int], zoom: int) -> tuple[float, f
     return x_min, y_min, x_max, y_max
 
 
-def count_tiles(tiles: tuple[int, int, int, int]) -> int:
-    """タイル番号の閉区間に含まれるタイル枚数を返す。
-
-    Args:
-        tiles: ``tile_range`` の戻り値。
-
-    Returns:
-        枚数。
-    """
-    x_first, y_first, x_last, y_last = tiles
-    return (x_last - x_first + 1) * (y_last - y_first + 1)
-
-
 def _cache_path(cache_dir: Path, provider: TileProvider, zoom: int, x: int, y: int) -> Path:
     """タイル 1 枚のキャッシュ先パスを組み立てる。"""
     return cache_dir / provider.name / str(zoom) / str(x) / f"{y}.png"

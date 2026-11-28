@@ -29,7 +29,6 @@ from src.common.lulc_classes import (
     COMMON_BUILT,
     COMMON_CROPLAND,
     COMMON_WATER,
-    GLC_TO_COMMON,
 )
 
 ANALYSIS_CRS = CRS.from_epsg(5897)
@@ -83,15 +82,6 @@ class TestLookups:
         """0 以下（全画素が水域）や 100 超の閾値は拒否する。"""
         with pytest.raises(ValueError, match="1〜100"):
             target.build_occurrence_lookup(threshold)
-
-    def test_water_lookup_from_glc_classes(self) -> None:
-        """GLC の 210 だけが水域、他の写像済みクラスは非水域、無効値は 0。"""
-        lookup = target.build_water_lookup_from_classes(GLC_TO_COMMON)
-
-        assert lookup[210] == target.BINARY_WATER
-        assert lookup[190] == target.BINARY_OTHER
-        assert lookup[10] == target.BINARY_OTHER
-        assert lookup[0] == 0
 
 
 class TestBinarize:

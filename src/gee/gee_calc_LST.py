@@ -162,51 +162,6 @@ def load_roi_from_shapefile(shapefile_path: str) -> ee.Geometry:
         raise
 
 
-def load_roi_from_shapefile_jp(shapefile_path: str) -> ee.Geometry:
-    """ShapefileからROIを読み込み、GEE用のGeometryに変換
-    この関数は、再利用性が低いです（特定の形式のShapefileに依存しているため）。
-    大阪府のROIを抽出するように設計されています。
-    国土数値情報ダウンロードサービスの行政区域データを想定。
-
-
-    Args:
-        shapefile_path: Shapefileのパス
-
-    Returns:
-        ee.Geometry.Polygon
-
-    Raises:
-        FileNotFoundError: Shapefileが存在しない場合
-    """
-    shp_path = Path(shapefile_path)
-    if not shp_path.exists():
-        raise FileNotFoundError(f"Shapefileが存在しません: {shapefile_path}")
-
-    try:
-        # Shapefileを読み込み
-        boundary_df = gpd.read_file(shapefile_path)
-
-        # WGS84（EPSG:4326）に変換
-        # （Google Earth Engineは内部的にWGS84（EPSG:4326）の経度・緯度を使用するため）
-        if boundary_df.crs.to_epsg() != 4326:
-            boundary_df = boundary_df.to_crs(epsg=4326)
-            logger.info("ROIをEPSG:4326に再投影しました")
-
-        # 'N03_001'カラムで'大阪府'をフィルタリングし、全てのジオメトリを結合
-        osaka_df = boundary_df[boundary_df["N03_001"] == "大阪府"]
-        if osaka_df.empty:
-            raise ValueError("Shapefileに大阪府のデータが見つかりませんでした")
-        # 全てのジオメトリを結合（MultiPolygonも含めて大阪府全体）
-        osaka_geom = osaka_df.geometry.unary_union
-        # GEE用のGeometryに変換（__geo_interface__を使用）
-        ee_geom = ee.Geometry(osaka_geom.__geo_interface__)
-        logger.info(f"ROIの読み込み完了（大阪府全体, ポリゴン数: {len(osaka_df)}）")
-        return ee_geom
-    except Exception as e:
-        logger.error(f" ROIの読み込みに失敗しました: {e}")
-        raise
-
-
 def cloud_mask(image: ee.Image) -> ee.Image:
     """雲・雲の影・巻雲・雪をマスクする
 

@@ -311,20 +311,6 @@ def build_occurrence_lookup(threshold: int) -> np.ndarray:
     return build_binary_lookup(range(threshold, 101), range(0, threshold))
 
 
-def build_water_lookup_from_classes(mapping: dict[int, int]) -> np.ndarray:
-    """土地被覆の共通クラス写像表から、水域／非水域の引き当て表を作る。
-
-    Args:
-        mapping: 元クラス値 → 共通クラス値（`GLC_TO_COMMON` 等）。
-
-    Returns:
-        引き当て表。
-    """
-    water = [value for value, common in mapping.items() if common == COMMON_WATER]
-    other = [value for value, common in mapping.items() if common != COMMON_WATER]
-    return build_binary_lookup(water, other)
-
-
 def aggregate_binary_water(
     raster_path: Path,
     band_index: int,

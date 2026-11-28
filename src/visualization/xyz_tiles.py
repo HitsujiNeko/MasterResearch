@@ -19,12 +19,14 @@ import logging
 import math
 import time
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
-import requests
 from PIL import Image, ImageOps
+from pyproj import Transformer
 
 from src.common.config import PROJECT_ROOT
+from src.common.http_fetch import fetch_bytes_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +34,20 @@ logger = logging.getLogger(__name__)
 # x, y ともに [-ORIGIN_SHIFT, +ORIGIN_SHIFT] に収まる。
 ORIGIN_SHIFT = 20037508.342789244
 
+# 極付近で発散しないよう緯度を丸める上限（度）。Web メルカトルの正方形の世界範囲の端。
+_MAX_LATITUDE = 85.051129
+
 # タイル取得時の HTTP 設定。User-Agent は配信元が要求するため必ず入れる。
 _USER_AGENT = "MasterResearch-figure/1.0 (academic use; contact via repository)"
-_REQUEST_TIMEOUT_SEC = 20.0
-_MAX_RETRY = 3
-_RETRY_WAIT_SEC = 1.0
+_REQUEST_TIMEOUT_SEC = 20
+# 図を描くための取得なので、接続エラー・レート制限（429）とも短く待って数回で諦める
+# （`fetch_bytes_with_retry` の既定は大量取得向けで、429 では数十分待つことがある）
+_MAX_RETRY = 2
+_RETRY_WAIT_SEC = 1
+_RATE_LIMIT_MAX_RETRY = 2
+_RATE_LIMIT_BASE_WAIT_SEC = 5
+# HTTP 200 でも画像として読めない応答（エラーページ等）を取り直す回数の上限（初回を含む）
+_MAX_DECODE_ATTEMPTS = 3
 
 # 既定のタイルキャッシュ先。data/gis/ は Git 管理外のため成果物を汚さない。
 DEFAULT_CACHE_DIR = PROJECT_ROOT / "data" / "gis" / "raw" / "xyz_tiles"
@@ -87,6 +98,23 @@ PROVIDERS: dict[str, TileProvider] = {
 }
 
 
+@cache
+def _transformer(source_crs: str, target_crs: str) -> Transformer:
+    """座標変換器を作り、以降の呼び出しで使い回す。
+
+    import 時に作らないのは、モジュールの読み込みに副作用（PROJ の初期化）を
+    持たせないため。``always_xy=True`` で、軸の順序を常に (経度, 緯度) とする。
+
+    Args:
+        source_crs: 変換元の CRS（例: ``"EPSG:4326"``）。
+        target_crs: 変換先の CRS（例: ``"EPSG:3857"``）。
+
+    Returns:
+        変換器。
+    """
+    return Transformer.from_crs(source_crs, target_crs, always_xy=True)
+
+
 def lonlat_to_mercator(lon: float, lat: float) -> tuple[float, float]:
     """経緯度（EPSG:4326）を Web メルカトル（EPSG:3857）へ変換する。
 
@@ -97,10 +125,9 @@ def lonlat_to_mercator(lon: float, lat: float) -> tuple[float, float]:
     Returns:
         ``(x, y)`` メートル。
     """
-    lat = max(min(lat, 85.051129), -85.051129)
-    x = math.radians(lon) * ORIGIN_SHIFT / math.pi
-    y = math.log(math.tan(math.pi / 4.0 + math.radians(lat) / 2.0)) * ORIGIN_SHIFT / math.pi
-    return x, y
+    lat = max(min(lat, _MAX_LATITUDE), -_MAX_LATITUDE)
+    x, y = _transformer("EPSG:4326", "EPSG:3857").transform(lon, lat)
+    return float(x), float(y)
 
 
 def mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
@@ -113,9 +140,8 @@ def mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
     Returns:
         ``(lon, lat)`` 度。
     """
-    lon = math.degrees(x * math.pi / ORIGIN_SHIFT)
-    lat = math.degrees(2.0 * math.atan(math.exp(y * math.pi / ORIGIN_SHIFT)) - math.pi / 2.0)
-    return lon, lat
+    lon, lat = _transformer("EPSG:3857", "EPSG:4326").transform(x, y)
+    return float(lon), float(lat)
 
 
 def resolution_at_zoom(zoom: int, tile_size: int) -> float:
@@ -252,7 +278,6 @@ def _decode_tile(content: bytes, provider: TileProvider) -> Image.Image:
 
 
 def _load_tile(
-    session: requests.Session,
     provider: TileProvider,
     zoom: int,
     x: int,
@@ -261,8 +286,11 @@ def _load_tile(
 ) -> Image.Image:
     """タイル 1 枚をキャッシュまたはネットワークから読み込む。
 
+    HTTP の失敗（接続エラー・5xx・429）のリトライは `fetch_bytes_with_retry` に任せる。
+    ここで取り直すのは、HTTP としては成功したのに画像として読めない応答
+    （配信元のエラーページ等）だけである。
+
     Args:
-        session: 接続を使い回す ``requests`` セッション。
         provider: タイル配信元。
         zoom: ズームレベル。
         x: タイル X 番号。
@@ -273,7 +301,8 @@ def _load_tile(
         RGB 変換済みのタイル画像。
 
     Raises:
-        RuntimeError: 規定回数の再試行後も取得できなかったとき。
+        RuntimeError: HTTP の取得がリトライしても成功しないとき、または規定回数
+            取り直しても画像として読める応答が得られなかったとき。
     """
     path = _cache_path(cache_dir, provider, zoom, x, y)
     if path.exists():
@@ -288,19 +317,29 @@ def _load_tile(
 
     url = provider.url_template.format(z=zoom, x=x, y=y)
     last_error: Exception | None = None
-    for attempt in range(_MAX_RETRY):
+    for attempt in range(_MAX_DECODE_ATTEMPTS):
+        if attempt > 0:
+            # エラーページで利用制限を伝える配信元を続けて叩かないよう、間を空ける
+            time.sleep(_RETRY_WAIT_SEC * attempt)
+        content = fetch_bytes_with_retry(
+            url,
+            timeout=_REQUEST_TIMEOUT_SEC,
+            max_retry_count=_MAX_RETRY,
+            retry_wait_seconds=_RETRY_WAIT_SEC,
+            rate_limit_max_retry_count=_RATE_LIMIT_MAX_RETRY,
+            rate_limit_base_wait_seconds=_RATE_LIMIT_BASE_WAIT_SEC,
+            headers={"User-Agent": _USER_AGENT},
+        )
         try:
-            response = session.get(url, timeout=_REQUEST_TIMEOUT_SEC)
-            response.raise_for_status()
-            tile = _decode_tile(response.content, provider)
-        except Exception as error:  # noqa: BLE001 - 再試行のため種類を問わず捕捉する
+            tile = _decode_tile(content, provider)
+        except (OSError, ValueError) as error:
+            # 画像として読めない・画素数が違う（`_decode_tile` の送出する例外）
             last_error = error
-            if attempt < _MAX_RETRY - 1:
-                time.sleep(_RETRY_WAIT_SEC * (attempt + 1))
+            logger.warning("タイルが画像として読めないため取り直します: %s (%s)", url, error)
             continue
         # タイル画像として読めたものだけをキャッシュへ書く（`_decode_tile` 参照）。
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(response.content)
+        path.write_bytes(content)
         return tile
     raise RuntimeError(f"タイルを取得できませんでした: {url}") from last_error
 
@@ -336,15 +375,10 @@ def fetch_mosaic(
         color="white",
     )
 
-    session = requests.Session()
-    session.headers.update({"User-Agent": _USER_AGENT})
-    try:
-        for x in range(x_first, x_last + 1):
-            for y in range(y_first, y_last + 1):
-                tile = _load_tile(session, provider, zoom, x, y, cache_dir)
-                mosaic.paste(tile, ((x - x_first) * size, (y - y_first) * size))
-    finally:
-        session.close()
+    for x in range(x_first, x_last + 1):
+        for y in range(y_first, y_last + 1):
+            tile = _load_tile(provider, zoom, x, y, cache_dir)
+            mosaic.paste(tile, ((x - x_first) * size, (y - y_first) * size))
 
     return mosaic, mosaic_extent(tiles, zoom)
 

@@ -1,8 +1,8 @@
 """xyz_tiles.py（タイル座標計算・淡色化）のテスト。
 
 ネットワークを伴う ``fetch_mosaic`` は対象外とし、座標計算と画像加工の純関数を
-検証する。``_load_tile`` は ``requests.Session`` を模した代役を渡すことで
-ネットワークなしに動かせるため、キャッシュの読み書きのみ検証する。
+検証する。``_load_tile`` は HTTP 取得（``fetch_bytes_with_retry``）を差し替えて
+ネットワークなしに動かし、キャッシュの読み書きと画像の取り直しを検証する。
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from src.common import http_fetch
 from src.visualization import xyz_tiles
 from src.visualization.xyz_tiles import (
     ORIGIN_SHIFT,
@@ -197,36 +198,44 @@ def _png_bytes(size: tuple[int, int], color: str = "red") -> bytes:
     return buffer.getvalue()
 
 
-class _FakeResponse:
-    """``requests.Response`` のうち ``_load_tile`` が使う部分だけを模す。"""
+class _FakeFetch:
+    """``fetch_bytes_with_retry`` の代役。
 
-    def __init__(self, content: bytes) -> None:
-        self.content = content
-
-    def raise_for_status(self) -> None:
-        """常に成功扱いにする（HTTP 200 でも中身が壊れている場合を試すため）。"""
-
-
-class _FakeSession:
-    """``requests.Session`` のうち ``_load_tile`` が使う部分だけを模す。
-
-    ``contents`` を 1 回の ``get`` につき 1 つずつ返す。数が足りない場合は
-    最後の要素を返し続ける（再試行の回数を数えられるようにするため）。
+    ``contents`` を 1 回の呼び出しにつき 1 つずつ返す。数が足りない場合は
+    最後の要素を返し続ける（取り直しの回数を数えられるようにするため）。
+    要素が例外の場合は送出する。
     """
 
-    def __init__(self, *contents: bytes) -> None:
+    def __init__(self, *contents: bytes | Exception) -> None:
         self._contents = list(contents)
         self.call_count = 0
+        self.headers: list[dict[str, str] | None] = []
+        self.sleeps: list[float] = []
 
-    def get(self, url: str, timeout: float) -> _FakeResponse:
+    def __call__(self, url: str, **kwargs: object) -> bytes:
         self.call_count += 1
-        return _FakeResponse(self._contents[min(self.call_count - 1, len(self._contents) - 1)])
+        self.headers.append(kwargs.get("headers"))  # type: ignore[arg-type]
+        content = self._contents[min(self.call_count - 1, len(self._contents) - 1)]
+        if isinstance(content, Exception):
+            raise content
+        return content
 
 
-@pytest.fixture()
-def no_retry_wait(monkeypatch: pytest.MonkeyPatch) -> None:
-    """再試行の待ち時間を無くし、テストを待たせない。"""
-    monkeypatch.setattr(xyz_tiles.time, "sleep", lambda _seconds: None)
+def _install_fetch(monkeypatch: pytest.MonkeyPatch, *contents: bytes | Exception) -> _FakeFetch:
+    """``xyz_tiles`` が呼ぶ HTTP 取得を代役に差し替え、取り直しの待機を記録だけにする。"""
+    fake = _FakeFetch(*contents)
+    monkeypatch.setattr(xyz_tiles, "fetch_bytes_with_retry", fake)
+    monkeypatch.setattr(xyz_tiles.time, "sleep", fake.sleeps.append)
+    return fake
+
+
+@pytest.mark.parametrize("name", sorted(PROVIDERS))
+def test_providers_use_https(name: str) -> None:
+    """配信元の URL は https に限る。
+
+    User-Agent を付けて取得するため、共通の取得関数の規則で http は拒否される。
+    """
+    assert PROVIDERS[name].url_template.startswith("https://")
 
 
 def test_decode_tile_returns_rgb_image() -> None:
@@ -249,51 +258,79 @@ def test_decode_tile_rejects_unexpected_size() -> None:
         _decode_tile(_png_bytes((128, 128)), DUMMY_PROVIDER)
 
 
-def test_load_tile_caches_valid_response(tmp_path: Path) -> None:
-    """正しく取得できたタイルはキャッシュへ書かれ、次回は取りに行かない。"""
-    session = _FakeSession(_png_bytes((256, 256)))
+def test_load_tile_uses_common_retrying_fetch() -> None:
+    """HTTP 取得は共通のリトライ付き取得を使う。"""
+    assert xyz_tiles.fetch_bytes_with_retry is http_fetch.fetch_bytes_with_retry
 
-    first = _load_tile(session, DUMMY_PROVIDER, 10, 3, 4, tmp_path)
-    second = _load_tile(session, DUMMY_PROVIDER, 10, 3, 4, tmp_path)
+
+def test_load_tile_caches_valid_response(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """正しく取得できたタイルはキャッシュへ書かれ、次回は取りに行かない。"""
+    fetch = _install_fetch(monkeypatch, _png_bytes((256, 256)))
+
+    first = _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
+    second = _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
 
     assert first.size == second.size == (256, 256)
-    assert session.call_count == 1
+    assert fetch.call_count == 1
     assert _cache_path(tmp_path, DUMMY_PROVIDER, 10, 3, 4).exists()
+    # 配信元が要求する User-Agent を付けて取りに行く
+    assert fetch.headers[0] is not None
+    assert fetch.headers[0]["User-Agent"].startswith("MasterResearch-figure/")
 
 
-def test_load_tile_does_not_cache_invalid_response(tmp_path: Path, no_retry_wait: None) -> None:
+def test_load_tile_does_not_cache_invalid_response(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """画像として読めない応答はキャッシュへ残さない。
 
     残すと次回以降はキャッシュ読み込みへ入り、再試行の対象にならないまま
     失敗し続ける（キャッシュを手で消すまで復旧しない）。
     """
-    session = _FakeSession(b"<html><body>Rate limit exceeded</body></html>")
+    fetch = _install_fetch(monkeypatch, b"<html><body>Rate limit exceeded</body></html>")
 
     with pytest.raises(RuntimeError, match="タイルを取得できませんでした"):
-        _load_tile(session, DUMMY_PROVIDER, 10, 3, 4, tmp_path)
+        _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
 
+    assert fetch.call_count == xyz_tiles._MAX_DECODE_ATTEMPTS
     assert not _cache_path(tmp_path, DUMMY_PROVIDER, 10, 3, 4).exists()
 
 
-def test_load_tile_refetches_broken_cache(tmp_path: Path) -> None:
+def test_load_tile_does_not_repeat_failed_http_fetch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HTTP の失敗は共通の取得側でリトライ済みのため、重ねて取り直さない。"""
+    fetch = _install_fetch(monkeypatch, RuntimeError("リクエストが2回失敗しました"))
+
+    with pytest.raises(RuntimeError, match="2回失敗しました"):
+        _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
+
+    assert fetch.call_count == 1
+    assert not _cache_path(tmp_path, DUMMY_PROVIDER, 10, 3, 4).exists()
+
+
+def test_load_tile_refetches_broken_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """壊れたキャッシュが残っていても、取得し直して上書きする。"""
     path = _cache_path(tmp_path, DUMMY_PROVIDER, 10, 3, 4)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"<html><body>Rate limit exceeded</body></html>")
-    session = _FakeSession(_png_bytes((256, 256)))
+    fetch = _install_fetch(monkeypatch, _png_bytes((256, 256)))
 
-    image = _load_tile(session, DUMMY_PROVIDER, 10, 3, 4, tmp_path)
+    image = _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
 
     assert image.size == (256, 256)
-    assert session.call_count == 1
+    assert fetch.call_count == 1
     assert _decode_tile(path.read_bytes(), DUMMY_PROVIDER).size == (256, 256)
 
 
-def test_load_tile_retries_until_valid_response(tmp_path: Path, no_retry_wait: None) -> None:
+def test_load_tile_retries_until_valid_response(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """1 回目が壊れていても、再試行で取得できればその画像を返す。"""
-    session = _FakeSession(b"not an image", _png_bytes((256, 256)))
+    fetch = _install_fetch(monkeypatch, b"not an image", _png_bytes((256, 256)))
 
-    image = _load_tile(session, DUMMY_PROVIDER, 10, 3, 4, tmp_path)
+    image = _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
 
     assert image.size == (256, 256)
-    assert session.call_count == 2
+    assert fetch.call_count == 2
+    # 取り直しの前に間を空ける（エラーページを返す配信元を続けて叩かない）
+    assert fetch.sleeps == [xyz_tiles._RETRY_WAIT_SEC]

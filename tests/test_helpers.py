@@ -1,15 +1,12 @@
 """tests/helpers.py（テスト全体で共有するヘルパー）のテスト。
 
-ほかのテストの前提になる補助関数のうち、取り違えると気づきにくいもの（import 時の
-副作用の閉じ込め・スクリプトの読み込み・テスト用ラスタの書き出し）を確かめる。
+ほかのテストの前提になる補助関数のうち、取り違えると気づきにくいもの（スクリプトの
+読み込み・テスト用ラスタの書き出し）を確かめる。
 """
 
 from __future__ import annotations
 
-import logging
-import os
 import sys
-import warnings
 from pathlib import Path
 
 import numpy as np
@@ -18,59 +15,9 @@ import rasterio
 from rasterio.transform import from_origin
 
 from tests.helpers import (
-    import_with_contained_side_effects,
     load_script_module,
     write_test_raster,
 )
-
-# import 時に副作用を起こすモジュール（対象の古いスクリプトと同じ形）
-_SIDE_EFFECT_MODULE = """
-import logging
-import warnings
-from pathlib import Path
-
-Path("data/output").mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[logging.FileHandler("data/output/side_effect.log", encoding="utf-8")],
-)
-warnings.filterwarnings("ignore")
-VALUE = 42
-"""
-
-
-class TestImportWithContainedSideEffects:
-    """import_with_contained_side_effects のテスト。"""
-
-    def test_contains_directory_logging_and_warning_side_effects(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """import 時の作成・ログ設定・警告フィルタを元に戻し、作成物は work_dir に閉じ込める。"""
-        module_dir = tmp_path / "modules"
-        module_dir.mkdir()
-        (module_dir / "side_effect_module.py").write_text(_SIDE_EFFECT_MODULE, encoding="utf-8")
-        monkeypatch.syspath_prepend(str(module_dir))
-        monkeypatch.delitem(sys.modules, "side_effect_module", raising=False)
-        # pytest が付けるハンドラを外し、basicConfig が実際にハンドラを付ける状態にする
-        root_logger = logging.getLogger()
-        monkeypatch.setattr(root_logger, "handlers", [])
-        work_dir = tmp_path / "work"
-        work_dir.mkdir()
-        cwd_before = Path.cwd()
-        filters_before = list(warnings.filters)
-        level_before = root_logger.level
-
-        module = import_with_contained_side_effects("side_effect_module", work_dir)
-
-        assert module.VALUE == 42
-        assert (work_dir / "data" / "output" / "side_effect.log").is_file()
-        assert Path.cwd() == cwd_before
-        assert root_logger.handlers == []
-        assert root_logger.level == level_before
-        assert warnings.filters == filters_before
-        # ハンドラが閉じられていれば、ログファイルを消せる（Windows では開いたままだと消せない）
-        os.remove(work_dir / "data" / "output" / "side_effect.log")
-        sys.modules.pop("side_effect_module", None)
 
 
 class TestLoadScriptModule:

@@ -18,20 +18,12 @@ from pathlib import Path
 from typing import Set
 
 from src.common.gdal_tools import find_gdal_toolset
+from src.common.log_setup import configure_logging
 
-# ログ出力先ディレクトリを作成（存在しない場合にFileHandlerがエラーになるのを防ぐ）
-Path("data/output").mkdir(parents=True, exist_ok=True)
-
-# ログ設定
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("data/output/append_remaining.log", encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
 logger = logging.getLogger(__name__)
+
+# ログを書き出すファイル（作業ディレクトリ基準）
+LOG_FILE_PATH = Path("data/output/append_remaining.log")
 
 # 問題ファイルのデフォルトスキップリスト
 DEFAULT_SKIP_FILES = [
@@ -219,6 +211,7 @@ def append_remaining_files(
 
 def main():
     """メイン処理"""
+    configure_logging(log_file=LOG_FILE_PATH)
     parser = argparse.ArgumentParser(description="既存GPKGに残りのDGNファイルを追加")
     parser.add_argument(
         "suffix", choices=["CS", "DC", "DH", "GT", "RG", "TH", "TV"], help="データ種類（例: DC）"

@@ -18,35 +18,17 @@ from __future__ import annotations
 
 import argparse
 import csv
-import os
 from pathlib import Path
+
+import fiona
 
 from src.common.config import PROJECT_ROOT
 from src.common.paths import prepare_output_path, resolve_existing_path
 
-CONDA_ROOT = PROJECT_ROOT / ".conda"
 DEFAULT_INPUT_PATH = PROJECT_ROOT / "整備データ" / "merge" / "merge_DH.gpkg"
 DEFAULT_OUTPUT_PATH = (
     PROJECT_ROOT / "data" / "output" / "survey_translated" / "merge_DH_elevation_points.csv"
 )
-
-
-def configure_gdal_environment() -> None:
-    """ローカル Conda 環境がある場合に GDAL 関連の環境変数を設定する。"""
-    gdal_data_path = CONDA_ROOT / "Library" / "share" / "gdal"
-    proj_data_path = CONDA_ROOT / "Library" / "share" / "proj"
-
-    if "GDAL_DATA" not in os.environ and gdal_data_path.exists():
-        os.environ["GDAL_DATA"] = str(gdal_data_path)
-
-    if "PROJ_LIB" not in os.environ and proj_data_path.exists():
-        os.environ["PROJ_LIB"] = str(proj_data_path)
-
-
-configure_gdal_environment()
-
-# GDAL関連の環境変数設定後にimportする必要があるため、E402を許容する
-import fiona  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

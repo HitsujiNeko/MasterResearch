@@ -29,12 +29,15 @@ def test_primary_band_is_first_and_a_saturation_target() -> None:
 
 
 def test_saturation_targets_are_radiance_bands_only() -> None:
-    """飽和評価の対象は放射輝度の単位を持つバンドに限られ、観測回数は対象外になる。"""
+    """飽和評価の対象は放射輝度の合成バンドに限られ、観測回数・標準偏差は対象外になる。"""
     for band in product.BAND_DEFINITIONS:
         if band.is_saturation_target:
             assert band.unit == product.RADIANCE_UNIT
-    count_band = next(b for b in product.BAND_DEFINITIONS if b.output_name == "near_nadir_num")
-    assert count_band.is_saturation_target is False
+    excluded = {"near_nadir_num", "near_nadir_std"}
+    for band in product.BAND_DEFINITIONS:
+        if band.output_name in excluded:
+            assert band.is_saturation_target is False
+    assert excluded <= {band.output_name for band in product.BAND_DEFINITIONS}
 
 
 def test_product_constants() -> None:

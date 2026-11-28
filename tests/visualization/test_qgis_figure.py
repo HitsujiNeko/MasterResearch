@@ -278,8 +278,8 @@ class TestFilterPalettedToPresent:
     def test_explicit_nodata_overrides_band_nodata(
         self, target: types.ModuleType, tmp_path: Path
     ) -> None:
-        """引数の nodata を指定すると、バンドの NoData の代わりにその値を凡例から除く。"""
-        layer = self._make_layer(tmp_path, np.array([[1, 2], [2, 0]], dtype=np.uint8), nodata=None)
+        """引数の nodata を指定すると、バンドの NoData（0）の代わりにその値（2）を凡例から除く。"""
+        layer = self._make_layer(tmp_path, np.array([[1, 2], [2, 0]], dtype=np.uint8), nodata=0.0)
 
         kept = target.filter_paletted_to_present(layer, nodata=2)
 

@@ -147,7 +147,7 @@ class TestFindExecutable:
 
 
 def test_build_pandoc_command_wires_all_inputs(tmp_path: Path) -> None:
-    """pandoc のコマンドに、入力・crossref・メタデータ・雛形・目次・資源パス・文献を順に渡す。"""
+    """pandoc のコマンドに、入力・crossref・メタデータ・雛形・目次・資源パス・文献を渡す。"""
     inputs = [tmp_path / "a.md", tmp_path / "b.md"]
     command = target.build_pandoc_command(
         "pandoc",

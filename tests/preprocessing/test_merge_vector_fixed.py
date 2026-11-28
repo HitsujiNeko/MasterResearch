@@ -277,7 +277,6 @@ class TestMergeToGeopackage:
         assert stats["status"] == "success"
         assert (stats["total_files"], stats["processed_files"], stats["failed_files"]) == (3, 3, 0)
         assert stats["output_file"] == "merge_DC.gpkg"
-        # 既存の GPKG は消してから作り直す
         assert (tmp_path / "merge_DC.gpkg").read_bytes() == b"gpkg"
 
     def test_append_failures_give_partial_success(

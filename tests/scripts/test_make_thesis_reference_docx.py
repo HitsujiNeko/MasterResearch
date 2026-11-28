@@ -76,12 +76,14 @@ class TestReplaceOrAppendStyle:
     )
 
     def test_replaces_existing_style(self) -> None:
+        """同じ styleId のスタイルがあれば、新しい定義で置き換える。"""
         new = '<w:style w:type="paragraph" w:styleId="A"><w:name w:val="new" /></w:style>'
         result = target.replace_or_append_style(self.STYLES, "A", new)
         assert result.count('w:styleId="A"') == 1
         assert '<w:name w:val="new" />' in result
 
     def test_appends_missing_style(self) -> None:
+        """同じ styleId のスタイルが無ければ、末尾に追加する。"""
         new = '<w:style w:type="paragraph" w:styleId="B"><w:name w:val="b" /></w:style>'
         result = target.replace_or_append_style(self.STYLES, "B", new)
         assert result.endswith(new + "</w:styles>")
@@ -96,6 +98,7 @@ class TestReplaceOrAppendStyle:
         assert result.endswith(new + "</w:styles>")
 
     def test_rejects_duplicate_style_id(self) -> None:
+        """元の styles.xml に同じ styleId が重複していれば例外にする。"""
         styles = self.STYLES.replace("</w:styles>", self.STYLES[len("<w:styles>") :])
         with pytest.raises(ValueError, match="重複"):
             target.replace_or_append_style(styles, "A", "<w:style />")
@@ -105,10 +108,12 @@ class TestBuildParts:
     """styles.xml・document.xml・関係ファイルの変換のテスト。"""
 
     def test_build_styles_xml_requires_doc_defaults(self) -> None:
+        """docDefaults の無い styles.xml は例外にする。"""
         with pytest.raises(ValueError, match="docDefaults"):
             target.build_styles_xml("<w:styles></w:styles>")
 
     def test_build_document_xml_replaces_last_sect_pr(self) -> None:
+        """本文末尾の sectPr だけを置き換え、段落内の sectPr は残す。"""
         document = (
             "<w:body><w:p><w:pPr><w:sectPr><w:pgSz /></w:sectPr></w:pPr></w:p>"
             '<w:sectPr><w:pgSz w:w="1" /></w:sectPr></w:body>'
@@ -118,22 +123,26 @@ class TestBuildParts:
         assert result.endswith(target.SECTION_PROPERTIES + "</w:body>")
 
     def test_build_document_xml_requires_sect_pr(self) -> None:
+        """sectPr の無い document.xml は例外にする。"""
         with pytest.raises(ValueError, match="sectPr"):
             target.build_document_xml("<w:body></w:body>")
 
     def test_footer_relationship_is_idempotent(self) -> None:
+        """フッターの関連付けは、繰り返し加えても 1 つだけになる。"""
         rels = "<Relationships></Relationships>"
         once = target.add_footer_relationship(rels)
         assert target.add_footer_relationship(once) == once
         assert once.count(target.FOOTER_REL_ID) == 1
 
     def test_footer_content_type_is_idempotent(self) -> None:
+        """フッターのコンテンツ型は、繰り返し加えても 1 つだけになる。"""
         types = "<Types></Types>"
         once = target.add_footer_content_type(types)
         assert target.add_footer_content_type(once) == once
         assert once.count("/word/footer1.xml") == 1
 
     def test_write_docx_is_deterministic(self, tmp_path: Path) -> None:
+        """同じ内容からは、毎回同じバイト列の docx を書き出す。"""
         parts = {"a.xml": b"<a />", "b/c.xml": b"<c />"}
         first, second = tmp_path / "1.docx", tmp_path / "2.docx"
         target.write_docx(parts, first)
@@ -174,6 +183,7 @@ class TestCommittedTemplate:
     """追跡している reference.docx が卒業論文の書式値を満たすことのテスト。"""
 
     def test_page_size_margins_and_grid(self) -> None:
+        """コミット済みの雛形が A4・規定の余白・行グリッドを持つ。"""
         document = _read_part(TEMPLATE_PATH, "word/document.xml")
         # A4 縦
         assert '<w:pgSz w:w="11906" w:h="16838"' in document
@@ -183,6 +193,7 @@ class TestCommittedTemplate:
         assert '<w:docGrid w:type="lines" w:linePitch="360" />' in document
 
     def test_body_font_is_mincho_and_times_10_5pt(self) -> None:
+        """本文の既定フォントが MS 明朝・Times New Roman の 10.5pt になっている。"""
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         defaults = re.search(r"<w:docDefaults>.*?</w:docDefaults>", styles, re.S).group(0)
         assert 'w:eastAsia="ＭＳ 明朝"' in defaults
@@ -192,11 +203,13 @@ class TestCommittedTemplate:
         assert "<w:rFonts" not in _style(styles, "BodyText")
 
     def test_body_paragraph_layout(self) -> None:
+        """本文の段落が行間 1.5 行・字下げ 1 字になっている。"""
         body = _style(_read_part(TEMPLATE_PATH, "word/styles.xml"), "BodyText")
         assert 'w:line="360" w:lineRule="auto"' in body  # 行間 1.5 行
         assert 'w:firstLineChars="100"' in body  # 字下げ 1 字
 
     def test_headings_are_gothic_and_chapter_breaks_page(self) -> None:
+        """見出し 1〜3 が MS ゴシックの 10.5pt で、章見出し（見出し 1）だけが前で改ページする。"""
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         for level in (1, 2, 3):
             heading = _style(styles, f"Heading{level}")
@@ -213,6 +226,7 @@ class TestCommittedTemplate:
             assert 'w:beforeLines="100"' in heading, f"Heading{level}"
 
     def test_captions_and_table(self) -> None:
+        """図表の見出しがゴシックで、表の見出しが表と同じページに残り、表は游ゴシックになっている。"""
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         assert 'w:eastAsia="ＭＳ ゴシック"' in _style(styles, "Caption")
         # 表題は表の上に出るため、表と同じページに置く
@@ -265,12 +279,14 @@ class TestCommittedTemplate:
             assert f'<w:name w:val="{name}" />' in styles
 
     def test_cover_sizes(self) -> None:
+        """表紙の題目・副題・氏名・日付が規定の文字サイズになっている。"""
         styles = _read_part(TEMPLATE_PATH, "word/styles.xml")
         assert '<w:sz w:val="48" />' in _style(styles, "Title")
         for style_id in ("Subtitle", "Author", "Date"):
             assert '<w:sz w:val="36" />' in _style(styles, style_id)
 
     def test_footer_page_number_is_wired(self) -> None:
+        """フッターにページ番号があり、本文から関連付けられている。"""
         assert "PAGE" in _read_part(TEMPLATE_PATH, "word/footer1.xml")
         document = _read_part(TEMPLATE_PATH, "word/document.xml")
         rels = _read_part(TEMPLATE_PATH, "word/_rels/document.xml.rels")
@@ -307,6 +323,7 @@ def test_main_returns_2_when_default_template_is_unexpected(
 
 
 def test_main_returns_2_when_pandoc_missing(tmp_path: Path) -> None:
+    """pandoc が見つからなければ終了コード 2 を返し、出力を作らない。"""
     output = tmp_path / "reference.docx"
     assert target.main(["--pandoc", str(tmp_path / "no_pandoc"), "--output", str(output)]) == 2
     assert not output.exists()

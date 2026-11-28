@@ -21,6 +21,7 @@ from src.literature import openalex, paper_watch
 # ---------------------------------------------------------------------------
 def test_core_search_terms_are_shared_vocabulary() -> None:
     # 中核語はすべて openalex の KEYWORD_WEIGHTS に定義されている（語彙のドリフト防止）
+    """検索語はすべて採点用のキーワード表にも含まれる（語彙を共有している）。"""
     for term in paper_watch.CORE_SEARCH_TERMS:
         assert term in openalex.KEYWORD_WEIGHTS
 
@@ -29,11 +30,13 @@ def test_core_search_terms_are_shared_vocabulary() -> None:
 # 日付・検索式
 # ---------------------------------------------------------------------------
 def test_default_from_date_subtracts_days() -> None:
+    """既定の開始日は、今日から指定日数をさかのぼった日付になる。"""
     today = dt.date(2026, 7, 22)
     assert paper_watch.default_from_date(7, today) == "2026-07-15"
 
 
 def test_build_search_filter_includes_date_and_core_terms() -> None:
+    """検索フィルタに開始日と、検索語を OR でつないだ全文検索の条件が入る。"""
     filter_value = paper_watch.build_search_filter("2026-07-15")
     assert filter_value.startswith("from_publication_date:2026-07-15,")
     assert "title_and_abstract.search:" in filter_value
@@ -69,6 +72,7 @@ def test_fetch_recent_paginates_with_page_number(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 満杯のページが続く間は page=1,2,... で送り、件数が1ページ未満のページで終わる
+    """ページが満杯なら、ページ番号を進めて続きを取得する。"""
     pages = [_full_page(0), {"results": [_work("W_last")]}]
     calls: list[str] = []
 
@@ -91,6 +95,8 @@ def test_fetch_recent_paginates_with_page_number(
 
 
 def test_fetch_recent_respects_max_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    """取得件数が上限を超えないよう打ち切る。"""
+
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
         return {
             "results": [_work("W1"), _work("W2"), _work("W3")],
@@ -106,6 +112,7 @@ def test_fetch_recent_keeps_partial_results_when_later_page_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 1ページ目成功・2ページ目失敗（None）でも、取得済みの1ページ目結果を破棄しない
+    """2 ページ目以降の取得に失敗しても、それまでの結果を成功扱いで返す。"""
     pages: list[dict[str, Any] | None] = [
         _full_page(0),
         None,  # 2ページ目で取得失敗
@@ -125,6 +132,7 @@ def test_fetch_recent_stops_on_empty_results_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # results が空のページで打ち切り、次のページを要求しない
+    """空のページが返ったら取得を終える。"""
     calls: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any] | None:
@@ -142,6 +150,7 @@ def test_fetch_recent_stops_on_empty_results_page(
 def test_fetch_recent_reports_failure_when_first_page_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """最初のページの取得に失敗したら空の結果と失敗を返す。"""
     monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: None)
     works, ok = paper_watch.fetch_recent("2026-07-15", None, 5, max_results=100)
     assert works == []
@@ -152,6 +161,7 @@ def test_fetch_recent_reports_failure_when_first_page_fails(
 # 候補集約（突合・重複排除・スコア降順）
 # ---------------------------------------------------------------------------
 def test_collect_candidates_excludes_registered_and_dedupes() -> None:
+    """登録済みの文献（DOI・タイトル一致）を除き、同じ DOI の重複をまとめる。"""
     works = [
         _work("W1", doi="https://doi.org/10.1000/known", title="Known LST Paper"),
         _work("W2", doi="https://doi.org/10.1000/new1", title="Urban Heat Island in Hanoi"),
@@ -170,6 +180,7 @@ def test_collect_candidates_excludes_registered_and_dedupes() -> None:
 
 
 def test_collect_candidates_sorts_by_score_desc() -> None:
+    """候補を得点の高い順に並べる。"""
     works = [
         _work("W1", doi="https://doi.org/10.1000/aaa", title="Thermal note"),  # 低スコア
         _work(
@@ -201,6 +212,7 @@ def csv_path(tmp_path: Path) -> Path:
 
 
 def test_watch_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> None:
+    """開始日で検索し、登録済みを除いた新しい文献だけを候補として返す。"""
     known = _work("W1", doi="https://doi.org/10.1000/known", title="Known LST Paper")
     fresh = _work("W2", doi="https://doi.org/10.1000/fresh", title="New Urban Heat Island Study")
 
@@ -226,6 +238,7 @@ def test_watch_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
 def test_watch_returns_not_ok_on_fetch_failure(
     monkeypatch: pytest.MonkeyPatch, csv_path: Path
 ) -> None:
+    """取得に失敗したら、候補なしで失敗を返す。"""
     monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: None)
     candidates, from_date, ok = paper_watch.watch(
         csv_path=csv_path,
@@ -244,6 +257,7 @@ def test_watch_returns_not_ok_on_fetch_failure(
 # テーブル整形
 # ---------------------------------------------------------------------------
 def test_format_watch_table_escapes_pipes_and_limits_rows() -> None:
+    """Markdown の表で | をエスケープし、上位の件数だけを一致キーワードを並べて出す。"""
     cands = [
         openalex.Candidate(
             openalex_id="W1",
@@ -269,6 +283,7 @@ def test_format_watch_table_escapes_pipes_and_limits_rows() -> None:
 
 
 def test_write_watch_candidates_csv_omits_scout_only_columns(tmp_path: Path) -> None:
+    """新着監視の候補 CSV には、引用探索でしか使わない列を出さない。"""
     cand = openalex.Candidate(
         openalex_id="W1",
         title="LST Study",
@@ -291,6 +306,7 @@ def test_write_watch_candidates_csv_omits_scout_only_columns(tmp_path: Path) -> 
 
 
 def test_write_watch_candidates_csv_sanitizes_formula_cells(tmp_path: Path) -> None:
+    """候補 CSV の数式になりうる値を無害化する。"""
     cand = openalex.Candidate(
         openalex_id="W1",
         title="=1+2 injection",
@@ -314,6 +330,7 @@ def test_write_watch_candidates_csv_sanitizes_formula_cells(tmp_path: Path) -> N
 def test_main_prints_skip_message_on_failure(
     monkeypatch: pytest.MonkeyPatch, csv_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """取得に失敗しても main は終了コード 0 で、スキップした旨を標準エラーに出す。"""
     monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: None)
     exit_code = paper_watch.main(["--csv", str(csv_path)])
     assert exit_code == 0
@@ -327,6 +344,7 @@ def test_main_writes_csv_and_table(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """main が候補 CSV と Markdown の表を書き出す。"""
     fresh = _work(
         "W2", doi="https://doi.org/10.1000/fresh", title="New Land Surface Temperature Study"
     )

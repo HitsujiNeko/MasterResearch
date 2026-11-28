@@ -79,6 +79,7 @@ class TestCollectChapterFiles:
     """章・節ファイルの収集と結合順のテスト。"""
 
     def test_orders_by_relative_path_parts(self, tmp_path: Path) -> None:
+        """章のファイルを、ディレクトリとファイル名の番号順に並べる。"""
         files = [
             _touch(tmp_path / "02_data" / "00_chapter.md"),
             _touch(tmp_path / "01_intro" / "05_structure.md"),
@@ -89,16 +90,19 @@ class TestCollectChapterFiles:
         assert result == [files[2], files[1], files[0], files[3]]
 
     def test_ignores_non_markdown(self, tmp_path: Path) -> None:
+        """md 以外のファイルは章として集めない。"""
         md = _touch(tmp_path / "01_intro" / "00_chapter.md")
         _touch(tmp_path / "01_intro" / "memo.txt")
         _touch(tmp_path / "01_intro" / ".gitkeep")
         assert target.collect_chapter_files(tmp_path) == [md]
 
     def test_missing_directory_raises(self, tmp_path: Path) -> None:
+        """章のディレクトリが無ければ例外にする。"""
         with pytest.raises(FileNotFoundError, match="ディレクトリ"):
             target.collect_chapter_files(tmp_path / "none")
 
     def test_empty_directory_raises(self, tmp_path: Path) -> None:
+        """md ファイルが 1 つも無ければ例外にする。"""
         with pytest.raises(FileNotFoundError, match="md ファイル"):
             target.collect_chapter_files(tmp_path)
 
@@ -114,6 +118,7 @@ class TestFindExecutable:
     """実行ファイル探索のテスト。"""
 
     def test_explicit_missing_path_raises(self, tmp_path: Path) -> None:
+        """明示したパスにツールが無ければ例外にする。"""
         with pytest.raises(FileNotFoundError, match="tool"):
             target.find_executable("tool", str(tmp_path / "no_tool"))
 
@@ -134,6 +139,7 @@ class TestFindExecutable:
     def test_not_found_message_mentions_environment(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """ツールが見つからないときの案内に environment.yml を挙げる。"""
         monkeypatch.setenv("PATH", str(tmp_path))
         monkeypatch.setattr(target.sys, "prefix", str(tmp_path))
         with pytest.raises(FileNotFoundError, match="environment.yml"):
@@ -141,6 +147,7 @@ class TestFindExecutable:
 
 
 def test_build_pandoc_command_wires_all_inputs(tmp_path: Path) -> None:
+    """pandoc のコマンドに、入力・crossref・メタデータ・雛形・目次・資源パス・文献を順に渡す。"""
     inputs = [tmp_path / "a.md", tmp_path / "b.md"]
     command = target.build_pandoc_command(
         "pandoc",
@@ -408,6 +415,7 @@ class TestExtraBibliography:
 
 
 def test_export_pdf_rejects_non_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Word による PDF 出力は Windows 以外では例外にする。"""
     monkeypatch.setattr(target.sys, "platform", "linux")
     with pytest.raises(RuntimeError, match="Windows"):
         target.export_pdf_with_word(tmp_path / "a.docx", tmp_path / "a.pdf")
@@ -419,6 +427,8 @@ class TestMain:
     def test_returns_2_when_tool_missing(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
+        """ツールが見つからなければ終了コード 2 を返し、理由を標準エラーに出す。"""
+
         def missing(name: str, explicit: str | None = None) -> str:
             raise FileNotFoundError(f"{name} が見つかりません")
 
@@ -432,6 +442,8 @@ class TestMain:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
+        """pandoc が失敗したら終了コード 2 を返し、pandoc のエラー出力を見せる。"""
+
         def failing_build(*args: object, **kwargs: object) -> str:
             raise subprocess.CalledProcessError(64, ["pandoc"], stderr="YAML parse exception")
 
@@ -499,6 +511,8 @@ class TestMain:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
+        """Word による PDF 出力が時間切れになったら終了コード 2 を返す。"""
+
         def hanging_word(docx: Path, pdf: Path) -> None:
             raise subprocess.TimeoutExpired(["powershell"], target.WORD_TIMEOUT_SECONDS)
 

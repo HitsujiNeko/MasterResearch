@@ -16,6 +16,7 @@ from src.literature import openalex, paper_scout
 
 
 def test_short_openalex_id() -> None:
+    """OpenAlex の URL 形式の ID から末尾の W 番号を取り出し、None は None のまま返す。"""
     assert paper_scout.short_openalex_id("https://openalex.org/W123") == "W123"
     assert paper_scout.short_openalex_id("https://openalex.org/W456/") == "W456"
     assert paper_scout.short_openalex_id(None) is None
@@ -41,6 +42,7 @@ def csv_path(tmp_path: Path) -> Path:
 
 
 def test_read_starting_papers_all(csv_path: Path) -> None:
+    """S 番号を指定しなければ、登録済みの全文献を起点として DOI とともに読む。"""
     papers = paper_scout.read_starting_papers(csv_path, None)
     assert [p[0] for p in papers] == ["S1", "S2", "S3"]
     assert papers[0][2] == "10.3390/rs13214256"
@@ -48,6 +50,7 @@ def test_read_starting_papers_all(csv_path: Path) -> None:
 
 
 def test_read_starting_papers_filtered(csv_path: Path) -> None:
+    """指定した S 番号（大文字小文字を問わない）の文献だけを起点として読む。"""
     papers = paper_scout.read_starting_papers(csv_path, ["S1", "s3"])
     assert [p[0] for p in papers] == ["S1", "S3"]
 
@@ -72,6 +75,7 @@ def _work(
 
 
 def test_add_candidate_excludes_registered_doi() -> None:
+    """DOI が登録済みの文献は候補に加えない。"""
     candidates: dict[str, paper_scout.Candidate] = {}
     work = _work("W1", doi="https://doi.org/10.3390/rs13214256", title="Registered")
     paper_scout.add_candidate(candidates, work, "S1", "前方", {"10.3390/rs13214256"}, set())
@@ -79,6 +83,7 @@ def test_add_candidate_excludes_registered_doi() -> None:
 
 
 def test_add_candidate_excludes_registered_title() -> None:
+    """タイトルが登録済みの文献は候補に加えない。"""
     candidates: dict[str, paper_scout.Candidate] = {}
     work = _work("W2", doi=None, title="Already Registered Paper")
     paper_scout.add_candidate(candidates, work, "S1", "前方", set(), {"already registered paper"})
@@ -86,6 +91,7 @@ def test_add_candidate_excludes_registered_title() -> None:
 
 
 def test_add_candidate_merges_via_and_directions() -> None:
+    """同じ文献が複数の起点・方向から見つかったら、1 件にまとめて経由と方向を併記する。"""
     candidates: dict[str, paper_scout.Candidate] = {}
     work = _work("W3", doi="https://doi.org/10.1000/new", title="New Urban Heat Island Study")
     paper_scout.add_candidate(candidates, work, "S1", "前方", set(), set())
@@ -102,6 +108,7 @@ def test_add_candidate_merges_via_and_directions() -> None:
 # ---------------------------------------------------------------------------
 def test_scout_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> None:
     # 起点 S1(DOI) を解決 → 前方1件・後方1件、うち後方は既登録(S3タイトル)で除外
+    """起点を解決して前方・後方引用を集め、登録済みを除いた候補を返す。"""
     start_work = {
         "id": "https://openalex.org/W100",
         "doi": "https://doi.org/10.3390/rs13214256",
@@ -143,6 +150,7 @@ def test_scout_end_to_end(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> No
 
 def test_scout_records_unresolved_start(monkeypatch: pytest.MonkeyPatch, csv_path: Path) -> None:
     # 常に空 → 起点解決失敗を skipped に記録する
+    """起点を解決できなかった S 番号を、候補なしとともに記録する。"""
     monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: {"results": []})
     candidates, skipped = paper_scout.scout(
         csv_path=csv_path,
@@ -160,6 +168,7 @@ def test_scout_records_unresolved_start(monkeypatch: pytest.MonkeyPatch, csv_pat
 # 起点解決
 # ---------------------------------------------------------------------------
 def test_title_similarity() -> None:
+    """タイトルの類似度は同一なら 1.0、空なら 0.0、別の論文なら低い値になる。"""
     assert paper_scout.title_similarity("Urban Heat Island Study", "Urban Heat Island Study") == 1.0
     assert paper_scout.title_similarity("Urban Heat Island", "") == 0.0
     # 無関係なタイトルは低い類似度
@@ -174,6 +183,7 @@ def test_title_similarity() -> None:
 
 def test_resolve_start_work_adopts_similar_title(monkeypatch: pytest.MonkeyPatch) -> None:
     # DOI なし・完全一致なしでも、類似度が閾値以上なら採用する
+    """タイトル検索の結果が起点のタイトルと十分に似ていれば起点として採る。"""
     similar = _work("W9", doi=None, title="Urban Heat Island in Hanoi Vietnam 2021")
     monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: {"results": [similar]})
     work = paper_scout.resolve_start_work(
@@ -186,6 +196,7 @@ def test_resolve_start_work_rejects_dissimilar_title(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 最上位候補が無関係なら採用せず None（起点スキップ）
+    """タイトル検索の結果が起点のタイトルと似ていなければ採らない。"""
     unrelated = _work("W8", doi=None, title="Internet of Things revolutionary review")
     monkeypatch.setattr(openalex, "safe_fetch", lambda url, timeout: {"results": [unrelated]})
     work = paper_scout.resolve_start_work(
@@ -198,6 +209,7 @@ def test_resolve_start_work_requests_referenced_works(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 起点 work の取得 URL には後方引用用の referenced_works が含まれること
+    """起点を取得する URL に、後方引用に使う referenced_works を含める。"""
     captured: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:
@@ -214,6 +226,7 @@ def test_resolve_start_work_encodes_special_chars(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # タイトルの & や # がクエリを壊さないよう URL エンコードされる
+    """タイトル検索の & や # を URL エンコードしてクエリを壊さない。"""
     captured: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:
@@ -231,6 +244,7 @@ def test_fetch_backward_uses_documented_filter_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 後方引用取得の URL は文書化された filter=ids.openalex を使う
+    """後方引用の取得に、文書化された filter=ids.openalex を使う。"""
     captured: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:
@@ -248,6 +262,7 @@ def test_fetch_forward_pages_with_page_number_up_to_max_forward(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # cursor ではなく page=1,2,... で送り、max_forward 件まで取得する（満杯のページが続く場合）
+    """前方引用をページ番号で送りながら、上限件数まで取得する。"""
     captured: list[str] = []
 
     def fake_safe_fetch(url: str, timeout: int) -> dict[str, Any]:

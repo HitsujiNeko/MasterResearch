@@ -18,6 +18,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
+from src.common import http_fetch
 from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_glc_fcs30d_hanoi as target
 from tests.helpers import HANOI_ROI_BOUNDS
@@ -358,14 +359,21 @@ class TestHttpRangeReader:
             start, end = (int(part) for part in range_header.removeprefix("bytes=").split("-"))
             return FakeHttpResponse(range_status, headers, self.CONTENT[start : end + 1])
 
+        # HEAD は本体、Range GET は http_fetch が urllib.request.urlopen を呼ぶ。
+        # どちらも同じ urllib.request モジュールの属性を参照するため、1 か所の差し替えで足りる
         monkeypatch.setattr(target.urllib.request, "urlopen", fake_urlopen)
-        monkeypatch.setattr(target.time, "sleep", lambda seconds: None)
+        monkeypatch.setattr(http_fetch.time, "sleep", lambda seconds: None)
         return counters
 
     def test_rejects_non_http_scheme(self) -> None:
         """http/https 以外のURLスキームは ValueError になる。"""
         with pytest.raises(ValueError, match="URL スキーム"):
             target.HttpRangeReader("file:///etc/passwd")
+
+    def test_rejects_plain_http(self) -> None:
+        """http は HEAD を送る前に弾く（Range 取得は https に限られるため）。"""
+        with pytest.raises(ValueError, match="https のみ"):
+            target.HttpRangeReader("http://example.invalid/a.zip")
 
     def test_raises_when_content_length_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Content-Length が得られない場合は RuntimeError になる。"""
@@ -448,16 +456,19 @@ class TestHttpRangeReader:
             "https://example.invalid/a.zip", max_retry_count=2, retry_wait_seconds=0
         )
 
-        with pytest.raises(RuntimeError, match="リトライ"):
+        with pytest.raises(RuntimeError, match=r"範囲 0-9.*2回失敗しました"):
             reader.read(10)
+        assert reader.tell() == 0
 
     def test_raises_when_response_is_not_partial(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """206 以外の応答はリトライせず即座に失敗する。"""
-        self._install_fake_urlopen(monkeypatch, range_status=200)
+        counters = self._install_fake_urlopen(monkeypatch, range_status=200)
         reader = target.HttpRangeReader("https://example.invalid/a.zip", retry_wait_seconds=0)
 
-        with pytest.raises(RuntimeError, match="Range リクエストに対応していません"):
+        with pytest.raises(RuntimeError, match="status=200"):
             reader.read(10)
+        assert counters["get"] == 1
+        assert reader.tell() == 0
 
 
 class TestClipBandToRoi:

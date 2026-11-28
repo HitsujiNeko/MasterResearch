@@ -11,11 +11,7 @@ Microsoft データ欠落域（105.29–105.47°E）でのカバレッジ確認�
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,6 +23,7 @@ from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
+from src.common.http_fetch import fetch_json_with_retry
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
 
@@ -46,14 +43,6 @@ DEFAULT_TILE_SIZE_DEG = 0.1  # タイル 1 辺のサイズ（度）。0.1° ≈ 
 DEFAULT_MAX_COUNT = 50000  # タイルあたりの最大取得件数（超過時に警告を出す）
 DEFAULT_LAYER_NAME = "buildings"
 REQUEST_TIMEOUT_SECONDS = 120
-MAX_RETRY_COUNT = 3
-RETRY_WAIT_SECONDS = 10
-
-# HTTP 429（レート制限）専用のリトライ設定。
-# このサーバーは Express 製のレート制限ミドルウェアを持ち Retry-After を返さないため、
-# 指数バックオフで長めに待機する（60秒 → 120秒 → … 最大 16 分、計 6 回）。
-RATE_LIMIT_MAX_RETRY_COUNT = 6
-RATE_LIMIT_BASE_WAIT_SECONDS = 60
 
 # Microsoft データで建物欠落が確認されている経度範囲
 MICROSOFT_MISSING_WEST = 105.29
@@ -231,11 +220,9 @@ def build_wfs_url(
 def fetch_wfs_page(url: str, timeout: int) -> tuple[list[dict[str, Any]], int]:
     """WFS から 1 ページ分の地物を取得する。
 
-    通常のエラー（接続エラー・429 以外の HTTP エラー）は MAX_RETRY_COUNT 回まで
-    RETRY_WAIT_SECONDS 秒間隔でリトライする。
-    HTTP 429（レート制限）はサーバーが Retry-After を返さないため、
-    RATE_LIMIT_BASE_WAIT_SECONDS 秒を起点とした指数バックオフで
-    RATE_LIMIT_MAX_RETRY_COUNT 回までリトライする（通常リトライとは別枠）。
+    リトライは `fetch_json_with_retry` の既定に従う。このサーバーは HTTP 429
+    （レート制限）で Retry-After を返さないが、既定の 429 の扱い（指数バックオフで
+    長めに待つ）がそれに合っているため、回数・待機秒数は指定しない。
 
     Args:
         url (str): WFS GetFeature リクエスト URL。
@@ -249,62 +236,10 @@ def fetch_wfs_page(url: str, timeout: int) -> tuple[list[dict[str, Any]], int]:
     Raises:
         RuntimeError: リトライ上限を超えてもエラーが解消しない場合。
     """
-    last_error: Exception | None = None
-    generic_attempt = 0
-    rate_limit_attempt = 0
-
-    while True:
-        try:
-            with urllib.request.urlopen(url, timeout=timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
-            features = data.get("features") or []
-            number_matched = int(data.get("numberMatched", -1))
-            return features, number_matched
-        except urllib.error.HTTPError as exc:
-            last_error = exc
-
-            if exc.code == 429:
-                rate_limit_attempt += 1
-                if rate_limit_attempt > RATE_LIMIT_MAX_RETRY_COUNT:
-                    raise RuntimeError(
-                        f"WFS レート制限（429）が {RATE_LIMIT_MAX_RETRY_COUNT} 回"
-                        f"解消しませんでした: {exc}"
-                    ) from exc
-                wait_seconds = RATE_LIMIT_BASE_WAIT_SECONDS * (2 ** (rate_limit_attempt - 1))
-                logger.warning(
-                    "WFS レート制限 429（リトライ %d/%d）。%d 秒待機します…",
-                    rate_limit_attempt,
-                    RATE_LIMIT_MAX_RETRY_COUNT,
-                    wait_seconds,
-                )
-                time.sleep(wait_seconds)
-                continue
-
-            generic_attempt += 1
-            logger.warning(
-                "WFS HTTP エラー %d（試行 %d/%d）: %s",
-                exc.code,
-                generic_attempt,
-                MAX_RETRY_COUNT,
-                url[:120],
-            )
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            last_error = exc
-            generic_attempt += 1
-            logger.warning(
-                "WFS 接続エラー（試行 %d/%d）: %s",
-                generic_attempt,
-                MAX_RETRY_COUNT,
-                exc,
-            )
-
-        if generic_attempt >= MAX_RETRY_COUNT:
-            raise RuntimeError(
-                f"WFS リクエストが {MAX_RETRY_COUNT} 回失敗しました: {last_error}"
-            ) from last_error
-
-        logger.info("%d 秒後にリトライします…", RETRY_WAIT_SECONDS)
-        time.sleep(RETRY_WAIT_SECONDS)
+    data = fetch_json_with_retry(url, timeout=timeout)
+    features = data.get("features") or []
+    number_matched = int(data.get("numberMatched", -1))
+    return features, number_matched
 
 
 def _clip_to_roi(geom: Any, roi_union: Any) -> Any | None:

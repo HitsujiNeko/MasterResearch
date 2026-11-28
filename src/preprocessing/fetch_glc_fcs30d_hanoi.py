@@ -26,8 +26,6 @@ from __future__ import annotations
 import argparse
 import io
 import logging
-import time
-import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
@@ -46,7 +44,7 @@ from src.common.config import (
     PROJECT_ROOT,
     WGS84_CRS,
 )
-from src.common.http_fetch import fetch_json_with_retry
+from src.common.http_fetch import fetch_bytes_with_retry, fetch_json_with_retry
 from src.common.paths import to_project_relative_string
 from src.common.raster_classes import build_class_distribution
 from src.common.roi import load_roi_geometry
@@ -205,12 +203,14 @@ class HttpRangeReader(io.RawIOBase):
             retry_wait_seconds (int): リトライ待機秒数の起点。
 
         Raises:
-            ValueError: url が http/https 以外のスキームの場合。
+            ValueError: url が https 以外のスキームの場合。Range 取得はヘッダーを
+                付けるため、`fetch_bytes_with_retry` の規則で https に限られる。
+                読み取りの段階で初めて失敗しないよう、ここで先に弾く。
             RuntimeError: Content-Length を取得できない場合、または
                 サーバーが Range リクエストに対応していない場合。
         """
-        if not url.startswith(("http://", "https://")):
-            raise ValueError(f"許可されていない URL スキームです: {url}")
+        if not url.startswith("https://"):
+            raise ValueError(f"許可されていない URL スキームです（https のみ）: {url}")
 
         self.url = url
         self.timeout = timeout
@@ -288,43 +288,24 @@ class HttpRangeReader(io.RawIOBase):
             return b""
 
         end_position = min(self._position + size, self.size) - 1
-        request = urllib.request.Request(
-            self.url,
-            headers={"Range": f"bytes={self._position}-{end_position}"},
-        )
-
-        last_error: Exception | None = None
-        for attempt in range(1, self.max_retry_count + 2):
-            try:
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    if response.status != 206:
-                        raise RuntimeError(
-                            "サーバーが Range リクエストに対応していません"
-                            f"（status={response.status}）: {self.url}"
-                        )
-                    data = response.read()
-            except (urllib.error.URLError, TimeoutError, OSError) as error:
-                last_error = error
-                if attempt > self.max_retry_count:
-                    break
-                logger.warning(
-                    "Range 取得に失敗しました（試行 %d/%d、範囲 %d-%d）: %s",
-                    attempt,
-                    self.max_retry_count,
-                    self._position,
-                    end_position,
-                    error,
-                )
-                time.sleep(self.retry_wait_seconds)
-                continue
-
-            self.request_count += 1
-            self._position += len(data)
-            return data
-
-        raise RuntimeError(
-            f"Range 取得が{self.max_retry_count}回リトライしても失敗しました: {last_error}"
-        ) from last_error
+        # 部分応答（206）以外は Range を無視した応答のため、本文を読まずに失敗させる
+        try:
+            data = fetch_bytes_with_retry(
+                self.url,
+                timeout=self.timeout,
+                max_retry_count=self.max_retry_count,
+                retry_wait_seconds=self.retry_wait_seconds,
+                headers={"Range": f"bytes={self._position}-{end_position}"},
+                expected_status=206,
+            )
+        except RuntimeError as error:
+            # どの範囲で止まったかを残す（再開・原因の切り分けの手がかりにする）
+            raise RuntimeError(
+                f"Range 取得に失敗しました（範囲 {self._position}-{end_position}）: {error}"
+            ) from error
+        self.request_count += 1
+        self._position += len(data)
+        return data
 
     def readall(self) -> bytes:
         """現在位置から末尾まで読み取る。"""

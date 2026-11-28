@@ -22,7 +22,7 @@ from rasterio.crs import CRS
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
-from src.common import config, gee, roi, summary
+from src.common import config, gee, http_fetch, roi, summary
 from src.gee import download_open_dem as target
 from tests.helpers import write_test_raster
 
@@ -141,6 +141,22 @@ class TestCommonModuleUsage:
         assert target.load_gee_project_id is gee.load_gee_project_id
         assert target.load_roi_geometry is roi.load_roi_geometry
         assert target.save_summary is summary.save_summary
+        assert target.fetch_bytes_with_retry is http_fetch.fetch_bytes_with_retry
+
+    def test_download_http_content_uses_retrying_fetch(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ダウンロード URL の取得を、タイムアウトを付けて共通のリトライ付き取得へ渡す。"""
+        calls: list[tuple[str, int]] = []
+
+        def fake_fetch(url: str, timeout: int) -> bytes:
+            calls.append((url, timeout))
+            return b"zip-bytes"
+
+        monkeypatch.setattr(target, "fetch_bytes_with_retry", fake_fetch)
+
+        assert target.download_http_content("https://example.invalid/dl") == b"zip-bytes"
+        assert calls == [("https://example.invalid/dl", target.REQUEST_TIMEOUT_SECONDS)]
 
     def test_default_roi_path_is_common(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ROI の既定パスに共通設定の値を使う。"""

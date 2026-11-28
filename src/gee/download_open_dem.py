@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import io
-import json
 import tempfile
 import zipfile
 from dataclasses import asdict, dataclass
@@ -33,18 +32,19 @@ from typing import Any
 import ee
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio
 import requests
 from rasterio.enums import Resampling
 from rasterio.mask import mask
 from rasterio.warp import calculate_default_transform, reproject
 
-from src.common.config import PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.paths import to_project_relative_string
+from src.common.roi import load_roi_geometry
+from src.common.summary import save_summary
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "gis" / "dem"
 REQUEST_TIMEOUT_SECONDS = 300
 CLIP_NODATA = -9999.0
@@ -177,7 +177,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--roi-path",
         type=Path,
-        default=DEFAULT_ROI_PATH,
+        default=DEFAULT_HANOI_ROI_PATH,
         help="ROIのShapefileパス。",
     )
     parser.add_argument(
@@ -258,46 +258,6 @@ def ensure_output_paths(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
-
-
-def load_gee_project_id(config_path: Path, explicit_project_id: str) -> str:
-    """GEEプロジェクトIDを取得する。"""
-    if explicit_project_id.strip():
-        return explicit_project_id.strip()
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"GEE設定CSVが見つかりません: {config_path}")
-
-    config_df = pd.read_csv(config_path)
-    if config_df.empty:
-        raise ValueError(f"GEE設定CSVが空です: {config_path}")
-
-    project_id = str(config_df.iloc[0].get("gee_project_id", "")).strip()
-    if not project_id or project_id == "YOUR_GCP_PROJECT_ID":
-        raise ValueError(
-            "GEEプロジェクトIDが取得できませんでした。"
-            "--gee-project-id を指定するか設定CSVを確認してください。"
-        )
-    return project_id
-
-
-def initialize_gee(project_id: str) -> None:
-    """Google Earth Engine を初期化する。"""
-    ee.Initialize(project=project_id)
-
-
-def load_roi_geodataframe(roi_path: Path) -> gpd.GeoDataFrame:
-    """ROIのShapefileを読み込み、WGS84へ正規化する。"""
-    if not roi_path.exists():
-        raise FileNotFoundError(f"ROIファイルが見つかりません: {roi_path}")
-
-    roi_gdf = gpd.read_file(roi_path)
-    if roi_gdf.empty:
-        raise ValueError(f"ROIファイルに地物がありません: {roi_path}")
-    if roi_gdf.crs is None:
-        raise ValueError(f"ROIファイルのCRSが未定義です: {roi_path}")
-
-    return roi_gdf.to_crs(epsg=4326)
 
 
 def build_roi_geometry(roi_gdf: gpd.GeoDataFrame) -> tuple[ee.Geometry, dict[str, Any]]:
@@ -489,14 +449,6 @@ def build_metadata(
     }
 
 
-def write_metadata(metadata: dict[str, Any], metadata_path: Path) -> None:
-    """メタデータJSONを書き込む。"""
-    metadata_path.write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
 def run(
     dataset_key: str,
     roi_path: Path,
@@ -521,7 +473,9 @@ def run(
         overwrite=overwrite,
     )
 
-    roi_gdf = load_roi_geodataframe(roi_path)
+    # GEE へ送るジオメトリは build_roi_geometry で GeoDataFrame から作るため、
+    # 共通版が返す統合ジオメトリは使わない
+    roi_gdf, _ = load_roi_geometry(roi_path)
     resolved_scale_m = scale_m or dataset_config.default_scale_m
     source_details: dict[str, Any] | None = None
 
@@ -529,7 +483,7 @@ def run(
         project_id = load_gee_project_id(
             config_path=config_path, explicit_project_id=gee_project_id
         )
-        initialize_gee(project_id=project_id)
+        authenticate_gee(project_id)
         roi_geometry, roi_geojson = build_roi_geometry(roi_gdf)
         dem_image = get_dem_image(dataset_config)
         download_url = build_gee_download_url(
@@ -561,7 +515,7 @@ def run(
         raster_summary=raster_summary,
         source_details=source_details,
     )
-    write_metadata(metadata=metadata, metadata_path=resolved_metadata_path)
+    save_summary(metadata, resolved_metadata_path)
     return resolved_output_path, resolved_metadata_path
 
 

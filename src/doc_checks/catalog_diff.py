@@ -23,9 +23,12 @@ _LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 # カタログ掲載有無の差分検出対象外とするパス（docs/README.md 本文の既存方針に対応）
 # 04_archive/04_pdfs/ は論文PDF原本の配置先で、Git 管理外かつカタログ非掲載とする方針。
+# 04_archive/code/ は退避したコード（文書ではない）の置き場で、カタログにはフォルダ単位の
+# 案内だけを載せ、個々のファイルは載せない方針。
 _EXCLUDED_PREFIXES = (
     "01_planning/gis_data/",
     "04_archive/04_pdfs/",
+    "04_archive/code/",
 )
 
 

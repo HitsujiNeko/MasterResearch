@@ -1,6 +1,6 @@
 # データ管理ガイド（2層運用: Git + Google Drive）
 
-**最終更新**: 2026-11-26  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**: [analysis_workflow.md](analysis_workflow.md), [CodingRule.md](CodingRule.md), [../README.md](../README.md)  
 **前提知識**: RQ1-RQ3の理解
 
@@ -126,7 +126,7 @@ Claude Code には Google Drive へのアクセス機能が組み込みで利用
   - `data/output/spatial_cv_design/*/sweep/*_residuals.csv`（Spatial CV 診断の残差の部分標本CSV）
   - `data/output/urban_params/*.csv`（都市構造パラメータCSV）
 - ファイルベースの除外
-  - `data/BSHorizon/input/merge_DH_elevation_points.csv`（正本 `data/output/survey_translated/merge_DH_elevation_points.csv` から `prepare_bs_horizon_input.py` で再生成可能なため）
+  - `data/BSHorizon/input/merge_DH_elevation_points.csv`（正本 `data/output/survey_translated/merge_DH_elevation_points.csv` から `prepare_bs_horizon_input.py`（`docs/04_archive/code/bs_horizon/` に退避）で再生成可能なため）
 - サンプル共有用フォルダは例外で追跡許可
   - `!data/samples/`
   - `!data/samples/**`
@@ -173,7 +173,7 @@ git commit -m "Stop tracking generated outputs"
 正本から派生する入力ファイル（例: `data/BSHorizon/input/merge_DH_elevation_points.csv`）を
 追跡解除する場合は、`git rm --cached` に加えて再生成用スクリプトを用意し、
 下流パイプラインが要求する形式（ヘッダー有無・改行コード等）を維持したまま
-いつでも再生成できることを確認してから解除する（例: `prepare_bs_horizon_input.py`）。
+いつでも再生成できることを確認してから解除する（例: `docs/04_archive/code/bs_horizon/prepare_bs_horizon_input.py`）。
 
 ### 7.4 データインベントリの自動生成
 

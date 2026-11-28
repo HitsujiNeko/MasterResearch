@@ -1,7 +1,10 @@
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["*.md"]
+# 退避したコード（docs/04_archive/code/）は参照用に保管するもので、規約の対象外とする。
+extend-exclude = ["*.md", "docs/04_archive/code"]
+# pre-commit は変更したファイル名を直接渡すため、明示的に渡されたファイルにも除外を効かせる。
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

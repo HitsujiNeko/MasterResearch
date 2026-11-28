@@ -1,6 +1,6 @@
 # gee_calc_LST.py 仕様（Landsat 8 / 9 LST）
 
-**最終更新**: 2026-11-13  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**:  
 
 - 処理結果レポート → [calc_LST_report.md](calc_LST_report.md)  

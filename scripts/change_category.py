@@ -58,7 +58,6 @@ RULES: tuple[tuple[str, str, str], ...] = (
     ("R", "src/module/*", "処理モジュール"),
     ("R", "src/visualization/*", "可視化コード"),
     ("R", "src/js/*", "JavaScript コード"),
-    ("R", "src/fortran/*", "Fortran コード"),
     ("R", "data/input/*", "git 管理下の入力データ"),
     ("R", "data/output/*", "git 管理下の出力データ"),
     ("R", "images/*", "図"),

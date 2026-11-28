@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-11-03  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 

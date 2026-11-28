@@ -331,12 +331,12 @@ Python ファイルの新規作成・機能変更時には、対応するテス�
 | パス | 内容 |
 |---|---|
 | `src/js/` | Ermida らによる Google Earth Engine の LST 算出コード（JavaScript） |
-| `src/fortran/` | BS-Horizon（3 次 B スプライン曲面による地層境界面の推定プログラム。Fortran） |
-| `src/preprocessing/terramodBS2geotiff.py` | BS-Horizon の ASCII グリッドを GeoTIFF に変換するプログラム |
 
 - 処理（コードの動作）を変えない。論文の実装や移植元と突き合わせられるようにするため。出典を記すコメントの追記と、`ruff` による自動整形は、処理の変更とはみなさない（行ってよい）
 - 出典（作者・論文・取得元）を、ファイルの先頭のコメントか、そのコードを使う手法を説明する `docs/` の文書に記す
 - 処理を変える必要がある場合は、元のコードを参照用に残したまま、規約の対象のコードとして `src/` に書き直す（例: `src/js/` の係数表を移植した `src/module/lst_smw.py`）
+
+`docs/04_archive/code/` に退避したコード（参照用に保管するもので、第三者のコードを含む）も、本規約を適用しない。`ruff`・`pytest` の対象からも外している。退避の理由と、使うときの戻し方は [04_archive/README.md](../04_archive/README.md) に記す。
 
 また、ヘッドレスの PyQGIS で図を描くときにその場で作るランナー（[qgis_figure_generation.md](qgis_figure_generation.md)）は、リポジトリに置かない一時的なスクリプトであり、5.2・5.4 を適用しない。QGIS の Python が `PYTHONPATH` を空にするため、ランナーの中で `sys.path` にリポジトリのルートを加える必要があるためである。
 

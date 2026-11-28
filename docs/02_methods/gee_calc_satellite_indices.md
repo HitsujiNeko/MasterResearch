@@ -1,6 +1,6 @@
 # gee_calc_satellite_indices.py 仕様（Landsat 8 / 9 衛星指標）
 
-**最終更新**: 2026-10-12  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**:  
 
 - [analysis_workflow.md](analysis_workflow.md)  

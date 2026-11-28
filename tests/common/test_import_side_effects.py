@@ -90,8 +90,6 @@ def _import_in_subprocess(module_name: str, removed_keys: tuple[str, ...]) -> di
     [
         ("src.analysis.analysis_rq3_limited", ()),
         ("src.analysis.analysis_rq3_satellite_only", ()),
-        # 「未設定のときだけ設定する」形の書き換えも観測できるよう、外してから import する
-        ("src.preprocessing.convert_elevation_to_csv", ("GDAL_DATA", "PROJ_LIB", "PROJ_DATA")),
     ],
 )
 def test_import_does_not_change_environ(module_name: str, removed_keys: tuple[str, ...]) -> None:

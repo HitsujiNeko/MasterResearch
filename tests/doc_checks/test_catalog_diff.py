@@ -100,6 +100,18 @@ def test_excludes_pdf_directory_from_diff(tmp_path: Path) -> None:
     assert not result.has_violations
 
 
+def test_excludes_archived_code_directory_from_diff(tmp_path: Path) -> None:
+    """04_archive/code/ 配下（退避したコード）は差分検出対象外とする。"""
+    docs_dir = tmp_path / "docs"
+    _write_readme(docs_dir)
+    _touch(docs_dir / "04_archive" / "code" / "bs_horizon" / "bs_horizon.py")
+    _touch(docs_dir / "04_archive" / "code" / "bs_horizon" / "fortran" / "bs_horizon.f")
+
+    result = check_catalog_diff(project_root=tmp_path)
+
+    assert not result.has_violations
+
+
 def test_does_not_exclude_sibling_paths_sharing_prefix_name(tmp_path: Path) -> None:
     """除外はディレクトリ単位であり、名前が前方一致するだけの兄弟パスは除外しない。"""
     docs_dir = tmp_path / "docs"

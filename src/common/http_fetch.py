@@ -2,7 +2,9 @@
 
 WFS等のリモートAPIやGEEのダウンロードURLから、一時的なエラー時にリトライしつつ
 レスポンスを取得する処理を集約する。標準ライブラリの urllib のみに依存し、
-requests は使わない。
+requests は使わない。取得処理を本モジュールの 1 方式にそろえるためで、
+認証ヘッダーの流出を防ぐリダイレクト先の制限（`RestrictedRedirectHandler`）も
+urllib の上に組んでいる。
 
 バイト列を返す `fetch_bytes_with_retry` が基本形で、`fetch_json_with_retry` は
 その結果をJSONとして解釈する薄いラッパーである（リトライ方針を一箇所に保つため）。
@@ -25,6 +27,15 @@ logger = logging.getLogger(__name__)
 # 待機を挟まず即座に投げ直す。とくに401はトークン失効で頻出し、リトライすると
 # 原因の分かるメッセージが出るまで待たされる（既定では約30秒）。
 PERMANENT_HTTP_STATUS_CODES = (400, 401, 403, 404, 405, 410)
+
+
+class UnexpectedStatusError(RuntimeError):
+    """`expected_status` と異なる HTTP ステータスが返ったことを表す例外。
+
+    リトライ上限の超過などの他の `RuntimeError` と呼び出し元が区別できるよう、
+    専用の型にしている（例: Range 取得で「サーバーが Range に対応していない」と
+    原因を添えられるようにするため）。
+    """
 
 
 def is_allowed_https_url(url: str, allowed_hosts: frozenset[str]) -> bool:
@@ -112,6 +123,7 @@ def fetch_bytes_with_retry(
     rate_limit_base_wait_seconds: int = 60,
     headers: dict[str, str] | None = None,
     allowed_redirect_hosts: frozenset[str] | None = None,
+    expected_status: int | None = None,
 ) -> bytes:
     """リトライ付きでURLからレスポンス本文をバイト列として取得する。
 
@@ -124,7 +136,14 @@ def fetch_bytes_with_retry(
     解消せず、原因の分かるメッセージが出るまで無駄に待たせるだけのため。
 
     `headers` は Bearer トークン等の認証ヘッダーを要求するAPI（NASA LAADS DAAC 等）の
-    ために用意している。**ヘッダーの内容はログに出力しない**（認証情報の漏洩を避けるため）。
+    ために用意している。User-Agent・Range など認証以外のヘッダーにも使える。
+    **ヘッダーの内容はログに出力しない**（認証情報の漏洩を避けるため）。
+    ヘッダーを付ける場合は、種類を問わず URL に https を求める。
+
+    `expected_status` は、Range リクエストの部分応答（206）のように特定のステータスで
+    なければ意味のない取得のために用意している。違うステータスが返った場合は
+    **本文を読まずに**失敗させ、リトライもしない（同じ要求には同じ応答が返るため。
+    Range を無視したサーバーが返す全体の本文を読み込まないためでもある）。
 
     認証ヘッダーを付ける場合は `allowed_redirect_hosts` も渡すこと。`urllib` は
     リダイレクト時に `Authorization` を引き継ぐため、**初回 URL を検証するだけでは
@@ -140,6 +159,8 @@ def fetch_bytes_with_retry(
         headers: リクエストに付与するHTTPヘッダー。未指定時は付与しない。
         allowed_redirect_hosts: リダイレクトを許可するホスト名の集合。未指定時は
             urllib の既定どおり、リダイレクト先を制限しない。
+        expected_status: 成功とみなす HTTP ステータス。未指定時はステータスを確かめない
+            （urllib がエラーとして送出しない 2xx をすべて成功とみなす）。
 
     Returns:
         レスポンス本文のバイト列。
@@ -149,8 +170,10 @@ def fetch_bytes_with_retry(
             （`headers` または `allowed_redirect_hosts` を指定）で url が
             https でない場合、または `allowed_redirect_hosts` の外へ
             リダイレクトされた場合。
-        RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
-            リトライしても解消しないHTTPステータスが返った場合。
+        RuntimeError: リトライ上限を超えてもエラーが解消しない場合、
+            またはリトライしても解消しないHTTPステータスが返った場合。
+        UnexpectedStatusError: `expected_status` と異なるステータスが返った場合
+            （`RuntimeError` の派生）。
     """
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"許可されていないURLスキームです: {url}")
@@ -158,7 +181,8 @@ def fetch_bytes_with_retry(
     # http のままだと、リダイレクトを経ずに 1 回目でトークンが平文で流れる。
     if (headers or allowed_redirect_hosts is not None) and not url.startswith("https://"):
         raise ValueError(
-            f"認証ヘッダーまたはリダイレクト制限を伴う取得では、URL は https のみ許可します: {url}"
+            "ヘッダー（認証・User-Agent・Range 等）またはリダイレクト制限を伴う取得では、"
+            f"URL は https のみ許可します: {url}"
         )
 
     # 制限を課すときだけ専用の opener を使う（既存の呼び出しの挙動を変えないため）
@@ -182,6 +206,13 @@ def fetch_bytes_with_retry(
         try:
             open_request = urllib.request.urlopen if opener is None else opener.open
             with open_request(request, timeout=timeout) as response:
+                # UnexpectedStatusError（RuntimeError の派生）は下の except のどれにも
+                # 当たらないため、リトライされずに呼び出し元へ届く
+                if expected_status is not None and response.status != expected_status:
+                    raise UnexpectedStatusError(
+                        f"期待したHTTPステータス（{expected_status}）ではありません"
+                        f"（status={response.status}）: {url[:120]}"
+                    )
                 return response.read()
         except urllib.error.HTTPError as exc:
             last_error = exc

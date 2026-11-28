@@ -23,13 +23,16 @@ class _FakeResponse:
     本体はバイト列を返すだけ。JSON を返したい場合は `from_json` を使う。
     """
 
-    def __init__(self, body: bytes) -> None:
-        """レスポンス本文となるバイト列を保持する。
+    def __init__(self, body: bytes, status: int = 200) -> None:
+        """レスポンス本文となるバイト列とステータスを保持する。
 
         Args:
             body: `read()` がそのまま返すバイト列。
+            status: `status` 属性として返す HTTP ステータス。
         """
         self._body = body
+        self.status = status
+        self.read_count = 0
 
     @classmethod
     def from_json(cls, payload: dict[str, Any]) -> "_FakeResponse":
@@ -52,7 +55,8 @@ class _FakeResponse:
         return None
 
     def read(self) -> bytes:
-        """保持しているレスポンス本文を返す。"""
+        """保持しているレスポンス本文を返し、読まれた回数を数える。"""
+        self.read_count += 1
         return self._body
 
 
@@ -279,6 +283,62 @@ def test_fetch_bytes_with_retry_raises_after_repeated_incomplete_read(
         http_fetch.fetch_bytes_with_retry(
             "https://example.com", timeout=10, max_retry_count=2, retry_wait_seconds=1
         )
+
+
+def test_fetch_bytes_with_retry_accepts_expected_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """期待したステータス（Range の部分応答 206）なら本文を返す。"""
+    monkeypatch.setattr(
+        http_fetch.urllib.request,
+        "urlopen",
+        lambda request, timeout: _FakeResponse(b"partial", status=206),
+    )
+
+    result = http_fetch.fetch_bytes_with_retry(
+        "https://example.com/a.zip",
+        timeout=10,
+        headers={"Range": "bytes=0-6"},
+        expected_status=206,
+    )
+
+    assert result == b"partial"
+
+
+def test_unexpected_status_error_is_runtime_error() -> None:
+    """既存の呼び出し元が `except RuntimeError` で受け止められるよう、派生関係を保つ。"""
+    assert issubclass(http_fetch.UnexpectedStatusError, RuntimeError)
+
+
+def test_fetch_bytes_with_retry_rejects_unexpected_status_without_reading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """期待と違うステータスは本文を読まずに失敗し、リトライもしない。
+
+    Range を無視したサーバーは 200 で全体を返す。読み込むと巨大な本文を
+    取得してしまい、待っても応答は変わらない。
+    """
+    responses: list[_FakeResponse] = []
+
+    def fake_urlopen(request: Any, timeout: int) -> _FakeResponse:
+        responses.append(_FakeResponse(b"whole file", status=200))
+        return responses[-1]
+
+    monkeypatch.setattr(http_fetch.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        http_fetch.time, "sleep", lambda seconds: pytest.fail("リトライしてはならない")
+    )
+
+    with pytest.raises(http_fetch.UnexpectedStatusError, match="status=200"):
+        http_fetch.fetch_bytes_with_retry(
+            "https://example.com/a.zip",
+            timeout=10,
+            headers={"Range": "bytes=0-6"},
+            expected_status=206,
+        )
+
+    assert len(responses) == 1
+    assert responses[0].read_count == 0
 
 
 def test_fetch_json_with_retry_forwards_headers(monkeypatch: pytest.MonkeyPatch) -> None:

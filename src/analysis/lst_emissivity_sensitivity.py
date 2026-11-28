@@ -63,6 +63,7 @@ from src.common.cv_paired_comparison import (  # noqa: E402
     compute_fold_differences,
     summarize_metric_differences,
 )
+from src.common.paired_stats import build_paired_statistics  # noqa: E402
 from src.common.paths import resolve_existing_path, to_project_relative_string  # noqa: E402
 from src.common.summary import build_provenance, save_summary  # noqa: E402
 from src.gee.gee_calc_LST import build_export_description  # noqa: E402
@@ -284,23 +285,24 @@ def compute_difference(minuend: np.ndarray, subtrahend: np.ndarray) -> np.ndarra
 def pearson_on_common(x: np.ndarray, y: np.ndarray) -> dict[str, float | int | None]:
     """両方が有効な画素で Pearson の相関係数を求める。
 
+    相関の計算と「定義できない場合（2 画素未満・値が一定）は None」の扱いは
+    共通関数 `build_paired_statistics` に任せ、ここでは有効画素の絞り込みと
+    結果 JSON の形（`r`・`count`）への詰め替えだけを行う。共通関数は誤差・Spearman
+    なども計算するが、使うのは `pearson_r` と `cell_count` だけである（NDVI と LST の
+    差のような、ここでは意味を持たない統計は捨てる）。
+
     Args:
         x: 1 つ目の値。
-        y: 2 つ目の値。
+        y: 2 つ目の値（`x` と同じ形）。
 
     Returns:
         dict[str, float | int | None]: `r` と `count`。2 画素未満、または値が一定の場合は
             `r` を None にする。
     """
     valid = np.isfinite(x) & np.isfinite(y)
-    count = int(valid.sum())
-    if count < 2:
-        return {"r": None, "count": count}
-    x_valid = x[valid]
-    y_valid = y[valid]
-    if np.std(x_valid) == 0 or np.std(y_valid) == 0:
-        return {"r": None, "count": count}
-    return {"r": float(np.corrcoef(x_valid, y_valid)[0, 1]), "count": count}
+    statistics = build_paired_statistics(x[valid], y[valid])
+    # 有効画素が 0 件のときは相関の項目自体が返らないため、get で None にそろえる
+    return {"r": statistics.get("pearson_r"), "count": statistics["cell_count"]}
 
 
 def summarize_by_ndvi_class(

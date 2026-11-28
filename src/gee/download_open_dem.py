@@ -33,13 +33,13 @@ import ee
 import geopandas as gpd
 import numpy as np
 import rasterio
-import requests
 from rasterio.enums import Resampling
 from rasterio.mask import mask
 from rasterio.warp import calculate_default_transform, reproject
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.gee import authenticate_gee, load_gee_project_id
+from src.common.http_fetch import fetch_bytes_with_retry
 from src.common.log_setup import configure_logging
 from src.common.paths import to_project_relative_string
 from src.common.roi import load_roi_geometry
@@ -303,10 +303,20 @@ def build_gee_download_url(
 
 
 def download_http_content(download_url: str) -> bytes:
-    """HTTPレスポンス本文を取得する。"""
-    response = requests.get(download_url, timeout=REQUEST_TIMEOUT_SECONDS)
-    response.raise_for_status()
-    return response.content
+    """HTTPレスポンス本文をリトライ付きで取得する。
+
+    Args:
+        download_url: GEE が発行したダウンロード URL。
+
+    Returns:
+        レスポンス本文のバイト列。
+
+    Raises:
+        ValueError: URL が http/https 以外のスキームの場合。
+        RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
+            リトライしても解消しない HTTP エラー（認証・権限・不在など）が返った場合。
+    """
+    return fetch_bytes_with_retry(download_url, timeout=REQUEST_TIMEOUT_SECONDS)
 
 
 def save_downloaded_raster(response_content: bytes, output_path: Path) -> None:

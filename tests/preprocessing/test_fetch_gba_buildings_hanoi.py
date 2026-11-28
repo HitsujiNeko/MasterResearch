@@ -17,7 +17,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
-from src.common import config, roi, summary
+from src.common import config, http_fetch, roi, summary
 from src.preprocessing import fetch_gba_buildings_hanoi as target
 
 # 小さな ROI（EPSG:4326）。タイルサイズ 0.01° で 2×2 タイルに分かれる
@@ -109,6 +109,7 @@ class TestCommonModuleUsage:
         """ROI の読み込みとサマリーの保存に共通モジュールの関数を使う。"""
         assert target.load_roi_geometry is roi.load_roi_geometry
         assert target.save_summary is summary.save_summary
+        assert target.fetch_json_with_retry is http_fetch.fetch_json_with_retry
 
     def test_uses_common_constants(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """UTM の CRS と ROI の既定パスに共通設定の値を使う。"""
@@ -116,6 +117,34 @@ class TestCommonModuleUsage:
         assert target.HANOI_UTM_CRS is config.HANOI_UTM_CRS
         monkeypatch.setattr(sys, "argv", ["fetch_gba_buildings_hanoi.py"])
         assert target.parse_arguments().roi_path == config.DEFAULT_HANOI_ROI_PATH
+
+
+class TestFetchWfsPage:
+    """fetch_wfs_page のテスト（HTTP 取得は差し替える）。"""
+
+    def test_returns_features_and_number_matched(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """応答の地物と総件数を取り出し、URL とタイムアウトをそのまま渡す。"""
+        calls: list[tuple[str, int]] = []
+
+        def fake_fetch(url: str, timeout: int) -> dict[str, Any]:
+            calls.append((url, timeout))
+            return {"features": [{"id": 1}, {"id": 2}], "numberMatched": 2}
+
+        monkeypatch.setattr(target, "fetch_json_with_retry", fake_fetch)
+
+        features, number_matched = target.fetch_wfs_page("https://example.invalid/wfs", 30)
+
+        assert features == [{"id": 1}, {"id": 2}]
+        assert number_matched == 2
+        assert calls == [("https://example.invalid/wfs", 30)]
+
+    def test_missing_fields_fall_back_to_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """features が null・numberMatched が無い応答は、空リストと -1（不明）にする。"""
+        monkeypatch.setattr(
+            target, "fetch_json_with_retry", lambda url, timeout: {"features": None}
+        )
+
+        assert target.fetch_wfs_page("https://example.invalid/wfs", 30) == ([], -1)
 
 
 class TestRun:

@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from src.common.gee import authenticate_gee
 from src.module.landsat_sensor import (
     DEFAULT_SENSOR,
     get_collection_id,
@@ -62,28 +63,6 @@ warnings.filterwarnings(
     category=DeprecationWarning,
     module=r"ee\.deprecation",
 )
-
-
-def authenticate_gee(project_id: str = None) -> None:
-    """Google Earth Engineの認証と初期化
-
-    Args:
-        project_id: Google Cloud Platform プロジェクトID
-
-    初回実行時はブラウザで認証が必要
-    """
-    try:
-        ee.Initialize(project=project_id)
-        logger.info(f"GEEはすでに認証されています (プロジェクト: {project_id})")
-    except Exception:
-        logger.info("GEEを認証しています...")
-        try:
-            ee.Authenticate()
-            ee.Initialize(project=project_id)
-            logger.info(f"GEE認証に成功しました (プロジェクト: {project_id})")
-        except Exception as e:
-            logger.error(f"GEE認証エラー: {e}")
-            raise
 
 
 def load_config(csv_path: str) -> Dict:

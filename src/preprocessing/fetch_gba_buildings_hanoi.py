@@ -26,9 +26,10 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-from src.common.config import PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
+from src.common.roi import load_roi_geometry
+from src.common.summary import save_summary
 
-DEFAULT_ROI_PATH = PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "buildings" / "hanoi_gba_buildings.gpkg"
 DEFAULT_SUMMARY_PATH = (
     PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_gba_buildings_summary.json"
@@ -58,9 +59,6 @@ RATE_LIMIT_BASE_WAIT_SECONDS = 60
 MICROSOFT_MISSING_WEST = 105.29
 MICROSOFT_MISSING_EAST = 105.47
 
-# ハノイ周辺の UTM 投影（面積計算用）
-HANOI_UTM_CRS = "EPSG:32648"  # UTM Zone 48N
-
 # WFS レイヤーのネイティブ CRS（GetCapabilities で確認済み）
 WFS_NATIVE_CRS = "EPSG:3857"
 
@@ -84,7 +82,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--roi-path",
         type=Path,
-        default=DEFAULT_ROI_PATH,
+        default=DEFAULT_HANOI_ROI_PATH,
         help="ROI の Shapefile パス。",
     )
     parser.add_argument(
@@ -138,36 +136,6 @@ def parse_arguments() -> argparse.Namespace:
         ),
     )
     return parser.parse_args()
-
-
-def load_roi_geometry(
-    roi_path: Path,
-) -> tuple[tuple[float, float, float, float], Any]:
-    """ROI を読み込み、EPSG:4326 の BBOX とユニオンジオメトリを返す。
-
-    Args:
-        roi_path (Path): ROI の Shapefile パス。
-
-    Returns:
-        tuple:
-            - roi_bounds (tuple[float, float, float, float]):
-              (min_lon, min_lat, max_lon, max_lat) in EPSG:4326。
-            - roi_union (Any): ROI の統合ジオメトリ（EPSG:4326）。
-    """
-    if not roi_path.exists():
-        raise FileNotFoundError(f"ROI ファイルが見つかりません: {roi_path}")
-
-    roi_gdf = gpd.read_file(roi_path).to_crs(epsg=4326)
-    if roi_gdf.empty:
-        raise ValueError(f"ROI に地物がありません: {roi_path}")
-
-    roi_union = roi_gdf.geometry.union_all()
-    if not roi_union.is_valid:
-        roi_union = make_valid(roi_union)
-
-    # total_bounds は (minx, miny, maxx, maxy) = (min_lon, min_lat, max_lon, max_lat)
-    roi_bounds = tuple(roi_gdf.total_bounds.tolist())
-    return roi_bounds, roi_union
 
 
 def generate_tiles(
@@ -564,20 +532,6 @@ def compute_missing_area_stats(
     }
 
 
-def save_summary(summary: dict[str, Any], summary_path: Path) -> None:
-    """サマリー JSON を保存する。
-
-    Args:
-        summary (dict[str, Any]): 保存内容。
-        summary_path (Path): 保存先パス。
-    """
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
 def run(
     roi_path: Path,
     output_path: Path,
@@ -630,7 +584,9 @@ def run(
         output_path.unlink()
         logger.info("既存ファイルを削除しました: %s", output_path)
 
-    roi_bounds, roi_union = load_roi_geometry(roi_path)
+    roi_gdf, roi_union = load_roi_geometry(roi_path)
+    # total_bounds は (minx, miny, maxx, maxy) = (min_lon, min_lat, max_lon, max_lat)
+    roi_bounds = tuple(roi_gdf.total_bounds.tolist())
     logger.info("ROI BBOX (min_lon, min_lat, max_lon, max_lat): %s", roi_bounds)
 
     tiles = generate_tiles(roi_bounds, tile_size_deg)

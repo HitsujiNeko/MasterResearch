@@ -41,8 +41,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from src.common.config import PROJECT_ROOT
+from src.common.gee import authenticate_gee
 from src.gee.gee_calc_LST import (
-    authenticate_gee,
     build_drive_export_folder,
     build_export_description,
     calculate_pixel_stats,

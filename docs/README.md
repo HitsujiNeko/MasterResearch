@@ -1,6 +1,6 @@
 # 📚 研究ドキュメント管理
 
-**最終更新**: 2026-11-26  
+**最終更新**: 2026-11-28  
 **管理方針**: Single Source of Truth - docs配下のファイル一覧は本README「全ドキュメントカタログ」に一本化する（変更の経緯は `git log --follow docs/README.md` で確認）
 
 > **このドキュメントの役割**  
@@ -84,7 +84,7 @@ docs/
 | [qgis_data_acquisition_artifacts.md](02_methods/qgis_data_acquisition_artifacts.md) | QGIS運用ガイドライン（データ取得タスクの成果物） | データ取得タスクのスタイル成果物（.qml）の要否判定表・カテゴリ値ラスタの配色確認順序・.qgzを完了条件に含めない理由、スクリーンショット（視覚的検証記録）の構図・保存先・命名規則・統計値との役割分担。データ取得タスクで読む | `qgis/`, `images/` |
 | [claude_workflow_regression_tests.md](02_methods/claude_workflow_regression_tests.md) | Claude Code運用ルール回帰テスト項目書 | 危険操作のブロック（deny＋hook）・カスタムコマンド・承認ゲート・セッション不変条件・スキル回帰の5観点のテスト項目書（正本・再利用）と実施結果記録 | `.claude/settings.json`, `.claude/hooks/`, `.claude/commands/`, `.claude/skills/shared/` |
 | [thesis_writing_guide.md](02_methods/thesis_writing_guide.md) | 修士論文 執筆規約 | md 正本・docx 生成の位置づけ、`thesis/` のファイル構成と節ファイルのメタ情報欄、依拠する正本の追従チェック（記録と要見直しの検出）、ビルド手順と書式（reference.docx）、文体（である調・句読点「，．」）、用語統一（LST の °C・ヒートアイランドの表記・シナリオの和名・ROI と有効域の区別）、数値の有効桁、原稿の検証（表記の機械チェック・数値の正本照合・引用の原典確認）、図表・数式（pandoc-crossref）、引用と参考文献（S 番号での引用・本文での著者の書き方・卒業論文準拠の CSL・引用用書誌と手書きの .bib の置き場所）、未確定箇所の印（`[要出典]`・`[TBD:結果]`） | `thesis/`, `scripts/build_thesis.py`, `scripts/make_thesis_reference_docx.py`, `scripts/make_thesis_bib.py`, `src/doc_checks/thesis_source_tracking.py`, `src/doc_checks/thesis_notation.py`, `src/doc_checks/thesis_numbers.py` |
-| [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、再現性確保、既存パッケージ優先の判断基準と依存追加の手順、AIエージェントの読み取り規律 | 全Pythonスクリプト・全Markdownドキュメント（AIエージェントのツール利用を含む） |
+| [CodingRule.md](02_methods/CodingRule.md) | コーディング規約 | PEP 8準拠（ruffで自動チェック）、型ヒント、docstring規則、命名規則、import 時の副作用の禁止、ログと標準出力の使い分け、CLI スクリプトの構成と雛形、文字コード・改行コード、再現性確保、既存パッケージ優先の判断基準と依存追加の手順、規約の対象外とする第三者のコード、AIエージェントの読み取り規律 | 全Pythonスクリプト（第三者のコードを除く）・全Markdownドキュメント（AIエージェントのツール利用を含む） |
 
 ### 📊 03_results - 研究結果
 

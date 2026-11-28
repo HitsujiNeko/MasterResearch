@@ -43,12 +43,11 @@ DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "{カテゴリ}" / "{出�
 DEFAULT_SUMMARY_PATH = PROJECT_ROOT / "data" / "output" / "open_gis" / "{出力名}_summary.json"
 REQUEST_TIMEOUT_SECONDS = 120
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def parse_arguments() -> argparse.Namespace:
-    """コマンドライン引数を解析する。"""
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """コマンドライン引数を解釈する（Args に argv、Returns に解釈した引数を書く）。"""
     # --roi(デフォルトは DEFAULT_HANOI_ROI_PATH) / --output / --summary / 試行実行用の --bbox 等を定義
 
 
@@ -60,8 +59,9 @@ def build_summary(...) -> dict:
     """件数・カバレッジ・値域などのサマリー辞書を作る（純粋関数・テスト対象）。"""
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """取得 → 検証 → 保存 → サマリー出力を実行する。"""
+    # 先頭で logging.basicConfig を呼び、argv を parse_arguments に渡す
 
 
 if __name__ == "__main__":
@@ -77,6 +77,7 @@ if __name__ == "__main__":
 - サマリー生成・座標計算・属性変換は I/O から分離した純粋関数にする（テスト容易性のため）
 - 中間結果・進捗ログを適宜出力する（大規模データ処理時）
 - 実行は `python -m src.preprocessing.{スクリプト名}` 形式（[setup.md](../../../docs/setup.md) 6章参照）
+- モジュールの最上位ではログの設定をせず（`logging.basicConfig` は `main()` の中で 1 回だけ呼ぶ）、CLI の構成は [CodingRule.md 5.2〜5.4](../../../docs/02_methods/CodingRule.md#52-モジュールの最上位に書くものimport-時の副作用の禁止) に従う
 
 ## 検証チェックリスト（Step 6 で実施）
 

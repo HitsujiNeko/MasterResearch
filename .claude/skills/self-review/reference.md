@@ -31,6 +31,12 @@ CodingRule.md と矛盾する記述は置かない（矛盾を見つけたら Co
   - 判断基準は [CodingRule.md 10.1](../../../docs/02_methods/CodingRule.md#101-既存パッケージ優先の判断基準) を正とする
 - [ ] 例外処理が実装され、エラーメッセージが日本語で理解しやすい
 - [ ] 不要なコード・未使用変数・デバッグ出力を残していない
+- [ ] import しただけで副作用が起きない（環境変数・`sys.path` を書き換えていない。ログの設定・I/O・重い計算を最上位で行っていない）
+  - `matplotlib.use("Agg")` の例外と `# noqa: E402` の扱いは [CodingRule.md 5.2](../../../docs/02_methods/CodingRule.md#52-モジュールの最上位に書くものimport-時の副作用の禁止) を正とする
+- [ ] 経過は `logging`（ログを出すモジュールは `logging.getLogger(__name__)`）、`print` は標準出力に出す結果だけに使い、`logging.basicConfig` は `main()` の中で 1 回だけ呼んでいる（[CodingRule.md 5.3](../../../docs/02_methods/CodingRule.md#53-ログと標準出力)）
+- [ ] CLI の引数の解釈が `parse_arguments(argv)` で、`main(argv)` から渡している。`src/` は `python -m` で実行する形になっている（[CodingRule.md 5.4](../../../docs/02_methods/CodingRule.md#54-cli-スクリプトの構成雛形)）
+- [ ] テキストの読み書き（ファイル・pandas のテキスト形式・外部コマンドの出力）で `encoding` を指定している（[CodingRule.md 7章](../../../docs/02_methods/CodingRule.md#7-パスの扱い再現性)）
+- [ ] 追加した `test_` 関数に、何を確かめるかを書いた日本語の docstring がある（1 行でよい。[CodingRule.md 11.1](../../../docs/02_methods/CodingRule.md#111-基本ルール)）
 
 ### Markdown / ドキュメント
 

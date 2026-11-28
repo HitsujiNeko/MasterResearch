@@ -40,15 +40,18 @@ def _write_roi(project_root: Path) -> None:
     ).to_file(path)
 
 
-def _write_two_layer_gpkg(path: Path, crs: str | None) -> None:
+def _write_two_layer_gpkg(
+    path: Path, crs: str | None, bounds: tuple[float, float, float, float] = VN2000_BOX
+) -> None:
     """範囲の異なる 2 レイヤを持つ GPKG を書き出す。
 
     Args:
         path: 出力先。
         crs: CRS。None なら CRS を付けない（測量 GIS の merge_*.gpkg と同じ形）。
+        bounds: 2 レイヤを合わせた範囲 (minx, miny, maxx, maxy)。
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    min_x, min_y, max_x, max_y = VN2000_BOX
+    min_x, min_y, max_x, max_y = bounds
     half_x = (min_x + max_x) / 2
     gpd.GeoDataFrame(geometry=[box(min_x, min_y, half_x, max_y)], crs=crs).to_file(
         path, layer="left", driver="GPKG"
@@ -153,10 +156,13 @@ class TestReadLstBboxOsakaAny:
 
 
 def test_main_writes_report_with_union_of_survey_files(project_root: Path) -> None:
-    """main が ROI・測量 GIS の範囲と、全ファイルを合わせた範囲をレポートに書く。"""
+    """main が ROI・測量 GIS の範囲（WGS84 に変換）と、全ファイルを合わせた範囲をレポートに書く。"""
     _write_roi(project_root)
-    _write_two_layer_gpkg(project_root / "整備データ" / "merge" / "merge_DC.gpkg", crs=None)
-    _write_two_layer_gpkg(project_root / "整備データ" / "merge" / "merge_GT.gpkg", crs=None)
+    merge_dir = project_root / "整備データ" / "merge"
+    _write_two_layer_gpkg(merge_dir / "merge_DC.gpkg", crs=None)
+    # GT は DC より東・北にずらし、和が両方より広くなるようにする
+    shifted = (507_000.0, 2_322_000.0, 508_000.0, 2_323_000.0)
+    _write_two_layer_gpkg(merge_dir / "merge_GT.gpkg", crs=None, bounds=shifted)
 
     target.main()
 
@@ -170,7 +176,12 @@ def test_main_writes_report_with_union_of_survey_files(project_root: Path) -> No
         "整備データ/merge/merge_DC.gpkg",
         "整備データ/merge/merge_GT.gpkg",
     ]
+    dc_bbox, gt_bbox = (info["bbox_union"] for info in report["gis_merge_from_5897"])
+    for lon_min, lat_min, lon_max, lat_max in (dc_bbox, gt_bbox):
+        assert 105.0 < lon_min < lon_max < 107.0
+        assert 20.0 < lat_min < lat_max < 22.0
+    assert dc_bbox[2] < gt_bbox[0]
     assert report["gis_bbox_union_all_layers"] == pytest.approx(
-        report["gis_merge_from_5897"][0]["bbox_union"]
+        [dc_bbox[0], dc_bbox[1], gt_bbox[2], gt_bbox[3]]
     )
     assert report["lst_osaka_example"] is None

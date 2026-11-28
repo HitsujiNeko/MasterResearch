@@ -120,7 +120,7 @@ class TestCopyFiles:
     def test_dry_run_copies_nothing(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """試行実行ではコピーせず、予定だけを表示する。"""
+        """試行実行ではコピーせず予定だけを表示する（振り分け先のディレクトリは作る）。"""
         source = tmp_path / "source"
         _make_source(source)
         out = tmp_path / "out"
@@ -128,9 +128,29 @@ class TestCopyFiles:
         target.copy_files(source, out, dry_run=True, overwrite=False, only_suffix=None)
 
         assert list(out.rglob("*.dgn")) == []
+        assert sorted(path.name for path in out.iterdir()) == sorted(
+            f"Vector_{suffix}" for suffix in target.SUFFIXES
+        )
         captured = capsys.readouterr().out
         assert "WOULD COPY" in captured
         assert "copied=3" in captured
+
+    def test_dry_run_with_overwrite_reports_overwrite_without_copying(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """試行実行で上書きを指定すると、既存ファイルを上書きの予定として表示し、中身は変えない。"""
+        source = tmp_path / "source"
+        _make_source(source)
+        existing = tmp_path / "out" / "Vector_CS" / "a_CS.dgn"
+        existing.parent.mkdir(parents=True)
+        existing.write_text("existing", encoding="utf-8")
+
+        target.copy_files(source, tmp_path / "out", dry_run=True, overwrite=True, only_suffix=None)
+
+        assert existing.read_text(encoding="utf-8") == "existing"
+        captured = capsys.readouterr().out
+        assert "WOULD COPY (overwrite)" in captured
+        assert "copied=3, skipped=0" in captured
 
     def test_only_suffix_limits_the_target_kind(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]

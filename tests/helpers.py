@@ -2,6 +2,12 @@
 
 複数のテストファイルで同じ内容になる補助関数をここに集める。
 
+- `load_script_module`: パッケージ外のスクリプト（`scripts/`・`.claude/hooks/`）の読み込み
+- `import_with_contained_side_effects`: import 時に副作用を起こす古いスクリプトの読み込み
+- `write_test_raster`: テスト用の小さな GeoTIFF の書き出し
+- `install_fake_ee_image_collection` ほか: 取得スクリプトの `ee` の差し替え
+- `make_fake_build_target_area`: 取得範囲の組み立ての代替（下記）
+
 取得スクリプトはいずれも `src.common.raster_area.build_target_area` で取得範囲を
 組み立てる。テストでは実 ROI（Git 管理外の Shapefile）に依存させたくないため、
 同じシグネチャの代替をここに1つ置いて各テストから使う。
@@ -152,9 +158,14 @@ def write_test_raster(
 
     Returns:
         書き出したパス。
+
+    Raises:
+        ValueError: `band_names` の数がバンド数と違うとき。
     """
     bands = values[np.newaxis, :, :] if values.ndim == 2 else values
     count, height, width = bands.shape
+    if band_names is not None and len(band_names) != count:
+        raise ValueError(f"バンドの説明の数（{len(band_names)}）がバンド数（{count}）と違います")
     out_dtype = bands.dtype if dtype is None else np.dtype(dtype)
     path.parent.mkdir(parents=True, exist_ok=True)
     with rasterio.open(

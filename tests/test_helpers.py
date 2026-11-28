@@ -58,6 +58,7 @@ class TestImportWithContainedSideEffects:
         work_dir.mkdir()
         cwd_before = Path.cwd()
         filters_before = list(warnings.filters)
+        level_before = root_logger.level
 
         module = import_with_contained_side_effects("side_effect_module", work_dir)
 
@@ -65,9 +66,11 @@ class TestImportWithContainedSideEffects:
         assert (work_dir / "data" / "output" / "side_effect.log").is_file()
         assert Path.cwd() == cwd_before
         assert root_logger.handlers == []
+        assert root_logger.level == level_before
         assert warnings.filters == filters_before
         # ハンドラが閉じられていれば、ログファイルを消せる（Windows では開いたままだと消せない）
         os.remove(work_dir / "data" / "output" / "side_effect.log")
+        sys.modules.pop("side_effect_module", None)
 
 
 class TestLoadScriptModule:
@@ -85,7 +88,7 @@ class TestLoadScriptModule:
 
         assert module.ANSWER == 7
         assert sys.modules["loaded_for_test"] is module
-        monkeypatch.delitem(sys.modules, "loaded_for_test")
+        sys.modules.pop("loaded_for_test", None)
 
 
 class TestWriteTestRaster:
@@ -128,3 +131,14 @@ class TestWriteTestRaster:
         with rasterio.open(path) as dataset:
             assert dataset.dtypes == ("uint8",)
             assert dataset.nodata is None
+
+    def test_rejects_band_names_that_do_not_match_band_count(self, tmp_path: Path) -> None:
+        """バンドの説明の数がバンド数と違えば、書き出さずに例外にする。"""
+        with pytest.raises(ValueError, match="バンド数"):
+            write_test_raster(
+                tmp_path / "r.tif",
+                np.ones((2, 2), dtype=np.float32),
+                transform=from_origin(0.0, 20.0, 10.0, 10.0),
+                band_names=("first", "second"),
+            )
+        assert not (tmp_path / "r.tif").exists()

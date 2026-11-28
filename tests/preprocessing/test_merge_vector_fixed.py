@@ -9,7 +9,6 @@ ogr2ogr / ogrinfo は実行せず、`subprocess.run` を偽物に差し替えて
 
 from __future__ import annotations
 
-import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -396,14 +395,3 @@ class TestMain:
 
         assert required == [False]
         assert merged == ["DC"]
-
-
-def test_import_leaves_no_log_file_handler_on_root_logger(target: ModuleType) -> None:
-    """import 時のログ設定で付いたログファイルのハンドラが、ルートロガーに残っていない。"""
-    log_files = [
-        Path(handler.baseFilename).name
-        for handler in logging.getLogger().handlers
-        if isinstance(handler, logging.FileHandler)
-    ]
-
-    assert "merge_vector_fixed.log" not in log_files

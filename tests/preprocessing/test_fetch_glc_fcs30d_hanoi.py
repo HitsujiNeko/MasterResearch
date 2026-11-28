@@ -456,8 +456,10 @@ class TestHttpRangeReader:
             "https://example.invalid/a.zip", max_retry_count=2, retry_wait_seconds=0
         )
 
-        with pytest.raises(RuntimeError, match=r"範囲 0-9.*2回失敗しました"):
+        with pytest.raises(RuntimeError, match=r"範囲 0-9.*2回失敗しました") as excinfo:
             reader.read(10)
+        # 接続エラーの上限超過は Range 非対応ではないため、その説明を付けない
+        assert "Range リクエストに対応していません" not in str(excinfo.value)
         assert reader.tell() == 0
 
     def test_raises_when_response_is_not_partial(self, monkeypatch: pytest.MonkeyPatch) -> None:

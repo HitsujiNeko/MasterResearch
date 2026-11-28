@@ -324,7 +324,7 @@ def test_fetch_bytes_with_retry_rejects_unexpected_status_without_reading(
         http_fetch.time, "sleep", lambda seconds: pytest.fail("リトライしてはならない")
     )
 
-    with pytest.raises(RuntimeError, match="status=200"):
+    with pytest.raises(http_fetch.UnexpectedStatusError, match="status=200"):
         http_fetch.fetch_bytes_with_retry(
             "https://example.com/a.zip",
             timeout=10,

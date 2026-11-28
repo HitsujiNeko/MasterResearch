@@ -44,7 +44,11 @@ from src.common.config import (
     PROJECT_ROOT,
     WGS84_CRS,
 )
-from src.common.http_fetch import fetch_bytes_with_retry, fetch_json_with_retry
+from src.common.http_fetch import (
+    UnexpectedStatusError,
+    fetch_bytes_with_retry,
+    fetch_json_with_retry,
+)
 from src.common.paths import to_project_relative_string
 from src.common.raster_classes import build_class_distribution
 from src.common.roi import load_roi_geometry
@@ -298,12 +302,15 @@ class HttpRangeReader(io.RawIOBase):
                 headers={"Range": f"bytes={self._position}-{end_position}"},
                 expected_status=206,
             )
+        except UnexpectedStatusError as error:
+            raise RuntimeError(
+                f"サーバーが Range リクエストに対応していません"
+                f"（範囲 {self._position}-{end_position}）: {error}"
+            ) from error
         except RuntimeError as error:
             # どの範囲で止まったかを残す（再開・原因の切り分けの手がかりにする）
             raise RuntimeError(
-                f"Range 取得に失敗しました（範囲 {self._position}-{end_position}）。"
-                "部分応答（206）以外が返った場合は、サーバーが Range リクエストに"
-                f"対応していません: {error}"
+                f"Range 取得に失敗しました（範囲 {self._position}-{end_position}）: {error}"
             ) from error
         self.request_count += 1
         self._position += len(data)

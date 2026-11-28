@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import io
+import math
 from pathlib import Path
 
 import pytest
@@ -307,6 +308,40 @@ def test_mercator_to_lonlat_rejects_out_of_world_x(x: float) -> None:
     """メルカトル X が世界範囲の外なら、折り返した経度を返さずに ValueError にする。"""
     with pytest.raises(ValueError, match="世界範囲"):
         mercator_to_lonlat(x, 0.0)
+
+
+def test_lonlat_to_mercator_rejects_nan_latitude() -> None:
+    """緯度が NaN なら、NaN の座標を返さずに ValueError にする。"""
+    with pytest.raises(ValueError, match="緯度"):
+        lonlat_to_mercator(105.85, float("nan"))
+
+
+@pytest.mark.parametrize("y", [float("nan"), float("inf"), -float("inf")])
+def test_mercator_to_lonlat_rejects_non_finite_y(y: float) -> None:
+    """メルカトル Y が有限でなければ ValueError にする。"""
+    with pytest.raises(ValueError, match="メルカトル Y"):
+        mercator_to_lonlat(0.0, y)
+
+
+@pytest.mark.parametrize("lon", [180.0, -180.0])
+def test_lonlat_to_mercator_keeps_dateline_sign(lon: float) -> None:
+    """ちょうど ±180 度は受け付け、反対側へ折り返さない。"""
+    x, _ = lonlat_to_mercator(lon, 0.0)
+
+    assert x == pytest.approx(math.copysign(ORIGIN_SHIFT, lon))
+
+
+@pytest.mark.parametrize("sign", [1.0, -1.0])
+def test_mercator_to_lonlat_edge_tolerance(sign: float) -> None:
+    """世界範囲の端は許容誤差の内側なら受け付けて折り返さず、外側なら弾く。"""
+    tolerance = xyz_tiles._MERCATOR_EDGE_TOLERANCE_M
+    inside = sign * (ORIGIN_SHIFT + tolerance / 2)
+    outside = sign * (ORIGIN_SHIFT + tolerance * 10)
+
+    lon, _ = mercator_to_lonlat(inside, 0.0)
+    assert lon == pytest.approx(sign * 180.0)
+    with pytest.raises(ValueError, match="世界範囲"):
+        mercator_to_lonlat(outside, 0.0)
 
 
 def test_mercator_to_lonlat_accepts_world_edge() -> None:

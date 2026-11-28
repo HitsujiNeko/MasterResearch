@@ -130,10 +130,13 @@ def lonlat_to_mercator(lon: float, lat: float) -> tuple[float, float]:
 
     Raises:
         ValueError: 経度が -180〜180 度の外（NaN を含む）のとき。pyproj は範囲外の
-            経度を折り返すため、黙って反対側の座標を返さないよう先に弾く。
+            経度を折り返すため、黙って反対側の座標を返さないよう先に弾く。緯度が
+            NaN のときも、丸めをすり抜けて NaN の座標を返さないよう弾く。
     """
     if not -180.0 <= lon <= 180.0:
         raise ValueError(f"経度が -180〜180 度の範囲外です: {lon}")
+    if math.isnan(lat):
+        raise ValueError(f"緯度が数値ではありません: {lat}")
     lat = max(min(lat, _MAX_LATITUDE), -_MAX_LATITUDE)
     x, y = _transformer("EPSG:4326", "EPSG:3857").transform(lon, lat)
     return float(x), float(y)
@@ -152,9 +155,12 @@ def mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
     Raises:
         ValueError: x が世界範囲（±ORIGIN_SHIFT）の外（NaN を含む）のとき。pyproj は
             範囲外を折り返した経度を返すため、黙って反対側の経度を返さないよう先に弾く。
+            y が有限でない（NaN・無限大）ときも、非有限の座標を返さないよう弾く。
     """
     if not abs(x) <= ORIGIN_SHIFT + _MERCATOR_EDGE_TOLERANCE_M:
         raise ValueError(f"メルカトル X が世界範囲（±{ORIGIN_SHIFT} m）の外です: {x}")
+    if not math.isfinite(y):
+        raise ValueError(f"メルカトル Y が有限の数値ではありません: {y}")
     lon, lat = _transformer("EPSG:3857", "EPSG:4326").transform(x, y)
     return float(lon), float(lat)
 

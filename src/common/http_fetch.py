@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 PERMANENT_HTTP_STATUS_CODES = (400, 401, 403, 404, 405, 410)
 
 
+class UnexpectedStatusError(RuntimeError):
+    """`expected_status` と異なる HTTP ステータスが返ったことを表す例外。
+
+    リトライ上限の超過などの他の `RuntimeError` と呼び出し元が区別できるよう、
+    専用の型にしている（例: Range 取得で「サーバーが Range に対応していない」と
+    原因を添えられるようにするため）。
+    """
+
+
 def is_allowed_https_url(url: str, allowed_hosts: frozenset[str]) -> bool:
     """URL が https で、かつ許可したホストを指すかを判定する。
 
@@ -162,8 +171,9 @@ def fetch_bytes_with_retry(
             https でない場合、または `allowed_redirect_hosts` の外へ
             リダイレクトされた場合。
         RuntimeError: リトライ上限を超えてもエラーが解消しない場合、
-            リトライしても解消しないHTTPステータスが返った場合、または
-            `expected_status` と異なるステータスが返った場合。
+            またはリトライしても解消しないHTTPステータスが返った場合。
+        UnexpectedStatusError: `expected_status` と異なるステータスが返った場合
+            （`RuntimeError` の派生）。
     """
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"許可されていないURLスキームです: {url}")
@@ -171,7 +181,8 @@ def fetch_bytes_with_retry(
     # http のままだと、リダイレクトを経ずに 1 回目でトークンが平文で流れる。
     if (headers or allowed_redirect_hosts is not None) and not url.startswith("https://"):
         raise ValueError(
-            f"認証ヘッダーまたはリダイレクト制限を伴う取得では、URL は https のみ許可します: {url}"
+            "ヘッダー（認証・User-Agent・Range 等）またはリダイレクト制限を伴う取得では、"
+            f"URL は https のみ許可します: {url}"
         )
 
     # 制限を課すときだけ専用の opener を使う（既存の呼び出しの挙動を変えないため）
@@ -195,10 +206,10 @@ def fetch_bytes_with_retry(
         try:
             open_request = urllib.request.urlopen if opener is None else opener.open
             with open_request(request, timeout=timeout) as response:
-                # RuntimeError は下の except のどれにも当たらないため、リトライされずに
-                # 呼び出し元へ届く
+                # UnexpectedStatusError（RuntimeError の派生）は下の except のどれにも
+                # 当たらないため、リトライされずに呼び出し元へ届く
                 if expected_status is not None and response.status != expected_status:
-                    raise RuntimeError(
+                    raise UnexpectedStatusError(
                         f"期待したHTTPステータス（{expected_status}）ではありません"
                         f"（status={response.status}）: {url[:120]}"
                     )

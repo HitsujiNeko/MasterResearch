@@ -18,15 +18,11 @@ import rasterio
 from rasterio.transform import from_origin
 
 from src.analysis.urban_params.config import NIGHTLIGHT_COLUMNS
-from src.analysis.urban_params.grid import build_grid
+from src.analysis.urban_params.grid import GridSpec
 from src.analysis.urban_params.io import RasterResource
 from src.analysis.urban_params.params import nightlight
 
-from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
-
-# ANALYSIS_BBOX（0-80m四方）を coarse=20m で分割した 4x4 グリッドを前提とする。
-COARSE_RES_M = 20.0
-FINE_RES_M = 10.0
+from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS, FINE_RES_M
 
 # 実データ（VIIRS DNB）と同じバンド構成。
 RADIANCE_BAND = 1
@@ -37,11 +33,6 @@ MAX_RADIANCE_BAND = 4
 # 指しているバンドの意味が異なるため名前を分ける。
 ALL_ANGLE_BAND = 2
 VIIRS_DESCRIPTIONS = ("avg_radiance", "avg_radiance_masked", "cf_cvg", "max_radiance")
-
-
-def _build_grid_spec():
-    """テスト共通の 4x4 coarseグリッド仕様を構築する。"""
-    return build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, COARSE_RES_M, FINE_RES_M)
 
 
 def _write_nightlight_raster(
@@ -81,14 +72,16 @@ def _write_nightlight_raster(
         dst.descriptions = descriptions
 
 
-def test_compute_returns_empty_dict_for_none_resource() -> None:
+def test_compute_returns_empty_dict_for_none_resource(grid_spec: GridSpec) -> None:
     """resourceがNoneのシナリオでは空辞書を返す（他パラメータモジュールと同じ規約）。"""
-    result = nightlight.compute(None, ANALYSIS_BBOX, _build_grid_spec())
+    result = nightlight.compute(None, ANALYSIS_BBOX, grid_spec)
 
     assert result == {}
 
 
-def test_compute_returns_radiance_without_unit_conversion(tmp_path: Path) -> None:
+def test_compute_returns_radiance_without_unit_conversion(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """NTL_MEAN はセル平均放射輝度をそのまま返す（面積正規化しない）。
 
     放射輝度は面積に比例しない強度量であり、人口密度のように /ha へ割ると
@@ -99,7 +92,7 @@ def test_compute_returns_radiance_without_unit_conversion(tmp_path: Path) -> Non
     _write_nightlight_raster(raster_path, np.full((8, 8), 5.407, dtype=np.float32))
 
     result = nightlight.compute(
-        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, grid_spec
     )
 
     assert set(result) == set(NIGHTLIGHT_COLUMNS) == {"NTL_MEAN", "NTL_VALID_RATIO"}
@@ -109,7 +102,7 @@ def test_compute_returns_radiance_without_unit_conversion(tmp_path: Path) -> Non
     np.testing.assert_allclose(ntl_mean, np.full((4, 4), 5.407, dtype=np.float32), rtol=1e-5)
 
 
-def test_compute_averages_radiance_within_cell(tmp_path: Path) -> None:
+def test_compute_averages_radiance_within_cell(tmp_path: Path, grid_spec: GridSpec) -> None:
     """セル内の有効画素の平均が入る。"""
     radiance = np.zeros((8, 8), dtype=np.float32)
     # セル(0, 0) に対応する左上2x2へ、平均が 10.0 になる4値を置く。
@@ -121,13 +114,15 @@ def test_compute_averages_radiance_within_cell(tmp_path: Path) -> None:
     _write_nightlight_raster(raster_path, radiance)
 
     ntl_mean = nightlight.compute(
-        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, grid_spec
     )["NTL_MEAN"]
 
     assert ntl_mean[0, 0] == pytest.approx(10.0, abs=0.05)
 
 
-def test_compute_distinguishes_zero_radiance_from_missing(tmp_path: Path) -> None:
+def test_compute_distinguishes_zero_radiance_from_missing(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """放射輝度0は実値として保持され、欠損（NaN）と区別される。
 
     Black Marble の ``ntl_near_nadir`` は ROI 内の最小値が 0.000 であり、実際に0を
@@ -140,7 +135,7 @@ def test_compute_distinguishes_zero_radiance_from_missing(tmp_path: Path) -> Non
     _write_nightlight_raster(raster_path, radiance)
 
     result = nightlight.compute(
-        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, grid_spec
     )
 
     assert result["NTL_MEAN"][0, 0] == pytest.approx(0.0, abs=1e-6)
@@ -152,6 +147,7 @@ def test_compute_distinguishes_zero_radiance_from_missing(tmp_path: Path) -> Non
 
 def test_compute_interpolates_because_raster_is_coarser_than_every_scale(
     tmp_path: Path,
+    grid_spec: GridSpec,
 ) -> None:
     """入力が全解析スケールより粗いため、どのスケールでも内挿になる。
 
@@ -177,7 +173,7 @@ def test_compute_interpolates_because_raster_is_coarser_than_every_scale(
         dst.write(coarse_radiance, RADIANCE_BAND)
 
     result = nightlight.compute(
-        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, grid_spec
     )
 
     expected = np.repeat(np.repeat(coarse_radiance, 2, axis=0), 2, axis=1)
@@ -187,7 +183,9 @@ def test_compute_interpolates_because_raster_is_coarser_than_every_scale(
     )
 
 
-def test_validate_resource_warns_when_band_is_not_radiance(tmp_path: Path) -> None:
+def test_validate_resource_warns_when_band_is_not_radiance(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """観測数バンド（cf_cvg）を指すと、算出を始める前に警告する。
 
     ``cf_cvg`` は51-96の値を取り、放射輝度と桁が重なる。取り違えても集約後の統計は
@@ -202,7 +200,7 @@ def test_validate_resource_warns_when_band_is_not_radiance(tmp_path: Path) -> No
 
     # 警告は出るが算出は止めない（黙って落とさない）。観測数の値がそのまま入る。
     result = nightlight.compute(
-        RasterResource(raster_path, COVERAGE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, COVERAGE_BAND), ANALYSIS_BBOX, grid_spec
     )
     assert result["NTL_MEAN"][0, 0] == pytest.approx(74.0, abs=0.5)
 
@@ -303,7 +301,7 @@ def test_radiance_band_names_match_fetch_script_output_names() -> None:
     }
 
 
-def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
+def test_compute_reprojects_from_geographic_crs(tmp_path: Path, grid_spec: GridSpec) -> None:
     """夜間光ラスタが地理座標系（EPSG:4326）でも、再投影されて値が保持される。
 
     VIIRS DNB・Black Marbleはいずれも EPSG:4326 で保存され、解析CRSは EPSG:5897 で
@@ -326,7 +324,7 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
         dst.write(np.full((10, 10), 21.3, dtype=np.float32), RADIANCE_BAND)
 
     result = nightlight.compute(
-        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, grid_spec
     )
 
     np.testing.assert_allclose(
@@ -339,6 +337,7 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
 
 def test_compute_warns_with_nightlight_label_when_raster_does_not_overlap(
     tmp_path: Path,
+    grid_spec: GridSpec,
 ) -> None:
     """夜間光ラスタがグリッドと重ならない場合、夜間光の入力だと分かる警告を出す。"""
     raster_path = tmp_path / "ntl_far.tif"
@@ -358,7 +357,7 @@ def test_compute_warns_with_nightlight_label_when_raster_does_not_overlap(
 
     with pytest.warns(UserWarning, match="夜間光ラスタが解析グリッドと重なりません"):
         result = nightlight.compute(
-            RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, _build_grid_spec()
+            RasterResource(raster_path, RADIANCE_BAND), ANALYSIS_BBOX, grid_spec
         )
 
     assert np.isnan(result["NTL_MEAN"]).all()

@@ -18,15 +18,12 @@ import rasterio
 from rasterio.transform import from_origin
 
 from src.analysis.urban_params.config import LULC_COLUMNS
-from src.analysis.urban_params.grid import build_grid
+from src.analysis.urban_params.grid import GridSpec
 from src.analysis.urban_params.io import RasterResource
 from src.analysis.urban_params.params import lulc
 
-from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
+from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS, FINE_RES_M
 
-# ANALYSIS_BBOX（0-80m四方）を coarse=20m で分割した 4x4 グリッドを前提とする。
-COARSE_RES_M = 20.0
-FINE_RES_M = 10.0
 BAND_INDEX = 1
 
 # GLC体系: 市街地(190)・水域(210)・雪氷(220)を2行ずつ敷く（coarse行0/1/2に対応）。
@@ -35,11 +32,6 @@ BAND_INDEX = 1
 _GLC_ROWS = {190: (0, 2), 210: (2, 4), 220: (4, 6)}
 # Esri体系: 市街地(7)・水域(1)・雪氷(9)。裸地(8)は同様に出現しない。
 _ESRI_ROWS = {7: (0, 2), 1: (2, 4), 9: (4, 6)}
-
-
-def _build_grid_spec():
-    """テスト共通の 4x4 coarseグリッド仕様を構築する。"""
-    return build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, COARSE_RES_M, FINE_RES_M)
 
 
 def _write_category_raster(path: Path, row_ranges_by_value: dict[int, tuple[int, int]]) -> None:
@@ -70,26 +62,30 @@ def _write_category_raster(path: Path, row_ranges_by_value: dict[int, tuple[int,
         dst.write(data, 1)
 
 
-def test_compute_returns_empty_dict_for_none_resource() -> None:
+def test_compute_returns_empty_dict_for_none_resource(grid_spec: GridSpec) -> None:
     """resourceがNoneのシナリオでは空辞書を返す（他パラメータモジュールと同じ規約）。"""
-    result = lulc.compute(None, ANALYSIS_BBOX, _build_grid_spec())
+    result = lulc.compute(None, ANALYSIS_BBOX, grid_spec)
 
     assert result == {}
 
 
-def test_compute_returns_declared_columns_for_glc_scheme(tmp_path: Path) -> None:
+def test_compute_returns_declared_columns_for_glc_scheme(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """GLC体系の入力で、config.py が宣言する列名と一致する出力を返す。"""
     raster_path = tmp_path / "lulc_glc.tif"
     _write_category_raster(raster_path, _GLC_ROWS)
 
     result = lulc.compute(
-        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, grid_spec
     )
 
     assert set(result) == set(LULC_COLUMNS)
 
 
-def test_compute_returns_same_column_names_for_glc_and_esri_schemes(tmp_path: Path) -> None:
+def test_compute_returns_same_column_names_for_glc_and_esri_schemes(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """GLC・Esriのどちらで算出しても同一の列名を返す（差し替え関係）。"""
     glc_path = tmp_path / "lulc_glc.tif"
     _write_category_raster(glc_path, _GLC_ROWS)
@@ -97,22 +93,24 @@ def test_compute_returns_same_column_names_for_glc_and_esri_schemes(tmp_path: Pa
     _write_category_raster(esri_path, _ESRI_ROWS)
 
     glc_result = lulc.compute(
-        RasterResource(glc_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(glc_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, grid_spec
     )
     esri_result = lulc.compute(
-        RasterResource(esri_path, BAND_INDEX, "esri2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(esri_path, BAND_INDEX, "esri2022"), ANALYSIS_BBOX, grid_spec
     )
 
     assert set(glc_result) == set(esri_result) == set(LULC_COLUMNS)
 
 
-def test_compute_maps_glc_class_values_to_correct_columns(tmp_path: Path) -> None:
+def test_compute_maps_glc_class_values_to_correct_columns(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """GLC体系の画素値が、対応する列（LULC_BUILT_COV等）へ正しく写像される。"""
     raster_path = tmp_path / "lulc_glc.tif"
     _write_category_raster(raster_path, _GLC_ROWS)
 
     result = lulc.compute(
-        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, grid_spec
     )
 
     # coarse row=0（画素値190=市街地の行）は LULC_BUILT_COV が1.0、他クラスは0.0
@@ -123,13 +121,15 @@ def test_compute_maps_glc_class_values_to_correct_columns(tmp_path: Path) -> Non
     np.testing.assert_allclose(result["LULC_BUILT_COV"][1, :], 0.0, atol=1e-5)
 
 
-def test_compute_maps_esri_class_values_to_correct_columns(tmp_path: Path) -> None:
+def test_compute_maps_esri_class_values_to_correct_columns(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """Esri体系の画素値が、GLCと同一の列へ写像される（値は違っても列名は共有）。"""
     raster_path = tmp_path / "lulc_esri.tif"
     _write_category_raster(raster_path, _ESRI_ROWS)
 
     result = lulc.compute(
-        RasterResource(raster_path, BAND_INDEX, "esri2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, BAND_INDEX, "esri2022"), ANALYSIS_BBOX, grid_spec
     )
 
     # coarse row=0（画素値7=市街地の行）
@@ -138,7 +138,9 @@ def test_compute_maps_esri_class_values_to_correct_columns(tmp_path: Path) -> No
     np.testing.assert_allclose(result["LULC_WATER_COV"][1, :], 1.0, atol=1e-5)
 
 
-def test_compute_excludes_snow_ice_cell_becomes_nan_with_zero_ratio(tmp_path: Path) -> None:
+def test_compute_excludes_snow_ice_cell_becomes_nan_with_zero_ratio(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """雪氷のみのセルは出力7クラスへ写像できないため、各クラスNaN・有効画素率0.0になる。
 
     雪氷はベトナムの対象都市で構造的に出現しないため定義から除外している
@@ -149,7 +151,7 @@ def test_compute_excludes_snow_ice_cell_becomes_nan_with_zero_ratio(tmp_path: Pa
     _write_category_raster(raster_path, _GLC_ROWS)
 
     result = lulc.compute(
-        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, grid_spec
     )
 
     # coarse row=2（画素値220=雪氷の行）
@@ -158,7 +160,9 @@ def test_compute_excludes_snow_ice_cell_becomes_nan_with_zero_ratio(tmp_path: Pa
     np.testing.assert_allclose(result["LULC_VALID_RATIO"][2, :], 0.0, atol=1e-5)
 
 
-def test_compute_outputs_zero_valued_column_for_class_absent_in_roi(tmp_path: Path) -> None:
+def test_compute_outputs_zero_valued_column_for_class_absent_in_roi(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """ROI内に出現しないクラス（裸地）も列として出力され、値は0.0になる。
 
     出現クラスに応じて列構成を変えると、都市が変わるたびにスキーマが変化して
@@ -168,7 +172,7 @@ def test_compute_outputs_zero_valued_column_for_class_absent_in_roi(tmp_path: Pa
     _write_category_raster(raster_path, _GLC_ROWS)
 
     result = lulc.compute(
-        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, _build_grid_spec()
+        RasterResource(raster_path, BAND_INDEX, "glc2022"), ANALYSIS_BBOX, grid_spec
     )
 
     assert "LULC_BARE_COV" in result

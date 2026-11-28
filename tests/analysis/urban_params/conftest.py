@@ -10,12 +10,21 @@ import pytest
 from pyproj import CRS, Transformer
 
 from src.analysis.urban_params import io as urban_params_io
+from src.analysis.urban_params.grid import GridSpec, build_grid
 from src.analysis.urban_params.io import LayerResource
 from src.common.geo_metadata import BBox
 
 # テスト用の解析範囲BBox。fine_res=10m, coarse_res=20mで factor=2 となる。
 ANALYSIS_BBOX = BBox(0.0, 0.0, 80.0, 80.0)
 ANALYSIS_CRS = CRS.from_epsg(3857)
+COARSE_RES_M = 20.0
+FINE_RES_M = 10.0
+
+
+@pytest.fixture()
+def grid_spec() -> GridSpec:
+    """テスト共通の解析グリッド（coarse 20m / fine 10m、4x4セル）。"""
+    return build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, COARSE_RES_M, FINE_RES_M)
 
 
 def _make_layer_resource(gpkg_path: Path, layer_name: str) -> LayerResource:

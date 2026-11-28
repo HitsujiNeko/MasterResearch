@@ -10,20 +10,11 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from src.analysis.urban_params.grid import build_grid
+from src.analysis.urban_params.grid import GridSpec
 from src.analysis.urban_params.io import RasterResource
 from src.analysis.urban_params.params import lst
 
-from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
-
-# ANALYSIS_BBOX（0-80m四方）を coarse=20m で分割した 4x4 グリッドを前提とする。
-COARSE_RES_M = 20.0
-FINE_RES_M = 10.0
-
-
-def _build_grid_spec():
-    """テスト共通の 4x4 coarseグリッド仕様を構築する。"""
-    return build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, COARSE_RES_M, FINE_RES_M)
+from .conftest import ANALYSIS_CRS, FINE_RES_M
 
 
 def _write_lst(path: Path, data: np.ndarray, nodata: float | None = None) -> None:
@@ -56,12 +47,12 @@ def _gradient_lst() -> np.ndarray:
     return (20.0 + rows * 8 + cols).astype(np.float32)
 
 
-def test_compute_returns_cell_mean_lst(tmp_path: Path) -> None:
+def test_compute_returns_cell_mean_lst(tmp_path: Path, grid_spec: GridSpec) -> None:
     """LST列にcoarseセル内の平均地表面温度（°C）が入る。"""
     lst_path = tmp_path / "lst.tif"
     _write_lst(lst_path, _gradient_lst())
 
-    result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+    result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert set(result) == {"LST", "LST_VALID_RATIO"}
     lst_mean = result["LST"]
@@ -73,7 +64,7 @@ def test_compute_returns_cell_mean_lst(tmp_path: Path) -> None:
     assert lst_mean[3, 3] == pytest.approx(78.5, abs=0.5)
 
 
-def test_compute_excludes_nodata_from_mean(tmp_path: Path) -> None:
+def test_compute_excludes_nodata_from_mean(tmp_path: Path, grid_spec: GridSpec) -> None:
     """雲マスク等のnodataが平均へ混入せず、有効画素のみで平均される。"""
     data = np.full((8, 8), 30.0, dtype=np.float32)
     # セル(0, 0) に対応する左上2x2のうち1画素だけをnodataにする。
@@ -81,14 +72,14 @@ def test_compute_excludes_nodata_from_mean(tmp_path: Path) -> None:
     lst_path = tmp_path / "lst_nodata.tif"
     _write_lst(lst_path, data, nodata=-9999.0)
 
-    lst_mean = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())["LST"]
+    lst_mean = lst.compute(RasterResource(lst_path, 1), grid_spec)["LST"]
 
     # -9999 が混ざれば平均は大きく負に振れる。有効画素のみなら30.0のまま。
     assert lst_mean[0, 0] == pytest.approx(30.0, abs=0.5)
     assert not np.isnan(lst_mean[0, 0])
 
 
-def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path) -> None:
+def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path, grid_spec: GridSpec) -> None:
     """全画素が雲被覆（nodata）のセルはNaNのまま残る（0で埋めない）。"""
     data = np.full((8, 8), -9999.0, dtype=np.float32)
     # セル(0, 0) に対応する左上2x2のみ有効値にする。
@@ -96,26 +87,28 @@ def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path) -> None:
     lst_path = tmp_path / "lst_all_nodata.tif"
     _write_lst(lst_path, data, nodata=-9999.0)
 
-    lst_mean = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())["LST"]
+    lst_mean = lst.compute(RasterResource(lst_path, 1), grid_spec)["LST"]
 
     assert lst_mean[0, 0] == pytest.approx(25.0, abs=0.5)
     assert np.isnan(lst_mean[0, 1])
     assert np.isnan(lst_mean[3, 3])
 
 
-def test_valid_ratio_is_one_for_fully_covered_cells(tmp_path: Path) -> None:
+def test_valid_ratio_is_one_for_fully_covered_cells(tmp_path: Path, grid_spec: GridSpec) -> None:
     """全画素が有効なセルの有効画素率は1.0になる。"""
     lst_path = tmp_path / "lst_full.tif"
     _write_lst(lst_path, _gradient_lst(), nodata=-9999.0)
 
-    valid_ratio = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())["LST_VALID_RATIO"]
+    valid_ratio = lst.compute(RasterResource(lst_path, 1), grid_spec)["LST_VALID_RATIO"]
 
     assert valid_ratio.shape == (4, 4)
     assert valid_ratio.dtype == np.float32
     np.testing.assert_allclose(valid_ratio, np.ones((4, 4), dtype=np.float32), atol=1e-5)
 
 
-def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> None:
+def test_valid_ratio_distinguishes_partially_covered_cells(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """雲による部分被覆セルはLSTでは完全被覆セルと区別できず、有効画素率でのみ区別できる。
 
     実データでは雲マスクにより有効画素率が25.4〜45.7%と低いため、この列を
@@ -127,7 +120,7 @@ def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> No
     lst_path = tmp_path / "lst_partial.tif"
     _write_lst(lst_path, data, nodata=-9999.0)
 
-    result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+    result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     # LST は部分被覆セルと完全被覆セルで同じ値になる（区別できない）。
     assert result["LST"][0, 0] == pytest.approx(result["LST"][0, 1], abs=1e-5)
@@ -136,21 +129,21 @@ def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> No
     assert result["LST_VALID_RATIO"][0, 1] == pytest.approx(1.0, abs=1e-5)
 
 
-def test_valid_ratio_is_zero_for_all_nodata_cells(tmp_path: Path) -> None:
+def test_valid_ratio_is_zero_for_all_nodata_cells(tmp_path: Path, grid_spec: GridSpec) -> None:
     """全画素が雲被覆（nodata）のセルは有効画素率0.0であり、LSTはNaNになる。"""
     data = np.full((8, 8), -9999.0, dtype=np.float32)
     data[0:2, 0:2] = 25.0
     lst_path = tmp_path / "lst_ratio_nodata.tif"
     _write_lst(lst_path, data, nodata=-9999.0)
 
-    result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+    result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert result["LST_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
     assert result["LST_VALID_RATIO"][3, 3] == pytest.approx(0.0, abs=1e-5)
     assert np.isnan(result["LST"][3, 3])
 
 
-def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
+def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path, grid_spec: GridSpec) -> None:
     """ラスタの範囲外セルは、NaNではなく有効画素率0.0になる。
 
     範囲外を ``NaN`` にすると「雲被覆で覆われたセル」と区別が付かなくなるため、
@@ -172,7 +165,7 @@ def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
     ) as dst:
         dst.write(np.full((8, 4), 32.0, dtype=np.float32), 1)
 
-    result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+    result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert result["LST_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
     assert result["LST_VALID_RATIO"][0, 3] == pytest.approx(0.0, abs=1e-5)
@@ -180,7 +173,7 @@ def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
     assert np.isnan(result["LST"][0, 3])
 
 
-def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
+def test_compute_reprojects_from_geographic_crs(tmp_path: Path, grid_spec: GridSpec) -> None:
     """LSTラスタが解析CRSと異なる地理座標系でも、再投影されて値が保持される。
 
     実運用のLSTラスタはEPSG:4326、解析CRSはEPSG:5897（投影座標系）であり、
@@ -204,7 +197,7 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
     ) as dst:
         dst.write(np.full((10, 10), 35.0, dtype=np.float32), 1)
 
-    result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+    result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     lst_mean = result["LST"]
     assert not np.isnan(lst_mean).any()
@@ -215,7 +208,7 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
     )
 
 
-def test_compute_warns_when_median_looks_like_kelvin(tmp_path: Path) -> None:
+def test_compute_warns_when_median_looks_like_kelvin(tmp_path: Path, grid_spec: GridSpec) -> None:
     """集約後の中央値が摂氏として妥当な範囲の外（約300）なら警告する。
 
     ケルビン単位のLSTラスタを誤って渡した場合を検知するための警告である。
@@ -224,7 +217,7 @@ def test_compute_warns_when_median_looks_like_kelvin(tmp_path: Path) -> None:
     _write_lst(lst_path, np.full((8, 8), 305.0, dtype=np.float32))
 
     with pytest.warns(UserWarning, match="妥当な範囲"):
-        result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     np.testing.assert_allclose(result["LST"], 305.0, rtol=1e-5)
 
@@ -237,7 +230,7 @@ def test_compute_warns_when_median_looks_like_kelvin(tmp_path: Path) -> None:
     ],
 )
 def test_compute_does_not_warn_just_inside_plausible_range(
-    tmp_path: Path, inside_value: float, label: str
+    tmp_path: Path, inside_value: float, label: str, grid_spec: GridSpec
 ) -> None:
     """妥当範囲のわずかに内側では警告しない（境界の1歩内側）。
 
@@ -252,7 +245,7 @@ def test_compute_does_not_warn_just_inside_plausible_range(
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert not [record for record in caught if "妥当な範囲" in str(record.message)]
 
@@ -262,29 +255,33 @@ def test_compute_does_not_warn_just_inside_plausible_range(
     [(lst.PLAUSIBLE_LST_MIN_C - 0.1, "below_min"), (lst.PLAUSIBLE_LST_MAX_C + 0.1, "above_max")],
 )
 def test_compute_warns_just_outside_plausible_range(
-    tmp_path: Path, outside_value: float, label: str
+    tmp_path: Path, outside_value: float, label: str, grid_spec: GridSpec
 ) -> None:
     """妥当範囲をわずかに外れた値では警告する（境界の1歩外側、閾値の実装ミスを検知する）。"""
     lst_path = tmp_path / f"lst_outside_{label}.tif"
     _write_lst(lst_path, np.full((8, 8), outside_value, dtype=np.float32))
 
     with pytest.warns(UserWarning, match="妥当な範囲"):
-        lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        lst.compute(RasterResource(lst_path, 1), grid_spec)
 
 
-def test_compute_does_not_warn_for_plausible_celsius_values(tmp_path: Path) -> None:
+def test_compute_does_not_warn_for_plausible_celsius_values(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """実データの値域に近い摂氏の値では警告しない。"""
     lst_path = tmp_path / "lst_celsius.tif"
     _write_lst(lst_path, np.full((8, 8), 40.0, dtype=np.float32))
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert not [record for record in caught if "妥当な範囲" in str(record.message)]
 
 
-def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(tmp_path: Path) -> None:
+def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """有効値が1件も無い場合、ケルビン検知（妥当な範囲チェック）は行わない。
 
     正常なLSTを弾かない設計上、判定材料が無いセル集合を「範囲外」と誤検知して
@@ -295,7 +292,7 @@ def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(tmp_path
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert not [record for record in caught if "妥当な範囲" in str(record.message)]
     assert np.isnan(result["LST"]).all()
@@ -303,6 +300,7 @@ def test_compute_does_not_warn_kelvin_check_when_all_values_are_missing(tmp_path
 
 def test_compute_warns_all_missing_not_no_overlap_when_fully_cloud_masked(
     tmp_path: Path,
+    grid_spec: GridSpec,
 ) -> None:
     """グリッドと重なっているのに全画素が雲マスクの場合、「重なりません」とは言わない。
 
@@ -316,14 +314,14 @@ def test_compute_warns_all_missing_not_no_overlap_when_fully_cloud_masked(
     _write_lst(lst_path, np.full((8, 8), -9999.0, dtype=np.float32), nodata=-9999.0)
 
     with pytest.warns(UserWarning, match="有効画素が1つもありません") as caught:
-        result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert not [record for record in caught if "重なりません" in str(record.message)]
     assert np.isnan(result["LST"]).all()
     np.testing.assert_allclose(result["LST_VALID_RATIO"], 0.0, atol=1e-5)
 
 
-def test_compute_warns_when_lst_does_not_overlap_grid(tmp_path: Path) -> None:
+def test_compute_warns_when_lst_does_not_overlap_grid(tmp_path: Path, grid_spec: GridSpec) -> None:
     """LSTラスタが解析グリッドと全く重ならない場合は警告する。
 
     都市とLSTラスタの取り違え・切り出し範囲の誤りではファイルが存在するため
@@ -347,19 +345,21 @@ def test_compute_warns_when_lst_does_not_overlap_grid(tmp_path: Path) -> None:
         dst.write(np.full((8, 8), 35.0, dtype=np.float32), 1)
 
     with pytest.warns(UserWarning, match="重なりません"):
-        result = lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        result = lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert np.isnan(result["LST"]).all()
     np.testing.assert_allclose(result["LST_VALID_RATIO"], 0.0, atol=1e-5)
 
 
-def test_compute_does_not_warn_overlap_when_lst_overlaps_grid(tmp_path: Path) -> None:
+def test_compute_does_not_warn_overlap_when_lst_overlaps_grid(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """LSTラスタがグリッドと重なる通常の入力では、重なりの警告をしない。"""
     lst_path = tmp_path / "lst_overlap.tif"
     _write_lst(lst_path, _gradient_lst(), nodata=-9999.0)
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        lst.compute(RasterResource(lst_path, 1), _build_grid_spec())
+        lst.compute(RasterResource(lst_path, 1), grid_spec)
 
     assert not [record for record in caught if "重なりません" in str(record.message)]

@@ -305,6 +305,11 @@ def test_fetch_bytes_with_retry_accepts_expected_status(
     assert result == b"partial"
 
 
+def test_unexpected_status_error_is_runtime_error() -> None:
+    """既存の呼び出し元が `except RuntimeError` で受け止められるよう、派生関係を保つ。"""
+    assert issubclass(http_fetch.UnexpectedStatusError, RuntimeError)
+
+
 def test_fetch_bytes_with_retry_rejects_unexpected_status_without_reading(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

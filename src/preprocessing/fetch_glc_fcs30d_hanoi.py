@@ -283,8 +283,9 @@ class HttpRangeReader(io.RawIOBase):
             bytes: 読み取ったバイト列。
 
         Raises:
-            RuntimeError: サーバーが部分応答（206）を返さない場合、または
-                リトライ上限を超えても読み取れない場合。
+            RuntimeError: サーバーが部分応答（206）を返さない場合、リトライ上限を
+                超えても読み取れない場合、またはリトライしても解消しない HTTP エラー
+                （404 など）が返った場合。
         """
         if size is None or size < 0:
             size = self.size - self._position

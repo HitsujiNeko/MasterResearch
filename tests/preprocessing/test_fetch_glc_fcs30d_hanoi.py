@@ -462,6 +462,26 @@ class TestHttpRangeReader:
         assert "Range リクエストに対応していません" not in str(excinfo.value)
         assert reader.tell() == 0
 
+    def test_permanent_http_error_is_not_reported_as_range_unsupported(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """404 などリトライしない HTTP エラーは、Range 非対応の説明を付けずに失敗する。"""
+        self._install_fake_urlopen(monkeypatch)
+        reader = target.HttpRangeReader("https://example.invalid/a.zip", retry_wait_seconds=0)
+        get_count = {"value": 0}
+
+        def fake_urlopen(request: Any, timeout: int = 0) -> FakeHttpResponse:
+            get_count["value"] += 1
+            raise urllib.error.HTTPError(request.full_url, 404, "Not Found", hdrs=None, fp=None)
+
+        monkeypatch.setattr(target.urllib.request, "urlopen", fake_urlopen)
+
+        with pytest.raises(RuntimeError, match=r"範囲 0-9.*404") as excinfo:
+            reader.read(10)
+        assert "Range リクエストに対応していません" not in str(excinfo.value)
+        assert get_count["value"] == 1
+        assert reader.tell() == 0
+
     def test_raises_when_response_is_not_partial(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """206 以外の応答はリトライせず即座に失敗する。"""
         counters = self._install_fake_urlopen(monkeypatch, range_status=200)

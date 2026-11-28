@@ -29,7 +29,15 @@
 - タブは使用しない。
 - 演算子の前後、カンマの後にはスペースを入れる。
 - 上記は `ruff format` により自動整形される。
-- Python ファイルの改行コードは LF とする。`ruff format` の `line-ending = "lf"` とそろえるため、`.gitattributes` の `*.py text eol=lf` により、Windows（`core.autocrlf=true`）でも作業ツリーに LF で取り出される。この設定より前に取り出した作業ツリーは CRLF のまま残り、ローカルの `ruff format --check` が不合格になる。その場合は、未コミットの変更が無い状態で `.py` ファイルの更新日時を変えてから（例: `find . -name "*.py" -not -path "./.git/*" -exec touch {} +`）`git checkout-index --force --all` で取り出し直し、`git add -u` で git の記録を更新する（未コミットの変更は上書きされて失われる）
+- Python ファイルの改行コードは LF とする。`ruff format` の `line-ending = "lf"` とそろえるため、`.gitattributes` の `*.py text eol=lf` により、Windows（`core.autocrlf=true`）でも作業ツリーに LF で取り出される。
+- この設定より前に取り出した作業ツリーは CRLF のまま残り、ローカルの `ruff format --check` が不合格になる。その場合は、**未コミットの変更が無い状態で**、Git Bash で次を実行して取り出し直す（未コミットの変更は上書きされて失われる）。`git checkout-index` は更新日時が記録と一致するファイルを書き直さないため、先に git の管理下の `.py` の更新日時を変える
+
+  ```bash
+  git ls-files -z -- '*.py' | xargs -0 touch
+  git checkout-index --force --all
+  # index に残った古い更新日時の記録を更新する（中身の差分は無いので何もステージされない）
+  git add -u
+  ```
 
 ## 3. 型ヒント
 
@@ -88,31 +96,31 @@ def calculate_mean(values: list[float]) -> float:
 - 共通化の対象は関数だけでなく**定数**（CRS・デフォルトパス・プロジェクトルート等）も含む
 - 共通モジュールの配置場所は `src/common/`、対応するテストは `tests/common/` に**必須**（[11. テスト方針](#11-テスト方針)に従う）
 - import は `from src.common.{モジュール} import ...` の絶対importに統一する（`__init__.py` での再エクスポートはしない。利用側は必要なサブモジュールだけをimportし、不要な依存伝播を防ぐ）
-- 実行は `python -m src.{パッケージ}.{スクリプト名}` 形式（[docs/setup.md](../setup.md) 6章参照）。`sys.path` を書き換えて直接実行に対応させない（[5.4](#54-cli-スクリプトの構成雛形)）
+- 実行は `python -m src.{パッケージ}.{スクリプト名}` 形式（[docs/setup.md](../setup.md) 6章、[5.4](#54-cli-スクリプトの構成雛形)参照）
 
 ### 5.2 モジュールの最上位に書くもの（import 時の副作用の禁止）
 
-モジュールの最上位（関数・クラスの外）に書いてよいのは、import、定数、関数・クラスの定義、`logger = logging.getLogger(__name__)` だけとする。次の処理は、import しただけで他のモジュールやテストの動作を変えてしまうため、最上位では行わず `main()` などの関数の中で行う。
+モジュールの最上位（関数・クラスの外）に書いてよいのは、import、定数（型エイリアス・`__all__` を含む）、関数・クラスの定義、`logger = logging.getLogger(__name__)`、ファイル末尾の `if __name__ == "__main__":` のブロックだけとする。次の処理は、import しただけで他のモジュールやテストの動作を変えてしまうため、最上位では行わず `main()` などの関数の中で行う。
 
 - 環境変数（`os.environ`。`PATH`・`GDAL_DATA`・`PROJ_LIB` など）の書き換え。実行環境の設定は [setup.md](../setup.md) の手順で行い、コードでは書き換えない
-- `sys.path` の書き換え（`src/` は `python -m` で実行するため不要。[5.4](#54-cli-スクリプトの構成雛形)）
+- `sys.path` の書き換え（[5.4](#54-cli-スクリプトの構成雛形)）
 - `logging.basicConfig` などのログの設定（[5.3](#53-ログと標準出力)）
 - ファイルの読み書き・ネットワーク接続・時間のかかる計算
 
-**例外**: 描画を行うモジュールでの `matplotlib.use("Agg")` は最上位に書いてよい。`matplotlib.pyplot` を import する前に呼ぶ必要があるためで、その理由をコメントに書く。この場合に限り、後に続く import への `# noqa: E402`（import がファイルの先頭にない）を認める。それ以外では `# noqa: E402` を付けない。
+**例外**: 描画を行うモジュールでの `matplotlib.use("Agg")`（画面の無い環境でも描画できるようにする設定）は最上位に書いてよい。すべての import の後に置き、理由をコメントに書く。`matplotlib.pyplot` を import した後に呼んでも切り替わるため、import の前に置く必要は無い。したがって `# noqa: E402`（import がファイルの先頭にない）は付けない。
 
 ### 5.3 ログと標準出力
 
 - 進捗・警告・エラーなど、処理の経過は `logging` で出す。各モジュールは最上位で `logger = logging.getLogger(__name__)` を定義して使い、`logging.info(...)` のようにルートロガーを直接使わない
-- ログの設定（`logging.basicConfig`）は、エントリポイント（`python -m` で実行するスクリプト）の `main()` の中で 1 回だけ行う。`src/common/` など他から import されるモジュールでは設定しない。最上位で設定すると、最初に import されたモジュールの設定が全体に効いてしまうため
-- `print` は、標準出力に出す結果に限って使う（集計表・JSON・書き出したファイルの場所の案内など、利用者や他のプログラムが読み取るもの）。進捗やデバッグの表示には使わない
+- ログの設定（`logging.basicConfig`）は、エントリポイント（コマンドとして実行するスクリプト）の `main()` の中で 1 回だけ行う。`src/common/` など他から import されるモジュールでは設定しない。最上位で設定すると、最初に import されたモジュールの設定が全体に効いてしまうため
+- `print` は、標準出力に出す結果に限って使う（集計表・JSON・書き出したファイルの場所の案内など、利用者や他のプログラムが読み取るもの）。進捗やデバッグの表示には使わない。繰り返し処理の進捗バーには tqdm を使ってよい（標準エラー出力に出るため、標準出力の結果を妨げない）
 
 ### 5.4 CLI スクリプトの構成（雛形）
 
 - 引数の解釈は `parse_arguments(argv: list[str] | None = None) -> argparse.Namespace` という名前と形にする。`argv` を受け取るのは、テストから引数を渡せるようにするため
 - parser そのものを別の場所（テストなど）で使い回す場合に限り、`build_argument_parser() -> argparse.ArgumentParser` を分けてよい。その場合も `parse_arguments` がそれを呼んで解釈する
 - `main(argv: list[str] | None = None)` は `argv` を `parse_arguments` に渡す。終了コードを返す場合は戻り値を `int` にし、`raise SystemExit(main())` で呼ぶ
-- `src/` のスクリプトは `python -m src.{パッケージ}.{スクリプト名}` で実行する。`sys.path` を書き換えて `python src/...` の直接実行に対応させない。`scripts/` 配下は `python scripts/{スクリプト名}.py` で実行し、こちらも `sys.path` を書き換えない
+- `src/` のスクリプトは `python -m src.{パッケージ}.{スクリプト名}` で実行する。`scripts/` 配下は、`src` を import するものは `python -m scripts.{スクリプト名}`、import しないものは `python scripts/{スクリプト名}.py` で実行する。いずれも `sys.path` を書き換えて `python src/...` などの直接実行に対応させない
 
 新しく CLI スクリプトを書くときは、次の雛形を起点にする（5.2〜5.4、[7章](#7-パスの扱い再現性)の文字コードの指定を満たす最小の形）。
 
@@ -197,7 +205,10 @@ if __name__ == "__main__":
 - **研究データの絶対パス（ユーザー名やドライブ直下の研究データディレクトリなど）はハードコードしない**。
 - 例外として、**外部ツールの実行ファイル探索パス**（QGIS同梱の`ogr2ogr.exe`など、OS環境に依存するインストール先）は、フォールバック候補のリストとして絶対パスを記述してよい。
 - 乱数を使用する処理では、必ずシードを設定する。
-- テキストファイルを読み書きするとき（`open`・`Path.read_text`・`Path.write_text` など）は、`encoding="utf-8"` を必ず指定する。指定しないと Windows では既定の文字コード（cp932）が使われ、日本語が文字化けしたり書き出しが失敗したりするため。BOM つきの UTF-8 ファイル（Excel で保存した CSV など）を読むときは `encoding="utf-8-sig"` を使う。
+- テキストを読み書きするときは、`encoding="utf-8"` を必ず指定する。指定しないと Windows では既定の文字コード（cp932）が使われ、日本語が文字化けしたり書き出しが失敗したりするため。BOM つきの UTF-8 ファイル（Excel で保存した CSV など）を読むときは `encoding="utf-8-sig"` を使う。対象は次のとおり。
+  - `open`・`Path.read_text`・`Path.write_text`（テキストモード）
+  - `subprocess.run(..., text=True)` など、外部コマンドの出力を文字列として受け取る呼び出し（既定では cp932 で解釈されるため）
+  - pandas の `read_csv`・`to_csv` など、文字コードの引数を持つ入出力の関数（既定は UTF-8 だが、読み手に分かるよう明示する）
 
 ## 8. コーディングの基本方針
 
@@ -313,12 +324,14 @@ Python ファイルの新規作成・機能変更時には、対応するテス�
 | パス | 内容 |
 |---|---|
 | `src/js/` | Ermida らによる Google Earth Engine の LST 算出コード（JavaScript） |
-| `src/fortran/` | 地形の水平線の計算プログラム（Fortran） |
+| `src/fortran/` | BS-Horizon（3 次 B スプライン曲面による地層境界面の推定プログラム。Fortran） |
 | `src/preprocessing/terramodBS2geotiff.py` | BS-Horizon の ASCII グリッドを GeoTIFF に変換するプログラム |
 
-- 取り込んだときの形を保ち、改変しない。論文の実装や移植元と突き合わせられるようにするため
-- 出典（作者・取得元）をファイルの先頭のコメントか、同じディレクトリの説明に記す
-- 処理を変える必要がある場合は Python に移植し、規約の対象のコードとして `src/` に書く。元のコードは参照用に残す（例: `src/js/` の係数表を移植した `src/module/lst_smw.py`、`src/fortran/bs_horizon.f` を移植した `src/preprocessing/bs_horizon.py`）
+- 処理（コードの動作）を変えない。論文の実装や移植元と突き合わせられるようにするため。出典を記すコメントの追記と、`ruff` による自動整形（Python のファイルが `ruff` の対象に含まれている間）は、変更に含めない
+- 出典（作者・論文・取得元）を、ファイルの先頭のコメントか、そのコードを使う手法を説明する `docs/` の文書に記す
+- 処理を変える必要がある場合は、元のコードを参照用に残したまま、規約の対象のコードとして `src/` に書き直す（例: `src/js/` の係数表を移植した `src/module/lst_smw.py`）
+
+また、ヘッドレスの PyQGIS で図を描くときにその場で作るランナー（[qgis_figure_generation.md](qgis_figure_generation.md)）は、リポジトリに置かない一時的なスクリプトであり、5.2・5.4 を適用しない。QGIS の Python が `PYTHONPATH` を空にするため、ランナーの中で `sys.path` にリポジトリのルートを加える必要があるためである。
 
 ## 13. ツールによる自動チェックの範囲
 
@@ -431,6 +444,9 @@ PR作成時・`main` へのpush時にも自動実行される（[setup.md 12章]
 - [ ] 再現性に影響する設定（パス、乱数、閾値）を明示した
 - [ ] モジュールの最上位で環境変数・`sys.path`・ログの設定を変えていない（5.2・5.3）
 - [ ] テキストファイルの読み書きで `encoding` を指定した（7章）
+- [ ] 経過は `logging`、標準出力に出す結果だけ `print` で出している（5.3）
+- [ ] CLI の引数の解釈を `parse_arguments(argv)` にし、`main()` から `argv` を渡している（5.4）
+- [ ] 追加した `test_` 関数に、何を確かめるかを書いた docstring を付けた（11.1）
 - [ ] 不要なコード・未使用変数・デバッグ出力を残していない
 - [ ] テストコードを作成し、`pytest` で通過することを確認した
 - [ ] 既存共通機能と重複する実装を新たに作っていない

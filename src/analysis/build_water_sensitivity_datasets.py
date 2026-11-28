@@ -69,7 +69,7 @@ from src.analysis.urban_params.config import POPULATION_BASE_COLUMNS
 from src.analysis.urban_params.params.lulc import COLUMN_TO_COMMON_CLASS
 from src.analysis.urban_params.tables import write_attribute_table
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.log_setup import configure_logging
 from src.common.paths import (
     prepare_output_path,
@@ -93,7 +93,7 @@ DEFAULT_SUMMARY_PATH = (
     / "data"
     / "output"
     / "limited"
-    / "20220906_032358_water_sensitivity"
+    / f"{PRIMARY_OBSERVATION_ID}_water_sensitivity"
     / "water_sensitivity_datasets_results.json"
 )
 

@@ -33,7 +33,7 @@ import numpy as np
 import rasterio
 from rasterio.crs import CRS
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, DEFAULT_OPEN_GIS_OUTPUT_DIR, PROJECT_ROOT
 from src.common.log_setup import configure_logging
 from src.common.paired_stats import build_paired_statistics
 from src.common.paths import prepare_output_path, resolve_existing_path, to_project_relative_string
@@ -46,11 +46,7 @@ DEFAULT_WORLDPOP_PATH = DEFAULT_POPULATION_DIR / "worldpop" / "worldpop_hanoi_20
 DEFAULT_LANDSCAN_BASE_PATH = DEFAULT_POPULATION_DIR / "landscan" / "landscan_hanoi_2020.tif"
 DEFAULT_LANDSCAN_RECENT_PATH = DEFAULT_POPULATION_DIR / "landscan" / "landscan_hanoi_2023.tif"
 DEFAULT_SUMMARY_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "output"
-    / "open_gis"
-    / "population_worldpop_landscan_hanoi_2020_summary.json"
+    DEFAULT_OPEN_GIS_OUTPUT_DIR / "population_worldpop_landscan_hanoi_2020_summary.json"
 )
 
 # 取得スクリプトと揃えた無効値・バンド番号

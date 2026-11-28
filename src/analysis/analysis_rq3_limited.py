@@ -58,7 +58,7 @@ from src.common.analysis_runs import (
     run_spatial_cv_models,
     validate_scale_matches_dataset,
 )
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.evaluation_cells import (
     build_evaluation_record,
     evaluation_input_paths,
@@ -90,9 +90,13 @@ from src.common.summary import (
 # 分析対象は30m・単一観測日（2022-09-06 03:23:58Z）に限定する
 # （Satellite Onlyと同じ制約。他日時・他スケールの拡張は別途行う）。
 DEFAULT_DATASET_PATH = (
-    PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20220906_032358_hanoi_30m.gpkg"
+    PROJECT_ROOT
+    / "data"
+    / "output"
+    / "datasets"
+    / f"dataset_limited_{PRIMARY_OBSERVATION_ID}_hanoi_30m.gpkg"
 )
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / "20220906_032358"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "limited" / PRIMARY_OBSERVATION_ID
 # 説明変数はブロック単位で持ち、`resolve_feature_columns()` が変数セット・建物高さ
 # 構成の指定に応じて組み立てる。比較軸を「分光指数 vs 被覆率型」に絞るため、変数
 # セットで差し替えるのは SPECTRAL と LULC の2ブロックだけで、それ以外は全構成に

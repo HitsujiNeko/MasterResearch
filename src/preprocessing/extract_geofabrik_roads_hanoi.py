@@ -14,16 +14,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, DEFAULT_OPEN_GIS_OUTPUT_DIR, PROJECT_ROOT
 from src.common.gdal_tools import find_gdal_toolset
 from src.common.log_setup import configure_logging
 from src.common.summary import save_summary
 
 DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "gis" / "raw" / "vietnam-260408.osm.pbf"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "roads" / "hanoi_osm_roads.gpkg"
-DEFAULT_SUMMARY_PATH = (
-    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_osm_roads_summary.json"
-)
+DEFAULT_SUMMARY_PATH = DEFAULT_OPEN_GIS_OUTPUT_DIR / "hanoi_osm_roads_summary.json"
 DEFAULT_LAYER_NAME = "roads"
 REQUEST_TIMEOUT_SECONDS = 3600
 

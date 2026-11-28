@@ -47,12 +47,12 @@ import pandas as pd
 from scipy.stats import kendalltau
 
 from src.analysis.diagnose_spatial_cv_design import MAX_FOLD_SIZE_RATIO, MIN_BLOCKS
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.paths import to_project_relative_string
 from src.common.summary import build_provenance, save_summary
 
 SCRIPT_NAME = "src.analysis.summarize_rq2_scale_area"
-DEFAULT_OBSERVATION = "20220906_032358"
+DEFAULT_OBSERVATION = PRIMARY_OBSERVATION_ID
 
 # シナリオごとの出力ディレクトリ（出力ルート基準）
 SCENARIO_DIRS: dict[str, str] = {

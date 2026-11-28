@@ -42,6 +42,7 @@ from rasterio.mask import mask
 
 from src.common.config import (
     DEFAULT_HANOI_ROI_PATH,
+    DEFAULT_OPEN_GIS_OUTPUT_DIR,
     LANDSAT_OBSERVATION_YEAR,
     PROJECT_ROOT,
     WGS84_CRS,
@@ -55,7 +56,7 @@ from src.common.summary import save_summary
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "gis" / "lulc" / "glc_fcs30d"
 DEFAULT_CACHE_DIR = DEFAULT_OUTPUT_DIR / "_cache"
-DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_SUMMARY_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 # Zenodo のレコード ID（v2）。初版は 8239305 だが、こちらが最新版。
 DEFAULT_ZENODO_RECORD_ID = "15063683"

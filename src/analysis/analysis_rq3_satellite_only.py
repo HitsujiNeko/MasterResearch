@@ -44,7 +44,7 @@ from src.common.analysis_runs import (
     run_spatial_cv_models,
     validate_scale_matches_dataset,
 )
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.evaluation_cells import (
     build_evaluation_record,
     evaluation_input_paths,
@@ -78,12 +78,12 @@ DEFAULT_DATASET_PATH = (
     / "data"
     / "output"
     / "datasets"
-    / "dataset_satellite_only_20220906_032358_hanoi_30m.gpkg"
+    / f"dataset_satellite_only_{PRIMARY_OBSERVATION_ID}_hanoi_30m.gpkg"
 )
 # 旧経路（data/output/satellite_only/）とは集計単位・格子が異なる別物のため、
 # 出力先ディレクトリを分ける。
 DEFAULT_OUTPUT_DIR = (
-    PROJECT_ROOT / "data" / "output" / "satellite_only_cellbased" / "20220906_032358"
+    PROJECT_ROOT / "data" / "output" / "satellite_only_cellbased" / PRIMARY_OBSERVATION_ID
 )
 FEATURE_COLUMNS = ["NDVI", "NDBI", "NDWI"]
 TARGET_COLUMN = "LST"

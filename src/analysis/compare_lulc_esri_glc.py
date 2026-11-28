@@ -39,7 +39,7 @@ from rasterio.features import geometry_mask
 from rasterio.warp import reproject
 from sklearn.metrics import cohen_kappa_score
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, DEFAULT_OPEN_GIS_OUTPUT_DIR, PROJECT_ROOT
 from src.common.log_setup import configure_logging
 from src.common.lulc_classes import (
     COMMON_BUILT,
@@ -61,7 +61,7 @@ DEFAULT_GLC_PATH = (
     PROJECT_ROOT / "data" / "gis" / "lulc" / "glc_fcs30d" / "glc_fcs30d_hanoi_2022.tif"
 )
 DEFAULT_ESRI_PATH = PROJECT_ROOT / "data" / "gis" / "lulc" / "esri_10m" / "esri_lulc_hanoi_2022.tif"
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_OUTPUT_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 # GLC の 30m セルを何分割して Esri を評価するか（30m / 3 = 10m でネイティブ解像度に一致）
 SUBDIVISION_FACTOR = 3

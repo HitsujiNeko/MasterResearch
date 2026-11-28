@@ -12,7 +12,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.common.config import PROJECT_ROOT, WGS84_CRS
+from src.common.config import DEFAULT_OPEN_GIS_OUTPUT_DIR, PROJECT_ROOT, WGS84_CRS
 from src.common.paths import prepare_output_path
 from src.common.raster_area import build_target_area, clip_multiband_to_area
 from src.common.raster_stats import build_multiband_pixel_statistics
@@ -45,7 +45,7 @@ from src.preprocessing.black_marble.tile_grid import resolve_black_marble_tiles
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "data" / "gis" / "nighttime_lights" / "black_marble"
-DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_SUMMARY_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 
 def resolve_output_paths(

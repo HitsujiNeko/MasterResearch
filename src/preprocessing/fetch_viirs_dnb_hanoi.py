@@ -42,6 +42,7 @@ import numpy as np
 
 from src.common.config import (
     DEFAULT_HANOI_ROI_PATH,
+    DEFAULT_OPEN_GIS_OUTPUT_DIR,
     LANDSAT_OBSERVATION_YEAR,
     PROJECT_ROOT,
     WGS84_CRS,
@@ -60,7 +61,7 @@ from src.common.summary import save_summary
 
 DEFAULT_GEE_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "data" / "gis" / "nighttime_lights" / "viirs_dnb"
-DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_SUMMARY_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 REQUEST_TIMEOUT_SECONDS = 300
 OUTPUT_NODATA = DEFAULT_RASTER_NODATA

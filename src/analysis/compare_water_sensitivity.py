@@ -51,7 +51,7 @@ from src.analysis.lst_emissivity_sensitivity import (
     rank_features,
 )
 from src.common.analysis_runs import RANDOM_SPLIT_TEST_FRACTION
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.evaluation_cells import CELL_ID_COLUMN, load_evaluation_set
 from src.common.log_setup import configure_logging
 from src.common.paths import (
@@ -69,7 +69,7 @@ WATCH_PATHS: tuple[str, ...] = (
     "src/analysis/compare_water_sources.py",
 )
 DEFAULT_OUTPUT_DIR = (
-    PROJECT_ROOT / "data" / "output" / "limited" / "20220906_032358_water_sensitivity"
+    PROJECT_ROOT / "data" / "output" / "limited" / f"{PRIMARY_OBSERVATION_ID}_water_sensitivity"
 )
 OUTPUT_PREFIX = "water_sensitivity_comparison"
 

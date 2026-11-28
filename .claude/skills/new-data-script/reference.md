@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
-    """コマンドライン引数を解析する。"""
+    """コマンドライン引数を解釈する（Args に argv、Returns に解釈した引数を書く）。"""
     # --roi(デフォルトは DEFAULT_HANOI_ROI_PATH) / --output / --summary / 試行実行用の --bbox 等を定義
 
 

@@ -328,6 +328,16 @@ class TestMergeToGeopackage:
 class TestMain:
     """main のテスト。"""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_working_directory(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """作業ディレクトリを一時ディレクトリに移す。
+
+        main は作業ディレクトリ基準の data/output/ にログファイルを作ることがあるため
+        （pytest の実行中はログが設定済みとして作らないが、それに頼らない）、
+        リポジトリ直下を汚さないようにする。
+        """
+        monkeypatch.chdir(tmp_path)
+
     @staticmethod
     def _run_main(
         target: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extra: list[str]

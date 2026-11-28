@@ -9,7 +9,8 @@ CodingRule.md 5.2 は、import しただけで他のモジュールやテスト�
   （ライブラリが import 時に足すフィルタは対象外とするため、呼び出し元のファイルで判定する）
 - 作業ディレクトリにファイル・ディレクトリが作られない
 
-実行環境に無いライブラリ（QGIS など）を必要とするモジュールは import できないため数えない。
+実行環境に無いライブラリを必要とするモジュールは import できないため数えない。CI は
+`requirements.txt` だけを入れるため、QGIS と GDAL の Python バインディング（`osgeo`）が無い。
 """
 
 from __future__ import annotations
@@ -65,7 +66,7 @@ for module_name in modules:
     try:
         importlib.import_module(module_name)
     except ModuleNotFoundError as error:
-        missing_dependencies[module_name] = error.name
+        missing_dependencies[module_name] = (error.name or "").split(".")[0]
         continue
     imported.append(module_name)
 
@@ -102,8 +103,10 @@ def _import_all_src_modules(work_dir: Path) -> dict:
         text=True,
         encoding="utf-8",
         timeout=600,
-        check=True,
+        check=False,
     )
+    # 子プロセスが import の失敗などで落ちたときに原因が分かるよう、標準エラー出力を添える
+    assert completed.returncode == 0, completed.stderr
     return json.loads(completed.stdout.strip().splitlines()[-1])
 
 
@@ -120,8 +123,8 @@ def test_importing_src_modules_has_no_side_effects(tmp_path: Path) -> None:
         "src.preprocessing.merge_vector_fixed",
     ):
         assert module_name in result["imported"]
-    # 依存が無く数えなかったモジュールは、QGIS を使うものに限られる
-    assert set(result["missing_dependencies"].values()) <= {"qgis", "qgis.core"}
+    # 依存が無く数えなかったモジュールは、QGIS・GDAL の Python バインディングを使うものに限られる
+    assert set(result["missing_dependencies"].values()) <= {"qgis", "osgeo"}
     assert result["calls"] == []
     assert result["root_handler_count"] == 0
     assert list(tmp_path.iterdir()) == []

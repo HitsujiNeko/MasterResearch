@@ -46,6 +46,7 @@ from tqdm import tqdm
 
 from src.common.config import PROJECT_ROOT
 from src.common.gee import authenticate_gee
+from src.common.log_setup import configure_logging
 from src.gee.gee_calc_LST import (
     get_matching_toa_image,
     load_config,
@@ -90,7 +91,6 @@ CONFIDENCE_LEVELS = (0, 1, 2, 3)
 
 SCENE_ID_PREFIX_TO_SENSOR = {"LC08": "L8", "LC09": "L9"}
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -624,6 +624,7 @@ def main() -> None:
     集計に失敗したシーンが 1 件でもあれば、結果の欠落を呼び出し元が検知できるよう
     終了コード 1 で終了する。
     """
+    configure_logging()
     failures = run(parse_arguments())
     if failures:
         sys.exit(1)

@@ -18,20 +18,12 @@ import subprocess
 from pathlib import Path
 
 from src.common.gdal_tools import find_gdal_toolset
+from src.common.log_setup import configure_logging
 
-# ログ出力先ディレクトリを作成（存在しない場合にFileHandlerがエラーになるのを防ぐ）
-Path("data/output").mkdir(parents=True, exist_ok=True)
-
-# ログ設定
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("data/output/merge_vector_fixed.log", encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
 logger = logging.getLogger(__name__)
+
+# ログを書き出すファイル（作業ディレクトリ基準）
+LOG_FILE_PATH = Path("data/output/merge_vector_fixed.log")
 
 SUFFIXES = ["CS", "DC", "DH", "GT", "RG", "TH", "TV"]
 
@@ -254,6 +246,7 @@ def merge_to_geopackage(
 
 def main():
     """メイン処理"""
+    configure_logging(log_file=LOG_FILE_PATH)
     parser = argparse.ArgumentParser(
         description="DGNを種類別にGeoPackageへ統合（ジオメトリ修復版）"
     )

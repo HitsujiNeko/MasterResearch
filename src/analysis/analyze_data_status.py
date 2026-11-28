@@ -10,8 +10,6 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-warnings.filterwarnings("ignore")
-
 
 def analyze_gis_data():
     """GISデータ（gpkg）の分析"""
@@ -226,27 +224,30 @@ def analyze_lst_data():
 
 def main():
     """メイン処理"""
-    print("データ整備状況分析")
-    print()
+    # 読み込むデータに由来する警告を、この分析の間だけ表示しない
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print("データ整備状況分析")
+        print()
 
-    # GISデータ分析
-    gis_results = analyze_gis_data()
+        # GISデータ分析
+        gis_results = analyze_gis_data()
 
-    # LSTデータ分析
-    lst_results = analyze_lst_data()
+        # LSTデータ分析
+        lst_results = analyze_lst_data()
 
-    # 結果を保存
-    output_file = Path("data/output/data_preparation_analysis.json")
-    output_file.parent.mkdir(parents=True, exist_ok=True)
+        # 結果を保存
+        output_file = Path("data/output/data_preparation_analysis.json")
+        output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    combined = {"gis_data": gis_results, "lst_data": lst_results}
+        combined = {"gis_data": gis_results, "lst_data": lst_results}
 
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(combined, f, ensure_ascii=False, indent=2)
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(combined, f, ensure_ascii=False, indent=2)
 
-    print(f"\n{'=' * 80}")
-    print(f"分析完了！結果を {output_file} に保存しました")
-    print("=" * 80)
+        print(f"\n{'=' * 80}")
+        print(f"分析完了！結果を {output_file} に保存しました")
+        print("=" * 80)
 
 
 if __name__ == "__main__":

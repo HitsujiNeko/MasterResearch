@@ -39,6 +39,7 @@ import ee
 
 from src.common.config import PROJECT_ROOT
 from src.common.gee import authenticate_gee
+from src.common.log_setup import configure_logging
 from src.common.paths import prepare_output_path, resolve_existing_path
 from src.common.summary import build_provenance, save_summary
 from src.gee.gee_calc_LST import (
@@ -79,7 +80,6 @@ EXTRA_WATCH_PATHS: tuple[str, ...] = (
 )
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -443,6 +443,7 @@ def main(argv: list[str] | None = None) -> None:
     Args:
         argv: コマンドライン引数（None の場合は `sys.argv` を使う）。
     """
+    configure_logging()
     args = build_argument_parser().parse_args(argv)
     output_dir = args.output_dir or DEFAULT_OUTPUT_ROOT / build_observation_token(
         args.observation_datetime

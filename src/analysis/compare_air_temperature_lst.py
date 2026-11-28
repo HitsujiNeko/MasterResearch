@@ -42,6 +42,7 @@ from shapely.geometry.base import BaseGeometry
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.gee import authenticate_gee, load_gee_project_id
+from src.common.log_setup import configure_logging
 from src.common.paths import (
     prepare_output_path,
     resolve_existing_path,
@@ -63,7 +64,6 @@ from src.preprocessing.fetch_isd_hourly_hanoi import (
     build_output_path as build_isd_csv_path,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 SCRIPT_NAME = "src.analysis.compare_air_temperature_lst"
@@ -716,6 +716,7 @@ def main(argv: list[str] | None = None) -> None:
     Args:
         argv: 引数のリスト。`None` の場合は `sys.argv` を使う。
     """
+    configure_logging()
     args = parse_arguments(argv)
 
     def resolve(value: str, default: Path) -> Path:

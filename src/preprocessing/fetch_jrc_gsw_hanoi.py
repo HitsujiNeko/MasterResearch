@@ -47,9 +47,10 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.config import DEFAULT_HANOI_ROI_PATH, DEFAULT_OPEN_GIS_OUTPUT_DIR, PROJECT_ROOT
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.gee_raster import build_native_download_url, download_gee_raster
+from src.common.log_setup import configure_logging
 from src.common.paths import prepare_output_path, to_project_relative_string
 from src.common.raster_area import (
     DEFAULT_RASTER_NODATA,
@@ -64,7 +65,7 @@ SCRIPT_NAME = "src.preprocessing.fetch_jrc_gsw_hanoi"
 
 DEFAULT_GEE_CONFIG_PATH = PROJECT_ROOT / "data" / "input" / "gee_calc_LST_info.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "gis" / "water" / "jrc_gsw"
-DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_SUMMARY_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 DATASET_NAME = "JRC Global Surface Water"
 DATASET_VERSION = "v1.4"
@@ -99,7 +100,6 @@ OCCURRENCE_SUMMARY_THRESHOLDS: tuple[int, ...] = (25, 50, 75, 90)
 
 REQUEST_TIMEOUT_SECONDS = 300
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -793,6 +793,7 @@ def log_summary(band_stats: dict[str, Any], covers_area: bool) -> None:
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_path, summary_path = run(
         target_date=args.target_date,

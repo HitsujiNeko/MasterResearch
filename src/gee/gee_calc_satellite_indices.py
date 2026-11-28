@@ -39,6 +39,7 @@ from tqdm import tqdm
 
 from src.common.config import PROJECT_ROOT
 from src.common.gee import authenticate_gee
+from src.common.log_setup import configure_logging
 from src.gee.gee_calc_LST import (
     build_drive_export_folder,
     build_export_description,
@@ -74,7 +75,6 @@ SR_VALID_DN_MIN = 7273
 SR_VALID_DN_MAX = 43636
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -558,6 +558,7 @@ def main() -> None:
     Returns:
         None: run関数を実行する。
     """
+    configure_logging()
     run()
 
 

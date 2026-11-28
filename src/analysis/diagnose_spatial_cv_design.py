@@ -49,23 +49,21 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-
-from src.analysis import analysis_rq3_limited as limited  # noqa: E402
-from src.analysis import analysis_rq3_satellite_only as satellite_only  # noqa: E402
-from src.analysis import repeat_common_evaluation as repeat  # noqa: E402
-from src.analysis.build_common_evaluation_set import (  # noqa: E402
+from src.analysis import analysis_rq3_limited as limited
+from src.analysis import analysis_rq3_satellite_only as satellite_only
+from src.analysis import repeat_common_evaluation as repeat
+from src.analysis.build_common_evaluation_set import (
     draw_evaluation_cells,
     resolve_default_cells_path,
 )
-from src.analysis.urban_params.canonical_grid import SNAP_UNIT_M, split_cell_id  # noqa: E402
-from src.common.analysis_runs import validate_fold_test_sizes  # noqa: E402
-from src.common.config import PROJECT_ROOT  # noqa: E402
-from src.common.evaluation_cells import (  # noqa: E402
+from src.analysis.urban_params.canonical_grid import SNAP_UNIT_M, split_cell_id
+from src.common.analysis_runs import validate_fold_test_sizes
+from src.common.config import PROJECT_ROOT
+from src.common.evaluation_cells import (
     BLOCK_ID_COLUMN,
     CELL_ID_COLUMN,
     FOLD_COLUMN,
@@ -74,12 +72,12 @@ from src.common.evaluation_cells import (  # noqa: E402
     load_evaluation_set,
     select_evaluation_rows,
 )
-from src.common.paths import to_project_relative_string  # noqa: E402
-from src.common.regression_models import fit_linear_regression, fit_random_forest  # noqa: E402
-from src.common.residual_autocorrelation import BAND_TYPES, compute_moran_correlogram  # noqa: E402
-from src.common.semivariogram import build_lag_edges, compute_semivariogram  # noqa: E402
-from src.common.spatial_cv import apply_spatial_buffer, thin_training_folds  # noqa: E402
-from src.common.summary import (  # noqa: E402
+from src.common.paths import to_project_relative_string
+from src.common.regression_models import fit_linear_regression, fit_random_forest
+from src.common.residual_autocorrelation import BAND_TYPES, compute_moran_correlogram
+from src.common.semivariogram import build_lag_edges, compute_semivariogram
+from src.common.spatial_cv import apply_spatial_buffer, thin_training_folds
+from src.common.summary import (
     CODE_WATCH_PATHS,
     DEFAULT_PROVENANCE_PACKAGES,
     build_provenance,
@@ -1131,6 +1129,8 @@ def main(argv: list[str] | None = None) -> None:
     Returns:
         None
     """
+    # 画面の無い環境でも図を保存できるよう、描画のバックエンドを Agg にする
+    matplotlib.use("Agg")
     args = parse_arguments(argv)
     if args.command == "semivariogram":
         run_semivariogram_command(args)

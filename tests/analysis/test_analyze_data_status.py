@@ -2,13 +2,11 @@
 
 対象モジュールは作業ディレクトリ基準の相対パスでデータを探すため、作業ディレクトリを
 一時ディレクトリに移し、小さな GPKG・CSV・Shapefile を置いて集計の分岐を確かめる。
-
-対象モジュールは import した時点で警告フィルタを書き換える（全警告を無視する）ため、
-副作用を閉じ込めて import する。
 """
 
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 from types import ModuleType
@@ -18,18 +16,14 @@ import pandas as pd
 import pytest
 from shapely.geometry import Point, box
 
-from tests.helpers import import_with_contained_side_effects
-
 # ハノイ付近の VN-2000（EPSG:5897）の座標（m）。座標範囲からの CRS 推定の対象になる
 VN2000_BOX = (505_000.0, 2_320_000.0, 506_000.0, 2_321_000.0)
 
 
 @pytest.fixture(scope="module")
-def target(tmp_path_factory: pytest.TempPathFactory) -> ModuleType:
-    """import 時の副作用を閉じ込めて対象モジュールを読み込む。"""
-    return import_with_contained_side_effects(
-        "src.analysis.analyze_data_status", tmp_path_factory.mktemp("import_cwd")
-    )
+def target() -> ModuleType:
+    """対象モジュールを読み込む。"""
+    return importlib.import_module("src.analysis.analyze_data_status")
 
 
 @pytest.fixture()

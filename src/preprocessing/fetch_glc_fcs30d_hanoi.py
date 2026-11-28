@@ -42,11 +42,13 @@ from rasterio.mask import mask
 
 from src.common.config import (
     DEFAULT_HANOI_ROI_PATH,
+    DEFAULT_OPEN_GIS_OUTPUT_DIR,
     LANDSAT_OBSERVATION_YEAR,
     PROJECT_ROOT,
     WGS84_CRS,
 )
 from src.common.http_fetch import fetch_json_with_retry
+from src.common.log_setup import configure_logging
 from src.common.paths import to_project_relative_string
 from src.common.raster_classes import build_class_distribution
 from src.common.roi import load_roi_geometry
@@ -54,7 +56,7 @@ from src.common.summary import save_summary
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "gis" / "lulc" / "glc_fcs30d"
 DEFAULT_CACHE_DIR = DEFAULT_OUTPUT_DIR / "_cache"
-DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_SUMMARY_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 # Zenodo のレコード ID（v2）。初版は 8239305 だが、こちらが最新版。
 DEFAULT_ZENODO_RECORD_ID = "15063683"
@@ -122,7 +124,6 @@ DOWNLOAD_CHUNK_BYTES = 8 * 1024 * 1024
 MAX_RETRY_COUNT = 3
 RETRY_WAIT_SECONDS = 10
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -905,6 +906,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_path, summary_path = run(
         roi_path=args.roi_path,

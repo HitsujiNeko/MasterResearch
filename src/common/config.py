@@ -25,3 +25,10 @@ LANDSAT_OBSERVATION_YEAR = 2023
 DEFAULT_HANOI_ROI_PATH = (
     PROJECT_ROOT / "data" / "gis" / "boundaries" / "hanoi" / "hanoi_ROI_EPSG4326.shp"
 )
+
+# 主採用観測（本研究で主に分析する Landsat の観測）の ID。
+# 形式は「観測日_時刻（UTC）」で、分析データセット・出力先のファイル名やディレクトリ名に使う
+PRIMARY_OBSERVATION_ID = "20220906_032358"
+
+# 公開GISデータの取得・比較スクリプトが書き出すサマリーの既定の出力先
+DEFAULT_OPEN_GIS_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"

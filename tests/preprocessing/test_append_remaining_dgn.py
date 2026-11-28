@@ -2,13 +2,11 @@
 
 ogr2ogr は実行せず、`subprocess.run` を偽物に差し替えて、処理済みファイルの読み取り・
 スキップ・失敗時の集計の分岐を確かめる。
-
-対象モジュールは import した時点で作業ディレクトリに `data/output/` を作り、ログの
-設定を行う。リポジトリ直下を汚さないよう、一時ディレクトリで import する。
 """
 
 from __future__ import annotations
 
+import importlib
 import subprocess
 import sys
 from pathlib import Path
@@ -17,15 +15,11 @@ from typing import Any
 
 import pytest
 
-from tests.helpers import import_with_contained_side_effects
-
 
 @pytest.fixture(scope="module")
-def target(tmp_path_factory: pytest.TempPathFactory) -> ModuleType:
-    """import 時の副作用を一時ディレクトリに閉じ込めて対象モジュールを読み込む。"""
-    return import_with_contained_side_effects(
-        "src.preprocessing.append_remaining_dgn", tmp_path_factory.mktemp("import_cwd")
-    )
+def target() -> ModuleType:
+    """対象モジュールを読み込む。"""
+    return importlib.import_module("src.preprocessing.append_remaining_dgn")
 
 
 def _make_dgn_files(directory: Path, names: list[str]) -> None:
@@ -238,6 +232,16 @@ class TestAppendRemainingFiles:
 class TestMain:
     """main のテスト。"""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_working_directory(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """作業ディレクトリを一時ディレクトリに移す。
+
+        main は作業ディレクトリ基準の data/output/ にログファイルを作ることがあるため
+        （pytest の実行中はログが設定済みとして作らないが、それに頼らない）、
+        リポジトリ直下を汚さないようにする。
+        """
+        monkeypatch.chdir(tmp_path)
+
     def test_returns_without_tool_search_when_input_is_missing(
         self, target: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -315,3 +319,8 @@ class TestMain:
         assert args[4] == set(target.DEFAULT_SKIP_FILES) | {"extra.dgn"}
         assert args[5] == {"done.dgn"}
         assert args[6] == 30
+
+
+def test_log_file_path_is_unchanged(target: ModuleType) -> None:
+    """ログファイルの場所が、import 時に設定していた頃と同じ（作業ディレクトリ基準）である。"""
+    assert target.LOG_FILE_PATH == Path("data/output/append_remaining.log")

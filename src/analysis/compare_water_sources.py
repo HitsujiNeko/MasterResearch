@@ -52,7 +52,8 @@ from src.analysis.urban_params.params.lulc import COLUMN_TO_COMMON_CLASS
 from src.analysis.urban_params.params.raster import aggregate_class_fractions_to_grid
 from src.analysis.urban_params.tables import build_aligned_grid
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN
-from src.common.config import PROJECT_ROOT
+from src.common.config import DEFAULT_OPEN_GIS_OUTPUT_DIR, PRIMARY_OBSERVATION_ID, PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.common.lulc_classes import (
     COMMON_CLASS_LABELS,
     COMMON_WATER,
@@ -81,7 +82,11 @@ WATCH_PATHS: tuple[str, ...] = (
 )
 
 DEFAULT_DATASET_PATH = (
-    PROJECT_ROOT / "data" / "output" / "datasets" / "dataset_limited_20220906_032358_hanoi_30m.gpkg"
+    PROJECT_ROOT
+    / "data"
+    / "output"
+    / "datasets"
+    / f"dataset_limited_{PRIMARY_OBSERVATION_ID}_hanoi_30m.gpkg"
 )
 DEFAULT_GLC_PATH = (
     PROJECT_ROOT / "data" / "gis" / "lulc" / "glc_fcs30d" / "glc_fcs30d_hanoi_2022.tif"
@@ -90,7 +95,7 @@ DEFAULT_ESRI_PATH = PROJECT_ROOT / "data" / "gis" / "lulc" / "esri_10m" / "esri_
 DEFAULT_JRC_PATH = (
     PROJECT_ROOT / "data" / "gis" / "water" / "jrc_gsw" / "jrc_gsw_hanoi_y2021_m202109.tif"
 )
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_OUTPUT_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 DEFAULT_MASK_DIR = PROJECT_ROOT / "data" / "gis" / "water" / "comparison"
 DEFAULT_LABEL = "hanoi_20220906"
 
@@ -134,7 +139,6 @@ MASK_NOT_WATER = 0
 MASK_WATER = 1
 MASK_NODATA = 255
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -1025,6 +1029,7 @@ def log_results(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_paths = run(
         dataset_path=args.dataset_path,

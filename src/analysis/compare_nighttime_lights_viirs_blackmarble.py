@@ -52,7 +52,13 @@ from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, LANDSAT_OBSERVATION_YEAR, PROJECT_ROOT
+from src.common.config import (
+    DEFAULT_HANOI_ROI_PATH,
+    DEFAULT_OPEN_GIS_OUTPUT_DIR,
+    LANDSAT_OBSERVATION_YEAR,
+    PROJECT_ROOT,
+)
+from src.common.log_setup import configure_logging
 from src.common.paired_stats import build_paired_statistics
 from src.common.paths import prepare_output_path, resolve_existing_path, to_project_relative_string
 from src.common.raster_area import DEFAULT_RASTER_NODATA
@@ -63,7 +69,7 @@ from src.common.summary import save_summary
 DEFAULT_NIGHTTIME_LIGHTS_DIR = PROJECT_ROOT / "data" / "gis" / "nighttime_lights"
 DEFAULT_VIIRS_DIR = DEFAULT_NIGHTTIME_LIGHTS_DIR / "viirs_dnb"
 DEFAULT_BLACK_MARBLE_DIR = DEFAULT_NIGHTTIME_LIGHTS_DIR / "black_marble"
-DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "data" / "output" / "open_gis"
+DEFAULT_SUMMARY_DIR = DEFAULT_OPEN_GIS_OUTPUT_DIR
 
 NODATA = DEFAULT_RASTER_NODATA
 # 主バンド（放射輝度）は両データセットとも第1バンド
@@ -79,7 +85,6 @@ OUTER_ZONE_PERCENTILE = 75
 # 都心の基準点を決めるための輝度分位点（上位 1% の画素の重心を最輝部とみなす）
 BRIGHT_CORE_PERCENTILE = 99
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -849,6 +854,7 @@ def log_results(comparisons: list[dict[str, Any]], saturation_by_zone: dict[str,
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     summary_path = run(
         year=args.year,

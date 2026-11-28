@@ -22,7 +22,7 @@ from src.common.analysis_plots import (
     save_spatial_cv_plot,
 )
 
-# matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
+# matplotlibのバックエンド（Agg）は tests/conftest.py で設定済み。
 
 
 class TestSaveModelComparisonPlot:

@@ -139,7 +139,9 @@ class TestAnalyzeLstData:
                 "output_epsg": [4326],
                 "lst_method": ["SMW"],
             }
-        ).to_csv(work_dir / "data" / "input" / "gee_calc_LST_info.csv", index=False)
+        ).to_csv(
+            work_dir / "data" / "input" / "gee_calc_LST_info.csv", index=False, encoding="utf-8"
+        )
         (work_dir / "data" / "output").mkdir(parents=True)
         pd.DataFrame(
             {
@@ -150,7 +152,9 @@ class TestAnalyzeLstData:
                 "min_temp_c": [20.0, 21.0, 22.0],
                 "max_temp_c": [40.0, 41.0, 42.0],
             }
-        ).to_csv(work_dir / "data" / "output" / "gee_calc_LST_results.csv", index=False)
+        ).to_csv(
+            work_dir / "data" / "output" / "gee_calc_LST_results.csv", index=False, encoding="utf-8"
+        )
         roi_path = work_dir / "data" / "gis" / "boundaries" / "hanoi" / "roi.shp"
         roi_path.parent.mkdir(parents=True)
         gpd.GeoDataFrame(geometry=[box(105.3, 20.6, 106.0, 21.4)], crs="EPSG:4326").to_file(

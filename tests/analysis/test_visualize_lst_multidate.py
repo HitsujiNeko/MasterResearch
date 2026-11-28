@@ -39,11 +39,11 @@ def _write_inputs(directory: Path) -> tuple[list[Path], Path]:
         path = directory / name
         pd.DataFrame(
             {"LST": [30.0 + index, 32.0 + index, np.nan, 35.0 + index], "NDVI": [0.1] * 4}
-        ).to_csv(path, index=False)
+        ).to_csv(path, index=False, encoding="utf-8")
         sample_paths.append(path)
     summary_path = directory / "summary.csv"
     pd.DataFrame({"date": DATE_LABELS, "lst_mean_c": [32.3, 33.3, 34.3]}).to_csv(
-        summary_path, index=False
+        summary_path, index=False, encoding="utf-8"
     )
     return sample_paths, summary_path
 

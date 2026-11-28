@@ -1,13 +1,13 @@
 # コーディング・ドキュメント記法規約（研究プロジェクト用）
 
-**最終更新**: 2026-11-10  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**:  
 
 - AI指示書 → [CLAUDE.md](../../CLAUDE.md)
-- 実装例 → [src/gee/gee_calc_LST.py](../../src/gee/gee_calc_LST.py)
+- 実装例 → [5.4 CLI スクリプトの構成（雛形）](#54-cli-スクリプトの構成雛形)
 - ドキュメント全体 → [docs/README.md](../README.md)
 
-**適用範囲**: プロジェクト内のすべてのPythonスクリプト（1〜13章）、すべてのMarkdownドキュメント（14章）、AIエージェントによるツール利用全般（16章）
+**適用範囲**: プロジェクト内のすべてのPythonスクリプト（1〜13章）、すべてのMarkdownドキュメント（14章）、AIエージェントによるツール利用全般（16章）。外部から取り込んだ第三者のコードは対象外とする（[12.1](#121-規約の対象外とするコード)）
 
 ---
 
@@ -29,6 +29,7 @@
 - タブは使用しない。
 - 演算子の前後、カンマの後にはスペースを入れる。
 - 上記は `ruff format` により自動整形される。
+- Python ファイルの改行コードは LF とする。`ruff format` の `line-ending = "lf"` とそろえるため、`.gitattributes` の `*.py text eol=lf` により、Windows（`core.autocrlf=true`）でも作業ツリーに LF で取り出される。この設定より前に取り出した作業ツリーは CRLF のまま残り、ローカルの `ruff format --check` が不合格になる。その場合は、未コミットの変更が無い状態で `.py` ファイルの更新日時を変えてから（例: `find . -name "*.py" -not -path "./.git/*" -exec touch {} +`）`git checkout-index --force --all` で取り出し直し、`git add -u` で git の記録を更新する（未コミットの変更は上書きされて失われる）
 
 ## 3. 型ヒント
 
@@ -87,7 +88,103 @@ def calculate_mean(values: list[float]) -> float:
 - 共通化の対象は関数だけでなく**定数**（CRS・デフォルトパス・プロジェクトルート等）も含む
 - 共通モジュールの配置場所は `src/common/`、対応するテストは `tests/common/` に**必須**（[11. テスト方針](#11-テスト方針)に従う）
 - import は `from src.common.{モジュール} import ...` の絶対importに統一する（`__init__.py` での再エクスポートはしない。利用側は必要なサブモジュールだけをimportし、不要な依存伝播を防ぐ）
-- 実行は `python -m src.{パッケージ}.{スクリプト名}` 形式（[docs/setup.md](../setup.md) 6章参照）
+- 実行は `python -m src.{パッケージ}.{スクリプト名}` 形式（[docs/setup.md](../setup.md) 6章参照）。`sys.path` を書き換えて直接実行に対応させない（[5.4](#54-cli-スクリプトの構成雛形)）
+
+### 5.2 モジュールの最上位に書くもの（import 時の副作用の禁止）
+
+モジュールの最上位（関数・クラスの外）に書いてよいのは、import、定数、関数・クラスの定義、`logger = logging.getLogger(__name__)` だけとする。次の処理は、import しただけで他のモジュールやテストの動作を変えてしまうため、最上位では行わず `main()` などの関数の中で行う。
+
+- 環境変数（`os.environ`。`PATH`・`GDAL_DATA`・`PROJ_LIB` など）の書き換え。実行環境の設定は [setup.md](../setup.md) の手順で行い、コードでは書き換えない
+- `sys.path` の書き換え（`src/` は `python -m` で実行するため不要。[5.4](#54-cli-スクリプトの構成雛形)）
+- `logging.basicConfig` などのログの設定（[5.3](#53-ログと標準出力)）
+- ファイルの読み書き・ネットワーク接続・時間のかかる計算
+
+**例外**: 描画を行うモジュールでの `matplotlib.use("Agg")` は最上位に書いてよい。`matplotlib.pyplot` を import する前に呼ぶ必要があるためで、その理由をコメントに書く。この場合に限り、後に続く import への `# noqa: E402`（import がファイルの先頭にない）を認める。それ以外では `# noqa: E402` を付けない。
+
+### 5.3 ログと標準出力
+
+- 進捗・警告・エラーなど、処理の経過は `logging` で出す。各モジュールは最上位で `logger = logging.getLogger(__name__)` を定義して使い、`logging.info(...)` のようにルートロガーを直接使わない
+- ログの設定（`logging.basicConfig`）は、エントリポイント（`python -m` で実行するスクリプト）の `main()` の中で 1 回だけ行う。`src/common/` など他から import されるモジュールでは設定しない。最上位で設定すると、最初に import されたモジュールの設定が全体に効いてしまうため
+- `print` は、標準出力に出す結果に限って使う（集計表・JSON・書き出したファイルの場所の案内など、利用者や他のプログラムが読み取るもの）。進捗やデバッグの表示には使わない
+
+### 5.4 CLI スクリプトの構成（雛形）
+
+- 引数の解釈は `parse_arguments(argv: list[str] | None = None) -> argparse.Namespace` という名前と形にする。`argv` を受け取るのは、テストから引数を渡せるようにするため
+- parser そのものを別の場所（テストなど）で使い回す場合に限り、`build_argument_parser() -> argparse.ArgumentParser` を分けてよい。その場合も `parse_arguments` がそれを呼んで解釈する
+- `main(argv: list[str] | None = None)` は `argv` を `parse_arguments` に渡す。終了コードを返す場合は戻り値を `int` にし、`raise SystemExit(main())` で呼ぶ
+- `src/` のスクリプトは `python -m src.{パッケージ}.{スクリプト名}` で実行する。`sys.path` を書き換えて `python src/...` の直接実行に対応させない。`scripts/` 配下は `python scripts/{スクリプト名}.py` で実行し、こちらも `sys.path` を書き換えない
+
+新しく CLI スクリプトを書くときは、次の雛形を起点にする（5.2〜5.4、[7章](#7-パスの扱い再現性)の文字コードの指定を満たす最小の形）。
+
+```python
+"""
+表の数値の列ごとに平均値を求め、CSV に書き出す（CLI スクリプトの雛形）
+
+実行例: python -m src.analysis.{スクリプト名} --input {入力CSV} --output {出力CSV}
+"""
+
+import argparse
+import logging
+from pathlib import Path
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """
+    コマンドライン引数を解釈する
+
+    Args:
+        argv: 引数のリスト。None のときはコマンドラインの引数を使う
+    Returns:
+        解釈した引数
+    """
+    parser = argparse.ArgumentParser(description="数値の列ごとの平均値を CSV に書き出す")
+    parser.add_argument("--input", type=Path, required=True, help="入力 CSV のパス")
+    parser.add_argument("--output", type=Path, required=True, help="出力 CSV のパス")
+    return parser.parse_args(argv)
+
+
+def summarize_columns(table: pd.DataFrame) -> pd.DataFrame:
+    """
+    数値の列ごとに平均値を求める
+
+    Args:
+        table: 集計する表
+    Returns:
+        列名（column）と平均値（mean）の 2 列の表
+    """
+    means = table.select_dtypes("number").mean()
+    return means.rename_axis("column").reset_index(name="mean")
+
+
+def main(argv: list[str] | None = None) -> None:
+    """
+    入力の表を読み、列ごとの平均値を書き出す
+
+    Args:
+        argv: コマンドライン引数のリスト（parse_arguments に渡す）
+    """
+    # ログの設定はエントリポイントの main() の中で 1 回だけ行う
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    args = parse_arguments(argv)
+
+    table = pd.read_csv(args.input, encoding="utf-8")
+    logger.info("読み込んだ行数: %d", len(table))
+
+    summary = summarize_columns(table)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    summary.to_csv(args.output, index=False, encoding="utf-8")
+
+    # 書き出した場所の案内は、利用者が読む結果として標準出力に出す
+    print(f"書き出しました: {args.output}")
+
+
+if __name__ == "__main__":
+    main()
+```
 
 ## 6. ファイルヘッダー
 
@@ -100,6 +197,7 @@ def calculate_mean(values: list[float]) -> float:
 - **研究データの絶対パス（ユーザー名やドライブ直下の研究データディレクトリなど）はハードコードしない**。
 - 例外として、**外部ツールの実行ファイル探索パス**（QGIS同梱の`ogr2ogr.exe`など、OS環境に依存するインストール先）は、フォールバック候補のリストとして絶対パスを記述してよい。
 - 乱数を使用する処理では、必ずシードを設定する。
+- テキストファイルを読み書きするとき（`open`・`Path.read_text`・`Path.write_text` など）は、`encoding="utf-8"` を必ず指定する。指定しないと Windows では既定の文字コード（cp932）が使われ、日本語が文字化けしたり書き出しが失敗したりするため。BOM つきの UTF-8 ファイル（Excel で保存した CSV など）を読むときは `encoding="utf-8-sig"` を使う。
 
 ## 8. コーディングの基本方針
 
@@ -114,12 +212,15 @@ def calculate_mean(values: list[float]) -> float:
 
 ## 10. 使用ライブラリ
 
-現在`environment.yml`に含まれる主なライブラリ（2026-06時点）：
+現在`environment.yml`に含まれる主なライブラリ（2026-11時点）：
 
-- **データ分析**：NumPy、Pandas、Matplotlib
-- **地理空間データ処理**：Geopandas、Shapely、Fiona、Rasterio、PyProj
+- **データ分析**：NumPy、Pandas、SciPy、Matplotlib
+- **地理空間データ処理**：GeoPandas、Shapely、Fiona、pyogrio、Rasterio、GDAL、PyProj
 - **衛星画像解析**：Google Earth Engine API（earthengine-api）
-- **機械学習・統計**：Scikit-learn、SHAP
+- **機械学習・統計**：scikit-learn、SHAP、statsmodels
+- **空間統計**：esda、libpysal、scikit-gstat
+- **データ取得・入出力**：requests、h5py、PyYAML、python-dotenv、tqdm（進捗表示）
+- **開発ツール**：ruff、pytest、pre-commit、pandoc・pandoc-crossref（修士論文のビルド）
 
 これは現状の一覧であり、ライブラリ選定を制限するものではない。実装内容に応じて最適なライブラリを選定してよい（判断基準は [10.1](#101-既存パッケージ優先の判断基準)）。`environment.yml`に含まれないライブラリが必要な場合は、追加前にユーザーの承認を得てから、[10.2](#102-依存を追加するときの手順) の手順で追加する。
 
@@ -168,6 +269,7 @@ Python ファイルの新規作成・機能変更時には、対応するテス�
 - テストファイルは `tests/` 配下に `test_*.py` として配置し、ソースコードのディレクトリ構造に対応させる
 - テスト実行コマンド: `pytest tests/` （プロジェクトルートから実行）
 - 全ての処理を網羅するテストは必須としないが、新規作成・変更した関数には最低限のテストを用意する
+- `test_` で始まるテスト関数にも docstring を付ける。何を確かめるテストかを日本語 1 行で書けばよく、`Args`・`Returns` は書かない
 
 ### 11.2 テストの種類と使い分け
 
@@ -204,6 +306,20 @@ Python ファイルの新規作成・機能変更時には、対応するテス�
 - コードは定期的に見直し、リファクタリングを行う。
 - 不要なコードや使われていない変数は削除する。
 
+### 12.1 規約の対象外とするコード
+
+次は外部から取り込んだ第三者のコードであり、本規約（1〜13章）を適用しない。
+
+| パス | 内容 |
+|---|---|
+| `src/js/` | Ermida らによる Google Earth Engine の LST 算出コード（JavaScript） |
+| `src/fortran/` | 地形の水平線の計算プログラム（Fortran） |
+| `src/preprocessing/terramodBS2geotiff.py` | BS-Horizon の ASCII グリッドを GeoTIFF に変換するプログラム |
+
+- 取り込んだときの形を保ち、改変しない。論文の実装や移植元と突き合わせられるようにするため
+- 出典（作者・取得元）をファイルの先頭のコメントか、同じディレクトリの説明に記す
+- 処理を変える必要がある場合は Python に移植し、規約の対象のコードとして `src/` に書く。元のコードは参照用に残す（例: `src/js/` の係数表を移植した `src/module/lst_smw.py`、`src/fortran/bs_horizon.f` を移植した `src/preprocessing/bs_horizon.py`）
+
 ## 13. ツールによる自動チェックの範囲
 
 `ruff`・`markdownlint` で機械的に保証される項目と、セルフレビューで確認する項目を区別する。
@@ -232,6 +348,11 @@ PR作成時・`main` へのpush時にも自動実行される（[setup.md 12章]
 - コメント・docstringの日本語記述、必須箇所への付与
 - Issue番号の不記載（コメント・docstring・docs本文。[4.1](#41-issue番号の記載禁止コードドキュメント共通)参照）
 - 日本語変数名の禁止
+- モジュールの最上位で副作用を起こしていないこと（[5.2](#52-モジュールの最上位に書くものimport-時の副作用の禁止)）
+- ログと `print` の使い分け、ログの設定を `main()` の中だけで行っていること（[5.3](#53-ログと標準出力)）
+- CLI の関数名・実行方法（[5.4](#54-cli-スクリプトの構成雛形)）
+- テキストファイルの読み書きでの `encoding` の指定（[7章](#7-パスの扱い再現性)）
+- テスト関数の docstring（[11.1](#111-基本ルール)）
 - ファイルヘッダー形式（module docstringへの一本化）
 - 絶対パスの扱い（研究データパス禁止／外部ツール探索パスの許容）
 - 再現性（乱数シード、相対パス）
@@ -308,6 +429,8 @@ PR作成時・`main` へのpush時にも自動実行される（[setup.md 12章]
 - [ ] 複雑な処理に日本語コメントを付与した（過不足なく簡潔に）
 - [ ] 例外処理を実装し、エラーメッセージが日本語で理解しやすい
 - [ ] 再現性に影響する設定（パス、乱数、閾値）を明示した
+- [ ] モジュールの最上位で環境変数・`sys.path`・ログの設定を変えていない（5.2・5.3）
+- [ ] テキストファイルの読み書きで `encoding` を指定した（7章）
 - [ ] 不要なコード・未使用変数・デバッグ出力を残していない
 - [ ] テストコードを作成し、`pytest` で通過することを確認した
 - [ ] 既存共通機能と重複する実装を新たに作っていない

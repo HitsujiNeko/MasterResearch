@@ -1,6 +1,6 @@
 # 04_archive - アーカイブ
 
-**最終更新**: 2026-10-09  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**: [literature_management_guide.md](literature_management_guide.md)
 
 このフォルダには、参考資料や完了済みのドキュメント、先行研究の整理などを格納します。文献管理の思想・運用フローの詳細は上記を正本とし、本 README はフォルダ構成の案内に徹する。
@@ -18,6 +18,9 @@
 ├── claude_project_knowledge.md         # Claude Projects ナレッジ（アップロード用）
 ├── limited_analysis_results_20230707_032329.md  # Limited 旧結果（観測032329・旧ラン1〜13）
 ├── satellite_only_analysis_results_cellbased_20230707_032329.md  # Satellite Only 旧結果（観測032329）
+│
+├── code/                           # 退避したコード（参照用。規約・ruff・pytest の対象外）
+│   └── bs_horizon/                 # 測量由来 DEM の生成に使った BS-Horizon 系一式
 │
 ├── 01_metadata/
 │   ├── papers_database.csv             # 全論文の基本情報（CSV）
@@ -59,6 +62,7 @@
 | [previous_studies_report.md](previous_studies_report.md) | 先行研究の事実整理（S1〜S18）。概要把握・一覧のマスター |
 | [limited_analysis_results_20230707_032329.md](limited_analysis_results_20230707_032329.md) | Limited シナリオの旧結果（観測 20230707_032329・旧ラン1〜13）。現行結果は [../03_results/limited_analysis_results.md](../03_results/limited_analysis_results.md) |
 | [satellite_only_analysis_results_cellbased_20230707_032329.md](satellite_only_analysis_results_cellbased_20230707_032329.md) | Satellite Only シナリオ（cell_id結合経路）の旧結果（観測 20230707_032329）。旧ピクセル経路からの移植の等価性確認はここにのみ残る。現行結果は [../03_results/satellite_only_analysis_results_cellbased.md](../03_results/satellite_only_analysis_results_cellbased.md) |
+| `code/bs_horizon/` | 測量由来 DEM（`data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif`）の生成に使った BS-Horizon 系一式。下記「退避したコード」を参照 |
 | [literature_management_guide.md](literature_management_guide.md) | 3層構造の思想と Claude Code 中心の文献調査フロー |
 | [claude_project_instructions.md](claude_project_instructions.md) | claude.ai 文献調査用プロジェクトの「プロジェクト指示」欄にコピペする指示文（正本） |
 | [claude_project_knowledge.md](claude_project_knowledge.md) | claude.ai プロジェクトナレッジにアップロードする凝縮版（研究概要・RQ・先行研究サマリー） |
@@ -67,10 +71,25 @@
 | `04_pdfs/` | 論文 PDF 原本（S1〜S18、Git管理外）。Claude Code が `Read` で直接精読 |
 | [templates/structured_summary_template.md](templates/structured_summary_template.md) | 構造化要約の標準フォーマット（正本） |
 
+## 🗄️ 退避したコード（`code/`）
+
+現役のコードとしては使わないが、過去の判断の根拠を再現できるよう残すコードを置く。どこからも使わなくなったコードは、退避せずに削除する（git の履歴から参照できる）。
+
+- 本規約（[CodingRule.md](../02_methods/CodingRule.md)）を適用せず、`ruff`・`pytest` の対象からも外している（`pyproject.toml` の `extend-exclude`、`pytest` は `tests/` だけを集める）
+- 退避したコードは `src` のパッケージの外にあり、そのままでは実行できない。使う場合は、`git mv` で元の場所に戻してから実行する
+
+| パス | 元の場所 | 退避した理由 |
+|---|---|---|
+| `code/bs_horizon/bs_horizon.py`・`convert_elevation_to_csv.py`・`prepare_bs_horizon_input.py`・`terramodBS2geotiff.py` | `src/preprocessing/` | FABDEM を選ぶときの基準にした測量由来 DEM の生成に使った（[gis_data_dem.md](../01_planning/gis_data/gis_data_dem.md) 5章）。採用した FABDEM はこれらを使わずに取得・集計するため、現役のコードから外した |
+| `code/bs_horizon/fortran/` | `src/fortran/` | BS-Horizon の原典（Fortran。第三者のコード）。`bs_horizon.py` はこれを Python に移植したもの |
+| `code/bs_horizon/tests/` | `tests/preprocessing/` | `prepare_bs_horizon_input.py` のテスト |
+| `code/bs_horizon/config/sample.yaml` | `data/BSHorizon/config/` | `bs_horizon.py` の設定ファイルの例 |
+
 ## 🎯 このフォルダの目的
 
 研究の背景資料・先行研究を、AI が横断検索・比較・引用しやすい形で整理する。あわせて、現行の定義では再現できない旧結果を、誤用を防ぐ注記つきで保存する。
 
+- 過去の判断の根拠となったコードの退避（`code/`）
 - 旧結果の保存（`limited_analysis_results_20230707_032329.md`・`satellite_only_analysis_results_cellbased_20230707_032329.md`）
 - 先行研究の事実整理（`previous_studies_report.md`）
 - 論文メタデータのデータベース化（`01_metadata/`）

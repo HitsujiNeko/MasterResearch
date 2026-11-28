@@ -1,6 +1,6 @@
 # 標高データ（DEM）候補の調査・選定ガイド
 
-**最終更新**: 2026-11-11  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**: [available_gis_data.md](../available_gis_data.md), [research_guide.md](../research_guide.md), [calc_urban_params_guide.md](../../02_methods/calc_urban_params_guide.md)  
 **前提知識**: RQ1-RQ3の理解、分析シナリオ（衛星データのみ／衛星＋公開GISデータ、付録の測量建物置き換え）の定義
 
@@ -202,6 +202,7 @@
 | 項目 | 値 |
 |---|---|
 | ファイルパス | `data/gis/dem/bshorizon/DEM_10m_m05_a100_M200.tif` |
+| 生成に使ったコード | BS-Horizon 系一式（現役のコードから外し `docs/04_archive/code/bs_horizon/` に退避。Fortran の原典と Python 移植版のどちらで生成したかの記録は無い） |
 | CRS | EPSG:5897（VN-2000 / TM-3 zone 482） |
 | 解像度 | 10m × 10m |
 | 範囲 | X: 581495–589505、Y: 2321995–2333005（単位: m） |

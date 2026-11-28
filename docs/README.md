@@ -27,6 +27,7 @@ docs/
 ├── 03_results/                   # 📊 研究結果（分析結果・学会原稿）
 │   └── limited_analysis/         # limited_analysis_results.md の分割ファイル
 └── 04_archive/                   # 📦 アーカイブ（旧結果・先行研究・文献管理）
+    ├── code/                     # 退避したコード（参照用。規約・ruff・pytest の対象外）
     ├── 01_metadata/              # 論文メタデータ（CSV）
     ├── 02_structured_summaries/  # 論文の構造化要約
     ├── 04_pdfs/                  # 論文PDF原本（Git管理外）
@@ -130,6 +131,7 @@ docs/
 | [claude_project_instructions.md](04_archive/claude_project_instructions.md) | Claude Projects プロジェクト指示 | claude.ai の文献調査用プロジェクトにコピペする指示文（正本） | Claude Projects セットアップ・指示変更時 |
 | [claude_project_knowledge.md](04_archive/claude_project_knowledge.md) | Claude Projects ナレッジ | 研究概要・RQ・先行研究サマリー・分析の現在地の凝縮版 | 論文追加・分析進捗時に差し替え |
 | [templates/structured_summary_template.md](04_archive/templates/structured_summary_template.md) | 論文要約テンプレート | 新規論文追加時の標準フォーマット | 論文要約作成時 |
+| `code/bs_horizon/` | 退避した BS-Horizon 系のコード | 測量由来 DEM の生成に使った Python・Fortran 一式（退避の理由は [04_archive/README.md](04_archive/README.md)） | DEM 選定の根拠の再現 |
 
 **先行研究一覧（S1-S18）**:
 

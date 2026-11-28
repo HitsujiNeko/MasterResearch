@@ -1,6 +1,6 @@
 # Setup
 
-**最終更新**: 2026-11-03  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**: [README.md](README.md), [setup/qgis_mcp_setup.md](setup/qgis_mcp_setup.md), [../.github/task-workflow.md](../.github/task-workflow.md)  
 **対象**: このリポジトリを新しい端末で再現可能にセットアップする人
 
@@ -100,7 +100,7 @@ earthengine authenticate
 
 ```powershell
 python -m src.analysis.analyze_spatial_extents
-python -m src.analysis.calc_urban_params --city hanoi
+python -m src.analysis.urban_params --city hanoi --params mask_roi --scales 300
 python -m src.gee.gee_calc_LST
 ```
 
@@ -142,13 +142,20 @@ python -m src.analysis.analyze_spatial_extents
 
 ### 7.2 都市構造パラメータ
 
+都市構造パラメータは `src/analysis/urban_params/` パッケージで算出する。ここでは動作確認として、軽いパラメータセット（ROI の解析対象域フラグ `mask_roi`）を 300m の 1 スケールだけ算出する。
+
+正準グリッド（`data/output/grid/grid_hanoi.gpkg`）が無い場合は、先に生成する（既定のスケール 30・90・300m をまとめて作る。30m はセル数が多く、時間がかかる場合がある）。既にある場合は、上書きせずエラーで止まるため、この手順は飛ばす。
+
 ```powershell
-python -m src.analysis.calc_urban_params --city hanoi
+python -m src.analysis.urban_params.canonical_grid --city hanoi
+python -m src.analysis.urban_params --city hanoi --params mask_roi --scales 300
 ```
 
 期待結果:
 
-- `data/output/urban_params/urban_params_hanoi.csv` が生成または更新される
+- `data/output/params/hanoi/300m/mask_roi.gpkg` が生成または更新される
+
+全パラメータセットの実行例は [calc_urban_params_cli_verification.md](02_methods/calc_urban_params/calc_urban_params_cli_verification.md) 10章を参照する。
 
 ### 7.3 LST 計算
 

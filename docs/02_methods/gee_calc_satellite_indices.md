@@ -1,6 +1,6 @@
 # gee_calc_satellite_indices.py 仕様（Landsat 8 / 9 衛星指標）
 
-**最終更新**: 2026-10-12  
+**最終更新**: 2026-11-28  
 **関連ドキュメント**:  
 
 - [analysis_workflow.md](analysis_workflow.md)  
@@ -126,7 +126,7 @@ Landsat Collection 2 Level-2 Surface Reflectance は、整数DNを以下で物�
 
 ## 6. 都市構造パラメータ算出での利用指針
 
-`calc_urban_params.py` で衛星由来説明変数を扱う際は、以下を前提にする。
+`src/analysis/urban_params/`（都市構造パラメータの算出）で衛星由来説明変数を扱う際は、以下を前提にする。
 
 - 本スクリプト出力は、公式QAと公式スケール係数に基づく一次品質管理済みデータである。
 - GeoTIFF出力はROIでクリップしてからDriveへ渡すため、ROI外の不要領域を含めない。

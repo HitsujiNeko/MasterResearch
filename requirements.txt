@@ -22,7 +22,7 @@ rasterio
 affine<3
 h5py
 requests
-# YAML 設定の読み込み（src/preprocessing/bs_horizon.py。使うときだけ import する）
+# YAML 設定の読み込み（退避した docs/04_archive/code/bs_horizon/bs_horizon.py。使うときだけ import する）
 pyyaml
 python-dotenv
 scipy>=1.9

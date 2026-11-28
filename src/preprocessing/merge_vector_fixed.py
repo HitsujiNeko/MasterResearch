@@ -113,33 +113,6 @@ def get_ogr2ogr_path(require_dgnv8: bool = True) -> str:
     raise SystemExit("ogr2ogrが見つかりません。GDALのインストール確認が必要です。")
 
 
-def check_file_validity(dgn_file: Path, ogr2ogr_path: str) -> dict:
-    """DGNファイルの有効性を事前チェック
-
-    Args:
-        dgn_file: DGNファイルのパス
-        ogr2ogr_path: ogr2ogrの実行パス
-
-    Returns:
-        チェック結果の辞書（valid, layer_count, error_message）
-    """
-    try:
-        # ogrinfo で情報取得を試みる
-        ogrinfo_path = get_ogrinfo_path(ogr2ogr_path)
-        result = subprocess.run(
-            [ogrinfo_path, str(dgn_file)], capture_output=True, text=True, timeout=10
-        )
-
-        if result.returncode == 0:
-            # レイヤー数をカウント
-            layer_count = result.stdout.count("Layer name:")
-            return {"valid": True, "layer_count": layer_count, "error_message": None}
-        else:
-            return {"valid": False, "layer_count": 0, "error_message": result.stderr}
-    except Exception as e:
-        return {"valid": False, "layer_count": 0, "error_message": str(e)}
-
-
 def merge_to_geopackage(
     input_dir: Path, suffix: str, output_root: Path, ogr2ogr_path: str, skip_existing: bool = False
 ) -> dict:

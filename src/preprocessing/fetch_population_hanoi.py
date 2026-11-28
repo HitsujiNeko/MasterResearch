@@ -47,6 +47,7 @@ from src.common.config import (
 )
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.gee_raster import build_native_download_url, download_gee_raster
+from src.common.log_setup import configure_logging
 from src.common.paths import prepare_output_path, to_project_relative_string
 from src.common.raster_area import (
     DEFAULT_RASTER_NODATA,
@@ -70,7 +71,6 @@ OUTPUT_NODATA = DEFAULT_RASTER_NODATA
 BAND_COUNT_NAME = "population_count"
 BAND_DENSITY_NAME = "population_density_per_km2"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -661,6 +661,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_path, summary_path = run(
         dataset_key=args.dataset,

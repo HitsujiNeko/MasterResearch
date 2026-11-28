@@ -37,6 +37,7 @@ from matplotlib.patches import Patch  # noqa: E402
 from pyproj import Transformer  # noqa: E402
 
 from src.common.config import PROJECT_ROOT  # noqa: E402
+from src.common.log_setup import configure_logging
 from src.common.paths import prepare_output_path  # noqa: E402
 
 DEFAULT_LABEL = "hanoi_20220906"
@@ -78,7 +79,6 @@ JAPANESE_FONT_CANDIDATES: tuple[str, ...] = ("Yu Gothic", "Meiryo", "MS Gothic",
 
 FIGURE_DPI = 200
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -419,6 +419,7 @@ def run(mask_path: Path, output_dir: Path, label: str) -> tuple[Path, Path]:
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     overview_path, zoom_path = run(args.mask_path, args.output_dir, args.label)
     print(f"全域図を保存しました: {overview_path}")

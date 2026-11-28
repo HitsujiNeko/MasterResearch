@@ -40,6 +40,7 @@ from rasterio.warp import reproject
 from sklearn.metrics import cohen_kappa_score
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.common.lulc_classes import (
     COMMON_BUILT,
     COMMON_CLASS_LABELS,
@@ -69,7 +70,6 @@ SUBDIVISION_FACTOR = 3
 # `src/analysis/urban_params/params/lulc.py` と共用するため `src.common.lulc_classes`
 # へ切り出した（上記 import）。
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -629,6 +629,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     summary_path, confusion_path = run(
         glc_path=args.glc_path,

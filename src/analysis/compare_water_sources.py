@@ -53,6 +53,7 @@ from src.analysis.urban_params.params.raster import aggregate_class_fractions_to
 from src.analysis.urban_params.tables import build_aligned_grid
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN
 from src.common.config import PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.common.lulc_classes import (
     COMMON_CLASS_LABELS,
     COMMON_WATER,
@@ -134,7 +135,6 @@ MASK_NOT_WATER = 0
 MASK_WATER = 1
 MASK_NODATA = 255
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -1025,6 +1025,7 @@ def log_results(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_paths = run(
         dataset_path=args.dataset_path,

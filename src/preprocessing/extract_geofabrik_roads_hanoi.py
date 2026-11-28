@@ -16,6 +16,7 @@ from typing import Any
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.gdal_tools import find_gdal_toolset
+from src.common.log_setup import configure_logging
 from src.common.summary import save_summary
 
 DEFAULT_INPUT_PBF = PROJECT_ROOT / "data" / "gis" / "raw" / "vietnam-260408.osm.pbf"
@@ -27,7 +28,6 @@ DEFAULT_LAYER_NAME = "roads"
 REQUEST_TIMEOUT_SECONDS = 3600
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -228,6 +228,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     run(
         input_pbf=args.input_pbf,

@@ -50,6 +50,7 @@ import rasterio
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.gee_raster import build_native_download_url, download_gee_raster
+from src.common.log_setup import configure_logging
 from src.common.paths import prepare_output_path, to_project_relative_string
 from src.common.raster_area import (
     DEFAULT_RASTER_NODATA,
@@ -99,7 +100,6 @@ OCCURRENCE_SUMMARY_THRESHOLDS: tuple[int, ...] = (25, 50, 75, 90)
 
 REQUEST_TIMEOUT_SECONDS = 300
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -793,6 +793,7 @@ def log_summary(band_stats: dict[str, Any], covers_area: bool) -> None:
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_path, summary_path = run(
         target_date=args.target_date,

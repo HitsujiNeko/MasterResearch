@@ -50,17 +50,15 @@ NASA VIIRS Land Science Team（Black Marble）に対して行う。
 from __future__ import annotations
 
 import argparse
-import logging
 from pathlib import Path
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, LANDSAT_OBSERVATION_YEAR, PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.preprocessing.black_marble.auth import EARTHDATA_TOKEN_ENV_VAR
 from src.preprocessing.black_marble.pipeline import run, run_inspection
 
 # ダウンロードした .h5 タイルの保存先。1 タイル 100MB 超のため再実行で再取得しない。
 DEFAULT_CACHE_DIR = PROJECT_ROOT / "data" / "gis" / "raw" / "black_marble"
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -142,6 +140,7 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     if args.inspect:
         run_inspection(

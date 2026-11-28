@@ -27,6 +27,7 @@ from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
 
@@ -66,7 +67,6 @@ WFS_NATIVE_CRS = "EPSG:3857"
 _TRANSFORMER_4326_TO_3857 = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -688,6 +688,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     run(
         roi_path=args.roi_path,

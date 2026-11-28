@@ -42,6 +42,7 @@ from tqdm import tqdm
 
 from src.common.config import PROJECT_ROOT
 from src.common.gee import authenticate_gee
+from src.common.log_setup import configure_logging
 from src.gee.gee_calc_LST import (
     build_drive_export_folder,
     build_export_description,
@@ -75,7 +76,6 @@ DEFAULT_RANKING_CSV = PROJECT_ROOT / "data" / "output" / "gee_search_observation
 ROI_COVERAGE_TOLERANCE = 0.999999
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -956,6 +956,7 @@ def run_rerank_only(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
 
     if args.rerank_only:

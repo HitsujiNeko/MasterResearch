@@ -34,6 +34,7 @@ import rasterio
 from rasterio.crs import CRS
 
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.common.paired_stats import build_paired_statistics
 from src.common.paths import prepare_output_path, resolve_existing_path, to_project_relative_string
 from src.common.raster_grid import compute_cell_area_km2, compute_density_array
@@ -59,7 +60,6 @@ DENSITY_BAND = 2
 # グリッド寸法比の判定で許容する浮動小数点誤差（実データの刻みは厳密な整数倍ではない）
 GRID_RATIO_TOLERANCE = 1e-6
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -610,6 +610,7 @@ def log_agreement(label: str, agreement: dict[str, Any]) -> None:
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     summary_path = run(
         worldpop_path=args.worldpop_path,

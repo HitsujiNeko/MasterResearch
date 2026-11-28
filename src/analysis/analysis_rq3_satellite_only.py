@@ -11,25 +11,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import matplotlib
+
 from src.common.config import PROJECT_ROOT
-
-CONDA_ROOT = PROJECT_ROOT / ".conda"
-CONDA_PATH_PREFIX = [
-    str(CONDA_ROOT),
-    str(CONDA_ROOT / "Library" / "bin"),
-    str(CONDA_ROOT / "Scripts"),
-]
-os.environ["PATH"] = os.pathsep.join([*CONDA_PATH_PREFIX, os.environ.get("PATH", "")])
-
-# GDAL関連のPATH設定後にimportする必要があるため、E402を許容する
-import matplotlib  # noqa: E402
 
 matplotlib.use("Agg")
 
+# matplotlib のバックエンド指定後に import するため、E402 を許容する
 import pandas as pd  # noqa: E402
 
 from src.analysis.urban_params.canonical_grid import assign_canonical_blocks  # noqa: E402

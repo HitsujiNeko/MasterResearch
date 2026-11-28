@@ -20,7 +20,7 @@ LST を計算）と同じ値になる。
 対象シーンは既存の探索結果 CSV とランキング CSV から選ぶ（既定: LST 最小値が閾値未満の
 観測、ランキング上位 20 件、採用観測）。`--scene-indices` で個別に指定することもできる。
 
-依存: earthengine-api, pandas, `src.gee.gee_calc_LST`, `src.module.lst_smw`
+依存: earthengine-api, pandas, `src.common.gee`, `src.gee.gee_calc_LST`, `src.module.lst_smw`
 """
 
 from __future__ import annotations
@@ -45,8 +45,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from src.common.config import PROJECT_ROOT
+from src.common.gee import authenticate_gee
 from src.gee.gee_calc_LST import (
-    authenticate_gee,
     get_matching_toa_image,
     load_config,
     load_roi_from_shapefile,

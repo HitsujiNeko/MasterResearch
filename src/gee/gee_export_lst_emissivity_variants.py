@@ -38,10 +38,10 @@ if __package__ in (None, ""):
 import ee
 
 from src.common.config import PROJECT_ROOT
+from src.common.gee import authenticate_gee
 from src.common.paths import prepare_output_path, resolve_existing_path
 from src.common.summary import build_provenance, save_summary
 from src.gee.gee_calc_LST import (
-    authenticate_gee,
     build_export_description,
     load_config,
     load_roi_from_shapefile,

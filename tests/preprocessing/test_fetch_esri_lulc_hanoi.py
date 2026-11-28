@@ -20,7 +20,7 @@ from shapely.geometry import box
 
 from src.common.raster_classes import build_class_distribution
 from src.preprocessing import fetch_esri_lulc_hanoi as target
-from tests.helpers import HANOI_ROI_BOUNDS
+from tests.helpers import HANOI_ROI_BOUNDS, write_test_raster
 
 
 def _make_item(item_id: str, start_year: int) -> dict[str, Any]:
@@ -229,37 +229,30 @@ class TestCacheCoversBounds:
     """cache_covers_bounds（キャッシュ再利用の範囲検証）のテスト。"""
 
     @staticmethod
-    def _write_raster(path: Path, bounds: tuple[float, float, float, float]) -> None:
-        """指定 BBOX（EPSG:4326）を持つ最小のラスタを書き出す。"""
+    def _write_cache_raster(path: Path, bounds: tuple[float, float, float, float]) -> None:
+        """指定 BBOX（EPSG:4326）を持つ 10x10 画素の最小のラスタを書き出す。"""
         min_lon, min_lat, max_lon, max_lat = bounds
         width = height = 10
-        transform = from_origin(
-            min_lon, max_lat, (max_lon - min_lon) / width, (max_lat - min_lat) / height
-        )
-        with rasterio.open(
+        write_test_raster(
             path,
-            "w",
-            driver="GTiff",
-            width=width,
-            height=height,
-            count=1,
-            dtype="uint8",
+            np.ones((height, width), dtype=np.uint8),
+            transform=from_origin(
+                min_lon, max_lat, (max_lon - min_lon) / width, (max_lat - min_lat) / height
+            ),
             crs=CRS.from_epsg(4326),
-            transform=transform,
-        ) as destination:
-            destination.write(np.ones((height, width), dtype=np.uint8), 1)
+        )
 
     def test_accepts_cache_that_covers_requested_bounds(self, tmp_path: Path) -> None:
         """要求範囲を覆うキャッシュは再利用できる。"""
         cache_path = tmp_path / "cache.tif"
-        self._write_raster(cache_path, (105.0, 20.0, 107.0, 22.0))
+        self._write_cache_raster(cache_path, (105.0, 20.0, 107.0, 22.0))
 
         assert target.cache_covers_bounds(cache_path, (105.5, 20.5, 106.5, 21.5)) is True
 
     def test_rejects_cache_that_does_not_cover_requested_bounds(self, tmp_path: Path) -> None:
         """別 ROI で作られた狭いキャッシュは再利用しない。"""
         cache_path = tmp_path / "cache.tif"
-        self._write_raster(cache_path, (105.5, 20.5, 106.0, 21.0))
+        self._write_cache_raster(cache_path, (105.5, 20.5, 106.0, 21.0))
 
         assert target.cache_covers_bounds(cache_path, (105.0, 20.0, 107.0, 22.0)) is False
 

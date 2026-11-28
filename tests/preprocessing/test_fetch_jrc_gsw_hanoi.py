@@ -192,7 +192,9 @@ class _FakeCollection:
         return "first-image"
 
 
-def _install_fake_ee(monkeypatch: pytest.MonkeyPatch, matched_count: int) -> list[tuple[str, Any]]:
+def _install_fake_gsw_ee(
+    monkeypatch: pytest.MonkeyPatch, matched_count: int
+) -> list[tuple[str, Any]]:
     """target モジュールの ee を偽物に差し替え、適用されたフィルタの記録を返す。"""
     applied: list[tuple[str, Any]] = []
 
@@ -217,7 +219,7 @@ class TestSelectSingleImage:
 
     def test_applies_all_conditions(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """年・月の条件がすべてフィルタとして適用される。"""
-        applied = _install_fake_ee(monkeypatch, matched_count=1)
+        applied = _install_fake_gsw_ee(monkeypatch, matched_count=1)
 
         image = target.select_single_image(target.MONTHLY_ASSET_ID, {"year": 2021, "month": 9})
 
@@ -229,7 +231,7 @@ class TestSelectSingleImage:
         self, monkeypatch: pytest.MonkeyPatch, matched_count: int
     ) -> None:
         """該当が 0 枚・複数枚のときは停止する。"""
-        _install_fake_ee(monkeypatch, matched_count=matched_count)
+        _install_fake_gsw_ee(monkeypatch, matched_count=matched_count)
 
         with pytest.raises(RuntimeError, match="1 枚に定まりません"):
             target.select_single_image(target.YEARLY_ASSET_ID, {"year": 2021})

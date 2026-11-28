@@ -19,8 +19,13 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import geopandas as gpd
+import numpy as np
+import pytest
+import rasterio
+from affine import Affine
 from shapely.geometry import box
 
 # ROI（hanoi_ROI_EPSG4326.shp）の実測 BBOX。取得スクリプトのテストで共通に使う。
@@ -84,3 +89,145 @@ def make_fake_build_target_area(
         )
 
     return fake
+
+
+def write_test_raster(
+    path: Path,
+    values: np.ndarray,
+    *,
+    transform: Affine,
+    crs: Any = "EPSG:4326",
+    nodata: float | None = None,
+    dtype: Any = None,
+    band_names: tuple[str, ...] | None = None,
+) -> Path:
+    """テスト用の小さな GeoTIFF を書き出す。
+
+    Args:
+        path: 出力先。親ディレクトリが無ければ作る。
+        values: 2 次元（単バンド）または 3 次元（バンド, 行, 列）の画素値。
+        transform: 変換行列（`rasterio.transform.from_origin` などで作る）。
+        crs: CRS（文字列または `rasterio.crs.CRS`）。
+        nodata: nodata 値。`None` ならタグを付けない。
+        dtype: 書き出すデータ型。`None` なら `values` の型をそのまま使う。
+        band_names: 各バンドの説明。`None` なら付けない。
+
+    Returns:
+        書き出したパス。
+    """
+    bands = values[np.newaxis, :, :] if values.ndim == 2 else values
+    count, height, width = bands.shape
+    out_dtype = bands.dtype if dtype is None else np.dtype(dtype)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=height,
+        width=width,
+        count=count,
+        dtype=out_dtype,
+        crs=crs,
+        transform=transform,
+        nodata=nodata,
+    ) as destination:
+        destination.write(bands.astype(out_dtype, copy=False))
+        for index, name in enumerate(band_names or (), start=1):
+            destination.set_band_description(index, name)
+    return path
+
+
+class FakeEeFilter:
+    """`ee.Filter.eq` の戻り値を模した記録用オブジェクト。"""
+
+    def __init__(self, property_name: str, value: Any) -> None:
+        self.property_name = property_name
+        self.value = value
+
+
+class FakeEeValue:
+    """`getInfo()` だけを持つ値オブジェクト。"""
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+    def getInfo(self) -> Any:  # noqa: N802  # GEE API 名に合わせる
+        """保持している値を返す。"""
+        return self.value
+
+
+class FakeEeImageCollection:
+    """`ee.ImageCollection` を模し、適用されたフィルタと件数を記録する。
+
+    `filter()` はチェーンされるため、適用条件は呼び出し元と共有するリストへ
+    追記する（新しいインスタンスを返しても記録が失われないようにするため）。
+    """
+
+    def __init__(self, asset_id: str, matched_count: int, applied: list[FakeEeFilter]) -> None:
+        self.asset_id = asset_id
+        self.matched_count = matched_count
+        self.applied = applied
+
+    def filter(self, fake_filter: FakeEeFilter) -> FakeEeImageCollection:
+        """フィルタ適用を共有リストへ記録し、同じ記録を持つコレクションを返す。"""
+        self.applied.append(fake_filter)
+        return FakeEeImageCollection(self.asset_id, self.matched_count, self.applied)
+
+    def size(self) -> FakeEeValue:
+        """件数を返す。"""
+        return FakeEeValue(self.matched_count)
+
+    def first(self) -> str:
+        """先頭画像の代わりに識別用の文字列を返す。"""
+        return f"{self.asset_id}#first"
+
+
+def install_fake_ee_image_collection(
+    monkeypatch: pytest.MonkeyPatch,
+    ee_module: Any,
+    matched_count: int,
+    image_factory: Callable[[str], Any],
+) -> dict[str, Any]:
+    """`ee` の ImageCollection・Image・Filter を偽物に差し替え、記録用の辞書を返す。
+
+    1 枚の画像をフィルタで選ぶ取得スクリプト（人口・VIIRS DNB）に共通の差し替え。
+    画像に対する操作（`select` の引数の形など）はスクリプトごとに違うため、偽の画像は
+    呼び出し側が `image_factory` で渡す。
+
+    Args:
+        monkeypatch: 差し替え用のフィクスチャ。
+        ee_module: 差し替える `ee` モジュール（対象スクリプトの `target.ee`）。
+        matched_count: フィルタ後のコレクションが返す件数。
+        image_factory: `ee.Image(source)` の代わりに呼ぶ関数。
+
+    Returns:
+        記録用の辞書。`asset_id`（コレクションの ID）・`filters`（適用された
+        `FakeEeFilter` のリスト）・`image`（最後に作られた偽の画像）を持つ。
+    """
+    recorded: dict[str, Any] = {}
+
+    def fake_image_collection(asset_id: str) -> FakeEeImageCollection:
+        """コレクションの ID とフィルタの記録先を残す。"""
+        recorded["asset_id"] = asset_id
+        applied: list[FakeEeFilter] = []
+        recorded["filters"] = applied
+        return FakeEeImageCollection(asset_id, matched_count, applied)
+
+    def fake_image(source: str) -> Any:
+        """偽の画像を作って記録する。"""
+        image = image_factory(source)
+        recorded["image"] = image
+        return image
+
+    class _FakeFilterFactory:
+        """`ee.Filter` を模し、`eq` で記録用オブジェクトを返す。"""
+
+        @staticmethod
+        def eq(property_name: str, value: Any) -> FakeEeFilter:
+            """等価条件を記録用オブジェクトとして返す。"""
+            return FakeEeFilter(property_name, value)
+
+    monkeypatch.setattr(ee_module, "ImageCollection", fake_image_collection)
+    monkeypatch.setattr(ee_module, "Image", fake_image)
+    monkeypatch.setattr(ee_module, "Filter", _FakeFilterFactory)
+    return recorded

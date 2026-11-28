@@ -47,6 +47,7 @@ from src.analysis.diagnose_nodata_dropout import (
 )
 from src.common import summary as summary_module
 from src.common.summary import compute_file_sha256
+from tests.helpers import write_test_raster
 
 # ハノイROIと同じ緯度帯（北緯約21度）に置いた正方形をテスト用ROIとする。
 # 投影後の距離がメートルとして解釈できることを確かめるため、実データと同じ緯度帯を使う。
@@ -555,26 +556,6 @@ def test_list_input_paths_orders_dataset_roi_then_sorted_rasters() -> None:
 class TestMainProvenance:
     """main() の出力サマリーへの来歴付与（合成データによるスモークテスト）。"""
 
-    @staticmethod
-    def _write_raster(path: Path) -> None:
-        """ROI を覆う 2x2 画素の小さなラスタを書き出す。"""
-        pixel_size_deg = ROI_SIZE_DEG / 2
-        with rasterio.open(
-            path,
-            "w",
-            driver="GTiff",
-            height=2,
-            width=2,
-            count=1,
-            dtype="float32",
-            crs="EPSG:4326",
-            transform=from_origin(
-                ROI_MIN_LON, ROI_MIN_LAT + ROI_SIZE_DEG, pixel_size_deg, pixel_size_deg
-            ),
-            nodata=-9999.0,
-        ) as dst:
-            dst.write(np.array([[1.0, 2.0], [3.0, -9999.0]], dtype="float32"), 1)
-
     def test_summary_contains_provenance_with_input_hashes(
         self,
         tmp_path: Path,
@@ -607,7 +588,16 @@ class TestMainProvenance:
         # 実データと同じラスタ名で、辞書順と挿入順が異なる並びにする
         for name in ("worldpop2020", "landscan2020", "landscan2023", "viirs_dnb"):
             raster_path = tmp_path / f"{name}.tif"
-            self._write_raster(raster_path)
+            # ROI を覆う 2x2 画素の小さなラスタ（1 画素は nodata）
+            pixel_size_deg = ROI_SIZE_DEG / 2
+            write_test_raster(
+                raster_path,
+                np.array([[1.0, 2.0], [3.0, -9999.0]], dtype="float32"),
+                transform=from_origin(
+                    ROI_MIN_LON, ROI_MIN_LAT + ROI_SIZE_DEG, pixel_size_deg, pixel_size_deg
+                ),
+                nodata=-9999.0,
+            )
             raster_paths[name] = raster_path
         monkeypatch.setattr(diagnose_nodata_dropout, "DEFAULT_RASTER_PATHS", raster_paths)
 

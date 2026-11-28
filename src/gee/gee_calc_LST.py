@@ -40,6 +40,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from src.common.gee import authenticate_gee
+from src.common.log_setup import configure_logging
 from src.module.landsat_sensor import (
     DEFAULT_SENSOR,
     get_collection_id,
@@ -50,19 +51,7 @@ from src.module.landsat_sensor import (
 # SMW手法モジュールをインポート
 from src.module.lst_smw import calculate_lst_smw
 
-# ログ設定
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-# NCEP_RE/surface_wv はGEE側で廃止予告済みだが、
-# SMW法の既存再現性確保のため現時点では継続利用する。
-# 実行時ログを過度に汚さないよう、当該警告のみ抑制する。
-warnings.filterwarnings(
-    "ignore",
-    message=r"[\s\S]*Attention required for NCEP_RE/surface_wv![\s\S]*",
-    category=DeprecationWarning,
-    module=r"ee\.deprecation",
-)
 
 
 def load_config(csv_path: str) -> Dict:
@@ -598,6 +587,16 @@ def process_sensor(sensor: str, config: Dict, roi: ee.Geometry) -> Tuple[List[Di
 
 def main():
     """メイン処理"""
+    configure_logging()
+    # NCEP_RE/surface_wv はGEE側で廃止予告済みだが、
+    # SMW法の既存再現性確保のため現時点では継続利用する。
+    # 実行時ログを過度に汚さないよう、当該警告のみ抑制する。
+    warnings.filterwarnings(
+        "ignore",
+        message=r"[\s\S]*Attention required for NCEP_RE/surface_wv![\s\S]*",
+        category=DeprecationWarning,
+        module=r"ee\.deprecation",
+    )
     try:
         # 設定ファイル読み込み
         logger.info("LST計算プログラムを開始します...")

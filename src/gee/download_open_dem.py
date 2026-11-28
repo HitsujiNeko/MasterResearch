@@ -40,6 +40,7 @@ from rasterio.warp import calculate_default_transform, reproject
 from src.common.config import DEFAULT_HANOI_ROI_PATH, PROJECT_ROOT
 from src.common.gee import authenticate_gee, load_gee_project_id
 from src.common.http_fetch import fetch_bytes_with_retry
+from src.common.log_setup import configure_logging
 from src.common.paths import to_project_relative_string
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
@@ -531,6 +532,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     output_path, metadata_path = run(
         dataset_key=args.dataset,

@@ -69,7 +69,8 @@ from src.analysis.urban_params.config import POPULATION_BASE_COLUMNS
 from src.analysis.urban_params.params.lulc import COLUMN_TO_COMMON_CLASS
 from src.analysis.urban_params.tables import write_attribute_table
 from src.common.analysis_dataset import IN_ANALYSIS_AREA_COLUMN
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
+from src.common.log_setup import configure_logging
 from src.common.paths import (
     prepare_output_path,
     resolve_existing_path,
@@ -92,7 +93,7 @@ DEFAULT_SUMMARY_PATH = (
     / "data"
     / "output"
     / "limited"
-    / "20220906_032358_water_sensitivity"
+    / f"{PRIMARY_OBSERVATION_ID}_water_sensitivity"
     / "water_sensitivity_datasets_results.json"
 )
 
@@ -114,7 +115,6 @@ FRACTION_TOLERANCE = 1e-6
 # 差し替えに使う Occurrence の閾値（%）。主は 50%
 OCCURRENCE_THRESHOLDS: tuple[int, ...] = (50, 25)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -683,6 +683,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     Args:
         argv: 引数列。None の場合は `sys.argv` を使う。
     """
+    configure_logging()
     args = parse_arguments(argv)
     summary_path = run(args.dataset_path, args.jrc_path, args.output_dir, args.summary_path)
     logger.info("要約を保存しました: %s", summary_path)

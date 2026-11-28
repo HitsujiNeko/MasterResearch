@@ -6,14 +6,15 @@ import argparse
 from pathlib import Path
 
 import matplotlib
-
-matplotlib.use("Agg")
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from src.common.config import PROJECT_ROOT
+
+# 画面の無い環境でも図を保存できるよう、描画のバックエンドを Agg にする
+# （コマンドとして実行する描画スクリプトなので、最上位で設定してよい）
+matplotlib.use("Agg")
 
 SATELLITE_ONLY_DIR = PROJECT_ROOT / "data" / "output" / "satellite_only"
 DEFAULT_OUTPUT = SATELLITE_ONLY_DIR / "multidate" / "satellite_only_multidate_lst_violin.png"

@@ -51,8 +51,9 @@ from src.analysis.lst_emissivity_sensitivity import (
     rank_features,
 )
 from src.common.analysis_runs import RANDOM_SPLIT_TEST_FRACTION
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.evaluation_cells import CELL_ID_COLUMN, load_evaluation_set
+from src.common.log_setup import configure_logging
 from src.common.paths import (
     resolve_existing_path,
     resolve_relative_to_project_root,
@@ -68,7 +69,7 @@ WATCH_PATHS: tuple[str, ...] = (
     "src/analysis/compare_water_sources.py",
 )
 DEFAULT_OUTPUT_DIR = (
-    PROJECT_ROOT / "data" / "output" / "limited" / "20220906_032358_water_sensitivity"
+    PROJECT_ROOT / "data" / "output" / "limited" / f"{PRIMARY_OBSERVATION_ID}_water_sensitivity"
 )
 OUTPUT_PREFIX = "water_sensitivity_comparison"
 
@@ -81,7 +82,6 @@ COEFFICIENT_FAMILY = "lr_standardized_coefficient"
 # 係数を元の単位で示すときの水域率の増分（10 ポイント）
 WATER_INCREMENT = 0.1
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -344,6 +344,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     Args:
         argv: 引数列。None の場合は `sys.argv` を使う。
     """
+    configure_logging()
     args = build_argument_parser().parse_args(argv)
     result_path = run(
         args.baseline, [(name, Path(path)) for name, path in args.variant], args.output_dir

@@ -21,7 +21,7 @@ from src.common.shap_report import (
     compute_shap_outputs,
 )
 
-# matplotlibのバックエンド（Agg）は tests/common/conftest.py で設定済み。
+# matplotlibのバックエンド（Agg）は tests/conftest.py で設定済み。
 
 
 @pytest.fixture

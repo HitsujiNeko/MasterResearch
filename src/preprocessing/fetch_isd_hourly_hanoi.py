@@ -31,9 +31,9 @@ from urllib.parse import urlencode
 
 from src.common.config import PROJECT_ROOT
 from src.common.http_fetch import fetch_bytes_with_retry
+from src.common.log_setup import configure_logging
 from src.common.paths import prepare_output_path, resolve_relative_to_project_root
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 ACCESS_DATA_SERVICE_URL = "https://www.ncei.noaa.gov/access/services/data/v1"
@@ -253,6 +253,7 @@ def main(argv: list[str] | None = None) -> None:
     Args:
         argv: 引数のリスト。`None` の場合は `sys.argv` を使う。
     """
+    configure_logging()
     args = parse_arguments(argv)
     output_dir = (
         resolve_relative_to_project_root(args.output_dir, project_root=PROJECT_ROOT)

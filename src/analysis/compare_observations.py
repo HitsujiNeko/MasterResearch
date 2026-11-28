@@ -47,7 +47,7 @@ from src.analysis.summarize_rq2_scale_area import (
     rank_shap,
     to_records,
 )
-from src.common.config import PROJECT_ROOT
+from src.common.config import PRIMARY_OBSERVATION_ID, PROJECT_ROOT
 from src.common.paths import to_project_relative_string
 from src.common.summary import build_provenance, save_summary
 
@@ -96,19 +96,19 @@ class RunSpec:
 # 旧採用の Limited は、ラン13と数値が一致し、クリーンなコミットで生成した全域ランを使う。
 DEFAULT_RUNS: tuple[RunSpec, ...] = (
     RunSpec(
-        "20220906_032358",
+        PRIMARY_OBSERVATION_ID,
         "satellite_only",
         Path(
-            "data/output/satellite_only_cellbased/20220906_032358/"
-            "dataset_satellite_only_20220906_032358_hanoi_30m_results.json"
+            f"data/output/satellite_only_cellbased/{PRIMARY_OBSERVATION_ID}/"
+            f"dataset_satellite_only_{PRIMARY_OBSERVATION_ID}_hanoi_30m_results.json"
         ),
     ),
     RunSpec(
-        "20220906_032358",
+        PRIMARY_OBSERVATION_ID,
         "limited",
         Path(
-            "data/output/limited/20220906_032358/"
-            "dataset_limited_20220906_032358_hanoi_30m_both_bh_mean_wi_none_results.json"
+            f"data/output/limited/{PRIMARY_OBSERVATION_ID}/"
+            f"dataset_limited_{PRIMARY_OBSERVATION_ID}_hanoi_30m_both_bh_mean_wi_none_results.json"
         ),
     ),
     RunSpec(

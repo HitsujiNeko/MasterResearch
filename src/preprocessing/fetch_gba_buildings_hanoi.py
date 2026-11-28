@@ -22,15 +22,19 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-from src.common.config import DEFAULT_HANOI_ROI_PATH, HANOI_UTM_CRS, PROJECT_ROOT
+from src.common.config import (
+    DEFAULT_HANOI_ROI_PATH,
+    DEFAULT_OPEN_GIS_OUTPUT_DIR,
+    HANOI_UTM_CRS,
+    PROJECT_ROOT,
+)
 from src.common.http_fetch import fetch_json_with_retry
+from src.common.log_setup import configure_logging
 from src.common.roi import load_roi_geometry
 from src.common.summary import save_summary
 
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "gis" / "buildings" / "hanoi_gba_buildings.gpkg"
-DEFAULT_SUMMARY_PATH = (
-    PROJECT_ROOT / "data" / "output" / "open_gis" / "hanoi_gba_buildings_summary.json"
-)
+DEFAULT_SUMMARY_PATH = DEFAULT_OPEN_GIS_OUTPUT_DIR / "hanoi_gba_buildings_summary.json"
 
 WFS_ENDPOINT = "https://tubvsig-so2sat-vm1.srv.mwn.de/geoserver/ows"
 WFS_LAYER = "global3D:lod1_global"
@@ -55,7 +59,6 @@ WFS_NATIVE_CRS = "EPSG:3857"
 _TRANSFORMER_4326_TO_3857 = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -626,6 +629,7 @@ def run(
 
 def main() -> None:
     """エントリーポイント。"""
+    configure_logging()
     args = parse_arguments()
     run(
         roi_path=args.roi_path,

@@ -68,6 +68,9 @@ def _import_in_subprocess(module_name: str, removed_keys: tuple[str, ...]) -> di
     # 作業ツリー自身の src を import させる（PYTHONPATH が別のチェックアウトを
     # 指していても、子プロセスではこのリポジトリを優先する）。
     env["PYTHONPATH"] = str(PROJECT_ROOT)
+    # Windows では子プロセスの標準出力・標準エラーが cp932 で書かれ、日本語のエラー
+    # （DLL の読み込み失敗等）を UTF-8 として読めずに失敗理由が失われるため、UTF-8 に揃える。
+    env["PYTHONUTF8"] = "1"
     completed = subprocess.run(
         [sys.executable, "-c", CHILD_CODE, module_name],
         cwd=PROJECT_ROOT,

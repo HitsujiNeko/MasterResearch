@@ -14,8 +14,12 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
+import logging
+import os
 import sys
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -53,6 +57,40 @@ def load_script_module(path: Path, name: str) -> ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def import_with_contained_side_effects(module_name: str, work_dir: Path) -> ModuleType:
+    """import 時に副作用を起こすモジュールを、副作用を閉じ込めて読み込む。
+
+    一部の古いスクリプトは import した時点で、作業ディレクトリ基準の `data/output/` を
+    作る・`logging.basicConfig` でルートロガーにハンドラ（ログファイル）を付ける・
+    警告フィルタを書き換える。テストからそのまま import すると、リポジトリ直下に
+    ディレクトリやログが作られ、他のテストのログ・警告の扱いも変わってしまう。
+    そこで、作業ディレクトリを `work_dir` に移してから import し、終わったら作業
+    ディレクトリ・ルートロガー・警告フィルタを元に戻す。
+
+    Args:
+        module_name: import するモジュール名（例: ``src.preprocessing.merge_vector_fixed``）。
+        work_dir: import の間だけ作業ディレクトリにする一時ディレクトリ。
+
+    Returns:
+        読み込んだモジュール。
+    """
+    root_logger = logging.getLogger()
+    handlers_before = list(root_logger.handlers)
+    level_before = root_logger.level
+    cwd_before = Path.cwd()
+    os.chdir(work_dir)
+    try:
+        with warnings.catch_warnings():
+            return importlib.import_module(module_name)
+    finally:
+        os.chdir(cwd_before)
+        for handler in list(root_logger.handlers):
+            if handler not in handlers_before:
+                root_logger.removeHandler(handler)
+                handler.close()
+        root_logger.setLevel(level_before)
 
 
 def make_fake_build_target_area(

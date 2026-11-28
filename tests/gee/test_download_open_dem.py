@@ -45,10 +45,10 @@ def _write_roi(path: Path, crs: str | None = "EPSG:4326") -> Path:
     Returns:
         書き出したパス。
     """
-    roi_gdf = gpd.GeoDataFrame(geometry=[box(*ROI_BOUNDS)], crs="EPSG:4326")
-    if crs is None:
-        roi_gdf = gpd.GeoDataFrame(geometry=[box(*ROI_BOUNDS)], crs=None)
-    elif crs != "EPSG:4326":
+    roi_gdf = gpd.GeoDataFrame(
+        geometry=[box(*ROI_BOUNDS)], crs=None if crs is None else "EPSG:4326"
+    )
+    if crs is not None and crs != "EPSG:4326":
         roi_gdf = roi_gdf.to_crs(crs)
     roi_gdf.to_file(path)
     return path

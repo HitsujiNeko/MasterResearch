@@ -110,7 +110,8 @@ class TestCommonModuleUsage:
         assert target.save_summary is summary.save_summary
 
     def test_uses_common_constants(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        assert target.HANOI_UTM_CRS == config.HANOI_UTM_CRS
+        # 同じ文字列の再定義でも通ってしまわないよう、同一オブジェクトかを確かめる
+        assert target.HANOI_UTM_CRS is config.HANOI_UTM_CRS
         monkeypatch.setattr(sys, "argv", ["fetch_gba_buildings_hanoi.py"])
         assert target.parse_arguments().roi_path == config.DEFAULT_HANOI_ROI_PATH
 

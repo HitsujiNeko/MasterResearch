@@ -9,30 +9,19 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import subprocess
-import sys
 from pathlib import Path
-from types import ModuleType
 
 import pytest
 
 from src.common.summary import describe_code_files
+from tests.helpers import load_script_module
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_result_staleness.py"
 
 
-def _load_target() -> ModuleType:
-    """対象スクリプトをモジュールとして読み込む。"""
-    spec = importlib.util.spec_from_file_location("check_result_staleness", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-target = _load_target()
+target = load_script_module(SCRIPT_PATH, "check_result_staleness")
 
 SCRIPT_MODULE = "src.analysis.run_model"
 INPUT_REL = "data/output/datasets/dataset.gpkg"

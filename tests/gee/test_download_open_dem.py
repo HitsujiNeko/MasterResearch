@@ -24,6 +24,7 @@ from shapely.geometry import box
 
 from src.common import config, gee, roi, summary
 from src.gee import download_open_dem as target
+from tests.helpers import write_test_raster
 
 # 小さな ROI（EPSG:4326）と、それを覆う合成 DEM（0.001° 格子・30×30 画素）
 ROI_BOUNDS = (105.80, 21.00, 105.82, 21.02)
@@ -60,18 +61,12 @@ def _make_geotiff_bytes(tmp_path: Path) -> bytes:
     values = np.arange(RASTER_SIZE * RASTER_SIZE, dtype=np.float32).reshape(
         1, RASTER_SIZE, RASTER_SIZE
     )
-    with rasterio.open(
+    write_test_raster(
         raster_path,
-        "w",
-        driver="GTiff",
-        height=RASTER_SIZE,
-        width=RASTER_SIZE,
-        count=1,
-        dtype="float32",
-        crs=CRS.from_epsg(4326),
+        values,
         transform=from_origin(RASTER_WEST, RASTER_NORTH, PIXEL_DEG, PIXEL_DEG),
-    ) as dst:
-        dst.write(values)
+        crs=CRS.from_epsg(4326),
+    )
     return raster_path.read_bytes()
 
 
@@ -141,12 +136,14 @@ class TestCommonModuleUsage:
     """共通モジュールの関数・定数を使っていることの確認。"""
 
     def test_uses_common_functions(self) -> None:
+        """GEE 認証・プロジェクト ID・ROI・サマリーの処理に共通モジュールの関数を使う。"""
         assert target.authenticate_gee is gee.authenticate_gee
         assert target.load_gee_project_id is gee.load_gee_project_id
         assert target.load_roi_geometry is roi.load_roi_geometry
         assert target.save_summary is summary.save_summary
 
     def test_default_roi_path_is_common(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """ROI の既定パスに共通設定の値を使う。"""
         monkeypatch.setattr(sys, "argv", ["download_open_dem.py"])
         assert target.parse_arguments().roi_path == config.DEFAULT_HANOI_ROI_PATH
 
@@ -157,6 +154,7 @@ class TestRun:
     def test_writes_clipped_geotiff_and_metadata(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """投影座標の ROI を EPSG:4326 にそろえて取得し、クリップした DEM とメタデータを書く。"""
         # ROI を UTM で書いておき、EPSG:4326 に直してから使われることも確かめる
         _write_roi(paths["roi_path"], crs=config.HANOI_UTM_CRS)
         _write_config(paths["config_path"], "test-project")
@@ -184,6 +182,7 @@ class TestRun:
     def test_nan_project_id_stops_before_authentication(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """プロジェクト ID が空（NaN）なら、GEE の認証に進まず例外にする。"""
         _write_roi(paths["roi_path"])
         _write_config(paths["config_path"], "")
         _patch_gee(monkeypatch, tmp_path)
@@ -202,6 +201,7 @@ class TestRun:
     def test_roi_without_crs_stops_before_download(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """CRS の無い ROI は、取得に進まず例外にする。"""
         _write_roi(paths["roi_path"], crs=None)
         _write_config(paths["config_path"], "test-project")
         calls = _patch_gee(monkeypatch, tmp_path)
@@ -214,6 +214,7 @@ class TestRun:
     def test_nan_in_metadata_stops_without_saving(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """メタデータに NaN があれば、保存せずに例外にする。"""
         _write_roi(paths["roi_path"])
         _write_config(paths["config_path"], "test-project")
         _patch_gee(monkeypatch, tmp_path)

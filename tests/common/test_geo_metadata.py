@@ -7,7 +7,6 @@ from pathlib import Path
 import fiona
 import numpy as np
 import pytest
-import rasterio
 from pyproj import Transformer
 from rasterio.transform import from_origin
 
@@ -18,24 +17,10 @@ from src.common.geo_metadata import (
     read_vector_metadata,
     transform_bbox,
 )
+from tests.helpers import write_test_raster
 
-
-def _write_raster(path: Path, data: np.ndarray, *, nodata: float | None = None) -> None:
-    """テスト用GeoTIFFを書き出す（左上原点、画素サイズ10m）。"""
-    transform = from_origin(0.0, 100.0, 10.0, 10.0)
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=data.shape[0],
-        width=data.shape[1],
-        count=1,
-        dtype=data.dtype,
-        crs="EPSG:3857",
-        transform=transform,
-        nodata=nodata,
-    ) as dst:
-        dst.write(data, 1)
+# テスト用ラスタの変換行列（左上原点 (0, 100)、画素サイズ 10m。EPSG:3857 で使う）
+METRIC_TRANSFORM = from_origin(0.0, 100.0, 10.0, 10.0)
 
 
 def _write_vector(path: Path, layer: str = "data") -> None:
@@ -85,7 +70,13 @@ def test_transform_bbox_identity() -> None:
 def test_read_raster_metadata(tmp_path: Path) -> None:
     """ラスタのCRS・解像度・バンド数・nodata・bboxを取得できる。"""
     raster = tmp_path / "r.tif"
-    _write_raster(raster, np.ones((4, 5), dtype="float32"), nodata=-9999.0)
+    write_test_raster(
+        raster,
+        np.ones((4, 5), dtype="float32"),
+        transform=METRIC_TRANSFORM,
+        crs="EPSG:3857",
+        nodata=-9999.0,
+    )
 
     meta = read_raster_metadata(raster)
     assert meta["crs"] == "EPSG:3857"
@@ -101,7 +92,9 @@ def test_read_raster_metadata(tmp_path: Path) -> None:
 def test_read_raster_metadata_nodata_none(tmp_path: Path) -> None:
     """nodata未設定のラスタでは None が返る。"""
     raster = tmp_path / "r.tif"
-    _write_raster(raster, np.ones((2, 2), dtype="float32"))
+    write_test_raster(
+        raster, np.ones((2, 2), dtype="float32"), transform=METRIC_TRANSFORM, crs="EPSG:3857"
+    )
     assert read_raster_metadata(raster)["nodata"] is None
 
 

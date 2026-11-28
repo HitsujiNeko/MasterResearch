@@ -10,29 +10,19 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
-import importlib.util
 import json
 import sqlite3
 import subprocess
-import sys
 from pathlib import Path
-from types import ModuleType
 
 import pytest
+
+from tests.helpers import load_script_module
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_external_deps.py"
 
 
-def _load_target() -> ModuleType:
-    """対象スクリプトをモジュールとして読み込む。"""
-    spec = importlib.util.spec_from_file_location("check_external_deps", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-target = _load_target()
+target = load_script_module(SCRIPT_PATH, "check_external_deps")
 
 NOW = dt.datetime(2026, 10, 1, 0, 0, tzinfo=dt.timezone.utc)
 

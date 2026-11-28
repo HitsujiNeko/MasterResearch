@@ -21,52 +21,11 @@ from shapely.geometry import box
 
 from src.common.config import LANDSAT_OBSERVATION_YEAR
 from src.preprocessing import fetch_population_hanoi as target
-from tests.helpers import HANOI_ROI_BOUNDS, make_fake_build_target_area
-
-
-class _FakeFilter:
-    """ee.Filter.eq の戻り値を模した記録用オブジェクト。"""
-
-    def __init__(self, property_name: str, value: Any) -> None:
-        self.property_name = property_name
-        self.value = value
-
-
-class _FakeCollection:
-    """ee.ImageCollection を模し、適用されたフィルタと件数を記録する。
-
-    `filter()` はチェーンされるため、適用条件は呼び出し元と共有するリストへ
-    追記する（新しいインスタンスを返しても記録が失われないようにするため）。
-    """
-
-    def __init__(self, asset_id: str, matched_count: int, applied: list[_FakeFilter]) -> None:
-        self.asset_id = asset_id
-        self.matched_count = matched_count
-        self.applied = applied
-
-    def filter(self, fake_filter: _FakeFilter) -> _FakeCollection:
-        """フィルタ適用を共有リストへ記録し、同じ記録を持つコレクションを返す。"""
-        self.applied.append(fake_filter)
-        return _FakeCollection(self.asset_id, self.matched_count, self.applied)
-
-    def size(self) -> _FakeValue:
-        """件数を返す。"""
-        return _FakeValue(self.matched_count)
-
-    def first(self) -> str:
-        """先頭画像の代わりに識別用の文字列を返す。"""
-        return f"{self.asset_id}#first"
-
-
-class _FakeValue:
-    """getInfo() だけを持つ値オブジェクト。"""
-
-    def __init__(self, value: Any) -> None:
-        self.value = value
-
-    def getInfo(self) -> Any:  # noqa: N802  # GEE API 名に合わせる
-        """保持している値を返す。"""
-        return self.value
+from tests.helpers import (
+    HANOI_ROI_BOUNDS,
+    install_fake_ee_image_collection,
+    make_fake_build_target_area,
+)
 
 
 class _FakeImage:
@@ -86,35 +45,6 @@ class _FakeImage:
         """リネームを記録する。"""
         self.renamed_to = new_name
         return self
-
-
-def _install_fake_ee(
-    monkeypatch: pytest.MonkeyPatch,
-    matched_count: int,
-) -> dict[str, Any]:
-    """target モジュールの ee を偽物に差し替え、記録用の辞書を返す。"""
-    recorded: dict[str, Any] = {}
-
-    def fake_image_collection(asset_id: str) -> _FakeCollection:
-        recorded["asset_id"] = asset_id
-        applied: list[_FakeFilter] = []
-        recorded["filters"] = applied
-        return _FakeCollection(asset_id, matched_count, applied)
-
-    def fake_image(source: str) -> _FakeImage:
-        image = _FakeImage(source)
-        recorded["image"] = image
-        return image
-
-    class _FakeEeFilter:
-        @staticmethod
-        def eq(property_name: str, value: Any) -> _FakeFilter:
-            return _FakeFilter(property_name, value)
-
-    monkeypatch.setattr(target.ee, "ImageCollection", fake_image_collection)
-    monkeypatch.setattr(target.ee, "Image", fake_image)
-    monkeypatch.setattr(target.ee, "Filter", _FakeEeFilter)
-    return recorded
 
 
 class TestResolveYear:
@@ -197,7 +127,9 @@ class TestSelectPopulationImage:
 
     def test_worldpop_filters_by_year_and_country(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """WorldPop は国別×年次のコレクションのため year と country の両方で絞る。"""
-        recorded = _install_fake_ee(monkeypatch, matched_count=1)
+        recorded = install_fake_ee_image_collection(
+            monkeypatch, target.ee, image_factory=_FakeImage, matched_count=1
+        )
 
         target.select_population_image(target.DATASET_CONFIGS["worldpop"], 2020)
 
@@ -210,7 +142,9 @@ class TestSelectPopulationImage:
 
     def test_landscan_filters_by_system_index(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """LandScan は年次1枚のため system:index で絞る。"""
-        recorded = _install_fake_ee(monkeypatch, matched_count=1)
+        recorded = install_fake_ee_image_collection(
+            monkeypatch, target.ee, image_factory=_FakeImage, matched_count=1
+        )
 
         target.select_population_image(target.DATASET_CONFIGS["landscan"], 2023)
 
@@ -221,7 +155,9 @@ class TestSelectPopulationImage:
 
     def test_year_is_reflected_in_the_filter_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """指定年がそのままフィルタ値になる（年の取り違えを検出する）。"""
-        recorded = _install_fake_ee(monkeypatch, matched_count=1)
+        recorded = install_fake_ee_image_collection(
+            monkeypatch, target.ee, image_factory=_FakeImage, matched_count=1
+        )
 
         target.select_population_image(target.DATASET_CONFIGS["landscan"], 2020)
 
@@ -230,14 +166,18 @@ class TestSelectPopulationImage:
 
     def test_raises_when_no_image_matches(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """該当が 0 枚なら取り違えを防ぐため例外にする。"""
-        _install_fake_ee(monkeypatch, matched_count=0)
+        install_fake_ee_image_collection(
+            monkeypatch, target.ee, image_factory=_FakeImage, matched_count=0
+        )
 
         with pytest.raises(RuntimeError, match="該当: 0 枚"):
             target.select_population_image(target.DATASET_CONFIGS["worldpop"], 2020)
 
     def test_raises_when_multiple_images_match(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """該当が複数枚なら年の特定に失敗しているため例外にする。"""
-        _install_fake_ee(monkeypatch, matched_count=3)
+        install_fake_ee_image_collection(
+            monkeypatch, target.ee, image_factory=_FakeImage, matched_count=3
+        )
 
         with pytest.raises(RuntimeError, match="該当: 3 枚"):
             target.select_population_image(target.DATASET_CONFIGS["landscan"], 2023)

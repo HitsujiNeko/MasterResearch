@@ -6,29 +6,20 @@
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
 
 import pytest
+
+from tests.helpers import load_script_module
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "change_category.py"
 
 
-def _load_target() -> ModuleType:
-    """対象スクリプトをモジュールとして読み込む。"""
-    spec = importlib.util.spec_from_file_location("change_category", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-target = _load_target()
+target = load_script_module(SCRIPT_PATH, "change_category")
 
 requires_git = pytest.mark.skipif(shutil.which("git") is None, reason="git が必要")
 

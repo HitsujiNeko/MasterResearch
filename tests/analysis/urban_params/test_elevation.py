@@ -10,20 +10,11 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from src.analysis.urban_params.grid import build_grid
+from src.analysis.urban_params.grid import GridSpec
 from src.analysis.urban_params.io import RasterResource
 from src.analysis.urban_params.params import elevation
 
-from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS
-
-# ANALYSIS_BBOX（0-80m四方）を coarse=20m で分割した 4x4 グリッドを前提とする。
-COARSE_RES_M = 20.0
-FINE_RES_M = 10.0
-
-
-def _build_grid_spec():
-    """テスト共通の 4x4 coarseグリッド仕様を構築する。"""
-    return build_grid(ANALYSIS_BBOX, ANALYSIS_CRS, COARSE_RES_M, FINE_RES_M)
+from .conftest import ANALYSIS_BBOX, ANALYSIS_CRS, FINE_RES_M
 
 
 def _write_dem(
@@ -67,19 +58,19 @@ def _gradient_dem() -> np.ndarray:
     return (rows * 8 + cols).astype(np.float32)
 
 
-def test_compute_returns_empty_dict_for_none_resource() -> None:
+def test_compute_returns_empty_dict_for_none_resource(grid_spec: GridSpec) -> None:
     """resourceがNoneのシナリオでは空辞書を返す（他パラメータモジュールと同じ規約）。"""
-    result = elevation.compute(None, ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(None, ANALYSIS_BBOX, grid_spec)
 
     assert result == {}
 
 
-def test_compute_returns_cell_mean_elevation(tmp_path: Path) -> None:
+def test_compute_returns_cell_mean_elevation(tmp_path: Path, grid_spec: GridSpec) -> None:
     """ELEV_MEAN列にcoarseセル内の平均標高（m）が入る。"""
     dem_path = tmp_path / "dem.tif"
     _write_dem(dem_path, _gradient_dem())
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     assert set(result) == {"ELEV_MEAN", "ELEV_VALID_RATIO"}
     elev_mean = result["ELEV_MEAN"]
@@ -91,7 +82,7 @@ def test_compute_returns_cell_mean_elevation(tmp_path: Path) -> None:
     assert elev_mean[3, 3] == pytest.approx(58.5, abs=0.5)
 
 
-def test_compute_excludes_nodata_from_mean(tmp_path: Path) -> None:
+def test_compute_excludes_nodata_from_mean(tmp_path: Path, grid_spec: GridSpec) -> None:
     """nodata（-9999）が平均へ混入せず、有効画素のみで平均される。"""
     data = np.full((8, 8), 10.0, dtype=np.float32)
     # セル(0, 0) に対応する左上2x2のうち1画素だけをnodataにする。
@@ -99,7 +90,7 @@ def test_compute_excludes_nodata_from_mean(tmp_path: Path) -> None:
     dem_path = tmp_path / "dem_nodata.tif"
     _write_dem(dem_path, data, nodata=-9999.0)
 
-    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
+    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)[
         "ELEV_MEAN"
     ]
 
@@ -108,7 +99,7 @@ def test_compute_excludes_nodata_from_mean(tmp_path: Path) -> None:
     assert not np.isnan(elev_mean[0, 0])
 
 
-def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path) -> None:
+def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path, grid_spec: GridSpec) -> None:
     """全画素がnodataのセルはNaNのまま残る（0で埋めない）。"""
     data = np.full((8, 8), -9999.0, dtype=np.float32)
     # セル(0, 0) に対応する左上2x2のみ有効値にする。
@@ -116,7 +107,7 @@ def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path) -> None:
     dem_path = tmp_path / "dem_all_nodata.tif"
     _write_dem(dem_path, data, nodata=-9999.0)
 
-    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
+    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)[
         "ELEV_MEAN"
     ]
 
@@ -125,7 +116,9 @@ def test_compute_keeps_all_nodata_cell_as_nan(tmp_path: Path) -> None:
     assert np.isnan(elev_mean[3, 3])
 
 
-def test_compute_distinguishes_zero_elevation_from_missing(tmp_path: Path) -> None:
+def test_compute_distinguishes_zero_elevation_from_missing(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """標高0mは実値として保持され、欠損（NaN）と区別される。
 
     FABDEMには最小0.0mの実画素が存在する。0を欠損と同一視すると海抜0mの
@@ -137,7 +130,7 @@ def test_compute_distinguishes_zero_elevation_from_missing(tmp_path: Path) -> No
     dem_path = tmp_path / "dem_zero.tif"
     _write_dem(dem_path, data, nodata=-9999.0)
 
-    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
+    elev_mean = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)[
         "ELEV_MEAN"
     ]
 
@@ -146,12 +139,12 @@ def test_compute_distinguishes_zero_elevation_from_missing(tmp_path: Path) -> No
     assert np.isnan(elev_mean[0, 1])
 
 
-def test_valid_ratio_is_one_for_fully_covered_cells(tmp_path: Path) -> None:
+def test_valid_ratio_is_one_for_fully_covered_cells(tmp_path: Path, grid_spec: GridSpec) -> None:
     """全画素が有効なセルの有効画素率は1.0になる。"""
     dem_path = tmp_path / "dem_full.tif"
     _write_dem(dem_path, _gradient_dem(), nodata=-9999.0)
 
-    valid_ratio = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
+    valid_ratio = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)[
         "ELEV_VALID_RATIO"
     ]
 
@@ -160,7 +153,9 @@ def test_valid_ratio_is_one_for_fully_covered_cells(tmp_path: Path) -> None:
     np.testing.assert_allclose(valid_ratio, np.ones((4, 4), dtype=np.float32), atol=1e-5)
 
 
-def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> None:
+def test_valid_ratio_distinguishes_partially_covered_cells(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """部分被覆セルはELEV_MEANでは完全被覆セルと区別できず、有効画素率でのみ区別できる。
 
     ``Resampling.average`` は有効画素のみの平均を返すため、セル内の有効画素が
@@ -173,7 +168,7 @@ def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> No
     dem_path = tmp_path / "dem_partial.tif"
     _write_dem(dem_path, data, nodata=-9999.0)
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     # ELEV_MEAN は部分被覆セルと完全被覆セルで同じ値になる（区別できない）。
     assert result["ELEV_MEAN"][0, 0] == pytest.approx(result["ELEV_MEAN"][0, 1], abs=1e-5)
@@ -182,21 +177,21 @@ def test_valid_ratio_distinguishes_partially_covered_cells(tmp_path: Path) -> No
     assert result["ELEV_VALID_RATIO"][0, 1] == pytest.approx(1.0, abs=1e-5)
 
 
-def test_valid_ratio_is_zero_for_all_nodata_cells(tmp_path: Path) -> None:
+def test_valid_ratio_is_zero_for_all_nodata_cells(tmp_path: Path, grid_spec: GridSpec) -> None:
     """全画素がnodataのセルは有効画素率0.0であり、ELEV_MEANはNaNになる。"""
     data = np.full((8, 8), -9999.0, dtype=np.float32)
     data[0:2, 0:2] = 25.0
     dem_path = tmp_path / "dem_ratio_nodata.tif"
     _write_dem(dem_path, data, nodata=-9999.0)
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
     assert result["ELEV_VALID_RATIO"][3, 3] == pytest.approx(0.0, abs=1e-5)
     assert np.isnan(result["ELEV_MEAN"][3, 3])
 
 
-def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
+def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path, grid_spec: GridSpec) -> None:
     """ラスタの範囲外セルは、NaNではなく有効画素率0.0になる。
 
     範囲外を ``NaN`` にすると「nodataで覆われたセル」と区別が付かなくなるため、
@@ -218,7 +213,7 @@ def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
     ) as dst:
         dst.write(np.full((8, 4), 12.0, dtype=np.float32), 1)
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
     assert result["ELEV_VALID_RATIO"][0, 3] == pytest.approx(0.0, abs=1e-5)
@@ -226,7 +221,9 @@ def test_valid_ratio_is_zero_outside_raster_extent(tmp_path: Path) -> None:
     assert np.isnan(result["ELEV_MEAN"][0, 3])
 
 
-def test_valid_ratio_matches_mean_for_nan_pixels_with_nodata_tag(tmp_path: Path) -> None:
+def test_valid_ratio_matches_mean_for_nan_pixels_with_nodata_tag(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """nodataタグ付きラスタに実値NaNが混じっても、平均と有効画素率の定義が揃う。
 
     GDALは ``src_nodata`` に単一値しか取れないため、対策が無いとNaNが平均へ伝播し、
@@ -239,7 +236,7 @@ def test_valid_ratio_matches_mean_for_nan_pixels_with_nodata_tag(tmp_path: Path)
     dem_path = tmp_path / "dem_nan_with_tag.tif"
     _write_dem(dem_path, data, nodata=-9999.0)
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     # NaNは欠損として平均から除外され、残り3画素の平均が入る。
     assert result["ELEV_MEAN"][0, 0] == pytest.approx(10.0, abs=0.5)
@@ -250,7 +247,9 @@ def test_valid_ratio_matches_mean_for_nan_pixels_with_nodata_tag(tmp_path: Path)
     assert (result["ELEV_VALID_RATIO"][~nan_cells] > 0.0).all()
 
 
-def test_valid_ratio_overestimates_cells_crossing_raster_edge(tmp_path: Path) -> None:
+def test_valid_ratio_overestimates_cells_crossing_raster_edge(
+    tmp_path: Path, grid_spec: GridSpec
+) -> None:
     """ラスタ外周をまたぐセルでは、有効画素率が実被覆より高くなる（既知の制限）。
 
     比率は「有効画素を1・nodataを0とした配列の平均」で得るため、画素が1つも無い
@@ -273,14 +272,14 @@ def test_valid_ratio_overestimates_cells_crossing_raster_edge(tmp_path: Path) ->
     ) as dst:
         dst.write(np.full((2, 1), 5.0, dtype=np.float32), 1)
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     # 実際の被覆は0.5だが、画素の無い領域は分母に含まれないため1.0になる。
     assert result["ELEV_VALID_RATIO"][0, 0] == pytest.approx(1.0, abs=1e-5)
     assert result["ELEV_MEAN"][0, 0] == pytest.approx(5.0, abs=0.5)
 
 
-def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path) -> None:
+def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path, grid_spec: GridSpec) -> None:
     """DEMが解析グリッドとまったく重ならない場合は警告する。
 
     都市とDEMの取り違え・切り出し範囲の誤りではファイルが存在するため入力解決を
@@ -303,7 +302,7 @@ def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path) -> None:
         dst.write(np.full((8, 8), 20.0, dtype=np.float32), 1)
 
     with pytest.warns(UserWarning, match="重なりません"):
-        result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+        result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     assert np.isnan(result["ELEV_MEAN"]).all()
     np.testing.assert_allclose(result["ELEV_VALID_RATIO"], 0.0, atol=1e-5)
@@ -311,6 +310,7 @@ def test_compute_warns_when_dem_does_not_overlap_grid(tmp_path: Path) -> None:
 
 def test_compute_warns_all_missing_not_no_overlap_when_dem_is_fully_nodata(
     tmp_path: Path,
+    grid_spec: GridSpec,
 ) -> None:
     """DEMがグリッドと重なっていて全画素nodataの場合、「重なりません」とは言わない。
 
@@ -321,26 +321,26 @@ def test_compute_warns_all_missing_not_no_overlap_when_dem_is_fully_nodata(
     _write_dem(dem_path, np.full((8, 8), -9999.0, dtype=np.float32), nodata=-9999.0)
 
     with pytest.warns(UserWarning, match="有効画素が1つもありません") as caught:
-        result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+        result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     assert not [record for record in caught if "重なりません" in str(record.message)]
     assert np.isnan(result["ELEV_MEAN"]).all()
 
 
-def test_compute_does_not_warn_when_dem_overlaps_grid(tmp_path: Path) -> None:
+def test_compute_does_not_warn_when_dem_overlaps_grid(tmp_path: Path, grid_spec: GridSpec) -> None:
     """DEMがグリッドと重なる通常の入力では警告しない。"""
     dem_path = tmp_path / "dem_overlap.tif"
     _write_dem(dem_path, _gradient_dem(), nodata=-9999.0)
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+        elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     # 非重複の警告のみを対象にする（依存ライブラリの無関係な警告では失敗させない）。
     assert not [record for record in caught if "重なりません" in str(record.message)]
 
 
-def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
+def test_compute_reprojects_from_geographic_crs(tmp_path: Path, grid_spec: GridSpec) -> None:
     """DEMが解析CRSと異なる地理座標系でも、再投影されて値が保持される。
 
     FABDEMはEPSG:4326、解析CRSはEPSG:5897（投影座標系）であり、実運用では
@@ -364,7 +364,7 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
     ) as dst:
         dst.write(np.full((10, 10), 55.0, dtype=np.float32), 1)
 
-    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())
+    result = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)
 
     elev_mean = result["ELEV_MEAN"]
     assert not np.isnan(elev_mean).any()
@@ -375,15 +375,15 @@ def test_compute_reprojects_from_geographic_crs(tmp_path: Path) -> None:
     )
 
 
-def test_compute_uses_specified_band(tmp_path: Path) -> None:
+def test_compute_uses_specified_band(tmp_path: Path, grid_spec: GridSpec) -> None:
     """RasterResourceのband_indexで指定したバンドを読み込む。"""
     dem_path = tmp_path / "dem_multiband.tif"
     _write_dem(dem_path, np.full((8, 8), 42.0, dtype=np.float32), band_count=2)
 
-    elev_band2 = elevation.compute(RasterResource(dem_path, 2), ANALYSIS_BBOX, _build_grid_spec())[
+    elev_band2 = elevation.compute(RasterResource(dem_path, 2), ANALYSIS_BBOX, grid_spec)[
         "ELEV_MEAN"
     ]
-    elev_band1 = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, _build_grid_spec())[
+    elev_band1 = elevation.compute(RasterResource(dem_path, 1), ANALYSIS_BBOX, grid_spec)[
         "ELEV_MEAN"
     ]
 

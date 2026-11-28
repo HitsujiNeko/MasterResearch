@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -16,12 +17,12 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
 import src.analysis.compare_air_temperature_lst as target
 from src.preprocessing.fetch_isd_hourly_hanoi import IsdStation
+from tests.helpers import write_test_raster
 
 PASS_TIME = datetime(2022, 9, 6, 3, 23, 58, tzinfo=timezone.utc)
 
@@ -46,34 +47,12 @@ def _pixel_center(row: int, col: int) -> tuple[float, float]:
     ) * RASTER_RES
 
 
-def _write_raster(
-    path: Path, values: np.ndarray, nodata: float | None = None, crs: str = "EPSG:4326"
-) -> Path:
-    """テスト用の1バンド GeoTIFF（既定は EPSG:4326）を書き出す。
-
-    Args:
-        path: 保存先。
-        values: 画素値（2次元）。
-        nodata: nodata 値。
-        crs: CRS（変換行列は経緯度の値のまま使う）。
-
-    Returns:
-        保存先のパス。
-    """
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=values.shape[0],
-        width=values.shape[1],
-        count=1,
-        dtype="float64",
-        crs=crs,
-        transform=from_origin(RASTER_ORIGIN_LON, RASTER_ORIGIN_LAT, RASTER_RES, RASTER_RES),
-        nodata=nodata,
-    ) as dataset:
-        dataset.write(values, 1)
-    return path
+# テスト用の1バンド GeoTIFF（既定は EPSG:4326）を書き出す。値は float64 で書き、上の格子に置く
+_write_lst_raster = partial(
+    write_test_raster,
+    transform=from_origin(RASTER_ORIGIN_LON, RASTER_ORIGIN_LAT, RASTER_RES, RASTER_RES),
+    dtype="float64",
+)
 
 
 def _write_isd_csv(path: Path, rows: list[tuple[str, str, str]]) -> Path:
@@ -292,7 +271,7 @@ class _FakeEeObject:
         return self._value
 
 
-def _install_fake_ee(
+def _install_fake_era5_ee(
     monkeypatch: pytest.MonkeyPatch, size: int, roi_k: float | None, point_k: dict
 ) -> dict:
     """`target.ee` を偽のモジュールに差し替え、呼び出しを記録する。
@@ -375,7 +354,7 @@ class TestFetchEra5LandValuesK:
 
     def test_returns_roi_and_station_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ROI 平均と観測所の値を返し、標本の無い観測所は None にする。"""
-        recorded = _install_fake_ee(
+        recorded = _install_fake_era5_ee(
             monkeypatch, size=1, roi_k=300.5, point_k={(105.8, 21.2): 301.0}
         )
         values = target.fetch_era5_land_values_k(
@@ -394,7 +373,7 @@ class TestFetchEra5LandValuesK:
 
     def test_missing_image_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """対象の正時の画像が無ければ例外。"""
-        _install_fake_ee(monkeypatch, size=0, roi_k=None, point_k={})
+        _install_fake_era5_ee(monkeypatch, size=0, roi_k=None, point_k={})
         with pytest.raises(ValueError, match="見つかりません"):
             target.fetch_era5_land_values_k(
                 datetime(2022, 9, 6, 3, tzinfo=timezone.utc),
@@ -409,14 +388,14 @@ class TestReadLstWindow:
     def test_center_window(self, tmp_path: Path) -> None:
         """内部の画素なら 3×3 を読む。"""
         values = np.arange(25, dtype=np.float64).reshape(5, 5)
-        path = _write_raster(tmp_path / "lst.tif", values)
+        path = _write_lst_raster(tmp_path / "lst.tif", values)
         window = target.read_lst_window(path, *_pixel_center(2, 2), size=3)
         np.testing.assert_array_equal(window, values[1:4, 1:4])
 
     def test_corner_window_is_truncated(self, tmp_path: Path) -> None:
         """角の画素ならラスタの内側だけ（2×2）に切り詰める。"""
         values = np.arange(25, dtype=np.float64).reshape(5, 5)
-        path = _write_raster(tmp_path / "lst.tif", values)
+        path = _write_lst_raster(tmp_path / "lst.tif", values)
         window = target.read_lst_window(path, *_pixel_center(0, 4), size=3)
         np.testing.assert_array_equal(window, values[0:2, 3:5])
 
@@ -425,7 +404,7 @@ class TestReadLstWindow:
         values = np.full((5, 5), 30.0)
         values[2, 2] = -9999.0
         values[1, 1] = np.nan
-        path = _write_raster(tmp_path / "lst.tif", values, nodata=-9999.0)
+        path = _write_lst_raster(tmp_path / "lst.tif", values, nodata=-9999.0)
         window = target.read_lst_window(path, *_pixel_center(2, 2), size=3)
         assert np.isnan(window[1, 1])
         assert np.isnan(window[0, 0])
@@ -433,20 +412,20 @@ class TestReadLstWindow:
 
     def test_non_geographic_raster_raises(self, tmp_path: Path) -> None:
         """EPSG:4326 でないラスタは、経緯度で画素を探せないため例外。"""
-        path = _write_raster(tmp_path / "lst.tif", np.zeros((5, 5)), crs="EPSG:32648")
+        path = _write_lst_raster(tmp_path / "lst.tif", np.zeros((5, 5)), crs="EPSG:32648")
         with pytest.raises(ValueError, match="EPSG:4326"):
             target.read_lst_window(path, *_pixel_center(2, 2), size=3)
 
     def test_outside_raises(self, tmp_path: Path) -> None:
         """ラスタの範囲外の座標は例外。"""
-        path = _write_raster(tmp_path / "lst.tif", np.zeros((5, 5)))
+        path = _write_lst_raster(tmp_path / "lst.tif", np.zeros((5, 5)))
         with pytest.raises(ValueError, match="範囲外"):
             target.read_lst_window(path, 104.0, 21.0, size=3)
 
     @pytest.mark.parametrize("size", [0, 2, -3])
     def test_invalid_size_raises(self, tmp_path: Path, size: int) -> None:
         """窓の大きさが正の奇数でなければ例外。"""
-        path = _write_raster(tmp_path / "lst.tif", np.zeros((5, 5)))
+        path = _write_lst_raster(tmp_path / "lst.tif", np.zeros((5, 5)))
         with pytest.raises(ValueError, match="奇数"):
             target.read_lst_window(path, *_pixel_center(2, 2), size=size)
 
@@ -458,7 +437,7 @@ class TestReadLstInRoi:
         """画素中心が ROI 内の画素だけを採り、NaN を除く。"""
         values = np.arange(25, dtype=np.float64).reshape(5, 5)
         values[0, 0] = np.nan
-        path = _write_raster(tmp_path / "lst.tif", values)
+        path = _write_lst_raster(tmp_path / "lst.tif", values)
         # 左上 2×2 画素（行0〜1・列0〜1）を覆う ROI
         roi = gpd.GeoDataFrame(geometry=[box(105.0, 21.03, 105.02, 21.05)], crs="EPSG:4326")
         selected = target.read_lst_in_roi(path, roi)
@@ -467,7 +446,7 @@ class TestReadLstInRoi:
     def test_roi_crs_is_transformed(self, tmp_path: Path) -> None:
         """投影座標系の ROI もラスタの CRS へ変換して重ねる。"""
         values = np.arange(25, dtype=np.float64).reshape(5, 5)
-        path = _write_raster(tmp_path / "lst.tif", values)
+        path = _write_lst_raster(tmp_path / "lst.tif", values)
         roi = gpd.GeoDataFrame(geometry=[box(105.0, 21.03, 105.02, 21.05)], crs="EPSG:4326").to_crs(
             "EPSG:32648"
         )
@@ -556,7 +535,7 @@ class TestBuildObservationRows:
             IsdStation("B", "STATION B", lat_b, lon_b),
         )
         monkeypatch.setattr(target, "HANOI_ISD_STATIONS", stations)
-        lst_path = _write_raster(tmp_path / "lst.tif", np.full((5, 5), 35.0))
+        lst_path = _write_lst_raster(tmp_path / "lst.tif", np.full((5, 5), 35.0))
         isd_dir = tmp_path / "isd"
         isd_dir.mkdir()
         _write_isd_csv(isd_dir / "A_20220906.csv", [("2022-09-06T03:30:00", "FM-15", "+0320,1")])

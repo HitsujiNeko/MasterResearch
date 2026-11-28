@@ -104,15 +104,18 @@ def survey_layer(survey_dir: Path) -> gpd.GeoDataFrame:
 
 
 def test_layer_path_builds_merge_file_name(tmp_path: Path) -> None:
+    """レイヤ略号から merge_<略号>.gpkg のパスを組み立てる。"""
     assert inventory.layer_path(tmp_path, "DC") == tmp_path / "merge_DC.gpkg"
 
 
 def test_layer_path_rejects_unknown_code(tmp_path: Path) -> None:
+    """未知のレイヤ略号は例外にする。"""
     with pytest.raises(ValueError, match="未知のレイヤ略号"):
         inventory.layer_path(tmp_path, "XX")
 
 
 def test_read_survey_layer_assigns_crs_and_keeps_bytes(survey_layer: gpd.GeoDataFrame) -> None:
+    """CRS の無いファイルに EPSG:5897 を付け、UTF-8 でない文字列もバイト列を保って読む。"""
     assert survey_layer.crs.to_epsg() == 5897
     # 不正なバイト列が失われず、latin-1 から元のバイト列に戻せる
     text = survey_layer.loc[3, "Text"]
@@ -122,6 +125,7 @@ def test_read_survey_layer_assigns_crs_and_keeps_bytes(survey_layer: gpd.GeoData
 
 
 def test_read_survey_layer_rejects_file_with_crs(tmp_path: Path) -> None:
+    """CRS が付いているファイルは前提と違うため例外にする。"""
     path = tmp_path / "merge_DC.gpkg"
     frame = _make_layer_frame().drop(index=3).set_crs("EPSG:5897")
     pyogrio.write_dataframe(
@@ -132,12 +136,14 @@ def test_read_survey_layer_rejects_file_with_crs(tmp_path: Path) -> None:
 
 
 def test_classify_geometry_types_maps_to_classes() -> None:
+    """ジオメトリ型を点・線・面・その他の 4 分類に写像し、欠損はその他にする。"""
     geom_types = pd.Series(["Point", "MultiLineString", "MultiPolygon", "GeometryCollection", None])
     result = inventory.classify_geometry_types(geom_types)
     assert result.tolist() == ["point", "line", "polygon", "other", "other"]
 
 
 def test_flag_geometry_locations_distinguishes_four_cases() -> None:
+    """ジオメトリの位置を有効・空・ダミー・範囲外の 4 通りに分ける。"""
     geometries = gpd.GeoSeries(
         [
             box(BASE_X, BASE_Y, BASE_X + 1, BASE_Y + 1),
@@ -161,6 +167,7 @@ def test_flag_geometry_locations_distinguishes_four_cases() -> None:
 
 
 def test_escape_text_and_utf8_check() -> None:
+    """UTF-8 でない文字をエスケープ表記にし、UTF-8 として正しいかを判定する。"""
     latin1_text = NON_UTF8_TEXT_BYTES.decode(inventory.TEXT_READ_ENCODING)
     assert inventory.escape_text(latin1_text) == "H\\xb5 N\\xe9i"
     assert inventory.escape_text("28") == "28"
@@ -170,6 +177,7 @@ def test_escape_text_and_utf8_check() -> None:
 
 
 def test_summarize_columns_reports_nulls_and_declared_dtype(survey_layer: gpd.GeoDataFrame) -> None:
+    """列ごとに宣言型・欠損数・欠損率・値の種類数を集計する。"""
     declared = {"Level": "int32", "MSLink": "int32", "Text": "object"}
     result = inventory.summarize_columns(survey_layer, declared).set_index("column")
     assert result.loc["MSLink", "declared_dtype"] == "int32"
@@ -180,6 +188,7 @@ def test_summarize_columns_reports_nulls_and_declared_dtype(survey_layer: gpd.Ge
 
 
 def test_count_geometry_types(survey_layer: gpd.GeoDataFrame) -> None:
+    """ジオメトリ型ごとの件数を分類とともに数える。"""
     geom_types = survey_layer.geometry.geom_type
     result = inventory.count_geometry_types(
         geom_types, inventory.classify_geometry_types(geom_types)
@@ -192,6 +201,7 @@ def test_count_geometry_types(survey_layer: gpd.GeoDataFrame) -> None:
 
 
 def test_summarize_levels(survey_layer: gpd.GeoDataFrame) -> None:
+    """Level ごとに総数と点・線・面・その他の件数を集計する。"""
     classes = inventory.classify_geometry_types(survey_layer.geometry.geom_type)
     result = inventory.summarize_levels(survey_layer, classes).set_index("Level")
     assert result.loc[5, ["n_total", "n_point", "n_line", "n_polygon", "n_other"]].tolist() == [
@@ -216,6 +226,7 @@ def test_summarize_levels(survey_layer: gpd.GeoDataFrame) -> None:
 
 
 def test_count_value_distribution(survey_layer: gpd.GeoDataFrame) -> None:
+    """指定した列の値ごとの件数を数える。"""
     result = inventory.count_value_distribution(survey_layer, columns=("ColorIndex", "Style"))
     color = result[result["column"] == "ColorIndex"]
     assert color[["value", "count"]].to_dict("records") == [
@@ -226,6 +237,7 @@ def test_count_value_distribution(survey_layer: gpd.GeoDataFrame) -> None:
 
 
 def test_count_style_combinations(survey_layer: gpd.GeoDataFrame) -> None:
+    """Level・分類・Type・ColorIndex・Style の組み合わせごとに件数を数える。"""
     classes = inventory.classify_geometry_types(survey_layer.geometry.geom_type)
     result = inventory.count_style_combinations(survey_layer, classes)
     level7 = result[result["Level"] == 7].iloc[0]
@@ -242,6 +254,7 @@ def test_count_style_combinations(survey_layer: gpd.GeoDataFrame) -> None:
 
 
 def test_summarize_sizes_by_level_excludes_dummy(survey_layer: gpd.GeoDataFrame) -> None:
+    """Level ごとの大きさの集計から、ダミー位置のジオメトリを除く。"""
     classes = inventory.classify_geometry_types(survey_layer.geometry.geom_type)
     locations = inventory.flag_geometry_locations(survey_layer.geometry)
     result = inventory.summarize_sizes_by_level(survey_layer, classes, locations)
@@ -260,6 +273,7 @@ def test_summarize_sizes_by_level_excludes_dummy(survey_layer: gpd.GeoDataFrame)
 
 
 def test_summarize_sizes_by_level_all_excluded_gives_nan() -> None:
+    """大きさを測れるジオメトリが無い Level は、中央値を NaN にする。"""
     frame = gpd.GeoDataFrame(
         {"Level": [1]}, geometry=[box(499_999.5, 999_999.5, 500_000.5, 1_000_000.5)]
     )
@@ -271,6 +285,7 @@ def test_summarize_sizes_by_level_all_excluded_gives_nan() -> None:
 
 
 def test_format_example_value() -> None:
+    """整数値の浮動小数は整数表記にし、UTF-8 でない文字はエスケープして例示する。"""
     assert inventory.format_example_value(41.0) == "41"
     assert inventory.format_example_value(np.float64(3.0)) == "3"
     assert inventory.format_example_value(2.5) == "2.5"
@@ -278,6 +293,7 @@ def test_format_example_value() -> None:
 
 
 def test_summarize_attribute_examples(survey_layer: gpd.GeoDataFrame) -> None:
+    """Level・列ごとに最頻値と無作為の例を集める。"""
     result = inventory.summarize_attribute_examples(survey_layer, top_n=1, sample_size=5, seed=0)
     text7 = result[(result["Level"] == 7) & (result["column"] == "Text")].iloc[0]
     assert text7["top_values"] == "28 (2)"
@@ -291,6 +307,7 @@ def test_summarize_attribute_examples(survey_layer: gpd.GeoDataFrame) -> None:
 
 
 def test_summarize_attribute_examples_is_reproducible() -> None:
+    """同じシードなら無作為の例が毎回同じになる。"""
     frame = pd.DataFrame(
         {"Level": [1] * 20, "Text": [str(i) for i in range(20)], "MSLink": None, "EntityNum": None}
     )
@@ -301,6 +318,7 @@ def test_summarize_attribute_examples_is_reproducible() -> None:
 
 
 def test_parse_ulink_linkages() -> None:
+    """ULink の JSON から (連携 ID, 種類) を取り出し、不正な JSON は専用の値にする。"""
     assert inventory.parse_ulink_linkages(ULINK_ODBC) == [("32047", "ODBC")]
     assert inventory.parse_ulink_linkages(ULINK_TWO_KINDS) == [
         ("0", "unknown"),
@@ -311,6 +329,7 @@ def test_parse_ulink_linkages() -> None:
 
 
 def test_summarize_ulink_linkages(survey_layer: gpd.GeoDataFrame) -> None:
+    """Level・連携 ID・種類ごとに地物数を集計する。"""
     result = inventory.summarize_ulink_linkages(survey_layer)
     records = {
         (r["Level"], r["linkage_id"], r["linkage_type"]): r["n_features"]
@@ -325,16 +344,19 @@ def test_summarize_ulink_linkages(survey_layer: gpd.GeoDataFrame) -> None:
 
 
 def test_run_inventory_rejects_duplicate_layers(survey_dir: Path, tmp_path: Path) -> None:
+    """同じレイヤの重複指定は例外にする。"""
     with pytest.raises(ValueError, match="重複"):
         inventory.run_inventory(survey_dir, tmp_path / "out", layers=["DC", "DC"])
 
 
 def test_run_inventory_rejects_missing_file(survey_dir: Path, tmp_path: Path) -> None:
+    """指定したレイヤのファイルが無ければ例外にする。"""
     with pytest.raises(FileNotFoundError, match="merge_GT.gpkg"):
         inventory.run_inventory(survey_dir, tmp_path / "out", layers=["GT"])
 
 
 def test_main_writes_tables_and_summary(survey_dir: Path, tmp_path: Path) -> None:
+    """main が集計表とサマリーを書き出し、不正なバイト列は ASCII に置き換える。"""
     output_dir = tmp_path / "out"
     inventory.main(
         [
@@ -373,12 +395,14 @@ def test_main_writes_tables_and_summary(survey_dir: Path, tmp_path: Path) -> Non
 
 def test_count_nonzero_values_ignores_missing() -> None:
     # 欠損（NaN）は「0 以外」に数えない
+    """0 でない値を数えるとき、欠損は数えない。"""
     values = pd.Series([0, 3, np.nan, 5])
     assert inventory.is_nonzero_value(values).tolist() == [False, True, False, True]
     assert inventory.count_nonzero_values(values) == 2
 
 
 def test_graphic_group_missing_is_not_counted_as_nonzero() -> None:
+    """GraphicGroup の欠損は 0 でない値として数えない。"""
     frame = gpd.GeoDataFrame(
         {
             "Level": [1, 1, 1],
@@ -402,6 +426,7 @@ def test_graphic_group_missing_is_not_counted_as_nonzero() -> None:
 
 
 def test_summarize_sizes_by_level_excludes_empty_and_out_of_extent() -> None:
+    """大きさの集計から空・範囲外のジオメトリを除き、それぞれの件数を記録する。"""
     frame = gpd.GeoDataFrame(
         {"Level": [1, 1, 1]},
         geometry=[
@@ -420,6 +445,7 @@ def test_summarize_sizes_by_level_excludes_empty_and_out_of_extent() -> None:
 
 
 def test_summarize_ulink_linkages_without_ulink_returns_empty_table() -> None:
+    """ULink がすべて欠損なら、列だけを持つ空の表を返す。"""
     frame = pd.DataFrame({"Level": [1, 2], "ULink": [None, None]})
     result = inventory.summarize_ulink_linkages(frame)
     assert result.empty
@@ -430,6 +456,7 @@ def test_summarize_ulink_linkages_without_ulink_returns_empty_table() -> None:
 def test_run_inventory_rejects_non_positive_counts(
     survey_dir: Path, tmp_path: Path, top_n: int, sample_size: int
 ) -> None:
+    """最頻値の数・例の数が 1 未満なら例外にする。"""
     with pytest.raises(ValueError, match="1 以上"):
         inventory.run_inventory(
             survey_dir, tmp_path / "out", layers=["DC"], top_n=top_n, sample_size=sample_size
@@ -440,6 +467,7 @@ def test_run_inventory_resolves_relative_output_dir(
     survey_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # 相対パスの出力先はプロジェクトルート基準で解決する
+    """相対パスの出力先はプロジェクトルートを基準に解決する。"""
     monkeypatch.setattr(inventory, "PROJECT_ROOT", tmp_path)
     summary_path = inventory.run_inventory(survey_dir, Path("relative_out"), layers=["DC"])
     assert summary_path.parent == tmp_path / "relative_out"
@@ -450,6 +478,7 @@ def test_read_survey_layer_ignores_arrow_env(
     survey_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # PYOGRIO_USE_ARROW=1 の環境でも、UTF-8 として不正なバイト列を失わずに読める
+    """環境変数で Arrow 読み込みを指定されても、UTF-8 でない文字列を保って読む。"""
     monkeypatch.setenv("PYOGRIO_USE_ARROW", "1")
     gdf = inventory.read_survey_layer(survey_dir / "merge_DC.gpkg")
     texts = gdf["Text"].dropna()

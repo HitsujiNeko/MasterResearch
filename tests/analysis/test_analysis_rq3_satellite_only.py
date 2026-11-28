@@ -501,11 +501,13 @@ class TestAnalysisAreaArguments:
         assert parse_arguments([]).analysis_area == ANALYSIS_AREA_ROI
 
     def test_accepts_survey(self) -> None:
+        """--analysis-area に測量範囲を指定できる。"""
         args = parse_arguments(["--analysis-area", ANALYSIS_AREA_SURVEY])
 
         assert args.analysis_area == ANALYSIS_AREA_SURVEY
 
     def test_rejects_unknown_area(self) -> None:
+        """--analysis-area に未対応の値を指定すると終了する。"""
         with pytest.raises(SystemExit):
             parse_arguments(["--analysis-area", "full"])
 

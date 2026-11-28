@@ -47,6 +47,7 @@ from src.analysis.diagnose_nodata_dropout import (
 )
 from src.common import summary as summary_module
 from src.common.summary import compute_file_sha256
+from tests.helpers import write_test_raster
 
 # ハノイROIと同じ緯度帯（北緯約21度）に置いた正方形をテスト用ROIとする。
 # 投影後の距離がメートルとして解釈できることを確かめるため、実データと同じ緯度帯を使う。
@@ -86,6 +87,7 @@ class TestClassifyDropoutGroup:
     def test_classifies_every_combination_to_a_unique_group_name(
         self, worldpop: bool, landscan: bool, nightlight: bool, expected: str
     ) -> None:
+        """WorldPop・LandScan・夜間光の欠測の組み合わせごとに、固有のグループ名へ分類する。"""
         assert classify_dropout_group(worldpop, landscan, nightlight) == expected
 
     def test_raises_when_nothing_is_missing(self) -> None:
@@ -111,6 +113,7 @@ class TestClassifyWaterClass:
     def test_splits_correctly_at_coverage_class_boundaries(
         self, coverage: float, expected: str
     ) -> None:
+        """水域被覆率を 0・0.9 の境界で「なし・一部・大半」に分ける。"""
         assert classify_water_class(coverage) == expected
 
     @pytest.mark.parametrize("missing", [None, float("nan")])
@@ -171,6 +174,7 @@ class TestLoadDropoutCells:
         assert cells.geometry.iloc[0].x == pytest.approx(ROI_MIN_LON + 0.01)
 
     def test_excludes_non_dropout_and_outside_roi_cells(self, dataset_path: Path) -> None:
+        """欠測の無いセルと ROI 外のセルを除いて読み込む。"""
         cells = load_dropout_cells(dataset_path, layer="cells")
         assert sorted(cells["cell_id"]) == [1, 2, 4]
 
@@ -203,6 +207,7 @@ class TestAddDropoutClassification:
     """欠測パターンからの列付与。"""
 
     def test_assigns_group_and_water_class_per_missingness_pattern(self) -> None:
+        """欠測の型ごとにグループと水域の分類を付ける。"""
         cells = _build_cells(
             [
                 {
@@ -249,6 +254,7 @@ class TestAddDropoutClassification:
         assert "LandScan 2020 と 2023" in caplog.text
 
     def test_no_warning_when_landscan_years_agree(self, caplog: pytest.LogCaptureFixture) -> None:
+        """LandScan の 2020 年と 2023 年で欠測が一致していれば警告しない。"""
         cells = _build_cells(
             [
                 {
@@ -315,6 +321,7 @@ class TestAddRoiEdgeDistance:
     def test_distance_is_positive_inside_and_negative_outside_roi(
         self, roi_geometry: Polygon
     ) -> None:
+        """ROI 境界までの距離を、内側は正・外側は負で付ける。"""
         cells = _build_cells(
             [
                 # ROI中心付近（境界から遠い）
@@ -340,6 +347,7 @@ class TestAddRoiEdgeDistance:
         assert 4_000 < distance < 7_000
 
     def test_distance_is_near_zero_on_the_boundary(self, roi_geometry: Polygon) -> None:
+        """ROI 境界上のセルの距離はほぼ 0 になる。"""
         cells = _build_cells([{"lon": ROI_MIN_LON, "lat": ROI_MIN_LAT + 0.05}])
         result = add_roi_edge_distance(cells, roi_geometry)
         assert abs(float(result["roi_edge_distance_m"].iloc[0])) < 1.0
@@ -353,6 +361,7 @@ class TestResolveMetricCrs:
         assert resolve_metric_crs(roi_geometry) == "EPSG:32648"
 
     def test_explicit_crs_overrides_the_inferred_one(self, roi_geometry: Polygon) -> None:
+        """距離計算の CRS を明示すれば、推定した CRS より優先する。"""
         assert resolve_metric_crs(roi_geometry, "EPSG:3405") == "EPSG:3405"
 
 
@@ -360,6 +369,7 @@ class TestSummarizeGroupDistances:
     """距離分布の要約。"""
 
     def test_computes_the_within_pixel_size_ratio(self) -> None:
+        """境界からの距離が各画素サイズ以内のセルの割合と最大距離を求める。"""
         distances = pd.Series([10.0, 100.0, 500.0, 1_000.0])
         summary = summarize_group_distances(distances, {"coarse": 920.0, "fine": 92.0})
         assert summary["within_coarse_pixel_ratio"] == 0.75
@@ -450,6 +460,7 @@ class TestSummarizeDropout:
     def test_computes_dropout_ratio_against_the_base(
         self, classified_cells: gpd.GeoDataFrame
     ) -> None:
+        """全体とグループごとに、母数のセル数に対する欠測率を求める。"""
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["dropout_cell_count"] == 2
         assert summary["dropout_ratio"] == 0.002
@@ -483,10 +494,12 @@ class TestSummarizeDropout:
         assert summary["groups"]["worldpop_only"]["lst_valid_count"] == 0
 
     def test_records_landscan_year_agreement(self, classified_cells: gpd.GeoDataFrame) -> None:
+        """LandScan の 2020 年と 2023 年で欠測が一致するかをサマリーに記録する。"""
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["landscan_2020_2023_missing_agreement"] is True
 
     def test_records_water_class_breakdown(self, classified_cells: gpd.GeoDataFrame) -> None:
+        """グループごとに水域の分類の内訳を記録する。"""
         summary = summarize_dropout(classified_cells, base_cell_count=1_000, pixel_sizes_m={})
         assert summary["groups"]["worldpop_only"]["water_class_counts"] == {"water_dominant": 1}
         assert summary["groups"]["landscan_only"]["water_class_counts"] == {"water_absent": 1}
@@ -555,26 +568,6 @@ def test_list_input_paths_orders_dataset_roi_then_sorted_rasters() -> None:
 class TestMainProvenance:
     """main() の出力サマリーへの来歴付与（合成データによるスモークテスト）。"""
 
-    @staticmethod
-    def _write_raster(path: Path) -> None:
-        """ROI を覆う 2x2 画素の小さなラスタを書き出す。"""
-        pixel_size_deg = ROI_SIZE_DEG / 2
-        with rasterio.open(
-            path,
-            "w",
-            driver="GTiff",
-            height=2,
-            width=2,
-            count=1,
-            dtype="float32",
-            crs="EPSG:4326",
-            transform=from_origin(
-                ROI_MIN_LON, ROI_MIN_LAT + ROI_SIZE_DEG, pixel_size_deg, pixel_size_deg
-            ),
-            nodata=-9999.0,
-        ) as dst:
-            dst.write(np.array([[1.0, 2.0], [3.0, -9999.0]], dtype="float32"), 1)
-
     def test_summary_contains_provenance_with_input_hashes(
         self,
         tmp_path: Path,
@@ -607,7 +600,16 @@ class TestMainProvenance:
         # 実データと同じラスタ名で、辞書順と挿入順が異なる並びにする
         for name in ("worldpop2020", "landscan2020", "landscan2023", "viirs_dnb"):
             raster_path = tmp_path / f"{name}.tif"
-            self._write_raster(raster_path)
+            # ROI を覆う 2x2 画素の小さなラスタ（1 画素は nodata）
+            pixel_size_deg = ROI_SIZE_DEG / 2
+            write_test_raster(
+                raster_path,
+                np.array([[1.0, 2.0], [3.0, -9999.0]], dtype="float32"),
+                transform=from_origin(
+                    ROI_MIN_LON, ROI_MIN_LAT + ROI_SIZE_DEG, pixel_size_deg, pixel_size_deg
+                ),
+                nodata=-9999.0,
+            )
             raster_paths[name] = raster_path
         monkeypatch.setattr(diagnose_nodata_dropout, "DEFAULT_RASTER_PATHS", raster_paths)
 

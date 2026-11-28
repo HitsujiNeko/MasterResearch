@@ -33,16 +33,19 @@ from src.literature import openalex
     ],
 )
 def test_normalize_doi(value: str | None, expected: str | None) -> None:
+    """DOI の各種表記（URL・doi: 接頭辞・大文字・空白）をそろえ、DOI 以外は None にする。"""
     assert openalex.normalize_doi(value) == expected
 
 
 def test_normalize_title_removes_symbols_and_collapses_space() -> None:
+    """タイトルの記号を除き、連続する空白を 1 つにまとめて小文字化する。"""
     title = "Urban Heat Island: A Multi-Scale Study (2021)!"
     assert openalex.normalize_title(title) == "urban heat island a multi scale study 2021"
 
 
 def test_normalize_title_preserves_non_ascii_letters() -> None:
     # アクセント付き・非ラテン文字は除去せず保持する（記号のみ空白化）
+    """タイトルの正規化で、アクセント付きの文字や日本語を落とさない。"""
     assert openalex.normalize_title("Zürich café, São Paulo!") == "zürich café são paulo"
     assert openalex.normalize_title("都市の熱環境 2021") == "都市の熱環境 2021"
 
@@ -51,11 +54,13 @@ def test_normalize_title_preserves_non_ascii_letters() -> None:
 # アブストラクト復元
 # ---------------------------------------------------------------------------
 def test_reconstruct_abstract_orders_by_position() -> None:
+    """転置索引の位置どおりに単語を並べて抄録を復元する。"""
     inverted = {"urban": [1], "the": [0], "heat": [2]}
     assert openalex.reconstruct_abstract(inverted) == "the urban heat"
 
 
 def test_reconstruct_abstract_handles_empty() -> None:
+    """転置索引が None・空なら空文字を返す。"""
     assert openalex.reconstruct_abstract(None) == ""
     assert openalex.reconstruct_abstract({}) == ""
 
@@ -64,6 +69,7 @@ def test_reconstruct_abstract_handles_empty() -> None:
 # スコアリング
 # ---------------------------------------------------------------------------
 def test_score_text_weights_title_over_abstract() -> None:
+    """タイトルと抄録の両方からキーワードを拾い、タイトルの一致を重く採点する。"""
     title = "Land surface temperature in Hanoi"
     abstract = "This study analyzes thermal patterns."
     score, matched = openalex.score_text(title, abstract)
@@ -76,6 +82,7 @@ def test_score_text_weights_title_over_abstract() -> None:
 
 
 def test_score_text_no_match_is_zero() -> None:
+    """キーワードが 1 つも一致しなければ得点は 0 になる。"""
     score, matched = openalex.score_text("An unrelated economics paper", "About markets")
     assert score == 0.0
     assert matched == set()
@@ -83,6 +90,7 @@ def test_score_text_no_match_is_zero() -> None:
 
 def test_score_text_word_boundary_prevents_substring_false_positive() -> None:
     # "grid" は単語境界照合のため "gridlock" にはマッチしない
+    """単語の一部だけの一致（Gridlock の grid）はキーワードとして数えない。"""
     score, matched = openalex.score_text("Gridlock in cities", "")
     assert "grid" not in matched
     assert score == 0.0
@@ -92,23 +100,27 @@ def test_score_text_word_boundary_prevents_substring_false_positive() -> None:
 # 認証パラメータ・URL 組み立て
 # ---------------------------------------------------------------------------
 def test_auth_params_prefers_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API キーがあれば mailto より優先して付ける。"""
     monkeypatch.setenv("OPENALEX_API_KEY", "secret-key")
     assert openalex._auth_params("me@example.com") == "&api_key=secret-key"
 
 
 def test_auth_params_falls_back_to_mailto(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API キーが無ければ mailto を付ける。"""
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
     # @ は %40 にエンコードされる（サーバ側でデコードされ polite pool として機能）
     assert openalex._auth_params("me@example.com") == "&mailto=me%40example.com"
 
 
 def test_auth_params_empty_when_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API キーも mailto も無ければ何も付けない。"""
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
     assert openalex._auth_params(None) == ""
 
 
 def test_auth_params_url_encodes_values(monkeypatch: pytest.MonkeyPatch) -> None:
     # api_key / mailto の特殊文字（+ など）がエンコードされる
+    """API キー・mailto の値を URL エンコードして付ける。"""
     monkeypatch.setenv("OPENALEX_API_KEY", "a+b/c")
     assert openalex._auth_params(None) == "&api_key=a%2Bb%2Fc"
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
@@ -116,12 +128,14 @@ def test_auth_params_url_encodes_values(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_redact_hides_api_key() -> None:
+    """ログに出す URL から API キーの値を伏せる。"""
     url = "https://api.openalex.org/works?filter=x&api_key=secret&select=id"
     assert "secret" not in openalex._redact(url)
     assert "api_key=***" in openalex._redact(url)
 
 
 def test_build_url_includes_select_and_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """組み立てた URL が基底 URL で始まり、select と認証パラメータを含む。"""
     monkeypatch.setenv("OPENALEX_API_KEY", "k")
     url = openalex.build_url("filter=doi:10.1/x", None)
     assert url.startswith(openalex.OPENALEX_BASE_URL)
@@ -130,6 +144,7 @@ def test_build_url_includes_select_and_auth(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_safe_fetch_returns_payload_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """取得に成功すれば応答の辞書をそのまま返す。"""
     payload = {"results": [{"id": "W1"}]}
     monkeypatch.setattr(openalex, "fetch_json_with_retry", lambda url, **kwargs: payload)
     assert openalex.safe_fetch("https://example.org", 5) is payload
@@ -138,6 +153,8 @@ def test_safe_fetch_returns_payload_on_success(monkeypatch: pytest.MonkeyPatch) 
 @pytest.mark.parametrize("exc", [RuntimeError("429"), ValueError("bad json")])
 def test_safe_fetch_returns_none_on_error(monkeypatch: pytest.MonkeyPatch, exc: Exception) -> None:
     # fetch_json_with_retry が失敗（429 のリトライ超過・JSON 破損）しても例外を握り、None を返す
+    """取得で例外が起きても送出せず None を返す。"""
+
     def raising(url: str, **kwargs: Any) -> dict[str, Any]:
         raise exc
 
@@ -174,6 +191,7 @@ def _fake_pages(monkeypatch: pytest.MonkeyPatch, pages: list[dict[str, Any] | No
 
 def test_fetch_paged_uses_page_numbers_not_cursor(monkeypatch: pytest.MonkeyPatch) -> None:
     # 満杯のページが続く間はページ番号を増やし、件数が per_page 未満のページで終わる
+    """カーソルではなくページ番号で続きのページを取得する。"""
     calls = _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2), _page_of(5, 1)])
     works, ok = openalex.fetch_paged(
         "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
@@ -190,6 +208,7 @@ def test_fetch_paged_uses_page_numbers_not_cursor(monkeypatch: pytest.MonkeyPatc
 
 def test_fetch_paged_stops_at_max_results(monkeypatch: pytest.MonkeyPatch) -> None:
     # 上限に達したら次のページを取りに行かず、上限件数に切り詰める
+    """取得件数が上限に達したらそこで打ち切る。"""
     calls = _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2), _page_of(5, 2)])
     works, ok = openalex.fetch_paged(
         "filter=cites:W1", None, 5, max_results=3, sort=_SORT, per_page=2
@@ -200,6 +219,7 @@ def test_fetch_paged_stops_at_max_results(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_fetch_paged_stops_on_empty_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """空のページが返ったら取得を終える。"""
     calls = _fake_pages(monkeypatch, [_page_of(1, 2), {"results": []}])
     works, ok = openalex.fetch_paged(
         "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
@@ -213,6 +233,7 @@ def test_fetch_paged_keeps_partial_results_when_later_page_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # 2ページ目が失敗（None）しても、取得済みの1ページ目は返す
+    """2 ページ目以降の取得に失敗しても、それまでの結果を成功扱いで返す。"""
     _fake_pages(monkeypatch, [_page_of(1, 2), None])
     works, ok = openalex.fetch_paged(
         "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
@@ -224,6 +245,7 @@ def test_fetch_paged_keeps_partial_results_when_later_page_fails(
 def test_fetch_paged_reports_failure_when_first_page_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """最初のページの取得に失敗したら空の結果と失敗を返す。"""
     _fake_pages(monkeypatch, [None])
     works, ok = openalex.fetch_paged(
         "filter=cites:W1", None, 5, max_results=100, sort=_SORT, per_page=2
@@ -236,6 +258,7 @@ def test_fetch_paged_stops_at_basic_paging_limit(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # basic paging の上限（先頭 BASIC_PAGING_LIMIT 件）を超えるページは要求しない
+    """basic paging の上限件数に達したら打ち切り、警告を出す。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     pages = [_page_of(1, 2), _page_of(3, 2), _page_of(5, 2)]
     calls = _fake_pages(monkeypatch, pages)
@@ -253,6 +276,7 @@ def test_fetch_paged_does_not_warn_when_max_results_reached_at_limit(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 上限件数ちょうどで終わった場合は basic paging の上限による打ち切りではない
+    """取得上限が basic paging の上限と同じ値で止まった場合は、上限の警告を出さない。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -267,6 +291,7 @@ def test_fetch_paged_does_not_warn_when_total_equals_basic_paging_limit(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 総件数がちょうど上限件数の場合、最終ページが満杯でも取りこぼしはない
+    """総件数がちょうど basic paging の上限なら、取りこぼしが無いので警告しない。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2, total=4), _page_of(3, 2, total=4)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -281,6 +306,7 @@ def test_fetch_paged_warns_basic_paging_limit_with_total(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 総件数が basic paging の上限を超える場合は、総件数を添えて警告する
+    """basic paging の上限で打ち切ったとき、総件数を添えて警告する。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2, total=5), _page_of(3, 2, total=5)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -334,6 +360,7 @@ def test_fetch_paged_warns_when_truncated_by_max_results(
     max_results: int,
     expected_phrases: list[str],
 ) -> None:
+    """取得上限で打ち切ったときは警告する。"""
     _fake_pages(monkeypatch, pages)
     with caplog.at_level("WARNING", logger=openalex.logger.name):
         works, _ = openalex.fetch_paged(
@@ -354,6 +381,7 @@ def test_fetch_paged_warns_only_paging_limit_when_max_results_exceeds_it(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 取得上限が basic paging の上限より大きく、総件数がその間にある場合は basic paging の警告のみ
+    """取得上限が basic paging の上限より大きいときは、basic paging の上限の警告だけを出す。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2, total=6), _page_of(3, 2, total=6)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -370,6 +398,7 @@ def test_fetch_paged_warns_only_max_results_when_equal_to_paging_limit(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 取得上限が basic paging の上限と等しく、総件数がそれを超える場合は取得上限の警告のみ
+    """取得上限が basic paging の上限と等しいときは、取得上限の警告だけを出す。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2, total=6), _page_of(3, 2, total=6)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -386,6 +415,7 @@ def test_fetch_paged_warns_paging_limit_when_per_page_does_not_divide_it(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # per_page が上限を割り切らないと取得できるのは上限より少ないため、総件数＝上限でも警告する
+    """1 ページの件数が上限を割り切らなくても、basic paging の上限で打ち切って警告する。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 5)
     _fake_pages(monkeypatch, [_page_of(1, 2, total=5), _page_of(3, 2, total=5)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -401,6 +431,7 @@ def test_fetch_paged_warns_paging_limit_as_possible_when_total_unknown(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 総件数が不明な場合は、basic paging の上限でも続きの有無を断定しない
+    """総件数が分からないまま上限に達したら、続きがある可能性として警告する。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2), _page_of(3, 2)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -413,6 +444,7 @@ def test_fetch_paged_treats_stale_total_as_unknown_at_paging_limit(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 総件数が取得件数より少なく古い場合は、basic paging の上限でも不明として扱う
+    """取得済みより小さい総件数は古い値とみなし、総件数を不明として警告する。"""
     monkeypatch.setattr(openalex, "BASIC_PAGING_LIMIT", 4)
     _fake_pages(monkeypatch, [_page_of(1, 2, total=1), _page_of(3, 2, total=1)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -427,6 +459,7 @@ def test_fetch_paged_returns_empty_without_warning_for_non_positive_max(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, max_results: int
 ) -> None:
     # 上限が 0 以下なら1件も要求せず、打ち切りの警告も出さない
+    """取得上限が 0 以下なら、取得も警告もせず空の結果を返す。"""
     calls = _fake_pages(monkeypatch, [_page_of(1, 2, total=10)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
         works, ok = openalex.fetch_paged(
@@ -459,6 +492,7 @@ def test_fetch_paged_does_not_warn_when_not_truncated(
     pages: list[dict[str, Any]],
     max_results: int,
 ) -> None:
+    """打ち切りが起きなければ警告しない。"""
     _fake_pages(monkeypatch, pages)
     with caplog.at_level("WARNING", logger=openalex.logger.name):
         openalex.fetch_paged(
@@ -471,6 +505,7 @@ def test_fetch_paged_does_not_warn_truncation_when_later_page_fails(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # 取得失敗で止まった場合は上限による打ち切りではない（失敗は safe_fetch が別途警告する）
+    """途中のページの取得失敗で止まった場合は、取得上限の警告を出さない。"""
     _fake_pages(monkeypatch, [_page_of(1, 2, total=10), None])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
         openalex.fetch_paged("filter=cites:W1", None, 5, max_results=3, sort=_SORT, per_page=2)
@@ -481,6 +516,7 @@ def test_fetch_paged_truncation_warning_hides_api_key(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     # API キーを設定していても、打ち切りのログにキーの値は出ない
+    """打ち切りの警告に API キーの値を出さない。"""
     monkeypatch.setenv("OPENALEX_API_KEY", "secret-key")
     calls = _fake_pages(monkeypatch, [_page_of(1, 2, total=10), _page_of(3, 2, total=10)])
     with caplog.at_level("WARNING", logger=openalex.logger.name):
@@ -502,6 +538,7 @@ def test_fetch_paged_truncation_warning_hides_api_key(
     ],
 )
 def test_total_count_reads_meta_count(result: dict[str, Any], expected: int | None) -> None:
+    """応答の meta.count から総件数を読み、無い・整数でない（文字列・真偽値）なら None にする。"""
     assert openalex._total_count(result) == expected
 
 
@@ -518,6 +555,7 @@ class _NoReconfigure:
 
 def test_force_utf8_output_swallows_stream_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     # reconfigure が ValueError/AttributeError を投げても握り潰して継続する
+    """標準出力の文字コードの切り替えに失敗しても例外を送出しない。"""
     monkeypatch.setattr(sys, "stdout", _RaisingReconfigure())
     monkeypatch.setattr(sys, "stderr", _NoReconfigure())
     openalex.force_utf8_output()  # 例外を送出しないこと
@@ -543,6 +581,7 @@ def csv_path(tmp_path: Path) -> Path:
 
 
 def test_load_registered(csv_path: Path) -> None:
+    """登録済み文献の CSV から DOI とタイトルの集合を読む（DOI 形式でなければタイトルのみ）。"""
     dois, titles = openalex.load_registered(csv_path)
     assert "10.3390/rs13214256" in dois
     assert "first paper" in titles
@@ -555,11 +594,13 @@ def test_load_registered(csv_path: Path) -> None:
 # 候補キー・足切り
 # ---------------------------------------------------------------------------
 def test_candidate_key_prefers_doi() -> None:
+    """候補の重複判定キーには DOI を優先して使う。"""
     work = {"doi": "https://doi.org/10.3390/rs13214256", "title": "Some Title"}
     assert openalex.candidate_key(work) == "doi:10.3390/rs13214256"
 
 
 def test_candidate_key_falls_back_to_title() -> None:
+    """DOI が無い候補は、正規化したタイトルを重複判定キーにする。"""
     work = {"doi": None, "title": "Urban Heat Island Study"}
     assert openalex.candidate_key(work) == "title:urban heat island study"
 
@@ -582,10 +623,12 @@ def test_candidate_key_falls_back_to_title() -> None:
     ],
 )
 def test_sanitize_csv_cell(value: object, expected: str) -> None:
+    """先頭が = + - @ の値に ' を付けて数式化を防ぎ、None は空文字・数値は文字列にする。"""
     assert openalex.sanitize_csv_cell(value) == expected
 
 
 def test_write_candidates_csv_sanitizes_and_writes_header(tmp_path: Path) -> None:
+    """候補 CSV をヘッダー付きで書き出し、数式になりうる値を無害化する。"""
     cand = openalex.Candidate(
         openalex_id="W1",
         title="=HYPERLINK(evil)",
@@ -613,12 +656,14 @@ def _candidate(work_id: str, score: float) -> openalex.Candidate:
 
 
 def test_filter_by_min_score_excludes_below_threshold() -> None:
+    """得点がしきい値未満の候補を除き、しきい値ちょうどは残す。"""
     cands = [_candidate("W1", 50.0), _candidate("W2", 20.0), _candidate("W3", 0.0)]
     result = openalex.filter_by_min_score(cands, 20.0)
     assert [c.openalex_id for c in result] == ["W1", "W2"]
 
 
 def test_filter_by_min_score_zero_returns_all() -> None:
+    """しきい値 0 なら得点 0 の候補も残す。"""
     cands = [_candidate("W1", 0.0)]
     # 閾値 0 は除外なし（同一リストを返す）
     assert openalex.filter_by_min_score(cands, 0.0) == cands

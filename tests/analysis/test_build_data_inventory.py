@@ -12,28 +12,10 @@ from pathlib import Path
 import fiona
 import numpy as np
 import pytest
-import rasterio
 from rasterio.transform import from_origin
 
 import src.analysis.build_data_inventory as inv
-
-
-def _write_raster(path: Path) -> None:
-    """テスト用の小さなGeoTIFFを書き出す。"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    transform = from_origin(0.0, 30.0, 10.0, 10.0)
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=3,
-        width=3,
-        count=1,
-        dtype="float32",
-        crs="EPSG:3857",
-        transform=transform,
-    ) as dst:
-        dst.write(np.ones((3, 3), dtype="float32"), 1)
+from tests.helpers import write_test_raster
 
 
 def _write_vector(path: Path) -> None:
@@ -47,7 +29,12 @@ def _write_vector(path: Path) -> None:
 @pytest.fixture()
 def fake_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """data/gis・data/satellite を持つ一時プロジェクトルートを構築する。"""
-    _write_raster(tmp_path / "data" / "satellite" / "lst" / "lst_sample.tif")
+    write_test_raster(
+        tmp_path / "data" / "satellite" / "lst" / "lst_sample.tif",
+        np.ones((3, 3), dtype="float32"),
+        transform=from_origin(0.0, 30.0, 10.0, 10.0),
+        crs="EPSG:3857",
+    )
     _write_vector(tmp_path / "data" / "gis" / "boundaries" / "roi.gpkg")
     monkeypatch.setattr(inv, "PROJECT_ROOT", tmp_path)
     return tmp_path

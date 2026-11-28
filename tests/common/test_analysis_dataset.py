@@ -39,6 +39,7 @@ class TestValidPopulationMaskColumn:
     """
 
     def test_builds_the_expected_column_name(self) -> None:
+        """人口データの有効マスク列名を VALID_POP_<名前>_MASK の形で組み立てる。"""
         assert valid_population_mask_column("WORLDPOP2020") == "VALID_POP_WORLDPOP2020_MASK"
 
     def test_differs_by_suffix(self) -> None:
@@ -56,6 +57,7 @@ class TestResolveAnalysisAreaMaskColumns:
         assert resolve_analysis_area_mask_columns(ANALYSIS_AREA_ROI) == ()
 
     def test_survey_adds_survey_flag(self) -> None:
+        """測量範囲を指定すると、測量範囲のフラグ列をマスクに使う。"""
         assert resolve_analysis_area_mask_columns(ANALYSIS_AREA_SURVEY) == (
             IN_ANALYSIS_AREA_SURVEY_COLUMN,
         )
@@ -74,6 +76,7 @@ class TestResolveAnalysisAreaMaskColumns:
             resolve_analysis_area_mask_columns(analysis_area)
 
     def test_unknown_area_raises(self) -> None:
+        """未対応の分析対象範囲は例外にする。"""
         with pytest.raises(ValueError, match="未対応の分析対象範囲"):
             resolve_analysis_area_mask_columns("full")
 
@@ -164,11 +167,13 @@ class TestRequireAnalysisAreaColumns:
         assert "dataset.gpkg" in str(excinfo.value)
 
     def test_survey_passes_when_column_present(self) -> None:
+        """測量範囲のフラグ列があれば、測量範囲の指定を受け付ける。"""
         dataframe = _sample_dataframe()
         dataframe[IN_ANALYSIS_AREA_SURVEY_COLUMN] = 1
         require_analysis_area_columns(dataframe, ANALYSIS_AREA_SURVEY, Path("dataset.gpkg"))
 
     def test_unknown_area_raises(self) -> None:
+        """未対応の分析対象範囲は例外にする。"""
         with pytest.raises(ValueError, match="未対応の分析対象範囲"):
             require_analysis_area_columns(_sample_dataframe(), "full", Path("dataset.gpkg"))
 

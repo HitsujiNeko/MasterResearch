@@ -20,6 +20,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 
 from src.analysis import compare_nighttime_lights_viirs_blackmarble as target
+from tests.helpers import write_test_raster
 
 # 合成ラスタの格子。実データ（15 arc-sec）より粗いが、半画素ずれの検証には十分。
 PIXEL_SIZE_DEG = 0.01
@@ -29,14 +30,14 @@ REFERENCE_ORIGIN = (105.0, 21.0)
 SHIFTED_ORIGIN = (105.0 + PIXEL_SIZE_DEG / 2, 21.0 + PIXEL_SIZE_DEG / 2)
 
 
-def _write_raster(
+def _write_radiance_raster(
     path: Path,
     values: np.ndarray,
     origin: tuple[float, float] = REFERENCE_ORIGIN,
     band_names: tuple[str, ...] = ("avg_radiance",),
     crs: str = "EPSG:4326",
 ) -> Path:
-    """テスト用の GeoTIFF を書き出す。
+    """原点を指定して、合成格子上の float32 の GeoTIFF を書き出す。
 
     Args:
         path: 出力パス。
@@ -48,24 +49,15 @@ def _write_raster(
     Returns:
         書き出したパス。
     """
-    band_arrays = values[np.newaxis, :, :] if values.ndim == 2 else values
-    count, height, width = band_arrays.shape
-    with rasterio.open(
+    return write_test_raster(
         path,
-        "w",
-        driver="GTiff",
-        height=height,
-        width=width,
-        count=count,
-        dtype="float32",
-        crs=crs,
+        values,
         transform=from_origin(origin[0], origin[1], PIXEL_SIZE_DEG, PIXEL_SIZE_DEG),
+        crs=crs,
         nodata=target.NODATA,
-    ) as destination:
-        for index in range(count):
-            destination.write(band_arrays[index].astype(np.float32), index + 1)
-            destination.set_band_description(index + 1, band_names[index])
-    return path
+        dtype="float32",
+        band_names=band_names,
+    )
 
 
 def _write_roi(path: Path, bounds: tuple[float, float, float, float]) -> Path:
@@ -141,7 +133,7 @@ class TestLoadRadianceRaster:
 
     def test_reads_band_values_and_name(self, tmp_path: Path) -> None:
         """指定バンドの値とバンド名を読み取る。"""
-        raster_path = _write_raster(tmp_path / "viirs.tif", _gradient())
+        raster_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient())
 
         raster = target.load_radiance_raster(raster_path)
 
@@ -152,7 +144,7 @@ class TestLoadRadianceRaster:
     def test_reads_requested_band_of_multiband_raster(self, tmp_path: Path) -> None:
         """多バンドラスタから主バンドだけを取り出す（バンド取り違えの検出）。"""
         stacked = np.stack([_gradient(), _gradient() * 100.0])
-        raster_path = _write_raster(
+        raster_path = _write_radiance_raster(
             tmp_path / "multi.tif", stacked, band_names=("ntl_near_nadir", "ntl_all_angle")
         )
 
@@ -222,7 +214,7 @@ class TestLoadRadianceRaster:
 
     def test_raises_when_band_is_missing(self, tmp_path: Path) -> None:
         """存在しないバンドを指定したら例外にする。"""
-        raster_path = _write_raster(tmp_path / "viirs.tif", _gradient())
+        raster_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient())
 
         with pytest.raises(ValueError, match="バンド 3 がありません"):
             target.load_radiance_raster(raster_path, band=3)
@@ -233,7 +225,9 @@ class TestLoadRadianceRaster:
         都心・外縁の切り分けは度前提で距離を測るため、メートル値を度として
         扱うと例外にならないまま誤ったゾーン分けになる。
         """
-        raster_path = _write_raster(tmp_path / "projected.tif", _gradient(), crs="EPSG:3857")
+        raster_path = _write_radiance_raster(
+            tmp_path / "projected.tif", _gradient(), crs="EPSG:3857"
+        )
 
         with pytest.raises(ValueError, match="地理座標系"):
             target.load_radiance_raster(raster_path)
@@ -262,9 +256,11 @@ class TestComputeGridOffset:
 
     def test_detects_half_pixel_offset(self, tmp_path: Path) -> None:
         """半画素ずれたグリッドを 0.5 画素として検出する。"""
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", _gradient()))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient())
+        )
         shifted = target.load_radiance_raster(
-            _write_raster(tmp_path / "shift.tif", _gradient(), origin=SHIFTED_ORIGIN)
+            _write_radiance_raster(tmp_path / "shift.tif", _gradient(), origin=SHIFTED_ORIGIN)
         )
 
         offset = target.compute_grid_offset(reference, shifted)
@@ -275,7 +271,9 @@ class TestComputeGridOffset:
 
     def test_reports_zero_for_identical_grids(self, tmp_path: Path) -> None:
         """同一グリッドならずれは 0。"""
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", _gradient()))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient())
+        )
 
         offset = target.compute_grid_offset(reference, reference)
 
@@ -289,8 +287,12 @@ class TestReprojectToReference:
     def test_identical_grid_preserves_values(self, tmp_path: Path) -> None:
         """同一グリッドへの再投影は値を変えない。"""
         values = _gradient()
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", values))
-        other = target.load_radiance_raster(_write_raster(tmp_path / "other.tif", values * 2))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", values)
+        )
+        other = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "other.tif", values * 2)
+        )
 
         result = target.reproject_to_reference(other, reference, Resampling.nearest)
 
@@ -298,9 +300,11 @@ class TestReprojectToReference:
 
     def test_result_matches_reference_shape(self, tmp_path: Path) -> None:
         """形状が違うラスタでも、結果は基準グリッドの形状になる。"""
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", _gradient()))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient())
+        )
         smaller = target.load_radiance_raster(
-            _write_raster(tmp_path / "small.tif", _gradient((3, 3)), origin=SHIFTED_ORIGIN)
+            _write_radiance_raster(tmp_path / "small.tif", _gradient((3, 3)), origin=SHIFTED_ORIGIN)
         )
 
         result = target.reproject_to_reference(smaller, reference, Resampling.bilinear)
@@ -323,10 +327,10 @@ class TestReprojectToReference:
             [[1.0, 2.0, 3.0, 4.0], [2.0, 3.0, 4.0, 5.0], [3.0, 4.0, 5.0, 6.0], [4.0, 5.0, 6.0, 7.0]]
         )
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", np.zeros(GRID_SHAPE))
+            _write_radiance_raster(tmp_path / "ref.tif", np.zeros(GRID_SHAPE))
         )
         shifted = target.load_radiance_raster(
-            _write_raster(
+            _write_radiance_raster(
                 tmp_path / "shift.tif",
                 values,
                 origin=(
@@ -358,10 +362,10 @@ class TestReprojectToReference:
             [[1.0, 2.0, 3.0, 4.0], [2.0, 3.0, 4.0, 5.0], [3.0, 4.0, 5.0, 6.0], [4.0, 5.0, 6.0, 7.0]]
         )
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", np.zeros(GRID_SHAPE))
+            _write_radiance_raster(tmp_path / "ref.tif", np.zeros(GRID_SHAPE))
         )
         shifted = target.load_radiance_raster(
-            _write_raster(
+            _write_radiance_raster(
                 tmp_path / "shift.tif",
                 values,
                 origin=(
@@ -384,9 +388,9 @@ class TestReprojectToReference:
         values = np.full(GRID_SHAPE, 10.0)
         values[0, 0] = target.NODATA
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", np.full(GRID_SHAPE, 1.0))
+            _write_radiance_raster(tmp_path / "ref.tif", np.full(GRID_SHAPE, 1.0))
         )
-        source = target.load_radiance_raster(_write_raster(tmp_path / "src.tif", values))
+        source = target.load_radiance_raster(_write_radiance_raster(tmp_path / "src.tif", values))
 
         result = target.reproject_to_reference(source, reference, Resampling.bilinear)
 
@@ -399,9 +403,11 @@ class TestAlignByPixelIndex:
 
     def test_copies_overlapping_region_only(self, tmp_path: Path) -> None:
         """重なる範囲だけを写し、残りは無効値のままにする。"""
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", _gradient()))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient())
+        )
         smaller = target.load_radiance_raster(
-            _write_raster(tmp_path / "small.tif", _gradient((3, 3)))
+            _write_radiance_raster(tmp_path / "small.tif", _gradient((3, 3)))
         )
 
         result = target.align_by_pixel_index(smaller, reference)
@@ -438,7 +444,9 @@ class TestCompareOnReferenceGrid:
     @staticmethod
     def _reference(tmp_path: Path) -> dict[str, object]:
         """基準グリッドのラスタを作る。"""
-        return target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", _gradient()))
+        return target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient())
+        )
 
     def test_excludes_nodata_pixels_from_both_sides(self, tmp_path: Path) -> None:
         """どちらかが無効値の画素は比較対象から外す。"""
@@ -500,7 +508,7 @@ class TestComputeBrightCoreAnchor:
         """
         # 左上隅だけが明るい 10×10 のラスタ
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", _bright_spot_values((10, 10), 0, 0))
+            _write_radiance_raster(tmp_path / "ref.tif", _bright_spot_values((10, 10), 0, 0))
         )
         roi_mask = np.ones((10, 10), dtype=bool)
 
@@ -517,7 +525,7 @@ class TestBuildZoneMasks:
     def test_splits_roi_into_inner_and_outer(self, tmp_path: Path) -> None:
         """ROI 内画素を都心側と外縁側に分ける。"""
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", _gradient((10, 10)))
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient((10, 10)))
         )
         roi_mask = np.ones((10, 10), dtype=bool)
 
@@ -531,7 +539,7 @@ class TestBuildZoneMasks:
     def test_brightest_pixel_belongs_to_the_inner_zone(self, tmp_path: Path) -> None:
         """最輝画素は必ず都心側ゾーンに入る（飽和を見逃さないための要件）。"""
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", _bright_spot_values((10, 10), 1, 1))
+            _write_radiance_raster(tmp_path / "ref.tif", _bright_spot_values((10, 10), 1, 1))
         )
         roi_mask = np.ones((10, 10), dtype=bool)
 
@@ -542,7 +550,9 @@ class TestBuildZoneMasks:
 
     def test_raises_when_roi_has_no_pixels(self, tmp_path: Path) -> None:
         """ROI 内画素が無ければ、分位点計算へ進まず例外にする。"""
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", _gradient()))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", _gradient())
+        )
 
         with pytest.raises(ValueError, match="ROI 内の画素がありません"):
             target.build_zone_masks(reference, np.zeros(GRID_SHAPE, dtype=bool))
@@ -555,7 +565,7 @@ class TestBuildZoneMasks:
         位置関係が原因だと読み取れない。
         """
         reference = target.load_radiance_raster(
-            _write_raster(
+            _write_radiance_raster(
                 tmp_path / "nodata.tif",
                 np.full(GRID_SHAPE, target.NODATA, dtype=np.float32),
             )
@@ -576,11 +586,11 @@ class TestCompareSaturationByZone:
         平滑化を経ていないことを担保する。
         """
         reference = target.load_radiance_raster(
-            _write_raster(tmp_path / "ref.tif", _bright_spot_values((10, 10), 5, 5))
+            _write_radiance_raster(tmp_path / "ref.tif", _bright_spot_values((10, 10), 5, 5))
         )
         comparison_values = _bright_spot_values((10, 10), 5, 5) * 2.0
         comparison = target.load_radiance_raster(
-            _write_raster(
+            _write_radiance_raster(
                 tmp_path / "cmp.tif",
                 comparison_values,
                 origin=SHIFTED_ORIGIN,
@@ -598,9 +608,11 @@ class TestCompareSaturationByZone:
     def test_uses_the_same_geographic_zones_for_both_datasets(self, tmp_path: Path) -> None:
         """比較側にも基準側と同じ距離閾値を適用する（ゾーンを地理的に揃える）。"""
         values = _bright_spot_values((10, 10), 5, 5)
-        reference = target.load_radiance_raster(_write_raster(tmp_path / "ref.tif", values))
+        reference = target.load_radiance_raster(
+            _write_radiance_raster(tmp_path / "ref.tif", values)
+        )
         comparison = target.load_radiance_raster(
-            _write_raster(tmp_path / "cmp.tif", values, band_names=("ntl_near_nadir",))
+            _write_radiance_raster(tmp_path / "cmp.tif", values, band_names=("ntl_near_nadir",))
         )
         roi_mask = np.ones((10, 10), dtype=bool)
 
@@ -636,8 +648,8 @@ class TestRun:
     @staticmethod
     def _prepare(tmp_path: Path) -> tuple[Path, Path, Path]:
         """半画素ずれた 2 つのラスタと、それを覆う ROI を用意する。"""
-        viirs_path = _write_raster(tmp_path / "viirs.tif", _gradient())
-        black_marble_path = _write_raster(
+        viirs_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient())
+        black_marble_path = _write_radiance_raster(
             tmp_path / "black_marble.tif",
             _gradient() * 1.2,
             origin=SHIFTED_ORIGIN,
@@ -702,8 +714,8 @@ class TestRun:
         結果として列数が 1 つ食い違う。合成データを同形状だけにすると、この
         組み合わせが一度も踏まれない。
         """
-        viirs_path = _write_raster(tmp_path / "viirs.tif", _gradient((8, 7)))
-        black_marble_path = _write_raster(
+        viirs_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient((8, 7)))
+        black_marble_path = _write_radiance_raster(
             tmp_path / "black_marble.tif",
             _gradient((8, 6)) * 1.2,
             origin=SHIFTED_ORIGIN,
@@ -730,9 +742,9 @@ class TestRun:
         実データでは再投影の結果 217 画素がこの理由で外れている。有効域を ROI
         全体と同一視しないための記録なので、経路自体を踏んで固定する。
         """
-        viirs_path = _write_raster(tmp_path / "viirs.tif", _gradient())
+        viirs_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient())
         # 比較側を左上 2×2 画素ぶんの範囲しか持たないラスタにする
-        black_marble_path = _write_raster(
+        black_marble_path = _write_radiance_raster(
             tmp_path / "black_marble.tif",
             _gradient((2, 2)),
             band_names=("ntl_near_nadir",),
@@ -760,7 +772,7 @@ class TestRun:
 
         -9999 以外の nodata を有効値として扱うと、平均・相関が静かに壊れる。
         """
-        viirs_path = _write_raster(tmp_path / "viirs.tif", _gradient())
+        viirs_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient())
         black_marble_path = tmp_path / "bm.tif"
         with rasterio.open(
             black_marble_path,
@@ -789,8 +801,8 @@ class TestRun:
 
     def test_rejects_mismatched_crs(self, tmp_path: Path) -> None:
         """CRS が違うラスタ同士は、無意味な対応付けをせず例外にする。"""
-        viirs_path = _write_raster(tmp_path / "viirs.tif", _gradient())
-        black_marble_path = _write_raster(
+        viirs_path = _write_radiance_raster(tmp_path / "viirs.tif", _gradient())
+        black_marble_path = _write_radiance_raster(
             tmp_path / "bm.tif", _gradient(), crs="EPSG:4269", band_names=("ntl_near_nadir",)
         )
         roi_path = _write_roi(tmp_path / "roi.shp", (105.0, 20.96, 105.04, 21.0))

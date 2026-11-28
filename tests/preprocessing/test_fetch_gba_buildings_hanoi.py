@@ -106,10 +106,12 @@ class TestCommonModuleUsage:
     """共通モジュールの関数・定数を使っていることの確認。"""
 
     def test_uses_common_functions(self) -> None:
+        """ROI の読み込みとサマリーの保存に共通モジュールの関数を使う。"""
         assert target.load_roi_geometry is roi.load_roi_geometry
         assert target.save_summary is summary.save_summary
 
     def test_uses_common_constants(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """UTM の CRS と ROI の既定パスに共通設定の値を使う。"""
         # 同じ文字列の再定義でも通ってしまわないよう、同一オブジェクトかを確かめる
         assert target.HANOI_UTM_CRS is config.HANOI_UTM_CRS
         monkeypatch.setattr(sys, "argv", ["fetch_gba_buildings_hanoi.py"])
@@ -122,6 +124,7 @@ class TestRun:
     def test_writes_summary_with_roi_bounds(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """ROI の範囲で建物を取得し、その範囲をサマリーに書く。"""
         _write_roi(paths["roi_path"])
         called_bboxes: list[tuple[float, float, float, float]] = []
         monkeypatch.setattr(target, "fetch_tile_records", _fake_fetch_tile_records(called_bboxes))
@@ -148,6 +151,7 @@ class TestRun:
     def test_roi_without_crs_stops_before_fetch(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """CRS の無い ROI は、WFS の取得に進まず例外にする。"""
         _write_roi(paths["roi_path"], crs=None)
 
         def fail_if_called(*args: Any, **kwargs: Any) -> None:
@@ -162,6 +166,7 @@ class TestRun:
     def test_nan_in_summary_stops_without_saving(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """サマリーに NaN があれば、保存せずに例外にする。"""
         _write_roi(paths["roi_path"])
         monkeypatch.setattr(target, "fetch_tile_records", _fake_fetch_tile_records([]))
         monkeypatch.setattr(

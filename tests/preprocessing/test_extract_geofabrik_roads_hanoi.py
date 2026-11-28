@@ -82,9 +82,11 @@ class TestCommonModuleUsage:
     """共通モジュールの関数・定数を使っていることの確認。"""
 
     def test_uses_common_save_summary(self) -> None:
+        """サマリーの保存に共通モジュールの関数を使う。"""
         assert target.save_summary is summary.save_summary
 
     def test_default_roi_path_is_common(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """ROI の既定パスに共通設定の値を使う。"""
         monkeypatch.setattr(sys, "argv", ["extract_geofabrik_roads_hanoi.py"])
         assert target.parse_arguments().roi_path == config.DEFAULT_HANOI_ROI_PATH
 
@@ -93,6 +95,7 @@ class TestBuildExtractCommand:
     """ogr2ogr コマンドの組み立て。"""
 
     def test_filters_highway_and_clips_to_roi(self, tmp_path: Path) -> None:
+        """ogr2ogr のコマンドで lines の highway だけを選び、ROI でクリップしてレイヤ名を付ける。"""
         command = target.build_extract_command(
             ogr2ogr_path=Path("ogr2ogr"),
             input_pbf=tmp_path / "in.osm.pbf",
@@ -111,9 +114,11 @@ class TestRemoveExistingOutput:
     """既存の出力ファイルの扱い。"""
 
     def test_does_nothing_when_absent(self, tmp_path: Path) -> None:
+        """出力が無ければ何もしない。"""
         target.remove_existing_output(tmp_path / "missing.gpkg", overwrite=False)
 
     def test_refuses_without_overwrite(self, tmp_path: Path) -> None:
+        """出力があり上書き指定が無ければ、消さずに例外にする。"""
         output_path = tmp_path / "out.gpkg"
         output_path.write_bytes(b"x")
         with pytest.raises(FileExistsError):
@@ -121,6 +126,7 @@ class TestRemoveExistingOutput:
         assert output_path.exists()
 
     def test_deletes_with_overwrite(self, tmp_path: Path) -> None:
+        """上書き指定があれば既存の出力を消す。"""
         output_path = tmp_path / "out.gpkg"
         output_path.write_bytes(b"x")
         target.remove_existing_output(output_path, overwrite=True)
@@ -139,6 +145,7 @@ class TestExtractFeatureCount:
         monkeypatch.setattr(target.subprocess, "run", fake_run)
 
     def test_reads_feature_count(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """ogrinfo の出力から地物数を読む。"""
         self._patch_ogrinfo(monkeypatch, "Layer name: roads\nFeature Count: 123\n")
         count = target.extract_feature_count(Path("ogrinfo"), tmp_path / "out.gpkg", "roads", {})
         assert count == 123
@@ -146,6 +153,7 @@ class TestExtractFeatureCount:
     def test_raises_without_feature_count(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """ogrinfo の出力に地物数が無ければ例外にする。"""
         self._patch_ogrinfo(monkeypatch, "Layer name: roads\n")
         with pytest.raises(ValueError, match="Feature Count"):
             target.extract_feature_count(Path("ogrinfo"), tmp_path / "out.gpkg", "roads", {})
@@ -157,6 +165,7 @@ class TestRun:
     def test_writes_summary(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """抽出を 1 回実行し、プロジェクトルートからの相対パスと地物数をサマリーに書く。"""
         executed = _patch_gdal(monkeypatch, tmp_path, feature_count=42)
 
         _run(paths)
@@ -177,6 +186,7 @@ class TestRun:
     def test_missing_input_stops_before_extract(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """入力の OSM PBF が無ければ、抽出に進まず例外にする。"""
         executed = _patch_gdal(monkeypatch, tmp_path, feature_count=42)
         paths["input_pbf"].unlink()
 
@@ -187,6 +197,7 @@ class TestRun:
     def test_nan_in_summary_stops_without_saving(
         self, paths: dict[str, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """サマリーに NaN があれば、保存せずに例外にする。"""
         _patch_gdal(monkeypatch, tmp_path, feature_count=42)
         monkeypatch.setattr(
             target, "build_summary", lambda **kwargs: {"file_size_mb": float("nan")}

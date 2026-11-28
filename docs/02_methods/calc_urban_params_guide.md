@@ -61,7 +61,7 @@
 
 「採否」と「設計」は独立した軸であり、「**採用済みだが設計未確定**」という状態が生じる。本ガイドで「設計未確定」と記すのは後者の軸を指し、採否が未確定であることを意味しない。
 
-> 旧実装 `src/analysis/calc_urban_params.py`（30m・単一シナリオの探索版）はfrozenとして残置されており、新規実装・実行はすべて `src/analysis/urban_params/` パッケージ（`python -m src.analysis.urban_params`）を使用する。
+> 旧実装 `src/analysis/calc_urban_params.py`（30m・単一シナリオの探索版）は削除した（git の履歴から参照できる）。実装・実行はすべて `src/analysis/urban_params/` パッケージ（`python -m src.analysis.urban_params`）を使用する。
 
 研究手順の根拠は [analysis_workflow.md](analysis_workflow.md) と整合させる（`analysis_workflow.md` 3.1 は [urban_structure_parameters.md](../01_planning/urban_structure_parameters.md) への参照に置き換わっている）。
 

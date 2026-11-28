@@ -302,7 +302,19 @@ def build_gee_download_url(
 
 
 def download_http_content(download_url: str) -> bytes:
-    """HTTPレスポンス本文をリトライ付きで取得する。"""
+    """HTTPレスポンス本文をリトライ付きで取得する。
+
+    Args:
+        download_url: GEE が発行したダウンロード URL。
+
+    Returns:
+        レスポンス本文のバイト列。
+
+    Raises:
+        ValueError: URL が http/https 以外のスキームの場合。
+        RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
+            リトライしても解消しない HTTP エラー（認証・権限・不在など）が返った場合。
+    """
     return fetch_bytes_with_retry(download_url, timeout=REQUEST_TIMEOUT_SECONDS)
 
 

@@ -295,13 +295,34 @@ def test_load_tile_does_not_cache_invalid_response(
     assert not _cache_path(tmp_path, DUMMY_PROVIDER, 10, 3, 4).exists()
 
 
+@pytest.mark.parametrize("lon", [180.0000001, -180.0000001, 200.0, float("nan")])
+def test_lonlat_to_mercator_rejects_out_of_range_longitude(lon: float) -> None:
+    """経度が ±180 度の外なら、折り返した座標を返さずに ValueError にする。"""
+    with pytest.raises(ValueError, match="経度"):
+        lonlat_to_mercator(lon, 0.0)
+
+
+@pytest.mark.parametrize("x", [ORIGIN_SHIFT * 1.05, -ORIGIN_SHIFT * 1.05, float("nan")])
+def test_mercator_to_lonlat_rejects_out_of_world_x(x: float) -> None:
+    """メルカトル X が世界範囲の外なら、折り返した経度を返さずに ValueError にする。"""
+    with pytest.raises(ValueError, match="世界範囲"):
+        mercator_to_lonlat(x, 0.0)
+
+
+def test_mercator_to_lonlat_accepts_world_edge() -> None:
+    """世界範囲の端（タイル境界から求めた ±ORIGIN_SHIFT）は受け付ける。"""
+    edge = mosaic_extent((0, 0, 0, 0), 0)
+    assert mercator_to_lonlat(edge[2], 0.0)[0] == pytest.approx(180.0)
+    assert mercator_to_lonlat(edge[0], 0.0)[0] == pytest.approx(-180.0)
+
+
 def test_load_tile_does_not_repeat_failed_http_fetch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """HTTP の失敗は共通の取得側でリトライ済みのため、重ねて取り直さない。"""
     fetch = _install_fetch(monkeypatch, RuntimeError("リクエストが2回失敗しました"))
 
-    with pytest.raises(RuntimeError, match="2回失敗しました"):
+    with pytest.raises(RuntimeError, match=r"example\.invalid/10/3/4\.png.*2回失敗しました"):
         _load_tile(DUMMY_PROVIDER, 10, 3, 4, tmp_path)
 
     assert fetch.call_count == 1

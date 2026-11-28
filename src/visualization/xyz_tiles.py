@@ -36,6 +36,9 @@ ORIGIN_SHIFT = 20037508.342789244
 
 # 極付近で発散しないよう緯度を丸める上限（度）。Web メルカトルの正方形の世界範囲の端。
 _MAX_LATITUDE = 85.051129
+# 世界範囲の端（±ORIGIN_SHIFT）を判定するときの許容誤差（m）。タイル境界から求めた
+# 端の座標が浮動小数点の誤差でわずかにはみ出しても弾かないため。
+_MERCATOR_EDGE_TOLERANCE_M = 1e-6
 
 # タイル取得時の HTTP 設定。User-Agent は配信元が要求するため必ず入れる。
 _USER_AGENT = "MasterResearch-figure/1.0 (academic use; contact via repository)"
@@ -119,12 +122,18 @@ def lonlat_to_mercator(lon: float, lat: float) -> tuple[float, float]:
     """経緯度（EPSG:4326）を Web メルカトル（EPSG:3857）へ変換する。
 
     Args:
-        lon: 経度（度）。
+        lon: 経度（度）。-180 以上 180 以下。
         lat: 緯度（度）。±85.051129 度を超える値は極付近で発散するため丸める。
 
     Returns:
         ``(x, y)`` メートル。
+
+    Raises:
+        ValueError: 経度が -180〜180 度の外（NaN を含む）のとき。pyproj は範囲外の
+            経度を折り返すため、黙って反対側の座標を返さないよう先に弾く。
     """
+    if not -180.0 <= lon <= 180.0:
+        raise ValueError(f"経度が -180〜180 度の範囲外です: {lon}")
     lat = max(min(lat, _MAX_LATITUDE), -_MAX_LATITUDE)
     x, y = _transformer("EPSG:4326", "EPSG:3857").transform(lon, lat)
     return float(x), float(y)
@@ -134,12 +143,18 @@ def mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
     """Web メルカトル（EPSG:3857）を経緯度（EPSG:4326）へ戻す。
 
     Args:
-        x: メルカトル X（m）。
+        x: メルカトル X（m）。±ORIGIN_SHIFT の範囲内。
         y: メルカトル Y（m）。
 
     Returns:
         ``(lon, lat)`` 度。
+
+    Raises:
+        ValueError: x が世界範囲（±ORIGIN_SHIFT）の外（NaN を含む）のとき。pyproj は
+            範囲外を折り返した経度を返すため、黙って反対側の経度を返さないよう先に弾く。
     """
+    if not abs(x) <= ORIGIN_SHIFT + _MERCATOR_EDGE_TOLERANCE_M:
+        raise ValueError(f"メルカトル X が世界範囲（±{ORIGIN_SHIFT} m）の外です: {x}")
     lon, lat = _transformer("EPSG:3857", "EPSG:4326").transform(x, y)
     return float(lon), float(lat)
 
@@ -321,15 +336,19 @@ def _load_tile(
         if attempt > 0:
             # エラーページで利用制限を伝える配信元を続けて叩かないよう、間を空ける
             time.sleep(_RETRY_WAIT_SEC * attempt)
-        content = fetch_bytes_with_retry(
-            url,
-            timeout=_REQUEST_TIMEOUT_SEC,
-            max_retry_count=_MAX_RETRY,
-            retry_wait_seconds=_RETRY_WAIT_SEC,
-            rate_limit_max_retry_count=_RATE_LIMIT_MAX_RETRY,
-            rate_limit_base_wait_seconds=_RATE_LIMIT_BASE_WAIT_SEC,
-            headers={"User-Agent": _USER_AGENT},
-        )
+        try:
+            content = fetch_bytes_with_retry(
+                url,
+                timeout=_REQUEST_TIMEOUT_SEC,
+                max_retry_count=_MAX_RETRY,
+                retry_wait_seconds=_RETRY_WAIT_SEC,
+                rate_limit_max_retry_count=_RATE_LIMIT_MAX_RETRY,
+                rate_limit_base_wait_seconds=_RATE_LIMIT_BASE_WAIT_SEC,
+                headers={"User-Agent": _USER_AGENT},
+            )
+        except RuntimeError as error:
+            # HTTP の失敗はリトライ済み。どのタイルで止まったかを添えて投げ直す
+            raise RuntimeError(f"タイルを取得できませんでした: {url}（{error}）") from error
         try:
             tile = _decode_tile(content, provider)
         except (OSError, ValueError) as error:

@@ -301,7 +301,9 @@ class HttpRangeReader(io.RawIOBase):
         except RuntimeError as error:
             # どの範囲で止まったかを残す（再開・原因の切り分けの手がかりにする）
             raise RuntimeError(
-                f"Range 取得に失敗しました（範囲 {self._position}-{end_position}）: {error}"
+                f"Range 取得に失敗しました（範囲 {self._position}-{end_position}）。"
+                "部分応答（206）以外が返った場合は、サーバーが Range リクエストに"
+                f"対応していません: {error}"
             ) from error
         self.request_count += 1
         self._position += len(data)

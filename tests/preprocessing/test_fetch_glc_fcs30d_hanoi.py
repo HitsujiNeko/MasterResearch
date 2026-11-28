@@ -465,7 +465,7 @@ class TestHttpRangeReader:
         counters = self._install_fake_urlopen(monkeypatch, range_status=200)
         reader = target.HttpRangeReader("https://example.invalid/a.zip", retry_wait_seconds=0)
 
-        with pytest.raises(RuntimeError, match="status=200"):
+        with pytest.raises(RuntimeError, match=r"Range リクエストに対応していません.*status=200"):
             reader.read(10)
         assert counters["get"] == 1
         assert reader.tell() == 0

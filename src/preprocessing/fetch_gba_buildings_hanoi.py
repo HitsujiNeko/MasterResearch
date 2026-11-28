@@ -234,7 +234,10 @@ def fetch_wfs_page(url: str, timeout: int) -> tuple[list[dict[str, Any]], int]:
             - number_matched (int): サーバー側の総件数（-1 = 不明）。
 
     Raises:
-        RuntimeError: リトライ上限を超えてもエラーが解消しない場合。
+        ValueError: url が http/https 以外のスキームの場合。
+        RuntimeError: リトライ上限を超えてもエラーが解消しない場合、または
+            リトライしても解消しない HTTP エラー（認証・権限・不在など）が返った場合。
+        json.JSONDecodeError: 応答が JSON として読めない場合。
     """
     data = fetch_json_with_retry(url, timeout=timeout)
     features = data.get("features") or []

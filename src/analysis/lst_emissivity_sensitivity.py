@@ -287,7 +287,9 @@ def pearson_on_common(x: np.ndarray, y: np.ndarray) -> dict[str, float | int | N
 
     相関の計算と「定義できない場合（2 画素未満・値が一定）は None」の扱いは
     共通関数 `build_paired_statistics` に任せ、ここでは有効画素の絞り込みと
-    結果 JSON の形（`r`・`count`）への詰め替えだけを行う。
+    結果 JSON の形（`r`・`count`）への詰め替えだけを行う。共通関数は誤差・Spearman
+    なども計算するが、使うのは `pearson_r` と `cell_count` だけである（NDVI と LST の
+    差のような、ここでは意味を持たない統計は捨てる）。
 
     Args:
         x: 1 つ目の値。

@@ -8,32 +8,22 @@ XML 変換の単体テストに加え、追跡している ``thesis/templates/re
 
 from __future__ import annotations
 
-import importlib.util
 import re
 import shutil
 import subprocess
-import sys
 import zipfile
 from pathlib import Path
-from types import ModuleType
 
 import pytest
+
+from tests.helpers import load_script_module
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "make_thesis_reference_docx.py"
 TEMPLATE_PATH = REPO_ROOT / "thesis" / "templates" / "reference.docx"
 
 
-def _load_target() -> ModuleType:
-    """対象スクリプトをモジュールとして読み込む。"""
-    spec = importlib.util.spec_from_file_location("make_thesis_reference_docx", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-target = _load_target()
+target = load_script_module(SCRIPT_PATH, "make_thesis_reference_docx")
 
 
 PANDOC = target.find_pandoc()

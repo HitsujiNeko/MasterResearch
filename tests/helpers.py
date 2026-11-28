@@ -1,5 +1,7 @@
 """テスト全体で共有するヘルパー。
 
+複数のテストファイルで同じ内容になる補助関数をここに集める。
+
 取得スクリプトはいずれも `src.common.raster_area.build_target_area` で取得範囲を
 組み立てる。テストでは実 ROI（Git 管理外の Shapefile）に依存させたくないため、
 同じシグネチャの代替をここに1つ置いて各テストから使う。
@@ -12,8 +14,11 @@
 
 from __future__ import annotations
 
+import importlib.util
+import sys
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 
 import geopandas as gpd
 from shapely.geometry import box
@@ -22,6 +27,27 @@ from shapely.geometry import box
 HANOI_ROI_BOUNDS = (105.28812456270636, 20.564469161724375, 106.02005052860555, 21.385222290909635)
 
 FakeBuildTargetArea = Callable[[Path, "list[float] | None"], "tuple[gpd.GeoDataFrame, bool, Path]"]
+
+
+def load_script_module(path: Path, name: str) -> ModuleType:
+    """パッケージに属さないスクリプトをモジュールとして読み込む。
+
+    `scripts/` や `.claude/hooks/` のスクリプトは `src` パッケージの外にあり、通常の
+    `import` では読めないため、ファイルパスから読み込む。`sys.modules` に登録するのは、
+    スクリプト内の `dataclass` などが自身のモジュールを名前で引けるようにするため。
+
+    Args:
+        path: スクリプトのパス。
+        name: 登録するモジュール名。
+
+    Returns:
+        読み込んだモジュール。
+    """
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def make_fake_build_target_area(

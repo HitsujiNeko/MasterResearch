@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import base64
-import importlib.util
 import json
 import os
 import shutil
@@ -17,25 +16,17 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from types import ModuleType
 
 import pytest
+
+from tests.helpers import load_script_module
 
 HOOK_DIR = Path(__file__).resolve().parents[2] / ".claude" / "hooks"
 SCRIPT_PATH = HOOK_DIR / "dangerous_command_guard.py"
 WRAPPER_PATH = HOOK_DIR / "dangerous_command_guard.sh"
 
 
-def _load_target() -> ModuleType:
-    """対象スクリプトをモジュールとして読み込む。"""
-    spec = importlib.util.spec_from_file_location("dangerous_command_guard", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-target = _load_target()
+target = load_script_module(SCRIPT_PATH, "dangerous_command_guard")
 
 
 def _blocked(command: str, tool: str = "Bash") -> bool:

@@ -9,35 +9,25 @@ Word（COM）による目次更新・PDF 化はテストしない（手動の目
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import re
 import stat
 import struct
 import subprocess
-import sys
 import zipfile
 import zlib
 from pathlib import Path
-from types import ModuleType
 
 import pytest
+
+from tests.helpers import load_script_module
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "build_thesis.py"
 
 
-def _load_target() -> ModuleType:
-    """対象スクリプトをモジュールとして読み込む。"""
-    spec = importlib.util.spec_from_file_location("build_thesis", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-target = _load_target()
+target = load_script_module(SCRIPT_PATH, "build_thesis")
 
 
 def _find_tools() -> tuple[str, str] | None:
